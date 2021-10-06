@@ -11,6 +11,80 @@
 #include "feedback.hh"
 
 //
+// Source Reader implementation:
+//
+
+struct FLocPos {
+    long line_index;
+    long column_index;
+};
+class SourceReader {
+  private:
+    std::string m_source_file_path;
+    std::istream& m_file;
+    FLocPos m_cursor_pos;
+    bool m_at_eof;
+
+  public:
+    SourceReader(std::string source_file_path, std::istream& file)
+    :   m_source_file_path(std::move(source_file_path)),
+        m_file(file),
+        m_cursor_pos({0, 0}),
+        m_at_eof(true)
+    {}
+
+  public:
+    std::string const& file_path() const { return m_source_file_path; }
+    FLocPos const& cursor_pos() const { return m_cursor_pos; }
+
+  public:
+    bool eof() {
+        return m_at_eof;
+    }
+    char peek() {
+        return m_file.peek();
+    }
+    void get();
+    bool match(char c) {
+        if (peek() == c) {
+            get();
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
+
+void SourceReader::get() {
+    if (m_file.eof()) {
+        m_at_eof = true;
+    } else {
+        char c = m_file.get();
+        
+        bool c_is_new_line = false;
+        if (c == '\r') {
+            if (m_file.peek() == '\n') {
+                // CRLF
+                m_file.get();
+            }
+            // CR
+            c_is_new_line = true;
+        } 
+        else if (c == '\n') {
+            // LF
+            c_is_new_line = true;
+        }
+
+        if (c_is_new_line) {
+            m_cursor_pos.line_index++;
+            m_cursor_pos.column_index = 0;
+        } else {
+            m_cursor_pos.column_index++;
+        }
+    }
+}
+
+//
 // Lexer Implementation:
 //
 
@@ -48,11 +122,6 @@ union KindDependentTokenInfo {
         char* bytes;
     } string;
 };
-
-struct FLocPos {
-    long line_index;
-    long column_index;
-};
 struct FLocSpan {
     FLocPos first_pos;
     FLocPos last_pos;
@@ -64,31 +133,36 @@ struct TokenInfo {
 
 class Lexer {
   private:
-    std::istream& m_file;
-    std::string const& m_file_path;
-    FLocPos m_cursor_pos;
+    SourceReader m_source_reader;
     TokenKind m_peek_token_kind;
     TokenInfo m_peek_token_info;
 
   public:
-    explicit Lexer(std::istream& file, std::string const& file_path);
+    explicit Lexer(std::istream& file, std::string file_path);
+
+  public:
+    SourceReader source() const { return m_source_reader; }
 
   private:
     void advance_cursor_by_one_token();
     TokenKind help_advance_cursor_by_one_token(TokenInfo* out_info_p);
-    TokenKind help_scan_one_identifier(TokenInfo* out_info_p);
+    TokenKind help_scan_one_identifier(TokenInfo* out_info_p, char opt_first_char);
 
   public:
-    TokenKind peek(TokenInfo* out_info) const;
+    bool eof() const { 
+        return m_peek_token_kind == TokenKind::Eof; 
+    }
+    TokenKind peek(TokenInfo* out_info) const { 
+        *out_info = m_peek_token_info;
+        return m_peek_token_kind; 
+    }
     
     bool match(TokenKind tk, TokenInfo* out_info);
     void expect(TokenKind tk, TokenInfo* out_info);
 };
 
-Lexer::Lexer(std::istream& file, std::string const& file_path)
-:   m_file(file),
-    m_file_path(file_path),
-    m_cursor_pos({0, 0}),
+Lexer::Lexer(std::istream& file, std::string file_path)
+:   m_source_reader(std::move(file_path), file),
     m_peek_token_kind(),
     m_peek_token_info()
 {
@@ -100,23 +174,25 @@ void Lexer::advance_cursor_by_one_token() {
     m_peek_token_kind = help_advance_cursor_by_one_token(&m_peek_token_info);
 }
 TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
+    auto& f = m_source_reader;
+
     // scanning out all leading whitespace and comments:
     for (;;) {
         // culling whitespace:
-        bool whitespace_culled = std::isspace(m_file.peek());
+        bool whitespace_culled = std::isspace(f.peek());
         if (whitespace_culled) {
-            while (std::isspace(m_file.peek())) {
-                m_file.get();
+            while (std::isspace(f.peek())) {
+                f.get();
             }
         }
 
         // culling line-comments:
-        bool line_comment_culled = (m_file.peek() == ';');
+        bool line_comment_culled = (f.peek() == ';');
         if (line_comment_culled) {
-            char nc = m_file.peek();
+            char nc = f.peek();
             while (nc != '\n' && nc != '\r') {
-                m_file.get();
-                nc = m_file.peek();
+                f.get();
+                nc = f.peek();
             }
             continue;
         }
@@ -127,16 +203,14 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
         }
     }
 
-    auto& f = m_file;
-
     // '#' codes: intercept certain codes, otherwise forward to parser
     if (f.peek() == '#') {
         f.get();
 
-        if (f.get() == 't') {
+        if (f.match('t')) {
             return TokenKind::Bool_True;
         }
-        else if (f.get() == 'f') {
+        else if (f.match('f')) {
             return TokenKind::Bool_False;
         }
         else {
@@ -148,17 +222,13 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
     }
 
     // punctuation marks:
-    if (f.peek() == '\'') {
-        f.get();
+    if (f.match('\'')) {
         return TokenKind::Quote;
     }
-    if (f.peek() == '`') {
-        f.get();
+    if (f.match('`')) {
         return TokenKind::Backquote;
     }
-    if (f.peek() == ',') {
-        f.get();
-
+    if (f.match(',')) {
         if (f.peek() == '@') {
             f.get();
             return TokenKind::CommaAt;
@@ -166,17 +236,15 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
             return TokenKind::Comma;
         }
     }
-    if (f.peek() == '\\') {
+    if (f.match('\\')) {
         return TokenKind::Backslash;
     }
 
     // parens:
-    if (f.peek() == '(') {
-        f.get();
+    if (f.match('(')) {
         return TokenKind::LParen;
     }
-    if (f.peek() == ')') {
-        f.get();
+    if (f.match(')')) {
         return TokenKind::RParen;
     }
 
@@ -200,8 +268,7 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
             }
             else if (!isdigit(f.peek())) {
                 // is actually an identifier
-                f.unget();
-                return help_scan_one_identifier(out_info_p);
+                return help_scan_one_identifier(out_info_p, '.');
             }
             else {
                 // is actually a floating point number < 1; continue scanning...
@@ -216,7 +283,7 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
 
     // identifiers:
     if (is_first_identifier_char(f.peek())) {
-        return help_scan_one_identifier(out_info_p);
+        return help_scan_one_identifier(out_info_p, '\0');
     }
 
     // EOF:
@@ -232,7 +299,9 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
             error_ss 
                 << "Parser error: "
                 << "before '" << nc << "', expected a valid character." << std::endl
-                << "see: " << m_file_path << ":" << 1+m_cursor_pos.line_index << ":" << 1+m_cursor_pos.column_index;
+                << "see: " 
+                << source().file_path() << ":" 
+                << 1+source().cursor_pos().line_index << ":" << 1+source().cursor_pos().column_index;
         } else {
             error_ss
                 << "Parser error: "
@@ -242,10 +311,11 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
         throw new SsiError();
     }
 }
-TokenKind Lexer::help_scan_one_identifier(TokenInfo* out_info_p) {
+TokenKind Lexer::help_scan_one_identifier(TokenInfo* out_info_p, char opt_first_char) {
     // todo: implement me!
     //  - need interning first
     //  - beware of special case-- only '.': return `TokenKind::Period`
+    //  - if opt_first_char is not `\0`, it must be processed first.
 }
 
 TokenKind Lexer::peek(TokenInfo* out_info) const {
@@ -263,18 +333,20 @@ class Parser {
     std::string m_file_path;    // important to init first; Lexer takes ptr to it.
     Lexer m_lexer;
   public:
-    explicit Parser(std::istream& istream);
+    explicit Parser(std::istream& istream, std::string file_path);
   public:
     Object* parse_next_line();
 };
 
 Parser::Parser(std::istream& istream, std::string file_path) 
 :   m_file_path(file_path),
-    m_lexer(istream, m_file_path)
+    m_lexer(istream, std::move(m_file_path))
 {}
 
 Object* Parser::parse_next_line() {
-    
+    if (m_lexer.eof()) {
+        return nullptr;
+    }
 }
 
 //

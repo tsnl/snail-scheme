@@ -15,3 +15,4 @@ class SsiError {
 void error(std::string msg);
 void warning(std::string msg);
 void info(std::string msg);
+void more(std::string msg);
