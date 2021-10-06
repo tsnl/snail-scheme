@@ -1,0 +1,4 @@
+#pragma once
+
+#define CONFIG_SIZEOF_VOID_P (@CMAKE_SIZEOF_VOID_P@)
+#define CONFIG_DEBUG_MODE    (1)
