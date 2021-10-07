@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include <functional>
 #include <cassert>
 #include <cstring>
 #include <cctype>
@@ -131,21 +132,21 @@ enum class TokenKind {
 };
 char const* tk_text(TokenKind tk) {
     switch (tk) {
-        case TokenKind::Eof: return "Eof";
-        case TokenKind::LParen: return "LParen";
-        case TokenKind::RParen: return "RParen";
-        case TokenKind::Identifier: return "Identifier";
-        case TokenKind::Boolean: return "Boolean";
-        case TokenKind::Hashtag: return "Hashtag";
-        case TokenKind::Integer: return "Integer";
-        case TokenKind::Float: return "Float";
-        case TokenKind::String: return "String";
-        case TokenKind::Quote: return "Quote";
-        case TokenKind::Backquote: return "Backquote";
-        case TokenKind::Comma: return "Comma";
-        case TokenKind::CommaAt: return "CommaAt";
-        case TokenKind::Backslash: return "Backslash";
-        case TokenKind::Period: return "Period";
+        case TokenKind::Eof: return "<EOF>";
+        case TokenKind::LParen: return "'('";
+        case TokenKind::RParen: return "')'";
+        case TokenKind::Identifier: return "<identifier>";
+        case TokenKind::Boolean: return "<boolean>";
+        case TokenKind::Hashtag: return "'#'";
+        case TokenKind::Integer: return "<integer>";
+        case TokenKind::Float: return "<floating-pt>";
+        case TokenKind::String: return "<string>";
+        case TokenKind::Quote: return "\"'\"";
+        case TokenKind::Backquote: return "'`'";
+        case TokenKind::Comma: return "','";
+        case TokenKind::CommaAt: return "',@'";
+        case TokenKind::Backslash: return "'\\'";
+        case TokenKind::Period: return "'.'";
         default: {
             return nullptr;
         }
@@ -242,7 +243,7 @@ class Lexer {
             return false;
         }
     }
-    void expect(TokenKind tk, TokenInfo* out_info) {
+    void expect(TokenKind tk, TokenInfo* out_info = nullptr) {
         if (!match(tk, out_info)) {
             throw_expect_error(tk_text(tk));
         }
@@ -515,6 +516,7 @@ char Lexer::help_scan_one_char_in_string_literal(char quote_char) {
 
 //
 // Parser Implementation:
+// TODO:
 //
 
 class Parser {
@@ -527,9 +529,10 @@ class Parser {
     void run_lexer_test();
   private:
     Object* parse_top_level_line();
-    Object* parse_object();
-    Object* parse_primary_object();
-    Object* parse_postfix_object();
+    Object* try_parse_constant();
+    Object* parse_datum();
+    Object* parse_list(bool contents_is_datum_not_exp);
+    Object* parse_form();
 };
 
 Parser::Parser(std::istream& input_stream, std::string input_desc) 
@@ -545,12 +548,9 @@ Object* Parser::parse_next_line() {
     }
 }
 Object* Parser::parse_top_level_line() {
-    return parse_object();
+    return parse_form();
 }
-Object* Parser::parse_object() {
-    return parse_postfix_object();
-}
-Object* Parser::parse_primary_object() {
+Object* Parser::try_parse_constant() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -579,35 +579,68 @@ Object* Parser::parse_primary_object() {
             ts.skip();
             return new StringObject(la_ti.as.string.count, la_ti.as.string.bytes);
         }
+        default: {
+            return nullptr;
+        }
+    }
+}
+Object* Parser::parse_datum() {
+    TokenInfo la_ti;
+    TokenKind la_tk;
+
+    Lexer& ts = m_lexer;
+
+    la_tk = ts.peek(&la_ti);
+    
+    switch (la_tk) {
+        case TokenKind::Identifier:
+        case TokenKind::Boolean:
+        case TokenKind::Integer:
+        case TokenKind::Float:
+        case TokenKind::String: 
+        {
+            auto out = try_parse_constant();
+            assert(out && "Expected a constant based on look-ahead.");
+            return out;
+        }
         case TokenKind::LParen: {
+            return parse_list(true);
+        }
+        default: {
+            error("Unexpected token in datum: " + std::string(tk_text(la_tk)));
+            throw SsiError();
+        }
+    }
+}
+Object* Parser::parse_form() {
+    TokenInfo la_ti;
+    TokenKind la_tk;
+
+    Lexer& ts = m_lexer;
+
+    la_tk = ts.peek(&la_ti);
+    
+    switch (la_tk) {
+        case TokenKind::Identifier:
+        case TokenKind::Boolean:
+        case TokenKind::Integer:
+        case TokenKind::Float:
+        case TokenKind::String: 
+        {
+            auto out = try_parse_constant();
+            assert(out && "Expected a constant based on look-ahead.");
+            return out;
+        }
+        case TokenKind::LParen: {
+            return parse_list(false);
+        }
+        case TokenKind::Quote: {
             ts.skip();
-
-            // parsing each object in the list, pushing onto a stack:
-            // NOTE: we match out the RParen
-            std::stack<Object*> list_stack;
-            bool ended_ok = false;
-            while (!ts.eof()) {
-                if (ts.match(TokenKind::RParen)) {
-                    ended_ok = true;
-                    break;
-                } else {
-                    Object* element_object = parse_object();
-                    list_stack.push(element_object);
-                }
-            }
-            if (!ended_ok) {
-                error("Before EOF, expected ')'");
-                throw new SsiError();
-            }
-
-            // popping from the stack to build the pair-list:
-            Object* pair_list = nullptr;
-            while (!list_stack.empty()) {
-                pair_list = new PairObject(list_stack.top(), pair_list);
-                list_stack.pop();
-            }
-
-            return pair_list;
+            auto quoted = parse_datum();
+            return list(
+                dynamic_cast<Object*>(new IdentifierObject(intern("quote"))), 
+                quoted
+            );
         }
         default: {
             error("Unexpected token in primary expression: " + std::string(tk_text(la_tk)));
@@ -615,16 +648,68 @@ Object* Parser::parse_primary_object() {
         }
     }
 }
-Object* Parser::parse_postfix_object() {
-    auto& ts = m_lexer;
-    Object* prefix = parse_primary_object();
-    if (prefix) {
-        while (ts.match(TokenKind::Period)) {
-            Object* suffix = parse_primary_object();
-            prefix = new PairObject(prefix, suffix);
+Object* Parser::parse_list(bool contents_is_datum_not_exp) {
+    Lexer& ts = m_lexer;
+
+    ts.expect(TokenKind::LParen);
+
+    std::function<Object*()> parse_item;
+    if (contents_is_datum_not_exp) {
+        parse_item = ([this] () -> Object* { return this->parse_datum(); });
+    } else {
+        parse_item = ([this] () -> Object* { return this->parse_form(); });
+    }
+
+    // parsing each object in the list, pushing onto a stack:
+    // NOTE: we match out the RParen in the loop
+    // NOTE: we must handle improper/dotted lists: the '.' suffix builds a pair of this element.
+    //  - a dotted pair is always the last element in this list
+    //  - if the dotted pair is also the first element in the list, we return the dotted pair identically.
+    std::vector<Object*> list_stack;
+    list_stack.reserve(8);
+    bool ended_ok = false;
+    bool parsed_improper_list = false;
+    while (!ts.eof()) {
+        if (ts.match(TokenKind::RParen)) {
+            ended_ok = true;
+            break;
+        } else if (parsed_improper_list) {
+            break;
+        } else {
+            Object* element_object = parse_item();
+            if (ts.match(TokenKind::Period)) {
+                Object* car = element_object;
+                Object* cdr = parse_item();
+                element_object = new PairObject(car, cdr);
+                parsed_improper_list = true;
+            }
+            list_stack.push_back(element_object);
         }
     }
-    return prefix;
+    if (!ended_ok) {
+        TokenInfo ti;
+        TokenKind tk = ts.peek(&ti);
+        if (parsed_improper_list) {
+            error("Before " + std::string(tk_text(tk)) + " and after dotted-pair, expected ')'");
+            more("see: " + ti.span.as_text());
+        } else {
+            error("Before EOF, expected ')'");
+        }
+        throw SsiError();
+    }
+
+    // popping from the stack to build the pair-list:
+    if (list_stack.size() == 1 && parsed_improper_list) {
+        // singleton pair
+        return list_stack[0];
+    } else {
+        Object* pair_list = nullptr;
+        while (!list_stack.empty()) {
+            pair_list = new PairObject(list_stack.back(), pair_list);
+            list_stack.pop_back();
+        }
+        return pair_list;
+    }
 }
 void Parser::run_lexer_test() {
     std::cout << ">-- Lexer test: --<" << std::endl;
