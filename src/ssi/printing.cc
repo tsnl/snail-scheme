@@ -65,13 +65,14 @@ void print_obj(Object* obj, std::ostream& out) {
                         if (rem_list_pair) {
                             print_obj(rem_list_pair->car(), out);
                             rem_list = rem_list_pair->cdr();
-
                             if (rem_list) {
                                 out << ' ';
                             }
                         } else {
-                            error("Invalid list: expected `cdr` to be a pair.");
-                            throw SsiError();
+                            // improper list
+                            out << ". ";
+                            print_obj(rem_list, out);
+                            break;
                         }
                     }
                 } else {

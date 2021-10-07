@@ -674,10 +674,12 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
             ended_ok = true;
             break;
         } else if (parsed_improper_list) {
+            ended_ok = false;
             break;
         } else {
             Object* element_object = parse_item();
             if (ts.match(TokenKind::Period)) {
+                // dotted pair
                 Object* car = element_object;
                 Object* cdr = parse_item();
                 element_object = new PairObject(car, cdr);
@@ -703,9 +705,19 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
         // singleton pair
         return list_stack[0];
     } else {
-        Object* pair_list = nullptr;
-        while (!list_stack.empty()) {
-            pair_list = new PairObject(list_stack.back(), pair_list);
+        // consing all but the last element to the last element recursively:
+        Object* pair_list = (
+            (parsed_improper_list) ?
+            list_stack.back() :
+            nullptr
+        );
+        int start_index = (
+            (parsed_improper_list) ?
+            list_stack.size() - 2 :
+            list_stack.size() - 1
+        );
+        for (int i = start_index; i >= 0; i--) {
+            pair_list = new PairObject(list_stack[i], pair_list);
             list_stack.pop_back();
         }
         return pair_list;
