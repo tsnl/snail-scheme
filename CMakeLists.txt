@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.0)
 project(SnailScheme VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_FLAGS "-glldb")
 include_directories(src)
 
 configure_file(
@@ -23,4 +24,6 @@ add_executable(
     src/ssi/parser.hh
     src/ssi/procedure.cc
     src/ssi/procedure.hh
+    src/ssi/printing.cc
+    src/ssi/printing.hh
 )

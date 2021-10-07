@@ -4,7 +4,7 @@
 #include <string>
 #include <exception>
 
-class SsiError {
+class SsiError: std::exception {
   private:
   public:
     inline SsiError() {
