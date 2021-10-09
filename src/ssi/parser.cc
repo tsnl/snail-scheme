@@ -561,7 +561,7 @@ Object* Parser::try_parse_constant() {
     switch (la_tk) {
         case TokenKind::Identifier: {
             ts.skip();
-            return new IdentifierObject(la_ti.as.identifier);
+            return new SymbolObject(la_ti.as.identifier);
         }
         case TokenKind::Boolean: {
             ts.skip();
@@ -638,7 +638,7 @@ Object* Parser::parse_form() {
             ts.skip();
             auto quoted = parse_datum();
             return list(
-                dynamic_cast<Object*>(new IdentifierObject(intern("quote"))), 
+                dynamic_cast<Object*>(new SymbolObject(intern("quote"))), 
                 quoted
             );
         }

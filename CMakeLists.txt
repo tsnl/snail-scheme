@@ -26,4 +26,7 @@ add_executable(
     src/ssi/procedure.hh
     src/ssi/printing.cc
     src/ssi/printing.hh
+    src/ssi/vm.cc
+    src/ssi/vm.hh
+    src/ssi/heap.hh
 )
