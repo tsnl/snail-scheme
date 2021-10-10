@@ -525,21 +525,21 @@ class Parser {
   public:
     explicit Parser(std::istream& istream, std::string file_path);
   public:
-    Object* parse_next_line();
+    Object const* parse_next_line();
     void run_lexer_test();
   private:
-    Object* parse_top_level_line();
-    Object* try_parse_constant();
-    Object* parse_datum();
-    Object* parse_list(bool contents_is_datum_not_exp);
-    Object* parse_form();
+    Object const* parse_top_level_line();
+    Object const* try_parse_constant();
+    Object const* parse_datum();
+    Object const* parse_list(bool contents_is_datum_not_exp);
+    Object const* parse_form();
 };
 
 Parser::Parser(std::istream& input_stream, std::string input_desc) 
 :   m_lexer(input_stream, std::move(input_desc))
 {}
 
-Object* Parser::parse_next_line() {
+Object const* Parser::parse_next_line() {
     auto& ts = m_lexer;
     if (ts.eof()) {
         return nullptr;
@@ -547,10 +547,10 @@ Object* Parser::parse_next_line() {
         return parse_top_level_line();
     }
 }
-Object* Parser::parse_top_level_line() {
+Object const* Parser::parse_top_level_line() {
     return parse_form();
 }
-Object* Parser::try_parse_constant() {
+Object const* Parser::try_parse_constant() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -584,7 +584,7 @@ Object* Parser::try_parse_constant() {
         }
     }
 }
-Object* Parser::parse_datum() {
+Object const* Parser::parse_datum() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -612,7 +612,7 @@ Object* Parser::parse_datum() {
         }
     }
 }
-Object* Parser::parse_form() {
+Object const* Parser::parse_form() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -636,9 +636,9 @@ Object* Parser::parse_form() {
         }
         case TokenKind::Quote: {
             ts.skip();
-            auto quoted = parse_datum();
+            Object const* quoted = parse_datum();
             return list(
-                dynamic_cast<Object*>(new SymbolObject(intern("quote"))), 
+                static_cast<Object const*>(new SymbolObject(intern("quote"))), 
                 quoted
             );
         }
@@ -648,16 +648,16 @@ Object* Parser::parse_form() {
         }
     }
 }
-Object* Parser::parse_list(bool contents_is_datum_not_exp) {
+Object const* Parser::parse_list(bool contents_is_datum_not_exp) {
     Lexer& ts = m_lexer;
 
     ts.expect(TokenKind::LParen);
 
-    std::function<Object*()> parse_item;
+    std::function<Object const*()> parse_item;
     if (contents_is_datum_not_exp) {
-        parse_item = ([this] () -> Object* { return this->parse_datum(); });
+        parse_item = ([this] () -> Object const* { return this->parse_datum(); });
     } else {
-        parse_item = ([this] () -> Object* { return this->parse_form(); });
+        parse_item = ([this] () -> Object const* { return this->parse_form(); });
     }
 
     // parsing each object in the list, pushing onto a stack:
@@ -665,7 +665,7 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
     // NOTE: we must handle improper/dotted lists: the '.' suffix builds a pair of this element.
     //  - a dotted pair is always the last element in this list
     //  - if the dotted pair is also the first element in the list, we return the dotted pair identically.
-    std::vector<Object*> list_stack;
+    std::vector<Object const*> list_stack;
     list_stack.reserve(8);
     bool ended_ok = false;
     bool parsed_improper_list = false;
@@ -677,11 +677,11 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
             ended_ok = false;
             break;
         } else {
-            Object* element_object = parse_item();
+            Object const* element_object = parse_item();
             if (ts.match(TokenKind::Period)) {
                 // dotted pair
-                Object* car = element_object;
-                Object* cdr = parse_item();
+                Object const* car = element_object;
+                Object const* cdr = parse_item();
                 element_object = new PairObject(car, cdr);
                 parsed_improper_list = true;
             }
@@ -706,7 +706,7 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
         return list_stack[0];
     } else {
         // consing all but the last element to the last element recursively:
-        Object* pair_list = (
+        Object const* pair_list = (
             (parsed_improper_list) ?
             list_stack.back() :
             nullptr
@@ -788,14 +788,14 @@ Parser* create_parser(std::istream& input_stream, std::string input_desc) {
 void dispose_parser(Parser* p) {
     delete p;
 }
-Object* parse_next_line(Parser* p) {
+Object const* parse_next_line(Parser* p) {
     return p->parse_next_line();
 }
-std::vector<Object*> parse_all_subsequent_lines(Parser* p) {
-    std::vector<Object*> objects;
+std::vector<Object const*> parse_all_subsequent_lines(Parser* p) {
+    std::vector<Object const*> objects;
     objects.reserve(1024);
     for (;;) {
-        Object* o = p->parse_next_line();
+        Object const* o = p->parse_next_line();
         if (o) {
             objects.push_back(o);
         } else {

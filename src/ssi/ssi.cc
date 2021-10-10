@@ -21,7 +21,7 @@ void interpret_file(std::string file_path) {
 
     // parsing all lines into a vector:
     Parser* p = create_parser(f, std::move(file_path));
-    std::vector<Object*> line_code_obj_array = parse_all_subsequent_lines(p);
+    std::vector<Object const*> line_code_obj_array = parse_all_subsequent_lines(p);
     
     for (auto line_code_obj: line_code_obj_array) {
         std::cout << "  > ";

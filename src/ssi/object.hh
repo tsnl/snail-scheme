@@ -10,12 +10,15 @@
 #pragma once
 
 #include <map>
+#include <array>
+#include <sstream>
 #include <cstddef>
 #include <cstdint>
 
 #include "core.hh"
 #include "intern.hh"
 #include "procedure.hh"
+#include "feedback.hh"
 
 //
 // Objects:
@@ -125,31 +128,31 @@ class StringObject: public Object {
 };
 class PairObject: public Object {
   private:
-    Object* m_car;
-    Object* m_cdr;
+    Object const* m_car;
+    Object const* m_cdr;
   public:
     PairObject() 
     :   Object(ObjectKind::Pair)
     {}
-    explicit PairObject(Object* car, Object* cdr)
+    explicit PairObject(Object const* car, Object const* cdr)
     :   PairObject()
     {
         m_car = car;
         m_cdr = cdr;
     }
   public:
-    inline Object* car() const { return m_car; }
-    inline Object* cdr() const { return m_cdr; }
+    inline Object const* car() const { return m_car; }
+    inline Object const* cdr() const { return m_cdr; }
 };
 class VectorObject: public Object {
   private:
-    size_t   m_count;
-    Object** m_array;
+    size_t         m_count;
+    Object const** m_array;
   public:
     VectorObject()
     :   Object(ObjectKind::Vector)
     {}
-    VectorObject(size_t count, Object** mv_array)
+    VectorObject(size_t count, Object const** mv_array)
     :   VectorObject()
     {
         m_count = count;
@@ -157,16 +160,23 @@ class VectorObject: public Object {
     }
   public:
     inline size_t count() const { return m_count; }
-    inline Object** array() const { return m_array; }
+    inline Object const** array() const { return m_array; }
 };
-// class ProcObject: public Object {
-//   private:
-//     Object* m_body;
-//     Object* m_args_list;
-//   public:
-//     explicit ProcObject(Object* body, Object* implicit_args_vector, Object* explicit_arg_names_list)
-//     :   m_body(body),
-// };
+class ProcObject: public Object {
+  private:
+    Object const* m_body;
+    Object const* m_args_list;
+  public:
+    ProcObject()
+    :   Object(ObjectKind::Procedure)
+    {}
+    explicit ProcObject(Object const* body, Object const* explicit_arg_names_list)
+    :   ProcObject()
+    {
+        m_body = body;
+        m_args_list = explicit_arg_names_list;
+    }
+};
 
 //
 //
@@ -178,29 +188,83 @@ class VectorObject: public Object {
 // decls
 //
 
-template <typename... Objects> Object* list(Objects... objs);
-inline ObjectKind objkind(Object* object);
+inline ObjectKind objkind(Object const* object);
+inline Object const* car(Object const* object);
+inline Object const* cdr(Object const* object);
+template <typename... Objects> Object const* list(Objects... objs);
+template <size_t n> std::array<Object const*, n> extract_args(Object const* pair_list, bool is_variadic = false);
 
 //
 // defs
 //
 
 template <typename... Objects>
-Object* list() {
+Object const* list() {
     return nullptr;
 }
 template <typename... Objects>
-Object* list(Object* first, Objects... objs) {
+Object const* list(Object const* first, Objects... objs) {
     return new PairObject(first, list(objs...));
 }
 
 inline ObjectKind Object::kind() const {
     return Object::s_nonnil_object_kind_map[this];
 }
-inline ObjectKind objkind(Object* object) {
+inline ObjectKind objkind(Object const* object) {
     if (object) {
         return object->kind();
     } else {
         return ObjectKind::Nil;
     }
+}
+
+template <size_t n> 
+std::array<Object const*, n> extract_args(Object const* pair_list, bool is_variadic) {
+    // reading upto `n` objects into an array:
+    Object const* rem_list = pair_list;
+    std::array<Object const*, n> out{};
+    size_t index = 0;
+    while (rem_list) {
+        out[index++] = car(rem_list);
+        rem_list = cdr(rem_list);
+    }
+    
+    // checking that the received array is OK:
+#if !CONFIG_OPTIMIZED_MODE
+    {
+        if (!is_variadic && rem_list) {
+            error("extract_args: too many arguments to a non-variadic procedure");
+            throw SsiError();
+        }
+        if (index < n) {
+            std::stringstream error_ss;
+            error_ss 
+                << "extract_args: too few arguments: received " << 1+index << ", but expected at least " << n; 
+            error(error_ss.str());
+            throw SsiError();
+        }
+    }
+#endif
+
+    // returning array:
+    return out;
+}
+
+inline Object const* car(Object const* object) {
+#if !CONFIG_OPTIMIZED_MODE
+    if (objkind(object) != ObjectKind::Pair) {
+        error("car: expected argument object to be a pair");
+        throw SsiError();
+    }
+#endif
+    return static_cast<PairObject const*>(object)->car();
+}
+inline Object const* cdr(Object const* object) {
+#if !CONFIG_OPTIMIZED_MODE
+    if (objkind(object) != ObjectKind::Pair) {
+        error("cdr: expected argument object to be a pair");
+        throw SsiError();
+    }
+#endif
+    return static_cast<PairObject const*>(object)->cdr();
 }
