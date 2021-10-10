@@ -5,8 +5,9 @@
 #include "parser.hh"
 #include "feedback.hh"
 #include "printing.hh"
+#include "vm.hh"
 
-void interpret_file(std::string file_path) {
+void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
     std::ifstream f;
     f.open(file_path);
@@ -20,7 +21,7 @@ void interpret_file(std::string file_path) {
     }
 
     // parsing all lines into a vector:
-    Parser* p = create_parser(f, std::move(file_path));
+    Parser* p = create_parser(f, file_path);
     std::vector<Object const*> line_code_obj_array = parse_all_subsequent_lines(p);
     
     for (auto line_code_obj: line_code_obj_array) {
@@ -29,8 +30,22 @@ void interpret_file(std::string file_path) {
         std::cout << std::endl;
     }
 
-    // todo: transform the program into a control stack of call-frames.
+    // compiling the program into VM representation:
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
+    add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
+
+    // Executing:
+    {
+        sync_execute_vm(vm, true);
+    }
+
+    // Dumping:
+    {
+        info("Successfully generated VM bytecode for file '" + file_path + "'");
+        info("Begin Dump:");
+        dump_vm(vm, std::cout);
+        info("End Dump");
+    }
 }
 
 int main(int argc, char const* argv[]) {
@@ -42,7 +57,8 @@ int main(int argc, char const* argv[]) {
         error(error_ss.str());
         return 1;
     } else {
-        interpret_file(argv[1]);
+        VirtualMachine* vm = create_vm();
+        interpret_file(vm, argv[1]);
         return 0;
     }
 }

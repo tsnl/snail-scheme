@@ -25,6 +25,7 @@
 //
 
 enum class ObjectKind {
+    // native primitives:
     Nil,
     Boolean,
     Integer,
@@ -33,27 +34,38 @@ enum class ObjectKind {
     String,
     Pair,
     Vector,
-    Procedure
+    Procedure,
+
+    // VMA = VM Accelerator
+    VMA_CallFrame,
+    VMA_EnvRib
 };
 
 class Object {
   public:
-    static std::map<Object const*, ObjectKind> s_nonnil_object_kind_map;
+    static std::map<Object const*, ObjectKind> s_non_nil_object_kind_map;
   protected:
-    Object(ObjectKind kind);
+    explicit Object(ObjectKind kind);
     // ObjectKind is stored in a global std::map<Object*, ObjectKind>
     //  - RTTI is rare, especially with AOT type-checking
     //  - naive alternative: use a virtual 'kind' method or data member: bumps sizeof(AnyObject) from 2*size_t to 3*...
   public:
-    ObjectKind kind() const;
+    [[nodiscard]] ObjectKind kind() const;
 };
 
 class BoolObject: public Object {
   private:
-    bool m_value;
+    static BoolObject const t_storage;
+    static BoolObject const f_storage;
   public:
+    static BoolObject const* t;
+    static BoolObject const* f;
+  private:
+    bool m_value;
+  private:
     BoolObject()
-    :   Object(ObjectKind::Boolean)
+    :   Object(ObjectKind::Boolean),
+        m_value()
     {}
     explicit BoolObject(bool value)
     :   BoolObject()
@@ -61,14 +73,15 @@ class BoolObject: public Object {
         m_value = value;
     }
   public:
-    inline bool value() const { return m_value; }
+    [[nodiscard]] inline bool value() const { return m_value; }
 };
 class IntObject: public Object {
   private:
     my_ssize_t m_value;
   public:
     IntObject()
-    :   Object(ObjectKind::Integer)
+    :   Object(ObjectKind::Integer),
+        m_value()
     {}
     explicit IntObject(my_ssize_t value)
     :   IntObject()
@@ -76,14 +89,15 @@ class IntObject: public Object {
         m_value = value;
     }
   public:
-    inline my_ssize_t value() const { return m_value; }
+    [[nodiscard]] inline my_ssize_t value() const { return m_value; }
 };
 class FloatObject: public Object {
   private:
     double m_value;
   public:
     FloatObject() 
-    :   Object(ObjectKind::FloatingPt)
+    :   Object(ObjectKind::FloatingPt),
+        m_value()
     {}
     explicit FloatObject(double value)
     :   FloatObject()
@@ -91,16 +105,17 @@ class FloatObject: public Object {
         m_value = value;
     }
   public:
-    inline double value() const { return m_value; }
+    [[nodiscard]] inline double value() const { return m_value; }
 };
 class SymbolObject: public Object {
   private:
     IntStr m_name;
   public:
     SymbolObject() 
-    :   Object(ObjectKind::Symbol)
+    :   Object(ObjectKind::Symbol),
+        m_name()
     {}
-    SymbolObject(IntStr name)
+    explicit SymbolObject(IntStr name)
     :   SymbolObject()
     {
         m_name = name;
@@ -114,7 +129,9 @@ class StringObject: public Object {
     char* m_bytes;
   public:
     StringObject()
-    :   Object(ObjectKind::String)
+    :   Object(ObjectKind::String),
+        m_count(),
+        m_bytes()
     {}
     StringObject(size_t count, char* bytes)
     :   StringObject()
@@ -132,7 +149,9 @@ class PairObject: public Object {
     Object const* m_cdr;
   public:
     PairObject() 
-    :   Object(ObjectKind::Pair)
+    :   Object(ObjectKind::Pair),
+        m_car(),
+        m_cdr()
     {}
     explicit PairObject(Object const* car, Object const* cdr)
     :   PairObject()
@@ -141,8 +160,8 @@ class PairObject: public Object {
         m_cdr = cdr;
     }
   public:
-    inline Object const* car() const { return m_car; }
-    inline Object const* cdr() const { return m_cdr; }
+    [[nodiscard]] inline Object const* car() const { return m_car; }
+    [[nodiscard]] inline Object const* cdr() const { return m_cdr; }
 };
 class VectorObject: public Object {
   private:
@@ -150,7 +169,9 @@ class VectorObject: public Object {
     Object const** m_array;
   public:
     VectorObject()
-    :   Object(ObjectKind::Vector)
+    :   Object(ObjectKind::Vector),
+        m_count(),
+        m_array()
     {}
     VectorObject(size_t count, Object const** mv_array)
     :   VectorObject()
@@ -159,23 +180,76 @@ class VectorObject: public Object {
         m_array = mv_array;
     }
   public:
-    inline size_t count() const { return m_count; }
-    inline Object const** array() const { return m_array; }
+    [[nodiscard]] inline size_t count() const { return m_count; }
+    [[nodiscard]] inline Object const** array() const { return m_array; }
 };
-class ProcObject: public Object {
+
+// todo: replace these properties with a reference to a program on the active VM
+class LambdaObject: public Object {
   private:
     Object const* m_body;
     Object const* m_args_list;
   public:
-    ProcObject()
-    :   Object(ObjectKind::Procedure)
+    LambdaObject()
+    :   Object(ObjectKind::Procedure),
+        m_body(),
+        m_args_list()
     {}
-    explicit ProcObject(Object const* body, Object const* explicit_arg_names_list)
-    :   ProcObject()
+    explicit LambdaObject(Object const* body, Object const* explicit_arg_names_list)
+    : LambdaObject()
     {
         m_body = body;
         m_args_list = explicit_arg_names_list;
     }
+};
+
+//
+// Builtins for VM:
+//  - these are used to accelerate the VM.
+//  - todo: move to a different file
+//
+
+using VmExpID = size_t;
+
+class VMA_CallFrameObject: public Object {
+  private:
+    Object const* m_e;
+    Object const* m_r;
+    VmExpID m_x;
+    VMA_CallFrameObject const* m_opt_parent;
+
+  public:
+    VMA_CallFrameObject(
+        Object const* e,
+        Object const* r,
+        VmExpID x,
+        VMA_CallFrameObject* parent
+    )
+    :   Object(ObjectKind::VMA_CallFrame),
+        m_e(e),
+        m_r(r),
+        m_x(x),
+        m_parent(parent)
+    {}
+
+  public:
+    Object const* e() const { return m_e; }
+    Object const* r() const { return m_r; }
+    VmExpID x() const { return m_x; }
+    Object const* parent() const { return m_parent; }
+};
+
+class VMA_EnvRib: public Object {
+  private:
+    std::vector< std::pair<IntStr, Object const*> > m_rib_vector;
+    VMA_EnvRib const* m_opt_parent;
+
+  public:
+    VMA_EnvRib(VMA_EnvRib* opt_parent = nullptr);
+
+  public:
+    VMA_EnvRib* opt_parent();
+    // todo: finish this off
 };
 
 //
@@ -208,7 +282,7 @@ Object const* list(Object const* first, Objects... objs) {
 }
 
 inline ObjectKind Object::kind() const {
-    return Object::s_nonnil_object_kind_map[this];
+    return Object::s_non_nil_object_kind_map[this];
 }
 inline ObjectKind objkind(Object const* object) {
     if (object) {
@@ -224,7 +298,7 @@ std::array<Object const*, n> extract_args(Object const* pair_list, bool is_varia
     Object const* rem_list = pair_list;
     std::array<Object const*, n> out{};
     size_t index = 0;
-    while (rem_list) {
+    while (rem_list && index < n) {
         out[index++] = car(rem_list);
         rem_list = cdr(rem_list);
     }
@@ -233,7 +307,10 @@ std::array<Object const*, n> extract_args(Object const* pair_list, bool is_varia
 #if !CONFIG_OPTIMIZED_MODE
     {
         if (!is_variadic && rem_list) {
-            error("extract_args: too many arguments to a non-variadic procedure");
+            std::stringstream error_ss;
+            error_ss
+                << "extract_args: too many arguments to a non-variadic procedure: expected " << n;
+            error(error_ss.str());
             throw SsiError();
         }
         if (index < n) {

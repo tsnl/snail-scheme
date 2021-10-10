@@ -565,7 +565,7 @@ Object const* Parser::try_parse_constant() {
         }
         case TokenKind::Boolean: {
             ts.skip();
-            return new BoolObject(la_ti.as.boolean);
+            return la_ti.as.boolean ? BoolObject::t : BoolObject::f;
         }
         case TokenKind::Integer: {
             ts.skip();
