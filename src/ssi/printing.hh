@@ -4,4 +4,4 @@
 
 class Object;
 
-void print_obj(Object const* obj, std::ostream& out);
+void print_obj(Object* obj, std::ostream& out);

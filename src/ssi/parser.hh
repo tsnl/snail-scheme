@@ -13,7 +13,7 @@ class Parser;
 Parser* create_parser(std::istream& input_stream, std::string input_desc);
 
 void dispose_parser(Parser* p);
-Object const* parse_next_line(Parser* p);
-std::vector<Object const*> parse_all_subsequent_lines(Parser* p);
+Object* parse_next_line(Parser* p);
+std::vector<Object*> parse_all_subsequent_lines(Parser* p);
 
 void run_lexer_test_and_dispose_parser(Parser* p);

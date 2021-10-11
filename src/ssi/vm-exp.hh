@@ -29,13 +29,13 @@ enum class VmExpKind: VmExpID {
 };
 union VmExpArgs {
     struct {} i_halt;
-    struct { Object const* var; VmExpID x; } i_refer;
-    struct { Object const* constant; VmExpID x; } i_constant;
-    struct { Object const* vars; VmExpID body; VmExpID x; } i_close;
+    struct { Object* var; VmExpID x; } i_refer;
+    struct { Object* constant; VmExpID x; } i_constant;
+    struct { Object* vars; VmExpID body; VmExpID x; } i_close;
     struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
-    struct { Object const* var; VmExpID x; } i_assign;
+    struct { Object* var; VmExpID x; } i_assign;
     struct { VmExpID x; } i_conti;
-    struct { VmStackPtr s; Object const* var; } i_nuate;
+    struct { VMA_CallFrameObject* s; Object* var; } i_nuate;
     struct { VmExpID x; VmExpID ret; } i_frame;
     struct { VmExpID x; } i_argument;
     struct {} i_apply;

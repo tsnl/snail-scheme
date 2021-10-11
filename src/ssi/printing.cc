@@ -3,32 +3,32 @@
 #include "intern.hh"
 #include "feedback.hh"
 
-void print_obj(Object const* obj, std::ostream& out) {
-    switch (objkind(obj)) {
+void print_obj(Object* obj, std::ostream& out) {
+    switch (obj_kind(obj)) {
         case ObjectKind::Nil: {
             out << "'()";
         } break;
         case ObjectKind::Boolean: {
-            if (static_cast<BoolObject const*>(obj)->value()) {
+            if (static_cast<BoolObject*>(obj)->value()) {
                 out << "#t";
             } else {
                 out << "#f";
             }
         } break;
         case ObjectKind::Integer: {
-            auto int_obj = static_cast<IntObject const*>(obj);
+            auto int_obj = static_cast<IntObject*>(obj);
             if (int_obj->value()) {
                 out << int_obj->value();
             }
         } break;
         case ObjectKind::FloatingPt: {
-            auto float_obj = static_cast<FloatObject const*>(obj);
+            auto float_obj = static_cast<FloatObject*>(obj);
             if (float_obj->value()) {
                 out << float_obj->value();
             }
         } break;
         case ObjectKind::String: {
-            auto str_obj = static_cast<StringObject const*>(obj);
+            auto str_obj = static_cast<StringObject*>(obj);
             out << '"';
             for (size_t i = 0; i < str_obj->count(); i++) {
                 char cc = str_obj->bytes()[i];
@@ -50,10 +50,10 @@ void print_obj(Object const* obj, std::ostream& out) {
             out << '"';
         } break;
         case ObjectKind::Symbol: {
-            out << interned_string(static_cast<SymbolObject const*>(obj)->name());
+            out << interned_string(static_cast<SymbolObject*>(obj)->name());
         } break;
         case ObjectKind::Pair: {
-            auto pair_obj = static_cast<PairObject const*>(obj);
+            auto pair_obj = static_cast<PairObject*>(obj);
             out << '(';
             if (pair_obj->cdr() == nullptr) {
                 // singleton object
@@ -62,9 +62,9 @@ void print_obj(Object const* obj, std::ostream& out) {
                 // (possibly improper) list or pair
                 if (pair_obj->cdr()->kind() == ObjectKind::Pair) {
                     // list or improper list
-                    Object const* rem_list = pair_obj;
+                    Object* rem_list = pair_obj;
                     while (rem_list) {
-                        auto rem_list_pair = static_cast<PairObject const*>(rem_list);
+                        auto rem_list_pair = static_cast<PairObject*>(rem_list);
                         if (rem_list_pair) {
                             // just a regular list item
                             print_obj(rem_list_pair->car(), out);
@@ -89,12 +89,16 @@ void print_obj(Object const* obj, std::ostream& out) {
             out << ')';
         } break;
         case ObjectKind::Vector: {
-            error("NotImplemented: printing an ObjectKind::Vector");
-            throw SsiError();
+            out << "<Vector>";
         } break;
         case ObjectKind::Procedure: {
-            error("NotImplemented: printing an ObjectKind::Procedure");
-            throw SsiError();
+            out << "<Procedure>";
+        } break;
+        case ObjectKind::VMA_CallFrame: {
+            out << "<VMA_CallFrame>";
+        } break;
+        case ObjectKind::VMA_Closure: {
+            out << "<VMA_CallFrame>";
         } break;
     }
 }

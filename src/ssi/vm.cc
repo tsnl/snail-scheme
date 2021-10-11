@@ -36,7 +36,7 @@ struct VmProgram {
 //
 
 struct VmFile {
-    std::vector<Object const*> line_code_objs;
+    std::vector<Object*> line_code_objs;
     std::vector<VmProgram> line_programs;
 };
 
@@ -49,6 +49,13 @@ struct VmFile {
 
 class VirtualMachine {
   private:
+    struct {
+        Object* a;        // the accumulator
+        VmExpID x;              // the next expression
+        PairObject* e;    // the current environment
+        Object* r;        // value rib; used to compute arguments for 'apply'
+        Object* s;        // the current stack
+    } m_reg;
     std::vector<VmExp> m_exps;
     std::vector< VmFile > m_files;
 
@@ -67,13 +74,13 @@ class VirtualMachine {
   private:
     std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
     VmExpID new_vmx_halt();
-    VmExpID new_vmx_refer(Object const* var, VmExpID next);
-    VmExpID new_vmx_constant(Object const* constant, VmExpID next);
-    VmExpID new_vmx_close(Object const* vars, VmExpID body, VmExpID next);
+    VmExpID new_vmx_refer(Object* var, VmExpID next);
+    VmExpID new_vmx_constant(Object* constant, VmExpID next);
+    VmExpID new_vmx_close(Object* vars, VmExpID body, VmExpID next);
     VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
-    VmExpID new_vmx_assign(Object const* var, VmExpID next);
+    VmExpID new_vmx_assign(Object* var, VmExpID next);
     VmExpID new_vmx_conti(VmExpID x);
-    VmExpID new_vmx_nuate(VmStackPtr stack_id, Object const* var);
+    VmExpID new_vmx_nuate(VMA_CallFrameObject* stack, Object* var);
     VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
     VmExpID new_vmx_argument(VmExpID x);
     VmExpID new_vmx_apply();
@@ -85,11 +92,11 @@ class VirtualMachine {
   // Source code loading + compilation:
   public:
     // add_file eats an std::vector<Object*> containing each line
-    void add_file(std::string const& file_name, std::vector<Object const*> objs);
+    void add_file(std::string const& file_name, std::vector<Object*> objs);
   private:
-    VmProgram translate_single_line_code_obj(Object const* line_code_obj);
-    VmExpID translate_code_obj(Object const* obj, VmExpID next);
-    VmExpID translate_code_obj__pair_list(PairObject const* obj, VmExpID next);
+    VmProgram translate_single_line_code_obj(Object* line_code_obj);
+    VmExpID translate_code_obj(Object* obj, VmExpID next);
+    VmExpID translate_code_obj__pair_list(PairObject* obj, VmExpID next);
     bool is_tail_vmx(VmExpID vmx_id);
 
   // Blocking execution functions:
@@ -100,8 +107,9 @@ class VirtualMachine {
 
   // Interpreter environment setup:
   public:
-    static Object const* mk_default_root_env();
-    static Object const* closure(Object const* body, Object const* e, Object const* args);
+    static PairObject* mk_default_root_env();
+    static Object* closure(VmExpID body, Object* env, Object* args);
+    static PairObject* lookup(Object* symbol, Object* env_raw);
 
   // Debug dumps:
   public:
@@ -115,7 +123,8 @@ class VirtualMachine {
 //
 
 VirtualMachine::VirtualMachine(size_t file_count) 
-:   m_exps(),
+:   m_reg(),
+    m_exps(),
     m_files(),
     m_builtin_intstr_id_cache({
         .quote = intern("quote"),
@@ -133,7 +142,7 @@ VirtualMachine::~VirtualMachine() {
     // todo: clean up code object memory-- leaking for now.
     //  - cannot delete `BoolObject` or other singletons
     // for (VmFile const& file: m_files) {
-    //     for (Object const* o: file.line_code_objs) {
+    //     for (Object* o: file.line_code_objs) {
     //         delete o;
     //     }
     // }
@@ -151,21 +160,21 @@ std::pair<VmExpID, VmExp&> VirtualMachine::help_new_vmx(VmExpKind kind) {
 VmExpID VirtualMachine::new_vmx_halt() {
     return help_new_vmx(VmExpKind::Halt).first;
 }
-VmExpID VirtualMachine::new_vmx_refer(Object const* var, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_refer(Object* var, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Refer);
     auto& args = exp_ref.args.i_refer;
     args.var = var;
     args.x = next;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_constant(Object const* constant, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_constant(Object* constant, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Constant);
     auto& args = exp_ref.args.i_constant;
     args.constant = constant;
     args.x = next;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_close(Object const* vars, VmExpID body, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_close(Object* vars, VmExpID body, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Close);
     auto& args = exp_ref.args.i_close;
     args.vars = vars;
@@ -180,7 +189,7 @@ VmExpID VirtualMachine::new_vmx_test(VmExpID next_if_t, VmExpID next_if_f) {
     args.next_if_f = next_if_f;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_assign(Object const* var, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_assign(Object* var, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Assign);
     auto& args = exp_ref.args.i_assign;
     args.var = var;
@@ -193,10 +202,10 @@ VmExpID VirtualMachine::new_vmx_conti(VmExpID x) {
     args.x = x;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_nuate(VmStackPtr stack_id, Object const* var) {
+VmExpID VirtualMachine::new_vmx_nuate(VMA_CallFrameObject* stack, Object* var) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Nuate);
     auto& args = exp_ref.args.i_nuate;
-    args.s = stack_id;
+    args.s = stack;
     args.var = var;
     return exp_id;
 }
@@ -230,12 +239,12 @@ VmExpID VirtualMachine::new_vmx_return() {
 // Source code loading + compilation (p. 57 of 'three-imp.pdf')
 //
 
-void VirtualMachine::add_file(std::string const& file_name, std::vector<Object const*> objs) {
+void VirtualMachine::add_file(std::string const& file_name, std::vector<Object*> objs) {
     if (!objs.empty()) {
         // translating each line into a program that terminates with 'halt'
         std::vector<VmProgram> line_programs;
         line_programs.reserve(objs.size());
-        for (Object const* line_code_obj: objs) {
+        for (Object* line_code_obj: objs) {
             VmProgram program = translate_single_line_code_obj(line_code_obj);
             line_programs.push_back(program);
         }
@@ -248,12 +257,12 @@ void VirtualMachine::add_file(std::string const& file_name, std::vector<Object c
     }
 }
 
-VmProgram VirtualMachine::translate_single_line_code_obj(Object const* line_code_obj) {
+VmProgram VirtualMachine::translate_single_line_code_obj(Object* line_code_obj) {
     VmExpID last_exp_id = new_vmx_halt();
     VmExpID first_exp_id = translate_code_obj(line_code_obj, last_exp_id);
     return VmProgram {first_exp_id, last_exp_id};
 }
-VmExpID VirtualMachine::translate_code_obj(Object const* obj, VmExpID next) {
+VmExpID VirtualMachine::translate_code_obj(Object* obj, VmExpID next) {
     // todo: iteratively translate this line to a VmProgram
     //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
     auto obj_kind = obj->kind();
@@ -262,22 +271,22 @@ VmExpID VirtualMachine::translate_code_obj(Object const* obj, VmExpID next) {
             return new_vmx_refer(obj, next);
         }
         case ObjectKind::Pair: {
-            return translate_code_obj__pair_list(static_cast<PairObject const*>(obj), next);
+            return translate_code_obj__pair_list(static_cast<PairObject*>(obj), next);
         }
         default: {
             return new_vmx_constant(obj, next);
         }
     }
 }
-VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject const* obj, VmExpID next) {
+VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID next) {
     // retrieving key properties:
-    Object const* head = obj->car();
-    Object const* args = obj->cdr();
+    Object* head = obj->car();
+    Object* args = obj->cdr();
 
     // first, trying to handle a builtin function invocation:
     if (head->kind() == ObjectKind::Symbol) {
         // keyword first argument
-        auto sym_head = static_cast<SymbolObject const*>(head);
+        auto sym_head = static_cast<SymbolObject*>(head);
         auto keyword_symbol_id = sym_head->name();
 
         if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
@@ -355,7 +364,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject const* obj, VmE
             head, 
             new_vmx_apply()
         );
-        Object const* call_args = args;
+        Object* call_args = args;
         while (call_args) {
             call_c = translate_code_obj(
                 car(call_args),
@@ -393,53 +402,65 @@ void VirtualMachine::sync_execute() {
     //      - if `print_each_line` is true, we print the input and output lines to stdout
     //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
-    // register decl+init:
-    Object const* a;        // the accumulator
-    VmExpID x;              // the next expression
-    Object const* e;        // the current environment
-    Object const* r;        // value rib; used to compute arguments for 'apply'
-    VmStackPtr s;            // the current stack
-
-    e = mk_default_root_env();
+    m_reg.e = mk_default_root_env();
 
     // for each line object in each file...
     for (auto f: m_files) {
         auto line_count = f.line_code_objs.size();
         for (size_t i = 0; i < line_count; i++) {
             // acquiring input:
-            Object const* input = f.line_code_objs[i];
+            Object* input = f.line_code_objs[i];
             VmProgram program = f.line_programs[i];
 
             // setting start instruction:
-            x = program.s;
+            m_reg.x = program.s;
 
             // running iteratively until 'halt':
             //  - cf `VM` function on p. 60 of `three-imp.pdf`
             bool vm_is_running = true;
             while (vm_is_running) {
-                VmExp const& exp = m_exps[x];
+                VmExp const& exp = m_exps[m_reg.x];
                 switch (exp.kind) {
                     case VmExpKind::Halt: {
                         vm_is_running = false;
                     } break;
                     case VmExpKind::Refer: {
                         // todo: implement the 'lookup' function-- may need to be destructive
-                        x = exp.args.i_refer.x;
+                        m_reg.x = exp.args.i_refer.x;
                     } break;
                     case VmExpKind::Constant: {
-                        a = exp.args.i_constant.constant;
-                        x = exp.args.i_constant.x;
+                        m_reg.a = exp.args.i_constant.constant;
+                        m_reg.x = exp.args.i_constant.x;
                     } break;
                     case VmExpKind::Close: {
-                        a = closure(
+                        m_reg.a = closure(
                             exp.args.i_close.body,
-                            e,
+                            m_reg.e,
                             exp.args.i_close.vars
                         );
+                        m_reg.x = exp.args.i_close.x;
                     } break;
+                    case VmExpKind::Test: {
+                        m_reg.x = (
+                            (m_reg.a == BoolObject::t) ?
+                            exp.args.i_test.next_if_t :
+                            exp.args.i_test.next_if_f
+                        );
+                    } break;
+                    case VmExpKind::Assign: {
+                        auto rem_value_rib = lookup(
+                            exp.args.i_assign.var,
+                            m_reg.e
+                        );
+                        rem_value_rib->set_car(m_reg.a);
+                        m_reg.x = exp.args.i_assign.x;
+                    } break;
+
+                    // todo: implement the rest of these VmExpKinds
+
                     default: {
                         std::stringstream ss;
-                        ss << "NotImplemented: VmExpKind::?";
+                        ss << "NotImplemented: running interpreter for instruction VmExpKind::?";
                         error(ss.str());
                         throw SsiError();
                     }
@@ -459,13 +480,75 @@ void VirtualMachine::sync_execute() {
     }
 }
 
-VmEnv* VirtualMachine::mk_default_root_env() {
+PairObject* VirtualMachine::mk_default_root_env() {
     auto env = nullptr;
 
     // todo: define builtins, e.g. car/cdr, is___?, etc.
     //  - each 'rib' is a pair of 'elements' and 'variables' lists
 
     return env;
+}
+
+Object* VirtualMachine::closure(VmExpID body, Object* env, Object* vars) {
+    return new VMA_ClosureObject(body, env, vars);
+}
+
+PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
+    if (env_raw == nullptr) {
+        error("Lookup always fails in empty environment");
+        throw SsiError();
+    }
+
+    // we can cast the 'env' to a PairObject since it is a part of our runtime.
+    auto env = static_cast<PairObject*>(env_raw);
+
+    if (symbol->kind() != ObjectKind::Symbol) {
+        std::stringstream ss;
+        ss << "Expected a variable name, received: ";
+        print_obj(symbol, ss);
+        error(ss.str());
+        throw SsiError();
+    } else {
+        IntStr sym_name = static_cast<SymbolObject*>(symbol)->name();
+
+        // iterating through ribs in the environment:
+        // the environment is a 'list of pairs of lists'
+        //  - each pair of lists is called a rib-pair or 'ribs'
+        //  - each list in the pair is a named rib-- either the value rib or named rib
+        for (
+            PairObject* rem_ribs = env;
+            rem_ribs;
+            rem_ribs = static_cast<PairObject*>(rem_ribs->cdr())
+        ) {
+            auto rib_pair = static_cast<PairObject*>(rem_ribs->car());
+            auto variable_rib = static_cast<PairObject*>(rib_pair->car());
+            auto value_rib = static_cast<PairObject*>(rib_pair->cdr());
+
+            for (
+                PairObject
+                    *rem_variable_rib = variable_rib,
+                    *rem_value_rib = value_rib;
+                rem_value_rib;
+                ((rem_variable_rib = static_cast<PairObject*>(rem_variable_rib->cdr())),
+                 (rem_value_rib = static_cast<PairObject*>(rem_value_rib->cdr())))
+            ) {
+                auto variable_rib_head = static_cast<SymbolObject*>(rem_variable_rib->car());
+                if (variable_rib_head->name() == sym_name) {
+                    // return the remaining value rib so we can reuse for 'set'
+                    return rem_value_rib;
+                }
+            }
+        }
+
+        // lookup failed:
+        {
+            std::stringstream ss;
+            ss << "Lookup failed: symbol used but not defined: ";
+            print_obj(symbol, ss);
+            error(ss.str());
+            throw SsiError();
+        }
+    }
 }
 
 //
@@ -556,7 +639,7 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
         auto f = m_files[i];
 
         for (size_t j = 0; j < f.line_code_objs.size(); j++) {
-            Object const* line_code_obj = f.line_code_objs[j];
+            Object* line_code_obj = f.line_code_objs[j];
             VmProgram program = f.line_programs[j];
 
             out << "    " "  > ";
@@ -578,7 +661,7 @@ VirtualMachine* create_vm() {
     return new VirtualMachine(); 
 }
 
-void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<Object const*> objs) {
+void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<Object*> objs) {
     // todo: iteratively compile each statement, such that...
     //  - i < len(objs)-1 => 'next' of last statement is first instruction of (i+1)th object
     //  - i = len(objs)-1 => 'next' of last statement is 'halt'

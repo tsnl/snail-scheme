@@ -37,29 +37,30 @@ enum class ObjectKind {
     Procedure,
 
     // VMA = VM Accelerator
+    // Custom structures used to keep the cache warm.
     VMA_CallFrame,
-    VMA_EnvRib
+    VMA_Closure
 };
 
 class Object {
   public:
-    static std::map<Object const*, ObjectKind> s_non_nil_object_kind_map;
+    static std::map<Object*, ObjectKind> s_non_nil_object_kind_map;
   protected:
     explicit Object(ObjectKind kind);
     // ObjectKind is stored in a global std::map<Object*, ObjectKind>
     //  - RTTI is rare, especially with AOT type-checking
     //  - naive alternative: use a virtual 'kind' method or data member: bumps sizeof(AnyObject) from 2*size_t to 3*...
   public:
-    [[nodiscard]] ObjectKind kind() const;
+    [[nodiscard]] ObjectKind kind();
 };
 
 class BoolObject: public Object {
   private:
-    static BoolObject const t_storage;
-    static BoolObject const f_storage;
+    static BoolObject t_storage;
+    static BoolObject f_storage;
   public:
-    static BoolObject const* t;
-    static BoolObject const* f;
+    static BoolObject* t;
+    static BoolObject* f;
   private:
     bool m_value;
   private:
@@ -145,35 +146,37 @@ class StringObject: public Object {
 };
 class PairObject: public Object {
   private:
-    Object const* m_car;
-    Object const* m_cdr;
+    Object* m_car;
+    Object* m_cdr;
   public:
     PairObject() 
     :   Object(ObjectKind::Pair),
         m_car(),
         m_cdr()
     {}
-    explicit PairObject(Object const* car, Object const* cdr)
+    explicit PairObject(Object* car, Object* cdr)
     :   PairObject()
     {
         m_car = car;
         m_cdr = cdr;
     }
   public:
-    [[nodiscard]] inline Object const* car() const { return m_car; }
-    [[nodiscard]] inline Object const* cdr() const { return m_cdr; }
+    [[nodiscard]] inline Object* car() const { return m_car; }
+    [[nodiscard]] inline Object* cdr() const { return m_cdr; }
+    inline void set_car(Object* o) { m_car = o; }
+    inline void set_cdr(Object* o) { m_cdr = o; }
 };
 class VectorObject: public Object {
   private:
     size_t         m_count;
-    Object const** m_array;
+    Object** m_array;
   public:
     VectorObject()
     :   Object(ObjectKind::Vector),
         m_count(),
         m_array()
     {}
-    VectorObject(size_t count, Object const** mv_array)
+    VectorObject(size_t count, Object** mv_array)
     :   VectorObject()
     {
         m_count = count;
@@ -181,21 +184,21 @@ class VectorObject: public Object {
     }
   public:
     [[nodiscard]] inline size_t count() const { return m_count; }
-    [[nodiscard]] inline Object const** array() const { return m_array; }
+    [[nodiscard]] inline Object** array() const { return m_array; }
 };
 
 // todo: replace these properties with a reference to a program on the active VM
 class LambdaObject: public Object {
   private:
-    Object const* m_body;
-    Object const* m_args_list;
+    Object* m_body;
+    Object* m_args_list;
   public:
     LambdaObject()
     :   Object(ObjectKind::Procedure),
         m_body(),
         m_args_list()
     {}
-    explicit LambdaObject(Object const* body, Object const* explicit_arg_names_list)
+    explicit LambdaObject(Object* body, Object* explicit_arg_names_list)
     : LambdaObject()
     {
         m_body = body;
@@ -213,43 +216,54 @@ using VmExpID = size_t;
 
 class VMA_CallFrameObject: public Object {
   private:
-    Object const* m_e;
-    Object const* m_r;
+    Object* m_e;
+    Object* m_r;
     VmExpID m_x;
-    VMA_CallFrameObject const* m_opt_parent;
+    VMA_CallFrameObject* m_opt_parent;
 
   public:
     VMA_CallFrameObject(
-        Object const* e,
-        Object const* r,
+        Object* e,
+        Object* r,
         VmExpID x,
-        VMA_CallFrameObject* parent
+        VMA_CallFrameObject* opt_parent
     )
     :   Object(ObjectKind::VMA_CallFrame),
         m_e(e),
         m_r(r),
         m_x(x),
-        m_parent(parent)
+        m_opt_parent(opt_parent)
     {}
 
   public:
-    Object const* e() const { return m_e; }
-    Object const* r() const { return m_r; }
+    Object* e() const { return m_e; }
+    Object* r() const { return m_r; }
     VmExpID x() const { return m_x; }
-    Object const* parent() const { return m_parent; }
+    Object* parent() const { return m_opt_parent; }
 };
 
-class VMA_EnvRib: public Object {
+class VMA_ClosureObject: public Object {
   private:
-    std::vector< std::pair<IntStr, Object const*> > m_rib_vector;
-    VMA_EnvRib const* m_opt_parent;
+    VmExpID m_body;         // the body expression to evaluate
+    Object* m_e;      // the environment to use
+    Object* m_vars;   // the formal variables captured
 
   public:
-    VMA_EnvRib(VMA_EnvRib* opt_parent = nullptr);
+    VMA_ClosureObject(
+        VmExpID body,
+        Object* e,
+        Object* vars
+    )
+    :   Object(ObjectKind::VMA_Closure),
+        m_body(body),
+        m_e(e),
+        m_vars(vars)
+    {}
 
   public:
-    VMA_EnvRib* opt_parent();
-    // todo: finish this off
+    [[nodiscard]] VmExpID body() const { return m_body; }
+    [[nodiscard]] Object* e() const { return m_e; }
+    [[nodiscard]] Object* vars() const { return m_vars; }
 };
 
 //
@@ -262,29 +276,29 @@ class VMA_EnvRib: public Object {
 // decls
 //
 
-inline ObjectKind objkind(Object const* object);
-inline Object const* car(Object const* object);
-inline Object const* cdr(Object const* object);
-template <typename... Objects> Object const* list(Objects... objs);
-template <size_t n> std::array<Object const*, n> extract_args(Object const* pair_list, bool is_variadic = false);
+inline ObjectKind obj_kind(Object* object);
+inline Object* car(Object* object);
+inline Object* cdr(Object* object);
+template <typename... Objects> Object* list(Objects... objs);
+template <size_t n> std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic = false);
 
 //
 // defs
 //
 
 template <typename... Objects>
-Object const* list() {
+Object* list() {
     return nullptr;
 }
 template <typename... Objects>
-Object const* list(Object const* first, Objects... objs) {
+Object* list(Object* first, Objects... objs) {
     return new PairObject(first, list(objs...));
 }
 
-inline ObjectKind Object::kind() const {
+inline ObjectKind Object::kind() {
     return Object::s_non_nil_object_kind_map[this];
 }
-inline ObjectKind objkind(Object const* object) {
+inline ObjectKind obj_kind(Object* object) {
     if (object) {
         return object->kind();
     } else {
@@ -293,10 +307,10 @@ inline ObjectKind objkind(Object const* object) {
 }
 
 template <size_t n> 
-std::array<Object const*, n> extract_args(Object const* pair_list, bool is_variadic) {
+std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic) {
     // reading upto `n` objects into an array:
-    Object const* rem_list = pair_list;
-    std::array<Object const*, n> out{};
+    Object* rem_list = pair_list;
+    std::array<Object*, n> out{};
     size_t index = 0;
     while (rem_list && index < n) {
         out[index++] = car(rem_list);
@@ -327,21 +341,21 @@ std::array<Object const*, n> extract_args(Object const* pair_list, bool is_varia
     return out;
 }
 
-inline Object const* car(Object const* object) {
+inline Object* car(Object* object) {
 #if !CONFIG_OPTIMIZED_MODE
-    if (objkind(object) != ObjectKind::Pair) {
+    if (obj_kind(object) != ObjectKind::Pair) {
         error("car: expected argument object to be a pair");
         throw SsiError();
     }
 #endif
-    return static_cast<PairObject const*>(object)->car();
+    return static_cast<PairObject*>(object)->car();
 }
-inline Object const* cdr(Object const* object) {
+inline Object* cdr(Object* object) {
 #if !CONFIG_OPTIMIZED_MODE
-    if (objkind(object) != ObjectKind::Pair) {
+    if (obj_kind(object) != ObjectKind::Pair) {
         error("cdr: expected argument object to be a pair");
         throw SsiError();
     }
 #endif
-    return static_cast<PairObject const*>(object)->cdr();
+    return static_cast<PairObject*>(object)->cdr();
 }
