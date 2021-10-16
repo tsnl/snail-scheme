@@ -28,7 +28,5 @@ add_executable(
     src/ssi/printing.hh
     src/ssi/vm.cc
     src/ssi/vm.hh
-    src/ssi/vm-exp.hh
-    src/ssi/vm-stack.hh
     src/ssi/heap.hh
 )

@@ -10,3 +10,8 @@
 (define y x)
 (define (or2 x y) (if x x y))
 (define m (or2 #t #f))
+
+(m #t #f)
+(m #f #f)
+(m #t #t)
+(m #f #t)

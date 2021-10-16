@@ -245,8 +245,8 @@ class VMA_CallFrameObject: public Object {
 class VMA_ClosureObject: public Object {
   private:
     VmExpID m_body;         // the body expression to evaluate
-    PairObject* m_e;      // the environment to use
-    Object* m_vars;   // the formal variables captured
+    PairObject* m_e;        // the environment to use
+    Object* m_vars;         // the formal variables captured
 
   public:
     VMA_ClosureObject(

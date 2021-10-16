@@ -13,13 +13,58 @@
 #include "feedback.hh"
 #include "object.hh"
 #include "printing.hh"
-#include "vm-exp.hh"
 
 //
-// VmStack:
+// VmExp data: each expression either stores a VM instruction or a constant
+// All VmExps are are stored in a flat table in the 'VirtualMachine'.
+//  - this ensures traversal during interpretation is of similar efficiency to bytecode with padding
+//  - TODO: do we need to traverse this structure to perform GC? cf Ch4
 //
 
-// todo: 
+enum class VmExpKind: VmExpID {
+    Halt,
+    Refer,
+    Constant,
+    Close,
+    Test,
+    Assign,
+    Conti,
+    Nuate,
+    Frame,
+    Argument,
+    Apply,
+    Return,
+    Define,
+    // todo: implement a CFFI function call instruction
+};
+union VmExpArgs {
+    struct {} i_halt;
+    struct { Object* var; VmExpID x; } i_refer;
+    struct { Object* constant; VmExpID x; } i_constant;
+    struct { Object* vars; VmExpID body; VmExpID x; } i_close;
+    struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
+    struct { Object* var; VmExpID x; } i_assign;
+    struct { VmExpID x; } i_conti;
+    struct { VMA_CallFrameObject* s; Object* var; } i_nuate;
+    struct { VmExpID x; VmExpID ret; } i_frame;
+    struct { VmExpID x; } i_argument;
+    struct { Object* var; VmExpID next; } i_define;
+    struct {} i_apply;
+    struct {} i_return_;
+};
+struct VmExp {
+    VmExpKind kind;
+    VmExpArgs args;
+
+    VmExp(VmExpKind new_kind)
+    :   kind(new_kind),
+        args()
+    {}
+};
+static_assert(
+    sizeof(VmExp) == 4*sizeof(size_t), 
+    "Unexpected sizeof(VmExp)"
+);
 
 //
 // VmProgram: 
@@ -118,7 +163,8 @@ class VirtualMachine {
   // Debug dumps:
   public:
     void dump(std::ostream& out);
-    void dump_all_exps(std::ostream& out);
+    void print_all_exps(std::ostream& out);
+    void print_one_exp(VmExpID exp_id, std::ostream& out);
     void dump_all_files(std::ostream& out);
 };
 
@@ -374,10 +420,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
 
             if (structural_signature && structural_signature->kind() == ObjectKind::Symbol) {
                 // (define <var> <initializer>)
-                return translate_code_obj(
-                    body,
-                    new_vmx_define(structural_signature, next)
-                );
+                return new_vmx_define(structural_signature, next);
             }
             else if (structural_signature && structural_signature->kind() == ObjectKind::Pair) {
                 // (define (<fn-name> <arg-vars...>) <initializer>)
@@ -394,8 +437,9 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                     error(ss.str());
                     throw SsiError();
                 }
-                return new_vmx_constant(
-                    new LambdaObject(body, arg_vars),
+                return new_vmx_close(
+                    arg_vars,
+                    translate_code_obj(body, new_vmx_return()),
                     new_vmx_define(fn_name, next)
                 );
             }
@@ -408,24 +452,25 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
     }
 
     // otherwise, handling a function call:
+    //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
     {
         // function call
-        VmExpID call_c = translate_code_obj(
-            head, 
+        VmExpID c = translate_code_obj(
+            head,
             new_vmx_apply()
         );
-        Object* call_args = args;
-        while (call_args) {
-            call_c = translate_code_obj(
-                car(call_args),
-                new_vmx_argument(call_c)
+        Object* c_args = args;
+        while (c_args) {
+            c = translate_code_obj(
+                car(c_args),
+                new_vmx_argument(c)
             );
-            call_args = cdr(call_args);
+            c_args = cdr(c_args);
         }
         if (is_tail_vmx(next)) {
-            return call_c;
+            return c;
         } else {
-            return new_vmx_frame(next, call_c);
+            return new_vmx_frame(next, c);
         }
     }
 }
@@ -470,6 +515,15 @@ void VirtualMachine::sync_execute() {
             bool vm_is_running = true;
             while (vm_is_running) {
                 VmExp const& exp = m_exps[m_reg.x];
+
+                // DEBUG ONLY: print each instruction on execution to help trace
+                // todo: perhaps include a thread-ID? Some synchronization around IO [basically GIL]
+#if CONFIG_PRINT_EACH_INSTRUCTION_ON_EXECUTION
+                std::wcout << L"\tVM <- ";
+                print_one_exp(m_reg.x, std::cout);
+                std::cout << std::endl;
+#endif
+
                 switch (exp.kind) {
                     case VmExpKind::Halt: {
                         vm_is_running = false;
@@ -538,6 +592,16 @@ void VirtualMachine::sync_execute() {
                         m_reg.r = cons(m_reg.a, m_reg.r);
                     } break;
                     case VmExpKind::Apply: {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                        if (m_reg.a->kind() != ObjectKind::VMA_Closure) {
+                            std::stringstream ss;
+                            ss << "apply: expected a 'closure' instance in m_reg.a, received: ";
+                            print_obj(m_reg.a, ss);
+                            ss << std::endl;
+                            error(ss.str());
+                            throw SsiError();
+                        }
+#endif
                         auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
                         // m_reg.a = m_reg.a;
                         m_reg.x = a->body();
@@ -668,89 +732,92 @@ PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals) {
 
 void VirtualMachine::dump(std::ostream& out) {
     out << "[Expression Table]" << std::endl;
-    dump_all_exps(out);
+    print_all_exps(out);
     
     out << "[File Table]" << std::endl;
     dump_all_files(out);
 }
-void VirtualMachine::dump_all_exps(std::ostream& out) {
+void VirtualMachine::print_all_exps(std::ostream& out) {
     size_t pad_w = static_cast<size_t>(std::ceil(std::log(1+m_exps.size()) / std::log(10)));
     for (size_t index = 0; index < m_exps.size(); index++) {
         out << "  [";
         out << std::setfill('0') << std::setw(pad_w) << index;
         out << "] ";
 
-        out << "(";
-        auto exp = m_exps[index];
-        switch (exp.kind) {
-            case VmExpKind::Halt: {
-                out << "halt";
-            } break;
-            case VmExpKind::Refer: {
-                out << "refer ";
-                print_obj(exp.args.i_refer.var, out);
-                out << ' ';
-                out << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_refer.x;
-            } break;
-            case VmExpKind::Constant: {
-                out << "constant ";
-                print_obj(exp.args.i_constant.constant, out);
-                out << ' ';
-                out << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_constant.x;
-            } break;
-            case VmExpKind::Close: {
-                out << "close ";
-                print_obj(exp.args.i_refer.var, out);
-                out << ' ';
-                out << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_refer.x;
-            } break;
-            case VmExpKind::Test: {
-                out << "test "
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_test.next_if_t << ' '
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_test.next_if_f;
-            } break;
-            case VmExpKind::Assign: {
-                out << "assign ";
-                print_obj(exp.args.i_assign.var, out);
-                out << ' ';
-                out << "vmx:" << exp.args.i_assign.x;
-            } break;
-            case VmExpKind::Conti: {
-                out << "conti ";
-                out << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_conti.x;
-            } break;
-            case VmExpKind::Nuate: {
-                out << "nuate ";
-                print_obj(exp.args.i_nuate.var, out);
-                out << ' '
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_nuate.s;
-            } break;
-            case VmExpKind::Frame: {
-                out << "frame "
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_frame.x << ' '
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_frame.ret;
-            } break;
-            case VmExpKind::Argument: {
-                out << "argument "
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_argument.x;
-            } break;
-            case VmExpKind::Apply: {
-                out << "apply";
-            } break;
-            case VmExpKind::Return: {
-                out << "return";
-            } break;
-            case VmExpKind::Define: {
-                out << "define ";
-                print_obj(exp.args.i_define.var, out);
-                out << " ";
-                print_obj(exp.args.i_define.val, out);
-                out << " "
-                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_frame.x;
-            } break;
-        }
-        out << ")" << std::endl;
+        print_one_exp(index, out);
+        
+        out << std::endl;
     }
+}
+void VirtualMachine::print_one_exp(VmExpID exp_id, std::ostream& out) {
+    auto exp = m_exps[exp_id];
+    out << "(";
+    switch (exp.kind) {
+        case VmExpKind::Halt: {
+            out << "halt";
+        } break;
+        case VmExpKind::Refer: {
+            out << "refer ";
+            print_obj(exp.args.i_refer.var, out);
+            out << ' ';
+            out << "vmx:" << exp.args.i_refer.x;
+        } break;
+        case VmExpKind::Constant: {
+            out << "constant ";
+            print_obj(exp.args.i_constant.constant, out);
+            out << ' ';
+            out << "vmx:" << exp.args.i_constant.x;
+        } break;
+        case VmExpKind::Close: {
+            out << "close ";
+            print_obj(exp.args.i_refer.var, out);
+            out << ' ';
+            out << "vmx:" << exp.args.i_refer.x;
+        } break;
+        case VmExpKind::Test: {
+            out << "test "
+                << "vmx:" << exp.args.i_test.next_if_t << ' '
+                << "vmx:" << exp.args.i_test.next_if_f;
+        } break;
+        case VmExpKind::Assign: {
+            out << "assign ";
+            print_obj(exp.args.i_assign.var, out);
+            out << ' ';
+            out << "vmx:" << exp.args.i_assign.x;
+        } break;
+        case VmExpKind::Conti: {
+            out << "conti ";
+            out << "vmx:" << exp.args.i_conti.x;
+        } break;
+        case VmExpKind::Nuate: {
+            out << "nuate ";
+            print_obj(exp.args.i_nuate.var, out);
+            out << ' '
+                << "vmx:" << exp.args.i_nuate.s;
+        } break;
+        case VmExpKind::Frame: {
+            out << "frame "
+                << "vmx:" << exp.args.i_frame.x << ' '
+                << "vmx:" << exp.args.i_frame.ret;
+        } break;
+        case VmExpKind::Argument: {
+            out << "argument "
+                << "vmx:" << exp.args.i_argument.x;
+        } break;
+        case VmExpKind::Apply: {
+            out << "apply";
+        } break;
+        case VmExpKind::Return: {
+            out << "return";
+        } break;
+        case VmExpKind::Define: {
+            out << "define ";
+            print_obj(exp.args.i_define.var, out);
+            out << " "
+                << "vmx:" << exp.args.i_define.next;
+        } break;
+    }
+    out << ")";
 }
 void VirtualMachine::dump_all_files(std::ostream& out) {
     for (size_t i = 0; i < m_files.size(); i++) {
