@@ -3,3 +3,10 @@
 
 ; applying 'or2' to '#t' and '#f'-- expect '#f'
 ((lambda (x y) (if x x y)) #t #f)
+((lambda (x y) (if x x y)) #t #t)
+((lambda (x y) (if x x y)) #f #f)
+
+(define x 42)
+(define y x)
+(define (or2 x y) (if x x y))
+(define m (or2 #t #f))

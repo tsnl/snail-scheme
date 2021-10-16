@@ -50,11 +50,11 @@ struct VmFile {
 class VirtualMachine {
   private:
     struct {
-        Object* a;        // the accumulator
-        VmExpID x;              // the next expression
-        PairObject* e;    // the current environment
-        Object* r;        // value rib; used to compute arguments for 'apply'
-        Object* s;        // the current stack
+        Object* a;                  // the accumulator
+        VmExpID x;                  // the next expression
+        PairObject* e;              // the current environment
+        Object* r;                  // value rib; used to compute arguments for 'apply'
+        VMA_CallFrameObject* s;     // the current stack
     } m_reg;
     std::vector<VmExp> m_exps;
     std::vector< VmFile > m_files;
@@ -65,6 +65,7 @@ class VirtualMachine {
         IntStr const if_;
         IntStr const set;
         IntStr const call_cc;
+        IntStr const define;
     } m_builtin_intstr_id_cache;
   public:
     explicit VirtualMachine(size_t reserved_file_count = 32);
@@ -85,6 +86,7 @@ class VirtualMachine {
     VmExpID new_vmx_argument(VmExpID x);
     VmExpID new_vmx_apply();
     VmExpID new_vmx_return();
+    VmExpID new_vmx_define(Object* var, VmExpID next);
 
   // TODO: creating VM stacks
   private:
@@ -108,8 +110,10 @@ class VirtualMachine {
   // Interpreter environment setup:
   public:
     static PairObject* mk_default_root_env();
-    static Object* closure(VmExpID body, Object* env, Object* args);
+    static VMA_ClosureObject* closure(VmExpID body, PairObject* env, Object* args);
     static PairObject* lookup(Object* symbol, Object* env_raw);
+    VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
+    PairObject* extend(PairObject* e, Object* vars, Object* vals);
 
   // Debug dumps:
   public:
@@ -131,7 +135,8 @@ VirtualMachine::VirtualMachine(size_t file_count)
         .lambda = intern("lambda"),
         .if_ = intern("if"),
         .set = intern("set!"),
-        .call_cc = intern("call/cc")
+        .call_cc = intern("call/cc"),
+        .define = intern("define")
     })
 {
     m_exps.reserve(4096);
@@ -228,6 +233,13 @@ VmExpID VirtualMachine::new_vmx_apply() {
 VmExpID VirtualMachine::new_vmx_return() {
     return help_new_vmx(VmExpKind::Return).first;
 }
+VmExpID VirtualMachine::new_vmx_define(Object* var, VmExpID next) {
+    auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Define);
+    auto& args = exp_ref.args.i_define;
+    args.var = var;
+    args.next = next;
+    return exp_id;
+}
 
 //
 // Creating VM stacks
@@ -251,7 +263,7 @@ void VirtualMachine::add_file(std::string const& file_name, std::vector<Object*>
 
         // storing the input lines and the programs on this VM:
         VmFile new_file = {std::move(objs), line_programs};
-        m_files.push_back(new_file);
+        m_files.push_back(std::move(new_file));
     } else {
         warning(std::string("VM: Input file `") + file_name + "` is empty.");
     }
@@ -300,6 +312,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
             auto vars = args_array[0];
             auto body = args_array[1];
             // todo: check that 'vars' is a list of symbols
+            //  - cf `define`
             return new_vmx_close(
                 vars,
                 translate_code_obj(
@@ -352,7 +365,44 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                 c :
                 new_vmx_frame(next, c)
             );
-        } else {
+        } 
+        else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
+            // define
+            auto args_array = extract_args<2>(args);
+            auto structural_signature = args_array[0];
+            auto body = args_array[1];
+
+            if (structural_signature && structural_signature->kind() == ObjectKind::Symbol) {
+                // (define <var> <initializer>)
+                return translate_code_obj(
+                    body,
+                    new_vmx_define(structural_signature, next)
+                );
+            }
+            else if (structural_signature && structural_signature->kind() == ObjectKind::Pair) {
+                // (define (<fn-name> <arg-vars...>) <initializer>)
+                // desugars to 
+                // (define <fn-name> (lambda (<arg-vars) <initializer>))
+                auto fn_name = car(structural_signature);
+                auto arg_vars = cdr(structural_signature);
+                // todo: check that arg_vars are a list of SymbolObjects
+                //  - cf 'lambda'
+                if (!fn_name || fn_name->kind() != ObjectKind::Symbol) {
+                    std::stringstream ss;
+                    ss << "define: invalid function name: ";
+                    print_obj(fn_name, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
+                return new_vmx_constant(
+                    new LambdaObject(body, arg_vars),
+                    new_vmx_define(fn_name, next)
+                );
+            }
+
+            throw SsiError();
+        }
+        else {
             // continue to the branch below...
         }
     }
@@ -425,7 +475,7 @@ void VirtualMachine::sync_execute() {
                         vm_is_running = false;
                     } break;
                     case VmExpKind::Refer: {
-                        // todo: implement the 'lookup' function-- may need to be destructive
+                        m_reg.a = lookup(exp.args.i_refer.var, m_reg.e)->car();
                         m_reg.x = exp.args.i_refer.x;
                     } break;
                     case VmExpKind::Constant: {
@@ -441,11 +491,20 @@ void VirtualMachine::sync_execute() {
                         m_reg.x = exp.args.i_close.x;
                     } break;
                     case VmExpKind::Test: {
-                        m_reg.x = (
-                            (m_reg.a == BoolObject::t) ?
-                            exp.args.i_test.next_if_t :
-                            exp.args.i_test.next_if_f
-                        );
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                        if (!m_reg.a || m_reg.a->kind() != ObjectKind::Boolean) {
+                            std::stringstream ss;
+                            ss << "test: expected a `bool` expression in a conditional, received: ";
+                            print_obj(m_reg.a, ss);
+                            error(ss.str());
+                            throw SsiError();
+                        }
+#endif
+                        if (m_reg.a == BoolObject::t) {
+                            m_reg.x = exp.args.i_test.next_if_t;
+                        } else {
+                            m_reg.x = exp.args.i_test.next_if_f;
+                        }
                     } break;
                     case VmExpKind::Assign: {
                         auto rem_value_rib = lookup(
@@ -455,15 +514,54 @@ void VirtualMachine::sync_execute() {
                         rem_value_rib->set_car(m_reg.a);
                         m_reg.x = exp.args.i_assign.x;
                     } break;
-
-                    // todo: implement the rest of these VmExpKinds
-
-                    default: {
-                        std::stringstream ss;
-                        ss << "NotImplemented: running interpreter for instruction VmExpKind::?";
-                        error(ss.str());
-                        throw SsiError();
-                    }
+                    case VmExpKind::Conti: {
+                        m_reg.a = continuation(m_reg.s);
+                        m_reg.x = exp.args.i_conti.x;
+                    } break;
+                    case VmExpKind::Nuate: {
+                        m_reg.a = car(lookup(exp.args.i_nuate.var, m_reg.e));
+                        m_reg.x = new_vmx_return();
+                        m_reg.s = exp.args.i_nuate.s;
+                    } break;
+                    case VmExpKind::Frame: {
+                        m_reg.x = exp.args.i_frame.ret;
+                        m_reg.r = nullptr;
+                        m_reg.s = new VMA_CallFrameObject(
+                            exp.args.i_frame.x,
+                            m_reg.e,
+                            m_reg.r,
+                            m_reg.s
+                        );
+                    } break;
+                    case VmExpKind::Argument: {
+                        m_reg.x = exp.args.i_argument.x;
+                        m_reg.r = cons(m_reg.a, m_reg.r);
+                    } break;
+                    case VmExpKind::Apply: {
+                        auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
+                        // m_reg.a = m_reg.a;
+                        m_reg.x = a->body();
+                        m_reg.e = extend(a->e(), a->vars(), m_reg.r);
+                        m_reg.r = nullptr;
+                    } break;
+                    case VmExpKind::Return: {
+                        auto s = m_reg.s;
+                        // m_reg.a = m_reg.a;
+                        m_reg.x = s->x();
+                        m_reg.e = s->e();
+                        m_reg.r = s->r();
+                        m_reg.s = s->parent();
+                    } break;
+                    case VmExpKind::Define: {
+                        m_reg.x = exp.args.i_define.next;
+                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list(m_reg.a));
+                    } break;
+                    // default: {
+                    //     std::stringstream ss;
+                    //     ss << "NotImplemented: running interpreter for instruction VmExpKind::?";
+                    //     error(ss.str());
+                    //     throw SsiError();
+                    // }
                 }
             }
 
@@ -472,8 +570,9 @@ void VirtualMachine::sync_execute() {
                 std::cout << "  > ";
                 print_obj(input, std::cout);
                 std::cout << std::endl;
+
                 std::cout << " => ";
-                print_obj(input, std::cout);
+                print_obj(m_reg.a, std::cout);
                 std::cout << std::endl;
             }
         }
@@ -489,13 +588,16 @@ PairObject* VirtualMachine::mk_default_root_env() {
     return env;
 }
 
-Object* VirtualMachine::closure(VmExpID body, Object* env, Object* vars) {
+VMA_ClosureObject* VirtualMachine::closure(VmExpID body, PairObject* env, Object* vars) {
     return new VMA_ClosureObject(body, env, vars);
 }
 
 PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
     if (env_raw == nullptr) {
-        error("Lookup always fails in empty environment");
+        std::stringstream ss;
+        ss << "lookup: symbol used, but undefined: ";
+        print_obj(symbol, ss);
+        error(ss.str());
         throw SsiError();
     }
 
@@ -504,7 +606,7 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
 
     if (symbol->kind() != ObjectKind::Symbol) {
         std::stringstream ss;
-        ss << "Expected a variable name, received: ";
+        ss << "lookup: expected query object to be a variable name, received: ";
         print_obj(symbol, ss);
         error(ss.str());
         throw SsiError();
@@ -549,6 +651,15 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
             throw SsiError();
         }
     }
+}
+
+VMA_ClosureObject* VirtualMachine::continuation(VMA_CallFrameObject* s) {
+    static Object* nuate_var = new SymbolObject(intern("v"));
+    return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
+}
+
+PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals) {
+    return cons(cons(vars, vals), e);
 }
 
 //
@@ -628,6 +739,14 @@ void VirtualMachine::dump_all_exps(std::ostream& out) {
             } break;
             case VmExpKind::Return: {
                 out << "return";
+            } break;
+            case VmExpKind::Define: {
+                out << "define ";
+                print_obj(exp.args.i_define.var, out);
+                out << " ";
+                print_obj(exp.args.i_define.val, out);
+                out << " "
+                    << "vmx:" << std::setfill('0') << std::setw(pad_w) << exp.args.i_frame.x;
             } break;
         }
         out << ")" << std::endl;

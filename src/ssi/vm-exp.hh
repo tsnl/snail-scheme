@@ -13,7 +13,6 @@
 using VmExpID = size_t;
 
 enum class VmExpKind: VmExpID {
-    // Instructions:
     Halt,
     Refer,
     Constant,
@@ -25,7 +24,9 @@ enum class VmExpKind: VmExpID {
     Frame,
     Argument,
     Apply,
-    Return
+    Return,
+    Define,
+    // todo: implement a CFFI function call instruction
 };
 union VmExpArgs {
     struct {} i_halt;
@@ -38,6 +39,7 @@ union VmExpArgs {
     struct { VMA_CallFrameObject* s; Object* var; } i_nuate;
     struct { VmExpID x; VmExpID ret; } i_frame;
     struct { VmExpID x; } i_argument;
+    struct { Object* var; Object* val; VmExpID next; } i_define;
     struct {} i_apply;
     struct {} i_return_;
 };

@@ -216,42 +216,42 @@ using VmExpID = size_t;
 
 class VMA_CallFrameObject: public Object {
   private:
-    Object* m_e;
-    Object* m_r;
     VmExpID m_x;
+    PairObject* m_e;
+    Object* m_r;
     VMA_CallFrameObject* m_opt_parent;
 
   public:
     VMA_CallFrameObject(
-        Object* e,
-        Object* r,
         VmExpID x,
+        PairObject* e,
+        Object* r,
         VMA_CallFrameObject* opt_parent
     )
     :   Object(ObjectKind::VMA_CallFrame),
+        m_x(x),
         m_e(e),
         m_r(r),
-        m_x(x),
         m_opt_parent(opt_parent)
     {}
 
   public:
-    Object* e() const { return m_e; }
-    Object* r() const { return m_r; }
     VmExpID x() const { return m_x; }
-    Object* parent() const { return m_opt_parent; }
+    PairObject* e() const { return m_e; }
+    Object* r() const { return m_r; }
+    VMA_CallFrameObject* parent() const { return m_opt_parent; }
 };
 
 class VMA_ClosureObject: public Object {
   private:
     VmExpID m_body;         // the body expression to evaluate
-    Object* m_e;      // the environment to use
+    PairObject* m_e;      // the environment to use
     Object* m_vars;   // the formal variables captured
 
   public:
     VMA_ClosureObject(
         VmExpID body,
-        Object* e,
+        PairObject* e,
         Object* vars
     )
     :   Object(ObjectKind::VMA_Closure),
@@ -262,7 +262,7 @@ class VMA_ClosureObject: public Object {
 
   public:
     [[nodiscard]] VmExpID body() const { return m_body; }
-    [[nodiscard]] Object* e() const { return m_e; }
+    [[nodiscard]] PairObject* e() const { return m_e; }
     [[nodiscard]] Object* vars() const { return m_vars; }
 };
 
@@ -281,6 +281,7 @@ inline Object* car(Object* object);
 inline Object* cdr(Object* object);
 template <typename... Objects> Object* list(Objects... objs);
 template <size_t n> std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic = false);
+inline PairObject* cons(Object* head, Object* tail);
 
 //
 // defs
@@ -318,7 +319,7 @@ std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic) {
     }
     
     // checking that the received array is OK:
-#if !CONFIG_OPTIMIZED_MODE
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     {
         if (!is_variadic && rem_list) {
             std::stringstream error_ss;
@@ -342,7 +343,7 @@ std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic) {
 }
 
 inline Object* car(Object* object) {
-#if !CONFIG_OPTIMIZED_MODE
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (obj_kind(object) != ObjectKind::Pair) {
         error("car: expected argument object to be a pair");
         throw SsiError();
@@ -351,11 +352,15 @@ inline Object* car(Object* object) {
     return static_cast<PairObject*>(object)->car();
 }
 inline Object* cdr(Object* object) {
-#if !CONFIG_OPTIMIZED_MODE
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (obj_kind(object) != ObjectKind::Pair) {
         error("cdr: expected argument object to be a pair");
         throw SsiError();
     }
 #endif
     return static_cast<PairObject*>(object)->cdr();
+}
+
+PairObject* cons(Object* head, Object* tail) {
+    return new PairObject(head, tail);
 }

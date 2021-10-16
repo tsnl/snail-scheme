@@ -7,6 +7,8 @@
 #include "printing.hh"
 #include "vm.hh"
 
+bool dump_vm_after_execution = false;
+
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
     std::ifstream f;
@@ -24,12 +26,6 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     Parser* p = create_parser(f, file_path);
     std::vector<Object*> line_code_obj_array = parse_all_subsequent_lines(p);
     
-    for (auto line_code_obj: line_code_obj_array) {
-        std::cout << "  > ";
-        print_obj(line_code_obj, std::cout);
-        std::cout << std::endl;
-    }
-
     // compiling the program into VM representation:
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
     add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
@@ -40,8 +36,7 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     }
 
     // Dumping:
-    {
-        info("Successfully generated VM bytecode for file '" + file_path + "'");
+    if (dump_vm_after_execution) {
         info("Begin Dump:");
         dump_vm(vm, std::cout);
         info("End Dump");
