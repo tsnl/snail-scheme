@@ -5,8 +5,8 @@
 
 void print_obj(Object* obj, std::ostream& out) {
     switch (obj_kind(obj)) {
-        case ObjectKind::Nil: {
-            out << "'()";
+        case ObjectKind::Null: {
+            out << "()";
         } break;
         case ObjectKind::Boolean: {
             if (static_cast<BoolObject*>(obj)->value()) {
@@ -17,15 +17,11 @@ void print_obj(Object* obj, std::ostream& out) {
         } break;
         case ObjectKind::Integer: {
             auto int_obj = static_cast<IntObject*>(obj);
-            if (int_obj->value()) {
-                out << int_obj->value();
-            }
+            out << int_obj->value();
         } break;
         case ObjectKind::FloatingPt: {
             auto float_obj = static_cast<FloatObject*>(obj);
-            if (float_obj->value()) {
-                out << float_obj->value();
-            }
+            out << float_obj->value();
         } break;
         case ObjectKind::String: {
             auto str_obj = static_cast<StringObject*>(obj);
@@ -91,14 +87,26 @@ void print_obj(Object* obj, std::ostream& out) {
         case ObjectKind::Vector: {
             out << "<Vector>";
         } break;
-        case ObjectKind::Procedure: {
-            out << "<Procedure>";
+        case ObjectKind::Lambda: {
+            out << "<Lambda>";
         } break;
         case ObjectKind::VMA_CallFrame: {
             out << "<VMA_CallFrame>";
         } break;
         case ObjectKind::VMA_Closure: {
-            out << "<VMA_CallFrame>";
+            auto closure_obj = static_cast<VMA_ClosureObject*>(obj);
+            out << "(vma-closure ";
+            print_obj(closure_obj->vars(), out);
+            out << " #:vmx " << closure_obj->body()
+                << " #:env (<...>)";
+            out << ")";
         } break;
+        case ObjectKind::EXT_Callable: {
+            auto callable_obj = static_cast<EXT_CallableObject*>(obj);
+            out << "(ext-callable ";
+            print_obj(callable_obj->vars(), out);
+            out << " #:env (<...>)";
+            out << ")";
+        }
     }
 }

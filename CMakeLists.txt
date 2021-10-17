@@ -22,8 +22,6 @@ add_executable(
     src/ssi/object.hh
     src/ssi/parser.cc
     src/ssi/parser.hh
-    src/ssi/procedure.cc
-    src/ssi/procedure.hh
     src/ssi/printing.cc
     src/ssi/printing.hh
     src/ssi/vm.cc

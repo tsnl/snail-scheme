@@ -157,7 +157,7 @@ union KindDependentTokenInfo {
     IntStr identifier;
     bool boolean;
     my_ssize_t integer;
-    double floating_pt;
+    my_float_t floating_pt;
     struct {
         size_t count;
         char* bytes;

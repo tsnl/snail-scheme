@@ -7,8 +7,6 @@
 #include "printing.hh"
 #include "vm.hh"
 
-bool dump_vm_after_execution = false;
-
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
     std::ifstream f;
@@ -36,11 +34,13 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     }
 
     // Dumping:
-    if (dump_vm_after_execution) {
+#if CONFIG_DUMP_VM_STATE_AFTER_EXECUTION
+    {
         info("Begin Dump:");
         dump_vm(vm, std::cout);
         info("End Dump");
     }
+#endif
 }
 
 int main(int argc, char const* argv[]) {

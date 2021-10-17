@@ -12,12 +12,12 @@
 #include <map>
 #include <array>
 #include <sstream>
+#include <functional>
 #include <cstddef>
 #include <cstdint>
 
 #include "core.hh"
 #include "intern.hh"
-#include "procedure.hh"
 #include "feedback.hh"
 
 //
@@ -26,7 +26,7 @@
 
 enum class ObjectKind {
     // native primitives:
-    Nil,
+    Null,
     Boolean,
     Integer,
     FloatingPt,
@@ -34,12 +34,16 @@ enum class ObjectKind {
     String,
     Pair,
     Vector,
-    Procedure,
+    Lambda,
 
     // VMA = VM Accelerator
-    // Custom structures used to keep the cache warm.
+    // The VM uses some data-structures so frequently that they can be optimized.
+    // These are also 'opaque' to the user.
     VMA_CallFrame,
-    VMA_Closure
+    VMA_Closure,
+
+    // EXT = Extension objects
+    EXT_Callable
 };
 
 class Object {
@@ -76,37 +80,40 @@ class BoolObject: public Object {
   public:
     [[nodiscard]] inline bool value() const { return m_value; }
 };
-class IntObject: public Object {
-  private:
-    my_ssize_t m_value;
-  public:
-    IntObject()
-    :   Object(ObjectKind::Integer),
-        m_value()
-    {}
-    explicit IntObject(my_ssize_t value)
-    :   IntObject()
-    {
-        m_value = value;
-    }
-  public:
-    [[nodiscard]] inline my_ssize_t value() const { return m_value; }
+union NumberObjectMemory {
+    my_ssize_t integer;
+    my_float_t float_pt;
 };
-class FloatObject: public Object {
-  private:
-    double m_value;
-  public:
-    FloatObject() 
-    :   Object(ObjectKind::FloatingPt),
-        m_value()
+class BaseNumberObject: public Object {
+  protected:
+    NumberObjectMemory m_as;
+  protected:
+    BaseNumberObject(my_ssize_t integer)
+    :   Object(ObjectKind::Integer),
+        m_as{.integer = integer}
     {}
-    explicit FloatObject(double value)
-    :   FloatObject()
-    {
-        m_value = value;
-    }
+    BaseNumberObject(double float_pt)
+    :   Object(ObjectKind::FloatingPt),
+        m_as{.float_pt = float_pt}
+    {}
   public:
-    [[nodiscard]] inline double value() const { return m_value; }
+    NumberObjectMemory const* mem() const { return &m_as; }
+};
+class IntObject: public BaseNumberObject {
+  public:
+    IntObject(my_ssize_t value)
+    :   BaseNumberObject(value)
+    {}
+  public:
+    [[nodiscard]] inline my_ssize_t value() const { return m_as.integer; }
+};
+class FloatObject: public BaseNumberObject {
+  public:
+    FloatObject(my_float_t value) 
+    :   BaseNumberObject(value)
+    {}
+  public:
+    [[nodiscard]] inline my_float_t value() const { return m_as.float_pt; }
 };
 class SymbolObject: public Object {
   private:
@@ -194,7 +201,7 @@ class LambdaObject: public Object {
     Object* m_args_list;
   public:
     LambdaObject()
-    :   Object(ObjectKind::Procedure),
+    :   Object(ObjectKind::Lambda),
         m_body(),
         m_args_list()
     {}
@@ -267,6 +274,32 @@ class VMA_ClosureObject: public Object {
 };
 
 //
+// EXT_: Extension objects: used to inject C++ code into the runtime
+//
+
+using EXT_CallableCb = std::function<Object*(Object* args, Object* env)>;
+
+class EXT_CallableObject: public Object {
+  private:
+    EXT_CallableCb m_cb;
+    PairObject* m_e;
+    Object* m_vars;
+
+  public:
+    EXT_CallableObject(EXT_CallableCb cb, PairObject* e, Object* vars)
+    :   Object(ObjectKind::EXT_Callable),
+        m_cb(std::move(cb)),
+        m_e(e),
+        m_vars(vars)
+    {}
+
+  public:
+    EXT_CallableCb const& cb() const { return m_cb; }
+    PairObject* e() const { return m_e; }
+    Object* vars() const { return m_vars; }
+};
+
+//
 //
 // Inline functions:
 //
@@ -282,6 +315,22 @@ inline Object* cdr(Object* object);
 template <typename... Objects> Object* list(Objects... objs);
 template <size_t n> std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic = false);
 inline PairObject* cons(Object* head, Object* tail);
+inline Object* boolean(bool v);
+inline bool is_boolean(Object* o);
+inline bool is_char(Object* o);
+inline bool is_null(Object* o);
+inline bool is_pair(Object* o);
+inline bool is_procedure(Object* o);
+inline bool is_symbol(Object* o);
+inline bool is_integer(Object* o);
+inline bool is_float(Object* o);
+inline bool is_string(Object* o);
+inline bool is_vector(Object* o);
+
+bool is_eqn(Object* e1, Object* e2);
+bool is_eq(Object* e1, Object* e2);
+bool is_eqv(Object* e1, Object* e2);
+bool is_equal(Object* e1, Object* e2);
 
 //
 // defs
@@ -303,7 +352,7 @@ inline ObjectKind obj_kind(Object* object) {
     if (object) {
         return object->kind();
     } else {
-        return ObjectKind::Nil;
+        return ObjectKind::Null;
     }
 }
 
@@ -363,4 +412,39 @@ inline Object* cdr(Object* object) {
 
 PairObject* cons(Object* head, Object* tail) {
     return new PairObject(head, tail);
+}
+
+Object* boolean(bool v) {
+    return v ? BoolObject::t : BoolObject::f;
+}
+
+inline bool is_boolean(Object* o) {
+    return o->kind() == ObjectKind::Boolean;
+}
+inline bool is_null(Object* o) {
+    return o->kind() == ObjectKind::Null;
+}
+inline bool is_pair(Object* o) {
+    return o->kind() == ObjectKind::Pair;
+}
+inline bool is_procedure(Object* o) {
+    return (
+        o->kind() == ObjectKind::VMA_Closure ||
+        o->kind() == ObjectKind::EXT_Callable
+    );
+}
+inline bool is_symbol(Object* o) {
+    return o->kind() == ObjectKind::Symbol;
+}
+inline bool is_integer(Object* o) {
+    return o->kind() == ObjectKind::Integer;
+}
+inline bool is_float(Object* o) {
+    return o->kind() == ObjectKind::FloatingPt;
+}
+inline bool is_string(Object* o) {
+    return o->kind() == ObjectKind::String;
+}
+inline bool is_vector(Object* o) {
+    return o->kind() == ObjectKind::Vector;
 }

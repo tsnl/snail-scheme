@@ -133,9 +133,6 @@ class VirtualMachine {
     VmExpID new_vmx_return();
     VmExpID new_vmx_define(Object* var, VmExpID next);
 
-  // TODO: creating VM stacks
-  private:
-    
   // Source code loading + compilation:
   public:
     // add_file eats an std::vector<Object*> containing each line
@@ -159,6 +156,10 @@ class VirtualMachine {
     static PairObject* lookup(Object* symbol, Object* env_raw);
     VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
     PairObject* extend(PairObject* e, Object* vars, Object* vals);
+
+  // Error functions:
+  public:
+    void check_vars_list_else_throw(Object* vars);
 
   // Debug dumps:
   public:
@@ -288,12 +289,6 @@ VmExpID VirtualMachine::new_vmx_define(Object* var, VmExpID next) {
 }
 
 //
-// Creating VM stacks
-//
-
-// todo: implement me
-
-//
 // Source code loading + compilation (p. 57 of 'three-imp.pdf')
 //
 
@@ -321,7 +316,7 @@ VmProgram VirtualMachine::translate_single_line_code_obj(Object* line_code_obj) 
     return VmProgram {first_exp_id, last_exp_id};
 }
 VmExpID VirtualMachine::translate_code_obj(Object* obj, VmExpID next) {
-    // todo: iteratively translate this line to a VmProgram
+    // iteratively translating this line to a VmProgram
     //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
     auto obj_kind = obj->kind();
     switch (obj_kind) {
@@ -357,8 +352,9 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
             auto args_array = extract_args<2>(args);
             auto vars = args_array[0];
             auto body = args_array[1];
-            // todo: check that 'vars' is a list of symbols
-            //  - cf `define`
+            
+            check_vars_list_else_throw(vars);
+
             return new_vmx_close(
                 vars,
                 translate_code_obj(
@@ -420,7 +416,10 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
 
             if (structural_signature && structural_signature->kind() == ObjectKind::Symbol) {
                 // (define <var> <initializer>)
-                return new_vmx_define(structural_signature, next);
+                return translate_code_obj(
+                    body,
+                    new_vmx_define(structural_signature, next)
+                );
             }
             else if (structural_signature && structural_signature->kind() == ObjectKind::Pair) {
                 // (define (<fn-name> <arg-vars...>) <initializer>)
@@ -428,8 +427,9 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                 // (define <fn-name> (lambda (<arg-vars) <initializer>))
                 auto fn_name = car(structural_signature);
                 auto arg_vars = cdr(structural_signature);
-                // todo: check that arg_vars are a list of SymbolObjects
-                //  - cf 'lambda'
+                
+                check_vars_list_else_throw(arg_vars);
+
                 if (!fn_name || fn_name->kind() != ObjectKind::Symbol) {
                     std::stringstream ss;
                     ss << "define: invalid function name: ";
@@ -437,6 +437,8 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                     error(ss.str());
                     throw SsiError();
                 }
+
+                // create a lambda, then invoke 'define':
                 return new_vmx_close(
                     arg_vars,
                     translate_code_obj(body, new_vmx_return()),
@@ -579,13 +581,13 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Frame: {
                         m_reg.x = exp.args.i_frame.ret;
-                        m_reg.r = nullptr;
                         m_reg.s = new VMA_CallFrameObject(
                             exp.args.i_frame.x,
                             m_reg.e,
                             m_reg.r,
                             m_reg.s
                         );
+                        m_reg.r = nullptr;
                     } break;
                     case VmExpKind::Argument: {
                         m_reg.x = exp.args.i_argument.x;
@@ -593,20 +595,37 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Apply: {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                        if (m_reg.a->kind() != ObjectKind::VMA_Closure) {
+                        if (!is_procedure(m_reg.a)) {
                             std::stringstream ss;
-                            ss << "apply: expected a 'closure' instance in m_reg.a, received: ";
+                            ss << "apply: expected a procedure, received: ";
                             print_obj(m_reg.a, ss);
                             ss << std::endl;
                             error(ss.str());
                             throw SsiError();
                         }
 #endif
-                        auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
-                        // m_reg.a = m_reg.a;
-                        m_reg.x = a->body();
-                        m_reg.e = extend(a->e(), a->vars(), m_reg.r);
-                        m_reg.r = nullptr;
+                        if (m_reg.a->kind() == ObjectKind::VMA_Closure) {
+                            // a Scheme function is called
+                            auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
+                            // m_reg.a = m_reg.a;
+                            m_reg.x = a->body();
+                            m_reg.e = extend(a->e(), a->vars(), m_reg.r);
+                            m_reg.r = nullptr;
+                        }
+                        else if (m_reg.a->kind() == ObjectKind::EXT_Callable) {
+                            // a C++ function is called; assume 'return' is called internally
+                            auto a = static_cast<EXT_CallableObject*>(m_reg.a);
+                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
+                            auto s_prime = m_reg.s;
+                            auto s = m_reg.s->parent();
+                            m_reg.a = a->cb()(m_reg.r, e_prime);
+                            // leave env unaffected, since after evaluation, we continue with original env
+                            // pop the stack frame added by 'Frame'
+                            m_reg.x = s_prime->x();
+                            m_reg.e = s_prime->e();
+                            m_reg.r = s_prime->r();
+                            m_reg.s = s;
+                        }
                     } break;
                     case VmExpKind::Return: {
                         auto s = m_reg.s;
@@ -617,8 +636,17 @@ void VirtualMachine::sync_execute() {
                         m_reg.s = s->parent();
                     } break;
                     case VmExpKind::Define: {
+                        auto a = m_reg.a;
                         m_reg.x = exp.args.i_define.next;
-                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list(m_reg.a));
+                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list(a));
+                        // DEBUG:
+                        // auto def_name = static_cast<SymbolObject*>(exp.args.i_define.var)->name();
+                        // std::cout << "define: " << interned_string(def_name) << ": ";
+                        // print_obj(m_reg.a, std::cout);
+                        // std::cout << std::endl;
+                        // std::cout << "  - now, env is: ";
+                        // print_obj(m_reg.e, std::cout);
+                        // std::cout << std::endl;
                     } break;
                     // default: {
                     //     std::stringstream ss;
@@ -644,11 +672,151 @@ void VirtualMachine::sync_execute() {
 }
 
 PairObject* VirtualMachine::mk_default_root_env() {
-    auto env = nullptr;
+    PairObject* init_env = nullptr;
+    Object* var_rib = nullptr;
+    Object* elt_rib = nullptr;
 
-    // todo: define builtins, e.g. car/cdr, is___?, etc.
+    auto const define_builtin_fn = 
+    [&](std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names) {
+        Object* var_obj = new SymbolObject(intern(std::move(name_str)));
+        PairObject* vars_list = nullptr;
+        for (size_t i = 0; i < arg_names.size(); i++) {
+            vars_list = cons(new SymbolObject(intern(arg_names[i])), vars_list);
+        }
+        Object* elt_obj = new EXT_CallableObject(callback, init_env, vars_list);
+        var_rib = cons(var_obj, var_rib);
+        elt_rib = cons(elt_obj, elt_rib);
+    };
+
+    define_builtin_fn(
+        "cons", 
+        [](Object* args, Object* env) -> Object* { 
+            auto aa = extract_args<2>(args);
+            return cons(aa[0], aa[1]); 
+        }, 
+        {"ar", "dr"}
+    );
+    define_builtin_fn(
+        "boolean?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_boolean(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "null?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_null(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "pair?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_pair(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "procedure?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_procedure(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "symbol?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_symbol(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "integer?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_integer(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "float?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_float(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "string?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_string(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "vector?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_vector(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "=",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<2>(args);
+            return boolean(is_eqn(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "eq?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<2>(args);
+            return boolean(is_eq(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "eqv?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<2>(args);
+            return boolean(is_eqv(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "equal?",
+        [](Object* args, Object* env) -> Object* {
+            auto aa = extract_args<2>(args);
+            return boolean(is_equal(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "list",
+        [](Object* args, Object* env) -> Object* {
+            return args;
+        },
+        {"items..."}
+    );
+    // todo: define builtins, e.g. car/cdr, is___?, eq__, etc.
     //  - each 'rib' is a pair of 'elements' and 'variables' lists
+    //  - need a new 'Object' type that is easy for the user to use.
+    //      - consider offerring a general C++ class that users can sub-class.
 
+    // finalizing the rib-pair:
+    Object* rib_pair = cons(var_rib, elt_rib);
+
+    // creating a fresh env:
+    PairObject* env = cons(rib_pair, init_env);
     return env;
 }
 
@@ -727,6 +895,27 @@ PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals) {
 }
 
 //
+// Error functions:
+//
+
+void VirtualMachine::check_vars_list_else_throw(Object* vars) {
+    Object* rem_vars = vars;
+    while (rem_vars) {
+        Object* head = car(rem_vars);
+        rem_vars = cdr(rem_vars);
+
+        if (head->kind() != ObjectKind::Symbol) {
+            std::stringstream ss;
+            ss << "Invalid variable list for lambda: expected symbol, got: ";
+            print_obj(head, ss);
+            ss << std::endl;
+            error(ss.str());
+            throw SsiError();
+        }
+    }
+}
+
+//
 // VM dumps:
 //
 
@@ -760,49 +949,49 @@ void VirtualMachine::print_one_exp(VmExpID exp_id, std::ostream& out) {
             out << "refer ";
             print_obj(exp.args.i_refer.var, out);
             out << ' ';
-            out << "vmx:" << exp.args.i_refer.x;
+            out << "#:vmx " << exp.args.i_refer.x;
         } break;
         case VmExpKind::Constant: {
             out << "constant ";
             print_obj(exp.args.i_constant.constant, out);
             out << ' ';
-            out << "vmx:" << exp.args.i_constant.x;
+            out << "#:vmx " << exp.args.i_constant.x;
         } break;
         case VmExpKind::Close: {
             out << "close ";
             print_obj(exp.args.i_refer.var, out);
             out << ' ';
-            out << "vmx:" << exp.args.i_refer.x;
+            out << "#:vmx " << exp.args.i_refer.x;
         } break;
         case VmExpKind::Test: {
             out << "test "
-                << "vmx:" << exp.args.i_test.next_if_t << ' '
-                << "vmx:" << exp.args.i_test.next_if_f;
+                << "#:vmx " << exp.args.i_test.next_if_t << ' '
+                << "#:vmx " << exp.args.i_test.next_if_f;
         } break;
         case VmExpKind::Assign: {
             out << "assign ";
             print_obj(exp.args.i_assign.var, out);
             out << ' ';
-            out << "vmx:" << exp.args.i_assign.x;
+            out << "#:vmx " << exp.args.i_assign.x;
         } break;
         case VmExpKind::Conti: {
             out << "conti ";
-            out << "vmx:" << exp.args.i_conti.x;
+            out << "#:vmx " << exp.args.i_conti.x;
         } break;
         case VmExpKind::Nuate: {
             out << "nuate ";
             print_obj(exp.args.i_nuate.var, out);
             out << ' '
-                << "vmx:" << exp.args.i_nuate.s;
+                << "#:vmx " << exp.args.i_nuate.s;
         } break;
         case VmExpKind::Frame: {
             out << "frame "
-                << "vmx:" << exp.args.i_frame.x << ' '
-                << "vmx:" << exp.args.i_frame.ret;
+                << "#:vmx " << exp.args.i_frame.x << ' '
+                << "#:vmx " << exp.args.i_frame.ret;
         } break;
         case VmExpKind::Argument: {
             out << "argument "
-                << "vmx:" << exp.args.i_argument.x;
+                << "#:vmx " << exp.args.i_argument.x;
         } break;
         case VmExpKind::Apply: {
             out << "apply";
@@ -814,7 +1003,7 @@ void VirtualMachine::print_one_exp(VmExpID exp_id, std::ostream& out) {
             out << "define ";
             print_obj(exp.args.i_define.var, out);
             out << " "
-                << "vmx:" << exp.args.i_define.next;
+                << "#:vmx " << exp.args.i_define.next;
         } break;
     }
     out << ")";
@@ -831,7 +1020,7 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
             out << "    " "  > ";
             print_obj(line_code_obj, out);
             out << std::endl;
-            out << "    " " => " << "(vmx:" << program.s << " vmx:" << program.t << ")";
+            out << "    " " => " << "(#:vmx" << program.s << " #:vmx" << program.t << ")";
             out << std::endl;
         }
     }
