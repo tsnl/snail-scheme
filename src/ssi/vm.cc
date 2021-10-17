@@ -92,6 +92,9 @@ struct VmFile {
 //  - de-allocates all expressions (and thus, all `Object` instances parsed and possibly reused)
 //
 
+typedef Object*(*BinaryOpCb)(Object* args, Object* env);
+typedef bool(*ArgCheckCb)(Object* arg);
+
 class VirtualMachine {
   private:
     struct {
@@ -151,6 +154,8 @@ class VirtualMachine {
 
   // Interpreter environment setup:
   public:
+    template <BinaryOpCb op_cb, ArgCheckCb check_cb>
+    static Object* wrap_bin_op(Object* args, Object* env, std::string const& op_name);
     static PairObject* mk_default_root_env();
     static VMA_ClosureObject* closure(VmExpID body, PairObject* env, Object* args);
     static PairObject* lookup(Object* symbol, Object* env_raw);
@@ -416,9 +421,15 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
 
             if (structural_signature && structural_signature->kind() == ObjectKind::Symbol) {
                 // (define <var> <initializer>)
-                return translate_code_obj(
-                    body,
-                    new_vmx_define(structural_signature, next)
+                return new_vmx_define(
+                    structural_signature, 
+                    translate_code_obj(
+                        body,
+                        new_vmx_assign(
+                            structural_signature,
+                            next
+                        )
+                    )
                 );
             }
             else if (structural_signature && structural_signature->kind() == ObjectKind::Pair) {
@@ -439,10 +450,16 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                 }
 
                 // create a lambda, then invoke 'define':
-                return new_vmx_close(
-                    arg_vars,
-                    translate_code_obj(body, new_vmx_return()),
-                    new_vmx_define(fn_name, next)
+                return new_vmx_define(
+                    fn_name,
+                    new_vmx_close(
+                        arg_vars,
+                        translate_code_obj(body, new_vmx_return()),
+                        new_vmx_assign(
+                            fn_name,
+                            next
+                        )
+                    )
                 );
             }
 
@@ -636,9 +653,8 @@ void VirtualMachine::sync_execute() {
                         m_reg.s = s->parent();
                     } break;
                     case VmExpKind::Define: {
-                        auto a = m_reg.a;
                         m_reg.x = exp.args.i_define.next;
-                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list(a));
+                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list((Object*)nullptr));
                         // DEBUG:
                         // auto def_name = static_cast<SymbolObject*>(exp.args.i_define.var)->name();
                         // std::cout << "define: " << interned_string(def_name) << ": ";
@@ -807,10 +823,68 @@ PairObject* VirtualMachine::mk_default_root_env() {
         },
         {"items..."}
     );
-    // todo: define builtins, e.g. car/cdr, is___?, eq__, etc.
-    //  - each 'rib' is a pair of 'elements' and 'variables' lists
-    //  - need a new 'Object' type that is easy for the user to use.
-    //      - consider offerring a general C++ class that users can sub-class.
+    define_builtin_fn(
+        "and",
+        [](Object* args, Object* env) -> Object* {
+            Object* rem_args = args;
+            while (rem_args) {
+                Object* head = car(rem_args);
+                rem_args = cdr(rem_args);
+
+                Object* maybe_boolean_obj = head;
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
+                    std::stringstream ss;
+                    ss << "and: expected boolean, received: ";
+                    print_obj(head, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
+#endif
+                Object* boolean_obj = maybe_boolean_obj;
+                if (boolean_obj == BoolObject::f) {
+                    return BoolObject::f;
+                }
+            }
+            return BoolObject::t;
+        },
+        {"booleans..."}
+    );
+    define_builtin_fn(
+        "or",
+        [](Object* args, Object* env) -> Object* {
+            Object* rem_args = args;
+            while (rem_args) {
+                Object* head = car(rem_args);
+                rem_args = cdr(rem_args);
+
+                Object* maybe_boolean_obj = head;
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
+                    std::stringstream ss;
+                    ss << "or: expected boolean, received: ";
+                    print_obj(head, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
+#endif
+                Object* boolean_obj = maybe_boolean_obj;
+                if (boolean_obj == BoolObject::t) {
+                    return BoolObject::t;
+                }
+            }
+            return BoolObject::f;
+        },
+        {"booleans..."}
+    );
+    
+    // todo: implement binary arithmetic operators
+    //  - challenge is converting numerical types correctly
+    //  - cf https://www.cs.cmu.edu/Groups/AI/html/r4rs/r4rs_8.html#SEC51
+    //  - cf https://www.cs.cmu.edu/Groups/AI/html/r4rs/r4rs_8.html
+
+    // todo: define builtins,
+    //  - binary operators: '-', '+', ...
 
     // finalizing the rib-pair:
     Object* rib_pair = cons(var_rib, elt_rib);

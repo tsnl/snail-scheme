@@ -380,7 +380,7 @@ std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic) {
         if (index < n) {
             std::stringstream error_ss;
             error_ss 
-                << "extract_args: too few arguments: received " << 1+index << ", but expected at least " << n; 
+                << "extract_args: too few arguments: received " << index << ", but expected at least " << n; 
             error(error_ss.str());
             throw SsiError();
         }

@@ -282,7 +282,7 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
         bool line_comment_culled = (f.peek() == ';');
         if (line_comment_culled) {
             char nc = f.peek();
-            while (nc != '\n' && nc != '\r') {
+            while (!f.eof() && nc != '\n' && nc != '\r') {
                 f.get();
                 nc = f.peek();
             }

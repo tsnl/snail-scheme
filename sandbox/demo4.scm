@@ -1,3 +1,6 @@
+; testing builtin functions:
+;   e.g. cons, =, eq?, eqv?, equal?
+
 (cons 0 (cons 1 (cons 2 (cons 3 ()))))
 
 '(1 2 3 4 5 6)
@@ -7,6 +10,7 @@
 (= 1 1)
 (eqv? '(1 2) '(1 2))
 (define x '(1 2))
+(eq? x x)
 (eqv? x x)
 (equal? '(1 2 3 4 5) '(1 2 3 4))
 
