@@ -1,7 +1,9 @@
 ; testing builtin functions:
 ;   e.g. cons, =, eq?, eqv?, equal?
 
-(cons 0 (cons 1 (cons 2 (cons 3 ()))))
+(define w (cons 0 (cons 1 (cons 2 (cons 3 ())))))
+(define wa (car w))
+(define wd (cdr w))
 
 '(1 2 3 4 5 6)
 

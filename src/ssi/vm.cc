@@ -713,6 +713,40 @@ PairObject* VirtualMachine::mk_default_root_env() {
         {"ar", "dr"}
     );
     define_builtin_fn(
+        "car", 
+        [](Object* args, Object* env) -> Object* { 
+            auto aa = extract_args<1>(args);
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+            if (aa[0]->kind() != ObjectKind::Pair) {
+                std::stringstream ss;
+                ss << "car: expected pair argument, received: ";
+                print_obj(aa[0], ss);
+                error(ss.str());
+                throw SsiError();
+            }
+#endif
+            return car(aa[0]); 
+        }, 
+        {"pair"}
+    );
+    define_builtin_fn(
+        "cdr", 
+        [](Object* args, Object* env) -> Object* { 
+            auto aa = extract_args<1>(args);
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+            if (aa[0]->kind() != ObjectKind::Pair) {
+                std::stringstream ss;
+                ss << "cdr: expected pair argument, received: ";
+                print_obj(aa[0], ss);
+                error(ss.str());
+                throw SsiError();
+            }
+#endif
+            return cdr(aa[0]); 
+        }, 
+        {"pair"}
+    );
+    define_builtin_fn(
         "boolean?",
         [](Object* args, Object* env) -> Object* {
             auto aa = extract_args<1>(args);
