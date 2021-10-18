@@ -47,6 +47,8 @@ enum class ObjectKind {
 };
 
 class Object {
+    friend ObjectKind obj_kind(Object* obj);
+
   private:
     ObjectKind m_kind;
 
@@ -427,34 +429,34 @@ Object* boolean(bool v) {
 }
 
 inline bool is_boolean(Object* o) {
-    return o->kind() == ObjectKind::Boolean;
+    return obj_kind(o) == ObjectKind::Boolean;
 }
 inline bool is_null(Object* o) {
-    return o->kind() == ObjectKind::Null;
+    return obj_kind(o) == ObjectKind::Null;
 }
 inline bool is_pair(Object* o) {
-    return o->kind() == ObjectKind::Pair;
+    return obj_kind(o) == ObjectKind::Pair;
 }
 inline bool is_procedure(Object* o) {
     return (
-        o->kind() == ObjectKind::VMA_Closure ||
-        o->kind() == ObjectKind::EXT_Callable
+        obj_kind(o) == ObjectKind::VMA_Closure ||
+        obj_kind(o) == ObjectKind::EXT_Callable
     );
 }
 inline bool is_symbol(Object* o) {
-    return o->kind() == ObjectKind::Symbol;
+    return obj_kind(o) == ObjectKind::Symbol;
 }
 inline bool is_integer(Object* o) {
-    return o->kind() == ObjectKind::Integer;
+    return obj_kind(o) == ObjectKind::Integer;
 }
 inline bool is_float(Object* o) {
-    return o->kind() == ObjectKind::FloatingPt;
+    return obj_kind(o) == ObjectKind::FloatingPt;
 }
 inline bool is_string(Object* o) {
-    return o->kind() == ObjectKind::String;
+    return obj_kind(o) == ObjectKind::String;
 }
 inline bool is_vector(Object* o) {
-    return o->kind() == ObjectKind::Vector;
+    return obj_kind(o) == ObjectKind::Vector;
 }
 
 inline my_ssize_t count_list_items(Object* pair_list) {

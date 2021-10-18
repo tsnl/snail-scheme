@@ -332,8 +332,7 @@ VmProgram VirtualMachine::translate_single_line_code_obj(Object* line_code_obj) 
 VmExpID VirtualMachine::translate_code_obj(Object* obj, VmExpID next) {
     // iteratively translating this line to a VmProgram
     //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
-    auto obj_kind = obj->kind();
-    switch (obj_kind) {
+    switch (obj_kind(obj)) {
         case ObjectKind::Symbol: {
             return new_vmx_refer(obj, next);
         }

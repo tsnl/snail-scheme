@@ -56,13 +56,13 @@ void print_obj(Object* obj, std::ostream& out) {
                 print_obj(pair_obj->car(), out);
             } else {
                 // (possibly improper) list or pair
-                if (pair_obj->cdr()->kind() == ObjectKind::Pair) {
+                if (obj_kind(pair_obj->cdr()) == ObjectKind::Pair) {
                     // list or improper list
                     Object* rem_list = pair_obj;
                     while (rem_list) {
-                        auto rem_list_pair = static_cast<PairObject*>(rem_list);
-                        if (rem_list_pair) {
+                        if (obj_kind(rem_list) == ObjectKind::Pair) {
                             // just a regular list item
+                            auto rem_list_pair = static_cast<PairObject*>(rem_list);
                             print_obj(rem_list_pair->car(), out);
                             rem_list = rem_list_pair->cdr();
                             if (rem_list) {
