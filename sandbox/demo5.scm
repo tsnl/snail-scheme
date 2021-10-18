@@ -1,5 +1,4 @@
 ; recursion
-
 (define (rec-chk x)
   (if (= x 0) 
     0

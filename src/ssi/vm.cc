@@ -13,6 +13,7 @@
 #include "feedback.hh"
 #include "object.hh"
 #include "printing.hh"
+#include "core.hh"
 
 //
 // VmExp data: each expression either stores a VM instruction or a constant
@@ -92,8 +93,10 @@ struct VmFile {
 //  - de-allocates all expressions (and thus, all `Object` instances parsed and possibly reused)
 //
 
-typedef Object*(*BinaryOpCb)(Object* args, Object* env);
 typedef bool(*ArgCheckCb)(Object* arg);
+typedef Object*(*BinaryOpCb)(Object* args, Object* env);
+typedef my_ssize_t(*IntFoldCb)(my_ssize_t accum, my_ssize_t item);
+typedef my_float_t(*FloatFoldCb)(my_float_t accum, my_float_t item);
 
 class VirtualMachine {
   private:
@@ -106,6 +109,10 @@ class VirtualMachine {
     } m_reg;
     std::vector<VmExp> m_exps;
     std::vector< VmFile > m_files;
+    
+    PairObject* m_init_env;
+    Object* m_init_var_rib;
+    Object* m_init_elt_rib;
 
     const struct {
         IntStr const quote;
@@ -156,7 +163,10 @@ class VirtualMachine {
   public:
     template <BinaryOpCb op_cb, ArgCheckCb check_cb>
     static Object* wrap_bin_op(Object* args, Object* env, std::string const& op_name);
-    static PairObject* mk_default_root_env();
+    PairObject* mk_default_root_env();
+    void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
+    template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
+    void define_builtin_variadic_arithmetic_fn(char const* name_str);
     static VMA_ClosureObject* closure(VmExpID body, PairObject* env, Object* args);
     static PairObject* lookup(Object* symbol, Object* env_raw);
     VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
@@ -189,7 +199,10 @@ VirtualMachine::VirtualMachine(size_t file_count)
         .set = intern("set!"),
         .call_cc = intern("call/cc"),
         .define = intern("define")
-    })
+    }),
+    m_init_env(nullptr),
+    m_init_var_rib(nullptr),
+    m_init_elt_rib(nullptr)
 {
     m_exps.reserve(4096);
     m_files.reserve(file_count);
@@ -474,10 +487,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
     //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
     {
         // function call
-        VmExpID c = translate_code_obj(
-            head,
-            new_vmx_apply()
-        );
+        VmExpID c = translate_code_obj(head, new_vmx_apply());
         Object* c_args = args;
         while (c_args) {
             c = translate_code_obj(
@@ -643,6 +653,10 @@ void VirtualMachine::sync_execute() {
                             m_reg.r = s_prime->r();
                             m_reg.s = s;
                         }
+                        else {
+                            error("Invalid callable while type-checks disabled");
+                            throw SsiError();
+                        }
                     } break;
                     case VmExpKind::Return: {
                         auto s = m_reg.s;
@@ -687,23 +701,19 @@ void VirtualMachine::sync_execute() {
     }
 }
 
+inline my_ssize_t int_mul_cb(my_ssize_t accum, my_ssize_t item) { return accum * item; }
+inline my_ssize_t int_div_cb(my_ssize_t accum, my_ssize_t item) { return accum / item; }
+inline my_ssize_t int_rem_cb(my_ssize_t accum, my_ssize_t item) { return accum % item; }
+inline my_ssize_t int_add_cb(my_ssize_t accum, my_ssize_t item) { return accum + item; }
+inline my_ssize_t int_sub_cb(my_ssize_t accum, my_ssize_t item) { return accum - item; }
+inline my_float_t float_mul_cb(my_float_t accum, my_float_t item) { return accum * item; }
+inline my_float_t float_div_cb(my_float_t accum, my_float_t item) { return accum / item; }
+inline my_float_t float_rem_cb(my_float_t accum, my_float_t item) { return fmod(accum, item); }
+inline my_float_t float_add_cb(my_float_t accum, my_float_t item) { return accum + item; }
+inline my_float_t float_sub_cb(my_float_t accum, my_float_t item) { return accum - item; }
+
 PairObject* VirtualMachine::mk_default_root_env() {
-    PairObject* init_env = nullptr;
-    Object* var_rib = nullptr;
-    Object* elt_rib = nullptr;
-
-    auto const define_builtin_fn = 
-    [&](std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names) {
-        Object* var_obj = new SymbolObject(intern(std::move(name_str)));
-        PairObject* vars_list = nullptr;
-        for (size_t i = 0; i < arg_names.size(); i++) {
-            vars_list = cons(new SymbolObject(intern(arg_names[i])), vars_list);
-        }
-        Object* elt_obj = new EXT_CallableObject(callback, init_env, vars_list);
-        var_rib = cons(var_obj, var_rib);
-        elt_rib = cons(elt_obj, elt_rib);
-    };
-
+    // definitions:
     define_builtin_fn(
         "cons", 
         [](Object* args, Object* env) -> Object* { 
@@ -911,21 +921,107 @@ PairObject* VirtualMachine::mk_default_root_env() {
         },
         {"booleans..."}
     );
-    
-    // todo: implement binary arithmetic operators
-    //  - challenge is converting numerical types correctly
-    //  - cf https://www.cs.cmu.edu/Groups/AI/html/r4rs/r4rs_8.html#SEC51
-    //  - cf https://www.cs.cmu.edu/Groups/AI/html/r4rs/r4rs_8.html
-
-    // todo: define builtins,
-    //  - binary operators: '-', '+', ...
+    define_builtin_variadic_arithmetic_fn<int_mul_cb, float_mul_cb>("*");
+    define_builtin_variadic_arithmetic_fn<int_div_cb, float_div_cb>("/");
+    define_builtin_variadic_arithmetic_fn<int_rem_cb, float_rem_cb>("%");
+    define_builtin_variadic_arithmetic_fn<int_add_cb, float_add_cb>("+");
+    define_builtin_variadic_arithmetic_fn<int_sub_cb, float_sub_cb>("-");
+    // todo: define more builtin functions here
 
     // finalizing the rib-pair:
-    Object* rib_pair = cons(var_rib, elt_rib);
+    Object* rib_pair = cons(m_init_var_rib, m_init_elt_rib);
 
     // creating a fresh env:
-    PairObject* env = cons(rib_pair, init_env);
+    PairObject* env = cons(rib_pair, m_init_env);
+
+    // (DEBUG:) printing env after construction:
+    // print_obj(env, std::cerr);
+
     return env;
+}
+
+void VirtualMachine::define_builtin_fn(
+    std::string name_str, 
+    EXT_CallableCb callback, 
+    std::vector<std::string> arg_names
+) {
+    Object* var_obj = new SymbolObject(intern(std::move(name_str)));
+    PairObject* vars_list = nullptr;
+    for (size_t i = 0; i < arg_names.size(); i++) {
+        vars_list = cons(new SymbolObject(intern(arg_names[i])), vars_list);
+    }
+    Object* elt_obj = new EXT_CallableObject(callback, m_init_env, vars_list);
+    m_init_var_rib = cons(var_obj, m_init_var_rib);
+    m_init_elt_rib = cons(elt_obj, m_init_elt_rib);
+}
+
+template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
+void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const name_str) {
+    define_builtin_fn(
+        name_str,
+        [=](Object* args, Object* env) -> Object* {
+            // first, ensuring we have at least 1 argument:
+            if (!args) {
+                std::stringstream ss;
+                ss << "Expected 1 or more arguments to arithmetic operator " << name_str << ": got 0";
+                error(ss.str());
+                throw SsiError();
+            }
+
+            // next, type-checking the first argument:
+            Object* accum = car(args);
+            Object* rem_args = cdr(args);
+
+            if (accum->kind() == ObjectKind::Integer) {
+                auto unwrapped_accum_int = static_cast<IntObject*>(accum)->value();
+
+                while (rem_args) {
+                    auto item_int_obj = static_cast<IntObject*>(car(rem_args));
+                    rem_args = cdr(rem_args);
+                    
+                    if (accum->kind() != item_int_obj->kind()) {
+                        std::stringstream ss;
+                        ss << "(operator " << name_str << "): expected an integer, got: ";
+                        print_obj(item_int_obj, ss);
+                        error(ss.str());
+                        throw SsiError();
+                    } else {
+                        unwrapped_accum_int = int_fold_cb(unwrapped_accum_int, item_int_obj->value());
+                    }
+                }
+
+                return new IntObject(unwrapped_accum_int);
+            }
+            else if (accum->kind() == ObjectKind::FloatingPt) {
+                auto unboxed_accum_float = static_cast<FloatObject*>(accum)->value();
+
+                while (rem_args) {
+                    auto item_float_obj = static_cast<FloatObject*>(car(rem_args));
+                    rem_args = cdr(rem_args);
+
+                    if (accum->kind() != item_float_obj->kind()) {
+                        std::stringstream ss;
+                        ss << "(operator " << name_str << "): expected an integer, got: ";
+                        print_obj(item_float_obj, ss);
+                        error(ss.str());
+                        throw SsiError();
+                    } else {
+                        unboxed_accum_float = float_fold_cb(unboxed_accum_float, item_float_obj->value());
+                    }
+                }
+
+                return new FloatObject(unboxed_accum_float);
+            }
+            else {
+                std::stringstream ss;
+                ss << "(operator " << name_str << "): operator not defined on datum with this type: ";
+                print_obj(accum, ss);
+                error(ss.str());
+                throw SsiError();
+            }
+        },
+        {"args..."}
+    );
 }
 
 VMA_ClosureObject* VirtualMachine::closure(VmExpID body, PairObject* env, Object* vars) {
@@ -974,6 +1070,7 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
                 ((rem_variable_rib = static_cast<PairObject*>(rem_variable_rib->cdr())),
                  (rem_value_rib = static_cast<PairObject*>(rem_value_rib->cdr())))
             ) {
+                assert(rem_variable_rib && "Expected rem_variable_rib to be non-null with rem_value_rib");
                 auto variable_rib_head = static_cast<SymbolObject*>(rem_variable_rib->car());
                 if (variable_rib_head->name() == sym_name) {
                     // return the remaining value rib so we can reuse for 'set'

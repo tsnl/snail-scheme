@@ -14,3 +14,5 @@ It includes a basic interpreter (SSI) and a whole-program optimizing compiler (S
 1.  Int and Float are separate data-types-- precision selection for floating point defaults to double
 2.  No block comments supported
 3.  Like R7RS and unlike older Scheme revisions, identifiers are case-sensitive.
+4.  No modules-- use `include-*` 
+ 

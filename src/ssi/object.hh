@@ -106,6 +106,7 @@ class IntObject: public BaseNumberObject {
     {}
   public:
     [[nodiscard]] inline my_ssize_t value() const { return m_as.integer; }
+    inline void value(my_ssize_t value) { m_as.integer = value; }
 };
 class FloatObject: public BaseNumberObject {
   public:
@@ -114,6 +115,7 @@ class FloatObject: public BaseNumberObject {
     {}
   public:
     [[nodiscard]] inline my_float_t value() const { return m_as.float_pt; }
+    inline void value(my_float_t value) { m_as.float_pt = value; }
 };
 class SymbolObject: public Object {
   private:
