@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.0.0)
 project(SnailScheme VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "-glldb")
+if (WIN32)
+    # set stuff for windows
+else()
+    set(CMAKE_CXX_FLAGS "-glldb")
+endif()
 include_directories(src)
 
 configure_file(

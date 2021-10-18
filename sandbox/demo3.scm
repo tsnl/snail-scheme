@@ -10,7 +10,12 @@
 ;;; TODO: fix me!
 ; (+ 1 2 3)
 ; (* 1 2 3 4 5)
-(fibonacci 25)
 
-; (define (w x) (x 42))
-; (call/cc w)
+(define a (fibonacci 25))
+(define b 0)
+
+(define (w x) 
+  (begin 
+    (set! b 42)
+    (x a)))
+(call/cc w)

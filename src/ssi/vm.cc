@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <cstdint>
 #include <cmath>
+#include <cassert>
 
 #include <config/config.hh>
 #include "feedback.hh"
@@ -119,6 +120,7 @@ class VirtualMachine {
         IntStr const set;
         IntStr const call_cc;
         IntStr const define;
+        IntStr const begin;
     } m_builtin_intstr_id_cache;
   public:
     explicit VirtualMachine(size_t reserved_file_count = 32);
@@ -194,7 +196,8 @@ VirtualMachine::VirtualMachine(size_t file_count)
         .if_ = intern("if"),
         .set = intern("set!"),
         .call_cc = intern("call/cc"),
-        .define = intern("define")
+        .define = intern("define"),
+        .begin = intern("begin")
     }),
     m_init_env(nullptr),
     m_init_var_rib(nullptr),
@@ -472,6 +475,33 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
             }
 
             throw SsiError();
+        }
+        else if (keyword_symbol_id == m_builtin_intstr_id_cache.begin) {
+            // (begin expr ...+)
+
+            // ensuring at least one argument is provided:
+            if (args == nullptr) {
+                error("begin: expected at least one expression form to evaluate, got 0.");
+                throw SsiError();
+            }
+
+            // assembling each code object on a stack to translate in reverse order:
+            std::vector<Object*> obj_stack;
+            obj_stack.reserve(32);
+            Object* rem_args = args;
+            while (rem_args) {
+                obj_stack.push_back(car(rem_args));
+                rem_args = cdr(rem_args);
+            }
+
+            // translating:
+            VmExpID final_begin_instruction = next;
+            while (!obj_stack.empty()) {
+                final_begin_instruction = translate_code_obj(obj_stack.back(), final_begin_instruction);
+                obj_stack.pop_back();
+            }
+
+            return final_begin_instruction;
         }
         else {
             // continue to the branch below...
@@ -815,10 +845,18 @@ PairObject* VirtualMachine::mk_default_root_env() {
         {"obj"}
     );
     define_builtin_fn(
-        "float?",
+        "real?",
         [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_float(aa[0]));
+        },
+        {"obj"}
+    );
+    define_builtin_fn(
+        "number?",
+        [](Object* args) -> Object* {
+            auto aa = extract_args<1>(args);
+            return boolean(is_number(aa[0]));
         },
         {"obj"}
     );

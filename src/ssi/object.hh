@@ -95,7 +95,7 @@ class BaseNumberObject: public Object {
     :   Object(ObjectKind::Integer),
         m_as{.integer = integer}
     {}
-    explicit BaseNumberObject(double float_pt)
+    explicit BaseNumberObject(my_float_t float_pt)
     :   Object(ObjectKind::FloatingPt),
         m_as{.float_pt = float_pt}
     {}
@@ -329,6 +329,7 @@ inline bool is_procedure(Object* o);
 inline bool is_symbol(Object* o);
 inline bool is_integer(Object* o);
 inline bool is_float(Object* o);
+inline bool is_number(Object* o);
 inline bool is_string(Object* o);
 inline bool is_vector(Object* o);
 
@@ -451,6 +452,9 @@ inline bool is_integer(Object* o) {
 }
 inline bool is_float(Object* o) {
     return obj_kind(o) == ObjectKind::FloatingPt;
+}
+inline bool is_number(Object* o) {
+    return is_integer(o) || is_float(o);
 }
 inline bool is_string(Object* o) {
     return obj_kind(o) == ObjectKind::String;
