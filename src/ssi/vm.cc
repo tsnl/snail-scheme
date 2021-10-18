@@ -94,8 +94,8 @@ struct VmFile {
 //  - de-allocates all expressions (and thus, all `Object` instances parsed and possibly reused)
 //
 
-typedef my_ssize_t(*IntFoldCb)(my_ssize_t accum, my_ssize_t item);
-typedef my_float_t(*FloatFoldCb)(my_float_t accum, my_float_t item);
+typedef void(*IntFoldCb)(my_ssize_t& accum, my_ssize_t item);
+typedef void(*FloatFoldCb)(my_float_t& accum, my_float_t item);
 
 class VirtualMachine {
   private:
@@ -662,7 +662,7 @@ void VirtualMachine::sync_execute() {
                             PairObject* new_e;
                             try {
                                 new_e = extend(a->e(), a->vars(), m_reg.r, false);
-                            } catch (SsiError const& e) {
+                            } catch (SsiError const&) {
                                 std::stringstream ss;
                                 ss << "See applied procedure: ";
                                 print_obj(m_reg.a, ss);
@@ -741,16 +741,16 @@ void VirtualMachine::sync_execute() {
     }
 }
 
-inline my_ssize_t int_mul_cb(my_ssize_t accum, my_ssize_t item) { return accum * item; }
-inline my_ssize_t int_div_cb(my_ssize_t accum, my_ssize_t item) { return accum / item; }
-inline my_ssize_t int_rem_cb(my_ssize_t accum, my_ssize_t item) { return accum % item; }
-inline my_ssize_t int_add_cb(my_ssize_t accum, my_ssize_t item) { return accum + item; }
-inline my_ssize_t int_sub_cb(my_ssize_t accum, my_ssize_t item) { return accum - item; }
-inline my_float_t float_mul_cb(my_float_t accum, my_float_t item) { return accum * item; }
-inline my_float_t float_div_cb(my_float_t accum, my_float_t item) { return accum / item; }
-inline my_float_t float_rem_cb(my_float_t accum, my_float_t item) { return fmod(accum, item); }
-inline my_float_t float_add_cb(my_float_t accum, my_float_t item) { return accum + item; }
-inline my_float_t float_sub_cb(my_float_t accum, my_float_t item) { return accum - item; }
+inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item) { accum *= item; }
+inline void int_div_cb(my_ssize_t& accum, my_ssize_t item) { accum /= item; }
+inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item) { accum %= item; }
+inline void int_add_cb(my_ssize_t& accum, my_ssize_t item) { accum += item; }
+inline void int_sub_cb(my_ssize_t& accum, my_ssize_t item) { accum -= item; }
+inline void float_mul_cb(my_float_t& accum, my_float_t item) { accum *= item; }
+inline void float_div_cb(my_float_t& accum, my_float_t item) { accum /= item; }
+inline void float_rem_cb(my_float_t& accum, my_float_t item) { accum = fmod(accum, item); }
+inline void float_add_cb(my_float_t& accum, my_float_t item) { accum += item; }
+inline void float_sub_cb(my_float_t& accum, my_float_t item) { accum -= item; }
 
 PairObject* VirtualMachine::mk_default_root_env() {
     // definitions:
@@ -1016,56 +1016,118 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 throw SsiError();
             }
 
-            // next, type-checking the first argument:
-            Object* accum = car(args);
-            Object* rem_args = cdr(args);
+            // next, determining the kind of the result:
+            //  - this is accomplished by performing a linear scan through the arguments
+            //  - though inefficient, this ironically improves throughput, presumably by loading cache lines 
+            //    containing each operand before 'load'
+            bool float_operand_present = false;
+            bool int_operand_present = false;
+            size_t arg_count = 0;
+            for (
+                Object* rem_args = args;
+                rem_args;
+                rem_args = cdr(rem_args)
+            ) {
+                Object* operand = car(rem_args);
+                ++arg_count;
 
-            if (accum->kind() == ObjectKind::Integer) {
-                auto unwrapped_accum_int = static_cast<IntObject*>(accum)->value();
-
-                while (rem_args) {
-                    auto item_int_obj = static_cast<IntObject*>(car(rem_args));
-                    rem_args = cdr(rem_args);
-                    
-                    if (accum->kind() != item_int_obj->kind()) {
-                        std::stringstream ss;
-                        ss << "(operator " << name_str << "): expected an integer, got: ";
-                        print_obj(item_int_obj, ss);
-                        error(ss.str());
-                        throw SsiError();
-                    } else {
-                        unwrapped_accum_int = int_fold_cb(unwrapped_accum_int, item_int_obj->value());
-                    }
+                if (obj_kind(operand) == ObjectKind::FloatingPt) {
+                    float_operand_present = true;
                 }
-
-                return new IntObject(unwrapped_accum_int);
+                else if (obj_kind(operand) == ObjectKind::Integer) {
+                    int_operand_present = true;
+                }
+                else {
+                    // error:
+                    std::stringstream ss;
+                    ss << "Invalid argument to arithmetic operator " << name_str << ": ";
+                    print_obj(operand, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
             }
-            else if (accum->kind() == ObjectKind::FloatingPt) {
-                auto unboxed_accum_float = static_cast<FloatObject*>(accum)->value();
 
-                while (rem_args) {
-                    auto item_float_obj = static_cast<FloatObject*>(car(rem_args));
-                    rem_args = cdr(rem_args);
+            // next, computing the result of this operation:
+            // NOTE: computation broken into several 'hot paths' for frequent operations.
+            if (arg_count == 1) {
+                // returning identity:
+                return car(args);
+            }
+            else if (!float_operand_present && arg_count == 2) {
+                // adding two integers:
+                auto aa = extract_args<2>(args);
+                auto res = static_cast<IntObject*>(aa[0])->value();
+                int_fold_cb(res, static_cast<IntObject*>(aa[1])->value());
+                return new IntObject(res);
+            }
+            else if (!int_operand_present && arg_count == 2) {
+                // adding two floats:
+                auto aa = extract_args<2>(args);
+                auto res = static_cast<FloatObject*>(aa[0])->value();
+                float_fold_cb(res, static_cast<FloatObject*>(aa[1])->value());
+                return new FloatObject(res);
+            }
+            else if (float_operand_present && int_operand_present) {
+                // compute result as a float, mixed int and float:
+                Object* rem_args = args;
 
-                    if (accum->kind() != item_float_obj->kind()) {
-                        std::stringstream ss;
-                        ss << "(operator " << name_str << "): expected an integer, got: ";
-                        print_obj(item_float_obj, ss);
-                        error(ss.str());
-                        throw SsiError();
-                    } else {
-                        unboxed_accum_float = float_fold_cb(unboxed_accum_float, item_float_obj->value());
-                    }
+                Object* first_arg = car(rem_args);
+                rem_args = cdr(rem_args);
+
+                my_float_t unwrapped_accum;
+                if (first_arg->kind() == ObjectKind::Integer) {
+                    unwrapped_accum = static_cast<my_float_t>(static_cast<IntObject*>(first_arg)->value());
+                } else {
+                    unwrapped_accum = static_cast<FloatObject*>(first_arg)->value();
                 }
+                for (; rem_args; rem_args = cdr(rem_args)) {
+                    Object* operand = car(rem_args);
+                    my_float_t v;
+                    if (operand->kind() == ObjectKind::Integer) {
+                        v = static_cast<my_float_t>(static_cast<IntObject*>(operand)->value());
+                    } else {
+                        // must be a float-- checked before.
+                        v = static_cast<FloatObject*>(operand)->value();
+                    }
+                    float_fold_cb(unwrapped_accum, v);
+                }
+                
+                return new FloatObject(unwrapped_accum);
+            } 
+            else if (float_operand_present) {
+                // compute result from only floats: no integers foudn
 
-                return new FloatObject(unboxed_accum_float);
+                Object* rem_args = args;
+
+                Object* first_arg = car(rem_args);
+                rem_args = cdr(rem_args);
+
+                my_float_t unwrapped_accum = static_cast<FloatObject*>(first_arg)->value();
+                for (; rem_args; rem_args = cdr(rem_args)) {
+                    Object* operand = car(rem_args);
+                    // must be a float-- checked before.
+                    my_float_t v = static_cast<FloatObject*>(operand)->value();
+                    float_fold_cb(unwrapped_accum, v);
+                }
+                
+                return new FloatObject(unwrapped_accum);
             }
             else {
-                std::stringstream ss;
-                ss << "(operator " << name_str << "): operator not defined on datum with this type: ";
-                print_obj(accum, ss);
-                error(ss.str());
-                throw SsiError();
+                // compute result from only integers: no floats found
+                Object* rem_args = args;
+
+                Object* first_arg = car(rem_args);
+                rem_args = cdr(rem_args);
+
+                my_ssize_t unwrapped_accum = static_cast<IntObject*>(first_arg)->value();
+                for (; rem_args; rem_args = cdr(rem_args)) {
+                    Object* operand = car(rem_args);
+                    // 'v' must be an integer-- checked before.
+                    my_ssize_t v = static_cast<IntObject*>(operand)->value();
+                    int_fold_cb(unwrapped_accum, v);
+                }
+
+                return new IntObject(unwrapped_accum);
             }
         },
         {"args..."}

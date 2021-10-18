@@ -12,10 +12,10 @@
 ; (* 1 2 3 4 5)
 
 (define a (fibonacci 25))
-(define b 0)
+; (define b 0)
 
-(define (w x) 
-  (begin 
-    (set! b 42)
-    (x a)))
-(call/cc w)
+; (define (w x) 
+;   (begin 
+;     (set! b 42)
+;     (x a)))
+; (call/cc w)

@@ -4,8 +4,10 @@ project(SnailScheme VERSION 0.0.0)
 set(CMAKE_CXX_STANDARD 20)
 if (WIN32)
     # set stuff for windows
-else()
+elseif(APPLE)
     set(CMAKE_CXX_FLAGS "-glldb")
+else()
+    # TODO: set linux stuff
 endif()
 include_directories(src)
 
