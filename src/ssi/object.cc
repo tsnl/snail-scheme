@@ -5,15 +5,11 @@
 
 #include "printing.hh"
 
-std::map<Object*, ObjectKind> Object::s_non_nil_object_kind_map{};
+//std::map<Object*, ObjectKind> Object::s_non_nil_object_kind_map{};
 BoolObject BoolObject::t_storage{true};
 BoolObject BoolObject::f_storage{false};
 BoolObject* BoolObject::t{&BoolObject::t_storage};
 BoolObject* BoolObject::f{&BoolObject::f_storage};
-
-Object::Object(ObjectKind kind) {
-    s_non_nil_object_kind_map[this] = kind;
-}
 
 // equivalence predicates:
 // https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_4.html

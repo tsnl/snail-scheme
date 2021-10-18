@@ -47,8 +47,9 @@ enum class ObjectKind {
 };
 
 class Object {
-  public:
-    static std::map<Object*, ObjectKind> s_non_nil_object_kind_map;
+  private:
+    ObjectKind m_kind;
+
   protected:
     explicit Object(ObjectKind kind);
     // ObjectKind is stored in a global std::map<Object*, ObjectKind>
@@ -88,20 +89,20 @@ class BaseNumberObject: public Object {
   protected:
     NumberObjectMemory m_as;
   protected:
-    BaseNumberObject(my_ssize_t integer)
+    explicit BaseNumberObject(my_ssize_t integer)
     :   Object(ObjectKind::Integer),
         m_as{.integer = integer}
     {}
-    BaseNumberObject(double float_pt)
+    explicit BaseNumberObject(double float_pt)
     :   Object(ObjectKind::FloatingPt),
         m_as{.float_pt = float_pt}
     {}
   public:
-    NumberObjectMemory const* mem() const { return &m_as; }
+    [[nodiscard]] NumberObjectMemory const* mem() const { return &m_as; }
 };
 class IntObject: public BaseNumberObject {
   public:
-    IntObject(my_ssize_t value)
+    explicit IntObject(my_ssize_t value)
     :   BaseNumberObject(value)
     {}
   public:
@@ -110,7 +111,7 @@ class IntObject: public BaseNumberObject {
 };
 class FloatObject: public BaseNumberObject {
   public:
-    FloatObject(my_float_t value) 
+    explicit FloatObject(my_float_t value)
     :   BaseNumberObject(value)
     {}
   public:
@@ -279,7 +280,7 @@ class VMA_ClosureObject: public Object {
 // EXT_: Extension objects: used to inject C++ code into the runtime
 //
 
-using EXT_CallableCb = std::function<Object*(Object* args, Object* env)>;
+using EXT_CallableCb = std::function<Object*(Object* args)>;
 
 class EXT_CallableObject: public Object {
   private:
@@ -334,6 +335,8 @@ bool is_eq(Object* e1, Object* e2);
 bool is_eqv(Object* e1, Object* e2);
 bool is_equal(Object* e1, Object* e2);
 
+inline my_ssize_t count_list_items(Object* pair_list);
+
 //
 // defs
 //
@@ -348,7 +351,7 @@ Object* list(Object* first, Objects... objs) {
 }
 
 inline ObjectKind Object::kind() {
-    return Object::s_non_nil_object_kind_map[this];
+    return m_kind;
 }
 inline ObjectKind obj_kind(Object* object) {
     if (object) {
@@ -392,6 +395,9 @@ std::array<Object*, n> extract_args(Object* pair_list, bool is_variadic) {
     // returning array:
     return out;
 }
+
+inline Object::Object(ObjectKind kind)
+:   m_kind(kind) {}
 
 inline Object* car(Object* object) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -449,4 +455,16 @@ inline bool is_string(Object* o) {
 }
 inline bool is_vector(Object* o) {
     return o->kind() == ObjectKind::Vector;
+}
+
+inline my_ssize_t count_list_items(Object* pair_list) {
+    my_ssize_t var_ctr = 0;
+    for (
+        Object* rem_var_rib = pair_list;
+        rem_var_rib;
+        rem_var_rib = cdr(rem_var_rib)
+    ) {
+        var_ctr++;
+    }
+    return var_ctr;
 }

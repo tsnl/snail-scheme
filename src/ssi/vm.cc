@@ -93,8 +93,6 @@ struct VmFile {
 //  - de-allocates all expressions (and thus, all `Object` instances parsed and possibly reused)
 //
 
-typedef bool(*ArgCheckCb)(Object* arg);
-typedef Object*(*BinaryOpCb)(Object* args, Object* env);
 typedef my_ssize_t(*IntFoldCb)(my_ssize_t accum, my_ssize_t item);
 typedef my_float_t(*FloatFoldCb)(my_float_t accum, my_float_t item);
 
@@ -161,8 +159,6 @@ class VirtualMachine {
 
   // Interpreter environment setup:
   public:
-    template <BinaryOpCb op_cb, ArgCheckCb check_cb>
-    static Object* wrap_bin_op(Object* args, Object* env, std::string const& op_name);
     PairObject* mk_default_root_env();
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
     template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
@@ -170,7 +166,7 @@ class VirtualMachine {
     static VMA_ClosureObject* closure(VmExpID body, PairObject* env, Object* args);
     static PairObject* lookup(Object* symbol, Object* env_raw);
     VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
-    PairObject* extend(PairObject* e, Object* vars, Object* vals);
+    PairObject* extend(PairObject* e, Object* vars, Object* vals, bool is_binding_variadic);
 
   // Error functions:
   public:
@@ -634,18 +630,28 @@ void VirtualMachine::sync_execute() {
                         if (m_reg.a->kind() == ObjectKind::VMA_Closure) {
                             // a Scheme function is called
                             auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
+                            PairObject* new_e;
+                            try {
+                                new_e = extend(a->e(), a->vars(), m_reg.r, false);
+                            } catch (SsiError const& e) {
+                                std::stringstream ss;
+                                ss << "See applied procedure: ";
+                                print_obj(m_reg.a, ss);
+                                more(ss.str());
+                                throw;
+                            }
                             // m_reg.a = m_reg.a;
                             m_reg.x = a->body();
-                            m_reg.e = extend(a->e(), a->vars(), m_reg.r);
+                            m_reg.e = new_e;
                             m_reg.r = nullptr;
                         }
                         else if (m_reg.a->kind() == ObjectKind::EXT_Callable) {
                             // a C++ function is called; assume 'return' is called internally
                             auto a = static_cast<EXT_CallableObject*>(m_reg.a);
-                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
+//                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
                             auto s_prime = m_reg.s;
                             auto s = m_reg.s->parent();
-                            m_reg.a = a->cb()(m_reg.r, e_prime);
+                            m_reg.a = a->cb()(m_reg.r);
                             // leave env unaffected, since after evaluation, we continue with original env
                             // pop the stack frame added by 'Frame'
                             m_reg.x = s_prime->x();
@@ -668,7 +674,12 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Define: {
                         m_reg.x = exp.args.i_define.next;
-                        m_reg.e = extend(m_reg.e, list(exp.args.i_define.var), list((Object*)nullptr));
+                        m_reg.e = extend(
+                            m_reg.e,
+                            list(exp.args.i_define.var),
+                            list(static_cast<Object*>(BoolObject::f)),
+                            false
+                        );
                         // DEBUG:
                         // auto def_name = static_cast<SymbolObject*>(exp.args.i_define.var)->name();
                         // std::cout << "define: " << interned_string(def_name) << ": ";
@@ -716,7 +727,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     // definitions:
     define_builtin_fn(
         "cons", 
-        [](Object* args, Object* env) -> Object* { 
+        [](Object* args) -> Object* {
             auto aa = extract_args<2>(args);
             return cons(aa[0], aa[1]); 
         }, 
@@ -724,7 +735,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "car", 
-        [](Object* args, Object* env) -> Object* { 
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
             if (aa[0]->kind() != ObjectKind::Pair) {
@@ -741,7 +752,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "cdr", 
-        [](Object* args, Object* env) -> Object* { 
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
             if (aa[0]->kind() != ObjectKind::Pair) {
@@ -758,7 +769,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "boolean?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_boolean(aa[0]));
         },
@@ -766,7 +777,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "null?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_null(aa[0]));
         },
@@ -774,7 +785,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "pair?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_pair(aa[0]));
         },
@@ -782,7 +793,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "procedure?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_procedure(aa[0]));
         },
@@ -790,7 +801,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "symbol?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_symbol(aa[0]));
         },
@@ -798,7 +809,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "integer?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_integer(aa[0]));
         },
@@ -806,7 +817,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "float?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_float(aa[0]));
         },
@@ -814,7 +825,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "string?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_string(aa[0]));
         },
@@ -822,7 +833,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "vector?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<1>(args);
             return boolean(is_vector(aa[0]));
         },
@@ -830,7 +841,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "=",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<2>(args);
             return boolean(is_eqn(aa[0], aa[1]));
         },
@@ -838,7 +849,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eq?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<2>(args);
             return boolean(is_eq(aa[0], aa[1]));
         },
@@ -846,7 +857,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eqv?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<2>(args);
             return boolean(is_eqv(aa[0], aa[1]));
         },
@@ -854,7 +865,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "equal?",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             auto aa = extract_args<2>(args);
             return boolean(is_equal(aa[0], aa[1]));
         },
@@ -862,14 +873,14 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "list",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             return args;
         },
         {"items..."}
     );
     define_builtin_fn(
         "and",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             Object* rem_args = args;
             while (rem_args) {
                 Object* head = car(rem_args);
@@ -896,7 +907,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "or",
-        [](Object* args, Object* env) -> Object* {
+        [](Object* args) -> Object* {
             Object* rem_args = args;
             while (rem_args) {
                 Object* head = car(rem_args);
@@ -932,12 +943,12 @@ PairObject* VirtualMachine::mk_default_root_env() {
     Object* rib_pair = cons(m_init_var_rib, m_init_elt_rib);
 
     // creating a fresh env:
-    PairObject* env = cons(rib_pair, m_init_env);
+    m_init_env = cons(rib_pair, m_init_env);
 
     // (DEBUG:) printing env after construction:
     // print_obj(env, std::cerr);
 
-    return env;
+    return m_init_env;
 }
 
 void VirtualMachine::define_builtin_fn(
@@ -959,7 +970,7 @@ template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
 void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const name_str) {
     define_builtin_fn(
         name_str,
-        [=](Object* args, Object* env) -> Object* {
+        [=](Object* args) -> Object* {
             // first, ensuring we have at least 1 argument:
             if (!args) {
                 std::stringstream ss;
@@ -1095,7 +1106,31 @@ VMA_ClosureObject* VirtualMachine::continuation(VMA_CallFrameObject* s) {
     return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
 }
 
-PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals) {
+PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals, bool is_binding_variadic) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    // fixme: can optimize by iterating through in parallel
+    auto var_count = count_list_items(vars);
+    auto val_count = count_list_items(vals);
+    if (var_count < val_count || (!is_binding_variadic && var_count > val_count)) {
+        std::stringstream ss;
+        ss  << "Expected "
+            << var_count << (is_binding_variadic ? " or more " : " ")
+            << "argument(s), received "
+            << val_count << std::endl;
+
+        ss << "- vars: ";
+        print_obj(vars, ss);
+        ss << std::endl;
+
+        ss << "- vals: ";
+        print_obj(vals, ss);
+        ss << std::endl;
+
+        error(ss.str());
+
+        throw SsiError();
+    }
+#endif
     return cons(cons(vars, vals), e);
 }
 
