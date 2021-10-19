@@ -5,33 +5,34 @@
 // Integers, booleans, and special singletons are stored in a word.
 // Only other types dispatch to boxes via pointers.
 // NOTE: most of this is based on Chicken Scheme, with modifications for interp:
+//  - 64-bit only (for simplicity)
 //  - interned symbols are immediates
-
-#pragma once
-
-#include <sstream>
-#include <vector>
-
-#include "config/config.hh"
-#include "feedback.hh"
-#include "heap.hh"
-
-// TODO: add support for character types
 // TODO: improve object types by eliding boxing for value types:
 //  cf https://www.more-magic.net/posts/internals-data-representation.html
 //  cf https://github.com/alaricsp/chicken-scheme/blob/1eb14684c26b7c2250ca9b944c6b671cb62cafbc/chicken.h
 // TODO: implement a GC, with required support for pointer tagging in place
 //  cf https://www.more-magic.net/posts/internals-gc.html
 
+#pragma once
+
+#include <sstream>
+#include <vector>
+#include <cstdint>
+
+#include "config/config.hh"
+#include "feedback.hh"
+#include "heap.hh"
+#include "intern.hh"
 
 //
 // Platform checks + utilities
 //
 
-using C_word = long;
-using C_uword = unsigned long;
+using C_word = int64_t;
+using C_uword = uint64_t;
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
 static_assert(sizeof(double) == 8, "object-v2 expected 64-bit double.");
+static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer size.");
 
 #define C_wordstobytes(n)          ((n) << 3)
 #define C_bytestowords(n)          (((n) + 7) >> 3)
@@ -47,25 +48,30 @@ static_assert(sizeof(double) == 8, "object-v2 expected 64-bit double.");
 //  * C_make_character -> C_WRAP_CHAR
 //  * C_character_code -> C_UNWRAP_CHAR
 //  * MOST_{POSITIVE|NEGATIVE}_FIXNUM -> MOST_$1_INT
-#define C_IMMEDIATE_MARK_BITS       0x3             // '0b11' bits: at least 1 true for all immediate values
-#define C_BOOLEAN_BITS              0x00000006      // '0b110' suffix
 
-// char type:
-#define C_CHAR_BITS                 0x0000000a      // '0b1010' suffix
-#define C_CHAR_VALUE_BIT_MASK       0x1fffff        // restricts to representable UTF-8 range
-#define C_CHAR_SHIFT                8               // waste a full 8 bits; use 56 to store code point
-
-#define C_SPECIAL_BITS              0x0000000e      // '0b1110'
+#define C_IMMEDIATE_MARK_BITS       0x3                                     // '0b11' bits: at least 1 true for all immediate values
+#define C_BOOLEAN_BIT_MASK          0x0000000f                              // '0b1111' because all info in last nibble
+#define C_BOOLEAN_BITS              0x00000006                              // '0b0110' suffix
+#define C_CHAR_BITS                 0x0000000a                              // '0b1010' suffix
+#define C_SYMBOL_BITS               0x00000042                              // '0b00101010' suffix
+#define C_CHAR_VALUE_BIT_MASK       0x1fffff                                // restricts to representable UTF-8 range
+#define C_CHAR_SHIFT                8                                       // waste a full 8 bits; use 56 to store code point
+#define C_SYMBOL_SHIFT              8                                       // waste a full 8 bits; use 56 to store symbol ID.
+#define C_SPECIAL_BITS              0x0000000e                              // '0b1110'
 #define C_SCHEME_FALSE              ((C_word)(C_BOOLEAN_BITS | 0x00))
 #define C_SCHEME_TRUE               ((C_word)(C_BOOLEAN_BITS | 0x10))
 #define C_INT_BIT                   0x00000001      // '0b1'-- most important type
 #define C_INT_SHIFT                 1               // just 1 bit wasted
 
-// WRAP_INT and UNWRAP_INT encode an integer value as a byte
+// WRAP_INT and UNWRAP_INT encode a integer value as a word and decode a word as an int resp.
 #define C_WRAP_INT(n)               (((C_word)(n) << C_INT_SHIFT) | C_INT_BIT)
 #define C_UNWRAP_INT(x)             ((x) >> C_INT_SHIFT)
+// WRAP_CHAR and UNWRAP_CHAR encode a char value as a word and decode a word as a char resp.
 #define C_WRAP_CHAR(c)              ((((c) & C_CHAR_VALUE_BIT_MASK) << C_CHAR_SHIFT) | C_CHAR_BITS)
 #define C_UNWRAP_CHAR(x)            (((x) >> C_CHAR_SHIFT) & C_CHAR_VALUE_BIT_MASK)
+// WRAP_SYMBOL and UNWRAP_SYMBOL are the same as above
+#define C_WRAP_SYMBOL(s)            (((s) << C_SYMBOL_SHIFT) | C_SYMBOL_BITS)
+#define C_UNWRAP_SYMBOL(s)          (((s) >> C_SYMBOL_SHIFT))
 
 // special values:
 #define C_SCHEME_END_OF_LIST        ((C_word)(C_SPECIAL_BITS | 0x00000000))
@@ -141,9 +147,13 @@ struct C_SCHEME_BLOCK {
 // Interface functions:
 //
 
+// testing just 1 bit:
 inline bool is_int(C_word word) { return word & C_INT_BIT; }
-inline bool is_bool(C_word word) { return word & C_BOOLEAN_BITS; }
-inline bool is_char(C_word word) { return word & C_CHAR_BITS; }
+// testing least-significant nibble:
+inline bool is_bool(C_word word) { return (word & 0x0f) == C_BOOLEAN_BITS; }
+// testing least-significant byte:
+inline bool is_char(C_word word) { return (word & 0xff) == C_CHAR_BITS; }
+inline bool is_symbol(C_word word) { return (word & 0xff) == C_SYMBOL_BITS; }
 inline bool is_undefined(C_word word) { return word == C_SCHEME_UNDEFINED; }
 inline bool is_eol(C_word word) { return word == C_SCHEME_END_OF_LIST; }
 inline bool is_eof(C_word word) { return word == C_SCHEME_END_OF_FILE; }
@@ -176,7 +186,7 @@ inline bool is_closure(C_word word) {
 inline int read_char(C_word word) {
     return C_UNWRAP_CHAR(word);
 }
-inline long read_integer(C_word word) {
+inline int64_t read_integer(C_word word) {
     return C_UNWRAP_INT(word);
 }
 
@@ -192,7 +202,7 @@ inline C_word c_vector(std::vector<C_word> objs);
 template <typename... TObjs> C_word c_list(TObjs... ar_objs);
 
 inline C_word c_boolean(bool bit) { return bit ? C_SCHEME_TRUE : C_SCHEME_FALSE; }
-inline C_word c_integer(long value) {
+inline C_word c_integer(int64_t value) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (value > C_MOST_POSITIVE_INT || value < C_MOST_NEGATIVE_INT) {
         std::stringstream ss;
