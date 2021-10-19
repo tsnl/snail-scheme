@@ -156,7 +156,6 @@ class VirtualMachine {
   // Blocking execution functions:
   // Run each expression in each file sequentially on this thread.
   public:
-    template <bool print_each_line>
     void sync_execute();
 
   // Interpreter environment setup:
@@ -541,7 +540,6 @@ bool VirtualMachine::is_tail_vmx(VmExpID vmx_id) {
 // Blocking execution:
 //
 
-template <bool print_each_line>
 void VirtualMachine::sync_execute() {
     // this function is a direct translation of the function `VM` on p. 60 of `three-imp.pdf`, except
     //  - the tail-recursive function is transformed into a loop
@@ -560,6 +558,15 @@ void VirtualMachine::sync_execute() {
             // acquiring input:
             Object* input = f.line_code_objs[i];
             VmProgram program = f.line_programs[i];
+
+            // printing input line before execution if desired:
+#if CONFIG_PRINT_EACH_LINE_ON_EXECUTION
+            {
+                std::cout << "snail-scheme > ";
+                print_obj(input, std::cout);
+                std::cout << std::endl;
+            }
+#endif
 
             // setting start instruction:
             m_reg.x = program.s;
@@ -727,16 +734,14 @@ void VirtualMachine::sync_execute() {
                 }
             }
 
-            // printing if desired:
-            if (print_each_line) {
-                std::cout << "  > ";
-                print_obj(input, std::cout);
-                std::cout << std::endl;
-
-                std::cout << " => ";
+            // printing line output if desired:
+#if CONFIG_PRINT_EACH_LINE_ON_EXECUTION
+            {
+                std::cout << "            => ";
                 print_obj(m_reg.a, std::cout);
                 std::cout << std::endl;
             }
+#endif
         }
     }
 }
@@ -1382,12 +1387,8 @@ void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vecto
     vm->add_file(file_name, std::move(objs));
 }
 
-void sync_execute_vm(VirtualMachine* vm, bool print_each_line) {
-    if (print_each_line) {
-        vm->sync_execute<true>();
-    } else {
-        vm->sync_execute<false>();
-    }
+void sync_execute_vm(VirtualMachine* vm) {
+    vm->sync_execute();
 }
 
 void dump_vm(VirtualMachine* vm, std::ostream& out) {

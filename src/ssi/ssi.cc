@@ -39,7 +39,7 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 
     // Executing:
     {
-        sync_execute_vm(vm, true);
+        sync_execute_vm(vm);
     }
 
     // Dumping:
