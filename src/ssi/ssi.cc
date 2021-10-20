@@ -5,7 +5,21 @@
 #include "parser.hh"
 #include "feedback.hh"
 #include "printing.hh"
+#include "object-v2.hh"
 #include "vm.hh"
+
+void test_obj_v2() {
+    print_obj2(c_integer(42), std::cout);
+    print_obj2(c_integer(21), std::cout);
+    print_obj2(c_integer(-1), std::cout);
+    print_obj2(c_integer(0), std::cout);
+    print_obj2(c_integer(-2041231241241), std::cout);
+    print_obj2(c_flonum(500.0), std::cout);
+
+    std::cout 
+        << "Done."
+        << std::endl;
+}
 
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
@@ -53,6 +67,14 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 }
 
 int main(int argc, char const* argv[]) {
+    // debug only:
+    bool just_run_v2_test = true;
+    if (just_run_v2_test) {
+        test_obj_v2();
+        return 0;
+    }
+
+    // main routine:
     if (argc != 2) {
         std::stringstream error_ss;
         error_ss
@@ -62,7 +84,7 @@ int main(int argc, char const* argv[]) {
         return 1;
     } else {
         VirtualMachine* vm = create_vm();
-        interpret_file(vm, argv[1]);
+        // interpret_file(vm, argv[1]);
         return 0;
     }
 }

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <bit>
 #include <sstream>
 #include <vector>
 #include <cstdint>
@@ -31,7 +32,7 @@
 using C_word = int64_t;
 using C_uword = uint64_t;
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
-static_assert(sizeof(double) == 8, "object-v2 expected 64-bit double.");
+static_assert(sizeof(C_word) == sizeof(double), "object-v2 expected 64-bit double.");
 static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer size.");
 
 #define C_wordstobytes(n)          ((n) << 3)
@@ -127,15 +128,15 @@ struct C_SCHEME_BLOCK {
 #define C_BYTE_VECTOR_HEADER_BITS       (C_VECTOR_HEADER_BITS | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
 
 // Size calculation macros: measured in 'words', i.e. 8-bytes
-// NOTE: sizes include 'header' word.
 #define C_SIZEOF_PAIR                   (3)
 #define C_SIZEOF_LIST(n)                (C_SIZEOF_PAIR * (n) + 1)
 #define C_SIZEOF_STRING(n)              (C_bytestowords(n) + 2)
-#define C_SIZEOF_FLONUM(n)              (4)
+#define C_SIZEOF_FLONUM                 (2)
 // #define C_SIZEOF_PORT                (16)
 #define C_SIZEOF_VECTOR(n)              ((n) + 1)
 
 // Fixed size types have pre-computed header tags (1-byte):
+// NOTE: the 'size' bits measure size in bytes.
 #define C_PAIR_TAG                      (C_PAIR_TYPE | (C_SIZEOF_PAIR - 1))
 // #define C_POINTER_TAG                (C_POINTER_TYPE | (C_SIZEOF_POINTER - 1))
 // #define C_LOCATIVE_TAG               (C_LOCATIVE_TYPE | (C_SIZEOF_LOCATIVE - 1))
@@ -148,7 +149,7 @@ struct C_SCHEME_BLOCK {
 //
 
 // testing just 1 bit:
-inline bool is_int(C_word word) { return word & C_INT_BIT; }
+inline bool is_integer(C_word word) { return word & C_INT_BIT; }
 // testing least-significant nibble:
 inline bool is_bool(C_word word) { return (word & 0x0f) == C_BOOLEAN_BITS; }
 // testing least-significant byte:
@@ -159,6 +160,10 @@ inline bool is_eol(C_word word) { return word == C_SCHEME_END_OF_LIST; }
 inline bool is_eof(C_word word) { return word == C_SCHEME_END_OF_FILE; }
 inline bool is_immediate(C_word word) { return word & C_IMMEDIATE_MARK_BITS; }
 inline bool is_block_ptr(C_word word) { return !is_immediate(word); }
+inline int64_t block_size_in_words(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return static_cast<int64_t>(bp->header & C_HEADER_SIZE_MASK);
+}
 inline bool is_string(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
     return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_STRING_TYPE);
@@ -183,11 +188,57 @@ inline bool is_closure(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
     return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_CLOSURE_HEADER_BITS);
 }
-inline int read_char(C_word word) {
-    return C_UNWRAP_CHAR(word);
+inline int64_t vector_length(C_word word) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_vector(word)) {
+        std::stringstream ss;
+        ss << "vector-length: expected argument to be vector, got: <todo-- print object>";
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    return block_size_in_words(word) - 1;
 }
-inline int64_t read_integer(C_word word) {
-    return C_UNWRAP_INT(word);
+inline C_word vector_ref(C_word vec, C_word index) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_vector(vec)) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 1st argument to be vector, got: <todo-- print object>";
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!is_integer(vec)) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 2nd argument to be an integer, got: <todo-- print object>";
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
+    return bp->data[C_UNWRAP_INT(index)];
+}
+inline void vector_set(C_word vec, C_word index, C_word new_val) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_vector(vec)) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 1st argument to be vector, got: <todo-- print object>";
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!is_integer(vec)) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 2nd argument to be an integer, got: <todo-- print object>";
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
+    bp->data[C_UNWRAP_INT(index)] = new_val;
 }
 
 //
@@ -195,7 +246,7 @@ inline int64_t read_integer(C_word word) {
 //
 
 inline C_word c_boolean(bool bit);
-inline C_word c_integer(long value);
+inline C_word c_integer(int64_t value);
 inline C_word c_char(int value);
 inline C_word c_cons(C_word ar, C_word dr);
 inline C_word c_vector(std::vector<C_word> objs);
@@ -204,9 +255,15 @@ template <typename... TObjs> C_word c_list(TObjs... ar_objs);
 inline C_word c_boolean(bool bit) { return bit ? C_SCHEME_TRUE : C_SCHEME_FALSE; }
 inline C_word c_integer(int64_t value) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-    if (value > C_MOST_POSITIVE_INT || value < C_MOST_NEGATIVE_INT) {
+    if (value > C_MOST_POSITIVE_INT) {
         std::stringstream ss;
         ss << "c_integer: absolute value of integer too large: " << value;
+        error(ss.str());
+        throw SsiError();
+    }
+    if (value < C_MOST_NEGATIVE_INT) {
+        std::stringstream ss;
+        ss << "c_integer: absolute value of integer too small: " << value;
         error(ss.str());
         throw SsiError();
     }
@@ -215,6 +272,12 @@ inline C_word c_integer(int64_t value) {
 }
 inline C_word c_char(int value) {
     return C_WRAP_CHAR(value);
+}
+inline C_word c_flonum(double v) {
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_FLONUM));
+    mp->header = C_FLONUM_TAG;
+    mp->data[0] = std::bit_cast<C_word>(v);
+    return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_cons(C_word ar, C_word dr) {
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_PAIR));
@@ -228,7 +291,7 @@ inline C_word c_vector(std::vector<C_word> objs) {
     mp->header = C_VECTOR_HEADER_BITS | objs.size();
     return reinterpret_cast<C_word>(mp);
 }
-template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem);
+template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, TObjs... rem);
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem) {
     // do not write to memory
     return C_SCHEME_END_OF_LIST;
@@ -246,10 +309,10 @@ template <typename... TObjs> C_word c_list(TObjs... ar_objs) {
 }
 
 //
-// Utility functions:
+// Utility functions in scheme:
 //
 
-inline C_word c_is_int(C_word word) { return c_boolean(is_int(word)); }
+inline C_word c_is_integer(C_word word) { return c_boolean(is_integer(word)); }
 inline C_word c_is_bool(C_word word) { return c_boolean(is_bool(word)); }
 inline C_word c_is_char(C_word word) { return c_boolean(is_char(word)); }
 inline C_word c_is_undefined(C_word word) { return c_boolean(is_undefined(word)); }
