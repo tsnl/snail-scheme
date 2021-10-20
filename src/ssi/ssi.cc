@@ -39,6 +39,8 @@ void test_obj_v2() {
     std::cout << std::endl;
     print_obj2(c_string("Howdy, partner"), std::cout);
     std::cout << std::endl;
+    // todo: implement printing for atoms like EOL, EOF, UNDEF, etc.
+    // todo: verify this is all correct. Consider tests?
 
     std::cout 
         << "Done."
