@@ -352,9 +352,9 @@ TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
     if (f.match('"')) {
         return help_scan_one_string_literal(out_info_p, '"');
     }
-    if (f.match('\'')) {
-        return help_scan_one_string_literal(out_info_p, '\'');
-    }
+//    if (f.match('\'')) {
+//        return help_scan_one_string_literal(out_info_p, '\'');
+//    }
 
     // identifiers & numbers:
     if (is_first_identifier_or_number_char(f.peek())) {
@@ -487,6 +487,9 @@ TokenKind Lexer::help_scan_one_string_literal(TokenInfo* out_info_p, char quote_
     return TokenKind::String;
 }
 char Lexer::help_scan_one_char_in_string_literal(char quote_char) {
+    // todo: implement these escape sequences exactly:
+    //  https://www.gnu.org/software/mit-scheme/documentation/stable/mit-scheme-ref/Strings.html
+
     auto& f = m_source_reader;
 
     if (f.match('\\')) {

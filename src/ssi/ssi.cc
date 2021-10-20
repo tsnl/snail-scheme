@@ -10,11 +10,35 @@
 
 void test_obj_v2() {
     print_obj2(c_integer(42), std::cout);
+    std::cout << std::endl;
     print_obj2(c_integer(21), std::cout);
+    std::cout << std::endl;
     print_obj2(c_integer(-1), std::cout);
+    std::cout << std::endl;
     print_obj2(c_integer(0), std::cout);
+    std::cout << std::endl;
     print_obj2(c_integer(-2041231241241), std::cout);
-    print_obj2(c_flonum(500.0), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_flonum(500.054409999), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_symbol(intern("cons")), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_symbol(intern("car")), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_symbol(intern("cdr")), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_symbol(intern("cons")), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_char('0'), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_char(L'∀'), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_list(c_integer(0), c_integer(1), c_integer(2), c_cons(c_integer(3), c_integer(4))), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_vector({c_integer(0), c_integer(2), c_integer(4), c_integer(6), c_integer(8)}), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_string("Howdy, partner"), std::cout);
+    std::cout << std::endl;
 
     std::cout 
         << "Done."

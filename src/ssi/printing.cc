@@ -1,8 +1,14 @@
 #include "printing.hh"
+
+#include <ostream>
+#include <iomanip>
+#include <cctype>
+
 // #include "object.hh"
 #include "intern.hh"
 #include "feedback.hh"
 #include "object-v2.hh"
+
 
 
 void print_obj(Object* obj, std::ostream& out) {
@@ -119,12 +125,116 @@ void print_obj(Object* obj, std::ostream& out) {
 // }
 
 void print_obj2(C_word obj, std::ostream& out) {
+    //
+    // immediate objects:
+    //
+
     if (is_integer(obj)) {
-        std::cout << C_UNWRAP_INT(obj) << std::endl;
+        std::cout << C_UNWRAP_INT(obj);
     }
-    if (is_flonum(obj)) {
-        std::cout << static_cast<double>(reinterpret_cast<C_SCHEME_BLOCK*>(obj)->data[0]);
+    else if (is_symbol(obj)) {
+        std::cout << interned_string(C_UNWRAP_SYMBOL(obj));
     }
+    else if (is_char(obj)) {
+        int cc = C_UNWRAP_CHAR(obj);
+        switch (cc) {
+            case '\n': std::cout << "#\\linefeed" << std::endl; break;
+            case '\r': std::cout << "#\\return" << std::endl; break;
+            case ' ': std::cout << "#\\space" << std::endl; break;
+            default: {
+                if (0 < cc) {
+                    if (cc < 128 && std::isprint(cc)) {
+                        std::cout << "#\\" << static_cast<char>(cc);
+                    } else {
+                        std::cout << "#\\x" << std::hex << cc << std::dec;
+                    }
+                }
+            }
+        }
+    }
+
+    //
+    // block objects:
+    //
+
+    else if (is_flonum(obj)) {
+        auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
+        std::cout << std::setprecision(8) << *reinterpret_cast<double*>(&bp->data[0]);
+    }
+    else if (is_pair(obj)) {
+        auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
+        auto ar = bp->data[0];
+        auto dr = bp->data[1];
+        out << '(';
+        if (dr == C_SCHEME_END_OF_LIST) {
+            // singleton object/thunk
+            print_obj2(ar, out);
+        } else {
+            // (possibly improper) list or pair
+            if (is_pair(dr)) {
+                // list or improper list
+                C_word rem_list = obj;
+                while (rem_list != C_SCHEME_END_OF_LIST) {
+                    if (is_pair(rem_list)) {
+                        // just a regular list item
+                        auto rem_list_bp = reinterpret_cast<C_SCHEME_BLOCK*>(rem_list);
+                        auto rem_list_bp_ar = rem_list_bp->data[0];
+                        auto rem_list_bp_dr = rem_list_bp->data[1];
+                        print_obj2(rem_list_bp_ar, out);
+                        rem_list = rem_list_bp_dr;
+                        if (rem_list != C_SCHEME_END_OF_LIST) {
+                            out << ' ';
+                        }
+                    } else {
+                        // improper list, with trailing '. <item>'
+                        out << ". ";
+                        print_obj2(rem_list, out);
+                        break;
+                    }
+                }
+            } else {
+                // dotted pair
+                print_obj2(ar, out);
+                out << " . ";
+                print_obj2(dr, out);
+            }
+        }
+        out << ')';
+    }
+    else if (is_vector(obj)) {
+        out << "#(";
+        auto length = vector_length(obj);
+        for (int64_t i = 0; i < length; i++) {
+            print_obj2(vector_ref(obj, i), out);
+            if (i+1 != length) {
+                out << ' ';
+            }
+        }
+        out << ")";
+    }
+    else if (is_string(obj)) {
+        out << "\"";
+        auto length = string_length(obj);
+        for (int64_t i = 0; i < length; i++) {
+            int cc = string_ref(obj, i);
+            // cf: https://www.gnu.org/software/mit-scheme/documentation/stable/mit-scheme-ref/Strings.html
+            if (cc == '"') {
+                out << "\\\"";
+            } else if (cc == '\\') {
+                out << "\\\\";
+            } else if (std::isprint(cc)) {
+                out << static_cast<char>(cc);
+            } else {
+                out << "\\x" << std::hex << cc << std::dec;
+            }
+        }
+        out << "\"";
+    }
+
+    //
+    // error handler
+    //
+
     else {
         error("NotImplemented: printing an unknown v2 object.");
         throw new SsiError();

@@ -24,6 +24,7 @@
 #include "feedback.hh"
 #include "heap.hh"
 #include "intern.hh"
+#include "printing.hh"
 
 //
 // Platform checks + utilities
@@ -50,15 +51,16 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 //  * C_character_code -> C_UNWRAP_CHAR
 //  * MOST_{POSITIVE|NEGATIVE}_FIXNUM -> MOST_$1_INT
 
-#define C_IMMEDIATE_MARK_BITS       0x3                                     // '0b11' bits: at least 1 true for all immediate values
-#define C_BOOLEAN_BIT_MASK          0x0000000f                              // '0b1111' because all info in last nibble
-#define C_BOOLEAN_BITS              0x00000006                              // '0b0110' suffix
-#define C_CHAR_BITS                 0x0000000a                              // '0b1010' suffix
-#define C_SYMBOL_BITS               0x00000042                              // '0b00101010' suffix
-#define C_CHAR_VALUE_BIT_MASK       0x1fffff                                // restricts to representable UTF-8 range
-#define C_CHAR_SHIFT                8                                       // waste a full 8 bits; use 56 to store code point
-#define C_SYMBOL_SHIFT              8                                       // waste a full 8 bits; use 56 to store symbol ID.
-#define C_SPECIAL_BITS              0x0000000e                              // '0b1110'
+#define C_IMMEDIATE_MARK_BITS       0x3                 // '0b11' bits: at least 1 true for all immediate values
+#define C_BOOLEAN_BIT_MASK          0x0000000f          // '0b1111' because all info in last nibble
+#define C_BOOLEAN_BITS              0x00000006          // '0b0110' suffix
+#define C_CHAR_BITS                 0x0000000a          // '0b1010' suffix
+#define C_SYMBOL_BITS               0x00000042          // '0b00101010' suffix
+#define C_SYMBOL_VALUE_CHK_BITS     0x00ffffffffffffff  // all but the most significant byte is OK
+#define C_CHAR_VALUE_CHK_BITS       0x1fffff            // restricts to representable UTF-8 range
+#define C_CHAR_SHIFT                8                   // waste a full 8 bits; use 56 to store code point
+#define C_SYMBOL_SHIFT              8                   // waste a full 8 bits; use 56 to store symbol ID.
+#define C_SPECIAL_BITS              0x0000000e          // '0b1110'
 #define C_SCHEME_FALSE              ((C_word)(C_BOOLEAN_BITS | 0x00))
 #define C_SCHEME_TRUE               ((C_word)(C_BOOLEAN_BITS | 0x10))
 #define C_INT_BIT                   0x00000001      // '0b1'-- most important type
@@ -68,11 +70,11 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 #define C_WRAP_INT(n)               (((C_word)(n) << C_INT_SHIFT) | C_INT_BIT)
 #define C_UNWRAP_INT(x)             ((x) >> C_INT_SHIFT)
 // WRAP_CHAR and UNWRAP_CHAR encode a char value as a word and decode a word as a char resp.
-#define C_WRAP_CHAR(c)              ((((c) & C_CHAR_VALUE_BIT_MASK) << C_CHAR_SHIFT) | C_CHAR_BITS)
-#define C_UNWRAP_CHAR(x)            (((x) >> C_CHAR_SHIFT) & C_CHAR_VALUE_BIT_MASK)
+#define C_WRAP_CHAR(c)              ((((c) & C_CHAR_VALUE_CHK_BITS) << C_CHAR_SHIFT) | C_CHAR_BITS)
+#define C_UNWRAP_CHAR(x)            (((x) >> C_CHAR_SHIFT) & C_CHAR_VALUE_CHK_BITS)
 // WRAP_SYMBOL and UNWRAP_SYMBOL are the same as above
 #define C_WRAP_SYMBOL(s)            (((s) << C_SYMBOL_SHIFT) | C_SYMBOL_BITS)
-#define C_UNWRAP_SYMBOL(s)          (((s) >> C_SYMBOL_SHIFT))
+#define C_UNWRAP_SYMBOL(s)          (((s) >> C_SYMBOL_SHIFT) & C_SYMBOL_VALUE_CHK_BITS)
 
 // special values:
 #define C_SCHEME_END_OF_LIST        ((C_word)(C_SPECIAL_BITS | 0x00000000))
@@ -96,6 +98,7 @@ struct C_SCHEME_BLOCK {
     C_header header;    // header: bit pattern (see below)
     C_word data[0];     // variable length array
 };
+static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 
 // bit flags to mask integers:
 #define C_INT_SIGN_BIT           0x8000000000000000L
@@ -111,8 +114,8 @@ struct C_SCHEME_BLOCK {
 #define C_SPECIALBLOCK_BIT       0x2000000000000000L   /* 1st item is a non-value */
 #define C_8ALIGN_BIT             0x1000000000000000L   /* data is aligned to 8-byte boundary */
 // type nibbles:
-#define C_STRING_TYPE                   (0x0200000000000000L | C_BYTEBLOCK_BIT)
-#define C_PAIR_TYPE                     (0x0300000000000000L)
+#define C_STRING_HEADER_BITS            (0x0200000000000000L | C_BYTEBLOCK_BIT)
+#define C_PAIR_HEADER_BITS              (0x0300000000000000L)
 #define C_CLOSURE_HEADER_BITS           (0x0400000000000000L | C_SPECIALBLOCK_BIT)
 #define C_FLONUM_HEADER_BITS            (0x0500000000000000L | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
 // #define C_PORT_HEADER_BITS           (0x0700000000000000L | C_SPECIALBLOCK_BIT)
@@ -130,14 +133,14 @@ struct C_SCHEME_BLOCK {
 // Size calculation macros: measured in 'words', i.e. 8-bytes
 #define C_SIZEOF_PAIR                   (3)
 #define C_SIZEOF_LIST(n)                (C_SIZEOF_PAIR * (n) + 1)
-#define C_SIZEOF_STRING(n)              (C_bytestowords(n) + 2)
+#define C_SIZEOF_STRING(n)              (C_bytestowords(n) + 2)     /* 1 extra byte for null-terminator; works with C */
 #define C_SIZEOF_FLONUM                 (2)
 // #define C_SIZEOF_PORT                (16)
 #define C_SIZEOF_VECTOR(n)              ((n) + 1)
 
 // Fixed size types have pre-computed header tags (1-byte):
 // NOTE: the 'size' bits measure size in bytes.
-#define C_PAIR_TAG                      (C_PAIR_TYPE | (C_SIZEOF_PAIR - 1))
+#define C_PAIR_TAG                      (C_PAIR_HEADER_BITS | (C_SIZEOF_PAIR - 1))
 // #define C_POINTER_TAG                (C_POINTER_TYPE | (C_SIZEOF_POINTER - 1))
 // #define C_LOCATIVE_TAG               (C_LOCATIVE_TYPE | (C_SIZEOF_LOCATIVE - 1))
 // #define C_TAGGED_POINTER_TAG         (C_TAGGED_POINTER_TYPE | (C_SIZEOF_TAGGED_POINTER - 1))
@@ -149,7 +152,9 @@ struct C_SCHEME_BLOCK {
 //
 
 // testing just 1 bit:
-inline bool is_integer(C_word word) { return word & C_INT_BIT; }
+inline bool is_integer(C_word word) {
+    return word & C_INT_BIT;
+}
 // testing least-significant nibble:
 inline bool is_bool(C_word word) { return (word & 0x0f) == C_BOOLEAN_BITS; }
 // testing least-significant byte:
@@ -158,15 +163,19 @@ inline bool is_symbol(C_word word) { return (word & 0xff) == C_SYMBOL_BITS; }
 inline bool is_undefined(C_word word) { return word == C_SCHEME_UNDEFINED; }
 inline bool is_eol(C_word word) { return word == C_SCHEME_END_OF_LIST; }
 inline bool is_eof(C_word word) { return word == C_SCHEME_END_OF_FILE; }
-inline bool is_immediate(C_word word) { return word & C_IMMEDIATE_MARK_BITS; }
-inline bool is_block_ptr(C_word word) { return !is_immediate(word); }
-inline int64_t block_size_in_words(C_word word) {
+inline bool is_block_ptr(C_word word) {
+    return (word & C_IMMEDIATE_MARK_BITS) == 0;
+}
+inline bool is_immediate(C_word word) {
+    return !is_block_ptr(word);
+}
+inline int64_t block_size(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
     return static_cast<int64_t>(bp->header & C_HEADER_SIZE_MASK);
 }
 inline bool is_string(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_STRING_TYPE);
+    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_STRING_HEADER_BITS);
 }
 inline bool is_pair(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
@@ -188,19 +197,47 @@ inline bool is_closure(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
     return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_CLOSURE_HEADER_BITS);
 }
+inline int64_t string_length(C_word word) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_string(word)) {
+        std::stringstream ss;
+        ss << "string-length: expected argument to be string, got: ";
+        print_obj2(word, ss);
+        // print_obj(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    // NOTE: for string, we store size in bytes (since byte-block)
+    return block_size(word);
+}
+inline int string_ref(C_word word, int64_t i) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_string(word)) {
+        std::stringstream ss;
+        ss << "string-ref: expected 1st argument to be string, got: ";
+        print_obj2(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return static_cast<int>(reinterpret_cast<uint8_t*>(bp->data)[i]);
+}
 inline int64_t vector_length(C_word word) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_vector(word)) {
         std::stringstream ss;
-        ss << "vector-length: expected argument to be vector, got: <todo-- print object>";
-        // print_obj(word, ss);
+        ss << "vector-length: expected argument to be vector, got: ";
+        print_obj2(word, ss);
         error(ss.str());
         throw SsiError();
     }
 #endif
-    return block_size_in_words(word) - 1;
+    // NOTE: for vector, we store size in words.
+    return block_size(word) - 1;
 }
-inline C_word vector_ref(C_word vec, C_word index) {
+inline C_word vector_ref(C_word vec, int64_t index) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_vector(vec)) {
         std::stringstream ss;
@@ -209,18 +246,11 @@ inline C_word vector_ref(C_word vec, C_word index) {
         error(ss.str());
         throw SsiError();
     }
-    if (!is_integer(vec)) {
-        std::stringstream ss;
-        ss << "vector-ref: expected 2nd argument to be an integer, got: <todo-- print object>";
-        // print_obj(word, ss);
-        error(ss.str());
-        throw SsiError();
-    }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
-    return bp->data[C_UNWRAP_INT(index)];
+    return bp->data[index];
 }
-inline void vector_set(C_word vec, C_word index, C_word new_val) {
+inline void vector_set(C_word vec, int64_t index, C_word new_val) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_vector(vec)) {
         std::stringstream ss;
@@ -229,22 +259,16 @@ inline void vector_set(C_word vec, C_word index, C_word new_val) {
         error(ss.str());
         throw SsiError();
     }
-    if (!is_integer(vec)) {
-        std::stringstream ss;
-        ss << "vector-ref: expected 2nd argument to be an integer, got: <todo-- print object>";
-        // print_obj(word, ss);
-        error(ss.str());
-        throw SsiError();
-    }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
-    bp->data[C_UNWRAP_INT(index)] = new_val;
+    bp->data[index] = new_val;
 }
 
 //
 // Constructors:
 //
 
+inline C_word c_symbol(IntStr int_str_id);
 inline C_word c_boolean(bool bit);
 inline C_word c_integer(int64_t value);
 inline C_word c_char(int value);
@@ -252,7 +276,24 @@ inline C_word c_cons(C_word ar, C_word dr);
 inline C_word c_vector(std::vector<C_word> objs);
 template <typename... TObjs> C_word c_list(TObjs... ar_objs);
 
-inline C_word c_boolean(bool bit) { return bit ? C_SCHEME_TRUE : C_SCHEME_FALSE; }
+inline C_word c_symbol(IntStr int_str_id) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (int_str_id & ~C_SYMBOL_VALUE_CHK_BITS) {
+        std::stringstream ss;
+        ss << "c_symbol: absolute value of symbol (IntStr ID) too large: " << int_str_id;
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    return (int_str_id << C_SYMBOL_SHIFT) | C_SYMBOL_BITS;
+}
+inline C_word c_boolean(bool bit) {
+    if (bit) {
+        return C_SCHEME_TRUE;
+    } else {
+        return C_SCHEME_FALSE;
+    }
+}
 inline C_word c_integer(int64_t value) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (value > C_MOST_POSITIVE_INT) {
@@ -274,23 +315,31 @@ inline C_word c_char(int value) {
     return C_WRAP_CHAR(value);
 }
 inline C_word c_flonum(double v) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_FLONUM));
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_FLONUM)));
     mp->header = C_FLONUM_TAG;
-    mp->data[0] = std::bit_cast<C_word>(v);
+    memcpy(mp->data, &v, sizeof(C_word));
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_cons(C_word ar, C_word dr) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_PAIR));
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_PAIR)));
     mp->header = C_PAIR_TAG;
     mp->data[0] = ar;
     mp->data[1] = dr;
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_vector(std::vector<C_word> objs) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_VECTOR(objs.size())));
-    mp->header = C_VECTOR_HEADER_BITS | objs.size();
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_VECTOR(objs.size()))));
+    mp->header = C_VECTOR_HEADER_BITS | 1+objs.size();
+    memcpy(mp->data, objs.data(), C_wordstobytes(objs.size()));
     return reinterpret_cast<C_word>(mp);
 }
+inline C_word c_string(std::string const& utf8_data) {
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_STRING(utf8_data.size())));
+    mp->header = C_STRING_HEADER_BITS | utf8_data.size();
+    memcpy(mp->data, utf8_data.c_str(), 1+utf8_data.size());
+    return reinterpret_cast<C_word>(mp);
+}
+
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, TObjs... rem);
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem) {
     // do not write to memory
@@ -299,12 +348,15 @@ template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem) {
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, C_word ar_obj, TObjs... rem) {
     mem->header = C_PAIR_TAG;
     mem->data[0] = ar_obj;
-    mem->data[1] = c_list_helper(1+mem, rem...);
+    mem->data[1] = c_list_helper(
+        reinterpret_cast<C_SCHEME_BLOCK*>(reinterpret_cast<C_word*>(mem) + C_SIZEOF_PAIR),
+        rem...
+    );
     return reinterpret_cast<C_word>(mem);
 }
 template <typename... TObjs> C_word c_list(TObjs... ar_objs) {
     size_t n = sizeof...(TObjs);
-    auto mem = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_LIST(n)));
+    auto mem = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_LIST(n))));
     return c_list_helper(mem, ar_objs...);
 }
 
