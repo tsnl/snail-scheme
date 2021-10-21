@@ -230,6 +230,16 @@ void print_obj2(C_word obj, std::ostream& out) {
         }
         out << "\"";
     }
+    else if (is_procedure(obj)) {
+        out << "(procedure)";
+    }
+    else if (is_eof(obj)) {
+        // todo: check if this is right
+        out << "#eof";
+    }
+    else if (is_eol(obj)) {
+        out << "'()";
+    }
 
     //
     // error handler

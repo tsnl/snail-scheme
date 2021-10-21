@@ -66,26 +66,12 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     Parser* p = create_parser(f, file_path);
     std::vector<C_word> line_code_obj_array = parse_all_subsequent_lines(p);
 
-    // DEBUG: everything below stubbed.
-    for (auto line_obj: line_code_obj_array) {
-        std::cout << "snail-scheme> ";
-        print_obj2(line_obj, std::cout);
-        std::cout << std::endl;
-    }
-    return;
-    
-    // TODO: continue from here.
-
-    // todo: languages by modifying reader level
-    //  - specifying a '#lang <language>' line can delegate to different parsers
-    //  - cf https://docs.racket-lang.org/guide/languages.html?q=modules
-
     // compiling the program into VM representation:
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
-    // add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
+    add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
 
     // Executing:
-    // sync_execute_vm(vm);
+    sync_execute_vm(vm);
     
     // Dumping:
 #if CONFIG_DUMP_VM_STATE_AFTER_EXECUTION
