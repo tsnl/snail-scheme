@@ -156,8 +156,8 @@ char const* tk_text(TokenKind tk) {
 union KindDependentTokenInfo {
     IntStr identifier;
     bool boolean;
-    my_ssize_t integer;
-    my_float_t floating_pt;
+    C_word integer;
+    C_float floating_pt;
     struct {
         size_t count;
         char* bytes;
@@ -519,7 +519,7 @@ char Lexer::help_scan_one_char_in_string_literal(char quote_char) {
 
 //
 // Parser Implementation:
-// TODO:
+// TODO: replace `object` with object-v2 
 //
 
 class Parser {
@@ -528,32 +528,32 @@ class Parser {
   public:
     explicit Parser(std::istream& istream, std::string file_path);
   public:
-    Object* parse_next_line();
+    C_word parse_next_line();
     void run_lexer_test();
   private:
-    Object* parse_top_level_line();
-    Object* try_parse_constant();
-    Object* parse_datum();
-    Object* parse_list(bool contents_is_datum_not_exp);
-    Object* parse_form();
+    C_word parse_top_level_line();
+    C_word parse_constant();
+    C_word parse_datum();
+    C_word parse_list(bool contents_is_datum_not_exp);
+    C_word parse_form();
 };
 
 Parser::Parser(std::istream& input_stream, std::string input_desc) 
 :   m_lexer(input_stream, std::move(input_desc))
 {}
 
-Object* Parser::parse_next_line() {
+C_word Parser::parse_next_line() {
     auto& ts = m_lexer;
     if (ts.eof()) {
-        return nullptr;
+        return C_SCHEME_END_OF_FILE;
     } else {
         return parse_top_level_line();
     }
 }
-Object* Parser::parse_top_level_line() {
+C_word Parser::parse_top_level_line() {
     return parse_form();
 }
-Object* Parser::try_parse_constant() {
+C_word Parser::parse_constant() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -564,30 +564,33 @@ Object* Parser::try_parse_constant() {
     switch (la_tk) {
         case TokenKind::Identifier: {
             ts.skip();
-            return new SymbolObject(la_ti.as.identifier);
+            return c_symbol(la_ti.as.identifier);
         }
         case TokenKind::Boolean: {
             ts.skip();
-            return la_ti.as.boolean ? BoolObject::t : BoolObject::f;
+            return c_boolean(la_ti.as.boolean);
         }
         case TokenKind::Integer: {
             ts.skip();
-            return new IntObject(la_ti.as.integer);
+            return c_integer(la_ti.as.integer);
         }
         case TokenKind::Float: {
             ts.skip();
-            return new FloatObject(la_ti.as.floating_pt);
+            return c_flonum(la_ti.as.floating_pt);
         }
         case TokenKind::String: {
             ts.skip();
-            return new StringObject(la_ti.as.string.count, la_ti.as.string.bytes);
+            return c_string(std::string{la_ti.as.string.bytes, la_ti.as.string.count});
         }
         default: {
-            return nullptr;
+            std::stringstream ss;
+            ss << "Expected a constant before " << tk_text(la_tk);
+            error(ss.str());
+            throw SsiError();
         }
     }
 }
-Object* Parser::parse_datum() {
+C_word Parser::parse_datum() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -602,9 +605,7 @@ Object* Parser::parse_datum() {
         case TokenKind::Float:
         case TokenKind::String: 
         {
-            auto out = try_parse_constant();
-            assert(out && "Expected a constant based on look-ahead.");
-            return out;
+            return parse_constant();
         }
         case TokenKind::LParen: {
             return parse_list(true);
@@ -615,7 +616,7 @@ Object* Parser::parse_datum() {
         }
     }
 }
-Object* Parser::parse_form() {
+C_word Parser::parse_form() {
     TokenInfo la_ti;
     TokenKind la_tk;
 
@@ -630,7 +631,7 @@ Object* Parser::parse_form() {
         case TokenKind::Float:
         case TokenKind::String: 
         {
-            auto out = try_parse_constant();
+            auto out = parse_constant();
             assert(out && "Expected a constant based on look-ahead.");
             return out;
         }
@@ -639,11 +640,8 @@ Object* Parser::parse_form() {
         }
         case TokenKind::Quote: {
             ts.skip();
-            Object* quoted = parse_datum();
-            return list(
-                static_cast<Object*>(new SymbolObject(intern("quote"))),
-                quoted
-            );
+            C_word quoted = parse_datum();
+            return c_list(c_symbol(intern("quote")), quoted);
         }
         default: {
             error("Unexpected token in primary expression: " + std::string(tk_text(la_tk)));
@@ -651,16 +649,16 @@ Object* Parser::parse_form() {
         }
     }
 }
-Object* Parser::parse_list(bool contents_is_datum_not_exp) {
+C_word Parser::parse_list(bool contents_is_datum_not_exp) {
     Lexer& ts = m_lexer;
 
     ts.expect(TokenKind::LParen);
 
-    std::function<Object*()> parse_item;
+    std::function<C_word()> parse_item;
     if (contents_is_datum_not_exp) {
-        parse_item = ([this] () -> Object* { return this->parse_datum(); });
+        parse_item = ([this] () -> C_word { return this->parse_datum(); });
     } else {
-        parse_item = ([this] () -> Object* { return this->parse_form(); });
+        parse_item = ([this] () -> C_word { return this->parse_form(); });
     }
 
     // parsing each object in the list, pushing onto a stack:
@@ -668,7 +666,7 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
     // NOTE: we must handle improper/dotted lists: the '.' suffix builds a pair of this element.
     //  - a dotted pair is always the last element in this list
     //  - if the dotted pair is also the first element in the list, we return the dotted pair identically.
-    std::vector<Object*> list_stack;
+    std::vector<C_word> list_stack;
     list_stack.reserve(8);
     bool ended_ok = false;
     bool parsed_improper_list = false;
@@ -680,12 +678,12 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
             ended_ok = false;
             break;
         } else {
-            Object* element_object = parse_item();
+            C_word element_object = parse_item();
             if (ts.match(TokenKind::Period)) {
                 // dotted pair
-                Object* car = element_object;
-                Object* cdr = parse_item();
-                element_object = new PairObject(car, cdr);
+                C_word car = element_object;
+                C_word cdr = parse_item();
+                element_object = c_cons(car, cdr);
                 parsed_improper_list = true;
             }
             list_stack.push_back(element_object);
@@ -709,18 +707,18 @@ Object* Parser::parse_list(bool contents_is_datum_not_exp) {
         return list_stack[0];
     } else {
         // consing all but the last element to the last element recursively:
-        Object* pair_list = (
+        C_word pair_list = (
             (parsed_improper_list) ?
             list_stack.back() :
-            nullptr
+            C_SCHEME_END_OF_LIST
         );
         int start_index = (
             (parsed_improper_list) ?
-            list_stack.size() - 2 :
-            list_stack.size() - 1
+            static_cast<int64_t>(list_stack.size() - 2) :
+            static_cast<int64_t>(list_stack.size() - 1)
         );
         for (int i = start_index; i >= 0; i--) {
-            pair_list = new PairObject(list_stack[i], pair_list);
+            pair_list = c_cons(list_stack[i], pair_list);
             list_stack.pop_back();
         }
         return pair_list;
@@ -791,15 +789,12 @@ Parser* create_parser(std::istream& input_stream, std::string input_desc) {
 void dispose_parser(Parser* p) {
     delete p;
 }
-Object* parse_next_line(Parser* p) {
-    return p->parse_next_line();
-}
-std::vector<Object*> parse_all_subsequent_lines(Parser* p) {
-    std::vector<Object*> objects;
+std::vector<C_word> parse_all_subsequent_lines(Parser* p) {
+    std::vector<C_word> objects;
     objects.reserve(1024);
     for (;;) {
-        Object* o = p->parse_next_line();
-        if (o) {
+        C_word o = p->parse_next_line();
+        if (o != C_SCHEME_END_OF_FILE) {
             objects.push_back(o);
         } else {
             break;

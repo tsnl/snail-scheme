@@ -562,7 +562,7 @@ void VirtualMachine::sync_execute() {
             // printing input line before execution if desired:
 #if CONFIG_PRINT_EACH_LINE_ON_EXECUTION
             {
-                std::cout << "snail-scheme > ";
+                std::cout << "snail-scheme> ";
                 print_obj(input, std::cout);
                 std::cout << std::endl;
             }

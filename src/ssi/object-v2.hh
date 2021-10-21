@@ -31,9 +31,10 @@
 //
 
 using C_word = int64_t;
+using C_float = double;
 using C_uword = uint64_t;
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
-static_assert(sizeof(C_word) == sizeof(double), "object-v2 expected 64-bit double.");
+static_assert(sizeof(C_word) == sizeof(C_float), "object-v2 expected word-sized floating-point type.");
 static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer size.");
 
 #define C_wordstobytes(n)          ((n) << 3)

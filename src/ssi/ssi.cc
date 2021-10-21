@@ -31,11 +31,13 @@ void test_obj_v2() {
     std::cout << std::endl;
     print_obj2(c_char('0'), std::cout);
     std::cout << std::endl;
-    print_obj2(c_char(L'∀'), std::cout);
+    print_obj2(c_char(0x2200), std::cout);
     std::cout << std::endl;
     print_obj2(c_list(c_integer(0), c_integer(1), c_integer(2), c_cons(c_integer(3), c_integer(4))), std::cout);
     std::cout << std::endl;
     print_obj2(c_vector({c_integer(0), c_integer(2), c_integer(4), c_integer(6), c_integer(8)}), std::cout);
+    std::cout << std::endl;
+    print_obj2(c_vector({c_integer(0), c_vector({c_integer(2), c_integer(2), c_integer(2), c_integer(2)}), c_string("Anna")}), std::cout);
     std::cout << std::endl;
     print_obj2(c_string("Howdy, partner"), std::cout);
     std::cout << std::endl;
@@ -62,12 +64,17 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 
     // parsing all lines into a vector:
     Parser* p = create_parser(f, file_path);
-    std::vector<Object*> line_code_obj_array = parse_all_subsequent_lines(p);
+    std::vector<C_word> line_code_obj_array = parse_all_subsequent_lines(p);
+
+    // DEBUG: everything below stubbed.
+    for (auto line_obj: line_code_obj_array) {
+        std::cout << "snail-scheme> ";
+        print_obj2(line_obj, std::cout);
+        std::cout << std::endl;
+    }
+    return;
     
-    // todo: load into a module before compilation
-    //  - cf https://docs.racket-lang.org/guide/Module_Syntax.html?q=modules#%28part._module-syntax%29
-    //  - first, implement the 'module' syntax
-    //  - later, can implement '#lang' syntax (see below)
+    // TODO: continue from here.
 
     // todo: languages by modifying reader level
     //  - specifying a '#lang <language>' line can delegate to different parsers
@@ -75,13 +82,11 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 
     // compiling the program into VM representation:
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
-    add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
+    // add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
 
     // Executing:
-    {
-        sync_execute_vm(vm);
-    }
-
+    // sync_execute_vm(vm);
+    
     // Dumping:
 #if CONFIG_DUMP_VM_STATE_AFTER_EXECUTION
     {
@@ -94,11 +99,11 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 
 int main(int argc, char const* argv[]) {
     // debug only:
-    bool just_run_v2_test = true;
-    if (just_run_v2_test) {
-        test_obj_v2();
-        return 0;
-    }
+    // bool just_run_v2_test = true;
+    // if (just_run_v2_test) {
+    //     test_obj_v2();
+    //     return 0;
+    // }
 
     // main routine:
     if (argc != 2) {
@@ -110,7 +115,7 @@ int main(int argc, char const* argv[]) {
         return 1;
     } else {
         VirtualMachine* vm = create_vm();
-        // interpret_file(vm, argv[1]);
+        interpret_file(vm, argv[1]);
         return 0;
     }
 }
