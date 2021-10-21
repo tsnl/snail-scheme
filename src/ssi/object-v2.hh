@@ -31,10 +31,12 @@
 //
 
 using C_word = int64_t;
-using C_float = double;
 using C_uword = uint64_t;
+using C_cppcb = std::function<C_word(C_word args)>;
+using VmExpID = int64_t;
+
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
-static_assert(sizeof(C_word) == sizeof(C_float), "object-v2 expected word-sized floating-point type.");
+static_assert(sizeof(C_word) == sizeof(double), "object-v2 expected 64-bit double.");
 static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer size.");
 
 #define C_wordstobytes(n)          ((n) << 3)
@@ -44,13 +46,8 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 // Immediate data-types:
 //
 
-// lifted straight out of `chicken.h`, except
+// based on Chicken Scheme's `chicken.h`
 //  - convention of 'WRAP_' and 'UNWRAP_' to convert datatypes to C_word
-//  * C_fix -> C_WRAP_INT
-//  * C_unfix -> C_UNWRAP_INT
-//  * C_make_character -> C_WRAP_CHAR
-//  * C_character_code -> C_UNWRAP_CHAR
-//  * MOST_{POSITIVE|NEGATIVE}_FIXNUM -> MOST_$1_INT
 
 #define C_IMMEDIATE_MARK_BITS       0x3                 // '0b11' bits: at least 1 true for all immediate values
 #define C_BOOLEAN_BIT_MASK          0x0000000f          // '0b1111' because all info in last nibble
@@ -72,15 +69,18 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 #define C_UNWRAP_INT(x)             ((x) >> C_INT_SHIFT)
 // WRAP_CHAR and UNWRAP_CHAR encode a char value as a word and decode a word as a char resp.
 #define C_WRAP_CHAR(c)              ((((c) & C_CHAR_VALUE_CHK_BITS) << C_CHAR_SHIFT) | C_CHAR_BITS)
-#define C_UNWRAP_CHAR(x)            (((x) >> C_CHAR_SHIFT) & C_CHAR_VALUE_CHK_BITS)
+#define C_UNWRAP_CHAR(x)            static_cast<int32_t>((((x) >> C_CHAR_SHIFT) & C_CHAR_VALUE_CHK_BITS))
 // WRAP_SYMBOL and UNWRAP_SYMBOL are the same as above
 #define C_WRAP_SYMBOL(s)            (((s) << C_SYMBOL_SHIFT) | C_SYMBOL_BITS)
-#define C_UNWRAP_SYMBOL(s)          (((s) >> C_SYMBOL_SHIFT) & C_SYMBOL_VALUE_CHK_BITS)
+#define C_UNWRAP_SYMBOL(s)          reinterpret_cast<IntStr>(((s) >> C_SYMBOL_SHIFT) & C_SYMBOL_VALUE_CHK_BITS)
+// WRAP_BOOL and UNWRAP_BOOL are special, since each bool object is a singleton
+#define C_WRAP_BOOL(bit)            ((bit) ? C_SCHEME_TRUE : C_SCHEME_FALSE)
+#define C_UNWRAP_BOOL(s)            ((s) == C_SCHEME_TRUE)
 
 // special values:
 #define C_SCHEME_END_OF_LIST        ((C_word)(C_SPECIAL_BITS | 0x00000000))
 #define C_SCHEME_UNDEFINED          ((C_word)(C_SPECIAL_BITS | 0x00000010))
-// #define C_SCHEME_UNBOUND         ((C_word)(C_SPECIAL_BITS | 0x00000020))
+ #define C_SCHEME_UNBOUND           ((C_word)(C_SPECIAL_BITS | 0x00000020))
 #define C_SCHEME_END_OF_FILE        ((C_word)(C_SPECIAL_BITS | 0x00000030))
 
 // determining limits:
@@ -120,13 +120,13 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 #define C_CLOSURE_HEADER_BITS           (0x0400000000000000L | C_SPECIALBLOCK_BIT)
 #define C_FLONUM_HEADER_BITS            (0x0500000000000000L | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
 // #define C_PORT_HEADER_BITS           (0x0700000000000000L | C_SPECIALBLOCK_BIT)
-// #define C_STRUCTURE_TYPE             (0x0800000000000000L)
+#define C_CALL_FRAME_HEADER_BITS        (0x0800000000000000L)
 // #define C_POINTER_TYPE               (0x0900000000000000L | C_SPECIALBLOCK_BIT)
 // #define C_LOCATIVE_TYPE              (0x0a00000000000000L | C_SPECIALBLOCK_BIT)
 // #define C_TAGGED_POINTER_TYPE        (0x0b00000000000000L | C_SPECIALBLOCK_BIT)
 // #define C_SWIG_POINTER_TYPE          (0x0c00000000000000L | C_SPECIALBLOCK_BIT)
 // #define C_LAMBDA_INFO_TYPE           (0x0d00000000000000L | C_BYTEBLOCK_BIT)
-//       unused                         (0x0e00000000000000L ...)
+#define C_CPP_CALLBACK_HEADER_BITS      (0x0e00000000000000L | C_BYTEBLOCK_BIT)
 // #define C_BUCKET_TYPE                (0x0f00000000000000L)
 #define C_VECTOR_HEADER_BITS            (0x0000000000000000L)
 #define C_BYTE_VECTOR_HEADER_BITS       (C_VECTOR_HEADER_BITS | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
@@ -135,9 +135,12 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 #define C_SIZEOF_PAIR                   (3)
 #define C_SIZEOF_LIST(n)                (C_SIZEOF_PAIR * (n) + 1)
 #define C_SIZEOF_STRING(n)              (C_bytestowords(n) + 2)     /* 1 extra byte for null-terminator; works with C */
-#define C_SIZEOF_FLONUM                 (2)
+#define C_SIZEOF_FLONUM                 (1 + C_bytestowords(sizeof(double)))
 // #define C_SIZEOF_PORT                (16)
-#define C_SIZEOF_VECTOR(n)              ((n) + 1)
+#define C_SIZEOF_VECTOR(n)              ((n) + 1)                               /* header, contents... */
+#define C_SIZEOF_CPP_CALLBACK           (1 + C_bytestowords(sizeof(C_cppcb)))   /* header, std::function<...> */
+#define C_SIZEOF_CLOSURE                (1 + 3)     /* header, body, e, vars */
+#define C_SIZEOF_CALL_FRAME             (1 + 4)     /* header, x, e, r, s */
 
 // Fixed size types have pre-computed header tags (1-byte):
 // NOTE: the 'size' bits measure size in bytes.
@@ -146,7 +149,10 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 // #define C_LOCATIVE_TAG               (C_LOCATIVE_TYPE | (C_SIZEOF_LOCATIVE - 1))
 // #define C_TAGGED_POINTER_TAG         (C_TAGGED_POINTER_TYPE | (C_SIZEOF_TAGGED_POINTER - 1))
 // #define C_SWIG_POINTER_TAG           (C_SWIG_POINTER_TYPE | (C_wordstobytes(C_SIZEOF_SWIG_POINTER - 1)))
-#define C_FLONUM_TAG                    (C_FLONUM_HEADER_BITS | sizeof(double))
+#define C_FLONUM_TAG                    (C_FLONUM_HEADER_BITS | C_SIZEOF_FLONUM)
+#define C_CLOSURE_TAG                   (C_CLOSURE_HEADER_BITS | C_SIZEOF_CLOSURE)
+#define C_CPP_CALLBACK_TAG              (C_CPP_CALLBACK_HEADER_BITS | C_SIZEOF_CPP_CALLBACK)
+#define C_CALL_FRAME_TAG                (C_CALL_FRAME_HEADER_BITS | C_SIZEOF_CALL_FRAME)
 
 //
 // Interface functions:
@@ -196,7 +202,18 @@ inline bool is_byte_vector(C_word word) {
 }
 inline bool is_closure(C_word word) {
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_CLOSURE_HEADER_BITS);
+    return is_block_ptr(word) && (bp->header == C_CLOSURE_TAG);
+}
+inline bool is_call_frame(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && (bp->header == C_CALL_FRAME_TAG);
+}
+inline bool is_cpp_callback(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && ((bp->header == C_CPP_CALLBACK_TAG));
+}
+inline bool is_procedure(C_word word) {
+    return is_closure(word) || is_cpp_callback(word);
 }
 inline int64_t string_length(C_word word) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -275,7 +292,56 @@ inline C_word c_integer(int64_t value);
 inline C_word c_char(int value);
 inline C_word c_cons(C_word ar, C_word dr);
 inline C_word c_vector(std::vector<C_word> objs);
+inline C_word c_closure(C_word body, C_word e, C_word vars);
+inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent);
+inline C_word c_cpp_callback(C_cppcb cb);
+
 template <typename... TObjs> C_word c_list(TObjs... ar_objs);
+template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, TObjs... rem);
+
+//
+// Utility functions in scheme:
+//
+
+inline C_word c_is_symbol(C_word word) { return c_boolean(is_symbol(word)); }
+inline C_word c_is_integer(C_word word) { return c_boolean(is_integer(word)); }
+inline C_word c_is_bool(C_word word) { return c_boolean(is_bool(word)); }
+inline C_word c_is_char(C_word word) { return c_boolean(is_char(word)); }
+inline C_word c_is_undefined(C_word word) { return c_boolean(is_undefined(word)); }
+inline C_word c_is_eol(C_word word) { return c_boolean(is_eol(word)); }
+inline C_word c_is_eof(C_word word) { return c_boolean(is_eof(word)); }
+inline C_word c_is_string(C_word word) { return c_boolean(is_string(word)); }
+inline C_word c_is_pair(C_word word) { return c_boolean(is_pair(word)); }
+inline C_word c_is_flonum(C_word word) { return c_boolean(is_flonum(word)); }
+inline C_word c_is_vector(C_word word) { return c_boolean(is_vector(word)); }
+inline C_word c_is_byte_vector(C_word word) { return c_boolean(is_byte_vector(word)); }
+inline C_word c_is_closure(C_word word) { return c_boolean(is_closure(word)); }
+inline C_word c_is_cpp_callback(C_word word) { return c_boolean(is_cpp_callback(word)); }
+inline C_word c_is_procedure(C_word word) { return c_boolean(is_procedure(word)); }
+
+inline C_word c_car(C_word word);
+inline C_word c_cdr(C_word word);
+inline C_word c_ref_closure_body(C_word clos);
+inline C_word c_ref_closure_e(C_word clos);
+inline C_word c_ref_closure_vars(C_word clos);
+inline VmExpID c_ref_call_frame_x(C_word frame);
+inline C_word c_ref_call_frame_e(C_word frame);
+inline C_word c_ref_call_frame_r(C_word frame);
+inline C_word c_ref_call_frame_opt_parent(C_word frame);
+inline C_cppcb const* c_ref_cpp_callback_cb(C_word cpp_cb_obj);
+
+inline void c_set_car(C_word pair, C_word new_ar);
+inline void c_set_cdr(C_word pair, C_word new_dr);
+
+//
+// Utility functions for C++:
+//
+
+template <size_t n> std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic = false);
+
+//
+// Implementation: inline constructors:
+//
 
 inline C_word c_symbol(IntStr int_str_id) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -286,14 +352,10 @@ inline C_word c_symbol(IntStr int_str_id) {
         throw SsiError();
     }
 #endif
-    return (int_str_id << C_SYMBOL_SHIFT) | C_SYMBOL_BITS;
+    return C_WRAP_SYMBOL(int_str_id);
 }
 inline C_word c_boolean(bool bit) {
-    if (bit) {
-        return C_SCHEME_TRUE;
-    } else {
-        return C_SCHEME_FALSE;
-    }
+    return C_WRAP_BOOL(bit);
 }
 inline C_word c_integer(int64_t value) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -334,6 +396,40 @@ inline C_word c_vector(std::vector<C_word> objs) {
     memcpy(mp->data, objs.data(), C_wordstobytes(objs.size()));
     return reinterpret_cast<C_word>(mp);
 }
+inline C_word c_closure(C_word body, C_word e, C_word vars) {
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
+    mp->header = C_CLOSURE_TAG;
+    mp->data[0] = body;
+    mp->data[1] = e;
+    mp->data[2] = vars;
+    return reinterpret_cast<C_word>(mp);
+}
+inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    // assume 'e' and 'r' are OK (too expensive to check).
+    // Just ensure call-frame stack is preserved.
+    if (opt_parent != C_SCHEME_END_OF_LIST && !is_call_frame(opt_parent)) {
+        std::stringstream ss;
+        ss << "call-frame: expected 4th arg to be EOL or a call-frame, but got: ";
+        print_obj2(opt_parent, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
+    mp->header = C_CLOSURE_TAG;
+    mp->data[0] = reinterpret_cast<C_word>(x);
+    mp->data[1] = e;
+    mp->data[2] = r;
+    mp->data[3] = opt_parent;
+    return reinterpret_cast<C_word>(mp);
+}
+inline C_word c_cpp_callback(C_cppcb cb) {
+    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CPP_CALLBACK)));
+    mp->header = C_CLOSURE_TAG;
+    new (mp->data) C_cppcb(std::move(cb));
+    return reinterpret_cast<C_word>(mp);
+}
 inline C_word c_string(std::string const& utf8_data) {
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_STRING(utf8_data.size())));
     mp->header = C_STRING_HEADER_BITS | utf8_data.size();
@@ -341,7 +437,6 @@ inline C_word c_string(std::string const& utf8_data) {
     return reinterpret_cast<C_word>(mp);
 }
 
-template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, TObjs... rem);
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem) {
     // do not write to memory
     return C_SCHEME_END_OF_LIST;
@@ -362,18 +457,202 @@ template <typename... TObjs> C_word c_list(TObjs... ar_objs) {
 }
 
 //
-// Utility functions in scheme:
+// Implementation: utility functions in Scheme
 //
 
-inline C_word c_is_integer(C_word word) { return c_boolean(is_integer(word)); }
-inline C_word c_is_bool(C_word word) { return c_boolean(is_bool(word)); }
-inline C_word c_is_char(C_word word) { return c_boolean(is_char(word)); }
-inline C_word c_is_undefined(C_word word) { return c_boolean(is_undefined(word)); }
-inline C_word c_is_eol(C_word word) { return c_boolean(is_eol(word)); }
-inline C_word c_is_eof(C_word word) { return c_boolean(is_eof(word)); }
-inline C_word c_is_string(C_word word) { return c_boolean(is_string(word)); }
-inline C_word c_is_pair(C_word word) { return c_boolean(is_pair(word)); }
-inline C_word c_is_flonum(C_word word) { return c_boolean(is_flonum(word)); }
-inline C_word c_is_vector(C_word word) { return c_boolean(is_vector(word)); }
-inline C_word c_is_byte_vector(C_word word) { return c_boolean(is_byte_vector(word)); }
-inline C_word c_is_closure(C_word word) { return c_boolean(is_closure(word)); }
+inline C_word c_car(C_word word) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(word)) {
+        std::stringstream ss;
+        ss << "car: expected pair, got: ";
+        print_obj2(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return bp->data[0];
+}
+inline C_word c_cdr(C_word word) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(word)) {
+        std::stringstream ss;
+        ss << "cdr: expected pair, got: ";
+        print_obj2(word, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return bp->data[1];
+}
+inline C_word c_ref_closure_body(C_word clos) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_closure(clos)) {
+        std::stringstream ss;
+        ss << "ref-closure-x: expected closure as 1st arg, got: ";
+        print_obj2(clos, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
+    return bp->data[0];
+}
+inline C_word c_ref_closure_e(C_word clos) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_closure(clos)) {
+        std::stringstream ss;
+        ss << "ref-closure-e: expected closure as 1st arg, got: ";
+        print_obj2(clos, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
+    return bp->data[1];
+}
+inline C_word c_ref_closure_vars(C_word clos) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_closure(clos)) {
+        std::stringstream ss;
+        ss << "ref-closure-r: expected closure as 1st arg, got: ";
+        print_obj2(clos, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
+    return bp->data[2];
+}
+inline VmExpID c_ref_call_frame_x(C_word frame) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_call_frame(frame)) {
+        std::stringstream ss;
+        ss << "ref-call-frame-x: expected call-frame as 1st arg, got: ";
+        print_obj2(frame, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
+    return reinterpret_cast<VmExpID>(bp->data[0]);
+}
+inline C_word c_ref_call_frame_e(C_word frame) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_call_frame(frame)) {
+        std::stringstream ss;
+        ss << "ref-call-frame-e: expected call-frame as 1st arg, got: ";
+        print_obj2(frame, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
+    return bp->data[1];
+}
+inline C_word c_ref_call_frame_r(C_word frame) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_call_frame(frame)) {
+        std::stringstream ss;
+        ss << "ref-call-frame-r: expected call-frame as 1st arg, got: ";
+        print_obj2(frame, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
+    return bp->data[2];
+}
+inline C_word c_ref_call_frame_opt_parent(C_word frame) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (frame == C_SCHEME_END_OF_LIST || !is_call_frame(frame)) {
+        std::stringstream ss;
+        ss << "ref-call-frame-opt-parent: expected call-frame as 1st arg, got: ";
+        print_obj2(frame, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
+    return bp->data[3];
+}
+inline C_cppcb const* c_ref_cpp_callback_cb(C_word cpp_cb_obj) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_cpp_callback(cpp_cb_obj)) {
+        std::stringstream ss;
+        ss << "ref-cpp-callback-cb: expected cpp-callback as 1st arg, got: ";
+        print_obj2(cpp_cb_obj, ss);
+        error(ss.str());
+        more("NOTE: this is unlikely to be a user error, and probably occurred in C/C++-land.");
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
+    return reinterpret_cast<C_cppcb const*>(reinterpret_cast<void const*>(bp->data));
+}
+inline void c_set_car(C_word pair, C_word new_ar) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(pair)) {
+        std::stringstream ss;
+        ss << "set-car: expected pair as 1st arg, got: ";
+        print_obj2(pair, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(pair);
+    bp->data[0] = new_ar;
+}
+inline void c_set_cdr(C_word pair, C_word new_dr) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(pair)) {
+        std::stringstream ss;
+        ss << "set-cdr: expected pair as 1st arg, got: ";
+        print_obj2(pair, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(pair);
+    bp->data[1] = new_dr;
+}
+
+//
+// Implementation: inline C++ utility functions:
+//
+
+template <size_t n> 
+std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
+    // reading upto `n` objects into an array:
+    C_word rem_list = pair_list;
+    std::array<C_word, n> out{};
+    size_t index = 0;
+    while (rem_list && index < n) {
+        out[index++] = c_car(rem_list);
+        rem_list = c_cdr(rem_list);
+    }
+    
+    // checking that the received array is OK:
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    {
+        if (!is_variadic && rem_list) {
+            std::stringstream error_ss;
+            error_ss
+                << "extract_args: too many arguments to a non-variadic procedure: expected " << n;
+            error(error_ss.str());
+            throw SsiError();
+        }
+        if (index < n) {
+            std::stringstream error_ss;
+            error_ss 
+                << "extract_args: too few arguments: received " << index << ", but expected at least " << n; 
+            error(error_ss.str());
+            throw SsiError();
+        }
+    }
+#endif
+
+    // returning array:
+    return out;
+}
