@@ -231,7 +231,15 @@ void print_obj2(C_word obj, std::ostream& out) {
         out << "\"";
     }
     else if (is_procedure(obj)) {
-        out << "(procedure)";
+        if (is_closure(obj)) {
+            out << "(lambda ";
+            print_obj2(c_ref_closure_vars(obj), out);
+            out << ")";
+        } else {
+            out << "(native-procedure ";
+            print_obj2(c_ref_cpp_callback_args(obj), out);
+            out << ")";
+        }
     }
     else if (is_eof(obj)) {
         // todo: check if this is right
@@ -253,6 +261,6 @@ void print_obj2(C_word obj, std::ostream& out) {
 
     else {
         error("NotImplemented: printing an unknown v2 object.");
-        throw new SsiError();
+        throw SsiError();
     }
 }

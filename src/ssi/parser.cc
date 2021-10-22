@@ -712,13 +712,13 @@ C_word Parser::parse_list(bool contents_is_datum_not_exp) {
             list_stack.back() :
             C_SCHEME_END_OF_LIST
         );
-        int start_index = (
+        int64_t start_index = (
             (parsed_improper_list) ?
             static_cast<int64_t>(list_stack.size() - 2) :
             static_cast<int64_t>(list_stack.size() - 1)
         );
-        for (int i = start_index; i >= 0; i--) {
-            pair_list = c_cons(list_stack[i], pair_list);
+        while (!list_stack.empty()) {
+            pair_list = c_cons(list_stack.back(), pair_list);
             list_stack.pop_back();
         }
         return pair_list;

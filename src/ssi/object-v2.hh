@@ -142,7 +142,7 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 #define C_SIZEOF_FLONUM                 (1 + sizeof(double))        /* NOTE: size in bytes bc 8ALIGN_BIT */
 // #define C_SIZEOF_PORT                (16)
 #define C_SIZEOF_VECTOR(n)              ((n) + 1)                   /* header, contents... */
-#define C_SIZEOF_CPP_CALLBACK           (1 + 2 + C_bytestowords(sizeof(C_cppcb)))   /* header, env, vars, std::function<...> */
+#define C_SIZEOF_CPP_CALLBACK           (1 + 3)                     /* header, env, vars, std::function-ptr */
 #define C_SIZEOF_CLOSURE                (1 + 3)                     /* header, body, e, vars */
 #define C_SIZEOF_CALL_FRAME             (1 + 4)                     /* header, x, e, r, s */
 #define C_SIZEOF_BYTE_VECTOR(n)         (1 + (n))                   /* NOTE: in bytes bc 8ALIGN_BIT */
@@ -391,13 +391,30 @@ inline C_word c_cons(C_word ar, C_word dr) {
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_vector(std::vector<C_word> objs) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_VECTOR(objs.size()))));
+    auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_VECTOR(objs.size()))));
     mp->header = C_VECTOR_HEADER_BITS | 1+objs.size();
     memcpy(mp->data, objs.data(), C_wordstobytes(objs.size()));
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_closure(C_word body, C_word e, C_word vars) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(e) && !is_eol(e)) {
+        std::stringstream ss;
+        ss << "closure: expected a pair or '() as 'env', got: ";
+        print_obj2(e, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!is_pair(vars) && !is_eol(vars)) {
+        std::stringstream ss;
+        ss << "closure: expected a pair or '() as 'vars', got: ";
+        print_obj2(e, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+
+    auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CLOSURE)));
     mp->header = C_CLOSURE_TAG;
     mp->data[0] = body;
     mp->data[1] = e;
@@ -429,7 +446,7 @@ inline C_word c_cpp_callback(C_cppcb cb, C_word env, C_word vars) {
     mp->header = C_CLOSURE_TAG;
     mp->data[0] = env;
     mp->data[1] = vars;
-    new(&mp->data[2]) C_cppcb(std::move(cb));
+    mp->data[2] = reinterpret_cast<C_word>(new C_cppcb(std::move(cb)));
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_string(std::string const& utf8_data) {
@@ -518,7 +535,7 @@ inline C_word c_ref_closure_vars(C_word clos) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_closure(clos)) {
         std::stringstream ss;
-        ss << "ref-closure-r: expected closure as 1st arg, got: ";
+        ss << "ref-closure-vars: expected closure as 1st arg, got: ";
         print_obj2(clos, ss);
         error(ss.str());
         throw SsiError();
@@ -591,7 +608,35 @@ inline C_cppcb const* c_ref_cpp_callback_cb(C_word cpp_cb_obj) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
-    return reinterpret_cast<C_cppcb const*>(reinterpret_cast<void const*>(bp->data));
+    return reinterpret_cast<C_cppcb const*>(reinterpret_cast<void const*>(bp->data[2]));
+}
+inline C_word c_ref_cpp_callback_args(C_word cpp_cb_obj) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_cpp_callback(cpp_cb_obj)) {
+        std::stringstream ss;
+        ss << "ref-cpp-callback-cb: expected cpp-callback as 1st arg, got: ";
+        print_obj2(cpp_cb_obj, ss);
+        error(ss.str());
+        more("NOTE: this is unlikely to be a user error, and probably occurred in C/C++-land.");
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
+    return bp->data[1];
+}
+inline C_word c_ref_cpp_callback_env(C_word cpp_cb_obj) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_cpp_callback(cpp_cb_obj)) {
+        std::stringstream ss;
+        ss << "ref-cpp-callback-cb: expected cpp-callback as 1st arg, got: ";
+        print_obj2(cpp_cb_obj, ss);
+        error(ss.str());
+        more("NOTE: this is unlikely to be a user error, and probably occurred in C/C++-land.");
+        throw SsiError();
+    }
+#endif
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
+    return bp->data[0];
 }
 inline void c_set_car(C_word pair, C_word new_ar) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -670,10 +715,20 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
 }
 
 inline int64_t count_list_items(C_word pair_list, int64_t max) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(pair_list)) {
+        std::stringstream ss;
+        ss << "count-list-items: expected a pair as 1st argument, got: ";
+        print_obj2(pair_list, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+
     int64_t var_ctr = 0;
     for (
         C_word rem_var_rib = pair_list;
-        is_eol(rem_var_rib) && var_ctr < max;
+        !is_eol(rem_var_rib) && var_ctr < max;
         rem_var_rib = c_cdr(rem_var_rib)
     ) {
         var_ctr++;

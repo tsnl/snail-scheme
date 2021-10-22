@@ -167,7 +167,7 @@ class VirtualMachine {
     static C_word closure(VmExpID body, C_word env, C_word args);
     static C_word lookup(C_word symbol, C_word env_raw);
     C_word continuation(C_word s);
-    C_word extend(C_word e, C_word vars, C_word vals, bool is_binding_variadic);
+    static C_word extend(C_word e, C_word vars, C_word vals, bool is_binding_variadic);
 
   // Error functions:
   public:
@@ -667,7 +667,7 @@ void VirtualMachine::sync_execute() {
 #endif
                         if (is_closure(m_reg.a)) {
                             // a Scheme function is called
-                            auto a = static_cast<C_word>(m_reg.a);
+                            auto a = m_reg.a;
                             C_word new_e;
                             try {
                                 new_e = extend(
@@ -678,7 +678,7 @@ void VirtualMachine::sync_execute() {
                                 );
                             } catch (SsiError const&) {
                                 std::stringstream ss;
-                                ss << "See applied procedure: ";
+                                ss << "Invalid args: see applied procedure: ";
                                 print_obj2(m_reg.a, ss);
                                 more(ss.str());
                                 throw;
@@ -704,7 +704,7 @@ void VirtualMachine::sync_execute() {
                             // FIXME: I think this is the correct version, but not what we already have, where 's'
                             //        is left unmodified?
                             //          cf Return below
-                            // m_reg.s = c_ref_call_frame_opt_parent(s);
+                            m_reg.s = c_ref_call_frame_opt_parent(s);
                         }
                         else {
                             error("Invalid callable while type-checks disabled");
@@ -1077,14 +1077,14 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 auto aa = extract_args<2>(args);
                 auto res = C_UNWRAP_INT(aa[0]);
                 int_fold_cb(res, C_UNWRAP_INT(aa[1]));
-                return res;
+                return C_WRAP_INT(res);
             }
             else if (!int_operand_present && arg_count == 2) {
                 // adding two floats:
                 auto aa = extract_args<2>(args);
                 auto res = unwrap_flonum(aa[0]);
                 float_fold_cb(res, unwrap_flonum(aa[1]));
-                return res;
+                return c_flonum(res);
             }
             else if (float_operand_present && int_operand_present) {
                 // compute result as a float, mixed int and float:
@@ -1116,7 +1116,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 return c_flonum(unwrapped_accum);
             } 
             else if (float_operand_present) {
-                // compute result from only floats: no integers found
+                // compute result from only floats: no integers found, but more than 2 floats
 
                 C_word rem_args = args;
 
@@ -1134,7 +1134,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 return c_flonum(unwrapped_accum);
             }
             else {
-                // compute result from only integers: no floats found
+                // compute result from only integers: no floats found, but more than 2 integers
                 C_word rem_args = args;
 
                 C_word first_arg = c_car(rem_args);
