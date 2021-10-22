@@ -40,7 +40,6 @@ using C_cppcb = std::function<C_word(C_word args)>;
 using VmExpID = int64_t;
 
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
-<<<<<<< HEAD
 static_assert(sizeof(C_word) == sizeof(C_float), "object-v2 expected 64-bit double.");
 static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer size.");
 
@@ -143,11 +142,7 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 #define C_SIZEOF_FLONUM                 (1 + C_bytestowords(sizeof(double)))
 // #define C_SIZEOF_PORT                (16)
 #define C_SIZEOF_VECTOR(n)              ((n) + 1)                               /* header, contents... */
-<<<<<<< HEAD
 #define C_SIZEOF_CPP_CALLBACK           (1 + 2 + C_bytestowords(sizeof(C_cppcb)))   /* header, env, vars, std::function<...> */
-=======
-#define C_SIZEOF_CPP_CALLBACK           (1 + C_bytestowords(sizeof(C_cppcb)))   /* header, std::function<...> */
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
 #define C_SIZEOF_CLOSURE                (1 + 3)     /* header, body, e, vars */
 #define C_SIZEOF_CALL_FRAME             (1 + 4)     /* header, x, e, r, s */
 
@@ -223,7 +218,6 @@ inline bool is_cpp_callback(C_word word) {
 }
 inline bool is_procedure(C_word word) {
     return is_closure(word) || is_cpp_callback(word);
-<<<<<<< HEAD
 }
 
 inline C_float unwrap_flonum(C_word word) {
@@ -238,8 +232,6 @@ inline C_float unwrap_flonum(C_word word) {
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
     return *reinterpret_cast<C_float*>(bp->data);
-=======
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
 }
 
 inline int64_t string_length(C_word word) {
@@ -321,11 +313,7 @@ inline C_word c_cons(C_word ar, C_word dr);
 inline C_word c_vector(std::vector<C_word> objs);
 inline C_word c_closure(C_word body, C_word e, C_word vars);
 inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent);
-<<<<<<< HEAD
 inline C_word c_cpp_callback(C_cppcb cb, C_word env, C_word vars);
-=======
-inline C_word c_cpp_callback(C_cppcb cb);
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
 
 template <typename... TObjs> C_word c_list(TObjs... ar_objs);
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, TObjs... rem);
@@ -369,10 +357,7 @@ inline void c_set_cdr(C_word pair, C_word new_dr);
 //
 
 template <size_t n> std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic = false);
-<<<<<<< HEAD
 inline int64_t count_list_items(C_word pair_list, int64_t max = std::numeric_limits<C_word>::max());
-=======
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
 
 //
 // Implementation: inline constructors:
@@ -459,19 +444,12 @@ inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent) {
     mp->data[3] = opt_parent;
     return reinterpret_cast<C_word>(mp);
 }
-<<<<<<< HEAD
 inline C_word c_cpp_callback(C_cppcb cb, C_word env, C_word vars) {
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CPP_CALLBACK)));
     mp->header = C_CLOSURE_TAG;
     mp->data[0] = env;
     mp->data[1] = vars;
     new(&mp->data[2]) C_cppcb(std::move(cb));
-=======
-inline C_word c_cpp_callback(C_cppcb cb) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CPP_CALLBACK)));
-    mp->header = C_CLOSURE_TAG;
-    new (mp->data) C_cppcb(std::move(cb));
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_string(std::string const& utf8_data) {
@@ -682,7 +660,6 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
     {
         if (!is_variadic && rem_list) {
             std::stringstream error_ss;
-<<<<<<< HEAD
             int64_t const max_found_args = 8000;
             int64_t found_args = count_list_items(pair_list, max_found_args);
             error_ss
@@ -695,10 +672,6 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
             }
             error_ss
                 << " arguments.";
-=======
-            error_ss
-                << "extract_args: too many arguments to a non-variadic procedure: expected " << n;
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
             error(error_ss.str());
             throw SsiError();
         }
@@ -715,7 +688,6 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
     // returning array:
     return out;
 }
-<<<<<<< HEAD
 
 inline int64_t count_list_items(C_word pair_list, int64_t max) {
     int64_t var_ctr = 0;
@@ -728,5 +700,3 @@ inline int64_t count_list_items(C_word pair_list, int64_t max) {
     }
     return var_ctr;
 }
-=======
->>>>>>> 6512967c6f5da0be27c1a9840e3a988e552d657b
