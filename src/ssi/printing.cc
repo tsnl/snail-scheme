@@ -130,23 +130,23 @@ void print_obj2(C_word obj, std::ostream& out) {
     //
 
     if (is_integer(obj)) {
-        std::cout << C_UNWRAP_INT(obj);
+        out << C_UNWRAP_INT(obj);
     }
     else if (is_symbol(obj)) {
-        std::cout << interned_string(C_UNWRAP_SYMBOL(obj));
+        out << interned_string(C_UNWRAP_SYMBOL(obj));
     }
     else if (is_char(obj)) {
         int cc = C_UNWRAP_CHAR(obj);
         switch (cc) {
-            case '\n': std::cout << "#\\linefeed" << std::endl; break;
-            case '\r': std::cout << "#\\return" << std::endl; break;
-            case ' ': std::cout << "#\\space" << std::endl; break;
+            case '\n': out << "#\\linefeed" << std::endl; break;
+            case '\r': out << "#\\return" << std::endl; break;
+            case ' ': out << "#\\space" << std::endl; break;
             default: {
                 if (0 < cc) {
                     if (cc < 128 && std::isprint(cc)) {
-                        std::cout << "#\\" << static_cast<char>(cc);
+                        out << "#\\" << static_cast<char>(cc);
                     } else {
-                        std::cout << "#\\x" << std::hex << cc << std::dec;
+                        out << "#\\x" << std::hex << cc << std::dec;
                     }
                 }
             }
@@ -159,7 +159,7 @@ void print_obj2(C_word obj, std::ostream& out) {
 
     else if (is_flonum(obj)) {
         auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
-        std::cout << std::setprecision(8) << *reinterpret_cast<double*>(&bp->data[0]);
+        out << std::setprecision(8) << *reinterpret_cast<double*>(&bp->data[0]);
     }
     else if (is_pair(obj)) {
         auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
@@ -239,6 +239,12 @@ void print_obj2(C_word obj, std::ostream& out) {
     }
     else if (is_eol(obj)) {
         out << "'()";
+    }
+    else if (is_bool(obj)) {
+        out << (C_UNWRAP_BOOL(obj) ? "#t" : "#f");
+    }
+    else if (is_undefined(obj)) {
+        out << "(undefined)";
     }
 
     //

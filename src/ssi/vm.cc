@@ -171,7 +171,7 @@ class VirtualMachine {
 
   // Error functions:
   public:
-    void check_vars_list_else_throw(C_word vars);
+    static void check_vars_list_else_throw(C_word vars);
 
   // Debug dumps:
   public:
@@ -479,7 +479,7 @@ VmExpID VirtualMachine::translate_code_obj_pair_list(C_word obj, VmExpID next) {
             std::vector<C_word> obj_stack;
             obj_stack.reserve(32);
             C_word rem_args = args;
-            while (rem_args) {
+            while (!is_eol(rem_args)) {
                 obj_stack.push_back(c_car(rem_args));
                 rem_args = c_cdr(rem_args);
             }
@@ -500,11 +500,12 @@ VmExpID VirtualMachine::translate_code_obj_pair_list(C_word obj, VmExpID next) {
 
     // otherwise, handling a function call:
     //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
+    //  TODO: consider how to handle macros; need lazy evaluation, with eval happening 
     {
         // function call
         VmExpID c = translate_code_obj(head, new_vmx_apply());
         C_word c_args = args;
-        while (c_args) {
+        while (!is_eol(c_args)) {
             c = translate_code_obj(
                 c_car(c_args),
                 new_vmx_argument(c)
@@ -540,7 +541,11 @@ void VirtualMachine::sync_execute() {
     //      - if `print_each_line` is true, we print the input and output lines to stdout
     //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
+    // initializing registers:
+    m_reg.a = C_SCHEME_UNBOUND;
     m_reg.e = mk_default_root_env();
+    m_reg.r = C_SCHEME_END_OF_LIST;
+    m_reg.s = C_SCHEME_END_OF_LIST;
 
     // for each line object in each file...
     for (auto f: m_files) {
@@ -549,6 +554,12 @@ void VirtualMachine::sync_execute() {
             // acquiring input:
             C_word input = f.line_code_objs[i];
             VmProgram program = f.line_programs[i];
+
+            // NOTE: only the state of 'e' register must be maintained between line programs
+            //  in practice, these registers will be initialized before use, so no need to clear here.
+            // m_reg.a = C_SCHEME_UNBOUND;
+            // m_reg.r = C_SCHEME_END_OF_LIST;
+            // m_reg.s = C_SCHEME_END_OF_LIST;
 
             // printing input line before execution if desired:
 #if CONFIG_PRINT_EACH_LINE_ON_EXECUTION
@@ -559,7 +570,7 @@ void VirtualMachine::sync_execute() {
             }
 #endif
 
-            // setting start instruction:
+            // setting start instruction, initializing registers:
             m_reg.x = program.s;
 
             // running iteratively until 'halt':
@@ -737,7 +748,7 @@ void VirtualMachine::sync_execute() {
             // printing line output if desired:
 #if CONFIG_PRINT_EACH_LINE_ON_EXECUTION
             {
-                std::cout << "            => ";
+                std::cout << "           => ";
                 print_obj2(m_reg.a, std::cout);
                 std::cout << std::endl;
             }
@@ -882,125 +893,106 @@ C_word VirtualMachine::mk_default_root_env() {
         {"obj"}
     );
 
-    //
-    //
-    ///
-    //
-    //
-    //
-    //
-    //
-    //
-    // FIXME: the remaining builtin functions are stubbed-- need to implement more of object-v2 based on v1.
-    //  - the rest of this file will not compile
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
+    define_builtin_fn(
+        "=",
+        [](C_word args) -> C_word {
+            auto aa = extract_args<2>(args);
+            return c_boolean(is_eqn(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "eq?",
+        [](C_word args) -> C_word {
+            auto aa = extract_args<2>(args);
+            return c_boolean(is_eq(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "eqv?",
+        [](C_word args) -> C_word {
+            auto aa = extract_args<2>(args);
+            return c_boolean(is_eqv(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "equal?",
+        [](C_word args) -> C_word {
+            auto aa = extract_args<2>(args);
+            return c_boolean(is_equal(aa[0], aa[1]));
+        },
+        {"lt-arg", "rt-arg"}
+    );
+    define_builtin_fn(
+        "list",
+        [](C_word args) -> C_word {
+            return args;
+        },
+        {"items..."}
+    );
+    define_builtin_fn(
+        "and",
+        [](C_word args) -> C_word {
+            C_word rem_args = args;
+            while (rem_args) {
+                C_word head = c_car(rem_args);
+                rem_args = c_cdr(rem_args);
 
-//    define_builtin_fn(
-//        "=",
-//        [](C_word args) -> C_word {
-//            auto aa = extract_args<2>(args);
-//            return c_is_eqn(aa[0], aa[1]);
-//        },
-//        {"lt-arg", "rt-arg"}
-//    );
-//    define_builtin_fn(
-//        "eq?",
-//        [](C_word args) -> C_word {
-//            auto aa = extract_args<2>(args);
-//            return boolean(is_eq(aa[0], aa[1]));
-//        },
-//        {"lt-arg", "rt-arg"}
-//    );
-//    define_builtin_fn(
-//        "eqv?",
-//        [](C_word args) -> C_word {
-//            auto aa = extract_args<2>(args);
-//            return boolean(is_eqv(aa[0], aa[1]));
-//        },
-//        {"lt-arg", "rt-arg"}
-//    );
-//    define_builtin_fn(
-//        "equal?",
-//        [](C_word args) -> C_word {
-//            auto aa = extract_args<2>(args);
-//            return boolean(is_equal(aa[0], aa[1]));
-//        },
-//        {"lt-arg", "rt-arg"}
-//    );
-//    define_builtin_fn(
-//        "list",
-//        [](C_word args) -> C_word {
-//            return args;
-//        },
-//        {"items..."}
-//    );
-//    define_builtin_fn(
-//        "and",
-//        [](C_word args) -> C_word {
-//            C_word rem_args = args;
-//            while (rem_args) {
-//                C_word head = car(rem_args);
-//                rem_args = cdr(rem_args);
-//
-//                C_word maybe_boolean_obj = head;
-//#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-//                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
-//                    std::stringstream ss;
-//                    ss << "and: expected boolean, received: ";
-//                    print_obj(head, ss);
-//                    error(ss.str());
-//                    throw SsiError();
-//                }
-//#endif
-//                C_word boolean_obj = maybe_boolean_obj;
-//                if (boolean_obj == BoolObject::f) {
-//                    return BoolObject::f;
-//                }
-//            }
-//            return BoolObject::t;
-//        },
-//        {"booleans..."}
-//    );
-//    define_builtin_fn(
-//        "or",
-//        [](C_word args) -> C_word {
-//            C_word rem_args = args;
-//            while (rem_args) {
-//                C_word head = car(rem_args);
-//                rem_args = cdr(rem_args);
-//
-//                C_word maybe_boolean_obj = head;
-//#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-//                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
-//                    std::stringstream ss;
-//                    ss << "or: expected boolean, received: ";
-//                    print_obj(head, ss);
-//                    error(ss.str());
-//                    throw SsiError();
-//                }
-//#endif
-//                C_word boolean_obj = maybe_boolean_obj;
-//                if (boolean_obj == BoolObject::t) {
-//                    return BoolObject::t;
-//                }
-//            }
-//            return BoolObject::f;
-//        },
-//        {"booleans..."}
-//    );
-//    define_builtin_variadic_arithmetic_fn<int_mul_cb, float_mul_cb>("*");
-//    define_builtin_variadic_arithmetic_fn<int_div_cb, float_div_cb>("/");
-//    define_builtin_variadic_arithmetic_fn<int_rem_cb, float_rem_cb>("%");
-//    define_builtin_variadic_arithmetic_fn<int_add_cb, float_add_cb>("+");
-//    define_builtin_variadic_arithmetic_fn<int_sub_cb, float_sub_cb>("-");
+                C_word maybe_boolean_obj = head;
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                if (!is_bool(maybe_boolean_obj)) {
+                    std::stringstream ss;
+                    ss << "and: expected boolean, received: ";
+                    print_obj2(head, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
+#endif
+                C_word boolean_obj = maybe_boolean_obj;
+                if (!C_UNWRAP_BOOL(boolean_obj)) {
+                    // short-circuit on 'false'
+                    return C_SCHEME_FALSE;
+                }
+            }
+            return C_SCHEME_TRUE;
+        },
+        {"booleans..."}
+    );
+    define_builtin_fn(
+        "or",
+        [](C_word args) -> C_word {
+            C_word rem_args = args;
+            while (rem_args) {
+                C_word head = c_car(rem_args);
+                rem_args = c_cdr(rem_args);
+
+                C_word maybe_boolean_obj = head;
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                if (!is_bool(maybe_boolean_obj)) {
+                    std::stringstream ss;
+                    ss << "or: expected boolean, received: ";
+                    print_obj2(head, ss);
+                    error(ss.str());
+                    throw SsiError();
+                }
+#endif
+                C_word boolean_obj = maybe_boolean_obj;
+                if (C_UNWRAP_BOOL(boolean_obj)) {
+                    // short-circuit on true
+                    return C_SCHEME_TRUE;
+                }
+            }
+            return C_SCHEME_FALSE;
+        },
+        {"booleans..."}
+    );
+    define_builtin_variadic_arithmetic_fn<int_mul_cb, float_mul_cb>("*");
+    define_builtin_variadic_arithmetic_fn<int_div_cb, float_div_cb>("/");
+    define_builtin_variadic_arithmetic_fn<int_rem_cb, float_rem_cb>("%");
+    define_builtin_variadic_arithmetic_fn<int_add_cb, float_add_cb>("+");
+    define_builtin_variadic_arithmetic_fn<int_sub_cb, float_sub_cb>("-");
     // todo: define more builtin functions here
 
     // finalizing the rib-pair:
@@ -1052,7 +1044,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
             size_t arg_count = 0;
             for (
                 C_word rem_args = args;
-                rem_args;
+                !is_eol(rem_args);
                 rem_args = c_cdr(rem_args)
             ) {
                 C_word operand = c_car(rem_args);
@@ -1109,7 +1101,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                     // init accum with first-arg directly:
                     unwrapped_accum = unwrap_flonum(first_arg);
                 }
-                for (; rem_args; rem_args = c_cdr(rem_args)) {
+                for (; !is_eol(rem_args); rem_args = c_cdr(rem_args)) {
                     C_word operand = c_car(rem_args);
                     C_float v;
                     if (is_integer(operand)) {
@@ -1132,7 +1124,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 rem_args = c_cdr(rem_args);
 
                 C_float unwrapped_accum = unwrap_flonum(first_arg);
-                for (; rem_args; rem_args = c_cdr(rem_args)) {
+                for (; !is_eol(rem_args); rem_args = c_cdr(rem_args)) {
                     C_word operand = c_car(rem_args);
                     // must be a float-- checked before.
                     C_float v = unwrap_flonum(operand);
@@ -1149,7 +1141,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 rem_args = c_cdr(rem_args);
 
                 int64_t unwrapped_accum = C_UNWRAP_INT(first_arg);
-                for (; rem_args; rem_args = c_cdr(rem_args)) {
+                for (; !is_eol(rem_args); rem_args = c_cdr(rem_args)) {
                     C_word operand = c_car(rem_args);
                     // 'v' must be an integer-- checked before.
                     C_word v = C_UNWRAP_INT(operand);
@@ -1194,10 +1186,11 @@ C_word VirtualMachine::lookup(C_word symbol, C_word env_raw) {
         //  - each list in the pair is a named rib-- either the value rib or named rib
         for (
             C_word rem_ribs = env;
-            rem_ribs;
+            !is_eol(rem_ribs);
             rem_ribs = c_cdr(rem_ribs)
         ) {
             auto rib_pair = c_car(rem_ribs);
+
             auto variable_rib = c_car(rib_pair);
             auto value_rib = c_cdr(rib_pair);
 
@@ -1205,11 +1198,11 @@ C_word VirtualMachine::lookup(C_word symbol, C_word env_raw) {
                 C_word
                     rem_variable_rib = variable_rib,
                     rem_value_rib = value_rib;
-                rem_value_rib != C_SCHEME_END_OF_LIST;
+                !is_eol(rem_value_rib);
                 ((rem_variable_rib = c_cdr(rem_variable_rib)),
                  (rem_value_rib = c_cdr(rem_value_rib)))
             ) {
-                assert(rem_variable_rib && "Expected rem_variable_rib to be non-null with rem_value_rib");
+                assert(!is_eol(rem_variable_rib) && "Expected rem_variable_rib to be non-null with rem_value_rib");
                 auto variable_rib_head = c_car(rem_variable_rib);
                 if (C_UNWRAP_SYMBOL(variable_rib_head) == sym_name) {
                     // return the remaining value rib so we can reuse for 'set'
@@ -1241,7 +1234,7 @@ C_word VirtualMachine::extend(C_word e, C_word vars, C_word vals, bool is_bindin
     auto val_count = count_list_items(vals);
     if (var_count < val_count || (!is_binding_variadic && var_count > val_count)) {
         std::stringstream ss;
-        ss  << "Expected "
+        ss  << "extend: Expected "
             << var_count << (is_binding_variadic ? " or more " : " ")
             << "argument(s), received "
             << val_count << std::endl;
@@ -1258,8 +1251,23 @@ C_word VirtualMachine::extend(C_word e, C_word vars, C_word vals, bool is_bindin
 
         throw SsiError();
     }
+    if (!is_pair(vars)) {
+        std::stringstream ss;
+        ss  << "extend: Expected a pair as 'vars' object, got: ";
+        print_obj2(vars, ss);
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!is_pair(vals)) {
+        std::stringstream ss;
+        ss  << "extend: Expected a pair as 'vals' object, got: ";
+        print_obj2(vars, ss);
+        error(ss.str());
+        throw SsiError();
+    }
 #endif
-    return c_cons(c_cons(vars, vals), e);
+    C_word new_rib_pair = c_cons(vars, vals);
+    return c_cons(new_rib_pair, e);
 }
 
 //
@@ -1268,11 +1276,11 @@ C_word VirtualMachine::extend(C_word e, C_word vars, C_word vals, bool is_bindin
 
 void VirtualMachine::check_vars_list_else_throw(C_word vars) {
     C_word rem_vars = vars;
-    while (rem_vars) {
+    while (!is_eol(rem_vars)) {
         C_word head = c_car(rem_vars);
         rem_vars = c_cdr(rem_vars);
 
-        if (is_symbol(head)) {
+        if (!is_symbol(head)) {
             std::stringstream ss;
             ss << "Invalid variable list for lambda: expected symbol, got: ";
             print_obj2(head, ss);

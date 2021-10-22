@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include <bit>
 #include <sstream>
 #include <vector>
-#include <cstdint>
 #include <functional>
-#include <cstring>
 #include <limits>
+
+#include <cstdint>
+#include <cstring>
 
 #include "config/config.hh"
 #include "feedback.hh"
@@ -111,17 +111,17 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 // header bit masks: most significant byte gives type+GC, rem bytes give size
 //  less sig nibble gives type
 //  more sig nibble gives GC flags
-#define C_HEADER_BITS_MASK       0xff00000000000000L
-#define C_HEADER_TYPE_BITS       0x0f00000000000000L
-#define C_HEADER_SIZE_MASK       0x00ffffffffffffffL
-#define C_GC_FORWARDING_BIT      0x8000000000000000L   /* header contains forwarding pointer */
-#define C_BYTEBLOCK_BIT          0x4000000000000000L   /* block contains bytes instead of slots */
-#define C_SPECIALBLOCK_BIT       0x2000000000000000L   /* 1st item is a non-value */
-#define C_8ALIGN_BIT             0x1000000000000000L   /* data is aligned to 8-byte boundary */
+#define C_HEADER_BITS_MASK       0xff00000000000000UL
+#define C_HEADER_TYPE_BITS       0x0f00000000000000UL
+#define C_HEADER_SIZE_MASK       0x00ffffffffffffffUL
+#define C_GC_FORWARDING_BIT      0x8000000000000000UL  /* header contains forwarding pointer */
+#define C_BYTEBLOCK_BIT          0x4000000000000000UL  /* block contains bytes instead of slots */
+#define C_SPECIALBLOCK_BIT       0x2000000000000000UL  /* 1st item is a non-value */
+#define C_8ALIGN_BIT             0x1000000000000000UL  /* data is aligned to 8-byte boundary */
 // type nibbles:
 #define C_STRING_HEADER_BITS            (0x0200000000000000L | C_BYTEBLOCK_BIT)
 #define C_PAIR_HEADER_BITS              (0x0300000000000000L)
-#define C_CLOSURE_HEADER_BITS           (0x0400000000000000L | C_SPECIALBLOCK_BIT)
+#define C_CLOSURE_HEADER_BITS           (0x0400000000000000L)
 #define C_FLONUM_HEADER_BITS            (0x0500000000000000L | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
 // #define C_PORT_HEADER_BITS           (0x0700000000000000L | C_SPECIALBLOCK_BIT)
 #define C_CALL_FRAME_HEADER_BITS        (0x0800000000000000L)
@@ -138,13 +138,14 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 // Size calculation macros: measured in 'words', i.e. 8-bytes
 #define C_SIZEOF_PAIR                   (3)
 #define C_SIZEOF_LIST(n)                (C_SIZEOF_PAIR * (n) + 1)
-#define C_SIZEOF_STRING(n)              (C_bytestowords(n) + 2)     /* 1 extra byte for null-terminator; works with C */
-#define C_SIZEOF_FLONUM                 (1 + C_bytestowords(sizeof(double)))
+#define C_SIZEOF_STRING(n)              (C_bytestowords(n+1) + 1)   /* 1 extra byte for null-terminator; works with C */
+#define C_SIZEOF_FLONUM                 (1 + sizeof(double))        /* NOTE: size in bytes bc 8ALIGN_BIT */
 // #define C_SIZEOF_PORT                (16)
-#define C_SIZEOF_VECTOR(n)              ((n) + 1)                               /* header, contents... */
+#define C_SIZEOF_VECTOR(n)              ((n) + 1)                   /* header, contents... */
 #define C_SIZEOF_CPP_CALLBACK           (1 + 2 + C_bytestowords(sizeof(C_cppcb)))   /* header, env, vars, std::function<...> */
-#define C_SIZEOF_CLOSURE                (1 + 3)     /* header, body, e, vars */
-#define C_SIZEOF_CALL_FRAME             (1 + 4)     /* header, x, e, r, s */
+#define C_SIZEOF_CLOSURE                (1 + 3)                     /* header, body, e, vars */
+#define C_SIZEOF_CALL_FRAME             (1 + 4)                     /* header, x, e, r, s */
+#define C_SIZEOF_BYTE_VECTOR(n)         (1 + (n))                   /* NOTE: in bytes bc 8ALIGN_BIT */
 
 // Fixed size types have pre-computed header tags (1-byte):
 // NOTE: the 'size' bits measure size in bytes.
@@ -163,62 +164,41 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 //
 
 // testing just 1 bit:
-inline bool is_integer(C_word word) {
-    return word & C_INT_BIT;
-}
+inline bool is_integer(C_word word);
 // testing least-significant nibble:
-inline bool is_bool(C_word word) { return (word & 0x0f) == C_BOOLEAN_BITS; }
+inline bool is_bool(C_word word) {
+    return (word & 0x0f) == C_BOOLEAN_BITS;
+}
 // testing least-significant byte:
-inline bool is_char(C_word word) { return (word & 0xff) == C_CHAR_BITS; }
-inline bool is_symbol(C_word word) { return (word & 0xff) == C_SYMBOL_BITS; }
-inline bool is_undefined(C_word word) { return word == C_SCHEME_UNDEFINED; }
-inline bool is_eol(C_word word) { return word == C_SCHEME_END_OF_LIST; }
-inline bool is_eof(C_word word) { return word == C_SCHEME_END_OF_FILE; }
-inline bool is_block_ptr(C_word word) {
-    return (word & C_IMMEDIATE_MARK_BITS) == 0;
+inline bool is_char(C_word word) {
+    return (word & 0xff) == C_CHAR_BITS;
 }
-inline bool is_immediate(C_word word) {
-    return !is_block_ptr(word);
+inline bool is_symbol(C_word word) {
+    return (word & 0xff) == C_SYMBOL_BITS;
 }
-inline int64_t block_size(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return static_cast<int64_t>(bp->header & C_HEADER_SIZE_MASK);
+inline bool is_undefined(C_word word) {
+    return word == C_SCHEME_UNDEFINED;
 }
-inline bool is_string(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_STRING_HEADER_BITS);
-}
-inline bool is_pair(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && (bp->header == C_PAIR_TAG);
-}
-inline bool is_flonum(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && (bp->header == C_FLONUM_TAG);
-}
-inline bool is_vector(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_VECTOR_HEADER_BITS);
-}
-inline bool is_byte_vector(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_BYTE_VECTOR_HEADER_BITS);
-}
-inline bool is_closure(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && (bp->header == C_CLOSURE_TAG);
-}
-inline bool is_call_frame(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && (bp->header == C_CALL_FRAME_TAG);
-}
-inline bool is_cpp_callback(C_word word) {
-    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return is_block_ptr(word) && ((bp->header == C_CPP_CALLBACK_TAG));
-}
-inline bool is_procedure(C_word word) {
-    return is_closure(word) || is_cpp_callback(word);
-}
+inline bool is_eol(C_word word);
+inline bool is_eof(C_word word);
+inline bool is_null(C_word word);
+inline bool is_block_ptr(C_word word);
+inline bool is_immediate(C_word word);
+inline int64_t block_size(C_word word);
+inline bool is_string(C_word word);
+inline bool is_pair(C_word word);
+inline bool is_flonum(C_word word);
+inline bool is_vector(C_word word);
+inline bool is_byte_vector(C_word word);
+inline bool is_closure(C_word word);
+inline bool is_call_frame(C_word word);
+inline bool is_cpp_callback(C_word word);
+inline bool is_procedure(C_word word);
+
+inline bool is_eqn(C_word e1, C_word e2);   // '=' predicate
+inline bool is_eq(C_word e1, C_word e2);
+inline bool is_eqv(C_word e1, C_word e2);
+inline bool is_equal(Object* e1, Object* e2);
 
 inline C_float unwrap_flonum(C_word word) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -437,7 +417,7 @@ inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent) {
     }
 #endif
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
-    mp->header = C_CLOSURE_TAG;
+    mp->header = C_CALL_FRAME_TAG;
     mp->data[0] = reinterpret_cast<C_word>(x);
     mp->data[1] = e;
     mp->data[2] = r;
@@ -650,7 +630,7 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
     C_word rem_list = pair_list;
     std::array<C_word, n> out{};
     size_t index = 0;
-    while (rem_list && index < n) {
+    while (!is_eol(rem_list) && index < n) {
         out[index++] = c_car(rem_list);
         rem_list = c_cdr(rem_list);
     }
@@ -658,7 +638,7 @@ std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic) {
     // checking that the received array is OK:
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     {
-        if (!is_variadic && rem_list) {
+        if (!is_variadic && !is_eol(rem_list)) {
             std::stringstream error_ss;
             int64_t const max_found_args = 8000;
             int64_t found_args = count_list_items(pair_list, max_found_args);
@@ -693,10 +673,152 @@ inline int64_t count_list_items(C_word pair_list, int64_t max) {
     int64_t var_ctr = 0;
     for (
         C_word rem_var_rib = pair_list;
-        rem_var_rib && var_ctr < max;
+        is_eol(rem_var_rib) && var_ctr < max;
         rem_var_rib = c_cdr(rem_var_rib)
     ) {
         var_ctr++;
     }
     return var_ctr;
+}
+
+//
+// Implementation: C++ interface functions:
+//
+
+bool is_integer(C_word word) {
+    return word & C_INT_BIT;
+}
+
+bool is_eol(C_word word) {
+    return word == C_SCHEME_END_OF_LIST;
+}
+
+bool is_eof(C_word word) {
+    return word == C_SCHEME_END_OF_FILE;
+}
+
+bool is_null(C_word word) {
+    return is_eof(word) || is_undefined(word) || is_eol(word);
+}
+
+bool is_block_ptr(C_word word) {
+    return (word & C_IMMEDIATE_MARK_BITS) == 0;
+}
+
+bool is_immediate(C_word word) {
+    return !is_block_ptr(word);
+}
+
+int64_t block_size(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return static_cast<int64_t>(bp->header & C_HEADER_SIZE_MASK);
+}
+
+bool is_string(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_STRING_HEADER_BITS);
+}
+
+bool is_pair(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && (bp->header == C_PAIR_TAG);
+}
+
+bool is_flonum(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && (bp->header == C_FLONUM_TAG);
+}
+
+bool is_vector(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_VECTOR_HEADER_BITS);
+}
+
+bool is_byte_vector(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && ((bp->header & C_HEADER_BITS_MASK) == C_BYTE_VECTOR_HEADER_BITS);
+}
+
+bool is_closure(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && (bp->header == C_CLOSURE_TAG);
+}
+
+bool is_call_frame(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && (bp->header == C_CALL_FRAME_TAG);
+}
+
+bool is_cpp_callback(C_word word) {
+    auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
+    return is_block_ptr(word) && ((bp->header == C_CPP_CALLBACK_TAG));
+}
+
+bool is_procedure(C_word word) {
+    return is_closure(word) || is_cpp_callback(word);
+}
+
+//
+// cf https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_4.html
+//
+
+bool is_eqn(C_word e1, C_word e2) {
+    if (is_integer(e1) && is_integer(e2)) {
+        return e1 == e2;
+    }
+    else if (is_flonum(e1) && is_flonum(e2)) {
+        auto bp1 = reinterpret_cast<C_SCHEME_BLOCK*>(e1);
+        auto bp2 = reinterpret_cast<C_SCHEME_BLOCK*>(e2);
+        return bp1->data[0] == bp2->data[0];
+    }
+    else {
+        return false;
+    }
+}
+
+inline bool is_eq(C_word e1, C_word e2) {
+    return e1 == e2;
+}
+
+inline bool is_eqv(C_word e1, C_word e2) {
+    if (is_immediate(e1)) {
+        return e1 == e2;
+    }
+    else if (is_flonum(e1)) {
+        return is_eqn(e1, e2);
+    }
+    else {
+        return e1 == e2;
+    }
+}
+
+inline bool is_equal(C_word e1, C_word e2) {
+    if (is_immediate(e1)) {
+        return e1 == e2;
+    }
+    else {
+        // must be a block pointer
+        auto bp1 = reinterpret_cast<C_SCHEME_BLOCK*>(e1);
+        auto bp2 = reinterpret_cast<C_SCHEME_BLOCK*>(e2);
+
+        // header comparisons ensure e1 and e2 have the same (latent) data-type & size
+        if (bp1->header != bp2->header) {
+            return false;
+        }
+
+        if (bp1->header & C_8ALIGN_BIT) {
+            // just compare bytes
+            C_uword num_bytes = bp1->header & C_HEADER_SIZE_MASK;
+            return !!memcmp(bp1->data, bp2->data, num_bytes);
+        } else {
+            // need to compare slots
+            C_uword num_slots = bp1->header & C_HEADER_SIZE_MASK;
+            for (C_uword i = 0; i < num_slots; i++) {
+                if (!is_equal(bp1->data[i], bp2->data[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
 }
