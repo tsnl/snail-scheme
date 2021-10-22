@@ -131,8 +131,8 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 // #define C_SWIG_POINTER_TYPE          (0x0c00000000000000L | C_SPECIALBLOCK_BIT)
 // #define C_LAMBDA_INFO_TYPE           (0x0d00000000000000L | C_BYTEBLOCK_BIT)
 #define C_CPP_CALLBACK_HEADER_BITS      (0x0e00000000000000L | C_BYTEBLOCK_BIT)
-// #define C_BUCKET_TYPE                (0x0f00000000000000L)
-#define C_VECTOR_HEADER_BITS            (0x0000000000000000L)
+// #define C_BUCKET_TYPE                (0x0?00000000000000L)
+#define C_VECTOR_HEADER_BITS            (0x0f00000000000000L)
 #define C_BYTE_VECTOR_HEADER_BITS       (C_VECTOR_HEADER_BITS | C_BYTEBLOCK_BIT | C_8ALIGN_BIT)
 
 // Size calculation macros: measured in 'words', i.e. 8-bytes

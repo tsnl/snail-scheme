@@ -234,6 +234,8 @@ void print_obj2(C_word obj, std::ostream& out) {
         if (is_closure(obj)) {
             out << "(lambda ";
             print_obj2(c_ref_closure_vars(obj), out);
+            out << " ";
+            print_obj2(c_ref_closure_body(obj), out);
             out << ")";
         } else {
             out << "(native-procedure ";
@@ -261,6 +263,7 @@ void print_obj2(C_word obj, std::ostream& out) {
 
     else {
         error("NotImplemented: printing an unknown v2 object.");
-        throw SsiError();
+        // throw SsiError();
+        out << "(?)";
     }
 }
