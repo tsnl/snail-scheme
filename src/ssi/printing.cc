@@ -159,12 +159,12 @@ void print_obj2(C_word obj, std::ostream& out) {
 
     else if (is_flonum(obj)) {
         auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
-        out << std::setprecision(8) << *reinterpret_cast<double*>(&bp->data[0]);
+        out << std::setprecision(8) << bp->as.flonum;
     }
     else if (is_pair(obj)) {
         auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(obj);
-        auto ar = bp->data[0];
-        auto dr = bp->data[1];
+        auto ar = bp->as.pair.ar;
+        auto dr = bp->as.pair.dr;
         out << '(';
         if (dr == C_SCHEME_END_OF_LIST) {
             // singleton object/thunk
@@ -178,8 +178,8 @@ void print_obj2(C_word obj, std::ostream& out) {
                     if (is_pair(rem_list)) {
                         // just a regular list item
                         auto rem_list_bp = reinterpret_cast<C_SCHEME_BLOCK*>(rem_list);
-                        auto rem_list_bp_ar = rem_list_bp->data[0];
-                        auto rem_list_bp_dr = rem_list_bp->data[1];
+                        auto rem_list_bp_ar = rem_list_bp->as.pair.ar;
+                        auto rem_list_bp_dr = rem_list_bp->as.pair.dr;
                         print_obj2(rem_list_bp_ar, out);
                         rem_list = rem_list_bp_dr;
                         if (rem_list != C_SCHEME_END_OF_LIST) {
@@ -234,8 +234,8 @@ void print_obj2(C_word obj, std::ostream& out) {
         if (is_closure(obj)) {
             out << "(lambda ";
             print_obj2(c_ref_closure_vars(obj), out);
-            out << " ";
-            print_obj2(c_ref_closure_body(obj), out);
+            out << " "
+                << "vmx:" << c_ref_closure_body(obj);
             out << ")";
         } else {
             out << "(native-procedure ";
@@ -262,8 +262,15 @@ void print_obj2(C_word obj, std::ostream& out) {
     //
 
     else {
-        error("NotImplemented: printing an unknown v2 object.");
+        // error("NotImplemented: printing an unknown v2 object.");
         // throw SsiError();
-        out << "(?)";
+        if (obj_kind(obj) == ObjectKind::Broken) {
+            out << "(?--broken!!)";
+        } else {
+            std::stringstream ss;
+            ss << "NotImplemented: printing a non-broken object";
+            error(ss.str());
+            throw SsiError();
+        }
     }
 }

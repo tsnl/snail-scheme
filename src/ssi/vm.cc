@@ -161,10 +161,10 @@ class VirtualMachine {
   // Interpreter environment setup:
   public:
     C_word mk_default_root_env();
-    void define_builtin_fn(std::string name_str, C_cppcb callback, std::vector<std::string> arg_names);
+    void define_builtin_fn(std::string name_str, C_cppcb callback, std::vector<std::string> const& arg_names);
     template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
     void define_builtin_variadic_arithmetic_fn(char const* name_str);
-    static C_word closure(VmExpID body, C_word env, C_word args);
+    static C_word closure(VmExpID body, C_word env, C_word vars);
     static C_word lookup(C_word symbol, C_word env_raw);
     C_word continuation(C_word s);
     static C_word extend(C_word e, C_word vars, C_word vals, bool is_binding_variadic);
@@ -694,7 +694,7 @@ void VirtualMachine::sync_execute() {
 //                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
                             auto s_prime = m_reg.s;
                             auto s = c_ref_call_frame_opt_parent(m_reg.s);
-                            m_reg.a = c_ref_cpp_callback_cb(a)->operator()(m_reg.r);
+                            m_reg.a = c_ref_cpp_callback_cb(a)->operator()(m_reg.r, m_reg.e);
                             // leave env unaffected, since after evaluation, we continue with original env
                             // pop the stack frame added by 'Frame'
                             m_reg.x = c_ref_call_frame_x(s_prime);
@@ -771,8 +771,8 @@ inline void float_sub_cb(C_float& accum, C_float item) { accum -= item; }
 C_word VirtualMachine::mk_default_root_env() {
     // definitions:
     define_builtin_fn(
-        "cons", 
-        [](C_word args) -> C_word {
+        "cons",
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<2>(args);
             return c_cons(aa[0], aa[1]);
         }, 
@@ -780,7 +780,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "car", 
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
             if (!is_pair(aa[0])) {
@@ -797,7 +797,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "cdr", 
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
             if (!is_pair(aa[0])) {
@@ -814,7 +814,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "boolean?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_bool(aa[0]);
         },
@@ -822,7 +822,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "null?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_eol(aa[0]);
         },
@@ -830,7 +830,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "pair?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_pair(aa[0]);
         },
@@ -838,7 +838,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "procedure?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_procedure(aa[0]);
         },
@@ -846,7 +846,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "symbol?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_symbol(aa[0]);
         },
@@ -854,7 +854,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "integer?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_integer(aa[0]);
         },
@@ -862,7 +862,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "real?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_flonum(aa[0]);
         },
@@ -870,7 +870,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "number?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_boolean(is_flonum(aa[0]) || is_integer(aa[0]));
         },
@@ -878,7 +878,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "string?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_string(aa[0]);
         },
@@ -886,7 +886,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "vector?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<1>(args);
             return c_is_vector(aa[0]);
         },
@@ -895,7 +895,7 @@ C_word VirtualMachine::mk_default_root_env() {
 
     define_builtin_fn(
         "=",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<2>(args);
             return c_boolean(is_eqn(aa[0], aa[1]));
         },
@@ -903,7 +903,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eq?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<2>(args);
             return c_boolean(is_eq(aa[0], aa[1]));
         },
@@ -911,7 +911,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eqv?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<2>(args);
             return c_boolean(is_eqv(aa[0], aa[1]));
         },
@@ -919,7 +919,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "equal?",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             auto aa = extract_args<2>(args);
             return c_boolean(is_equal(aa[0], aa[1]));
         },
@@ -927,14 +927,14 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "list",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             return args;
         },
         {"items..."}
     );
     define_builtin_fn(
         "and",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             C_word rem_args = args;
             while (rem_args) {
                 C_word head = c_car(rem_args);
@@ -962,7 +962,7 @@ C_word VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "or",
-        [](C_word args) -> C_word {
+        [](C_word args, C_word env) -> C_word {
             C_word rem_args = args;
             while (rem_args) {
                 C_word head = c_car(rem_args);
@@ -1010,14 +1010,14 @@ C_word VirtualMachine::mk_default_root_env() {
 void VirtualMachine::define_builtin_fn(
     std::string name_str, 
     C_cppcb callback, 
-    std::vector<std::string> arg_names
+    std::vector<std::string> const& arg_names
 ) {
     C_word var_obj = c_symbol(intern(std::move(name_str)));
     C_word vars_list = C_SCHEME_END_OF_LIST;
-    for (size_t i = 0; i < arg_names.size(); i++) {
-        vars_list = c_cons(c_symbol(intern(arg_names[i])), vars_list);
+    for (auto & arg_name: arg_names) {
+        vars_list = c_cons(c_symbol(intern(arg_name)), vars_list);
     }
-    C_word elt_obj = c_cpp_callback(callback, m_init_env, vars_list);
+    C_word elt_obj = c_cpp_callback(std::move(callback), m_init_env, vars_list);
     m_init_var_rib = c_cons(var_obj, m_init_var_rib);
     m_init_elt_rib = c_cons(elt_obj, m_init_elt_rib);
 }
@@ -1026,7 +1026,7 @@ template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
 void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const name_str) {
     define_builtin_fn(
         name_str,
-        [=](C_word args) -> C_word {
+        [=](C_word args, C_word env) -> C_word {
             // first, ensuring we have at least 1 argument:
             if (!args) {
                 std::stringstream ss;

@@ -36,7 +36,7 @@
 using C_word = int64_t;
 using C_uword = uint64_t;
 using C_float = double;
-using C_cppcb = std::function<C_word(C_word args)>;
+using C_cppcb = std::function<C_word(C_word args, C_word env)>;
 using VmExpID = int64_t;
 
 static_assert(CONFIG_SIZEOF_VOID_P == 8, "object-v2 only works on 64-bit systems.");
@@ -57,8 +57,8 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 #define C_BOOLEAN_BIT_MASK          0x0000000f          // '0b1111' because all info in last nibble
 #define C_BOOLEAN_BITS              0x00000006          // '0b0110' suffix
 #define C_CHAR_BITS                 0x0000000a          // '0b1010' suffix
-#define C_SYMBOL_BITS               0x00000042          // '0b00101010' suffix
-#define C_SYMBOL_VALUE_CHK_BITS     0x00ffffffffffffff  // all but the most significant byte is OK
+#define C_SYMBOL_BITS               0x0000002a          // '0b00101010' suffix
+#define C_SYMBOL_VALUE_CHK_BITS     0x00ffffffffffffff  // all but the most significant byte can be occupied
 #define C_CHAR_VALUE_CHK_BITS       0x1fffff            // restricts to representable UTF-8 range
 #define C_CHAR_SHIFT                8                   // waste a full 8 bits; use 56 to store code point
 #define C_SYMBOL_SHIFT              8                   // waste a full 8 bits; use 56 to store symbol ID.
@@ -99,11 +99,58 @@ static_assert(sizeof(C_word) == sizeof(void*), "expected word size to be pointer
 
 using C_header = C_uword;
 
+struct ClosureData {
+    C_word body;
+    C_word e;
+    C_word vars;
+};
+struct CppCallbackData {
+    C_cppcb cb;
+    C_word vars;
+    C_word env;
+};
+struct CallFrameData {
+    VmExpID x;
+    C_word e;
+    C_word r;
+    C_word s;
+};
+struct PairData {
+    C_word ar;
+    C_word dr;    
+};
+
 struct C_SCHEME_BLOCK {
     C_header header;    // header: bit pattern (see below)
-    C_word data[0];     // variable length array
+    union {
+        C_float flonum;
+        ClosureData closure_data;
+        CppCallbackData cpp_callback;
+        CallFrameData call_frame;
+        PairData pair;
+        char* u8vec_bytes;
+        C_word vector_slots[];
+    } as;
 };
-static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
+
+enum class ObjectKind {
+    // native primitives:
+    Null,
+    Boolean,
+    Integer,
+    Flonum,
+    Char,
+    Symbol,
+    String,
+    Pair,
+    Vector,
+    ByteVector,
+    Closure,
+    CppProcedure,
+    
+    // if none of the above, set 'broken'
+    Broken
+};
 
 // bit flags to mask integers:
 #define C_INT_SIGN_BIT           0x8000000000000000L
@@ -138,14 +185,14 @@ static_assert(sizeof(C_SCHEME_BLOCK) == sizeof(C_word));
 // Size calculation macros: measured in 'words', i.e. 8-bytes
 #define C_SIZEOF_PAIR                   (3)
 #define C_SIZEOF_LIST(n)                (C_SIZEOF_PAIR * (n) + 1)
-#define C_SIZEOF_STRING(n)              (C_bytestowords(n+1) + 1)   /* 1 extra byte for null-terminator; works with C */
-#define C_SIZEOF_FLONUM                 (1 + sizeof(double))        /* NOTE: size in bytes bc 8ALIGN_BIT */
+#define C_SIZEOF_STRING(n)              (C_bytestowords(n+1) + 1)       /* 1 extra byte for null-terminator; works with C */
+#define C_SIZEOF_FLONUM                 (1 + sizeof(double))            /* NOTE: size in bytes bc 8ALIGN_BIT */
 // #define C_SIZEOF_PORT                (16)
-#define C_SIZEOF_VECTOR(n)              ((n) + 1)                   /* header, contents... */
-#define C_SIZEOF_CPP_CALLBACK           (1 + 3)                     /* header, env, vars, std::function-ptr */
-#define C_SIZEOF_CLOSURE                (1 + 3)                     /* header, body, e, vars */
-#define C_SIZEOF_CALL_FRAME             (1 + 4)                     /* header, x, e, r, s */
-#define C_SIZEOF_BYTE_VECTOR(n)         (1 + (n))                   /* NOTE: in bytes bc 8ALIGN_BIT */
+#define C_SIZEOF_VECTOR(n)              ((n) + 1)                       /* header, contents... */
+#define C_SIZEOF_CPP_CALLBACK           (1 + sizeof(CppCallbackData))
+#define C_SIZEOF_CLOSURE                (1 + sizeof(ClosureData))
+#define C_SIZEOF_CALL_FRAME             (1 + sizeof(CallFrameData))     /* header, x, e, r, s */
+#define C_SIZEOF_BYTE_VECTOR(n)         (1 + (n))                       /* NOTE: in bytes bc 8ALIGN_BIT */
 
 // Fixed size types have pre-computed header tags (1-byte):
 // NOTE: the 'size' bits measure size in bytes.
@@ -194,6 +241,7 @@ inline bool is_closure(C_word word);
 inline bool is_call_frame(C_word word);
 inline bool is_cpp_callback(C_word word);
 inline bool is_procedure(C_word word);
+inline bool is_number(C_word word);
 
 inline bool is_eqn(C_word e1, C_word e2);   // '=' predicate
 inline bool is_eq(C_word e1, C_word e2);
@@ -211,7 +259,7 @@ inline C_float unwrap_flonum(C_word word) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return *reinterpret_cast<C_float*>(bp->data);
+    return *reinterpret_cast<C_float*>(&bp->as.flonum);
 }
 
 inline int64_t string_length(C_word word) {
@@ -239,7 +287,7 @@ inline int string_ref(C_word word, int64_t i) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return static_cast<int>(reinterpret_cast<uint8_t*>(bp->data)[i]);
+    return static_cast<int>(bp->as.u8vec_bytes[i]);
 }
 inline int64_t vector_length(C_word word) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -265,7 +313,7 @@ inline C_word vector_ref(C_word vec, int64_t index) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
-    return bp->data[index];
+    return bp->as.vector_slots[index];
 }
 inline void vector_set(C_word vec, int64_t index, C_word new_val) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -278,7 +326,7 @@ inline void vector_set(C_word vec, int64_t index, C_word new_val) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(vec);
-    bp->data[index] = new_val;
+    bp->as.vector_slots[index] = new_val;
 }
 
 //
@@ -320,7 +368,7 @@ inline C_word c_is_procedure(C_word word) { return c_boolean(is_procedure(word))
 
 inline C_word c_car(C_word word);
 inline C_word c_cdr(C_word word);
-inline C_word c_ref_closure_body(C_word clos);
+inline VmExpID c_ref_closure_body(C_word clos);
 inline C_word c_ref_closure_e(C_word clos);
 inline C_word c_ref_closure_vars(C_word clos);
 inline VmExpID c_ref_call_frame_x(C_word frame);
@@ -338,6 +386,7 @@ inline void c_set_cdr(C_word pair, C_word new_dr);
 
 template <size_t n> std::array<C_word, n> extract_args(C_word pair_list, bool is_variadic = false);
 inline int64_t count_list_items(C_word pair_list, int64_t max = std::numeric_limits<C_word>::max());
+inline ObjectKind obj_kind(C_word obj);
 
 //
 // Implementation: inline constructors:
@@ -377,26 +426,26 @@ inline C_word c_integer(int64_t value) {
 inline C_word c_char(int value) {
     return C_WRAP_CHAR(value);
 }
-inline C_word c_flonum(double v) {
+inline C_word c_flonum(C_float v) {
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_FLONUM)));
     mp->header = C_FLONUM_TAG;
-    memcpy(mp->data, &v, sizeof(C_word));
+    mp->as.flonum = v;
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_cons(C_word ar, C_word dr) {
     auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_PAIR)));
     mp->header = C_PAIR_TAG;
-    mp->data[0] = ar;
-    mp->data[1] = dr;
+    mp->as.pair.ar = ar;
+    mp->as.pair.dr = dr;
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_vector(std::vector<C_word> objs) {
     auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_VECTOR(objs.size()))));
     mp->header = C_VECTOR_HEADER_BITS | 1+objs.size();
-    memcpy(mp->data, objs.data(), C_wordstobytes(objs.size()));
+    memcpy(mp->as.vector_slots, objs.data(), C_wordstobytes(objs.size()));
     return reinterpret_cast<C_word>(mp);
 }
-inline C_word c_closure(C_word body, C_word e, C_word vars) {
+inline C_word c_closure(VmExpID body, C_word e, C_word vars) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_pair(e) && !is_eol(e)) {
         std::stringstream ss;
@@ -416,9 +465,9 @@ inline C_word c_closure(C_word body, C_word e, C_word vars) {
 
     auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CLOSURE)));
     mp->header = C_CLOSURE_TAG;
-    mp->data[0] = body;
-    mp->data[1] = e;
-    mp->data[2] = vars;
+    mp->as.closure_data.body = body;
+    mp->as.closure_data.e = e;
+    mp->as.closure_data.vars = vars;
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent) {
@@ -433,26 +482,26 @@ inline C_word c_call_frame(VmExpID x, C_word e, C_word r, C_word opt_parent) {
         throw SsiError();
     }
 #endif
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
+    auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CALL_FRAME)));
     mp->header = C_CALL_FRAME_TAG;
-    mp->data[0] = reinterpret_cast<C_word>(x);
-    mp->data[1] = e;
-    mp->data[2] = r;
-    mp->data[3] = opt_parent;
+    mp->as.call_frame.x = reinterpret_cast<C_word>(x);
+    mp->as.call_frame.e = e;
+    mp->as.call_frame.r = r;
+    mp->as.call_frame.s = opt_parent;
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_cpp_callback(C_cppcb cb, C_word env, C_word vars) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CPP_CALLBACK)));
+    auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_wordstobytes(C_SIZEOF_CPP_CALLBACK)));
     mp->header = C_CLOSURE_TAG;
-    mp->data[0] = env;
-    mp->data[1] = vars;
-    mp->data[2] = reinterpret_cast<C_word>(new C_cppcb(std::move(cb)));
+    mp->as.cpp_callback.env = env;
+    mp->as.cpp_callback.vars = vars;
+    mp->as.cpp_callback.cb = std::move(cb);
     return reinterpret_cast<C_word>(mp);
 }
 inline C_word c_string(std::string const& utf8_data) {
-    auto mp = static_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_STRING(utf8_data.size())));
+    auto mp = reinterpret_cast<C_SCHEME_BLOCK*>(heap_allocate(C_SIZEOF_STRING(utf8_data.size())));
     mp->header = C_STRING_HEADER_BITS | utf8_data.size();
-    memcpy(mp->data, utf8_data.c_str(), 1+utf8_data.size());
+    memcpy(mp->as.u8vec_bytes, utf8_data.c_str(), 1+utf8_data.size());
     return reinterpret_cast<C_word>(mp);
 }
 
@@ -462,8 +511,8 @@ template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem) {
 }
 template <typename... TObjs> C_word c_list_helper(C_SCHEME_BLOCK* mem, C_word ar_obj, TObjs... rem) {
     mem->header = C_PAIR_TAG;
-    mem->data[0] = ar_obj;
-    mem->data[1] = c_list_helper(
+    mem->as.pair.ar = ar_obj;
+    mem->as.pair.dr = c_list_helper(
         reinterpret_cast<C_SCHEME_BLOCK*>(reinterpret_cast<C_word*>(mem) + C_SIZEOF_PAIR),
         rem...
     );
@@ -490,7 +539,7 @@ inline C_word c_car(C_word word) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return bp->data[0];
+    return bp->as.pair.ar;
 }
 inline C_word c_cdr(C_word word) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -503,9 +552,9 @@ inline C_word c_cdr(C_word word) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(word);
-    return bp->data[1];
+    return bp->as.pair.dr;
 }
-inline C_word c_ref_closure_body(C_word clos) {
+inline VmExpID c_ref_closure_body(C_word clos) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     if (!is_closure(clos)) {
         std::stringstream ss;
@@ -516,7 +565,7 @@ inline C_word c_ref_closure_body(C_word clos) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
-    return bp->data[0];
+    return bp->as.closure_data.body;
 }
 inline C_word c_ref_closure_e(C_word clos) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -529,7 +578,7 @@ inline C_word c_ref_closure_e(C_word clos) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
-    return bp->data[1];
+    return bp->as.closure_data.e;
 }
 inline C_word c_ref_closure_vars(C_word clos) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -542,7 +591,7 @@ inline C_word c_ref_closure_vars(C_word clos) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(clos);
-    return bp->data[2];
+    return bp->as.closure_data.vars;
 }
 inline VmExpID c_ref_call_frame_x(C_word frame) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -555,7 +604,7 @@ inline VmExpID c_ref_call_frame_x(C_word frame) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
-    return reinterpret_cast<VmExpID>(bp->data[0]);
+    return reinterpret_cast<VmExpID>(bp->as.call_frame.x);
 }
 inline C_word c_ref_call_frame_e(C_word frame) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -568,7 +617,7 @@ inline C_word c_ref_call_frame_e(C_word frame) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
-    return bp->data[1];
+    return bp->as.call_frame.e;
 }
 inline C_word c_ref_call_frame_r(C_word frame) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -581,7 +630,7 @@ inline C_word c_ref_call_frame_r(C_word frame) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
-    return bp->data[2];
+    return bp->as.call_frame.r;
 }
 inline C_word c_ref_call_frame_opt_parent(C_word frame) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -594,7 +643,7 @@ inline C_word c_ref_call_frame_opt_parent(C_word frame) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(frame);
-    return bp->data[3];
+    return bp->as.call_frame.s;
 }
 inline C_cppcb const* c_ref_cpp_callback_cb(C_word cpp_cb_obj) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -608,7 +657,7 @@ inline C_cppcb const* c_ref_cpp_callback_cb(C_word cpp_cb_obj) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
-    return reinterpret_cast<C_cppcb const*>(reinterpret_cast<void const*>(bp->data[2]));
+    return &bp->as.cpp_callback.cb;
 }
 inline C_word c_ref_cpp_callback_args(C_word cpp_cb_obj) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -622,7 +671,7 @@ inline C_word c_ref_cpp_callback_args(C_word cpp_cb_obj) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
-    return bp->data[1];
+    return bp->as.cpp_callback.vars;
 }
 inline C_word c_ref_cpp_callback_env(C_word cpp_cb_obj) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -636,7 +685,7 @@ inline C_word c_ref_cpp_callback_env(C_word cpp_cb_obj) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(cpp_cb_obj);
-    return bp->data[0];
+    return bp->as.cpp_callback.env;
 }
 inline void c_set_car(C_word pair, C_word new_ar) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -649,7 +698,7 @@ inline void c_set_car(C_word pair, C_word new_ar) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(pair);
-    bp->data[0] = new_ar;
+    bp->as.pair.ar = new_ar;
 }
 inline void c_set_cdr(C_word pair, C_word new_dr) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -662,7 +711,7 @@ inline void c_set_cdr(C_word pair, C_word new_dr) {
     }
 #endif
     auto bp = reinterpret_cast<C_SCHEME_BLOCK*>(pair);
-    bp->data[1] = new_dr;
+    bp->as.pair.dr = new_dr;
 }
 
 //
@@ -734,6 +783,43 @@ inline int64_t count_list_items(C_word pair_list, int64_t max) {
         var_ctr++;
     }
     return var_ctr;
+}
+
+inline ObjectKind obj_kind(C_word obj) {
+    if (is_immediate(obj)) {
+        if (is_integer(obj)) {
+            return ObjectKind::Integer;
+        }
+        if (is_char(obj)) {
+            return ObjectKind::Char;
+        }
+        if (is_symbol(obj)) {
+            return ObjectKind::Symbol;
+        }
+        if (is_null(obj)) {
+            return ObjectKind::Null;
+        }
+    } else {
+        if (is_flonum(obj)) {
+            return ObjectKind::Flonum;
+        }
+        if (is_string(obj)) {
+            return ObjectKind::String;
+        }
+        if (is_vector(obj)) {
+            return ObjectKind::Vector;
+        }
+        if (is_byte_vector(obj)) {
+            return ObjectKind::ByteVector;
+        }
+        if (is_closure(obj)) {
+            return ObjectKind::Closure;
+        }
+        if (is_cpp_callback(obj)) {
+            return ObjectKind::CppProcedure;
+        }
+    }
+    return ObjectKind::Broken;
 }
 
 //
@@ -824,7 +910,7 @@ bool is_eqn(C_word e1, C_word e2) {
     else if (is_flonum(e1) && is_flonum(e2)) {
         auto bp1 = reinterpret_cast<C_SCHEME_BLOCK*>(e1);
         auto bp2 = reinterpret_cast<C_SCHEME_BLOCK*>(e2);
-        return bp1->data[0] == bp2->data[0];
+        return bp1->as.flonum == bp2->as.flonum;
     }
     else {
         return false;
@@ -862,18 +948,31 @@ inline bool is_equal(C_word e1, C_word e2) {
         }
 
         if (bp1->header & C_8ALIGN_BIT) {
-            // just compare bytes
+            // just compare bytes for u8vec or string
             C_uword num_bytes = bp1->header & C_HEADER_SIZE_MASK;
-            return !!memcmp(bp1->data, bp2->data, num_bytes);
-        } else {
-            // need to compare slots
+            return !!memcmp(bp1->as.u8vec_bytes, bp2->as.u8vec_bytes, num_bytes);
+        } else if (is_vector(e1)) {
+            // need to compare slots recursively
             C_uword num_slots = bp1->header & C_HEADER_SIZE_MASK;
             for (C_uword i = 0; i < num_slots; i++) {
-                if (!is_equal(bp1->data[i], bp2->data[i])) {
+                if (!is_equal(bp1->as.vector_slots[i], bp2->as.vector_slots[i])) {
                     return false;
                 }
             }
             return true;
+        } else if (is_flonum(e1)) {
+            return bp1->as.flonum == bp2->as.flonum;
+        } else if (is_pair(e1)) {
+            return (
+                is_equal(bp1->as.pair.ar, bp2->as.pair.ar) &&
+                is_equal(bp1->as.pair.dr, bp2->as.pair.dr)
+            );
+        } else if (is_procedure(e1)) {
+            // todo: implement equality checks for procedures
+            return false;
+        } else {
+            error("NotImplemented: no implementation of comparison");
+            throw SsiError();
         }
     }
 }

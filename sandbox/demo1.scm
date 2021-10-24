@@ -1,3 +1,7 @@
+(define a++ 42)
+
+(define (f x) (+ x))
+
 (define a (+ 1 2))
 (define b (+ 3 4))
 
