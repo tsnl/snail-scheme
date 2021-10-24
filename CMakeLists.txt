@@ -24,8 +24,8 @@ add_executable(
     src/ssi/feedback.hh
     src/ssi/intern.cc
     src/ssi/intern.hh
-    src/ssi/object-v2.cc
-    src/ssi/object-v2.hh
+    # src/ssi/object-v2.cc
+    # src/ssi/object-v2.hh
     src/ssi/object.cc
     src/ssi/object.hh
     src/ssi/parser.cc
@@ -34,6 +34,6 @@ add_executable(
     src/ssi/printing.hh
     src/ssi/vm.cc
     src/ssi/vm.hh
-    src/ssi/heap.cc
-    src/ssi/heap.hh
+    # src/ssi/heap.cc
+    # src/ssi/heap.hh
 )

@@ -7,7 +7,6 @@
 //          - this leaks code objects, which is great, because we need them to be loaded permanently
 //          - can dispose of code objects post-execution in the future
 
-
 #pragma once
 
 #include <map>
@@ -20,21 +19,6 @@
 #include "core.hh"
 #include "intern.hh"
 #include "feedback.hh"
-
-//
-// Data-types:
-//
-
-#if (CONFIG_SIZEOF_VOID_P==8)
-    using my_ssize_t = int64_t;
-    using my_float_t = double;
-#elif (CONFIG_SIZEOF_VOID_P==4)
-using my_ssize_t = int32_t;
-    using my_float_t = float;
-#else
-    #error "Unknown CONFIG_SIZEOF_VOID_P value"
-#endif
-
 
 //
 // Objects:
