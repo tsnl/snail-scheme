@@ -7,6 +7,8 @@
 //          - this leaks code objects, which is great, because we need them to be loaded permanently
 //          - can dispose of code objects post-execution in the future
 
+// TODO: unbox basic datatypes, switch to object tagging.
+
 #pragma once
 
 #include <map>
