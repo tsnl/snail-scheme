@@ -7,7 +7,10 @@
 //          - this leaks code objects, which is great, because we need them to be loaded permanently
 //          - can dispose of code objects post-execution in the future
 
-// TODO: unbox basic datatypes, switch to object tagging.
+// ABORTED: unbox basic datatypes, switch to object tagging.
+// WHY? Because in this form, it is easy to add custom object instances using OO, which C++ supports
+// very well.
+// This improves the experience for an end-user, making this more easily embeddable.
 
 #pragma once
 
