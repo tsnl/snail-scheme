@@ -1,4 +1,4 @@
-#include "intern.hh"
+#include "snail-scheme/intern.hh"
 #include <map>
 #include <vector>
 

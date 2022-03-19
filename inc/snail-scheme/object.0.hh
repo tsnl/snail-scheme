@@ -19,6 +19,7 @@
 #include <sstream>
 #include <functional>
 #include <bitset>
+#include <ostream>
 #include <cstddef>
 #include <cstdint>
 #include <ios>
@@ -65,25 +66,25 @@ private:
         // must be a multiple of '8', so ends in '000'
         // actually always a ptr to 'IBoxedObject'
         BoxedObject* ptr;
-        struct { size_t word_offset: 61; size_t tag: 3; } ptr_unwrapped;
+        struct { size_t tag: 3; size_t word_offset: 61; } ptr_unwrapped;
         
 
         // signed fixnum: ends in '1 << 0 = 0b1'
-        struct { int64_t val: 63; size_t tag: 1; } signed_fixnum;
+        struct { size_t tag: 1; int64_t val: 63; } signed_fixnum;
         // interned symbol: ends in '1 << 1 = 0b10'
-        struct { int64_t val: 62; size_t tag: 2; } interned_symbol;
+        struct { size_t tag: 2; int64_t val: 62; } interned_symbol;
         // float32: ends in '1 << 2 = 0b100'
-        struct { float val; uint32_t pad: 29; uint32_t tag: 3; } f32;
+        struct { uint32_t tag: 3; uint32_t pad: 29; float val; } f32;
         // unicode character: ends in '1 << 3 = 0b1000'
-        struct { uint64_t rune: 60; uint64_t tag: 4; } rune;
+        struct { uint64_t tag: 4; uint64_t rune: 60; } rune;
         // boolean: ends in '1 << 4 = 0b10000'
-        struct { uint64_t truth: 59; uint64_t tag: 5; } boolean;
+        struct { uint64_t tag: 5; uint64_t truth: 59; } boolean;
         // null: ends in '1 << 5 = 0b100000'
-        struct { uint64_t pad: 58; uint64_t tag: 6; } null;
+        struct { uint64_t tag: 6; uint64_t pad: 58; } null;
         // eof: ends in '1 << 6 = 0b1000000'
-        struct { uint64_t pad: 57; uint64_t tag: 7; } eof;
+        struct { uint64_t tag: 7; uint64_t pad: 57; } eof;
         // undef: ends in '1 << 7 = 0b10000000'
-        struct { uint64_t pad: 56; uint64_t tag: 8; } undef;
+        struct { uint64_t tag: 8; uint64_t pad: 56; } undef;
     };
     Data64 m_data;
 public:
@@ -102,7 +103,9 @@ public: // unboxed objects
     static OBJECT make_eof();
 public: // boxed objects
     // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
-    static OBJECT make_float64(float f64);
+    static OBJECT make_generic_boxed(BoxedObject* obj);
+    static OBJECT make_float64(double f64);
+    static OBJECT make_pair(OBJECT head, OBJECT tail);
     static OBJECT make_string(size_t byte_count, char* mv_bytes);
 public:
     bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == 0; }
@@ -134,6 +137,8 @@ public:
     inline double as_float64() const;
 public:
     inline double to_double() const;
+public:
+    Data64 raw_data() const { return m_data; }
 };
 
 class BoxedObject {
@@ -160,22 +165,6 @@ public:
     {}
 public:
     double value() const { return m_value; }
-};
-class SymbolObject: public BoxedObject {
-private:
-    IntStr m_name;
-public:
-    SymbolObject() 
-    :   BoxedObject(GranularObjectType::InternedSymbol),
-        m_name()
-    {}
-    explicit SymbolObject(IntStr name)
-    :   SymbolObject()
-    {
-        m_name = name;
-    }
-public:
-    inline IntStr name() const { return m_name; }
 };
 
 class StringObject: public BoxedObject {
@@ -312,11 +301,11 @@ using EXT_CallableCb = std::function<OBJECT(OBJECT args)>;
 class EXT_CallableObject: public BoxedObject {
   private:
     EXT_CallableCb m_cb;
-    PairObject* m_e;
+    OBJECT m_e;
     OBJECT m_vars;
 
   public:
-    EXT_CallableObject(EXT_CallableCb cb, PairObject* e, OBJECT vars)
+    EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars)
     :   BoxedObject(GranularObjectType::EXT_Callable),
         m_cb(std::move(cb)),
         m_e(e),
@@ -325,7 +314,7 @@ class EXT_CallableObject: public BoxedObject {
 
   public:
     EXT_CallableCb const& cb() const { return m_cb; }
-    PairObject* e() const { return m_e; }
+    OBJECT e() const { return m_e; }
     OBJECT vars() const { return m_vars; }
 };
 
@@ -339,12 +328,14 @@ class EXT_CallableObject: public BoxedObject {
 // decls
 //
 
+std::ostream& operator<<(std::ostream& out, const OBJECT& obj);
+
 inline GranularObjectType obj_kind(OBJECT object);
 inline OBJECT car(OBJECT object);
 inline OBJECT cdr(OBJECT object);
 template <typename... Objects> OBJECT list(Objects... objs);
 template <size_t n> std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic = false);
-inline PairObject* cons(OBJECT head, OBJECT tail);
+inline OBJECT cons(OBJECT head, OBJECT tail);
 inline OBJECT boolean(bool v);
 inline bool is_boolean(OBJECT o);
 inline bool is_char(OBJECT o);
@@ -371,11 +362,11 @@ inline my_ssize_t count_list_items(OBJECT pair_list);
 
 template <typename... Objects>
 OBJECT list() {
-    return nullptr;
+    return OBJECT::make_null();
 }
 template <typename... Objects>
 OBJECT list(OBJECT first, Objects... objs) {
-    return new PairObject(first, list(objs...));
+    return OBJECT::make_pair(first, list(objs...));
 }
 
 template <size_t n> 
@@ -393,7 +384,7 @@ std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic) {
     // checking that the received array is OK:
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     {
-        if (!is_variadic && rem_list.is_null()) {
+        if (!is_variadic && !rem_list.is_null()) {
             std::stringstream error_ss;
             error_ss
                 << "extract_args: too many arguments to a non-variadic procedure: expected " << n;
@@ -436,8 +427,8 @@ inline OBJECT cdr(OBJECT object) {
     return static_cast<PairObject*>(object.as_ptr())->cdr();
 }
 
-PairObject* cons(OBJECT head, OBJECT tail) {
-    return new PairObject(head, tail);
+OBJECT cons(OBJECT head, OBJECT tail) {
+    return OBJECT::make_pair(head, tail);
 }
 
 OBJECT boolean(bool v) {

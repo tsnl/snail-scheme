@@ -75,11 +75,17 @@ inline OBJECT OBJECT::make_eof() {
 // inline OBJECT OBJECT::make_port(std::string file_path, std::ios_base::openmode mode) {
 //     OBJECT res{new Port};
 // }
-inline OBJECT OBJECT::make_float64(float f64) {
-    return OBJECT{new Float64Object(f64)};
+inline OBJECT OBJECT::make_generic_boxed(BoxedObject* obj) {
+    return OBJECT{obj};
+}
+inline OBJECT OBJECT::make_pair(OBJECT head, OBJECT tail) {
+    return OBJECT::make_generic_boxed(new PairObject(head, tail));
+}
+inline OBJECT OBJECT::make_float64(double f64) {
+    return OBJECT::make_generic_boxed(new Float64Object(f64));
 }
 inline OBJECT OBJECT::make_string(size_t byte_count, char* mv_bytes) {
-    return OBJECT{new StringObject(byte_count, mv_bytes)};
+    return OBJECT::make_generic_boxed(new StringObject(byte_count, mv_bytes));
 }
 
 inline bool OBJECT::is_pair() const { 

@@ -1,7 +1,7 @@
-#include "printing.hh"
-#include "object.hh"
-#include "intern.hh"
-#include "feedback.hh"
+#include "snail-scheme/printing.hh"
+#include "snail-scheme/object.hh"
+#include "snail-scheme/intern.hh"
+#include "snail-scheme/feedback.hh"
 #include <exception>
 
 void print_obj(OBJECT obj, std::ostream& out) {
@@ -50,7 +50,7 @@ void print_obj(OBJECT obj, std::ostream& out) {
             out << '"';
         } break;
         case GranularObjectType::InternedSymbol: {
-            out << interned_string(static_cast<SymbolObject*>(obj.as_ptr())->name());
+            out << interned_string(obj.as_interned_symbol());
         } break;
         case GranularObjectType::Pair: {
             auto pair_obj = static_cast<PairObject*>(obj.as_ptr());
@@ -60,13 +60,13 @@ void print_obj(OBJECT obj, std::ostream& out) {
                 print_obj(pair_obj->car(), out);
             } else {
                 // (possibly improper) list or pair
-                if (obj_kind(pair_obj->cdr()) == GranularObjectType::Pair) {
+                if (pair_obj->cdr().is_pair()) {
                     // list or improper list
                     OBJECT rem_list = pair_obj;
                     while (!rem_list.is_null()) {
-                        if (obj_kind(rem_list) == GranularObjectType::Pair) {
+                        if (rem_list.is_pair()) {
                             // just a regular list item
-                            auto rem_list_pair = static_cast<PairObject*>(rem_list.as_ptr());
+                            auto rem_list_pair = dynamic_cast<PairObject*>(rem_list.as_ptr());
                             print_obj(rem_list_pair->car(), out);
                             rem_list = rem_list_pair->cdr();
                             if (!rem_list.is_null()) {

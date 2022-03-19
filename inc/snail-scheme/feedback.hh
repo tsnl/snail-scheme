@@ -5,8 +5,7 @@
 #include <exception>
 
 class SsiError: std::exception {
-  private:
-  public:
+public:
     inline SsiError() {
         std::cout << "FATAL-ERROR: see above error messages." << std::endl;
     }

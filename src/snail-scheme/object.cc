@@ -1,10 +1,10 @@
-#include "object.hh"
+#include "snail-scheme/object.hh"
 
 #include <map>
 #include <cstring>
 #include <exception>
 
-#include "printing.hh"
+#include "snail-scheme/printing.hh"
 
 OBJECT OBJECT::s_boolean_t{true};
 OBJECT OBJECT::s_boolean_f{false};
@@ -103,10 +103,7 @@ bool is_equal(OBJECT e1, OBJECT e2) {
                 return is_eqv(e1, e2);
             }
             case GranularObjectType::InternedSymbol: {
-                return (
-                    static_cast<SymbolObject*>(e1.as_ptr())->name() == 
-                    static_cast<SymbolObject*>(e2.as_ptr())->name()
-                );
+                return e1.as_interned_symbol() == e2.as_interned_symbol();
             }
             case GranularObjectType::String: {
                 auto s1 = static_cast<StringObject*>(e1.as_ptr());
@@ -153,4 +150,9 @@ bool is_equal(OBJECT e1, OBJECT e2) {
             }
         }
     }
+}
+
+std::ostream& operator<<(std::ostream& out, const OBJECT& obj) {
+    print_obj(obj, out);
+    return out;
 }

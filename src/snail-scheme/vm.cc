@@ -1,4 +1,4 @@
-#include "vm.hh"
+#include "snail-scheme/vm.hh"
 
 #include <vector>
 #include <string>
@@ -11,10 +11,10 @@
 #include <cassert>
 
 #include <config/config.hh>
-#include "feedback.hh"
-#include "object.hh"
-#include "printing.hh"
-#include "core.hh"
+#include "snail-scheme/feedback.hh"
+#include "snail-scheme/object.hh"
+#include "snail-scheme/printing.hh"
+#include "snail-scheme/core.hh"
 
 //
 // VmExp data: each expression either stores a VM instruction or a constant
@@ -111,8 +111,8 @@ class VirtualMachine {
     std::vector< VmFile > m_files;
     
     PairObject* m_init_env;
-    OBJECT m_init_var_rib;
-    OBJECT m_init_elt_rib;
+    PairObject* m_init_var_rib;
+    PairObject* m_init_elt_rib;
 
     const struct {
         IntStr const quote;
@@ -169,7 +169,7 @@ class VirtualMachine {
     static VMA_ClosureObject* closure(VmExpID body, PairObject* env, OBJECT args);
     static PairObject* lookup(OBJECT symbol, OBJECT env_raw);
     VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
-    PairObject* extend(PairObject* e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
+    PairObject* extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
 
   // Error functions:
   public:
@@ -206,6 +206,9 @@ VirtualMachine::VirtualMachine(size_t file_count)
 {
     m_exps.reserve(4096);
     m_files.reserve(file_count);
+
+    m_reg.a = OBJECT::make_null();
+    m_reg.r = OBJECT::make_null();
 }
 
 VirtualMachine::~VirtualMachine() {
@@ -639,7 +642,7 @@ void VirtualMachine::sync_execute() {
                             m_reg.r,
                             m_reg.s
                         );
-                        m_reg.r = nullptr;
+                        m_reg.r = OBJECT::make_null();
                     } break;
                     case VmExpKind::Argument: {
                         m_reg.x = exp.args.i_argument.x;
@@ -672,7 +675,7 @@ void VirtualMachine::sync_execute() {
                             // m_reg.a = m_reg.a;
                             m_reg.x = a->body();
                             m_reg.e = new_e;
-                            m_reg.r = nullptr;
+                            m_reg.r = OBJECT::make_null();
                         }
                         else if (m_reg.a.is_ext_callable()) {
                             // a C++ function is called; assume 'return' is called internally
@@ -985,12 +988,13 @@ PairObject* VirtualMachine::mk_default_root_env() {
     OBJECT rib_pair = cons(m_init_var_rib, m_init_elt_rib);
 
     // creating a fresh env:
-    m_init_env = cons(rib_pair, m_init_env);
+    auto init_env = cons(rib_pair, m_init_env);
 
     // (DEBUG:) printing env after construction:
     // print_obj(env, std::cerr);
 
-    return m_init_env;
+    assert(init_env.is_pair());
+    return (m_init_env = dynamic_cast<PairObject*>(init_env.as_ptr()));
 }
 
 void VirtualMachine::define_builtin_fn(
@@ -998,14 +1002,14 @@ void VirtualMachine::define_builtin_fn(
     EXT_CallableCb callback, 
     std::vector<std::string> arg_names
 ) {
-    OBJECT var_obj = new SymbolObject(intern(std::move(name_str)));
-    PairObject* vars_list = nullptr;
+    OBJECT var_obj = OBJECT::make_interned_symbol(intern(std::move(name_str)));
+    OBJECT vars_list = OBJECT::make_null();
     for (size_t i = 0; i < arg_names.size(); i++) {
-        vars_list = cons(new SymbolObject(intern(arg_names[i])), vars_list);
+        vars_list = cons(OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
     }
-    OBJECT elt_obj = new EXT_CallableObject(callback, m_init_env, vars_list);
-    m_init_var_rib = cons(var_obj, m_init_var_rib);
-    m_init_elt_rib = cons(elt_obj, m_init_elt_rib);
+    OBJECT elt_obj = OBJECT::make_generic_boxed(new EXT_CallableObject(callback, m_init_env, vars_list));
+    m_init_var_rib = dynamic_cast<PairObject*>(cons(var_obj, m_init_var_rib).as_ptr());
+    m_init_elt_rib = dynamic_cast<PairObject*>(cons(elt_obj, m_init_elt_rib).as_ptr());
 }
 
 template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
@@ -1187,11 +1191,11 @@ PairObject* VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
 }
 
 VMA_ClosureObject* VirtualMachine::continuation(VMA_CallFrameObject* s) {
-    static OBJECT nuate_var = new SymbolObject(intern("v"));
+    static OBJECT nuate_var = OBJECT::make_interned_symbol(intern("v"));
     return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
 }
 
-PairObject* VirtualMachine::extend(PairObject* e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
+PairObject* VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     // fixme: can optimize by iterating through in parallel
     auto var_count = count_list_items(vars);
@@ -1216,7 +1220,9 @@ PairObject* VirtualMachine::extend(PairObject* e, OBJECT vars, OBJECT vals, bool
         throw SsiError();
     }
 #endif
-    return cons(cons(vars, vals), e);
+    auto res = cons(cons(vars, vals), e);
+    assert(res.is_pair());
+    return dynamic_cast<PairObject*>(res.as_ptr());
 }
 
 //

@@ -2,10 +2,10 @@
 #include <fstream>
 #include <iostream>
 
-#include "parser.hh"
-#include "feedback.hh"
-#include "printing.hh"
-#include "vm.hh"
+#include "snail-scheme/parser.hh"
+#include "snail-scheme/feedback.hh"
+#include "snail-scheme/printing.hh"
+#include "snail-scheme/vm.hh"
 
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
@@ -24,6 +24,8 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     Parser* p = create_parser(f, file_path);
     std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_lines(p);
     
+    std::cerr << "INFO: Parsing complete" << std::endl;
+
     // todo: load into a module before compilation
     //  - cf https://docs.racket-lang.org/guide/Module_Syntax.html?q=modules#%28part._module-syntax%29
     //  - first, implement the 'module' syntax
@@ -37,10 +39,14 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
     add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
 
+    std::cerr << "INFO: Commencing execution" << std::endl;
+
     // Executing:
     {
         sync_execute_vm(vm, true);
     }
+
+    std::cerr << "INFO: Execution complete" << std::endl;
 
     // Dumping:
 #if CONFIG_DUMP_VM_STATE_AFTER_EXECUTION

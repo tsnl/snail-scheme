@@ -1,4 +1,4 @@
-#include "parser.hh"
+#include "snail-scheme/parser.hh"
 
 #include <istream>
 #include <fstream>
@@ -12,10 +12,10 @@
 #include <cstring>
 #include <cctype>
 
-#include "intern.hh"
-#include "core.hh"
-#include "feedback.hh"
-#include "printing.hh"
+#include "snail-scheme/intern.hh"
+#include "snail-scheme/core.hh"
+#include "snail-scheme/feedback.hh"
+#include "snail-scheme/printing.hh"
 
 //
 // Source Reader implementation:
@@ -151,7 +151,8 @@ char const* tk_text(TokenKind tk) {
         case TokenKind::Backslash: return "'\\'";
         case TokenKind::Period: return "'.'";
         default: {
-            return nullptr;
+            error("tk_text: Unknown token-kind");
+            throw SsiError();
         }
     }
 }
@@ -604,11 +605,6 @@ OBJECT Parser::parse_datum() {
         case TokenKind::String: 
         {
             auto out = try_parse_constant();
-            std::cerr << "GOT: ";
-            print_obj(out, std::cerr);
-            std::cerr << std::endl;
-            std::cerr.flush();
-            exit(-1);
             assert(!out.is_undef() && "Expected a constant based on look-ahead.");
             return out;
         }
@@ -637,7 +633,6 @@ OBJECT Parser::parse_form() {
         case TokenKind::String: 
         {
             auto out = try_parse_constant();
-            print_obj(out, std::cerr);
             assert(!out.is_undef() && "Expected a constant based on look-ahead.");
             return out;
         }
@@ -648,7 +643,7 @@ OBJECT Parser::parse_form() {
             ts.skip();
             OBJECT quoted = parse_datum();
             return list(
-                static_cast<OBJECT>(new SymbolObject(intern("quote"))),
+                OBJECT::make_interned_symbol(intern("quote")),
                 quoted
             );
         }
@@ -692,7 +687,7 @@ OBJECT Parser::parse_list(bool contents_is_datum_not_exp) {
                 // dotted pair
                 OBJECT car = element_object;
                 OBJECT cdr = parse_item();
-                element_object = new PairObject(car, cdr);
+                element_object = OBJECT::make_pair(car, cdr);
                 parsed_improper_list = true;
             }
             list_stack.push_back(element_object);
@@ -719,15 +714,15 @@ OBJECT Parser::parse_list(bool contents_is_datum_not_exp) {
         OBJECT pair_list = (
             (parsed_improper_list) ?
             list_stack.back() :
-            nullptr
+            OBJECT::make_null()
         );
         int start_index = (
             (parsed_improper_list) ?
-            list_stack.size() - 2 :
-            list_stack.size() - 1
+            static_cast<int>(list_stack.size() - 2) :
+            static_cast<int>(list_stack.size() - 1)
         );
         for (int i = start_index; i >= 0; i--) {
-            pair_list = new PairObject(list_stack[i], pair_list);
+            pair_list = OBJECT::make_pair(list_stack[i], pair_list);
             list_stack.pop_back();
         }
         return pair_list;
@@ -807,6 +802,7 @@ std::vector<OBJECT> parse_all_subsequent_lines(Parser* p) {
     for (;;) {
         std::optional<OBJECT> o = p->parse_next_line();
         if (o.has_value()) {
+            // std::cerr << "LINE: " << o.value() << std::endl;
             objects.push_back(o.value());
         } else {
             break;
