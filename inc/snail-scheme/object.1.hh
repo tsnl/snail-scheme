@@ -100,6 +100,9 @@ inline bool OBJECT::is_closure() const {
 inline bool OBJECT::is_ext_callable() const {
     return is_boxed_object() && as_ptr()->kind() == GranularObjectType::EXT_Callable;
 }
+inline bool OBJECT::is_string() const { 
+    return is_boxed_object() && as_ptr()->kind() == GranularObjectType::String;
+}
 
 size_t OBJECT::as_raw() const { 
     return m_data.raw; 

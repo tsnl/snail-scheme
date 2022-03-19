@@ -535,7 +535,10 @@ class Parser {
     OBJECT parse_top_level_line();
     OBJECT try_parse_constant();
     OBJECT parse_datum();
-    OBJECT parse_list(bool contents_is_datum_not_exp);
+    
+    template <bool contents_is_datum_not_exp>
+    OBJECT parse_list();
+    
     OBJECT parse_form();
 };
 
@@ -609,7 +612,7 @@ OBJECT Parser::parse_datum() {
             return out;
         }
         case TokenKind::LParen: {
-            return parse_list(true);
+            return parse_list<true>();
         }
         default: {
             error("Unexpected token in datum: " + std::string(tk_text(la_tk)));
@@ -633,11 +636,20 @@ OBJECT Parser::parse_form() {
         case TokenKind::String: 
         {
             auto out = try_parse_constant();
-            assert(!out.is_undef() && "Expected a constant based on look-ahead.");
+            assert(
+                (
+                    out.is_interned_symbol() ||
+                    out.is_boolean() ||
+                    out.is_signed_fixnum() ||
+                    out.is_float32() ||
+                    out.is_float64() ||
+                    out.is_string()
+                ) && 
+                "Expected a constant based on look-ahead.");
             return out;
         }
         case TokenKind::LParen: {
-            return parse_list(false);
+            return parse_list<false>();
         }
         case TokenKind::Quote: {
             ts.skip();
@@ -653,17 +665,19 @@ OBJECT Parser::parse_form() {
         }
     }
 }
-OBJECT Parser::parse_list(bool contents_is_datum_not_exp) {
+
+template <bool contents_is_datum_not_exp>
+OBJECT Parser::parse_list() {
     Lexer& ts = m_lexer;
 
     ts.expect(TokenKind::LParen);
 
     std::function<OBJECT()> parse_item;
     if (contents_is_datum_not_exp) {
-        parse_item = ([this] () -> OBJECT { return this->parse_datum(); });
+        parse_item = [this] () -> OBJECT { return this->parse_datum(); };
     } else {
-        parse_item = ([this] () -> OBJECT { return this->parse_form(); });
-    }
+        parse_item = [this] () -> OBJECT { return this->parse_form(); };
+    };
 
     // parsing each object in the list, pushing onto a stack:
     // NOTE: we match out the RParen in the loop
@@ -679,6 +693,7 @@ OBJECT Parser::parse_list(bool contents_is_datum_not_exp) {
             ended_ok = true;
             break;
         } else if (parsed_improper_list) {
+            error("expected ')' after '.' in improper list");
             ended_ok = false;
             break;
         } else {
@@ -802,7 +817,7 @@ std::vector<OBJECT> parse_all_subsequent_lines(Parser* p) {
     for (;;) {
         std::optional<OBJECT> o = p->parse_next_line();
         if (o.has_value()) {
-            // std::cerr << "LINE: " << o.value() << std::endl;
+            std::cerr << "LINE: " << o.value() << std::endl;
             objects.push_back(o.value());
         } else {
             break;

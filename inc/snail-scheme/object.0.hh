@@ -117,14 +117,13 @@ public:
     bool is_boolean(bool v) const { return is_boolean() && as_raw() == (v ? s_boolean_t.as_raw() : s_boolean_f.as_raw()); }
     bool is_null() const { return m_data.null.tag == (1u<<5); }
     bool is_eof() const { return m_data.eof.tag == (1u<<6); }
-    bool is_undef() const { 
-        return m_data.undef.tag == (1u<<7); 
-    }
+    bool is_undef() const { return m_data.undef.tag == (1u<<7); }
 public:
     inline bool is_pair() const;
     inline bool is_float64() const;
     inline bool is_closure() const;
     inline bool is_ext_callable() const;
+    bool is_string() const;
 
     inline GranularObjectType kind() const;
 public:
@@ -194,16 +193,13 @@ private:
     OBJECT m_cdr;
 public:
     PairObject() 
-    :   BoxedObject(GranularObjectType::Pair),
-        m_car(OBJECT::make_null()),
-        m_cdr(OBJECT::make_null())
+    :   PairObject(OBJECT::make_null(), OBJECT::make_null())
     {}
     explicit PairObject(OBJECT car, OBJECT cdr)
-    :   PairObject()
-    {
-        m_car = car;
-        m_cdr = cdr;
-    }
+    :   BoxedObject(GranularObjectType::Pair),
+        m_car(car),
+        m_cdr(cdr)
+    {}
 public:
     [[nodiscard]] inline OBJECT car() const { return m_car; }
     [[nodiscard]] inline OBJECT cdr() const { return m_cdr; }
