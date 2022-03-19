@@ -2,6 +2,6 @@
 
 #include <ostream>
 
-class Object;
+#include "object.hh"
 
-void print_obj(Object* obj, std::ostream& out);
+void print_obj(OBJECT obj, std::ostream& out);

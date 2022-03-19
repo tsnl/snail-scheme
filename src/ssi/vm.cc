@@ -41,16 +41,16 @@ enum class VmExpKind: VmExpID {
 };
 union VmExpArgs {
     struct {} i_halt;
-    struct { Object* var; VmExpID x; } i_refer;
-    struct { Object* constant; VmExpID x; } i_constant;
-    struct { Object* vars; VmExpID body; VmExpID x; } i_close;
+    struct { OBJECT var; VmExpID x; } i_refer;
+    struct { OBJECT constant; VmExpID x; } i_constant;
+    struct { OBJECT vars; VmExpID body; VmExpID x; } i_close;
     struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
-    struct { Object* var; VmExpID x; } i_assign;
+    struct { OBJECT var; VmExpID x; } i_assign;
     struct { VmExpID x; } i_conti;
-    struct { VMA_CallFrameObject* s; Object* var; } i_nuate;
+    struct { VMA_CallFrameObject* s; OBJECT var; } i_nuate;
     struct { VmExpID x; VmExpID ret; } i_frame;
     struct { VmExpID x; } i_argument;
-    struct { Object* var; VmExpID next; } i_define;
+    struct { OBJECT var; VmExpID next; } i_define;
     struct {} i_apply;
     struct {} i_return_;
 };
@@ -83,7 +83,7 @@ struct VmProgram {
 //
 
 struct VmFile {
-    std::vector<Object*> line_code_objs;
+    std::vector<OBJECT> line_code_objs;
     std::vector<VmProgram> line_programs;
 };
 
@@ -95,23 +95,24 @@ struct VmFile {
 //
 
 typedef void(*IntFoldCb)(my_ssize_t& accum, my_ssize_t item);
-typedef void(*FloatFoldCb)(my_float_t& accum, my_float_t item);
+typedef void(*Float32FoldCb)(float& accum, float item);
+typedef void(*Float64FoldCb)(double& accum, double item);
 
 class VirtualMachine {
   private:
     struct {
-        Object* a;                  // the accumulator
+        OBJECT a;                  // the accumulator
         VmExpID x;                  // the next expression
         PairObject* e;              // the current environment
-        Object* r;                  // value rib; used to compute arguments for 'apply'
+        OBJECT r;                  // value rib; used to compute arguments for 'apply'
         VMA_CallFrameObject* s;     // the current stack
     } m_reg;
     std::vector<VmExp> m_exps;
     std::vector< VmFile > m_files;
     
     PairObject* m_init_env;
-    Object* m_init_var_rib;
-    Object* m_init_elt_rib;
+    OBJECT m_init_var_rib;
+    OBJECT m_init_elt_rib;
 
     const struct {
         IntStr const quote;
@@ -130,26 +131,26 @@ class VirtualMachine {
   private:
     std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
     VmExpID new_vmx_halt();
-    VmExpID new_vmx_refer(Object* var, VmExpID next);
-    VmExpID new_vmx_constant(Object* constant, VmExpID next);
-    VmExpID new_vmx_close(Object* vars, VmExpID body, VmExpID next);
+    VmExpID new_vmx_refer(OBJECT var, VmExpID next);
+    VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
+    VmExpID new_vmx_close(OBJECT vars, VmExpID body, VmExpID next);
     VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
-    VmExpID new_vmx_assign(Object* var, VmExpID next);
+    VmExpID new_vmx_assign(OBJECT var, VmExpID next);
     VmExpID new_vmx_conti(VmExpID x);
-    VmExpID new_vmx_nuate(VMA_CallFrameObject* stack, Object* var);
+    VmExpID new_vmx_nuate(VMA_CallFrameObject* stack, OBJECT var);
     VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
     VmExpID new_vmx_argument(VmExpID x);
     VmExpID new_vmx_apply();
     VmExpID new_vmx_return();
-    VmExpID new_vmx_define(Object* var, VmExpID next);
+    VmExpID new_vmx_define(OBJECT var, VmExpID next);
 
   // Source code loading + compilation:
   public:
-    // add_file eats an std::vector<Object*> containing each line
-    void add_file(std::string const& file_name, std::vector<Object*> objs);
+    // add_file eats an std::vector<OBJECT> containing each line
+    void add_file(std::string const& file_name, std::vector<OBJECT> objs);
   private:
-    VmProgram translate_single_line_code_obj(Object* line_code_obj);
-    VmExpID translate_code_obj(Object* obj, VmExpID next);
+    VmProgram translate_single_line_code_obj(OBJECT line_code_obj);
+    VmExpID translate_code_obj(OBJECT obj, VmExpID next);
     VmExpID translate_code_obj__pair_list(PairObject* obj, VmExpID next);
     bool is_tail_vmx(VmExpID vmx_id);
 
@@ -163,16 +164,16 @@ class VirtualMachine {
   public:
     PairObject* mk_default_root_env();
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
-    template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
+    template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
     void define_builtin_variadic_arithmetic_fn(char const* name_str);
-    static VMA_ClosureObject* closure(VmExpID body, PairObject* env, Object* args);
-    static PairObject* lookup(Object* symbol, Object* env_raw);
+    static VMA_ClosureObject* closure(VmExpID body, PairObject* env, OBJECT args);
+    static PairObject* lookup(OBJECT symbol, OBJECT env_raw);
     VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
-    PairObject* extend(PairObject* e, Object* vars, Object* vals, bool is_binding_variadic);
+    PairObject* extend(PairObject* e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
 
   // Error functions:
   public:
-    void check_vars_list_else_throw(Object* vars);
+    void check_vars_list_else_throw(OBJECT vars);
 
   // Debug dumps:
   public:
@@ -211,7 +212,7 @@ VirtualMachine::~VirtualMachine() {
     // todo: clean up code object memory-- leaking for now.
     //  - cannot delete `BoolObject` or other singletons
     // for (VmFile const& file: m_files) {
-    //     for (Object* o: file.line_code_objs) {
+    //     for (OBJECT o: file.line_code_objs) {
     //         delete o;
     //     }
     // }
@@ -229,21 +230,21 @@ std::pair<VmExpID, VmExp&> VirtualMachine::help_new_vmx(VmExpKind kind) {
 VmExpID VirtualMachine::new_vmx_halt() {
     return help_new_vmx(VmExpKind::Halt).first;
 }
-VmExpID VirtualMachine::new_vmx_refer(Object* var, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_refer(OBJECT var, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Refer);
     auto& args = exp_ref.args.i_refer;
     args.var = var;
     args.x = next;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_constant(Object* constant, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_constant(OBJECT constant, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Constant);
     auto& args = exp_ref.args.i_constant;
     args.constant = constant;
     args.x = next;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_close(Object* vars, VmExpID body, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_close(OBJECT vars, VmExpID body, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Close);
     auto& args = exp_ref.args.i_close;
     args.vars = vars;
@@ -258,7 +259,7 @@ VmExpID VirtualMachine::new_vmx_test(VmExpID next_if_t, VmExpID next_if_f) {
     args.next_if_f = next_if_f;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_assign(Object* var, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_assign(OBJECT var, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Assign);
     auto& args = exp_ref.args.i_assign;
     args.var = var;
@@ -271,7 +272,7 @@ VmExpID VirtualMachine::new_vmx_conti(VmExpID x) {
     args.x = x;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_nuate(VMA_CallFrameObject* stack, Object* var) {
+VmExpID VirtualMachine::new_vmx_nuate(VMA_CallFrameObject* stack, OBJECT var) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Nuate);
     auto& args = exp_ref.args.i_nuate;
     args.s = stack;
@@ -297,7 +298,7 @@ VmExpID VirtualMachine::new_vmx_apply() {
 VmExpID VirtualMachine::new_vmx_return() {
     return help_new_vmx(VmExpKind::Return).first;
 }
-VmExpID VirtualMachine::new_vmx_define(Object* var, VmExpID next) {
+VmExpID VirtualMachine::new_vmx_define(OBJECT var, VmExpID next) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Define);
     auto& args = exp_ref.args.i_define;
     args.var = var;
@@ -309,12 +310,12 @@ VmExpID VirtualMachine::new_vmx_define(Object* var, VmExpID next) {
 // Source code loading + compilation (p. 57 of 'three-imp.pdf')
 //
 
-void VirtualMachine::add_file(std::string const& file_name, std::vector<Object*> objs) {
+void VirtualMachine::add_file(std::string const& file_name, std::vector<OBJECT> objs) {
     if (!objs.empty()) {
         // translating each line into a program that terminates with 'halt'
         std::vector<VmProgram> line_programs;
         line_programs.reserve(objs.size());
-        for (Object* line_code_obj: objs) {
+        for (OBJECT line_code_obj: objs) {
             VmProgram program = translate_single_line_code_obj(line_code_obj);
             line_programs.push_back(program);
         }
@@ -327,20 +328,20 @@ void VirtualMachine::add_file(std::string const& file_name, std::vector<Object*>
     }
 }
 
-VmProgram VirtualMachine::translate_single_line_code_obj(Object* line_code_obj) {
+VmProgram VirtualMachine::translate_single_line_code_obj(OBJECT line_code_obj) {
     VmExpID last_exp_id = new_vmx_halt();
     VmExpID first_exp_id = translate_code_obj(line_code_obj, last_exp_id);
     return VmProgram {first_exp_id, last_exp_id};
 }
-VmExpID VirtualMachine::translate_code_obj(Object* obj, VmExpID next) {
+VmExpID VirtualMachine::translate_code_obj(OBJECT obj, VmExpID next) {
     // iteratively translating this line to a VmProgram
     //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
     switch (obj_kind(obj)) {
-        case ObjectKind::Symbol: {
+        case GranularObjectType::InternedSymbol: {
             return new_vmx_refer(obj, next);
         }
-        case ObjectKind::Pair: {
-            return translate_code_obj__pair_list(static_cast<PairObject*>(obj), next);
+        case GranularObjectType::Pair: {
+            return translate_code_obj__pair_list(static_cast<PairObject*>(obj.as_ptr()), next);
         }
         default: {
             return new_vmx_constant(obj, next);
@@ -349,14 +350,13 @@ VmExpID VirtualMachine::translate_code_obj(Object* obj, VmExpID next) {
 }
 VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID next) {
     // retrieving key properties:
-    Object* head = obj->car();
-    Object* args = obj->cdr();
+    OBJECT head = obj->car();
+    OBJECT args = obj->cdr();
 
     // first, trying to handle a builtin function invocation:
-    if (head->kind() == ObjectKind::Symbol) {
-        // keyword first argument
-        auto sym_head = static_cast<SymbolObject*>(head);
-        auto keyword_symbol_id = sym_head->name();
+    if (head.is_interned_symbol()) {
+        // keyword first argument => may be builtin
+        auto keyword_symbol_id = head.as_interned_symbol();
 
         if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
             // quote
@@ -430,7 +430,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
             auto structural_signature = args_array[0];
             auto body = args_array[1];
 
-            if (structural_signature && structural_signature->kind() == ObjectKind::Symbol) {
+            if (structural_signature.is_interned_symbol()) {
                 // (define <var> <initializer>)
                 return new_vmx_define(
                     structural_signature, 
@@ -443,7 +443,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                     )
                 );
             }
-            else if (structural_signature && structural_signature->kind() == ObjectKind::Pair) {
+            else if (structural_signature.is_pair()) {
                 // (define (<fn-name> <arg-vars...>) <initializer>)
                 // desugars to 
                 // (define <fn-name> (lambda (<arg-vars) <initializer>))
@@ -452,7 +452,7 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
                 
                 check_vars_list_else_throw(arg_vars);
 
-                if (!fn_name || fn_name->kind() != ObjectKind::Symbol) {
+                if (!fn_name.is_interned_symbol()) {
                     std::stringstream ss;
                     ss << "define: invalid function name: ";
                     print_obj(fn_name, ss);
@@ -480,16 +480,16 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
             // (begin expr ...+)
 
             // ensuring at least one argument is provided:
-            if (args == nullptr) {
+            if (args.is_null()) {
                 error("begin: expected at least one expression form to evaluate, got 0.");
                 throw SsiError();
             }
 
             // assembling each code object on a stack to translate in reverse order:
-            std::vector<Object*> obj_stack;
+            std::vector<OBJECT> obj_stack;
             obj_stack.reserve(32);
-            Object* rem_args = args;
-            while (rem_args) {
+            OBJECT rem_args = args;
+            while (!rem_args.is_null()) {
                 obj_stack.push_back(car(rem_args));
                 rem_args = cdr(rem_args);
             }
@@ -513,8 +513,8 @@ VmExpID VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID n
     {
         // function call
         VmExpID c = translate_code_obj(head, new_vmx_apply());
-        Object* c_args = args;
-        while (c_args) {
+        OBJECT c_args = args;
+        while (!c_args.is_null()) {
             c = translate_code_obj(
                 car(c_args),
                 new_vmx_argument(c)
@@ -558,7 +558,7 @@ void VirtualMachine::sync_execute() {
         auto line_count = f.line_code_objs.size();
         for (size_t i = 0; i < line_count; i++) {
             // acquiring input:
-            Object* input = f.line_code_objs[i];
+            OBJECT input = f.line_code_objs[i];
             VmProgram program = f.line_programs[i];
 
             // setting start instruction:
@@ -600,7 +600,7 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Test: {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                        if (!m_reg.a || m_reg.a->kind() != ObjectKind::Boolean) {
+                        if (!m_reg.a.is_boolean()) {
                             std::stringstream ss;
                             ss << "test: expected a `bool` expression in a conditional, received: ";
                             print_obj(m_reg.a, ss);
@@ -608,7 +608,7 @@ void VirtualMachine::sync_execute() {
                             throw SsiError();
                         }
 #endif
-                        if (m_reg.a == BoolObject::t) {
+                        if (m_reg.a.is_boolean(true)) {
                             m_reg.x = exp.args.i_test.next_if_t;
                         } else {
                             m_reg.x = exp.args.i_test.next_if_f;
@@ -656,9 +656,9 @@ void VirtualMachine::sync_execute() {
                             throw SsiError();
                         }
 #endif
-                        if (m_reg.a->kind() == ObjectKind::VMA_Closure) {
+                        if (m_reg.a.is_closure()) {
                             // a Scheme function is called
-                            auto a = static_cast<VMA_ClosureObject*>(m_reg.a);
+                            auto a = static_cast<VMA_ClosureObject*>(m_reg.a.as_ptr());
                             PairObject* new_e;
                             try {
                                 new_e = extend(a->e(), a->vars(), m_reg.r, false);
@@ -674,9 +674,9 @@ void VirtualMachine::sync_execute() {
                             m_reg.e = new_e;
                             m_reg.r = nullptr;
                         }
-                        else if (m_reg.a->kind() == ObjectKind::EXT_Callable) {
+                        else if (m_reg.a.is_ext_callable()) {
                             // a C++ function is called; assume 'return' is called internally
-                            auto a = static_cast<EXT_CallableObject*>(m_reg.a);
+                            auto a = static_cast<EXT_CallableObject*>(m_reg.a.as_ptr());
 //                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
                             auto s_prime = m_reg.s;
                             auto s = m_reg.s->parent();
@@ -706,7 +706,7 @@ void VirtualMachine::sync_execute() {
                         m_reg.e = extend(
                             m_reg.e,
                             list(exp.args.i_define.var),
-                            list(static_cast<Object*>(BoolObject::f)),
+                            list(static_cast<OBJECT>(OBJECT::make_boolean(false))),
                             false
                         );
                         // DEBUG:
@@ -746,17 +746,22 @@ inline void int_div_cb(my_ssize_t& accum, my_ssize_t item) { accum /= item; }
 inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item) { accum %= item; }
 inline void int_add_cb(my_ssize_t& accum, my_ssize_t item) { accum += item; }
 inline void int_sub_cb(my_ssize_t& accum, my_ssize_t item) { accum -= item; }
-inline void float_mul_cb(my_float_t& accum, my_float_t item) { accum *= item; }
-inline void float_div_cb(my_float_t& accum, my_float_t item) { accum /= item; }
-inline void float_rem_cb(my_float_t& accum, my_float_t item) { accum = fmod(accum, item); }
-inline void float_add_cb(my_float_t& accum, my_float_t item) { accum += item; }
-inline void float_sub_cb(my_float_t& accum, my_float_t item) { accum -= item; }
+inline void float32_mul_cb(float& accum, float item) { accum *= item; }
+inline void float32_div_cb(float& accum, float item) { accum /= item; }
+inline void float32_rem_cb(float& accum, float item) { accum = fmod(accum, item); }
+inline void float32_add_cb(float& accum, float item) { accum += item; }
+inline void float32_sub_cb(float& accum, float item) { accum -= item; }
+inline void float64_mul_cb(double& accum, double item) { accum *= item; }
+inline void float64_div_cb(double& accum, double item) { accum /= item; }
+inline void float64_rem_cb(double& accum, double item) { accum = fmod(accum, item); }
+inline void float64_add_cb(double& accum, double item) { accum += item; }
+inline void float64_sub_cb(double& accum, double item) { accum -= item; }
 
 PairObject* VirtualMachine::mk_default_root_env() {
     // definitions:
     define_builtin_fn(
         "cons", 
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return cons(aa[0], aa[1]); 
         }, 
@@ -764,10 +769,10 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "car", 
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-            if (aa[0]->kind() != ObjectKind::Pair) {
+            if (!aa[0].is_pair()) {
                 std::stringstream ss;
                 ss << "car: expected pair argument, received: ";
                 print_obj(aa[0], ss);
@@ -781,10 +786,10 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "cdr", 
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-            if (aa[0]->kind() != ObjectKind::Pair) {
+            if (!aa[0].is_pair()) {
                 std::stringstream ss;
                 ss << "cdr: expected pair argument, received: ";
                 print_obj(aa[0], ss);
@@ -798,7 +803,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "boolean?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_boolean(aa[0]));
         },
@@ -806,7 +811,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "null?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_null(aa[0]));
         },
@@ -814,7 +819,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "pair?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_pair(aa[0]));
         },
@@ -822,7 +827,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "procedure?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_procedure(aa[0]));
         },
@@ -830,7 +835,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "symbol?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_symbol(aa[0]));
         },
@@ -838,7 +843,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "integer?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_integer(aa[0]));
         },
@@ -846,7 +851,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "real?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_float(aa[0]));
         },
@@ -854,7 +859,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "number?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_number(aa[0]));
         },
@@ -862,7 +867,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "string?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_string(aa[0]));
         },
@@ -870,7 +875,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "vector?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<1>(args);
             return boolean(is_vector(aa[0]));
         },
@@ -878,7 +883,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "=",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return boolean(is_eqn(aa[0], aa[1]));
         },
@@ -886,7 +891,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eq?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return boolean(is_eq(aa[0], aa[1]));
         },
@@ -894,7 +899,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "eqv?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return boolean(is_eqv(aa[0], aa[1]));
         },
@@ -902,7 +907,7 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "equal?",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return boolean(is_equal(aa[0], aa[1]));
         },
@@ -910,22 +915,22 @@ PairObject* VirtualMachine::mk_default_root_env() {
     );
     define_builtin_fn(
         "list",
-        [](Object* args) -> Object* {
+        [](OBJECT args) -> OBJECT {
             return args;
         },
         {"items..."}
     );
     define_builtin_fn(
         "and",
-        [](Object* args) -> Object* {
-            Object* rem_args = args;
-            while (rem_args) {
-                Object* head = car(rem_args);
+        [](OBJECT args) -> OBJECT {
+            OBJECT rem_args = args;
+            while (!rem_args.is_null()) {
+                OBJECT head = car(rem_args);
                 rem_args = cdr(rem_args);
 
-                Object* maybe_boolean_obj = head;
+                OBJECT maybe_boolean_obj = head;
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
+                if (!maybe_boolean_obj.is_boolean()) {
                     std::stringstream ss;
                     ss << "and: expected boolean, received: ";
                     print_obj(head, ss);
@@ -933,26 +938,26 @@ PairObject* VirtualMachine::mk_default_root_env() {
                     throw SsiError();
                 }
 #endif
-                Object* boolean_obj = maybe_boolean_obj;
-                if (boolean_obj == BoolObject::f) {
-                    return BoolObject::f;
+                OBJECT boolean_obj = maybe_boolean_obj;
+                if (boolean_obj.is_boolean(false)) {
+                    return OBJECT::make_boolean(false);
                 }
             }
-            return BoolObject::t;
+            return OBJECT::make_boolean(true);
         },
         {"booleans..."}
     );
     define_builtin_fn(
         "or",
-        [](Object* args) -> Object* {
-            Object* rem_args = args;
-            while (rem_args) {
-                Object* head = car(rem_args);
+        [](OBJECT args) -> OBJECT {
+            OBJECT rem_args = args;
+            while (!rem_args.is_null()) {
+                OBJECT head = car(rem_args);
                 rem_args = cdr(rem_args);
 
-                Object* maybe_boolean_obj = head;
+                OBJECT maybe_boolean_obj = head;
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                if (maybe_boolean_obj->kind() != ObjectKind::Boolean) {
+                if (!maybe_boolean_obj.is_boolean()) {
                     std::stringstream ss;
                     ss << "or: expected boolean, received: ";
                     print_obj(head, ss);
@@ -960,24 +965,24 @@ PairObject* VirtualMachine::mk_default_root_env() {
                     throw SsiError();
                 }
 #endif
-                Object* boolean_obj = maybe_boolean_obj;
-                if (boolean_obj == BoolObject::t) {
-                    return BoolObject::t;
+                OBJECT boolean_obj = maybe_boolean_obj;
+                if (boolean_obj.is_boolean(true)) {
+                    return OBJECT::make_boolean(true);
                 }
             }
-            return BoolObject::f;
+            return OBJECT::make_boolean(false);
         },
         {"booleans..."}
     );
-    define_builtin_variadic_arithmetic_fn<int_mul_cb, float_mul_cb>("*");
-    define_builtin_variadic_arithmetic_fn<int_div_cb, float_div_cb>("/");
-    define_builtin_variadic_arithmetic_fn<int_rem_cb, float_rem_cb>("%");
-    define_builtin_variadic_arithmetic_fn<int_add_cb, float_add_cb>("+");
-    define_builtin_variadic_arithmetic_fn<int_sub_cb, float_sub_cb>("-");
+    define_builtin_variadic_arithmetic_fn<int_mul_cb, float32_mul_cb, float64_mul_cb>("*");
+    define_builtin_variadic_arithmetic_fn<int_div_cb, float32_div_cb, float64_div_cb>("/");
+    define_builtin_variadic_arithmetic_fn<int_rem_cb, float32_rem_cb, float64_rem_cb>("%");
+    define_builtin_variadic_arithmetic_fn<int_add_cb, float32_add_cb, float64_add_cb>("+");
+    define_builtin_variadic_arithmetic_fn<int_sub_cb, float32_sub_cb, float64_sub_cb>("-");
     // todo: define more builtin functions here
 
     // finalizing the rib-pair:
-    Object* rib_pair = cons(m_init_var_rib, m_init_elt_rib);
+    OBJECT rib_pair = cons(m_init_var_rib, m_init_elt_rib);
 
     // creating a fresh env:
     m_init_env = cons(rib_pair, m_init_env);
@@ -993,23 +998,23 @@ void VirtualMachine::define_builtin_fn(
     EXT_CallableCb callback, 
     std::vector<std::string> arg_names
 ) {
-    Object* var_obj = new SymbolObject(intern(std::move(name_str)));
+    OBJECT var_obj = new SymbolObject(intern(std::move(name_str)));
     PairObject* vars_list = nullptr;
     for (size_t i = 0; i < arg_names.size(); i++) {
         vars_list = cons(new SymbolObject(intern(arg_names[i])), vars_list);
     }
-    Object* elt_obj = new EXT_CallableObject(callback, m_init_env, vars_list);
+    OBJECT elt_obj = new EXT_CallableObject(callback, m_init_env, vars_list);
     m_init_var_rib = cons(var_obj, m_init_var_rib);
     m_init_elt_rib = cons(elt_obj, m_init_elt_rib);
 }
 
-template <IntFoldCb int_fold_cb, FloatFoldCb float_fold_cb>
+template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
 void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const name_str) {
     define_builtin_fn(
         name_str,
-        [=](Object* args) -> Object* {
+        [=](OBJECT args) -> OBJECT {
             // first, ensuring we have at least 1 argument:
-            if (!args) {
+            if (args.is_null()) {
                 std::stringstream ss;
                 ss << "Expected 1 or more arguments to arithmetic operator " << name_str << ": got 0";
                 error(ss.str());
@@ -1020,24 +1025,25 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
             //  - this is accomplished by performing a linear scan through the arguments
             //  - though inefficient, this ironically improves throughput, presumably by loading cache lines 
             //    containing each operand before 'load'
-            bool float_operand_present = false;
+            bool float64_operand_present = false;
+            bool float32_operand_present = false;
             bool int_operand_present = false;
             size_t arg_count = 0;
             for (
-                Object* rem_args = args;
-                rem_args;
+                OBJECT rem_args = args;
+                !rem_args.is_null();
                 rem_args = cdr(rem_args)
             ) {
-                Object* operand = car(rem_args);
+                OBJECT operand = car(rem_args);
                 ++arg_count;
 
-                if (obj_kind(operand) == ObjectKind::FloatingPt) {
-                    float_operand_present = true;
-                }
-                else if (obj_kind(operand) == ObjectKind::Integer) {
+                if (operand.is_float64()) {
+                    float64_operand_present = true;
+                } else if (operand.is_float32()) {
+                    float32_operand_present = true;
+                } else if (operand.is_signed_fixnum()) {
                     int_operand_present = true;
-                }
-                else {
+                } else {
                     // error:
                     std::stringstream ss;
                     ss << "Invalid argument to arithmetic operator " << name_str << ": ";
@@ -1053,93 +1059,70 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                 // returning identity:
                 return car(args);
             }
-            else if (!float_operand_present && arg_count == 2) {
+            else if (!float64_operand_present && !float32_operand_present && arg_count == 2) {
                 // adding two integers:
                 auto aa = extract_args<2>(args);
-                auto res = static_cast<IntObject*>(aa[0])->value();
-                int_fold_cb(res, static_cast<IntObject*>(aa[1])->value());
-                return new IntObject(res);
+                my_ssize_t res = aa[0].as_signed_fixnum();
+                int_fold_cb(res, aa[1].as_signed_fixnum());
+                return OBJECT::make_integer(res);
             }
-            else if (!int_operand_present && arg_count == 2) {
-                // adding two floats:
+            else if (!int_operand_present && !float64_operand_present && arg_count == 2) {
+                // adding two float32:
                 auto aa = extract_args<2>(args);
-                auto res = static_cast<FloatObject*>(aa[0])->value();
-                float_fold_cb(res, static_cast<FloatObject*>(aa[1])->value());
-                return new FloatObject(res);
+                auto res = aa[0].as_float32();
+                float32_fold_cb(res, aa[1].as_float32());
+                return OBJECT::make_float32(res);
             }
-            else if (float_operand_present && int_operand_present) {
-                // compute result as a float, mixed int and float:
-                Object* rem_args = args;
-
-                Object* first_arg = car(rem_args);
-                rem_args = cdr(rem_args);
-
-                my_float_t unwrapped_accum;
-                if (first_arg->kind() == ObjectKind::Integer) {
-                    unwrapped_accum = static_cast<my_float_t>(static_cast<IntObject*>(first_arg)->value());
-                } else {
-                    unwrapped_accum = static_cast<FloatObject*>(first_arg)->value();
-                }
-                for (; rem_args; rem_args = cdr(rem_args)) {
-                    Object* operand = car(rem_args);
-                    my_float_t v;
-                    if (operand->kind() == ObjectKind::Integer) {
-                        v = static_cast<my_float_t>(static_cast<IntObject*>(operand)->value());
-                    } else {
-                        // must be a float-- checked before.
-                        v = static_cast<FloatObject*>(operand)->value();
-                    }
-                    float_fold_cb(unwrapped_accum, v);
-                }
-                
-                return new FloatObject(unwrapped_accum);
-            } 
-            else if (float_operand_present) {
-                // compute result from only floats: no integers foudn
-
-                Object* rem_args = args;
-
-                Object* first_arg = car(rem_args);
-                rem_args = cdr(rem_args);
-
-                my_float_t unwrapped_accum = static_cast<FloatObject*>(first_arg)->value();
-                for (; rem_args; rem_args = cdr(rem_args)) {
-                    Object* operand = car(rem_args);
-                    // must be a float-- checked before.
-                    my_float_t v = static_cast<FloatObject*>(operand)->value();
-                    float_fold_cb(unwrapped_accum, v);
-                }
-                
-                return new FloatObject(unwrapped_accum);
+            else if (!int_operand_present && !float32_operand_present && arg_count == 2) {
+                // adding two float64:
+                auto aa = extract_args<2>(args);
+                auto res = aa[0].as_float64();
+                float64_fold_cb(res, aa[1].as_float64());
+                return OBJECT::make_float64(res);
             }
-            else {
+            else if (int_operand_present && !float32_operand_present && !float64_operand_present) {
                 // compute result from only integers: no floats found
-                Object* rem_args = args;
+                OBJECT rem_args = args;
 
-                Object* first_arg = car(rem_args);
+                OBJECT first_arg = car(rem_args);
                 rem_args = cdr(rem_args);
 
-                my_ssize_t unwrapped_accum = static_cast<IntObject*>(first_arg)->value();
-                for (; rem_args; rem_args = cdr(rem_args)) {
-                    Object* operand = car(rem_args);
-                    // 'v' must be an integer-- checked before.
-                    my_ssize_t v = static_cast<IntObject*>(operand)->value();
+                my_ssize_t unwrapped_accum = first_arg.as_signed_fixnum();
+                for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
+                    OBJECT operand = car(rem_args);
+                    my_ssize_t v = operand.as_signed_fixnum();
                     int_fold_cb(unwrapped_accum, v);
                 }
 
-                return new IntObject(unwrapped_accum);
+                return OBJECT::make_integer(unwrapped_accum);
             }
+            else {
+                // compute result as a float64:
+                OBJECT rem_args = args;
+
+                OBJECT first_arg = car(rem_args);
+                rem_args = cdr(rem_args);
+                
+                double unwrapped_accum = first_arg.to_double();
+                for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
+                    OBJECT operand = car(rem_args);
+                    my_float_t v = operand.to_double();
+                    float64_fold_cb(unwrapped_accum, v);
+                }
+                
+                return OBJECT::make_float64(unwrapped_accum);
+            } 
         },
         {"args..."}
     );
 }
 
-VMA_ClosureObject* VirtualMachine::closure(VmExpID body, PairObject* env, Object* vars) {
+VMA_ClosureObject* VirtualMachine::closure(VmExpID body, PairObject* env, OBJECT vars) {
     return new VMA_ClosureObject(body, env, vars);
 }
 
-PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
-    if (env_raw == nullptr) {
+PairObject* VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
+    if (env_raw.is_null()) {
         std::stringstream ss;
         ss << "lookup: symbol used, but undefined: ";
         print_obj(symbol, ss);
@@ -1148,16 +1131,16 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
     }
 
     // we can cast the 'env' to a PairObject since it is a part of our runtime.
-    auto env = static_cast<PairObject*>(env_raw);
+    auto env = static_cast<PairObject*>(env_raw.as_ptr());
 
-    if (symbol->kind() != ObjectKind::Symbol) {
+    if (!symbol.is_interned_symbol()) {
         std::stringstream ss;
         ss << "lookup: expected query object to be a variable name, received: ";
         print_obj(symbol, ss);
         error(ss.str());
         throw SsiError();
     } else {
-        IntStr sym_name = static_cast<SymbolObject*>(symbol)->name();
+        IntStr sym_name = symbol.as_interned_symbol();
 
         // iterating through ribs in the environment:
         // the environment is a 'list of pairs of lists'
@@ -1166,23 +1149,26 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
         for (
             PairObject* rem_ribs = env;
             rem_ribs;
-            rem_ribs = static_cast<PairObject*>(rem_ribs->cdr())
+            rem_ribs = dynamic_cast<PairObject*>(rem_ribs->cdr().as_ptr())
         ) {
-            auto rib_pair = static_cast<PairObject*>(rem_ribs->car());
-            auto variable_rib = static_cast<PairObject*>(rib_pair->car());
-            auto value_rib = static_cast<PairObject*>(rib_pair->cdr());
+            auto rib_pair = dynamic_cast<PairObject*>(rem_ribs->car().as_ptr());
+            assert(rib_pair && "broken env");
+            auto variable_rib = dynamic_cast<PairObject*>(rib_pair->car().as_ptr());
+            auto value_rib = dynamic_cast<PairObject*>(rib_pair->cdr().as_ptr());
+            assert(variable_rib && value_rib && "broken env");
 
             for (
                 PairObject
                     *rem_variable_rib = variable_rib,
                     *rem_value_rib = value_rib;
                 rem_value_rib;
-                ((rem_variable_rib = static_cast<PairObject*>(rem_variable_rib->cdr())),
-                 (rem_value_rib = static_cast<PairObject*>(rem_value_rib->cdr())))
+                ((rem_variable_rib = dynamic_cast<PairObject*>(rem_variable_rib->cdr().as_ptr())),
+                 (rem_value_rib = dynamic_cast<PairObject*>(rem_value_rib->cdr().as_ptr())))
             ) {
                 assert(rem_variable_rib && "Expected rem_variable_rib to be non-null with rem_value_rib");
-                auto variable_rib_head = static_cast<SymbolObject*>(rem_variable_rib->car());
-                if (variable_rib_head->name() == sym_name) {
+                assert(rem_variable_rib->car().is_interned_symbol() && "Expected a symbol in variable rib");
+                auto variable_rib_head_name = rem_variable_rib->car().as_interned_symbol();
+                if (variable_rib_head_name == sym_name) {
                     // return the remaining value rib so we can reuse for 'set'
                     return rem_value_rib;
                 }
@@ -1201,11 +1187,11 @@ PairObject* VirtualMachine::lookup(Object* symbol, Object* env_raw) {
 }
 
 VMA_ClosureObject* VirtualMachine::continuation(VMA_CallFrameObject* s) {
-    static Object* nuate_var = new SymbolObject(intern("v"));
+    static OBJECT nuate_var = new SymbolObject(intern("v"));
     return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
 }
 
-PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals, bool is_binding_variadic) {
+PairObject* VirtualMachine::extend(PairObject* e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     // fixme: can optimize by iterating through in parallel
     auto var_count = count_list_items(vars);
@@ -1237,13 +1223,13 @@ PairObject* VirtualMachine::extend(PairObject* e, Object* vars, Object* vals, bo
 // Error functions:
 //
 
-void VirtualMachine::check_vars_list_else_throw(Object* vars) {
-    Object* rem_vars = vars;
-    while (rem_vars) {
-        Object* head = car(rem_vars);
+void VirtualMachine::check_vars_list_else_throw(OBJECT vars) {
+    OBJECT rem_vars = vars;
+    while (!rem_vars.is_null()) {
+        OBJECT head = car(rem_vars);
         rem_vars = cdr(rem_vars);
 
-        if (head->kind() != ObjectKind::Symbol) {
+        if (!head.is_interned_symbol()) {
             std::stringstream ss;
             ss << "Invalid variable list for lambda: expected symbol, got: ";
             print_obj(head, ss);
@@ -1353,7 +1339,7 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
         auto f = m_files[i];
 
         for (size_t j = 0; j < f.line_code_objs.size(); j++) {
-            Object* line_code_obj = f.line_code_objs[j];
+            OBJECT line_code_obj = f.line_code_objs[j];
             VmProgram program = f.line_programs[j];
 
             out << "    " "  > ";
@@ -1375,7 +1361,7 @@ VirtualMachine* create_vm() {
     return new VirtualMachine(); 
 }
 
-void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<Object*> objs) {
+void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<OBJECT> objs) {
     // todo: iteratively compile each statement, such that...
     //  - i < len(objs)-1 => 'next' of last statement is first instruction of (i+1)th object
     //  - i = len(objs)-1 => 'next' of last statement is 'halt'

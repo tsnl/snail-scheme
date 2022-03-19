@@ -2,29 +2,33 @@
 #include "object.hh"
 #include "intern.hh"
 #include "feedback.hh"
+#include <exception>
 
-void print_obj(Object* obj, std::ostream& out) {
+void print_obj(OBJECT obj, std::ostream& out) {
     switch (obj_kind(obj)) {
-        case ObjectKind::Null: {
+        case GranularObjectType::Eof: {
+            out << "#\\eof";
+        }
+        case GranularObjectType::Null: {
             out << "()";
         } break;
-        case ObjectKind::Boolean: {
-            if (static_cast<BoolObject*>(obj)->value()) {
-                out << "#t";
-            } else {
-                out << "#f";
-            }
+        case GranularObjectType::Rune: {
+            throw std::runtime_error("NotImplemented: print_obj for GraunlarObjectType::Rune");
         } break;
-        case ObjectKind::Integer: {
-            auto int_obj = static_cast<IntObject*>(obj);
-            out << int_obj->value();
+        case GranularObjectType::Boolean: {
+            out << (obj.as_boolean() ? "#t": "#f");
         } break;
-        case ObjectKind::FloatingPt: {
-            auto float_obj = static_cast<FloatObject*>(obj);
-            out << float_obj->value();
+        case GranularObjectType::Fixnum: {
+            out << obj.as_signed_fixnum();
         } break;
-        case ObjectKind::String: {
-            auto str_obj = static_cast<StringObject*>(obj);
+        case GranularObjectType::Float32: {
+            out << obj.as_float32();
+        } break;
+        case GranularObjectType::Float64: {
+            out << obj.as_float64();
+        } break;
+        case GranularObjectType::String: {
+            auto str_obj = static_cast<StringObject*>(obj.as_ptr());
             out << '"';
             for (size_t i = 0; i < str_obj->count(); i++) {
                 char cc = str_obj->bytes()[i];
@@ -45,27 +49,27 @@ void print_obj(Object* obj, std::ostream& out) {
             }
             out << '"';
         } break;
-        case ObjectKind::Symbol: {
-            out << interned_string(static_cast<SymbolObject*>(obj)->name());
+        case GranularObjectType::InternedSymbol: {
+            out << interned_string(static_cast<SymbolObject*>(obj.as_ptr())->name());
         } break;
-        case ObjectKind::Pair: {
-            auto pair_obj = static_cast<PairObject*>(obj);
+        case GranularObjectType::Pair: {
+            auto pair_obj = static_cast<PairObject*>(obj.as_ptr());
             out << '(';
-            if (pair_obj->cdr() == nullptr) {
+            if (pair_obj->cdr().is_null()) {
                 // singleton object
                 print_obj(pair_obj->car(), out);
             } else {
                 // (possibly improper) list or pair
-                if (obj_kind(pair_obj->cdr()) == ObjectKind::Pair) {
+                if (obj_kind(pair_obj->cdr()) == GranularObjectType::Pair) {
                     // list or improper list
-                    Object* rem_list = pair_obj;
-                    while (rem_list) {
-                        if (obj_kind(rem_list) == ObjectKind::Pair) {
+                    OBJECT rem_list = pair_obj;
+                    while (!rem_list.is_null()) {
+                        if (obj_kind(rem_list) == GranularObjectType::Pair) {
                             // just a regular list item
-                            auto rem_list_pair = static_cast<PairObject*>(rem_list);
+                            auto rem_list_pair = static_cast<PairObject*>(rem_list.as_ptr());
                             print_obj(rem_list_pair->car(), out);
                             rem_list = rem_list_pair->cdr();
-                            if (rem_list) {
+                            if (!rem_list.is_null()) {
                                 out << ' ';
                             }
                         } else {
@@ -84,25 +88,22 @@ void print_obj(Object* obj, std::ostream& out) {
             }
             out << ')';
         } break;
-        case ObjectKind::Vector: {
+        case GranularObjectType::Vector: {
             out << "<Vector>";
         } break;
-        case ObjectKind::Lambda: {
-            out << "<Lambda>";
-        } break;
-        case ObjectKind::VMA_CallFrame: {
+        case GranularObjectType::VMA_CallFrame: {
             out << "<VMA_CallFrame>";
         } break;
-        case ObjectKind::VMA_Closure: {
-            auto closure_obj = static_cast<VMA_ClosureObject*>(obj);
+        case GranularObjectType::VMA_Closure: {
+            auto closure_obj = static_cast<VMA_ClosureObject*>(obj.as_ptr());
             out << "(vma-closure ";
             print_obj(closure_obj->vars(), out);
             out << " #:vmx " << closure_obj->body()
                 << " #:env (<...>)";
             out << ")";
         } break;
-        case ObjectKind::EXT_Callable: {
-            auto callable_obj = static_cast<EXT_CallableObject*>(obj);
+        case GranularObjectType::EXT_Callable: {
+            auto callable_obj = static_cast<EXT_CallableObject*>(obj.as_ptr());
             out << "(ext-callable ";
             print_obj(callable_obj->vars(), out);
             out << " #:env (<...>)";

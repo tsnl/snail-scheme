@@ -2,99 +2,78 @@
 
 #include <map>
 #include <cstring>
+#include <exception>
 
 #include "printing.hh"
 
-//std::map<Object*, ObjectKind> Object::s_non_nil_object_kind_map{};
-BoolObject BoolObject::t_storage{true};
-BoolObject BoolObject::f_storage{false};
-BoolObject* BoolObject::t{&BoolObject::t_storage};
-BoolObject* BoolObject::f{&BoolObject::f_storage};
+OBJECT OBJECT::s_boolean_t{true};
+OBJECT OBJECT::s_boolean_f{false};
 
 // equivalence predicates:
 // https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_4.html
 
-bool is_eqn(Object* e1, Object* e2) {
-#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-    bool types_ok = (
-        e1->kind() == ObjectKind::Integer && e2->kind() == ObjectKind::Integer ||
-        e1->kind() == ObjectKind::FloatingPt && e2->kind() == ObjectKind::FloatingPt
-    );
-    if (!types_ok) {
-        std::stringstream ss;
-        ss << "= operator: invalid arguments: ";
-        print_obj(list(e1, e2), ss);
-        error(ss.str());
-        throw SsiError();
-    }
-#endif
-
-    // kind-independent bit-based check:
-    return 0 == memcmp(
-        static_cast<BaseNumberObject*>(e1)->mem(),
-        static_cast<BaseNumberObject*>(e2)->mem(),
-        sizeof(NumberObjectMemory)
-    );
+bool is_eqn(OBJECT e1, OBJECT e2) {
+    auto v1 = e1.to_double();
+    auto v2 = e2.to_double();
+    return v1 == v2;
 }
-bool is_eq(Object* e1, Object* e2) {
-    return e1 == e2;
+bool is_eq(OBJECT e1, OBJECT e2) {
+    return e1.as_raw() == e2.as_raw();
 }
-bool is_eqv(Object* e1, Object* e2) {
-    if (!e1 && !e2) {
-        // null == null
-        return true;
-    }
-    else if (!e1 || !e2) {
-        // null != anything else
+bool is_eqv(OBJECT e1, OBJECT e2) {
+    GranularObjectType e1_kind = e1.kind();
+    GranularObjectType e2_kind = e2.kind();
+    if (e1_kind != e2_kind) {
         return false;
-    } 
-    else {
+    } else {
         // e1 != null, e2 != null
-        switch (e1->kind()) {
-            case ObjectKind::Boolean: {
+        switch (e1_kind) {
+            case GranularObjectType::Null:
+            case GranularObjectType::Eof:
+            case GranularObjectType::Rune:
+            case GranularObjectType::Boolean: 
+            case GranularObjectType::Fixnum:
+            {
                 return is_eq(e1, e2);
             }
-            case ObjectKind::Symbol: {
-                return (
-                    static_cast<SymbolObject*>(e1)->name() == 
-                    static_cast<SymbolObject*>(e2)->name()
-                );
+            case GranularObjectType::Float32:
+            {
+                return e1.as_float32() == e2.as_float32();
             }
-            case ObjectKind::String: {
-                auto s1 = static_cast<StringObject*>(e1);
-                auto s2 = static_cast<StringObject*>(e2);
+            case GranularObjectType::InternedSymbol: {
+                return e1.as_interned_symbol() == e2.as_interned_symbol();
+            }
+            case GranularObjectType::String: {
+                auto s1 = static_cast<StringObject*>(e1.as_ptr());
+                auto s2 = static_cast<StringObject*>(e2.as_ptr());
                 return (
                     (s1->count() == s2->count()) && 
                     (0 == strcmp(s1->bytes(), s2->bytes()))
                 );
             }
-            case ObjectKind::Integer: 
-            case ObjectKind::FloatingPt:
+             
+            case GranularObjectType::Float64:
             {
                 // kind-independent bit-based check:
-                return 0 == memcmp(
-                    static_cast<BaseNumberObject*>(e1)->mem(),
-                    static_cast<BaseNumberObject*>(e2)->mem(),
-                    sizeof(NumberObjectMemory)
-                );
+                return e1.as_float64() == e2.as_float64();
             }
-            case ObjectKind::Pair: {
-                auto p1 = static_cast<PairObject*>(e1);
-                auto p2 = static_cast<PairObject*>(e2);
+            case GranularObjectType::Pair: {
+                auto p1 = static_cast<PairObject*>(e1.as_ptr());
+                auto p2 = static_cast<PairObject*>(e2.as_ptr());
                 return 
-                    p1->car() == p2->car() &&
-                    p1->cdr() == p2->cdr();
+                    is_eq(p1->car(), p2->car()) &&
+                    is_eq(p1->cdr(), p2->cdr());
             }
-            case ObjectKind::Vector: {
-                auto v1 = static_cast<VectorObject*>(e1);
-                auto v2 = static_cast<VectorObject*>(e2);
+            case GranularObjectType::Vector: {
+                auto v1 = static_cast<VectorObject*>(e1.as_ptr());
+                auto v2 = static_cast<VectorObject*>(e2.as_ptr());
                 return 
                     v1->count() == v2->count() &&
                     v1->array() == v2->array();
             }
-            case ObjectKind::VMA_Closure: {
-                auto c1 = static_cast<VMA_ClosureObject*>(e1);
-                auto c2 = static_cast<VMA_ClosureObject*>(e2);
+            case GranularObjectType::VMA_Closure: {
+                auto c1 = static_cast<VMA_ClosureObject*>(e1.as_ptr());
+                auto c2 = static_cast<VMA_ClosureObject*>(e2.as_ptr());
                 return c1->body() == c2->body();
             }
             default: {
@@ -107,63 +86,63 @@ bool is_eqv(Object* e1, Object* e2) {
         }
     }
 }
-bool is_equal(Object* e1, Object* e2) {
-    if (!e1 && !e2) {
-        // null == null
-        return true;
-    }
-    else if (!e1 || !e2) {
-        // null != anything else
+bool is_equal(OBJECT e1, OBJECT e2) {
+    auto e1_kind = e1.kind();
+    auto e2_kind = e2.kind();
+
+    if (e1_kind != e2_kind) {
         return false;
-    } 
-    else {
+    } else {
         // e1 != null, e2 != null
-        switch (e1->kind()) {
-            case ObjectKind::Boolean: {
-                return is_eq(e1, e2);
+        switch (e1_kind) {
+            case GranularObjectType::Boolean:
+            case GranularObjectType::Fixnum:
+            case GranularObjectType::Float32:
+            case GranularObjectType::Float64:
+            {
+                return is_eqv(e1, e2);
             }
-            case ObjectKind::Symbol: {
+            case GranularObjectType::InternedSymbol: {
                 return (
-                    static_cast<SymbolObject*>(e1)->name() == 
-                    static_cast<SymbolObject*>(e2)->name()
+                    static_cast<SymbolObject*>(e1.as_ptr())->name() == 
+                    static_cast<SymbolObject*>(e2.as_ptr())->name()
                 );
             }
-            case ObjectKind::String: {
-                auto s1 = static_cast<StringObject*>(e1);
-                auto s2 = static_cast<StringObject*>(e2);
+            case GranularObjectType::String: {
+                auto s1 = static_cast<StringObject*>(e1.as_ptr());
+                auto s2 = static_cast<StringObject*>(e2.as_ptr());
                 return (
                     (s1->count() == s2->count()) && 
                     (s1->bytes() == s2->bytes())
                 );
             }
-            case ObjectKind::Integer: 
-            case ObjectKind::FloatingPt:
-            {
-                // kind-independent bit-based check:
-                return 0 == memcmp(
-                    static_cast<BaseNumberObject*>(e1)->mem(),
-                    static_cast<BaseNumberObject*>(e2)->mem(),
-                    sizeof(NumberObjectMemory)
-                );
-            }
-            case ObjectKind::Pair: {
-                auto p1 = static_cast<PairObject*>(e1);
-                auto p2 = static_cast<PairObject*>(e2);
+            case GranularObjectType::Pair: {
+                auto p1 = static_cast<PairObject*>(e1.as_ptr());
+                auto p2 = static_cast<PairObject*>(e2.as_ptr());
                 return 
                     is_equal(p1->car(), p2->car()) &&
                     is_equal(p1->cdr(), p2->cdr());
             }
-            case ObjectKind::Vector: {
-                auto v1 = static_cast<VectorObject*>(e1);
-                auto v2 = static_cast<VectorObject*>(e2);
-                return 
-                    v1->count() == v2->count() &&
-                    0 == memcmp(v1->array(), v2->array(), v1->count() * sizeof(Object*));
+            case GranularObjectType::Vector: {
+                auto v1 = static_cast<VectorObject*>(e1.as_ptr());
+                auto v2 = static_cast<VectorObject*>(e2.as_ptr());
+                
+                if (v1->count() == v2->count()) {
+                    size_t count = v1->count();
+                    for (size_t i = 0; i < count; i++) {
+                        if (!is_equal(v1->array()[i], v2->array()[i])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                } else {
+                    return false;
+                }
             }
-            case ObjectKind::VMA_Closure: {
-                auto c1 = static_cast<VMA_ClosureObject*>(e1);
-                auto c2 = static_cast<VMA_ClosureObject*>(e2);
-                return c1->body() == c2->body();
+            case GranularObjectType::VMA_Closure: {
+                auto c1 = static_cast<VMA_ClosureObject*>(e1.as_ptr());
+                auto c2 = static_cast<VMA_ClosureObject*>(e2.as_ptr());
+                return is_equal(c1->body(), c2->body());
             }
             default: {
                 std::stringstream ss;

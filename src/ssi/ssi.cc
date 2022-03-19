@@ -22,7 +22,7 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
 
     // parsing all lines into a vector:
     Parser* p = create_parser(f, file_path);
-    std::vector<Object*> line_code_obj_array = parse_all_subsequent_lines(p);
+    std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_lines(p);
     
     // todo: load into a module before compilation
     //  - cf https://docs.racket-lang.org/guide/Module_Syntax.html?q=modules#%28part._module-syntax%29
