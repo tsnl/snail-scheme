@@ -11,12 +11,14 @@ TEST(ObjectTests1, NullTagTests) {
     auto iv = 0;
     OBJECT null = OBJECT::make_null();
     DBG_PRINT("NullTagTests: BITSET: " << BITS(null));
-    EXPECT_EQ(null.raw_data().signed_fixnum.tag, 1);
-    EXPECT_EQ(null.raw_data().signed_fixnum.val, iv);
+    DBG_PRINT("NullTagTests: TAG:    " << std::bitset<6>(null.raw_data().null.tag));
+    EXPECT_EQ(null.raw_data().null.tag, OBJECT::NULL_TAG);
+    
+    EXPECT_EQ(null.is_null(), 1);
+    EXPECT_EQ(null.is_signed_fixnum(), 0);
     EXPECT_EQ(null.is_boolean(), 0);
     EXPECT_EQ(null.is_float32(), 0);
     EXPECT_EQ(null.is_uchar(), 0);
-    EXPECT_EQ(null.is_null(), 0);
     EXPECT_EQ(null.is_eof(), 0);
     EXPECT_EQ(null.is_undef(), 0);
     EXPECT_EQ(null.is_interned_symbol(), 0);
@@ -27,8 +29,10 @@ TEST(ObjectTests1, IntTagTests) {
     auto iv = 0;
     OBJECT i1 = OBJECT::make_integer(iv);
     DBG_PRINT("IntTagTests: BITSET: " << BITS(i1));
-    EXPECT_EQ(i1.raw_data().signed_fixnum.tag, 1);
+    EXPECT_EQ(i1.raw_data().signed_fixnum.tag, OBJECT::FIXNUM_TAG);
     EXPECT_EQ(i1.raw_data().signed_fixnum.val, iv);
+    
+    EXPECT_EQ(i1.is_signed_fixnum(), 1);
     EXPECT_EQ(i1.is_boolean(), 0);
     EXPECT_EQ(i1.is_float32(), 0);
     EXPECT_EQ(i1.is_uchar(), 0);
@@ -45,6 +49,6 @@ TEST(ObjectTests1, PtrTagTests) {
     OBJECT p1 = OBJECT::make_generic_boxed(fake_ptr);
     ASSERT_EQ(p1.raw_data().ptr_unwrapped.tag, 0) << "invalid fake ptr";
     
-    DBG_PRINT("PtrTagTests: FAKPTR: " << fake_ptr);
-    DBG_PRINT("PtrTagTests: BITSET: " << BITS(p1));
+    DBG_PRINT("PtrTagTests: FAKPTR: " << std::bitset<64>(reinterpret_cast<size_t>(fake_ptr)));
+    DBG_PRINT("PtrTagTests: BITSET: " << std::bitset<64>(p1.as_raw()));
 }

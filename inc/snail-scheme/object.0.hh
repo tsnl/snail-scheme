@@ -59,6 +59,18 @@ enum class GranularObjectType {
 class BoxedObject;
 
 class OBJECT {
+public:
+    inline static size_t const PTR_TAG = 0b0;
+    inline static size_t const FIXNUM_TAG = 0b1;
+    inline static size_t const INTSTR_TAG = 0b10;
+    inline static size_t const HALFWORD_TAG = 0b100;
+    inline static size_t const FL32_TAG  = (0b000 << 3) | HALFWORD_TAG;
+    inline static size_t const RUNE_TAG  = (0b001 << 3) | HALFWORD_TAG;
+    inline static size_t const BOOL_TAG  = (0b010 << 3) | HALFWORD_TAG;
+    inline static size_t const NULL_TAG  = (0b011 << 3) | HALFWORD_TAG;
+    inline static size_t const EOF_TAG   = (0b100 << 3) | HALFWORD_TAG;
+    inline static size_t const UNDEF_TAG = (0b101 << 3) | HALFWORD_TAG;
+
 private:
     union Data64 {
         size_t raw: 64;
@@ -68,23 +80,19 @@ private:
         BoxedObject* ptr;
         struct { size_t tag: 3; size_t word_offset: 61; } ptr_unwrapped;
         
-
         // signed fixnum: ends in '1 << 0 = 0b1'
         struct { size_t tag: 1; int64_t val: 63; } signed_fixnum;
         // interned symbol: ends in '1 << 1 = 0b10'
         struct { size_t tag: 2; int64_t val: 62; } interned_symbol;
-        // float32: ends in '1 << 2 = 0b100'
-        struct { uint32_t tag: 3; uint32_t pad: 29; float val; } f32;
-        // unicode character: ends in '1 << 3 = 0b1000'
-        struct { uint64_t tag: 4; uint64_t rune: 60; } rune;
-        // boolean: ends in '1 << 4 = 0b10000'
-        struct { uint64_t tag: 5; uint64_t truth: 59; } boolean;
-        // null: ends in '1 << 5 = 0b100000'
-        struct { uint64_t tag: 6; uint64_t pad: 58; } null;
-        // eof: ends in '1 << 6 = 0b1000000'
-        struct { uint64_t tag: 7; uint64_t pad: 57; } eof;
-        // undef: ends in '1 << 7 = 0b10000000'
-        struct { uint64_t tag: 8; uint64_t pad: 56; } undef;
+        
+        // half-words: ends in '1 << 2 = 0b100' aka HALFWORD_TAG
+        // next 3MSB in tag are used for finer division
+        struct { uint32_t tag: 6; uint32_t pad: 26; float val; } f32;
+        struct { uint64_t tag: 6; uint64_t rune: 58; } rune;
+        struct { uint64_t tag: 6; uint64_t truth: 58; } boolean;
+        struct { uint64_t tag: 6; uint64_t pad: 26; } null;
+        struct { uint64_t tag: 6; uint64_t pad: 26; } eof;
+        struct { uint64_t tag: 6; uint64_t pad: 26; } undef;
     };
     Data64 m_data;
 public:
@@ -108,16 +116,16 @@ public: // boxed objects
     static OBJECT make_pair(OBJECT head, OBJECT tail);
     static OBJECT make_string(size_t byte_count, char* mv_bytes);
 public:
-    bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == 0; }
-    bool is_signed_fixnum() const { return m_data.signed_fixnum.tag == (1u<<0); }
-    bool is_interned_symbol() const { return m_data.interned_symbol.tag == (1u<<1); }
-    bool is_float32() const { return m_data.f32.tag == (1u<<2); }
-    bool is_uchar() const { return m_data.rune.tag == (1u<<3); }
-    bool is_boolean() const { return m_data.boolean.tag == (1u<<4); }
+    bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG; }
+    bool is_signed_fixnum() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
+    bool is_interned_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
+    bool is_float32() const { return m_data.f32.tag == FL32_TAG; }
+    bool is_uchar() const { return m_data.rune.tag == RUNE_TAG; }
+    bool is_boolean() const { return m_data.boolean.tag == BOOL_TAG; }
     bool is_boolean(bool v) const { return is_boolean() && as_raw() == (v ? s_boolean_t.as_raw() : s_boolean_f.as_raw()); }
-    bool is_null() const { return m_data.null.tag == (1u<<5); }
-    bool is_eof() const { return m_data.eof.tag == (1u<<6); }
-    bool is_undef() const { return m_data.undef.tag == (1u<<7); }
+    bool is_null() const { return m_data.null.tag == NULL_TAG; }
+    bool is_eof() const { return m_data.eof.tag == EOF_TAG; }
+    bool is_undef() const { return m_data.undef.tag == UNDEF_TAG; }
 public:
     inline bool is_pair() const;
     inline bool is_float64() const;
@@ -153,6 +161,8 @@ protected:
 public:
     [[nodiscard]] GranularObjectType kind();
 };
+static_assert(sizeof(OBJECT) == sizeof(void*));
+
 
 class Float64Object: public BoxedObject {
 protected:

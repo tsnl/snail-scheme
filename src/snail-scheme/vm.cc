@@ -63,6 +63,7 @@ struct VmExp {
         args()
     {}
 };
+
 static_assert(
     sizeof(VmExp) == 4*sizeof(size_t), 
     "Unexpected sizeof(VmExp)"
