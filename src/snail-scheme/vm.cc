@@ -103,17 +103,17 @@ class VirtualMachine {
   private:
     struct {
         OBJECT a;                  // the accumulator
-        VmExpID x;                  // the next expression
-        PairObject* e;              // the current environment
+        VmExpID x;                 // the next expression
+        OBJECT e;                  // the current environment
         OBJECT r;                  // value rib; used to compute arguments for 'apply'
-        VMA_CallFrameObject* s;     // the current stack
+        VMA_CallFrameObject* s;    // the current stack
     } m_reg;
     std::vector<VmExp> m_exps;
     std::vector< VmFile > m_files;
     
-    PairObject* m_init_env;
-    PairObject* m_init_var_rib;
-    PairObject* m_init_elt_rib;
+    OBJECT m_init_env;
+    OBJECT m_init_var_rib;
+    OBJECT m_init_elt_rib;
 
     const struct {
         IntStr const quote;
@@ -163,14 +163,14 @@ class VirtualMachine {
 
   // Interpreter environment setup:
   public:
-    PairObject* mk_default_root_env();
+    OBJECT mk_default_root_env();
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
     void define_builtin_variadic_arithmetic_fn(char const* name_str);
-    static VMA_ClosureObject* closure(VmExpID body, PairObject* env, OBJECT args);
-    static PairObject* lookup(OBJECT symbol, OBJECT env_raw);
-    VMA_ClosureObject* continuation(VMA_CallFrameObject* s);
-    PairObject* extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
+    static OBJECT closure(VmExpID body, OBJECT env, OBJECT args);
+    static OBJECT lookup(OBJECT symbol, OBJECT env_raw);
+    OBJECT continuation(VMA_CallFrameObject* s);
+    OBJECT extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
 
   // Error functions:
   public:
@@ -201,9 +201,9 @@ VirtualMachine::VirtualMachine(size_t file_count)
         .define = intern("define"),
         .begin = intern("begin")
     }),
-    m_init_env(nullptr),
-    m_init_var_rib(nullptr),
-    m_init_elt_rib(nullptr)
+    m_init_env(OBJECT::make_null()),
+    m_init_var_rib(OBJECT::make_null()),
+    m_init_elt_rib(OBJECT::make_null())
 {
     m_exps.reserve(4096);
     m_files.reserve(file_count);
@@ -587,7 +587,7 @@ void VirtualMachine::sync_execute() {
                         vm_is_running = false;
                     } break;
                     case VmExpKind::Refer: {
-                        m_reg.a = lookup(exp.args.i_refer.var, m_reg.e)->car();
+                        m_reg.a = car(lookup(exp.args.i_refer.var, m_reg.e));
                         m_reg.x = exp.args.i_refer.x;
                     } break;
                     case VmExpKind::Constant: {
@@ -623,7 +623,7 @@ void VirtualMachine::sync_execute() {
                             exp.args.i_assign.var,
                             m_reg.e
                         );
-                        rem_value_rib->set_car(m_reg.a);
+                        set_car(rem_value_rib, m_reg.a);
                         m_reg.x = exp.args.i_assign.x;
                     } break;
                     case VmExpKind::Conti: {
@@ -663,7 +663,7 @@ void VirtualMachine::sync_execute() {
                         if (m_reg.a.is_closure()) {
                             // a Scheme function is called
                             auto a = static_cast<VMA_ClosureObject*>(m_reg.a.as_ptr());
-                            PairObject* new_e;
+                            OBJECT new_e;
                             try {
                                 new_e = extend(a->e(), a->vars(), m_reg.r, false);
                             } catch (SsiError const&) {
@@ -761,7 +761,7 @@ inline void float64_rem_cb(double& accum, double item) { accum = fmod(accum, ite
 inline void float64_add_cb(double& accum, double item) { accum += item; }
 inline void float64_sub_cb(double& accum, double item) { accum -= item; }
 
-PairObject* VirtualMachine::mk_default_root_env() {
+OBJECT VirtualMachine::mk_default_root_env() {
     // definitions:
     define_builtin_fn(
         "cons", 
@@ -989,13 +989,13 @@ PairObject* VirtualMachine::mk_default_root_env() {
     OBJECT rib_pair = cons(m_init_var_rib, m_init_elt_rib);
 
     // creating a fresh env:
-    auto init_env = cons(rib_pair, m_init_env);
+    m_init_env = cons(rib_pair, m_init_env);
 
     // (DEBUG:) printing env after construction:
     // print_obj(env, std::cerr);
 
-    assert(init_env.is_pair());
-    return (m_init_env = dynamic_cast<PairObject*>(init_env.as_ptr()));
+    assert(m_init_env.is_pair());
+    return m_init_env;
 }
 
 void VirtualMachine::define_builtin_fn(
@@ -1122,11 +1122,11 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
     );
 }
 
-VMA_ClosureObject* VirtualMachine::closure(VmExpID body, PairObject* env, OBJECT vars) {
-    return new VMA_ClosureObject(body, env, vars);
+OBJECT VirtualMachine::closure(VmExpID body, OBJECT env, OBJECT vars) {
+    return OBJECT{new VMA_ClosureObject(body, env, vars)};
 }
 
-PairObject* VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
+OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
     if (env_raw.is_null()) {
         std::stringstream ss;
         ss << "lookup: symbol used, but undefined: ";
@@ -1152,27 +1152,31 @@ PairObject* VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
         //  - each pair of lists is called a rib-pair or 'ribs'
         //  - each list in the pair is a named rib-- either the value rib or named rib
         for (
-            PairObject* rem_ribs = env;
-            rem_ribs;
-            rem_ribs = dynamic_cast<PairObject*>(rem_ribs->cdr().as_ptr())
+            OBJECT rem_ribs = env;
+            rem_ribs.is_pair();
+            rem_ribs = cdr(rem_ribs)
         ) {
-            auto rib_pair = dynamic_cast<PairObject*>(rem_ribs->car().as_ptr());
-            assert(rib_pair && "broken env");
-            auto variable_rib = dynamic_cast<PairObject*>(rib_pair->car().as_ptr());
-            auto value_rib = dynamic_cast<PairObject*>(rib_pair->cdr().as_ptr());
-            assert(variable_rib && value_rib && "broken env");
+            auto rib_pair = car(rem_ribs);
+            assert(rib_pair.is_pair() && "broken env");
+            auto variable_rib = car(rib_pair);
+            auto value_rib = cdr(rib_pair);
+            assert(
+                (variable_rib.is_pair() || variable_rib.is_null()) && 
+                (value_rib.is_pair() || value_rib.is_null()) 
+                && "broken env"
+            );
 
             for (
-                PairObject
-                    *rem_variable_rib = variable_rib,
-                    *rem_value_rib = value_rib;
-                rem_value_rib;
-                ((rem_variable_rib = dynamic_cast<PairObject*>(rem_variable_rib->cdr().as_ptr())),
-                 (rem_value_rib = dynamic_cast<PairObject*>(rem_value_rib->cdr().as_ptr())))
+                OBJECT
+                    rem_variable_rib = variable_rib,
+                    rem_value_rib = value_rib;
+                !rem_value_rib.is_null();
+                ((rem_variable_rib = cdr(rem_variable_rib)),
+                 (rem_value_rib = cdr(rem_value_rib)))
             ) {
-                assert(rem_variable_rib && "Expected rem_variable_rib to be non-null with rem_value_rib");
-                assert(rem_variable_rib->car().is_interned_symbol() && "Expected a symbol in variable rib");
-                auto variable_rib_head_name = rem_variable_rib->car().as_interned_symbol();
+                assert(!rem_variable_rib.is_null() && "Expected rem_variable_rib to be non-null with rem_value_rib");
+                assert(car(rem_variable_rib).is_interned_symbol() && "Expected a symbol in variable rib");
+                auto variable_rib_head_name = car(rem_variable_rib).as_interned_symbol();
                 if (variable_rib_head_name == sym_name) {
                     // return the remaining value rib so we can reuse for 'set'
                     return rem_value_rib;
@@ -1191,12 +1195,12 @@ PairObject* VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
     }
 }
 
-VMA_ClosureObject* VirtualMachine::continuation(VMA_CallFrameObject* s) {
+OBJECT VirtualMachine::continuation(VMA_CallFrameObject* s) {
     static OBJECT nuate_var = OBJECT::make_interned_symbol(intern("v"));
     return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
 }
 
-PairObject* VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
+OBJECT VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
     // fixme: can optimize by iterating through in parallel
     auto var_count = count_list_items(vars);
@@ -1223,7 +1227,7 @@ PairObject* VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_b
 #endif
     auto res = cons(cons(vars, vals), e);
     assert(res.is_pair());
-    return dynamic_cast<PairObject*>(res.as_ptr());
+    return res.as_ptr();
 }
 
 //

@@ -3,6 +3,11 @@
 #include "snail-scheme/object.1.hh"
 #include <bitset>
 
+///
+/// TAG TESTS
+/// - may fail due to platform endianness mismatch
+///
+
 #define BITS(it) std::bitset<64>((it.as_raw()))
 #define DBG_PRINT(it) std::cerr << "             " << it << std::endl
 

@@ -72,7 +72,7 @@ public:
     inline static size_t const UNDEF_TAG = (0b101 << 3) | HALFWORD_TAG;
 
 private:
-    union Data64 {
+    union Data64LittleEndian {
         size_t raw: 64;
           
         // must be a multiple of '8', so ends in '000'
@@ -94,7 +94,7 @@ private:
         struct { uint64_t tag: 6; uint64_t pad: 26; } eof;
         struct { uint64_t tag: 6; uint64_t pad: 26; } undef;
     };
-    Data64 m_data;
+    Data64LittleEndian m_data;
 public:
     OBJECT() = default;
     OBJECT(bool v);
@@ -145,7 +145,7 @@ public:
 public:
     inline double to_double() const;
 public:
-    Data64 raw_data() const { return m_data; }
+    Data64LittleEndian raw_data() const { return m_data; }
 };
 
 class BoxedObject {
@@ -249,14 +249,14 @@ using VmExpID = size_t;
 class VMA_CallFrameObject: public BoxedObject {
 private:
     VmExpID m_x;
-    PairObject* m_e;
+    OBJECT m_e;
     OBJECT m_r;
     VMA_CallFrameObject* m_opt_parent;
 
 public:
     VMA_CallFrameObject(
         VmExpID x,
-        PairObject* e,
+        OBJECT e,
         OBJECT r,
         VMA_CallFrameObject* opt_parent
     )
@@ -269,23 +269,19 @@ public:
 
 public:
     VmExpID x() const { return m_x; }
-    PairObject* e() const { return m_e; }
+    OBJECT e() const { return m_e; }
     OBJECT r() const { return m_r; }
     VMA_CallFrameObject* parent() const { return m_opt_parent; }
 };
 
 class VMA_ClosureObject: public BoxedObject {
   private:
-    VmExpID m_body;         // the body expression to evaluate
-    PairObject* m_e;        // the environment to use
-    OBJECT m_vars;         // the formal variables captured
+    VmExpID m_body;    // the body expression to evaluate
+    OBJECT m_e;        // the environment to use
+    OBJECT m_vars;     // the formal variables captured
 
   public:
-    VMA_ClosureObject(
-        VmExpID body,
-        PairObject* e,
-        OBJECT vars
-    )
+    VMA_ClosureObject(VmExpID body, OBJECT e, OBJECT vars)
     :   BoxedObject(GranularObjectType::VMA_Closure),
         m_body(body),
         m_e(e),
@@ -294,7 +290,7 @@ class VMA_ClosureObject: public BoxedObject {
 
   public:
     [[nodiscard]] VmExpID body() const { return m_body; }
-    [[nodiscard]] PairObject* e() const { return m_e; }
+    [[nodiscard]] OBJECT e() const { return m_e; }
     [[nodiscard]] OBJECT vars() const { return m_vars; }
 };
 
@@ -339,6 +335,8 @@ std::ostream& operator<<(std::ostream& out, const OBJECT& obj);
 inline GranularObjectType obj_kind(OBJECT object);
 inline OBJECT car(OBJECT object);
 inline OBJECT cdr(OBJECT object);
+inline void set_car(OBJECT pair, OBJECT a);
+inline void set_cdr(OBJECT pair, OBJECT d);
 template <typename... Objects> OBJECT list(Objects... objs);
 template <size_t n> std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic = false);
 inline OBJECT cons(OBJECT head, OBJECT tail);
@@ -431,6 +429,24 @@ inline OBJECT cdr(OBJECT object) {
     }
 #endif
     return static_cast<PairObject*>(object.as_ptr())->cdr();
+}
+inline void set_car(OBJECT pair, OBJECT a) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(pair)) {
+        error("set-car!: expected argument object to be a pair");
+        throw SsiError();
+    }
+#endif
+    return static_cast<PairObject*>(pair.as_ptr())->set_car(a);
+}
+inline void set_cdr(OBJECT pair, OBJECT d) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!is_pair(pair)) {
+        error("set-cdr!: expected argument object to be a pair");
+        throw SsiError();
+    }
+#endif
+    return static_cast<PairObject*>(pair.as_ptr())->set_cdr(d);
 }
 
 OBJECT cons(OBJECT head, OBJECT tail) {
