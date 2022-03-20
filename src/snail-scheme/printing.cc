@@ -53,14 +53,14 @@ void print_obj(OBJECT obj, std::ostream& out) {
             out << interned_string(obj.as_interned_symbol());
         } break;
         case GranularObjectType::Pair: {
-            auto pair_obj = static_cast<PairObject*>(obj.as_ptr());
+            auto pair_obj = obj;
             out << '(';
-            if (pair_obj->cdr().is_null()) {
+            if (cdr(pair_obj).is_null()) {
                 // singleton object
-                print_obj(pair_obj->car(), out);
+                print_obj(car(pair_obj), out);
             } else {
                 // (possibly improper) list or pair
-                if (pair_obj->cdr().is_pair()) {
+                if (cdr(pair_obj).is_pair()) {
                     // list or improper list
                     OBJECT rem_list = pair_obj;
                     while (!rem_list.is_null()) {
@@ -81,9 +81,9 @@ void print_obj(OBJECT obj, std::ostream& out) {
                     }
                 } else {
                     // pair
-                    print_obj(pair_obj->car(), out);
+                    print_obj(car(pair_obj), out);
                     out << " . ";
-                    print_obj(pair_obj->cdr(), out);
+                    print_obj(cdr(pair_obj), out);
                 }
             }
             out << ')';

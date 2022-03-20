@@ -1009,8 +1009,8 @@ void VirtualMachine::define_builtin_fn(
         vars_list = cons(OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
     }
     OBJECT elt_obj = OBJECT::make_generic_boxed(new EXT_CallableObject(callback, m_init_env, vars_list));
-    m_init_var_rib = dynamic_cast<PairObject*>(cons(var_obj, m_init_var_rib).as_ptr());
-    m_init_elt_rib = dynamic_cast<PairObject*>(cons(elt_obj, m_init_elt_rib).as_ptr());
+    m_init_var_rib = cons(var_obj, m_init_var_rib);
+    m_init_elt_rib = cons(elt_obj, m_init_elt_rib);
 }
 
 template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
@@ -1126,17 +1126,15 @@ OBJECT VirtualMachine::closure(VmExpID body, OBJECT env, OBJECT vars) {
     return OBJECT{new VMA_ClosureObject(body, env, vars)};
 }
 
-OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
-    if (env_raw.is_null()) {
+OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env) {
+    assert(env.is_list() && "broken 'env' in lookup");
+    if (env.is_null()) {
         std::stringstream ss;
         ss << "lookup: symbol used, but undefined: ";
         print_obj(symbol, ss);
         error(ss.str());
         throw SsiError();
     }
-
-    // we can cast the 'env' to a PairObject since it is a part of our runtime.
-    auto env = static_cast<PairObject*>(env_raw.as_ptr());
 
     if (!symbol.is_interned_symbol()) {
         std::stringstream ss;
@@ -1197,7 +1195,7 @@ OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env_raw) {
 
 OBJECT VirtualMachine::continuation(VMA_CallFrameObject* s) {
     static OBJECT nuate_var = OBJECT::make_interned_symbol(intern("v"));
-    return closure(new_vmx_nuate(s, nuate_var), nullptr, list(nuate_var));
+    return closure(new_vmx_nuate(s, nuate_var), OBJECT::make_null(), list(nuate_var));
 }
 
 OBJECT VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic) {
@@ -1227,7 +1225,7 @@ OBJECT VirtualMachine::extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_bindin
 #endif
     auto res = cons(cons(vars, vals), e);
     assert(res.is_pair());
-    return res.as_ptr();
+    return res;
 }
 
 //

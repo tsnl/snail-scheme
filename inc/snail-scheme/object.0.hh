@@ -59,6 +59,7 @@ enum class GranularObjectType {
 class BoxedObject;
 
 class OBJECT {
+    // NOTE: 'nullptr' <=> 'null' for interop with C++
 public:
     inline static size_t const PTR_TAG = 0b0;
     inline static size_t const FIXNUM_TAG = 0b1;
@@ -67,9 +68,8 @@ public:
     inline static size_t const FL32_TAG  = (0b000 << 3) | HALFWORD_TAG;
     inline static size_t const RUNE_TAG  = (0b001 << 3) | HALFWORD_TAG;
     inline static size_t const BOOL_TAG  = (0b010 << 3) | HALFWORD_TAG;
-    inline static size_t const NULL_TAG  = (0b011 << 3) | HALFWORD_TAG;
-    inline static size_t const EOF_TAG   = (0b100 << 3) | HALFWORD_TAG;
-    inline static size_t const UNDEF_TAG = (0b101 << 3) | HALFWORD_TAG;
+    inline static size_t const EOF_TAG   = (0b011 << 3) | HALFWORD_TAG;
+    inline static size_t const UNDEF_TAG = (0b100 << 3) | HALFWORD_TAG;
 
 private:
     union Data64LittleEndian {
@@ -90,15 +90,14 @@ private:
         struct { uint32_t tag: 6; uint32_t pad: 26; float val; } f32;
         struct { uint64_t tag: 6; uint64_t rune: 58; } rune;
         struct { uint64_t tag: 6; uint64_t truth: 58; } boolean;
-        struct { uint64_t tag: 6; uint64_t pad: 26; } null;
-        struct { uint64_t tag: 6; uint64_t pad: 26; } eof;
-        struct { uint64_t tag: 6; uint64_t pad: 26; } undef;
+        struct { uint64_t tag: 6; uint64_t pad: 58; } eof;
+        struct { uint64_t tag: 6; uint64_t pad: 58; } undef;
     };
     Data64LittleEndian m_data;
 public:
-    OBJECT() = default;
-    OBJECT(bool v);
-    OBJECT(BoxedObject* ptr);
+    explicit OBJECT() = default;
+    explicit OBJECT(bool v);
+    explicit OBJECT(BoxedObject* ptr);
     static OBJECT s_boolean_t;
     static OBJECT s_boolean_f;
 public: // unboxed objects
@@ -116,16 +115,17 @@ public: // boxed objects
     static OBJECT make_pair(OBJECT head, OBJECT tail);
     static OBJECT make_string(size_t byte_count, char* mv_bytes);
 public:
-    bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG; }
+    bool is_null() const { return m_data.raw == 0; }
+    bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
     bool is_signed_fixnum() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
     bool is_interned_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
     bool is_float32() const { return m_data.f32.tag == FL32_TAG; }
     bool is_uchar() const { return m_data.rune.tag == RUNE_TAG; }
     bool is_boolean() const { return m_data.boolean.tag == BOOL_TAG; }
     bool is_boolean(bool v) const { return is_boolean() && as_raw() == (v ? s_boolean_t.as_raw() : s_boolean_f.as_raw()); }
-    bool is_null() const { return m_data.null.tag == NULL_TAG; }
     bool is_eof() const { return m_data.eof.tag == EOF_TAG; }
     bool is_undef() const { return m_data.undef.tag == UNDEF_TAG; }
+    bool is_list() const { return is_pair() || is_null(); }
 public:
     inline bool is_pair() const;
     inline bool is_float64() const;

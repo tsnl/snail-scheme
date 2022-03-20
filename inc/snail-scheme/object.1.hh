@@ -62,9 +62,7 @@ inline OBJECT OBJECT::make_boolean(bool v) {
     return v ? s_boolean_t : s_boolean_f;
 }
 inline OBJECT OBJECT::make_null() {
-    OBJECT res;
-    res.m_data.null.tag = NULL_TAG;
-    return res;
+    return OBJECT{nullptr};
 }
 inline OBJECT OBJECT::make_eof() {
     OBJECT res;

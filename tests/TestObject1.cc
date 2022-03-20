@@ -12,12 +12,10 @@
 #define DBG_PRINT(it) std::cerr << "             " << it << std::endl
 
 TEST(ObjectTests1, NullTagTests) {
-    // Expect signed integer fixnums to have a unique type.
+    // Expect Null to be a pointer
     auto iv = 0;
     OBJECT null = OBJECT::make_null();
     DBG_PRINT("NullTagTests: BITSET: " << BITS(null));
-    DBG_PRINT("NullTagTests: TAG:    " << std::bitset<6>(null.raw_data().null.tag));
-    EXPECT_EQ(null.raw_data().null.tag, OBJECT::NULL_TAG);
     
     EXPECT_EQ(null.is_null(), 1);
     EXPECT_EQ(null.is_signed_fixnum(), 0);

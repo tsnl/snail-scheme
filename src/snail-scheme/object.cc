@@ -139,7 +139,7 @@ bool is_equal(OBJECT e1, OBJECT e2) {
             case GranularObjectType::VMA_Closure: {
                 auto c1 = static_cast<VMA_ClosureObject*>(e1.as_ptr());
                 auto c2 = static_cast<VMA_ClosureObject*>(e2.as_ptr());
-                return is_equal(c1->body(), c2->body());
+                return c1->body() == c2->body();
             }
             default: {
                 std::stringstream ss;
