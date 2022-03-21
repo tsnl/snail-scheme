@@ -7,6 +7,7 @@
 #include "snail-scheme/printing.hh"
 #include "snail-scheme/vm.hh"
 
+
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
     std::ifstream f;
@@ -24,15 +25,10 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     Parser* p = create_parser(f, file_path);
     std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_lines(p);
     
-    std::cerr << "INFO: Parsing complete" << std::endl;
-
-    std::cerr 
-        << "Parsed:" << std::endl;
     for (auto it: line_code_obj_array) {
         std::cerr << it << std::endl;
     }
-    std::cerr << "EOP" << std::endl;
-
+    
     // todo: load into a module before compilation
     //  - cf https://docs.racket-lang.org/guide/Module_Syntax.html?q=modules#%28part._module-syntax%29
     //  - first, implement the 'module' syntax
@@ -46,14 +42,11 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
     add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
 
-    std::cerr << "INFO: Commencing execution" << std::endl;
-
     // Executing:
     {
-        sync_execute_vm(vm, true);
+        bool print_each_line = false;
+        sync_execute_vm(vm, print_each_line);
     }
-
-    std::cerr << "INFO: Execution complete" << std::endl;
 
     // Dumping:
 #if CONFIG_DUMP_VM_STATE_AFTER_EXECUTION

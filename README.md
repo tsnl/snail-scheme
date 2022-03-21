@@ -7,13 +7,14 @@ It includes a basic interpreter (SSI) and a whole-program optimizing compiler (S
   the use of a byte-code VM is key to realizing Scheme's continuations and tail-recursion.
 - the compiler, SSC, is [will be?] written in Scheme using SSI.
 
+Dependencies:
+- BDWGC: https://github.com/ivmai/bdwgc
+  - ensure you enable C++ when you configure and install (see README)
+  - install libatomic-ops on windows first
+
 ## Language Features / Digressions from Scheme
 
 0.  Language is dynamically typed, but with support for 'assert' (cf Typed Racket) for refinement typing upon monotype 
     system
-1.  Int and Float are separate data-types-- precision selection for floating point defaults to double
-    - NOTE: being partially un-done-- but operations usually operate on only int or float, with explicit conversion
-2.  No block comments supported
-3.  Like R7RS and unlike older Scheme revisions, identifiers are case-sensitive.
-4.  No modules-- use `include-*` 
- 
+0.  No block comments supported
+0.  Like R7RS and unlike older Scheme revisions, identifiers are case-sensitive.

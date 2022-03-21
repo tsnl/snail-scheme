@@ -1046,7 +1046,7 @@ void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const nam
                     float64_operand_present = true;
                 } else if (operand.is_float32()) {
                     float32_operand_present = true;
-                } else if (operand.is_signed_fixnum()) {
+                } else if (operand.is_integer()) {
                     int_operand_present = true;
                 } else {
                     // error:

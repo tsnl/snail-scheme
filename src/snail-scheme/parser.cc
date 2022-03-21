@@ -640,7 +640,7 @@ OBJECT Parser::parse_form() {
                 (
                     out.is_interned_symbol() ||
                     out.is_boolean() ||
-                    out.is_signed_fixnum() ||
+                    out.is_integer() ||
                     out.is_float32() ||
                     out.is_float64() ||
                     out.is_string()

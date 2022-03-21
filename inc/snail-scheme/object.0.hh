@@ -56,7 +56,7 @@ enum class GranularObjectType {
     EXT_Callable
 };
 
-class BoxedObject;
+class BaseBoxedObject;
 
 class OBJECT {
     // NOTE: 'nullptr' <=> 'null' for interop with C++
@@ -77,7 +77,7 @@ private:
           
         // must be a multiple of '8', so ends in '000'
         // actually always a ptr to 'IBoxedObject'
-        BoxedObject* ptr;
+        BaseBoxedObject* ptr;
         struct { size_t tag: 3; size_t word_offset: 61; } ptr_unwrapped;
         
         // signed fixnum: ends in '1 << 0 = 0b1'
@@ -97,7 +97,7 @@ private:
 public:
     explicit OBJECT() = default;
     explicit OBJECT(bool v);
-    explicit OBJECT(BoxedObject* ptr);
+    explicit OBJECT(BaseBoxedObject* ptr);
     static OBJECT s_boolean_t;
     static OBJECT s_boolean_f;
 public: // unboxed objects
@@ -110,14 +110,14 @@ public: // unboxed objects
     static OBJECT make_eof();
 public: // boxed objects
     // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
-    static OBJECT make_generic_boxed(BoxedObject* obj);
+    static OBJECT make_generic_boxed(BaseBoxedObject* obj);
     static OBJECT make_float64(double f64);
     static OBJECT make_pair(OBJECT head, OBJECT tail);
     static OBJECT make_string(size_t byte_count, char* mv_bytes);
 public:
     bool is_null() const { return m_data.raw == 0; }
     bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
-    bool is_signed_fixnum() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
+    bool is_integer() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
     bool is_interned_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
     bool is_float32() const { return m_data.f32.tag == FL32_TAG; }
     bool is_uchar() const { return m_data.rune.tag == RUNE_TAG; }
@@ -138,7 +138,7 @@ public:
     inline size_t as_raw() const;
     inline my_ssize_t as_signed_fixnum() const;
     inline bool as_boolean() const;
-    inline BoxedObject* as_ptr() const;
+    inline BaseBoxedObject* as_ptr() const;
     inline IntStr as_interned_symbol() const;
     inline float as_float32() const;
     inline double as_float64() const;
@@ -148,15 +148,15 @@ public:
     Data64LittleEndian raw_data() const { return m_data; }
 };
 
-class BoxedObject {
+class BaseBoxedObject {
     friend GranularObjectType obj_kind(OBJECT obj);
 
 private:
     GranularObjectType m_kind;
 
 protected:
-    explicit BoxedObject(GranularObjectType kind);
-    virtual ~BoxedObject() = default;
+    explicit BaseBoxedObject(GranularObjectType kind);
+    virtual ~BaseBoxedObject() = default;
 
 public:
     [[nodiscard]] GranularObjectType kind();
@@ -164,25 +164,25 @@ public:
 static_assert(sizeof(OBJECT) == sizeof(void*));
 
 
-class Float64Object: public BoxedObject {
+class Float64Object: public BaseBoxedObject {
 protected:
     double m_value;
 public:
     explicit Float64Object(double float_pt)
-    :   BoxedObject(GranularObjectType::Float64),
+    :   BaseBoxedObject(GranularObjectType::Float64),
         m_value(float_pt)
     {}
 public:
     double value() const { return m_value; }
 };
 
-class StringObject: public BoxedObject {
+class StringObject: public BaseBoxedObject {
 private:
     size_t m_count;
     char* m_bytes;
 public:
     StringObject()
-    :   BoxedObject(GranularObjectType::String),
+    :   BaseBoxedObject(GranularObjectType::String),
         m_count(),
         m_bytes()
     {}
@@ -197,7 +197,7 @@ public:
     inline char* bytes() const { return m_bytes; }
 };
 
-class PairObject: public BoxedObject {
+class PairObject: public BaseBoxedObject {
 private:
     OBJECT m_car;
     OBJECT m_cdr;
@@ -206,7 +206,7 @@ public:
     :   PairObject(OBJECT::make_null(), OBJECT::make_null())
     {}
     explicit PairObject(OBJECT car, OBJECT cdr)
-    :   BoxedObject(GranularObjectType::Pair),
+    :   BaseBoxedObject(GranularObjectType::Pair),
         m_car(car),
         m_cdr(cdr)
     {}
@@ -217,13 +217,13 @@ public:
     inline void set_cdr(OBJECT o) { m_cdr = o; }
 };
 
-class VectorObject: public BoxedObject {
+class VectorObject: public BaseBoxedObject {
 private:
     size_t m_count;
     OBJECT* m_array;
 public:
     VectorObject()
-    :   BoxedObject(GranularObjectType::Vector),
+    :   BaseBoxedObject(GranularObjectType::Vector),
         m_count(),
         m_array()
     {}
@@ -246,7 +246,7 @@ public:
 
 using VmExpID = size_t;
 
-class VMA_CallFrameObject: public BoxedObject {
+class VMA_CallFrameObject: public BaseBoxedObject {
 private:
     VmExpID m_x;
     OBJECT m_e;
@@ -260,7 +260,7 @@ public:
         OBJECT r,
         VMA_CallFrameObject* opt_parent
     )
-    :   BoxedObject(GranularObjectType::VMA_CallFrame),
+    :   BaseBoxedObject(GranularObjectType::VMA_CallFrame),
         m_x(x),
         m_e(e),
         m_r(r),
@@ -274,7 +274,7 @@ public:
     VMA_CallFrameObject* parent() const { return m_opt_parent; }
 };
 
-class VMA_ClosureObject: public BoxedObject {
+class VMA_ClosureObject: public BaseBoxedObject {
   private:
     VmExpID m_body;    // the body expression to evaluate
     OBJECT m_e;        // the environment to use
@@ -282,7 +282,7 @@ class VMA_ClosureObject: public BoxedObject {
 
   public:
     VMA_ClosureObject(VmExpID body, OBJECT e, OBJECT vars)
-    :   BoxedObject(GranularObjectType::VMA_Closure),
+    :   BaseBoxedObject(GranularObjectType::VMA_Closure),
         m_body(body),
         m_e(e),
         m_vars(vars)
@@ -300,7 +300,7 @@ class VMA_ClosureObject: public BoxedObject {
 
 using EXT_CallableCb = std::function<OBJECT(OBJECT args)>;
 
-class EXT_CallableObject: public BoxedObject {
+class EXT_CallableObject: public BaseBoxedObject {
   private:
     EXT_CallableCb m_cb;
     OBJECT m_e;
@@ -308,7 +308,7 @@ class EXT_CallableObject: public BoxedObject {
 
   public:
     EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars)
-    :   BoxedObject(GranularObjectType::EXT_Callable),
+    :   BaseBoxedObject(GranularObjectType::EXT_Callable),
         m_cb(std::move(cb)),
         m_e(e),
         m_vars(vars)
@@ -377,7 +377,7 @@ template <size_t n>
 std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic) {
     // reading upto `n` objects into an array:
     OBJECT rem_list = pair_list;
-    std::array<OBJECT, n> out{};
+    std::array<OBJECT, n> out;
     size_t index = 0;
     while (!rem_list.is_null() && index < n) {
         assert(rem_list.is_pair() && "expected arg list to be a pair-list");
@@ -409,7 +409,7 @@ std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic) {
     return out;
 }
 
-inline BoxedObject::BoxedObject(GranularObjectType kind)
+inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
 :   m_kind(kind) {}
 
 inline OBJECT car(OBJECT object) {

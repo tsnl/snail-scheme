@@ -18,7 +18,7 @@ TEST(ObjectTests1, NullTagTests) {
     DBG_PRINT("NullTagTests: BITSET: " << BITS(null));
     
     EXPECT_EQ(null.is_null(), 1);
-    EXPECT_EQ(null.is_signed_fixnum(), 0);
+    EXPECT_EQ(null.is_integer(), 0);
     EXPECT_EQ(null.is_boolean(), 0);
     EXPECT_EQ(null.is_float32(), 0);
     EXPECT_EQ(null.is_uchar(), 0);
@@ -35,7 +35,7 @@ TEST(ObjectTests1, IntTagTests) {
     EXPECT_EQ(i1.raw_data().signed_fixnum.tag, OBJECT::FIXNUM_TAG);
     EXPECT_EQ(i1.raw_data().signed_fixnum.val, iv);
     
-    EXPECT_EQ(i1.is_signed_fixnum(), 1);
+    EXPECT_EQ(i1.is_integer(), 1);
     EXPECT_EQ(i1.is_boolean(), 0);
     EXPECT_EQ(i1.is_float32(), 0);
     EXPECT_EQ(i1.is_uchar(), 0);

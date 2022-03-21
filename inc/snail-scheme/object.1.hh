@@ -2,7 +2,7 @@
 
 #include "object.0.hh"
 
-inline GranularObjectType BoxedObject::kind() {
+inline GranularObjectType BaseBoxedObject::kind() {
     return m_kind;
 }
 inline GranularObjectType obj_kind(OBJECT object) {
@@ -11,7 +11,7 @@ inline GranularObjectType obj_kind(OBJECT object) {
 
 GranularObjectType OBJECT::kind() const {
     if (is_boxed_object()) { return m_data.ptr->kind(); }
-    if (is_signed_fixnum()) { return GranularObjectType::Fixnum; }
+    if (is_integer()) { return GranularObjectType::Fixnum; }
     if (is_interned_symbol()) { return GranularObjectType::InternedSymbol; }
     if (is_float32()) { return GranularObjectType::Float32; }
     if (is_uchar()) { return GranularObjectType::Rune; }
@@ -28,7 +28,7 @@ inline OBJECT::OBJECT(bool v)
     m_data.boolean.tag = BOOL_TAG;
     m_data.boolean.truth = v;
 }
-inline OBJECT::OBJECT(BoxedObject* ptr)
+inline OBJECT::OBJECT(BaseBoxedObject* ptr)
 :   OBJECT() 
 {
     m_data.ptr = ptr;
@@ -73,7 +73,7 @@ inline OBJECT OBJECT::make_eof() {
 // inline OBJECT OBJECT::make_port(std::string file_path, std::ios_base::openmode mode) {
 //     OBJECT res{new Port};
 // }
-inline OBJECT OBJECT::make_generic_boxed(BoxedObject* obj) {
+inline OBJECT OBJECT::make_generic_boxed(BaseBoxedObject* obj) {
     return OBJECT{obj};
 }
 inline OBJECT OBJECT::make_pair(OBJECT head, OBJECT tail) {
@@ -106,14 +106,14 @@ size_t OBJECT::as_raw() const {
     return m_data.raw; 
 }
 my_ssize_t OBJECT::as_signed_fixnum() const {
-    assert(is_signed_fixnum() && "expected fixnum object");
+    assert(is_integer() && "expected fixnum object");
     return m_data.signed_fixnum.val;
 }
 bool OBJECT::as_boolean() const {
     assert(is_boolean() && "expected boolean object");
     return m_data.raw == s_boolean_t.as_raw();
 }
-BoxedObject* OBJECT::as_ptr() const {
+BaseBoxedObject* OBJECT::as_ptr() const {
     assert(is_boxed_object() && "expected boxed object");
     return m_data.ptr;
 }
@@ -132,7 +132,7 @@ double OBJECT::as_float64() const {
 
 inline double OBJECT::to_double() const {
     OBJECT const& it = *this;
-    if (it.is_signed_fixnum()) {
+    if (it.is_integer()) {
         return static_cast<double>(it.as_signed_fixnum());
     } else if (it.is_float32()) {
         return static_cast<double>(it.as_float32());

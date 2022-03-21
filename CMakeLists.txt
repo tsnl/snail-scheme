@@ -1,8 +1,23 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(SnailScheme VERSION 0.0.0)
 
+#
+# BDWGC
+#
+
+add_subdirectory(dep/bdwgc-8.0.6/)
+# find_package(BDWgc 8.2.0 REQUIRED)
+
+#
+# Google Test
+#
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchGoogleTest.cmake)
 include(GoogleTest)
+
+#
+# Global Config
+#
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc/)
 
@@ -16,10 +31,18 @@ else()
 endif()
 include_directories(src)
 
+#
+# Generating Source
+#
+
 configure_file(
     src/config/config.hh.in
     ${CMAKE_SOURCE_DIR}/src/config/config.hh
 )
+
+#
+# Configuring Targets
+#
 
 add_library(
     snail-scheme
@@ -40,6 +63,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/printing.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/vm.cc
 )
+target_link_libraries(snail-scheme BDWgc::gc)
 
 add_executable(
     ssi
