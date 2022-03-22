@@ -100,7 +100,7 @@ typedef void(*Float32FoldCb)(float& accum, float item);
 typedef void(*Float64FoldCb)(double& accum, double item);
 
 class VirtualMachine {
-  private:
+private:
     struct {
         OBJECT a;                  // the accumulator
         VmExpID x;                 // the next expression
@@ -109,7 +109,7 @@ class VirtualMachine {
         VMA_CallFrameObject* s;    // the current stack
     } m_reg;
     std::vector<VmExp> m_exps;
-    std::vector< VmFile > m_files;
+    std::vector<VmFile> m_files;
     
     OBJECT m_init_env;
     OBJECT m_init_var_rib;
@@ -124,12 +124,12 @@ class VirtualMachine {
         IntStr const define;
         IntStr const begin;
     } m_builtin_intstr_id_cache;
-  public:
+public:
     explicit VirtualMachine(size_t reserved_file_count = 32);
     ~VirtualMachine();
   
-  // creating VM expressions:
-  private:
+// creating VM expressions:
+private:
     std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
     VmExpID new_vmx_halt();
     VmExpID new_vmx_refer(OBJECT var, VmExpID next);
@@ -145,24 +145,25 @@ class VirtualMachine {
     VmExpID new_vmx_return();
     VmExpID new_vmx_define(OBJECT var, VmExpID next);
 
-  // Source code loading + compilation:
-  public:
+// Source code loading + compilation:
+public:
     // add_file eats an std::vector<OBJECT> containing each line
     void add_file(std::string const& file_name, std::vector<OBJECT> objs);
-  private:
+  
+private:
     VmProgram translate_single_line_code_obj(OBJECT line_code_obj);
     VmExpID translate_code_obj(OBJECT obj, VmExpID next);
     VmExpID translate_code_obj__pair_list(PairObject* obj, VmExpID next);
     bool is_tail_vmx(VmExpID vmx_id);
 
-  // Blocking execution functions:
-  // Run each expression in each file sequentially on this thread.
-  public:
+// Blocking execution functions:
+// Run each expression in each file sequentially on this thread.
+public:
     template <bool print_each_line>
     void sync_execute();
 
-  // Interpreter environment setup:
-  public:
+// Interpreter environment setup:
+public:
     OBJECT mk_default_root_env();
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
@@ -172,12 +173,12 @@ class VirtualMachine {
     OBJECT continuation(VMA_CallFrameObject* s);
     OBJECT extend(OBJECT e, OBJECT vars, OBJECT vals, bool is_binding_variadic);
 
-  // Error functions:
-  public:
+// Error functions:
+public:
     void check_vars_list_else_throw(OBJECT vars);
 
-  // Debug dumps:
-  public:
+// Debug dumps:
+public:
     void dump(std::ostream& out);
     void print_all_exps(std::ostream& out);
     void print_one_exp(VmExpID exp_id, std::ostream& out);
@@ -679,7 +680,8 @@ void VirtualMachine::sync_execute() {
                             m_reg.r = OBJECT::make_null();
                         }
                         else if (m_reg.a.is_ext_callable()) {
-                            // a C++ function is called; assume 'return' is called internally
+                            // a C++ function is called; no 'return' required since stack returns after function call
+                            // by C++ rules.
                             auto a = static_cast<EXT_CallableObject*>(m_reg.a.as_ptr());
 //                            auto e_prime = extend(a->e(), a->vars(), m_reg.r);
                             auto s_prime = m_reg.s;
@@ -1368,6 +1370,9 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
 
 VirtualMachine* create_vm() {
     return new VirtualMachine(); 
+}
+void destroy_vm(VirtualMachine* vm) {
+    delete vm;
 }
 
 void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<OBJECT> objs) {

@@ -7,16 +7,12 @@ GOAL: snail-scheme is an embeddable Scheme interpreter, where libraries offer st
   - C++ is great for...
     - memory management
     - applying monadic (lazy) side-effects
-  - IDEA: Use Pure Scheme, just make IO lazy, write a `reactor`
-    - changes GC/memory management significantly
+  - IDEA: Use Pure Scheme, write a `reactor`
+    - GC: modified Cheney on the MTA for each job
       - Scheme can allocate and return: after this, must collect with Cheney on the MTA
-      - if stack never exceeded, collection only occurs on subprocess end
-      - subprocesses triggered by event-driven framework (cf Elm)
-    - changes IO significantly: now C++ must...
-      - implement monads representing mutation
-      - handle all memory allocation/de-allocation
-    - TODO: implement 'BaseReactor' in C++: template for a job system.
-      - a reactor is an event generator that plugs into certain input sources and output sinks.
+      - if stack never exceeded, collection only occurs on subprocess end: throw exception if stack exceeded during lifetime.
+    - implement 'BaseReactor' in C++: template for a job system.
+      - a reactor is a runtime that uses an event pump and plugs into certain input sources and output sinks.
       - a single reactor ('the' reactor) runs all jobs for an interpreter.
         - the reactor provides events that are bound from C++: 
         - the user can...

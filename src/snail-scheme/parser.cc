@@ -817,7 +817,7 @@ std::vector<OBJECT> parse_all_subsequent_lines(Parser* p) {
     for (;;) {
         std::optional<OBJECT> o = p->parse_next_line();
         if (o.has_value()) {
-            std::cerr << "LINE: " << o.value() << std::endl;
+            // std::cerr << "LINE: " << o.value() << std::endl;
             objects.push_back(o.value());
         } else {
             break;

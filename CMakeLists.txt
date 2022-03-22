@@ -2,13 +2,6 @@ cmake_minimum_required(VERSION 3.0.0)
 project(SnailScheme VERSION 0.0.0)
 
 #
-# BDWGC
-#
-
-add_subdirectory(dep/bdwgc-8.0.6/)
-# find_package(BDWgc 8.2.0 REQUIRED)
-
-#
 # Google Test
 #
 
@@ -36,8 +29,8 @@ include_directories(src)
 #
 
 configure_file(
-    src/config/config.hh.in
-    ${CMAKE_SOURCE_DIR}/src/config/config.hh
+    ${CMAKE_SOURCE_DIR}/inc/config/config.hh.in
+    ${CMAKE_SOURCE_DIR}/inc/config/config.hh
 )
 
 #
@@ -62,8 +55,9 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/parser.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/printing.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/vm.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/reactor.cc
 )
-target_link_libraries(snail-scheme BDWgc::gc)
+# target_link_libraries(snail-scheme BDWgc::gc)
 
 add_executable(
     ssi
