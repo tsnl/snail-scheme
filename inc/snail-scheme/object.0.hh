@@ -132,7 +132,8 @@ public:
     inline bool is_float64() const;
     inline bool is_closure() const;
     inline bool is_ext_callable() const;
-    bool is_string() const;
+    inline bool is_string() const;
+    inline bool is_vector() const;
 
     inline GranularObjectType kind() const;
 public:
@@ -147,6 +148,9 @@ public:
     inline double to_double() const;
 public:
     Data64LittleEndian raw_data() const { return m_data; }
+
+public:
+    OBJECT& operator=(OBJECT const& other) = default;
 };
 
 class BaseBoxedObject {
@@ -227,7 +231,7 @@ public:
     :   BaseBoxedObject(GranularObjectType::Vector),
         m_impl()
     {}
-    VectorObject(size_t count, std::vector<OBJECT>&& items)
+    VectorObject(std::vector<OBJECT>&& items)
     :   BaseBoxedObject(GranularObjectType::Vector),
         m_impl(std::move(items))
     {}
@@ -247,8 +251,14 @@ public:
     void push_many(TArgs... args);
 
 public:
+    OBJECT& operator[] (size_t i) {
+        return m_impl[i];
+    }
+
+public:
     [[nodiscard]] inline size_t count() const { return m_impl.size(); }
     [[nodiscard]] inline OBJECT* array() { return m_impl.data(); }
+    inline std::vector<OBJECT>& as_cpp_vec() { return m_impl; }
 };
 
 //
@@ -369,6 +379,10 @@ bool is_eqv(OBJECT e1, OBJECT e2);
 bool is_equal(OBJECT e1, OBJECT e2);
 
 inline my_ssize_t count_list_items(OBJECT pair_list);
+
+inline OBJECT vector_length(OBJECT vec);
+inline OBJECT vector_ref(OBJECT vec, OBJECT index);
+inline void vector_set(OBJECT vec, OBJECT index, OBJECT v);
 
 //
 // defs
@@ -511,4 +525,50 @@ inline my_ssize_t count_list_items(OBJECT pair_list) {
         var_ctr++;
     }
     return var_ctr;
+}
+
+inline OBJECT vector_length(OBJECT vec) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!vec.is_vector()) {
+        std::stringstream ss;
+        ss << "vector-length: expected 'vec' as first argument, got: " << vec << std::endl;
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    return OBJECT::make_integer(dynamic_cast<VectorObject*>(vec.as_ptr())->count());
+}
+inline OBJECT vector_ref(OBJECT vec, OBJECT index) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!vec.is_vector()) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 'vec' as first argument, got: " << vec << std::endl;
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!index.is_integer()) {
+        std::stringstream ss;
+        ss << "vector-ref: expected 'int' as second argument, got: " << vec << std::endl;
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    return dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_signed_fixnum());
+}
+inline void vector_set(OBJECT vec, OBJECT index, OBJECT v) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+    if (!vec.is_vector()) {
+        std::stringstream ss;
+        ss << "vector-set!: expected 'vec' as first argument, got: " << vec << std::endl;
+        error(ss.str());
+        throw SsiError();
+    }
+    if (!index.is_integer()) {
+        std::stringstream ss;
+        ss << "vector-set!: expected 'int' as second argument, got: " << vec << std::endl;
+        error(ss.str());
+        throw SsiError();
+    }
+#endif
+    dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_signed_fixnum()) = v;
 }

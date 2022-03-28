@@ -101,6 +101,9 @@ inline bool OBJECT::is_ext_callable() const {
 inline bool OBJECT::is_string() const { 
     return is_boxed_object() && as_ptr()->kind() == GranularObjectType::String;
 }
+inline bool OBJECT::is_vector() const {
+    return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
+}
 
 size_t OBJECT::as_raw() const { 
     return m_data.raw; 

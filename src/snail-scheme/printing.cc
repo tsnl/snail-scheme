@@ -96,7 +96,7 @@ void print_obj(OBJECT obj, std::ostream& out) {
         } break;
         case GranularObjectType::VMA_Closure: {
             auto closure_obj = static_cast<VMA_ClosureObject*>(obj.as_ptr());
-            out << "(vma-closure ";
+            out << "(vma-closure";
             out << " #:vmx " << closure_obj->body()
                 << " #:env (<...>)";
             out << ")";

@@ -47,7 +47,7 @@ union VmExpArgs {
     struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
     struct { OBJECT var; VmExpID x; } i_assign;
     struct { VmExpID x; } i_conti;
-    struct { VMA_CallFrameObject* s; OBJECT var; } i_nuate;
+    struct { OBJECT s; OBJECT var; } i_nuate;
     struct { VmExpID x; VmExpID ret; } i_frame;
     struct { VmExpID x; } i_argument;
     struct { OBJECT var; VmExpID next; } i_define;
@@ -123,16 +123,45 @@ typedef void(*Float32FoldCb)(float& accum, float item);
 typedef void(*Float64FoldCb)(double& accum, double item);
 
 class VirtualMachine {
+
+public:
+    class Stack {
+    private:
+        std::vector<OBJECT> m_items;
+
+    public:
+        Stack(size_t capacity = (4<<20))
+        :   m_items(capacity, OBJECT::make_null())
+        {}
+
+    public:
+        my_ssize_t push(OBJECT x, my_ssize_t s) {
+            m_items[s] = x;
+            return s + 1;
+        }
+        OBJECT index (my_ssize_t s, my_ssize_t i) {
+            return m_items[s - i - 1];
+        }
+        void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) {
+            m_items[s - i - 1] = v;
+        }
+    
+    public:
+        std::vector<OBJECT>::iterator begin() { return m_items.begin(); }
+        size_t capacity() { return m_items.size(); }
+    };
+
 private:
     struct {
-        OBJECT a;                  // the accumulator
-        VmExpID x;                 // the next expression
-        OBJECT e;                  // the current environment
-        OBJECT r;                  // value rib; used to compute arguments for 'apply'
-        VMA_CallFrameObject* s;    // the current stack
+        OBJECT a;       // the accumulator
+        VmExpID x;      // the next expression
+        OBJECT e;       // the current environment
+        OBJECT r;       // value rib; used to compute arguments for 'apply'
+        my_ssize_t s;   // the current stack pointer
     } m_reg;
     std::vector<VmExp> m_exps;
     std::vector<VmFile> m_files;
+    Stack m_stack;
     
     OBJECT m_init_var_rib;
     OBJECT m_init_val_rib;
@@ -160,7 +189,7 @@ private:
     VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
     VmExpID new_vmx_assign(OBJECT var, VmExpID next);
     VmExpID new_vmx_conti(VmExpID x);
-    VmExpID new_vmx_nuate(VMA_CallFrameObject* stack, OBJECT var);
+    VmExpID new_vmx_nuate(OBJECT stack, OBJECT var);
     VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
     VmExpID new_vmx_argument(VmExpID x);
     VmExpID new_vmx_apply();
@@ -193,10 +222,16 @@ public:
     static OBJECT closure(VmExpID body, OBJECT env);
     static OBJECT compile_lookup(OBJECT symbol, OBJECT var_env_raw);
     static OBJECT lookup(OBJECT symbol, OBJECT env_raw);
-    OBJECT continuation(VMA_CallFrameObject* s);
+    OBJECT continuation(my_ssize_t s);
 public:
     OBJECT compile_extend(OBJECT e, OBJECT vars);
     OBJECT extend(OBJECT e, OBJECT vals);
+public:
+    OBJECT save_stack(my_ssize_t s);
+    my_ssize_t restore_stack(OBJECT vector);
+    my_ssize_t push(OBJECT v, my_ssize_t s) { return m_stack.push(v, s); }
+    OBJECT index(my_ssize_t s, my_ssize_t i) { return m_stack.index(s, i); }
+    void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_stack.index_set(s, i, v); }
 
 // Error functions:
 public:
@@ -228,14 +263,18 @@ VirtualMachine::VirtualMachine(size_t file_count)
         .begin = intern("begin")
     }),
     m_init_var_rib(OBJECT::make_null()),
-    m_init_val_rib(OBJECT::make_null())
+    m_init_val_rib(OBJECT::make_null()),
+    m_stack()
 {
     mk_default_root_env();
     m_exps.reserve(4096);
     m_files.reserve(file_count);
 
     m_reg.a = OBJECT::make_null();
+    // m_reg.x set by loader.
+    m_reg.e = list(m_init_val_rib);
     m_reg.r = OBJECT::make_null();
+    m_reg.s = 0;
 }
 
 VirtualMachine::~VirtualMachine() {
@@ -302,7 +341,7 @@ VmExpID VirtualMachine::new_vmx_conti(VmExpID x) {
     args.x = x;
     return exp_id;
 }
-VmExpID VirtualMachine::new_vmx_nuate(VMA_CallFrameObject* stack, OBJECT var) {
+VmExpID VirtualMachine::new_vmx_nuate(OBJECT stack, OBJECT var) {
     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Nuate);
     auto& args = exp_ref.args.i_nuate;
     args.s = stack;
@@ -595,8 +634,6 @@ void VirtualMachine::sync_execute() {
     //      - if `print_each_line` is true, we print the input and output lines to stdout
     //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
-    m_reg.e = list(m_init_val_rib);
-
     // for each line object in each file...
     for (auto f: m_files) {
         auto line_count = f.line_code_objs.size();
@@ -617,13 +654,14 @@ void VirtualMachine::sync_execute() {
                 // DEBUG ONLY: print each instruction on execution to help trace
                 // todo: perhaps include a thread-ID? Some synchronization around IO [basically GIL]
 #if CONFIG_PRINT_EACH_INSTRUCTION_ON_EXECUTION
-                std::wcout << L"\tVM <- ";
+                std::wcout << L"\tVM <- (" << m_reg.x << ") ";
                 print_one_exp(m_reg.x, std::cout);
                 std::cout << std::endl;
 #endif
 
                 switch (exp.kind) {
                     case VmExpKind::Halt: {
+                        // m_reg.a now contains the return value of this computation.
                         vm_is_running = false;
                     } break;
                     case VmExpKind::Refer: {
@@ -666,16 +704,12 @@ void VirtualMachine::sync_execute() {
                     case VmExpKind::Nuate: {
                         m_reg.a = car(lookup(exp.args.i_nuate.var, m_reg.e));
                         m_reg.x = new_vmx_return();
-                        m_reg.s = exp.args.i_nuate.s;
+                        m_reg.s = restore_stack(exp.args.i_nuate.s);
                     } break;
                     case VmExpKind::Frame: {
+                        auto encoded_ret = OBJECT::make_integer(exp.args.i_frame.x);
                         m_reg.x = exp.args.i_frame.ret;
-                        m_reg.s = new VMA_CallFrameObject(
-                            exp.args.i_frame.x,
-                            m_reg.e,
-                            m_reg.r,
-                            m_reg.s
-                        );
+                        m_reg.s = push(encoded_ret, push(m_reg.e, push(m_reg.r, m_reg.s)));
                         m_reg.r = OBJECT::make_null();
                     } break;
                     case VmExpKind::Argument: {
@@ -701,11 +735,17 @@ void VirtualMachine::sync_execute() {
                                 new_e = extend(a->e(), m_reg.r);
                             } catch (SsiError const&) {
                                 std::stringstream ss;
-                                ss << "See applied procedure: ";
-                                print_obj(m_reg.a, ss);
+                                ss << "See applied procedure: " << m_reg.a;
                                 more(ss.str());
                                 throw;
                             }
+
+                            // DEBUG:
+                            // std::cerr 
+                            //     << "Applying: " << m_reg.a << std::endl
+                            //     << "- args: " << m_reg.r << std::endl
+                            //     << "- next: " << m_reg.x << std::endl;
+
                             // m_reg.a = m_reg.a;
                             m_reg.x = a->body();
                             m_reg.e = new_e;
@@ -715,16 +755,15 @@ void VirtualMachine::sync_execute() {
                             // a C++ function is called; no 'return' required since stack returns after function call
                             // by C++ rules.
                             auto a = static_cast<EXT_CallableObject*>(m_reg.a.as_ptr());
-//                            auto e_prime = extend(a->e(), m_reg.r);
-                            auto s_prime = m_reg.s;
-                            auto s = m_reg.s->parent();
+//                          // leave env unaffected, since after evaluation, we continue with original env
+                            
+                            // popping the stack frame added by 'Frame':
+                            // NOTE: this part is usually handled by VmExpKind::Return
                             m_reg.a = a->cb()(m_reg.r);
-                            // leave env unaffected, since after evaluation, we continue with original env
-                            // pop the stack frame added by 'Frame'
-                            m_reg.x = s_prime->x();
-                            m_reg.e = s_prime->e();
-                            m_reg.r = s_prime->r();
-                            m_reg.s = s;
+                            m_reg.x = index(m_reg.s, 0).as_signed_fixnum();
+                            m_reg.e = index(m_reg.s, 1);
+                            m_reg.r = index(m_reg.s, 2);
+                            m_reg.s = m_reg.s - 3;
                         }
                         else {
                             error("Invalid callable while type-checks disabled");
@@ -733,11 +772,12 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Return: {
                         auto s = m_reg.s;
+                        // std::cerr << "RETURN!" << std::endl;
                         // m_reg.a = m_reg.a;
-                        m_reg.x = s->x();
-                        m_reg.e = s->e();
-                        m_reg.r = s->r();
-                        m_reg.s = s->parent();
+                        m_reg.x = index(s, 0).as_signed_fixnum();
+                        m_reg.e = index(s, 1);
+                        m_reg.r = index(s, 2);
+                        m_reg.s = m_reg.s - 3;
                     } break;
                     case VmExpKind::Define: {
                         m_reg.x = exp.args.i_define.next;
@@ -1246,9 +1286,12 @@ OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env) {
     return rem_elts;
 }
 
-OBJECT VirtualMachine::continuation(VMA_CallFrameObject* s) {
+OBJECT VirtualMachine::continuation(my_ssize_t s) {
     auto closest_var_ref = cons(OBJECT::make_integer(0), OBJECT::make_integer(0));
-    return closure(new_vmx_nuate(s, closest_var_ref), OBJECT::make_null());
+    return closure(
+        new_vmx_nuate(save_stack(s), closest_var_ref), 
+        OBJECT::make_null()
+    );
 }
 
 OBJECT VirtualMachine::compile_extend(OBJECT e, OBJECT vars) {
@@ -1261,6 +1304,16 @@ OBJECT VirtualMachine::compile_extend(OBJECT e, OBJECT vars) {
 }
 OBJECT VirtualMachine::extend(OBJECT e, OBJECT vals) {
     return cons(vals, e);
+}
+OBJECT VirtualMachine::save_stack(my_ssize_t s) {
+    std::vector<OBJECT> vs{m_stack.begin(), m_stack.begin() + s};
+    return OBJECT::make_generic_boxed(new VectorObject(std::move(vs)));
+}
+my_ssize_t VirtualMachine::restore_stack(OBJECT vector) {
+    assert(vector.is_vector() && vector.size() <= m_stack.capacity());
+    std::vector<OBJECT>& cpp_vector = dynamic_cast<VectorObject*>(vector.as_ptr())->as_cpp_vec();
+    std::copy(cpp_vector.begin(), cpp_vector.end(), m_stack.begin());
+    return cpp_vector.size();
 }
 
 //
