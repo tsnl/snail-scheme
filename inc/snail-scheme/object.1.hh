@@ -143,3 +143,22 @@ inline double OBJECT::to_double() const {
         throw SsiError();
     }
 };
+
+inline void VectorObject::reserve(size_t min_new_capacity) {
+    m_impl.reserve(min_new_capacity);
+}
+inline void VectorObject::push(OBJECT object) {
+    m_impl.push_back(object);
+}
+template <typename... TArgs>
+void VectorObject::push_many(TArgs... args) {
+    size_t count = sizeof...(args);
+    m_impl.reserve(m_impl.size() + count);
+    push_many_without_reserve(args...);
+}
+template <typename... TArgs>
+void VectorObject::push_many_without_reserve(OBJECT arg, TArgs... args) {
+    m_impl.push_back(arg);
+    push_many_without_reserve(args...);
+}
+inline void VectorObject::push_many_without_reserve() {}

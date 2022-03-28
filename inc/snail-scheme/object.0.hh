@@ -22,6 +22,7 @@
 #include <ostream>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 #include <ios>
 #include <cassert>
 
@@ -219,23 +220,35 @@ public:
 
 class VectorObject: public BaseBoxedObject {
 private:
-    size_t m_count;
-    OBJECT* m_array;
+    std::vector<OBJECT> m_impl;
+
 public:
     VectorObject()
     :   BaseBoxedObject(GranularObjectType::Vector),
-        m_count(),
-        m_array()
+        m_impl()
     {}
-    VectorObject(size_t count, OBJECT* mv_array)
-    :   VectorObject()
-    {
-        m_count = count;
-        m_array = mv_array;
-    }
+    VectorObject(size_t count, std::vector<OBJECT>&& items)
+    :   BaseBoxedObject(GranularObjectType::Vector),
+        m_impl(std::move(items))
+    {}
+
+private:
+    void push_many_without_reserve();
+    
+    template <typename... TArgs>
+    void push_many_without_reserve(OBJECT object, TArgs... args);
+
 public:
-    [[nodiscard]] inline size_t count() const { return m_count; }
-    [[nodiscard]] inline OBJECT* array() const { return m_array; }
+    void reserve(size_t min_new_capacity);
+
+    void push(OBJECT object);
+    
+    template <typename... TArgs>
+    void push_many(TArgs... args);
+
+public:
+    [[nodiscard]] inline size_t count() const { return m_impl.size(); }
+    [[nodiscard]] inline OBJECT* array() { return m_impl.data(); }
 };
 
 //
@@ -278,20 +291,17 @@ class VMA_ClosureObject: public BaseBoxedObject {
   private:
     VmExpID m_body;    // the body expression to evaluate
     OBJECT m_e;        // the environment to use
-    OBJECT m_vars;     // the formal variables captured
 
   public:
-    VMA_ClosureObject(VmExpID body, OBJECT e, OBJECT vars)
+    VMA_ClosureObject(VmExpID body, OBJECT e)
     :   BaseBoxedObject(GranularObjectType::VMA_Closure),
         m_body(body),
-        m_e(e),
-        m_vars(vars)
+        m_e(e)
     {}
 
   public:
     [[nodiscard]] VmExpID body() const { return m_body; }
     [[nodiscard]] OBJECT e() const { return m_e; }
-    [[nodiscard]] OBJECT vars() const { return m_vars; }
 };
 
 //
@@ -414,7 +424,7 @@ inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
 
 inline OBJECT car(OBJECT object) {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-    if (obj_kind(object) != GranularObjectType::Pair) {
+    if (!object.is_pair()) {
         error("car: expected argument object to be a pair");
         throw SsiError();
     }
