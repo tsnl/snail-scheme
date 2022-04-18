@@ -15,6 +15,7 @@
 #include "snail-scheme/object.hh"
 #include "snail-scheme/printing.hh"
 #include "snail-scheme/core.hh"
+#include "snail-scheme/std.hh"
 
 //
 // VmExp data: each expression either stores a VM instruction or a constant
@@ -118,12 +119,7 @@ struct VmFile {
 //  - de-allocates all expressions (and thus, all `Object` instances parsed and possibly reused)
 //
 
-typedef void(*IntFoldCb)(my_ssize_t& accum, my_ssize_t item);
-typedef void(*Float32FoldCb)(float& accum, float item);
-typedef void(*Float64FoldCb)(double& accum, double item);
-
 class VirtualMachine {
-
 public:
     class Stack {
     private:
@@ -165,6 +161,7 @@ private:
     
     OBJECT m_init_var_rib;
     OBJECT m_init_val_rib;
+    bool m_init_env_locked;
 
     const struct {
         IntStr const quote;
@@ -175,8 +172,9 @@ private:
         IntStr const define;
         IntStr const begin;
     } m_builtin_intstr_id_cache;
+
 public:
-    explicit VirtualMachine(size_t reserved_file_count = 32);
+    explicit VirtualMachine(size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
     ~VirtualMachine();
   
 // creating VM expressions:
@@ -215,10 +213,8 @@ public:
 
 // Interpreter environment setup:
 public:
-    void mk_default_root_env();
+    void define_builtin_value(std::string name_str, OBJECT elt_obj);
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
-    template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
-    void define_builtin_variadic_arithmetic_fn(char const* name_str);
     static OBJECT closure(VmExpID body, OBJECT env);
     static OBJECT compile_lookup(OBJECT symbol, OBJECT var_env_raw);
     static OBJECT lookup(OBJECT symbol, OBJECT env_raw);
@@ -249,8 +245,10 @@ public:
 // ctor/dtor
 //
 
-VirtualMachine::VirtualMachine(size_t file_count) 
-:   m_reg(),
+VirtualMachine::VirtualMachine(
+    size_t file_count, 
+    VirtualMachineStandardProcedureBinder binder
+):  m_reg(),
     m_exps(),
     m_files(),
     m_builtin_intstr_id_cache({
@@ -264,9 +262,12 @@ VirtualMachine::VirtualMachine(size_t file_count)
     }),
     m_init_var_rib(OBJECT::make_null()),
     m_init_val_rib(OBJECT::make_null()),
-    m_stack()
+    m_stack(),
+    m_init_env_locked(false)
 {
-    mk_default_root_env();
+    binder(this);
+    m_init_env_locked = true;
+    
     m_exps.reserve(4096);
     m_files.reserve(file_count);
 
@@ -812,245 +813,10 @@ void VirtualMachine::sync_execute() {
     }
 }
 
-inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item) { accum *= item; }
-inline void int_div_cb(my_ssize_t& accum, my_ssize_t item) { accum /= item; }
-inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item) { accum %= item; }
-inline void int_add_cb(my_ssize_t& accum, my_ssize_t item) { accum += item; }
-inline void int_sub_cb(my_ssize_t& accum, my_ssize_t item) { accum -= item; }
-inline void float32_mul_cb(float& accum, float item) { accum *= item; }
-inline void float32_div_cb(float& accum, float item) { accum /= item; }
-inline void float32_rem_cb(float& accum, float item) { accum = fmod(accum, item); }
-inline void float32_add_cb(float& accum, float item) { accum += item; }
-inline void float32_sub_cb(float& accum, float item) { accum -= item; }
-inline void float64_mul_cb(double& accum, double item) { accum *= item; }
-inline void float64_div_cb(double& accum, double item) { accum /= item; }
-inline void float64_rem_cb(double& accum, double item) { accum = fmod(accum, item); }
-inline void float64_add_cb(double& accum, double item) { accum += item; }
-inline void float64_sub_cb(double& accum, double item) { accum -= item; }
-
-void VirtualMachine::mk_default_root_env() {
-    // definitions:
-    define_builtin_fn(
-        "cons", 
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<2>(args);
-            return cons(aa[0], aa[1]); 
-        }, 
-        {"ar", "dr"}
-    );
-    define_builtin_fn(
-        "car", 
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-            if (!aa[0].is_pair()) {
-                std::stringstream ss;
-                ss << "car: expected pair argument, received: ";
-                print_obj(aa[0], ss);
-                error(ss.str());
-                throw SsiError();
-            }
-#endif
-            return car(aa[0]); 
-        }, 
-        {"pair"}
-    );
-    define_builtin_fn(
-        "cdr", 
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-            if (!aa[0].is_pair()) {
-                std::stringstream ss;
-                ss << "cdr: expected pair argument, received: ";
-                print_obj(aa[0], ss);
-                error(ss.str());
-                throw SsiError();
-            }
-#endif
-            return cdr(aa[0]); 
-        }, 
-        {"pair"}
-    );
-    define_builtin_fn(
-        "boolean?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_boolean(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "null?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_null(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "pair?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_pair(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "procedure?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_procedure(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "symbol?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_symbol(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "integer?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_integer(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "real?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_float(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "number?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_number(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "string?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_string(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "vector?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<1>(args);
-            return boolean(is_vector(aa[0]));
-        },
-        {"obj"}
-    );
-    define_builtin_fn(
-        "=",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<2>(args);
-            return boolean(is_eqn(aa[0], aa[1]));
-        },
-        {"lt-arg", "rt-arg"}
-    );
-    define_builtin_fn(
-        "eq?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<2>(args);
-            return boolean(is_eq(aa[0], aa[1]));
-        },
-        {"lt-arg", "rt-arg"}
-    );
-    define_builtin_fn(
-        "eqv?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<2>(args);
-            return boolean(is_eqv(aa[0], aa[1]));
-        },
-        {"lt-arg", "rt-arg"}
-    );
-    define_builtin_fn(
-        "equal?",
-        [](OBJECT args) -> OBJECT {
-            auto aa = extract_args<2>(args);
-            return boolean(is_equal(aa[0], aa[1]));
-        },
-        {"lt-arg", "rt-arg"}
-    );
-    define_builtin_fn(
-        "list",
-        [](OBJECT args) -> OBJECT {
-            return args;
-        },
-        {"items..."}
-    );
-    define_builtin_fn(
-        "and",
-        [](OBJECT args) -> OBJECT {
-            OBJECT rem_args = args;
-            while (!rem_args.is_null()) {
-                OBJECT head = car(rem_args);
-                rem_args = cdr(rem_args);
-
-                OBJECT maybe_boolean_obj = head;
-#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                if (!maybe_boolean_obj.is_boolean()) {
-                    std::stringstream ss;
-                    ss << "and: expected boolean, received: ";
-                    print_obj(head, ss);
-                    error(ss.str());
-                    throw SsiError();
-                }
-#endif
-                OBJECT boolean_obj = maybe_boolean_obj;
-                if (boolean_obj.is_boolean(false)) {
-                    return OBJECT::make_boolean(false);
-                }
-            }
-            return OBJECT::make_boolean(true);
-        },
-        {"booleans..."}
-    );
-    define_builtin_fn(
-        "or",
-        [](OBJECT args) -> OBJECT {
-            OBJECT rem_args = args;
-            while (!rem_args.is_null()) {
-                OBJECT head = car(rem_args);
-                rem_args = cdr(rem_args);
-
-                OBJECT maybe_boolean_obj = head;
-#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                if (!maybe_boolean_obj.is_boolean()) {
-                    std::stringstream ss;
-                    ss << "or: expected boolean, received: ";
-                    print_obj(head, ss);
-                    error(ss.str());
-                    throw SsiError();
-                }
-#endif
-                OBJECT boolean_obj = maybe_boolean_obj;
-                if (boolean_obj.is_boolean(true)) {
-                    return OBJECT::make_boolean(true);
-                }
-            }
-            return OBJECT::make_boolean(false);
-        },
-        {"booleans..."}
-    );
-    define_builtin_variadic_arithmetic_fn<int_mul_cb, float32_mul_cb, float64_mul_cb>("*");
-    define_builtin_variadic_arithmetic_fn<int_div_cb, float32_div_cb, float64_div_cb>("/");
-    define_builtin_variadic_arithmetic_fn<int_rem_cb, float32_rem_cb, float64_rem_cb>("%");
-    define_builtin_variadic_arithmetic_fn<int_add_cb, float32_add_cb, float64_add_cb>("+");
-    define_builtin_variadic_arithmetic_fn<int_sub_cb, float32_sub_cb, float64_sub_cb>("-");
-    // todo: define more builtin functions here
+void VirtualMachine::define_builtin_value(std::string name_str, OBJECT elt_obj) {
+    OBJECT var_obj = OBJECT::make_interned_symbol(intern(std::move(name_str)));
+    m_init_var_rib = cons(var_obj, m_init_var_rib);
+    m_init_val_rib = cons(elt_obj, m_init_val_rib);
 }
 
 void VirtualMachine::define_builtin_fn(
@@ -1058,124 +824,16 @@ void VirtualMachine::define_builtin_fn(
     EXT_CallableCb callback, 
     std::vector<std::string> arg_names
 ) {
-    OBJECT var_obj = OBJECT::make_interned_symbol(intern(std::move(name_str)));
+    // constructing a 'closure' object:
     OBJECT vars_list = OBJECT::make_null();
     for (size_t i = 0; i < arg_names.size(); i++) {
         vars_list = cons(OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
     }
     auto elt_obj_raw = new EXT_CallableObject(callback, m_init_val_rib, vars_list);
-    OBJECT elt_obj = OBJECT::make_generic_boxed(elt_obj_raw);
-    m_init_var_rib = cons(var_obj, m_init_var_rib);
-    m_init_val_rib = cons(elt_obj, m_init_val_rib);
-}
+    auto elt_obj = OBJECT::make_generic_boxed(elt_obj_raw);
 
-template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
-void VirtualMachine::define_builtin_variadic_arithmetic_fn(char const* const name_str) {
-    define_builtin_fn(
-        name_str,
-        [=](OBJECT args) -> OBJECT {
-            // first, ensuring we have at least 1 argument:
-            if (args.is_null()) {
-                std::stringstream ss;
-                ss << "Expected 1 or more arguments to arithmetic operator " << name_str << ": got 0";
-                error(ss.str());
-                throw SsiError();
-            }
-
-            // next, determining the kind of the result:
-            //  - this is accomplished by performing a linear scan through the arguments
-            //  - though inefficient, this ironically improves throughput, presumably by loading cache lines 
-            //    containing each operand before 'load'
-            bool float64_operand_present = false;
-            bool float32_operand_present = false;
-            bool int_operand_present = false;
-            size_t arg_count = 0;
-            for (
-                OBJECT rem_args = args;
-                !rem_args.is_null();
-                rem_args = cdr(rem_args)
-            ) {
-                OBJECT operand = car(rem_args);
-                ++arg_count;
-
-                if (operand.is_float64()) {
-                    float64_operand_present = true;
-                } else if (operand.is_float32()) {
-                    float32_operand_present = true;
-                } else if (operand.is_integer()) {
-                    int_operand_present = true;
-                } else {
-                    // error:
-                    std::stringstream ss;
-                    ss << "Invalid argument to arithmetic operator " << name_str << ": ";
-                    print_obj(operand, ss);
-                    error(ss.str());
-                    throw SsiError();
-                }
-            }
-
-            // next, computing the result of this operation:
-            // NOTE: computation broken into several 'hot paths' for frequent operations.
-            if (arg_count == 1) {
-                // returning identity:
-                return car(args);
-            }
-            else if (!float64_operand_present && !float32_operand_present && arg_count == 2) {
-                // adding two integers:
-                auto aa = extract_args<2>(args);
-                my_ssize_t res = aa[0].as_signed_fixnum();
-                int_fold_cb(res, aa[1].as_signed_fixnum());
-                return OBJECT::make_integer(res);
-            }
-            else if (!int_operand_present && !float64_operand_present && arg_count == 2) {
-                // adding two float32:
-                auto aa = extract_args<2>(args);
-                auto res = aa[0].as_float32();
-                float32_fold_cb(res, aa[1].as_float32());
-                return OBJECT::make_float32(res);
-            }
-            else if (!int_operand_present && !float32_operand_present && arg_count == 2) {
-                // adding two float64:
-                auto aa = extract_args<2>(args);
-                auto res = aa[0].as_float64();
-                float64_fold_cb(res, aa[1].as_float64());
-                return OBJECT::make_float64(res);
-            }
-            else if (int_operand_present && !float32_operand_present && !float64_operand_present) {
-                // compute result from only integers: no floats found
-                OBJECT rem_args = args;
-
-                OBJECT first_arg = car(rem_args);
-                rem_args = cdr(rem_args);
-
-                my_ssize_t unwrapped_accum = first_arg.as_signed_fixnum();
-                for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
-                    OBJECT operand = car(rem_args);
-                    my_ssize_t v = operand.as_signed_fixnum();
-                    int_fold_cb(unwrapped_accum, v);
-                }
-
-                return OBJECT::make_integer(unwrapped_accum);
-            }
-            else {
-                // compute result as a float64:
-                OBJECT rem_args = args;
-
-                OBJECT first_arg = car(rem_args);
-                rem_args = cdr(rem_args);
-                
-                double unwrapped_accum = first_arg.to_double();
-                for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
-                    OBJECT operand = car(rem_args);
-                    my_float_t v = operand.to_double();
-                    float64_fold_cb(unwrapped_accum, v);
-                }
-                
-                return OBJECT::make_float64(unwrapped_accum);
-            } 
-        },
-        {"args..."}
-    );
+    // binding:
+    define_builtin_value(std::move(name_str), elt_obj);
 }
 
 OBJECT VirtualMachine::closure(VmExpID body, OBJECT env) {
@@ -1454,19 +1112,28 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
 //
 //
 
-VirtualMachine* create_vm() {
-    return new VirtualMachine(); 
+VirtualMachine* create_vm(
+    VirtualMachineStandardProcedureBinder binder,
+    int reserved_file_count
+) {
+    auto vm = new VirtualMachine(reserved_file_count, binder); 
+    return vm;
 }
 void destroy_vm(VirtualMachine* vm) {
     delete vm;
 }
 
 void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<OBJECT> objs) {
-    // todo: iteratively compile each statement, such that...
-    //  - i < len(objs)-1 => 'next' of last statement is first instruction of (i+1)th object
-    //  - i = len(objs)-1 => 'next' of last statement is 'halt'
     vm->add_file(file_name, std::move(objs));
 }
+
+void define_builtin_value_in_vm(VirtualMachine* vm, std::string name_str, OBJECT object) {
+    vm->define_builtin_value(std::move(name_str), object);
+}
+void define_builtin_procedure_in_vm(VirtualMachine* vm, std::string name_str,  EXT_CallableCb callback, std::vector<std::string> arg_names) {
+    vm->define_builtin_fn(std::move(name_str), callback, std::move(arg_names));
+}
+
 
 void sync_execute_vm(VirtualMachine* vm, bool print_each_line) {
     if (print_each_line) {

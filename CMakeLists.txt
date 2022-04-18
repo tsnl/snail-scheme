@@ -56,6 +56,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/printing.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/reactor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/std.cc
 )
 # target_link_libraries(snail-scheme BDWgc::gc)
 

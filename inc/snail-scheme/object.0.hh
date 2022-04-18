@@ -77,7 +77,7 @@ private:
         size_t raw: 64;
           
         // must be a multiple of '8', so ends in '000'
-        // actually always a ptr to 'IBoxedObject'
+        // actually always a ptr to 'BaseBoxedObject'
         BaseBoxedObject* ptr;
         struct { size_t tag: 3; size_t word_offset: 61; } ptr_unwrapped;
         

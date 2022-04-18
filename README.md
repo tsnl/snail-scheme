@@ -2,15 +2,17 @@
 
 `snail-scheme` is my personal minimal Scheme implementation.
 
-It includes a basic interpreter (SSI) and a whole-program optimizing compiler (SSC).
-- the interpreter is based on Ch3 of ["Three Implementations"](/doc/three-imp.pdf), using a heap-based VM.
-  the use of a byte-code VM is key to realizing Scheme's continuations and tail-recursion.
-- the compiler, SSC, is [will be?] written in Scheme using SSI.
+It offers a nice-to-use C++ API that is easily extended using C++'s native OOP
+principles.
 
-Dependencies:
-- BDWGC: https://github.com/ivmai/bdwgc
-  - ensure you enable C++ when you configure and install (see README)
-  - install libatomic-ops on windows first
+It includes a basic interpreter (SSI) written in C++.
+- the interpreter is based on Ch3 of ["Three Implementations"](/doc/three-imp.pdf), using a heap-based VM.
+  - the use of a byte-code VM is key to realizing Scheme's continuations and tail-recursion.
+  - implementation of Ch4 is partially complete, moving most data-structures to the stack.
+- the `object.hh` header contains the `OBJECT` datatype, which offers an efficient representation of
+  latently typed objects within C++.
+  - `OBJECT` instances will also offer support for manually-invoked mark-and-sweep GC.
+- 
 
 ## Language Features / Digressions from Scheme
 

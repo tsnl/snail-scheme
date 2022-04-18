@@ -11,7 +11,10 @@
 ; (+ 1 2 3)
 ; (* 1 2 3 4 5)
 
-(define a (fibonacci 25))
+(define a0 (fibonacci 30))
+
+; (display (format "~a" a0))
+
 ; (define b 0)
 
 ; (define (w x) 

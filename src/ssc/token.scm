@@ -1,0 +1,6 @@
+(define (token kind span text symbol) 
+  (vector kind span text symbol))
+(define token-kind   (lambda (t) (vector-ref t 0)))
+(define token-span   (lambda (t) (vector-ref t 1)))
+(define token-text   (lambda (t) (vector-ref t 2)))
+(define token-symbol (lambda (t) (vector-ref t 3)))
