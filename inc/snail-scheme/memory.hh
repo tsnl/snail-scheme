@@ -14,18 +14,19 @@ constexpr inline size_t TERABYTES(size_t num) { return GIGABYTES(num) << 10; }
 using RootAllocCb = void*(*)(size_t size_in_bytes);
 using RootDeallocCb = void(*)(void* ptr);
 
+///
+// StackAllocator: root of Reactor allocators
+//
+
 class StackAllocator {
-private:
+protected:
     uint8_t* m_mem;
     size_t m_capacity_bytes;
     size_t m_occupied_bytes;
-    RootAllocCb m_root_alloc;
-    RootDeallocCb m_root_dealloc;
     
 public:
-    StackAllocator(size_t capacity=MEGABYTES(64), RootAllocCb alloc=malloc, RootDeallocCb dealloc=free);
-    ~StackAllocator();
-
+    StackAllocator(uint8_t* mem, size_t capacity);
+    
 public:
     size_t capacity_byte_count() const { 
         return m_capacity_bytes; 
@@ -49,4 +50,26 @@ public:
             throw std::runtime_error("Stack overflow");
         }
     }
+
+public:
+    void reset() {
+        m_occupied_bytes = 0;
+    }
+    uint8_t* ensure_passed_on_to_successor_heap() {
+        m_occupied_bytes = m_capacity_bytes;
+        return m_mem;
+    }
+};
+
+class RootStackAllocator: public StackAllocator {
+private:
+    RootDeallocCb m_root_dealloc;
+
+public:
+    RootStackAllocator(
+        size_t capacity=MEGABYTES(64), 
+        RootAllocCb alloc=malloc, 
+        RootDeallocCb dealloc=free
+    );
+    ~RootStackAllocator();
 };

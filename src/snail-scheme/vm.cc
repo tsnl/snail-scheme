@@ -16,6 +16,7 @@
 #include "snail-scheme/printing.hh"
 #include "snail-scheme/core.hh"
 #include "snail-scheme/std.hh"
+#include "snail-scheme/reactor.hh"
 
 //
 // VmExp data: each expression either stores a VM instruction or a constant
@@ -163,6 +164,8 @@ private:
     OBJECT m_init_val_rib;
     bool m_init_env_locked;
 
+    Reactor* m_parent_reactor;
+
     const struct {
         IntStr const quote;
         IntStr const lambda;
@@ -174,7 +177,7 @@ private:
     } m_builtin_intstr_id_cache;
 
 public:
-    explicit VirtualMachine(size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
+    explicit VirtualMachine(Reactor* reactor, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
     ~VirtualMachine();
   
 // creating VM expressions:
@@ -229,6 +232,10 @@ public:
     OBJECT index(my_ssize_t s, my_ssize_t i) { return m_stack.index(s, i); }
     void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_stack.index_set(s, i, v); }
 
+// Reactor reference:
+public:
+    Reactor* reactor() { return m_parent_reactor; }
+
 // Error functions:
 public:
     void check_vars_list_else_throw(OBJECT vars);
@@ -246,6 +253,7 @@ public:
 //
 
 VirtualMachine::VirtualMachine(
+    Reactor* reactor,
     size_t file_count, 
     VirtualMachineStandardProcedureBinder binder
 ):  m_reg(),
@@ -263,7 +271,8 @@ VirtualMachine::VirtualMachine(
     m_init_var_rib(OBJECT::make_null()),
     m_init_val_rib(OBJECT::make_null()),
     m_stack(),
-    m_init_env_locked(false)
+    m_init_env_locked(false),
+    m_parent_reactor(reactor)
 {
     binder(this);
     m_init_env_locked = true;
@@ -1113,10 +1122,11 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
 //
 
 VirtualMachine* create_vm(
+    Reactor* reactor,
     VirtualMachineStandardProcedureBinder binder,
     int reserved_file_count
 ) {
-    auto vm = new VirtualMachine(reserved_file_count, binder); 
+    auto vm = new VirtualMachine(reactor, reserved_file_count, binder); 
     return vm;
 }
 void destroy_vm(VirtualMachine* vm) {

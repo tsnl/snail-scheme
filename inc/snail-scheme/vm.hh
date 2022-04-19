@@ -9,6 +9,7 @@
 //
 
 class VirtualMachine;
+class Reactor;
 using VmExpID = size_t;
 
 //
@@ -17,8 +18,9 @@ using VmExpID = size_t;
 
 // create_vm instantiates a VM.
 VirtualMachine* create_vm(
+    Reactor* reactor,
     VirtualMachineStandardProcedureBinder binder = bind_standard_procedures,
-    int reserved_file_count = 32
+    int init_reserved_file_count = 32
 );
 
 // destroy_vm destroys a VM.

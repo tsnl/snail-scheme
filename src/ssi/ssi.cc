@@ -6,7 +6,7 @@
 #include "snail-scheme/feedback.hh"
 #include "snail-scheme/printing.hh"
 #include "snail-scheme/vm.hh"
-
+#include "snail-scheme/reactor.hh"
 
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
@@ -63,8 +63,15 @@ int main(int argc, char const* argv[]) {
         error(error_ss.str());
         return 1;
     } else {
-        VirtualMachine* vm = create_vm();
+        // Reactor reactor;
+
+        // Initial pass:
+        VirtualMachine* vm = create_vm(nullptr);
         interpret_file(vm, argv[1]);
+
+        // Beginning reactor loop:
+        // reactor.start_reactor(4);
+
         return 0;
     }
 }
