@@ -52,7 +52,7 @@ void Reactor::unpause_reactor(int max_thread_count) {
         std::min(available_thread_count, max_thread_count)
     );
 
-    uint8_t* workers_heap = m_root_stack.ensure_passed_on_to_successor_heap();
+    uint8_t* workers_heap = m_root_stack.reset_then_extract_all_bytes();
     size_t workers_heap_capacity = m_root_stack.capacity_byte_count() / thread_count;
 
     assert(m_worker_pool.empty());

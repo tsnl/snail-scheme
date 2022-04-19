@@ -55,7 +55,7 @@ public:
     void reset() {
         m_occupied_bytes = 0;
     }
-    uint8_t* ensure_passed_on_to_successor_heap() {
+    uint8_t* reset_then_extract_all_bytes() {
         m_occupied_bytes = m_capacity_bytes;
         return m_mem;
     }

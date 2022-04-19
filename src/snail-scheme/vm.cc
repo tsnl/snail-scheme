@@ -977,8 +977,9 @@ OBJECT VirtualMachine::save_stack(my_ssize_t s) {
     return OBJECT::make_generic_boxed(new VectorObject(std::move(vs)));
 }
 my_ssize_t VirtualMachine::restore_stack(OBJECT vector) {
-    assert(vector.is_vector() && vector.size() <= m_stack.capacity());
+    assert(vector.is_vector() && "Expected stack to restore to be a 'vector' object");
     std::vector<OBJECT>& cpp_vector = dynamic_cast<VectorObject*>(vector.as_ptr())->as_cpp_vec();
+    assert(cpp_vector.size() <= m_stack.capacity() && "Cannot restore a stack larger than VM stack's capacity.");
     std::copy(cpp_vector.begin(), cpp_vector.end(), m_stack.begin());
     return cpp_vector.size();
 }
