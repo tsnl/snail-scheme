@@ -1,6 +1,7 @@
 #include "snail-scheme/gc.hh"
 
 #include "config/config.hh"
+#include "allocator.hh"
 
 ///
 // Interface:
@@ -31,9 +32,9 @@ namespace gc {
 // Free-list:
 //
 
-using GflIterator = std::forward_list<GenericSpan>::iterator;
+using GflIterator = GenericFreeList::Iterator;
 
-APointer GenericFreeList::try_allocate(size_t item_count) {
+APointer GenericFreeList::try_allocate_items(size_t item_count) {
     GflIterator pred = m_free_span_list.before_begin();
     GflIterator self = m_free_span_list.begin();
     
@@ -61,7 +62,7 @@ APointer GenericFreeList::try_allocate(size_t item_count) {
     return nullptr;
 }
 
-void GenericFreeList::deallocate(APointer ptr, size_t item_count) {
+std::pair<GflIterator,GflIterator> GenericFreeList::return_items_impl(APointer ptr, size_t item_count) {
     APointer free_beg = ptr;
     APointer free_end = ptr + item_count * m_item_stride_in_ablks;
 
@@ -77,6 +78,9 @@ void GenericFreeList::deallocate(APointer ptr, size_t item_count) {
         
         if (self_end == free_beg) {
             // extend 'self', possibly coalesce with 'next'
+
+            // note we don't need to check for backward coalescence of
+            // free-list spans if past forward coalescence fails.
             
             // acquiring 'next'
             GflIterator self_backup = self;
@@ -92,12 +96,12 @@ void GenericFreeList::deallocate(APointer ptr, size_t item_count) {
             if (can_coalesce) {
                 self->count += item_count + next->count;
                 m_free_span_list.erase_after(self);
-                return;
+                return {pred, self};
             }
 
             // otherwise, just extending 'self' in +ve direction
             self->count += item_count;
-            return;
+            return {pred, self};
         }
         else if (free_end == self->ptr) {
             // extend 'self' backward
@@ -108,13 +112,13 @@ void GenericFreeList::deallocate(APointer ptr, size_t item_count) {
             // can still extend backward
             self->ptr -= item_count;
             self->count += item_count;
-            return;
+            return {pred, self};
         }
         else if (free_beg < self_beg) {
             // insert just before 'self', i.e. just after 'pred'
             assert(free_end < self_beg);
             m_free_span_list.insert_after(pred, {free_beg, item_count});
-            return;
+            return {pred, self};
         }
         else {
             // continue to scan...
@@ -129,6 +133,25 @@ void GenericFreeList::deallocate(APointer ptr, size_t item_count) {
     // node.
     GflIterator back = self;
     m_free_span_list.insert_after(back, {free_beg, item_count});
+    return {pred, self};
+}
+
+void GenericFreeList::clear() {
+    m_free_span_list.clear();
+};
+
+///
+// Middle-end:
+//
+
+void GlobalObjectAllocator::return_items(APointer ptr, size_t item_count) {
+    // invoking super 'impl' 
+    auto obj_fl_node_pair = m_object_free_list.return_items_impl(ptr, item_count);
+    GflIterator obj_fl_node_pred = obj_fl_node_pair.first;
+    GflIterator obj_fl_node_self = obj_fl_node_pair.second;
+
+    // TODO: check if this object free-list node contains a large enough contiguous
+    //       span to extract one or more page-spans for return to the page-free-list.
 }
 
 ///
@@ -141,7 +164,7 @@ void GcBackEnd::init(size_t single_contiguous_memory_region_page_capacity, APoin
 }
 
 std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
-    auto res_ptr = m_page_free_list.try_allocate(page_count);
+    auto res_ptr = m_page_free_list.try_allocate_items(page_count);
     if (res_ptr) {
         return {PageSpan{res_ptr, page_count}};
     } else {
@@ -149,8 +172,8 @@ std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
     }
 }
 
-void GcBackEnd::deallocate_page_span(PageSpan page_span) {
-    m_page_free_list.deallocate(page_span.ptr, page_span.count);
+void GcBackEnd::return_page_span(PageSpan page_span) {
+    m_page_free_list.return_memory(page_span.ptr, page_span.count);
 }
 
 ///

@@ -3,13 +3,15 @@
 #include <vector>
 #include <mutex>
 #include <forward_list>
+#include <algorithm>
 #include <cstdint>
 
 #include "config/config.hh"
 #include "memory.hh"
 
 // see `/doc/gc-design.md`
-// Largely based on TCMalloc, with mark-and-sweep support for the front-end.
+// Largely based on TCMalloc, with mark-and-sweep support for the front-end
+// and transfer-cache.
 // See: https://github.com/google/tcmalloc/blob/master/docs/design.md
 // Only 64-bit portions are used (alignment 16-bytes)
 
@@ -33,11 +35,6 @@ struct SizeClassInfo {
     
     // Number of pages to allocate at a time
     size_t pages;
-
-    // Number of objects to move between a thread-cache and the transfer-cache
-    // in one shot. We want this to be not too small so we can aortize the lock 
-    // overhead for accessing the transfer cache.
-    size_t num_to_move;
 };
 
 #include "gc.size_class.inl"
@@ -106,8 +103,15 @@ struct ObjectSpan: public GenericSpan {};
 // FreeList
 //
 
+class ObjectAllocator;
+
 // Each FreeList manages 'items' of fixed size.
 class GenericFreeList {
+    friend ObjectAllocator;
+
+public:
+    using Iterator = std::forward_list<GenericSpan>::iterator;
+
 private:
     std::forward_list<GenericSpan> m_free_span_list;
     size_t m_item_stride_in_ablks;
@@ -120,12 +124,13 @@ protected:
     }
 
 public:
-    APointer try_allocate(size_t item_count);
-    void deallocate(APointer ptr, size_t item_count);
+    APointer try_allocate_items(size_t item_count);
+    std::pair<Iterator,Iterator> return_items_impl(APointer ptr, size_t item_count);
+    void clear();
 
-public:
-    void reset(std::vector<PageSpan>& pages);
-    APointer force_allocate(APointer ptr, size_t item_count);
+    void return_items(APointer ptr, size_t item_count) {
+        return_items_impl(ptr, item_count);
+    }
 };
 class PageFreeList: public GenericFreeList {
 public:
@@ -138,6 +143,36 @@ public:
     ObjectFreeList(gc::SizeClassIndex sci)
     :   GenericFreeList(gc::kSizeClasses[sci].size)
     {}
+};
+
+///
+// ObjectAllocator:
+// - used by TransferCache
+// - used by ThreadCache
+//
+
+class ObjectAllocator {
+protected:
+    ObjectFreeList m_object_free_list;
+    SizeClassIndex m_sci;
+
+public:
+    ObjectAllocator(SizeClassIndex sci)
+    :   m_object_free_list(sci),
+        m_sci(sci)
+    {}
+
+public:
+    APointer try_allocate_object() { return m_object_free_list.try_allocate_items(1); }
+    void deallocate(APointer ptr) { m_object_free_list.return_items(ptr, 1); }
+
+public:
+    void sweep(SingleSizeClassMarkedVector* marked_vector) {
+        m_object_free_list.clear();
+        for (auto marked_ptr: marked_vector->ptrs()) {
+            m_object_free_list.return_items(marked_ptr, 1);
+        }
+    }
 };
 
 ///
@@ -161,7 +196,7 @@ public:
     void init(size_t single_contiguous_region_page_capacity, APointer single_contiguous_region);
 public:
     std::optional<PageSpan> try_allocate_page_span(size_t page_count);
-    void deallocate_page_span(PageSpan page_span);
+    void return_page_span(PageSpan page_span);
 };
 
 ///
@@ -170,19 +205,34 @@ public:
 // - maintains one lock per-size-class
 //
 
-class SizeClassPageSpanPool {
-private:
-    std::forward_list<PageSpan> m_page_spans;
+size_t const MAX_PAGESPANS_PER_SIZE_CLASS = 8192;
+
+class GlobalObjectAllocator: public ObjectAllocator {
+protected:
     PageFreeList m_free_page_list;
     std::mutex m_mutex;
 
 public:
-    SizeClassPageSpanPool();
+    SizeClassPagesPool(SizeClassIndex sci);
+
+public:
+    // NOTE: the number of pages in each page-span is determined by 
+    // gc::kSizeClasses[m_sci].pages
+    void add_page_span_to_pool(PageSpan span) {
+        std::lock_guard lg{m_mutex};
+        assert(span.count == kSizeClasses[m_sci].pages);
+        m_free_page_list.return_items(span.ptr, span.count);
+    }
+    
+    void collect_free_pages();
+
+public:
+    void return_items(APointer ptr, size_t item_count);
 };
 
 class GcMiddleEnd {
 private:
-    SizeClassPageSpanPool m_size_class_page_span_pools[kSizeClassesCount];
+    GlobalObjectAllocator m_object_allocators[kSizeClassesCount];
     GcBackEnd* m_backend;
     
 public:
@@ -196,30 +246,9 @@ public:
 // GC Front-end:
 //
 
-class SizeClassAllocator {
-private:
-    ObjectFreeList m_free_list;
-    std::vector<PageSpan> m_pages;
-
-public:
-    SizeClassAllocator(SizeClassIndex sci);
-
-public:
-    APointer try_allocate_object() { return m_free_list.try_allocate(1); }
-    void deallocate(APointer ptr) { m_free_list.deallocate(ptr, 1); }
-
-public:
-    void sweep(SingleSizeClassMarkedVector* marked_vector) {
-        m_free_list.reset(m_pages);
-        for (auto marked_ptr: marked_vector->ptrs()) {
-            m_free_list.force_allocate(marked_ptr);
-        }
-    }
-};
-
 class GcFrontEnd {
 private:
-    SizeClassAllocator m_sub_allocators[kSizeClassesCount];
+    ObjectAllocator m_sub_allocators[kSizeClassesCount];
     GcMiddleEnd* m_middle_end;
 
 public:
