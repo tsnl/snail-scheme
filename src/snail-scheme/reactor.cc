@@ -54,7 +54,7 @@ void Reactor::unpause_reactor(int max_thread_count) {
 
     APointer workers_heap = m_root_stack.reset_then_extract_all_bytes();
     size_t workers_heap_capacity_in_bytes = m_root_stack.capacity_byte_count() / thread_count;
-    size_t workers_heap_capacity_in_blocks = workers_heap_capacity_in_bytes / sizeof(Blk);
+    size_t workers_heap_capacity_in_blocks = workers_heap_capacity_in_bytes / sizeof(ABlk);
 
     assert(m_worker_pool.empty());
     m_worker_pool.reserve(thread_count);

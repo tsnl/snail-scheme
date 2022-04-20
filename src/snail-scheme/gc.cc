@@ -1,7 +1,7 @@
 #include "snail-scheme/gc.hh"
 
 #include "config/config.hh"
-#include "allocator.hh"
+#include "snail-scheme/allocator.hh"
 
 ///
 // Interface:
@@ -152,6 +152,7 @@ void GlobalObjectAllocator::return_items(APointer ptr, size_t item_count) {
 
     // TODO: check if this object free-list node contains a large enough contiguous
     //       span to extract one or more page-spans for return to the page-free-list.
+
 }
 
 ///
@@ -173,11 +174,59 @@ std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
 }
 
 void GcBackEnd::return_page_span(PageSpan page_span) {
-    m_page_free_list.return_memory(page_span.ptr, page_span.count);
+    m_page_free_list.return_items(page_span.ptr, page_span.count);
 }
 
 ///
 // Middle-end:
 //
+
+ObjectSpan GcMiddleEnd::allocate_object_span(SizeClassIndex sci) {
+    return m_global_object_allocators[sci].try_allocate_object_span();
+}
+
+///
+// Front-end:
+//
+
+APointer GcFrontEnd::allocate(SizeClassIndex sci) {
+    APointer res = m_sub_allocators[sci].try_allocate_object();
+    if (res) {
+        // allocation from cache successful
+        return res;
+    } else {
+        // cache depleted: acquire a new object-span from the middle-end
+        ObjectSpan objects = m_middle_end->allocate_object_span(sci);
+        m_sub_allocators[sci].return_object_span({objects.ptr, objects.count});
+
+        // now, allocation for one object must succeeed:
+        APointer res = m_sub_allocators[sci].try_allocate_object();
+        assert(res && "Expected allocation to succeed after adding objects from transfer-cache");
+        return res;
+    }
+}
+void GcFrontEnd::deallocate(APointer memory, SizeClassIndex sci) {
+    size_t const num_to_move = kSizeClasses[sci].num_to_move;
+    size_t const object_size = kSizeClasses[sci].size;
+    auto fl_it_pair = m_sub_allocators[sci].return_object_span_impl({memory, 1});
+    auto fl_node_pred = fl_it_pair.first;
+    auto fl_node = fl_it_pair.second;
+    if (fl_node->count >= num_to_move) {
+        // returning these free objects to the transfer cache.
+        // TODO: consider making these returns less aggressive.
+        size_t const rem_objects = fl_node->count % num_to_move;
+        size_t const returned_objects_count = (fl_node->count / num_to_move) * num_to_move;
+        size_t const returned_objects_size_in_bytes = returned_objects_count * object_size;
+        size_t const returned_objects_size_in_ablks = returned_objects_size_in_bytes / sizeof(ABlk);
+        APointer returned_objects_ptr = fl_node->ptr;
+        if (rem_objects) {
+            fl_node->count = rem_objects;
+            fl_node->ptr += returned_objects_size_in_ablks;
+        } else {
+            m_sub_allocators[sci].erase_object_free_list_node_after(fl_node_pred);
+        }
+        m_middle_end->return_object_span({returned_objects_ptr, returned_objects_count});
+    }
+}
 
 }   // namespace gc

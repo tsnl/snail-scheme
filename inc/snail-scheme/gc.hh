@@ -35,6 +35,10 @@ struct SizeClassInfo {
     
     // Number of pages to allocate at a time
     size_t pages;
+
+    // Number of objects to move between transfer-cache and per-thread frontend.
+    // Must be not-too-small to amortize lock-access-time.
+    size_t num_to_move;
 };
 
 #include "gc.size_class.inl"
@@ -107,8 +111,6 @@ class ObjectAllocator;
 
 // Each FreeList manages 'items' of fixed size.
 class GenericFreeList {
-    friend ObjectAllocator;
-
 public:
     using Iterator = std::forward_list<GenericSpan>::iterator;
 
@@ -130,6 +132,10 @@ public:
 
     void return_items(APointer ptr, size_t item_count) {
         return_items_impl(ptr, item_count);
+    }
+
+    void erase_after(GenericFreeList::Iterator it) {
+        m_free_span_list.erase_after(it);
     }
 };
 class PageFreeList: public GenericFreeList {
@@ -164,7 +170,23 @@ public:
 
 public:
     APointer try_allocate_object() { return m_object_free_list.try_allocate_items(1); }
-    void deallocate(APointer ptr) { m_object_free_list.return_items(ptr, 1); }
+    ObjectSpan try_allocate_object_span() { 
+        size_t const count = kSizeClasses[m_sci].num_to_move;
+        return {m_object_free_list.try_allocate_items(count), count}; 
+    }
+    void return_object_span(ObjectSpan span) { 
+        m_object_free_list.return_items(span.ptr, span.count); 
+    }
+    std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator>
+    return_object_span_impl(ObjectSpan span) {
+        return m_object_free_list.return_items_impl(span.ptr, span.count);
+    }
+    void return_object(APointer ptr) { 
+        m_object_free_list.return_items(ptr, 1); 
+    }
+    void erase_object_free_list_node_after(GenericFreeList::Iterator pred_it) {
+        m_object_free_list.erase_after(pred_it);
+    }
 
 public:
     void sweep(SingleSizeClassMarkedVector* marked_vector) {
@@ -201,7 +223,7 @@ public:
 
 ///
 // GC Middle-end: transfer-cache at PageSpan-level granularity
-// - maintains a pool of 'PageSpan's 
+// - maintains a pool of objects with a pool of backing PageSpans
 // - maintains one lock per-size-class
 //
 
@@ -213,7 +235,7 @@ protected:
     std::mutex m_mutex;
 
 public:
-    SizeClassPagesPool(SizeClassIndex sci);
+    GlobalObjectAllocator(SizeClassIndex sci);
 
 public:
     // NOTE: the number of pages in each page-span is determined by 
@@ -232,7 +254,7 @@ public:
 
 class GcMiddleEnd {
 private:
-    GlobalObjectAllocator m_object_allocators[kSizeClassesCount];
+    GlobalObjectAllocator m_global_object_allocators[kSizeClassesCount];
     GcBackEnd* m_backend;
     
 public:
@@ -240,10 +262,14 @@ public:
 
 public:
     void init(GcBackEnd* backend);
+
+public:
+    ObjectSpan allocate_object_span(SizeClassIndex sci);
+    void return_object_span(ObjectSpan span);
 };
 
 ///
-// GC Front-end:
+// GC Front-end: pool of objects acquired from transfer-cache.
 //
 
 class GcFrontEnd {

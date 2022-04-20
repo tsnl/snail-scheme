@@ -4,9 +4,9 @@
 
 // APointer = Aligned Pointer
 // ABlk = Aligned Block <=> sizeof(Aligned Block) == default alignment
-struct Blk { size_t _0; size_t _1; };
-static_assert(__STDCPP_DEFAULT_NEW_ALIGNMENT__ == sizeof(Blk));
-typedef Blk* APointer;
+struct ABlk { size_t _0; size_t _1; };
+static_assert(__STDCPP_DEFAULT_NEW_ALIGNMENT__ == sizeof(ABlk));
+typedef ABlk* APointer;
 
 constexpr inline size_t KILOBYTES(size_t num) { return num << 10; }
 constexpr inline size_t MEGABYTES(size_t num) { return KILOBYTES(num) << 10; }
