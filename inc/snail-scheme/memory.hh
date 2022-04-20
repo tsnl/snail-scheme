@@ -6,13 +6,7 @@
 #include <cassert>
 #include <cstdlib>
 
-constexpr inline size_t KILOBYTES(size_t num) { return num << 10; }
-constexpr inline size_t MEGABYTES(size_t num) { return KILOBYTES(num) << 10; }
-constexpr inline size_t GIGABYTES(size_t num) { return MEGABYTES(num) << 10; }
-constexpr inline size_t TERABYTES(size_t num) { return GIGABYTES(num) << 10; }
-
-using RootAllocCb = void*(*)(size_t size_in_bytes);
-using RootDeallocCb = void(*)(void* ptr);
+#include "allocator.hh"
 
 ///
 // StackAllocator: root of Reactor allocators
@@ -20,12 +14,12 @@ using RootDeallocCb = void(*)(void* ptr);
 
 class StackAllocator {
 protected:
-    uint8_t* m_mem;
+    APointer m_mem;
     size_t m_capacity_bytes;
     size_t m_occupied_bytes;
     
 public:
-    StackAllocator(uint8_t* mem, size_t capacity);
+    StackAllocator(APointer mem, size_t capacity_in_bytes);
     
 public:
     size_t capacity_byte_count() const { 
@@ -40,7 +34,16 @@ public:
         assert(occupied < capacity);
         return capacity - occupied;
     }
-    uint8_t* allocate_bytes(size_t byte_count) { 
+    APointer allocate_bytes(size_t byte_count) { 
+        // Rounding allocation up to the next aligned address:
+        byte_count = (
+            (byte_count % sizeof(APointer)) == 0 ?
+            byte_count :
+            ((byte_count / sizeof(APointer)) + 1) * sizeof(APointer)
+        );
+
+        // Allocating: if we only perform aligned allocations, then all
+        // returned pointers are aligned by default.
         if (byte_count <= remaining_byte_count()) {
             auto offset = m_occupied_bytes;
             auto res = m_mem + offset;
@@ -55,7 +58,7 @@ public:
     void reset() {
         m_occupied_bytes = 0;
     }
-    uint8_t* reset_then_extract_all_bytes() {
+    APointer reset_then_extract_all_bytes() {
         m_occupied_bytes = m_capacity_bytes;
         return m_mem;
     }

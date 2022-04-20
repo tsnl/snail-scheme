@@ -6,6 +6,11 @@
 // Size class info tables: (Bulky) 
 //
 
+static_assert(
+    __STDCPP_DEFAULT_NEW_ALIGNMENT__ == 16,
+    "Expected 64-bit target, with alignment 16 bytes"
+);
+
 #pragma region "SizeClassInfo tables"
 // clang-format off
 #if CONFIG_TCMALLOC_PAGE_SHIFT == 13

@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "config/config.hh"
+#include "memory.hh"
 
 // see `/doc/gc-design.md`
 // Largely based on TCMalloc, with mark-and-sweep support for the front-end.
@@ -63,7 +64,7 @@ constexpr SizeClassIndex sci(size_t size_in_bytes) {
 
 class SingleSizeClassMarkedVector {
 private:
-    std::vector<uint8_t*> m_marked_ptrs;
+    std::vector<APointer> m_marked_ptrs;
 
 public:
     SingleSizeClassMarkedVector()
@@ -72,11 +73,11 @@ public:
         m_marked_ptrs.reserve(1024);
     }
 
-    void mark(uint8_t* ptr) {
+    void mark(APointer ptr) {
         m_marked_ptrs.push_back(ptr);
     }
 
-    std::vector<uint8_t*>& ptrs() { return m_marked_ptrs; };
+    std::vector<APointer>& ptrs() { return m_marked_ptrs; };
 };
 
 class MarkedSet {
@@ -84,7 +85,7 @@ private:
     SingleSizeClassMarkedVector* m_per_sci_marked_table;
 
 public:
-    void mark(SizeClassIndex sci, uint8_t* ptr) {
+    void mark(SizeClassIndex sci, APointer ptr) {
         m_per_sci_marked_table[sci].mark(ptr);
     }
 };
@@ -95,8 +96,8 @@ public:
 //
 
 struct GenericSpan {
-    uint8_t* ptr;
-    size_t count;
+    APointer ptr;
+    size_t count;   // measures available bytes in multiple of free-list 'stride'
 };
 struct PageSpan: public GenericSpan {};
 struct ObjectSpan: public GenericSpan {};
@@ -105,21 +106,38 @@ struct ObjectSpan: public GenericSpan {};
 // FreeList
 //
 
-class FreeList {
+// Each FreeList manages 'items' of fixed size.
+class GenericFreeList {
 private:
     std::forward_list<GenericSpan> m_free_span_list;
-    size_t m_object_size_in_bytes;
+    size_t m_item_stride_in_ablks;
+
+protected:
+    GenericFreeList(size_t item_stride_in_bytes)
+    :   m_item_stride_in_ablks(item_stride_in_bytes >> 4) 
+    {
+        static_assert(__STDCPP_DEFAULT_NEW_ALIGNMENT__ == 16);
+    }
 
 public:
-    FreeList(SizeClassIndex sci);
-
-public:
-    uint8_t* try_allocate_object();
-    void free_object(uint8_t* ptr);
+    APointer try_allocate(size_t item_count);
+    void deallocate(APointer ptr, size_t item_count);
 
 public:
     void reset(std::vector<PageSpan>& pages);
-    uint8_t* force_allocate_object(uint8_t* ptr);
+    APointer force_allocate(APointer ptr, size_t item_count);
+};
+class PageFreeList: public GenericFreeList {
+public:
+    PageFreeList()
+    :   GenericFreeList(PAGE_SIZE_IN_BYTES)
+    {}
+};
+class ObjectFreeList: public GenericFreeList {
+public:
+    ObjectFreeList(gc::SizeClassIndex sci)
+    :   GenericFreeList(gc::kSizeClasses[sci].size)
+    {}
 };
 
 ///
@@ -134,11 +152,15 @@ public:
 class GcBackEnd {
 private:
     // pointer to and page-capacity of single contiguous region
-    uint8_t* m_single_contiguous_region;
+    APointer m_single_contiguous_region;
     size_t m_single_contiguous_region_page_capacity;
-    FreeList m_page_free_list;
+    PageFreeList m_page_free_list;
 public:
-    std::optional<PageSpan> try_allocate_page_span();
+    GcBackEnd() = default;
+public:
+    void init(size_t single_contiguous_region_page_capacity, APointer single_contiguous_region);
+public:
+    std::optional<PageSpan> try_allocate_page_span(size_t page_count);
     void deallocate_page_span(PageSpan page_span);
 };
 
@@ -151,7 +173,7 @@ public:
 class SizeClassPageSpanPool {
 private:
     std::forward_list<PageSpan> m_page_spans;
-    FreeList m_free_page_list;
+    PageFreeList m_free_page_list;
     std::mutex m_mutex;
 
 public:
@@ -164,7 +186,10 @@ private:
     GcBackEnd* m_backend;
     
 public:
-    explicit GcMiddleEnd(GcBackEnd* backend);
+    GcMiddleEnd();
+
+public:
+    void init(GcBackEnd* backend);
 };
 
 ///
@@ -173,36 +198,82 @@ public:
 
 class SizeClassAllocator {
 private:
-    FreeList m_free_list;
+    ObjectFreeList m_free_list;
     std::vector<PageSpan> m_pages;
 
 public:
     SizeClassAllocator(SizeClassIndex sci);
 
 public:
-    uint8_t* try_allocate_object() { return m_free_list.try_allocate_object(); }
-    void free_object(uint8_t* ptr) { m_free_list.free_object(ptr); }
+    APointer try_allocate_object() { return m_free_list.try_allocate(1); }
+    void deallocate(APointer ptr) { m_free_list.deallocate(ptr, 1); }
 
 public:
     void sweep(SingleSizeClassMarkedVector* marked_vector) {
         m_free_list.reset(m_pages);
         for (auto marked_ptr: marked_vector->ptrs()) {
-            m_free_list.force_allocate_object(marked_ptr);
+            m_free_list.force_allocate(marked_ptr);
         }
     }
 };
 
-class GcFrontend {
+class GcFrontEnd {
 private:
     SizeClassAllocator m_sub_allocators[kSizeClassesCount];
     GcMiddleEnd* m_middle_end;
 
 public:
-    uint8_t* allocate(SizeClassIndex sci);
-    void deallocate(uint8_t* memory, SizeClassIndex sci);
+    GcFrontEnd(GcMiddleEnd* middle_end);
+
+public:
+    APointer allocate(SizeClassIndex sci);
+    void deallocate(APointer memory, SizeClassIndex sci);
 
 public:
     void mark_and_sweep();
 };
 
 }   // namespace gc
+
+
+///
+// Interface:
+//
+
+class Gc {
+private:
+    gc::GcBackEnd m_gc_back_end;
+    gc::GcMiddleEnd m_gc_middle_end;
+
+public:
+    explicit Gc(APointer single_contiguous_region, size_t single_contiguous_region_size);
+
+public:
+    gc::GcBackEnd& back_end_impl() { return m_gc_back_end; }
+    gc::GcMiddleEnd& middle_end_impl() { return m_gc_middle_end; }
+};
+
+
+class GcThreadFrontEnd {
+private:
+    gc::GcFrontEnd m_impl;
+
+public:
+    GcThreadFrontEnd(Gc* gc);
+
+public:
+    APointer allocate_size_class(gc::SizeClassIndex sci) {
+        return m_impl.allocate(sci);
+    }
+    void deallocate_size_class(APointer ptr, gc::SizeClassIndex sci) {
+        m_impl.deallocate(ptr, sci);
+    }
+    
+public:
+    APointer allocate_bytes(size_t byte_count) { 
+        return allocate_size_class(gc::sci(byte_count)); 
+    }
+    void deallocate_bytes(APointer ptr, size_t byte_count) { 
+        deallocate_size_class(ptr, gc::sci(byte_count)); 
+    }
+};

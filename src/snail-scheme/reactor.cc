@@ -52,13 +52,17 @@ void Reactor::unpause_reactor(int max_thread_count) {
         std::min(available_thread_count, max_thread_count)
     );
 
-    uint8_t* workers_heap = m_root_stack.reset_then_extract_all_bytes();
-    size_t workers_heap_capacity = m_root_stack.capacity_byte_count() / thread_count;
+    APointer workers_heap = m_root_stack.reset_then_extract_all_bytes();
+    size_t workers_heap_capacity_in_bytes = m_root_stack.capacity_byte_count() / thread_count;
+    size_t workers_heap_capacity_in_blocks = workers_heap_capacity_in_bytes / sizeof(Blk);
 
     assert(m_worker_pool.empty());
     m_worker_pool.reserve(thread_count);
     for (int i = 0; i < thread_count; max_thread_count++) {
-        StackAllocator worker_stack{workers_heap + i*workers_heap_capacity, workers_heap_capacity};
+        StackAllocator worker_stack{
+            workers_heap + (i*workers_heap_capacity_in_blocks), 
+            workers_heap_capacity_in_bytes
+        };
         m_worker_pool.emplace_back(this, std::move(worker_stack));
     }
 }
