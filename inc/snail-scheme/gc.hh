@@ -5,6 +5,8 @@
 #include <forward_list>
 #include <cstdint>
 
+#include "config/config.hh"
+
 // see `/doc/gc-design.md`
 // Largely based on TCMalloc, with mark-and-sweep support for the front-end.
 // See: https://github.com/google/tcmalloc/blob/master/docs/design.md
@@ -12,7 +14,11 @@
 
 namespace gc {
 
-class SizeClassAllocator;
+///
+// Config:
+//
+
+inline constexpr size_t PAGE_SIZE_IN_BYTES = (1 << CONFIG_TCMALLOC_PAGE_SHIFT);
 
 ///
 // Size classes:
@@ -33,15 +39,23 @@ struct SizeClassInfo {
     size_t num_to_move;
 };
 
-extern const int kMaxSize;
-extern const int kSizeClassesCount;
-extern const SizeClassInfo kSizeClasses[];
+#include "gc.size_class.inl"
 
 inline bool is_oversized_sci(SizeClassIndex sci) {
     return sci == kSizeClassesCount;
 }
 
 const int OVERSIZED_SCI = kSizeClassesCount;
+
+constexpr SizeClassIndex sci(size_t size_in_bytes) {
+    // TODO: optimize this!
+    for (int i = 1; i <= kSizeClassesCount; i++) {
+        if (size_in_bytes <= kSizeClasses[i].size) {
+            return i;
+        }
+    }
+    return 0;
+}
 
 ///
 // MarkedSet
@@ -109,48 +123,52 @@ public:
 };
 
 ///
-// GC Back-end:
+// GC Back-end: pageheap: free-list of page-spans
+// Subdivides a single contiguous region into the required number of
+// page-spans lazily.
+// Single contiguous region is of fixed-size.
+// Allocations in this manner are prone to fragmentation, but at this
+// size (page-size), this is rarely an issue.
 //
 
 class GcBackEnd {
+private:
+    // pointer to and page-capacity of single contiguous region
+    uint8_t* m_single_contiguous_region;
+    size_t m_single_contiguous_region_page_capacity;
+    FreeList m_page_free_list;
 public:
-    void allocate_page();
+    std::optional<PageSpan> try_allocate_page_span();
+    void deallocate_page_span(PageSpan page_span);
 };
 
 ///
-// GC Middle-end:
+// GC Middle-end: transfer-cache at PageSpan-level granularity
+// - maintains a pool of 'PageSpan's 
+// - maintains one lock per-size-class
 //
+
+class SizeClassPageSpanPool {
+private:
+    std::forward_list<PageSpan> m_page_spans;
+    FreeList m_free_page_list;
+    std::mutex m_mutex;
+
+public:
+    SizeClassPageSpanPool();
+};
 
 class GcMiddleEnd {
 private:
-    FreeList m_free_page_list;
-    std::vector<PageSpan> m_page_spans;
-    std::mutex m_mutex;
+    SizeClassPageSpanPool m_size_class_page_span_pools[kSizeClassesCount];
     GcBackEnd* m_backend;
     
 public:
-
+    explicit GcMiddleEnd(GcBackEnd* backend);
 };
 
 ///
 // GC Front-end:
-//
-
-class GcFrontend {
-private:
-    SizeClassAllocator* m_sub_allocators;
-    GcMiddleEnd* m_middle_end;
-
-public:
-    uint8_t* allocate(SizeClassIndex sci);
-    void deallocate(uint8_t* memory, SizeClassIndex sci);
-
-public:
-    void mark_and_sweep();
-};
-
-///
-// GC Front-end: individual size-class allocator:
 //
 
 class SizeClassAllocator {
@@ -172,6 +190,19 @@ public:
             m_free_list.force_allocate_object(marked_ptr);
         }
     }
+};
+
+class GcFrontend {
+private:
+    SizeClassAllocator m_sub_allocators[kSizeClassesCount];
+    GcMiddleEnd* m_middle_end;
+
+public:
+    uint8_t* allocate(SizeClassIndex sci);
+    void deallocate(uint8_t* memory, SizeClassIndex sci);
+
+public:
+    void mark_and_sweep();
 };
 
 }   // namespace gc
