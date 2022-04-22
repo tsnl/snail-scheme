@@ -249,8 +249,11 @@ public:
     std::mutex& mutex() { return m_mutex; }
 private:
     size_t page_span_index(APtr ptr);
-    void retain_page_span(APtr ptr);
-    void release_page_span(APtr ptr);
+    void retain_single_page_span(APtr ptr);
+    void release_single_page_span(APtr ptr);
+    void retain_page_spans(APtr beg, APtr end);
+    void release_page_spans(APtr beg, APtr end);
+    void help_map_intersecting_page_spans(std::function<void(size_t)> cb, APtr beg, APtr end);
 public:
     void trim_unused_pages(GcMiddleEnd* middle_end);
 private:
@@ -352,10 +355,12 @@ public:
 public:
     void init(GcBackEnd* backend);
 public:
-    std::optional<ObjectSpan> allocate_object_span(SizeClassIndex sci);
+    std::optional<ObjectSpan> try_allocate_object_span(SizeClassIndex sci);
     void return_object_span(SizeClassIndex sci, ObjectSpan span);
 public:
     GcBackEnd* back_end() { return m_back_end; }
+public:
+    void trim_unused_pages();
 };
 
 ///
@@ -395,8 +400,6 @@ private:
 public:
     explicit Gc(APtr single_contiguous_region, size_t single_contiguous_region_size);
 public:
-    void global_collect();
-public:
     gc::GcBackEnd& back_end_impl() { return m_gc_back_end; }
     gc::GcMiddleEnd& middle_end_impl() { return m_gc_middle_end; }
 };
@@ -420,4 +423,6 @@ public:
     void deallocate_bytes(APtr ptr, size_t byte_count) { 
         deallocate_size_class(ptr, gc::sci(byte_count)); 
     }
+public:
+    void sweep(gc::MarkedSet& marked_set);
 };

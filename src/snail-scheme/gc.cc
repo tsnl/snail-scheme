@@ -13,6 +13,9 @@ Gc::Gc(APtr single_contiguous_region, size_t single_contiguous_region_size)
 :   m_gc_back_end(),
     m_gc_middle_end()
 {
+    // ensuring the base pointer is page-aligned
+    assert(reinterpret_cast<size_t>(single_contiguous_region) % gc::PAGE_SIZE_IN_BYTES == 0);
+
     m_gc_back_end.init(
         single_contiguous_region_size >> CONFIG_TCMALLOC_PAGE_SHIFT,
         single_contiguous_region
@@ -24,10 +27,9 @@ GcThreadFrontEnd::GcThreadFrontEnd(Gc* gc)
 :   m_impl(&gc->middle_end_impl())
 {}
 
-void Gc::global_collect() {
-    // NOTE: assume the mutator has been paused before 'collect' was invoked, will not start until after return.
+void GcThreadFrontEnd::sweep(gc::MarkedSet& marked_set) {
+    m_impl.sweep(marked_set);
 }
-
 
 ///
 // Implementation:
@@ -149,23 +151,22 @@ std::pair<GflIterator,GflIterator> GenericFreeList::return_items_impl(APtr ptr, 
     return {pred, self};
 }
 
-
 ///
-// ObjectAllocator:
+// ObjectAllocator, CentralObjectAllocator:
 //
 
 std::optional<ObjectSpan> CentralObjectAllocator::try_allocate_object_span() { 
     size_t const count = kSizeClasses[m_sci].num_to_move;
     APtr ptr = m_object_free_list.try_allocate_items(count);
     if (ptr) {
-        retain_page_span(ptr);
+        retain_page_spans(ptr, ptr + count*kSizeClasses[m_sci].size/sizeof(ABlk));
         return {{ptr, count}}; 
     } else {
         return {};
     }
 }
 std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator> CentralObjectAllocator::return_object_span(ObjectSpan span) {
-    release_page_span(span.ptr);
+    release_page_spans(span.ptr, span.ptr + span.count*kSizeClasses[m_sci].size/sizeof(ABlk));
     return m_object_free_list.return_items_impl(span.ptr, span.count);
 }
 void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
@@ -184,27 +185,38 @@ void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
     m_page_spans.insert(m_page_spans.begin() + insert_index, span);
     m_page_span_refcounts.insert(m_page_span_refcounts.begin() + insert_index, 0);
 }
-size_t CentralObjectAllocator::page_span_index(APtr ptr) {
-    size_t index;
-    for (index = 0; index < m_page_spans.size(); index++) {
-        PageSpan span = m_page_spans[index];
+void CentralObjectAllocator::retain_page_spans(APtr beg, APtr end) {
+    help_map_intersecting_page_spans(
+        [this] (size_t page_span_index) {
+            ++this->m_page_span_refcounts[page_span_index];
+        },
+        beg, end
+    );
+}
+void CentralObjectAllocator::release_page_spans(APtr beg, APtr end) {
+    help_map_intersecting_page_spans(
+        [this] (size_t page_span_index) {
+            --this->m_page_span_refcounts[page_span_index];
+        },
+        beg, end
+    );
+}
+void CentralObjectAllocator::help_map_intersecting_page_spans(std::function<void(size_t)> cb, APtr beg, APtr end) {
+    for (size_t i_page_span = 0; i_page_span < m_page_spans.size(); i_page_span++) {
+        PageSpan span = m_page_spans[i_page_span];
         APtr span_beg = span.ptr;
-        APtr span_end = span.ptr + span.count*PAGE_SIZE_IN_ABLKS;
-        if (span_beg <= ptr && ptr <= span_end) {
-            return index;
+        APtr span_end = span_beg + span.count * PAGE_SIZE_IN_ABLKS;
+        bool intersect = (
+            (beg <= span_beg && span_beg <= end) ||
+            (span_beg <= beg && beg <= span_end)
+        );
+        if (intersect) {
+            cb(i_page_span);
+        }
+        if (span_beg >= end) {
+            break;
         }
     }
-    // ERROR
-    std::stringstream ss;
-    ss  << "Could not locate PageSpan containing pointer: " << ptr << std::endl;
-    error(ss.str());
-    throw SsiError();
-}
-void CentralObjectAllocator::retain_page_span(APtr ptr) {
-    ++m_page_span_refcounts[page_span_index(ptr)];
-}
-void CentralObjectAllocator::release_page_span(APtr ptr) {
-    --m_page_span_refcounts[page_span_index(ptr)];
 }
 void CentralObjectAllocator::trim_unused_pages(GcMiddleEnd* middle_end) {
     std::lock_guard lg{m_mutex};
@@ -282,7 +294,6 @@ void CentralObjectAllocator::extract_page_span_from_object_free_list(
     }    
 }
 
-
 ///
 // PageMap
 //
@@ -310,18 +321,15 @@ void GcBackEnd::init(size_t single_contiguous_region_page_capacity, APtr single_
     // initializing the page free list:
     return_page_span({m_single_contiguous_region_beg, m_single_contiguous_region_page_capacity});
 }
-
 std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
     std::lock_guard lg{m_mutex};
     auto res_ptr = m_page_free_list.try_allocate_items(page_count);
     if (res_ptr) {
-        // TODO: update page-map, indicating these pages now belong to the middle-end
         return {PageSpan{res_ptr, page_count}};
     } else {
         return {};
     }
 }
-
 void GcBackEnd::return_page_span(PageSpan page_span) {
     std::lock_guard lg{m_mutex};
     m_page_free_list.return_items(page_span.ptr, page_span.count);
@@ -337,7 +345,7 @@ void GcMiddleEnd::init(GcBackEnd* backend) {
         m_central_object_allocators[sci].init(sci);
     }
 }
-std::optional<ObjectSpan> GcMiddleEnd::allocate_object_span(SizeClassIndex sci) {
+std::optional<ObjectSpan> GcMiddleEnd::try_allocate_object_span(SizeClassIndex sci) {
     std::lock_guard lg{m_central_object_allocators[sci].mutex()};
 
     // trying to satisfy allocation using existing page-span:
@@ -365,6 +373,11 @@ std::optional<ObjectSpan> GcMiddleEnd::allocate_object_span(SizeClassIndex sci) 
 void GcMiddleEnd::return_object_span(SizeClassIndex sci, ObjectSpan span) {
     m_central_object_allocators[sci].return_object_span(span);
 }
+void GcMiddleEnd::trim_unused_pages() {
+    for (SizeClassIndex sci = 1; sci < kSizeClassesCount; sci++) {
+        m_central_object_allocators[sci].trim_unused_pages(this);
+    }
+}
 
 ///
 // Front-end:
@@ -377,7 +390,7 @@ APtr GcFrontEnd::allocate(SizeClassIndex sci) {
         return res;
     } else {
         // cache depleted: try to acquire a new object-span from the global middle-end
-        auto opt_object_span = m_middle_end->allocate_object_span(sci);
+        auto opt_object_span = m_middle_end->try_allocate_object_span(sci);
         if (opt_object_span.has_value()) {
             // adding the object-span to the free-list:
             ObjectSpan objects = opt_object_span.value();
@@ -406,7 +419,7 @@ void GcFrontEnd::deallocate(APtr memory, SizeClassIndex sci) {
     try_return_free_list_node_to_middle_end(sci, fl_node_pred, fl_node);
 }
 void GcFrontEnd::sweep(MarkedSet& marked_set) {
-    // clearing each free-list: we re-insert each live allocation
+    // clearing each free-list: we re-insert each live allocation later...
     for (SizeClassIndex sci = 1; sci < kSizeClassesCount; sci++) {
         m_sub_allocators[sci].clear();
     }
@@ -417,7 +430,7 @@ void GcFrontEnd::sweep(MarkedSet& marked_set) {
         m_sub_allocators[mark.sci].return_object(mark.ptr);
     }
     
-    // scan each node in object free-list, evict objects to middle-end
+    // scan each node in each object free-list, evict free objects to middle-end
     for (SizeClassIndex sci = 1; sci < kSizeClassesCount; sci++) {
         ObjectFreeList& fl = m_sub_allocators[sci].object_free_list();
         ObjectFreeList::Iterator pred = fl.before_begin();
@@ -436,6 +449,7 @@ void GcFrontEnd::sweep(MarkedSet& marked_set) {
 
     // ask middle-end to trim unused pages, returning them to back-end
     // for subsequent allocations
+    m_middle_end->trim_unused_pages();
 }
 void GcFrontEnd::try_return_free_list_node_to_middle_end(
     SizeClassIndex sci,
@@ -460,6 +474,8 @@ void GcFrontEnd::try_return_free_list_node_to_middle_end(
             // free-list node capacity becomes 0: delete it
             m_sub_allocators[sci].object_free_list().erase_after(fl_node_pred);
         }
+
+        // locking middle-end CentralObjectAllocator for this size-class to return object span:
         m_middle_end->return_object_span(sci, {returned_objects_ptr, returned_objects_count});
     }
 }
