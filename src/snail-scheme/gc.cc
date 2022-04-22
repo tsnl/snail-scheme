@@ -384,6 +384,10 @@ void GcMiddleEnd::trim_unused_pages() {
 //
 
 APtr GcFrontEnd::allocate(SizeClassIndex sci) {
+    if (sci == 0) {
+        error("NotImplemented: support for huge allocations");
+        throw SsiError();
+    }
     APtr res = m_sub_allocators[sci].try_allocate_object();
     if (res) {
         // allocation from cache successful
