@@ -78,13 +78,35 @@ inline bool is_oversized_sci(SizeClassIndex sci) {
 const int OVERSIZED_SCI = kSizeClassesCount;
 
 constexpr SizeClassIndex sci(size_t size_in_bytes) {
-    // TODO: optimize this!
+#define USE_NAIVE_LOOKUP 0
+#if USE_NAIVE_LOOKUP
     for (int i = 1; i < kSizeClassesCount; i++) {
         if (size_in_bytes <= kSizeClasses[i].size) {
             return i;
         }
     }
-    return 0;
+    return 0;   // unknown size-class
+#else
+    if (size_in_bytes > kMaxSize) {
+        return 0;
+    }
+    // According to Wikipedia, using procedure to find the
+    // left-most element: this performs 'rounding up'
+    // https://en.wikipedia.org/wiki/Binary_search_algorithm#Procedure_for_finding_the_leftmost_element
+    // NOTE: 'r' should be 'n' with 'l' '0' where 'n' is array length
+    int l = 1;
+    int r = kSizeClassesCount;
+    while (l < r) {
+        int m = (l + r) / 2;    // overflow-safe since size-classes are small
+        if (kSizeClasses[m].size < size_in_bytes) {
+            l = m + 1;
+        } else {
+            r = m;
+        }
+    }
+    return l;
+#endif
+#undef USE_NAIVE_LOOKUP
 }
 
 ///
