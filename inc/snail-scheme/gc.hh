@@ -2,12 +2,15 @@
 
 #include <vector>
 #include <mutex>
+#include <queue>
 #include <forward_list>
+#include <functional>
 #include <algorithm>
 #include <cstdint>
 
 #include "config/config.hh"
 #include "memory.hh"
+#include "object.hh"
 
 // see `/doc/gc-design.md`
 // Largely based on TCMalloc, with mark-and-sweep support for the front-end
@@ -17,14 +20,39 @@
 
 namespace gc {
 
+class GcBackEnd;
+class GcMiddleEnd;
+class GcFrontEnd;
+
+struct SizeClassInfo;
+
+struct GenericSpan;
+struct ObjectSpan;
+struct PageSpan;
+
+class GenericFreeList;
+class ObjectFreeList;
+class PageFreeList;
+
+class ObjectAllocator;
+class CentralObjectAllocator;
+
+class MarkedSet;
+struct MarkedPtr;
+
 ///
+//
 // Config:
+//
 //
 
 inline constexpr size_t PAGE_SIZE_IN_BYTES = (1 << CONFIG_TCMALLOC_PAGE_SHIFT);
+inline constexpr size_t PAGE_SIZE_IN_ABLKS = PAGE_SIZE_IN_BYTES / sizeof(ABlk);
 
 ///
+//
 // Size classes:
+//
 //
 
 using SizeClassIndex = int8_t;
@@ -51,7 +79,7 @@ const int OVERSIZED_SCI = kSizeClassesCount;
 
 constexpr SizeClassIndex sci(size_t size_in_bytes) {
     // TODO: optimize this!
-    for (int i = 1; i <= kSizeClassesCount; i++) {
+    for (int i = 1; i < kSizeClassesCount; i++) {
         if (size_in_bytes <= kSizeClasses[i].size) {
             return i;
         }
@@ -60,51 +88,62 @@ constexpr SizeClassIndex sci(size_t size_in_bytes) {
 }
 
 ///
+//
 // MarkedSet
 //
+//
 
-class SingleSizeClassMarkedVector {
-private:
-    std::vector<APointer> m_marked_ptrs;
-
-public:
-    SingleSizeClassMarkedVector()
-    :   m_marked_ptrs()
+template <typename T, size_t reserved_size=512>
+struct reserved_vector: public std::vector<T> {
+    reserved_vector()
+    :   std::vector<T>() 
     {
-        m_marked_ptrs.reserve(1024);
+        std::vector<T>::reserve(reserved_size);
     }
-
-    void mark(APointer ptr) {
-        m_marked_ptrs.push_back(ptr);
-    }
-
-    std::vector<APointer>& ptrs() { return m_marked_ptrs; };
 };
+
+struct MarkedPtr {
+    APtr ptr;
+    SizeClassIndex sci;
+};
+inline bool operator>(MarkedPtr const& lt, MarkedPtr const& rt) {
+    return lt.ptr > rt.ptr;
+}
 
 class MarkedSet {
 private:
-    SingleSizeClassMarkedVector* m_per_sci_marked_table;
-
+    std::priority_queue< MarkedPtr, reserved_vector<MarkedPtr>, std::greater<MarkedPtr> > m_ptr_max_heap;
 public:
-    void mark(SizeClassIndex sci, APointer ptr) {
-        m_per_sci_marked_table[sci].mark(ptr);
+    void mark(SizeClassIndex sci, APtr ptr) {
+        m_ptr_max_heap.emplace(ptr, sci);
+    }
+    bool empty() {
+        return m_ptr_max_heap.empty();
+    }
+    MarkedPtr pop_max() {
+        MarkedPtr top = m_ptr_max_heap.top();
+        m_ptr_max_heap.pop();
+        return top;
     }
 };
 
-
 ///
+//
 // Span
+//
 //
 
 struct GenericSpan {
-    APointer ptr;
+    APtr ptr;
     size_t count;   // measures available bytes in multiple of free-list 'stride'
 };
 struct PageSpan: public GenericSpan {};
 struct ObjectSpan: public GenericSpan {};
 
 ///
+//
 // FreeList
+//
 //
 
 class ObjectAllocator;
@@ -114,41 +153,47 @@ class GenericFreeList {
 public:
     using Iterator = std::forward_list<GenericSpan>::iterator;
 
-private:
+protected:
     std::forward_list<GenericSpan> m_free_span_list;
     size_t m_item_stride_in_ablks;
-
 protected:
-    GenericFreeList(size_t item_stride_in_bytes)
-    :   m_item_stride_in_ablks(item_stride_in_bytes >> 4) 
-    {
-        static_assert(__STDCPP_DEFAULT_NEW_ALIGNMENT__ == 16);
-    }
-
+    GenericFreeList() = default;
+    void init(size_t item_stride_in_bytes);
 public:
-    APointer try_allocate_items(size_t item_count);
-    std::pair<Iterator,Iterator> return_items_impl(APointer ptr, size_t item_count);
-    void clear();
-
-    void return_items(APointer ptr, size_t item_count) {
-        return_items_impl(ptr, item_count);
-    }
-
+    APtr try_allocate_items(size_t item_count);
+    std::pair<Iterator,Iterator> return_items_impl(APtr ptr, size_t item_count);
+public:
+    void return_items(APtr ptr, size_t item_count) { return_items_impl(ptr, item_count); }
+public:
+    void clear() { m_free_span_list.clear(); }
+    Iterator before_begin() { return m_free_span_list.before_begin(); }
+    Iterator begin() { return m_free_span_list.begin(); }
+    Iterator end() { return m_free_span_list.end(); }
     void erase_after(GenericFreeList::Iterator it) {
         m_free_span_list.erase_after(it);
+    }
+    void insert_after(GenericFreeList::Iterator it, GenericSpan span) {
+        m_free_span_list.insert_after(it, span);
     }
 };
 class PageFreeList: public GenericFreeList {
 public:
-    PageFreeList()
-    :   GenericFreeList(PAGE_SIZE_IN_BYTES)
-    {}
+    PageFreeList() = default;
+public:
+    void init() {
+        GenericFreeList::init(PAGE_SIZE_IN_BYTES);
+    }
 };
 class ObjectFreeList: public GenericFreeList {
 public:
-    ObjectFreeList(gc::SizeClassIndex sci)
-    :   GenericFreeList(gc::kSizeClasses[sci].size)
-    {}
+    ObjectFreeList() = default;   
+public:
+    void init(SizeClassIndex sci) {
+        GenericFreeList::init(gc::kSizeClasses[sci].size);
+    }
+    size_t object_size_in_ablks() const { 
+        return m_item_stride_in_ablks;
+    }
 };
 
 ///
@@ -157,68 +202,139 @@ public:
 // - used by ThreadCache
 //
 
-class ObjectAllocator {
+class BaseObjectAllocator {
 protected:
     ObjectFreeList m_object_free_list;
     SizeClassIndex m_sci;
-
+protected:
+    BaseObjectAllocator() = default;
 public:
-    ObjectAllocator(SizeClassIndex sci)
-    :   m_object_free_list(sci),
-        m_sci(sci)
-    {}
-
+    void init(SizeClassIndex sci);
 public:
-    APointer try_allocate_object() { return m_object_free_list.try_allocate_items(1); }
-    ObjectSpan try_allocate_object_span() { 
-        size_t const count = kSizeClasses[m_sci].num_to_move;
-        return {m_object_free_list.try_allocate_items(count), count}; 
+    void clear() { m_object_free_list.clear(); }
+    ObjectFreeList& object_free_list() { return m_object_free_list; }
+};
+
+class FrontEndObjectAllocator: public BaseObjectAllocator {
+public:
+    APtr try_allocate_object() {
+        return m_object_free_list.try_allocate_items(1);
     }
-    void return_object_span(ObjectSpan span) { 
-        m_object_free_list.return_items(span.ptr, span.count); 
+    void return_object(APtr ptr) { 
+        m_object_free_list.return_items(ptr, 1);
     }
-    std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator>
-    return_object_span_impl(ObjectSpan span) {
+    std::pair<
+        ObjectFreeList::Iterator, 
+        ObjectFreeList::Iterator
+    > return_object_span(ObjectSpan span) {
         return m_object_free_list.return_items_impl(span.ptr, span.count);
-    }
-    void return_object(APointer ptr) { 
-        m_object_free_list.return_items(ptr, 1); 
-    }
-    void erase_object_free_list_node_after(GenericFreeList::Iterator pred_it) {
-        m_object_free_list.erase_after(pred_it);
-    }
-
-public:
-    void sweep(SingleSizeClassMarkedVector* marked_vector) {
-        m_object_free_list.clear();
-        for (auto marked_ptr: marked_vector->ptrs()) {
-            m_object_free_list.return_items(marked_ptr, 1);
-        }
     }
 };
 
+class CentralObjectAllocator: public BaseObjectAllocator {
+protected:
+    size_t const MAX_PAGESPANS_PER_SIZE_CLASS = 8192;
+
+protected:
+    std::vector<PageSpan> m_page_spans;
+    std::vector<size_t> m_page_span_refcounts;
+    std::mutex m_mutex;
+public:
+    CentralObjectAllocator() = default;
+public:
+    std::optional<ObjectSpan> try_allocate_object_span();
+    std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator> return_object_span(ObjectSpan span);
+    void add_page_span_to_pool(PageSpan span);
+public:
+    std::mutex& mutex() { return m_mutex; }
+private:
+    size_t page_span_index(APtr ptr);
+    void retain_page_span(APtr ptr);
+    void release_page_span(APtr ptr);
+public:
+    void trim_unused_pages(GcMiddleEnd* middle_end);
+private:
+    void extract_page_span_from_object_free_list(PageSpan extract_page_span, GcBackEnd* back_end);
+};
+
+///
+// PageMap
+// - maps pointers to page-index
+// - maps page-index to...
+//   - which front-end currently holds this page (0..N-1), else middle-end (-1) or back-end (-2)
+//   - current size-class (else 0)
+//   - index into a span [of pages], else -ve value
+// - allows us to query the page => size-class, span, and owner (back-end, middle-end, front-end(i)) of any pointer
+//
+
+#if 0       // not in use
+using PageIndex = int64_t;
+
+struct PageInfo {
+    int32_t owner;
+    int16_t size_class;
+    int16_t span_index;
+};
+
+class PageMap {
+private:
+    size_t m_beg_aptr_address;
+    size_t m_end_aptr_address;
+    std::vector<PageInfo> m_page_table;
+public:
+    explicit PageMap();
+    void init(GcBackEnd* back_end);
+private:
+    PageIndex page_index(APtr ptr) {
+        size_t ptr_address = reinterpret_cast<size_t>(ptr);
+        assert(m_beg_aptr_address <= ptr_address && ptr_address <= m_end_aptr_address);
+        size_t ablk_offset = ptr_address - m_beg_aptr_address;
+        size_t byte_offset = ablk_offset * sizeof(ABlk);
+        assert(byte_offset % PAGE_SIZE_IN_BYTES == 0);
+        size_t page_offset = byte_offset >> CONFIG_TCMALLOC_PAGE_SHIFT;
+        return page_offset;
+    }
+public:
+    PageInfo& page_info(PageIndex index) {
+        return m_page_table[index];
+    }
+    PageInfo& page_info(APtr ptr) {
+        return page_info(page_index(ptr));
+    }
+};
+#endif
+
 ///
 // GC Back-end: pageheap: free-list of page-spans
-// Subdivides a single contiguous region into the required number of
-// page-spans lazily.
-// Single contiguous region is of fixed-size.
-// Allocations in this manner are prone to fragmentation, but at this
-// size (page-size), this is rarely an issue.
+// - Subdivides a single contiguous region into the required number of
+//   page-spans lazily.
+//   Single contiguous region is of fixed-size.
+//   Allocations in this manner are prone to fragmentation, but at this
+//   size (page-size), this is rarely an issue.
+// - maintains page-map
 //
 
 class GcBackEnd {
 private:
     // pointer to and page-capacity of single contiguous region
-    APointer m_single_contiguous_region;
+    APtr m_single_contiguous_region_beg;
+    APtr m_single_contiguous_region_end;
     size_t m_single_contiguous_region_page_capacity;
     PageFreeList m_page_free_list;
+    std::mutex m_mutex;
+    // PageMap m_page_map;
 public:
     GcBackEnd() = default;
 public:
-    void init(size_t single_contiguous_region_page_capacity, APointer single_contiguous_region);
+    void init(size_t single_contiguous_region_page_capacity, APtr single_contiguous_region);
 public:
     std::optional<PageSpan> try_allocate_page_span(size_t page_count);
     void return_page_span(PageSpan page_span);
+public:
+    size_t total_page_count() { return m_single_contiguous_region_page_capacity; }
+    // PageMap& page_map() { return m_page_map; }
+    APtr total_pages_beg_address() { return m_single_contiguous_region_beg; }
+    APtr total_pages_end_address() { return m_single_contiguous_region_end; }
 };
 
 ///
@@ -227,45 +343,19 @@ public:
 // - maintains one lock per-size-class
 //
 
-size_t const MAX_PAGESPANS_PER_SIZE_CLASS = 8192;
-
-class GlobalObjectAllocator: public ObjectAllocator {
-protected:
-    PageFreeList m_free_page_list;
-    std::mutex m_mutex;
-
-public:
-    GlobalObjectAllocator(SizeClassIndex sci);
-
-public:
-    // NOTE: the number of pages in each page-span is determined by 
-    // gc::kSizeClasses[m_sci].pages
-    void add_page_span_to_pool(PageSpan span) {
-        std::lock_guard lg{m_mutex};
-        assert(span.count == kSizeClasses[m_sci].pages);
-        m_free_page_list.return_items(span.ptr, span.count);
-    }
-    
-    void collect_free_pages();
-
-public:
-    void return_items(APointer ptr, size_t item_count);
-};
-
 class GcMiddleEnd {
 private:
-    GlobalObjectAllocator m_global_object_allocators[kSizeClassesCount];
-    GcBackEnd* m_backend;
-    
+    CentralObjectAllocator m_central_object_allocators[kSizeClassesCount];
+    GcBackEnd* m_back_end;
 public:
-    GcMiddleEnd();
-
+    GcMiddleEnd() = default;
 public:
     void init(GcBackEnd* backend);
-
 public:
-    ObjectSpan allocate_object_span(SizeClassIndex sci);
-    void return_object_span(ObjectSpan span);
+    std::optional<ObjectSpan> allocate_object_span(SizeClassIndex sci);
+    void return_object_span(SizeClassIndex sci, ObjectSpan span);
+public:
+    GcBackEnd* back_end() { return m_back_end; }
 };
 
 ///
@@ -274,61 +364,60 @@ public:
 
 class GcFrontEnd {
 private:
-    ObjectAllocator m_sub_allocators[kSizeClassesCount];
+    FrontEndObjectAllocator m_sub_allocators[kSizeClassesCount];
     GcMiddleEnd* m_middle_end;
-
 public:
     GcFrontEnd(GcMiddleEnd* middle_end);
-
 public:
-    APointer allocate(SizeClassIndex sci);
-    void deallocate(APointer memory, SizeClassIndex sci);
-
+    APtr allocate(SizeClassIndex sci);
+    void deallocate(APtr memory, SizeClassIndex sci);
 public:
-    void mark_and_sweep();
+    void sweep(MarkedSet& marked_set);
+private:
+    void try_return_free_list_node_to_middle_end(
+        SizeClassIndex fl_sci,
+        ObjectFreeList::Iterator fl_node_pred, ObjectFreeList::Iterator fl_node
+    );
 };
 
 }   // namespace gc
 
-
 ///
+//
 // Interface:
+//
 //
 
 class Gc {
 private:
     gc::GcBackEnd m_gc_back_end;
     gc::GcMiddleEnd m_gc_middle_end;
-
 public:
-    explicit Gc(APointer single_contiguous_region, size_t single_contiguous_region_size);
-
+    explicit Gc(APtr single_contiguous_region, size_t single_contiguous_region_size);
+public:
+    void global_collect();
 public:
     gc::GcBackEnd& back_end_impl() { return m_gc_back_end; }
     gc::GcMiddleEnd& middle_end_impl() { return m_gc_middle_end; }
 };
 
-
 class GcThreadFrontEnd {
 private:
     gc::GcFrontEnd m_impl;
-
 public:
     GcThreadFrontEnd(Gc* gc);
-
 public:
-    APointer allocate_size_class(gc::SizeClassIndex sci) {
+    APtr allocate_size_class(gc::SizeClassIndex sci) {
         return m_impl.allocate(sci);
     }
-    void deallocate_size_class(APointer ptr, gc::SizeClassIndex sci) {
+    void deallocate_size_class(APtr ptr, gc::SizeClassIndex sci) {
         m_impl.deallocate(ptr, sci);
     }
-    
 public:
-    APointer allocate_bytes(size_t byte_count) { 
+    APtr allocate_bytes(size_t byte_count) { 
         return allocate_size_class(gc::sci(byte_count)); 
     }
-    void deallocate_bytes(APointer ptr, size_t byte_count) { 
+    void deallocate_bytes(APtr ptr, size_t byte_count) { 
         deallocate_size_class(ptr, gc::sci(byte_count)); 
     }
 };

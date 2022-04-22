@@ -14,12 +14,12 @@
 
 class StackAllocator {
 protected:
-    APointer m_mem;
+    APtr m_mem;
     size_t m_capacity_bytes;
     size_t m_occupied_bytes;
     
 public:
-    StackAllocator(APointer mem, size_t capacity_in_bytes);
+    StackAllocator(APtr mem, size_t capacity_in_bytes);
     
 public:
     size_t capacity_byte_count() const { 
@@ -34,12 +34,12 @@ public:
         assert(occupied < capacity);
         return capacity - occupied;
     }
-    APointer allocate_bytes(size_t byte_count) { 
+    APtr allocate_bytes(size_t byte_count) { 
         // Rounding allocation up to the next aligned address:
         byte_count = (
-            (byte_count % sizeof(APointer)) == 0 ?
+            (byte_count % sizeof(APtr)) == 0 ?
             byte_count :
-            ((byte_count / sizeof(APointer)) + 1) * sizeof(APointer)
+            ((byte_count / sizeof(APtr)) + 1) * sizeof(APtr)
         );
 
         // Allocating: if we only perform aligned allocations, then all
@@ -58,7 +58,7 @@ public:
     void reset() {
         m_occupied_bytes = 0;
     }
-    APointer reset_then_extract_all_bytes() {
+    APtr reset_then_extract_all_bytes() {
         m_occupied_bytes = m_capacity_bytes;
         return m_mem;
     }
