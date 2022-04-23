@@ -50,6 +50,11 @@ Many features to implement!
 
     -   The reactor is more of an accelerator than a primary workhorse.
     
+        It can be used by standard libraries.
+
+        E.g. windowing and 3D game engine can both use the reactor as a generic
+        event pump and job manager.
+    
 3.  ACCELERATORS, DISTRIBUTED COMPUTING
 
     -   Key feature: ability to generate different code. <br/>
@@ -63,4 +68,4 @@ Many features to implement!
         -   Since channels are nominal...
             -   can emulate Pi calculus and use same code with 'channel' interface
             -   can replicate environment on all distributed nodes so code can be 
-                exchanged and run
+                exchanged and run (cf `delay` and `force`)

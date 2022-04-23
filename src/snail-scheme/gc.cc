@@ -1,5 +1,6 @@
 #include "snail-scheme/gc.hh"
 
+#include <iostream>
 #include <sstream>
 #include "config/config.hh"
 #include "snail-scheme/allocator.hh"
@@ -14,7 +15,13 @@ Gc::Gc(APtr single_contiguous_region, size_t single_contiguous_region_size)
     m_gc_middle_end()
 {
     // ensuring the base pointer is page-aligned
-    assert(reinterpret_cast<size_t>(single_contiguous_region) % gc::PAGE_SIZE_IN_BYTES == 0);
+    size_t bytes_after_page_start = reinterpret_cast<size_t>(single_contiguous_region) % gc::PAGE_SIZE_IN_BYTES;
+    if (bytes_after_page_start > 0) {
+        size_t wasted_starting_byte_count = gc::PAGE_SIZE_IN_BYTES - bytes_after_page_start;
+        assert(wasted_starting_byte_count % sizeof(ABlk) == 0);
+        single_contiguous_region += wasted_starting_byte_count / sizeof(ABlk);
+        single_contiguous_region_size -= wasted_starting_byte_count;
+    }
 
     m_gc_back_end.init(
         single_contiguous_region_size >> CONFIG_TCMALLOC_PAGE_SHIFT,
@@ -24,8 +31,10 @@ Gc::Gc(APtr single_contiguous_region, size_t single_contiguous_region_size)
 }
 
 GcThreadFrontEnd::GcThreadFrontEnd(Gc* gc)
-:   m_impl(&gc->middle_end_impl())
-{}
+:   m_impl()
+{
+    m_impl.init(&gc->middle_end_impl());
+}
 
 void GcThreadFrontEnd::sweep(gc::MarkedSet& marked_set) {
     m_impl.sweep(marked_set);
@@ -144,9 +153,9 @@ std::pair<GflIterator,GflIterator> GenericFreeList::return_items_impl(APtr ptr, 
 
     // iff we reach the end of this free-list and could not satisfy this
     // deallocation, even by extending the last free-list node, we append
-    // a new node, exploiting the fact that 'self' points at the 'back()'
-    // node.
-    GflIterator back = self;
+    // a new node, exploiting the fact that 'pred' points at the 'back()'
+    // node (since 'self' points at end())
+    GflIterator back = pred;
     m_free_span_list.insert_after(back, {free_beg, item_count});
     return {pred, self};
 }
@@ -154,6 +163,11 @@ std::pair<GflIterator,GflIterator> GenericFreeList::return_items_impl(APtr ptr, 
 ///
 // ObjectAllocator, CentralObjectAllocator:
 //
+
+void BaseObjectAllocator::init(SizeClassIndex sci) {
+    m_sci = sci;
+    m_object_free_list.init(sci);
+}
 
 std::optional<ObjectSpan> CentralObjectAllocator::try_allocate_object_span() { 
     size_t const count = kSizeClasses[m_sci].num_to_move;
@@ -170,8 +184,10 @@ std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator> CentralObjectAll
     return m_object_free_list.return_items_impl(span.ptr, span.count);
 }
 void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
+#if !GC_SINGLE_THREADED_MODE
     std::lock_guard lg{m_mutex};
-    
+#endif    
+
     // NOTE: the number of pages in each page-span is determined kSizeClasses
     assert(span.count == kSizeClasses[m_sci].pages);
     
@@ -184,6 +200,13 @@ void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
     }
     m_page_spans.insert(m_page_spans.begin() + insert_index, span);
     m_page_span_refcounts.insert(m_page_span_refcounts.begin() + insert_index, 0);
+
+    // adding objects to the free-list:
+    size_t span_page_count = span.count;
+    size_t span_pages_size_in_bytes = span_page_count * PAGE_SIZE_IN_BYTES;
+    size_t num_objects = span_pages_size_in_bytes / kSizeClasses[m_sci].size;
+    assert(span_pages_size_in_bytes % kSizeClasses[m_sci].size == 0);
+    m_object_free_list.return_items(span.ptr, num_objects);
 }
 void CentralObjectAllocator::retain_page_spans(APtr beg, APtr end) {
     help_map_intersecting_page_spans(
@@ -219,7 +242,9 @@ void CentralObjectAllocator::help_map_intersecting_page_spans(std::function<void
     }
 }
 void CentralObjectAllocator::trim_unused_pages(GcMiddleEnd* middle_end) {
+#if !GC_SINGLE_THREADED_MODE
     std::lock_guard lg{m_mutex};
+#endif
     assert(m_page_span_refcounts.size() == m_page_spans.size());
     
     size_t page_span_index = 0;
@@ -322,7 +347,9 @@ void GcBackEnd::init(size_t single_contiguous_region_page_capacity, APtr single_
     return_page_span({m_single_contiguous_region_beg, m_single_contiguous_region_page_capacity});
 }
 std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
+#if !GC_SINGLE_THREADED_MODE
     std::lock_guard lg{m_mutex};
+#endif
     auto res_ptr = m_page_free_list.try_allocate_items(page_count);
     if (res_ptr) {
         return {PageSpan{res_ptr, page_count}};
@@ -331,7 +358,9 @@ std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
     }
 }
 void GcBackEnd::return_page_span(PageSpan page_span) {
+#if !GC_SINGLE_THREADED_MODE
     std::lock_guard lg{m_mutex};
+#endif
     m_page_free_list.return_items(page_span.ptr, page_span.count);
 }
 
@@ -346,7 +375,9 @@ void GcMiddleEnd::init(GcBackEnd* backend) {
     }
 }
 std::optional<ObjectSpan> GcMiddleEnd::try_allocate_object_span(SizeClassIndex sci) {
+#if !GC_SINGLE_THREADED_MODE
     std::lock_guard lg{m_central_object_allocators[sci].mutex()};
+#endif
 
     // trying to satisfy allocation using existing page-span:
     auto opt_object_span = m_central_object_allocators[sci].try_allocate_object_span();
@@ -383,6 +414,13 @@ void GcMiddleEnd::trim_unused_pages() {
 // Front-end:
 //
 
+void GcFrontEnd::init(GcMiddleEnd* middle_end) {
+    m_middle_end = middle_end;
+    for (SizeClassIndex sci = 1; sci < kSizeClassesCount; sci++) {
+        m_sub_allocators[sci].init(sci);
+    }
+}
+
 APtr GcFrontEnd::allocate(SizeClassIndex sci) {
     if (sci == 0) {
         error("NotImplemented: support for huge allocations");
@@ -403,6 +441,12 @@ APtr GcFrontEnd::allocate(SizeClassIndex sci) {
             // now, allocation for one object must succeeed:
             APtr res = m_sub_allocators[sci].try_allocate_object();
             assert(res && "Expected allocation to succeed after adding objects from transfer-cache");
+            
+            // DEBUG:
+            {
+                std::cerr << "INFO: GC.F: allocated " << res << " for sci=" << (int)sci << " with size=" << kSizeClasses[sci].size << std::endl;
+            }
+
             return res;
         } else {
             std::stringstream ss;

@@ -5,22 +5,42 @@
 #include <exception>
 
 #include "snail-scheme/printing.hh"
+#include "snail-scheme/gc.hh"
+
+///
+// OBJECT::*
+//
 
 OBJECT OBJECT::s_boolean_t{true};
 OBJECT OBJECT::s_boolean_f{false};
 
+OBJECT OBJECT::make_float64(GcThreadFrontEnd* gc_tfe, double f64) {
+    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(Float64Object))) Float64Object(f64);
+    return OBJECT::make_generic_boxed(boxed_object);
+}
+OBJECT OBJECT::make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
+    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(PairObject))) PairObject(head, tail);
+    return OBJECT::make_generic_boxed(boxed_object);
+}
+OBJECT OBJECT::make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes) {
+    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(StringObject))) StringObject(byte_count, mv_bytes);
+    return OBJECT::make_generic_boxed(boxed_object);
+}
+
+///
 // equivalence predicates:
 // https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_4.html
+//
 
 bool is_eqn(OBJECT e1, OBJECT e2) {
     auto v1 = e1.to_double();
     auto v2 = e2.to_double();
     return v1 == v2;
 }
-bool is_eq(OBJECT e1, OBJECT e2) {
+bool is_eq(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
     return e1.as_raw() == e2.as_raw();
 }
-bool is_eqv(OBJECT e1, OBJECT e2) {
+bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
     GranularObjectType e1_kind = e1.kind();
     GranularObjectType e2_kind = e2.kind();
     if (e1_kind != e2_kind) {
@@ -34,7 +54,7 @@ bool is_eqv(OBJECT e1, OBJECT e2) {
             case GranularObjectType::Boolean: 
             case GranularObjectType::Fixnum:
             {
-                return is_eq(e1, e2);
+                return is_eq(gc_tfe, e1, e2);
             }
             case GranularObjectType::Float32:
             {
@@ -61,8 +81,8 @@ bool is_eqv(OBJECT e1, OBJECT e2) {
                 auto p1 = static_cast<PairObject*>(e1.as_ptr());
                 auto p2 = static_cast<PairObject*>(e2.as_ptr());
                 return 
-                    is_eq(p1->car(), p2->car()) &&
-                    is_eq(p1->cdr(), p2->cdr());
+                    is_eq(gc_tfe, p1->car(), p2->car()) &&
+                    is_eq(gc_tfe, p1->cdr(), p2->cdr());
             }
             case GranularObjectType::Vector: {
                 auto v1 = static_cast<VectorObject*>(e1.as_ptr());
@@ -79,14 +99,14 @@ bool is_eqv(OBJECT e1, OBJECT e2) {
             default: {
                 std::stringstream ss;
                 ss << "eqv?: invalid arguments: ";
-                print_obj(list(e1, e2), ss);
+                print_obj(list(gc_tfe, e1, e2), ss);
                 error(ss.str());
                 throw SsiError();
             }
         }
     }
 }
-bool is_equal(OBJECT e1, OBJECT e2) {
+bool is_equal(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
     auto e1_kind = e1.kind();
     auto e2_kind = e2.kind();
 
@@ -100,7 +120,7 @@ bool is_equal(OBJECT e1, OBJECT e2) {
             case GranularObjectType::Float32:
             case GranularObjectType::Float64:
             {
-                return is_eqv(e1, e2);
+                return is_eqv(gc_tfe, e1, e2);
             }
             case GranularObjectType::InternedSymbol: {
                 return e1.as_interned_symbol() == e2.as_interned_symbol();
@@ -117,8 +137,8 @@ bool is_equal(OBJECT e1, OBJECT e2) {
                 auto p1 = static_cast<PairObject*>(e1.as_ptr());
                 auto p2 = static_cast<PairObject*>(e2.as_ptr());
                 return 
-                    is_equal(p1->car(), p2->car()) &&
-                    is_equal(p1->cdr(), p2->cdr());
+                    is_equal(gc_tfe, p1->car(), p2->car()) &&
+                    is_equal(gc_tfe, p1->cdr(), p2->cdr());
             }
             case GranularObjectType::Vector: {
                 auto v1 = static_cast<VectorObject*>(e1.as_ptr());
@@ -127,7 +147,7 @@ bool is_equal(OBJECT e1, OBJECT e2) {
                 if (v1->count() == v2->count()) {
                     size_t count = v1->count();
                     for (size_t i = 0; i < count; i++) {
-                        if (!is_equal(v1->array()[i], v2->array()[i])) {
+                        if (!is_equal(gc_tfe, v1->array()[i], v2->array()[i])) {
                             return false;
                         }
                     }
@@ -144,15 +164,15 @@ bool is_equal(OBJECT e1, OBJECT e2) {
             default: {
                 std::stringstream ss;
                 ss << "eqv?: invalid arguments: ";
-                print_obj(list(e1, e2), ss);
+                print_obj(list(gc_tfe, e1, e2), ss);
                 error(ss.str());
                 throw SsiError();
             }
         }
     }
 }
-
 std::ostream& operator<<(std::ostream& out, const OBJECT& obj) {
     print_obj(obj, out);
     return out;
 }
+

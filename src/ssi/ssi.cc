@@ -2,11 +2,13 @@
 #include <fstream>
 #include <iostream>
 
+#include "snail-scheme/allocator.hh"
 #include "snail-scheme/parser.hh"
 #include "snail-scheme/feedback.hh"
 #include "snail-scheme/printing.hh"
 #include "snail-scheme/vm.hh"
 #include "snail-scheme/reactor.hh"
+#include "snail-scheme/gc.hh"
 
 void interpret_file(VirtualMachine* vm, std::string file_path) {
     // opening the file:
@@ -22,7 +24,7 @@ void interpret_file(VirtualMachine* vm, std::string file_path) {
     }
 
     // parsing all lines into a vector:
-    Parser* p = create_parser(f, file_path);
+    Parser* p = create_parser(f, file_path, vm_gc_tfe(vm));
     std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_lines(p);
     
     // todo: load into a module before compilation
@@ -63,15 +65,15 @@ int main(int argc, char const* argv[]) {
         error(error_ss.str());
         return 1;
     } else {
-        // Reactor reactor;
-
-        // Initial pass:
-        VirtualMachine* vm = create_vm(nullptr);
+        size_t const max_heap_size_in_bytes = GIGABYTES(4);
+        size_t const num_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
+        Gc gc {
+            reinterpret_cast<APtr>(calloc(num_pages, gc::PAGE_SIZE_IN_BYTES)), 
+            max_heap_size_in_bytes
+        };
+        std::cerr << "INFO: successfully instantiated GC." << std::endl;
+        VirtualMachine* vm = create_vm(&gc);
         interpret_file(vm, argv[1]);
-
-        // Beginning reactor loop:
-        // reactor.start_reactor(4);
-
         return 0;
     }
 }

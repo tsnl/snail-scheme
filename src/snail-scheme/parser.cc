@@ -526,8 +526,9 @@ char Lexer::help_scan_one_char_in_string_literal(char quote_char) {
 class Parser {
   private:
     Lexer m_lexer;
+    GcThreadFrontEnd* m_gc_tfe;
   public:
-    explicit Parser(std::istream& istream, std::string file_path);
+    explicit Parser(std::istream& istream, std::string file_path, GcThreadFrontEnd* gc_tfe);
   public:
     std::optional<OBJECT> parse_next_line();
     void run_lexer_test();
@@ -542,8 +543,9 @@ class Parser {
     OBJECT parse_form();
 };
 
-Parser::Parser(std::istream& input_stream, std::string input_desc) 
-:   m_lexer(input_stream, std::move(input_desc))
+Parser::Parser(std::istream& input_stream, std::string input_desc, GcThreadFrontEnd* gc_tfe) 
+:   m_lexer(input_stream, std::move(input_desc)),
+    m_gc_tfe(gc_tfe)
 {}
 
 std::optional<OBJECT> Parser::parse_next_line() {
@@ -580,11 +582,11 @@ OBJECT Parser::try_parse_constant() {
         }
         case TokenKind::Float: {
             ts.skip();
-            return OBJECT::make_float64(la_ti.as.floating_pt);
+            return OBJECT::make_float64(m_gc_tfe, la_ti.as.floating_pt);
         }
         case TokenKind::String: {
             ts.skip();
-            return OBJECT::make_string(la_ti.as.string.count, la_ti.as.string.bytes);
+            return OBJECT::make_string(m_gc_tfe, la_ti.as.string.count, la_ti.as.string.bytes, true);
         }
         default: {
             error("Expected constant, got unknown character.");
@@ -655,6 +657,7 @@ OBJECT Parser::parse_form() {
             ts.skip();
             OBJECT quoted = parse_datum();
             return list(
+                m_gc_tfe,
                 OBJECT::make_interned_symbol(intern("quote")),
                 quoted
             );
@@ -702,7 +705,7 @@ OBJECT Parser::parse_list() {
                 // dotted pair
                 OBJECT car = element_object;
                 OBJECT cdr = parse_item();
-                element_object = OBJECT::make_pair(car, cdr);
+                element_object = OBJECT::make_pair(m_gc_tfe, car, cdr);
                 parsed_improper_list = true;
             }
             list_stack.push_back(element_object);
@@ -737,7 +740,7 @@ OBJECT Parser::parse_list() {
             static_cast<int>(list_stack.size() - 1)
         );
         for (int i = start_index; i >= 0; i--) {
-            pair_list = OBJECT::make_pair(list_stack[i], pair_list);
+            pair_list = OBJECT::make_pair(m_gc_tfe, list_stack[i], pair_list);
             list_stack.pop_back();
         }
         return pair_list;
@@ -802,8 +805,8 @@ void Parser::run_lexer_test() {
 // Interface:
 //
 
-Parser* create_parser(std::istream& input_stream, std::string input_desc) {
-    return new Parser(input_stream, std::move(input_desc));
+Parser* create_parser(std::istream& input_stream, std::string input_desc, GcThreadFrontEnd* gc_tfe) {
+    return new Parser(input_stream, std::move(input_desc), gc_tfe);
 }
 void dispose_parser(Parser* p) {
     delete p;

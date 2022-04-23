@@ -3,13 +3,13 @@
 #include <ostream>
 #include "object.hh"
 #include "std.hh"
+#include "gc.hh"
 
 //
 // Type declarations/early definitions:
 //
 
 class VirtualMachine;
-class Reactor;
 using VmExpID = size_t;
 
 //
@@ -18,7 +18,7 @@ using VmExpID = size_t;
 
 // create_vm instantiates a VM.
 VirtualMachine* create_vm(
-    Reactor* reactor,
+    Gc* gc,
     VirtualMachineStandardProcedureBinder binder = bind_standard_procedures,
     int init_reserved_file_count = 32
 );
@@ -35,6 +35,11 @@ void add_file_to_vm(
     std::string const& file_name, 
     std::vector<OBJECT> line_code_obj_list
 );
+
+// getting GC front-end:
+// since only single-threaded, just one thread front-end
+static_assert(GC_SINGLE_THREADED_MODE);
+GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
 
 // bind_builtin adds a new definition to an initializer list that constructs the
 // builtin environment.

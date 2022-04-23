@@ -156,6 +156,7 @@ private:
         OBJECT r;       // value rib; used to compute arguments for 'apply'
         my_ssize_t s;   // the current stack pointer
     } m_reg;
+
     std::vector<VmExp> m_exps;
     std::vector<VmFile> m_files;
     Stack m_stack;
@@ -164,7 +165,7 @@ private:
     OBJECT m_init_val_rib;
     bool m_init_env_locked;
 
-    Reactor* m_parent_reactor;
+    GcThreadFrontEnd m_gc_tfe;
 
     const struct {
         IntStr const quote;
@@ -177,7 +178,7 @@ private:
     } m_builtin_intstr_id_cache;
 
 public:
-    explicit VirtualMachine(Reactor* reactor, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
+    explicit VirtualMachine(Gc* gc, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
     ~VirtualMachine();
   
 // creating VM expressions:
@@ -219,7 +220,7 @@ public:
     void define_builtin_value(std::string name_str, OBJECT elt_obj);
     void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
     static OBJECT closure(VmExpID body, OBJECT env);
-    static OBJECT compile_lookup(OBJECT symbol, OBJECT var_env_raw);
+    OBJECT compile_lookup(OBJECT symbol, OBJECT var_env_raw);
     static OBJECT lookup(OBJECT symbol, OBJECT env_raw);
     OBJECT continuation(my_ssize_t s);
 public:
@@ -232,13 +233,13 @@ public:
     OBJECT index(my_ssize_t s, my_ssize_t i) { return m_stack.index(s, i); }
     void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_stack.index_set(s, i, v); }
 
-// Reactor reference:
-public:
-    Reactor* reactor() { return m_parent_reactor; }
-
 // Error functions:
 public:
     void check_vars_list_else_throw(OBJECT vars);
+
+// GC:
+public:
+    GcThreadFrontEnd& gc_tfe() { return m_gc_tfe; }
 
 // Debug dumps:
 public:
@@ -253,7 +254,7 @@ public:
 //
 
 VirtualMachine::VirtualMachine(
-    Reactor* reactor,
+    Gc* gc,
     size_t file_count, 
     VirtualMachineStandardProcedureBinder binder
 ):  m_reg(),
@@ -272,7 +273,7 @@ VirtualMachine::VirtualMachine(
     m_init_val_rib(OBJECT::make_null()),
     m_stack(),
     m_init_env_locked(false),
-    m_parent_reactor(reactor)
+    m_gc_tfe(gc)
 {
     binder(this);
     m_init_env_locked = true;
@@ -282,7 +283,7 @@ VirtualMachine::VirtualMachine(
 
     m_reg.a = OBJECT::make_null();
     // m_reg.x set by loader.
-    m_reg.e = list(m_init_val_rib);
+    m_reg.e = list(&m_gc_tfe, m_init_val_rib);
     m_reg.r = OBJECT::make_null();
     m_reg.s = 0;
 }
@@ -395,7 +396,7 @@ void VirtualMachine::add_file(std::string const& file_name, std::vector<OBJECT> 
         std::vector<VmProgram> line_programs;
         line_programs.reserve(objs.size());
         VmProgramTranslationResult program;
-        program.new_var_env = list(m_init_var_rib);
+        program.new_var_env = list(&m_gc_tfe, m_init_var_rib);
         for (OBJECT line_code_obj: objs) {
             program = translate_single_line_code_obj(line_code_obj, program.new_var_env);
             line_programs.push_back(program.exp_id_span);
@@ -543,14 +544,14 @@ VmExpTranslationResult VirtualMachine::translate_code_obj__pair_list(PairObject*
                 }
 
                 name = fn_name;
-                body = list(OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
+                body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
             }
 
             // de-sugared handler:
             // NOTE: when computing ref instances:
             // - 'Define' instruction runs before 'Assign'
             if (pattern_ok) {
-                auto new_env = compile_extend(var_e, list(name));
+                auto new_env = compile_extend(var_e, list(&m_gc_tfe, name));
                 auto body_res = translate_code_obj(
                     body,
                     new_vmx_assign(compile_lookup(name, new_env), next),
@@ -724,7 +725,7 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Argument: {
                         m_reg.x = exp.args.i_argument.x;
-                        m_reg.r = cons(m_reg.a, m_reg.r);
+                        m_reg.r = cons(&m_gc_tfe, m_reg.a, m_reg.r);
                     } break;
                     case VmExpKind::Apply: {
 #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -791,7 +792,7 @@ void VirtualMachine::sync_execute() {
                     } break;
                     case VmExpKind::Define: {
                         m_reg.x = exp.args.i_define.next;
-                        m_reg.e = extend(m_reg.e, list(OBJECT::make_boolean(false)));
+                        m_reg.e = extend(m_reg.e, list(&m_gc_tfe, OBJECT::make_boolean(false)));
                         // DEBUG:
                         // {
                         //     auto def_name = exp.args.i_define.var.as_interned_symbol();
@@ -824,8 +825,8 @@ void VirtualMachine::sync_execute() {
 
 void VirtualMachine::define_builtin_value(std::string name_str, OBJECT elt_obj) {
     OBJECT var_obj = OBJECT::make_interned_symbol(intern(std::move(name_str)));
-    m_init_var_rib = cons(var_obj, m_init_var_rib);
-    m_init_val_rib = cons(elt_obj, m_init_val_rib);
+    m_init_var_rib = cons(&m_gc_tfe, var_obj, m_init_var_rib);
+    m_init_val_rib = cons(&m_gc_tfe, elt_obj, m_init_val_rib);
 }
 
 void VirtualMachine::define_builtin_fn(
@@ -836,7 +837,7 @@ void VirtualMachine::define_builtin_fn(
     // constructing a 'closure' object:
     OBJECT vars_list = OBJECT::make_null();
     for (size_t i = 0; i < arg_names.size(); i++) {
-        vars_list = cons(OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
+        vars_list = cons(&m_gc_tfe, OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
     }
     auto elt_obj_raw = new EXT_CallableObject(callback, m_init_val_rib, vars_list);
     auto elt_obj = OBJECT::make_generic_boxed(elt_obj_raw);
@@ -898,7 +899,7 @@ OBJECT VirtualMachine::compile_lookup(OBJECT symbol, OBJECT var_env) {
             auto variable_rib_head_name = car(rem_variable_rib).as_interned_symbol();
             if (variable_rib_head_name == sym_name) {
                 // return the remaining value rib so we can reuse for 'set'
-                return cons(OBJECT::make_integer(rib_index), OBJECT::make_integer(elt_index));
+                return cons(&m_gc_tfe, OBJECT::make_integer(rib_index), OBJECT::make_integer(elt_index));
             } else {
                 elt_index++;
             }
@@ -954,7 +955,7 @@ OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env) {
 }
 
 OBJECT VirtualMachine::continuation(my_ssize_t s) {
-    auto closest_var_ref = cons(OBJECT::make_integer(0), OBJECT::make_integer(0));
+    auto closest_var_ref = cons(&m_gc_tfe, OBJECT::make_integer(0), OBJECT::make_integer(0));
     return closure(
         new_vmx_nuate(save_stack(s), closest_var_ref), 
         OBJECT::make_null()
@@ -962,7 +963,7 @@ OBJECT VirtualMachine::continuation(my_ssize_t s) {
 }
 
 OBJECT VirtualMachine::compile_extend(OBJECT e, OBJECT vars) {
-    auto res = cons(vars, e);
+    auto res = cons(&m_gc_tfe, vars, e);
     // std::cerr 
     //     << "COMPILE_EXTEND:" << std::endl
     //     << "\tbefore: " << e << std::endl
@@ -970,7 +971,7 @@ OBJECT VirtualMachine::compile_extend(OBJECT e, OBJECT vars) {
     return res;
 }
 OBJECT VirtualMachine::extend(OBJECT e, OBJECT vals) {
-    return cons(vals, e);
+    return cons(&m_gc_tfe, vals, e);
 }
 OBJECT VirtualMachine::save_stack(my_ssize_t s) {
     std::vector<OBJECT> vs{m_stack.begin(), m_stack.begin() + s};
@@ -1123,29 +1124,28 @@ void VirtualMachine::dump_all_files(std::ostream& out) {
 //
 
 VirtualMachine* create_vm(
-    Reactor* reactor,
+    Gc* gc,
     VirtualMachineStandardProcedureBinder binder,
     int reserved_file_count
 ) {
-    auto vm = new VirtualMachine(reactor, reserved_file_count, binder); 
+    auto vm = new VirtualMachine(gc, reserved_file_count, binder); 
     return vm;
 }
 void destroy_vm(VirtualMachine* vm) {
     delete vm;
 }
-
 void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<OBJECT> objs) {
     vm->add_file(file_name, std::move(objs));
 }
-
+GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm) {
+    return &vm->gc_tfe();
+}
 void define_builtin_value_in_vm(VirtualMachine* vm, std::string name_str, OBJECT object) {
     vm->define_builtin_value(std::move(name_str), object);
 }
 void define_builtin_procedure_in_vm(VirtualMachine* vm, std::string name_str,  EXT_CallableCb callback, std::vector<std::string> arg_names) {
     vm->define_builtin_fn(std::move(name_str), callback, std::move(arg_names));
 }
-
-
 void sync_execute_vm(VirtualMachine* vm, bool print_each_line) {
     if (print_each_line) {
         vm->sync_execute<true>();
@@ -1153,7 +1153,6 @@ void sync_execute_vm(VirtualMachine* vm, bool print_each_line) {
         vm->sync_execute<false>();
     }
 }
-
 void dump_vm(VirtualMachine* vm, std::ostream& out) {
     vm->dump(out);
 }

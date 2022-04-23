@@ -126,9 +126,9 @@ void bind_standard_kind_predicates(VirtualMachine* vm) {
 void bind_standard_pair_procedures(VirtualMachine* vm) {
     define_builtin_procedure_in_vm(vm,
         "cons", 
-        [](OBJECT args) -> OBJECT {
+        [vm](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
-            return cons(aa[0], aa[1]); 
+            return cons(vm_gc_tfe(vm), aa[0], aa[1]); 
         }, 
         {"ar", "dr"}
     );
@@ -171,7 +171,7 @@ void bind_standard_pair_procedures(VirtualMachine* vm) {
 void bind_standard_equality_procedures(VirtualMachine* vm) {
     define_builtin_procedure_in_vm(vm,
         "=",
-        [](OBJECT args) -> OBJECT {
+        [vm](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
             return boolean(is_eqn(aa[0], aa[1]));
         },
@@ -179,25 +179,25 @@ void bind_standard_equality_procedures(VirtualMachine* vm) {
     );
     define_builtin_procedure_in_vm(vm,
         "eq?",
-        [](OBJECT args) -> OBJECT {
+        [vm](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
-            return boolean(is_eq(aa[0], aa[1]));
+            return boolean(is_eq(vm_gc_tfe(vm), aa[0], aa[1]));
         },
         {"lt-arg", "rt-arg"}
     );
     define_builtin_procedure_in_vm(vm,
         "eqv?",
-        [](OBJECT args) -> OBJECT {
+        [vm](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
-            return boolean(is_eqv(aa[0], aa[1]));
+            return boolean(is_eqv(vm_gc_tfe(vm), aa[0], aa[1]));
         },
         {"lt-arg", "rt-arg"}
     );
     define_builtin_procedure_in_vm(vm,
         "equal?",
-        [](OBJECT args) -> OBJECT {
+        [vm](OBJECT args) -> OBJECT {
             auto aa = extract_args<2>(args);
-            return boolean(is_equal(aa[0], aa[1]));
+            return boolean(is_equal(vm_gc_tfe(vm), aa[0], aa[1]));
         },
         {"lt-arg", "rt-arg"}
     );
@@ -347,7 +347,7 @@ void bind_standard_variadic_arithmetic_procedure(VirtualMachine* vm, char const*
                 auto aa = extract_args<2>(args);
                 auto res = aa[0].as_float64();
                 float64_fold_cb(res, aa[1].as_float64());
-                return OBJECT::make_float64(res);
+                return OBJECT::make_float64(vm_gc_tfe(vm), res);
             }
             else if (int_operand_present && !float32_operand_present && !float64_operand_present) {
                 // compute result from only integers: no floats found
@@ -379,7 +379,7 @@ void bind_standard_variadic_arithmetic_procedure(VirtualMachine* vm, char const*
                     float64_fold_cb(unwrapped_accum, v);
                 }
                 
-                return OBJECT::make_float64(unwrapped_accum);
+                return OBJECT::make_float64(vm_gc_tfe(vm), unwrapped_accum);
             } 
         },
         {"args..."}

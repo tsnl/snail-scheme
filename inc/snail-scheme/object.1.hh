@@ -76,16 +76,6 @@ inline OBJECT OBJECT::make_eof() {
 inline OBJECT OBJECT::make_generic_boxed(BaseBoxedObject* obj) {
     return OBJECT{obj};
 }
-inline OBJECT OBJECT::make_pair(OBJECT head, OBJECT tail) {
-    return OBJECT::make_generic_boxed(new PairObject(head, tail));
-}
-inline OBJECT OBJECT::make_float64(double f64) {
-    return OBJECT::make_generic_boxed(new Float64Object(f64));
-}
-inline OBJECT OBJECT::make_string(size_t byte_count, char* mv_bytes) {
-    return OBJECT::make_generic_boxed(new StringObject(byte_count, mv_bytes));
-}
-
 inline bool OBJECT::is_pair() const { 
     return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Pair; 
 }

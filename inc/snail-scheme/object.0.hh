@@ -7,11 +7,6 @@
 //          - this leaks code objects, which is great, because we need them to be loaded permanently
 //          - can dispose of code objects post-execution in the future
 
-// ABORTED: unbox basic datatypes, switch to object tagging.
-// WHY? Because in this form, it is easy to add custom object instances using OO, which C++ supports
-// very well.
-// This improves the experience for an end-user, making this more easily embeddable.
-
 #pragma once
 
 #include <map>
@@ -29,6 +24,7 @@
 #include "core.hh"
 #include "intern.hh"
 #include "feedback.hh"
+#include "gc.d.hh"
 
 //
 // Objects:
@@ -112,9 +108,9 @@ public: // unboxed objects
 public: // boxed objects
     // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
     static OBJECT make_generic_boxed(BaseBoxedObject* obj);
-    static OBJECT make_float64(double f64);
-    static OBJECT make_pair(OBJECT head, OBJECT tail);
-    static OBJECT make_string(size_t byte_count, char* mv_bytes);
+    static OBJECT make_float64(GcThreadFrontEnd* gc_tfe, double f64);
+    static OBJECT make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
+    static OBJECT make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes);
 public:
     bool is_null() const { return m_data.raw == 0; }
     bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
@@ -357,9 +353,9 @@ inline OBJECT car(OBJECT object);
 inline OBJECT cdr(OBJECT object);
 inline void set_car(OBJECT pair, OBJECT a);
 inline void set_cdr(OBJECT pair, OBJECT d);
-template <typename... Objects> OBJECT list(Objects... objs);
+template <typename... Objects> OBJECT list(GcThreadFrontEnd* gc_tfe, Objects... objs);
 template <size_t n> std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic = false);
-inline OBJECT cons(OBJECT head, OBJECT tail);
+inline OBJECT cons(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
 inline OBJECT boolean(bool v);
 inline bool is_boolean(OBJECT o);
 inline bool is_char(OBJECT o);
@@ -374,9 +370,9 @@ inline bool is_string(OBJECT o);
 inline bool is_vector(OBJECT o);
 
 bool is_eqn(OBJECT e1, OBJECT e2);
-bool is_eq(OBJECT e1, OBJECT e2);
-bool is_eqv(OBJECT e1, OBJECT e2);
-bool is_equal(OBJECT e1, OBJECT e2);
+bool is_eq(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
+bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
+bool is_equal(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
 
 inline my_ssize_t count_list_items(OBJECT pair_list);
 
@@ -389,12 +385,12 @@ inline void vector_set(OBJECT vec, OBJECT index, OBJECT v);
 //
 
 template <typename... Objects>
-OBJECT list() {
+OBJECT list(GcThreadFrontEnd* gc_tfe) {
     return OBJECT::make_null();
 }
 template <typename... Objects>
-OBJECT list(OBJECT first, Objects... objs) {
-    return OBJECT::make_pair(first, list(objs...));
+OBJECT list(GcThreadFrontEnd* gc_tfe, OBJECT first, Objects... objs) {
+    return OBJECT::make_pair(gc_tfe, first, list(gc_tfe, objs...));
 }
 
 template <size_t n> 
@@ -473,11 +469,11 @@ inline void set_cdr(OBJECT pair, OBJECT d) {
     return static_cast<PairObject*>(pair.as_ptr())->set_cdr(d);
 }
 
-OBJECT cons(OBJECT head, OBJECT tail) {
-    return OBJECT::make_pair(head, tail);
+inline OBJECT cons(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
+    return OBJECT::make_pair(gc_tfe, head, tail);
 }
 
-OBJECT boolean(bool v) {
+inline OBJECT boolean(bool v) {
     return OBJECT::make_boolean(v);
 }
 

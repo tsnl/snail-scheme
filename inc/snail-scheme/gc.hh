@@ -1,13 +1,20 @@
 #pragma once
 
+#define GC_SINGLE_THREADED_MODE (1)
+
 #include <vector>
-#include <mutex>
 #include <queue>
 #include <forward_list>
 #include <functional>
 #include <algorithm>
+#include <optional>
 #include <cstdint>
 
+#if !GC_SINGLE_THREADED_MODE
+#include <mutex>
+#endif
+
+#include "gc.d.hh"
 #include "config/config.hh"
 #include "memory.hh"
 #include "object.hh"
@@ -259,15 +266,19 @@ protected:
 protected:
     std::vector<PageSpan> m_page_spans;
     std::vector<size_t> m_page_span_refcounts;
+#if !GC_SINGLE_THREADED_MODE
     std::mutex m_mutex;
+#endif
 public:
     CentralObjectAllocator() = default;
 public:
     std::optional<ObjectSpan> try_allocate_object_span();
     std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator> return_object_span(ObjectSpan span);
     void add_page_span_to_pool(PageSpan span);
+#if !GC_SINGLE_THREADED_MODE
 public:
     std::mutex& mutex() { return m_mutex; }
+#endif
 private:
     size_t page_span_index(APtr ptr);
     void retain_single_page_span(APtr ptr);
@@ -345,7 +356,9 @@ private:
     APtr m_single_contiguous_region_end;
     size_t m_single_contiguous_region_page_capacity;
     PageFreeList m_page_free_list;
+#if !GC_SINGLE_THREADED_MODE
     std::mutex m_mutex;
+#endif
     // PageMap m_page_map;
 public:
     GcBackEnd() = default;
@@ -393,7 +406,8 @@ private:
     FrontEndObjectAllocator m_sub_allocators[kSizeClassesCount];
     GcMiddleEnd* m_middle_end;
 public:
-    GcFrontEnd(GcMiddleEnd* middle_end);
+    GcFrontEnd() = default;
+    void init(GcMiddleEnd* middle_end);
 public:
     APtr allocate(SizeClassIndex sci);
     void deallocate(APtr memory, SizeClassIndex sci);
