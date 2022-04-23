@@ -71,7 +71,7 @@ int main(int argc, char const* argv[]) {
             reinterpret_cast<APtr>(calloc(num_pages, gc::PAGE_SIZE_IN_BYTES)), 
             max_heap_size_in_bytes
         };
-        std::cerr << "INFO: successfully instantiated GC." << std::endl;
+        // std::cerr << "INFO: successfully instantiated GC." << std::endl;
         VirtualMachine* vm = create_vm(&gc);
         interpret_file(vm, argv[1]);
         return 0;
