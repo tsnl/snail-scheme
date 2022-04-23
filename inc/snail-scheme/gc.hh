@@ -15,7 +15,7 @@
 #endif
 
 #include "gc.d.hh"
-#include "config/config.hh"
+#include "ss-config/config.hh"
 #include "memory.hh"
 #include "object.hh"
 

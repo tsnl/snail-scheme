@@ -5,7 +5,7 @@
 // #include <algorithm>
 // #include <cassert>
 
-// #include "config/config.hh"
+// #include "ss-config/config.hh"
 // #include "snail-scheme/feedback.hh"
 
 // // DOC

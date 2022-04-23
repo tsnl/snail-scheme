@@ -2,7 +2,7 @@
 
 #include <iostream>
 #include <sstream>
-#include "config/config.hh"
+#include "ss-config/config.hh"
 #include "snail-scheme/allocator.hh"
 #include "snail-scheme/feedback.hh"
 

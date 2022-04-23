@@ -4,13 +4,13 @@
 #include "object.hh"
 #include "std.hh"
 #include "gc.hh"
+#include "mir.hh"
 
 //
 // Type declarations/early definitions:
 //
 
 class VirtualMachine;
-using VmExpID = size_t;
 
 //
 // Virtual machine:

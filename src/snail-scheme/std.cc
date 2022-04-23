@@ -1,7 +1,7 @@
 #include "snail-scheme/std.hh"
 
 #include <cmath>
-#include "config/config.hh"
+#include "ss-config/config.hh"
 #include "snail-scheme/vm.hh"
 #include "snail-scheme/object.hh"
 #include "snail-scheme/printing.hh"

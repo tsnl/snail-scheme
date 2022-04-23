@@ -1,4 +1,4 @@
-#include "config/config.hh"
+#include "ss-config/config.hh"
 
 // namespace gc {
 
