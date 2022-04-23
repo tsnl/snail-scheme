@@ -169,6 +169,11 @@ void BaseObjectAllocator::init(SizeClassIndex sci) {
     m_object_free_list.init(sci);
 }
 
+void CentralObjectAllocator::init(SizeClassIndex sci) {
+    BaseObjectAllocator::init(sci);
+    m_page_spans.reserve(1024);
+    m_page_span_refcounts.reserve(1024);
+}
 std::optional<ObjectSpan> CentralObjectAllocator::try_allocate_object_span() { 
     size_t const count = kSizeClasses[m_sci].num_to_move;
     APtr ptr = m_object_free_list.try_allocate_items(count);
@@ -192,12 +197,34 @@ void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
     assert(span.count == kSizeClasses[m_sci].pages);
     
     // adding this span into a vector, adding refcount 0 into a vector
-    size_t insert_index;
-    for (insert_index = 0; insert_index < m_page_spans.size(); insert_index++) {
-        if (m_page_spans[insert_index].ptr > span.ptr) {
-            break;
+    // Using a BFS to find the offset of the first element with ptr > this one
+    // i.e. leftmost element (cf Wikipedia Binary Search)
+    // Even if T is not in the array, L is the rank of T in the array
+    size_t insert_index; {
+#define USE_NAIVE_INSERT_INDEX_LOOKUP (0)
+#if USE_NAIVE_INSERT_INDEX_LOOKUP
+        for (insert_index = 0; insert_index < m_page_spans.size(); insert_index++) {
+            if (m_page_spans[insert_index].ptr > span.ptr) {
+                break;
+            }
         }
+#else
+        size_t l = 0;
+        size_t r = m_page_spans.size();
+        while (l < r) {
+            size_t m = l / 2 + r / 2;
+            if (m_page_spans[m].ptr < span.ptr) {
+                l = m + 1;
+            }
+            else {
+                r = m;
+            }
+        }
+        insert_index = l;
+#endif
     }
+
+    // insert just before this element
     m_page_spans.insert(m_page_spans.begin() + insert_index, span);
     m_page_span_refcounts.insert(m_page_span_refcounts.begin() + insert_index, 0);
 
@@ -476,7 +503,7 @@ APtr GcFrontEnd::allocate(SizeClassIndex sci) {
             return res;
         } else {
             std::stringstream ss;
-            ss  << "GC: allocation failed: could not allocate " << kSizeClasses[sci].size << " bytes "
+            ss  << "GC: allocation failed: could not allocate " << kSizeClasses[sci].size << " bytes " << std::endl
                 << "    for object with SizeClassIndex " << sci << std::endl;
             error(ss.str());
             throw SsiError();

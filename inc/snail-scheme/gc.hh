@@ -271,6 +271,7 @@ protected:
 #endif
 public:
     CentralObjectAllocator() = default;
+    void init(SizeClassIndex sci);
 public:
     std::optional<ObjectSpan> try_allocate_object_span();
     std::pair<GenericFreeList::Iterator, GenericFreeList::Iterator> return_object_span(ObjectSpan span);
