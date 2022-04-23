@@ -1,6 +1,0 @@
-clang=@CLANG_PATH@
-includes=-I../../inc/
-cflags=-S -emit-llvm -std=c++20
-
-ss-stdlib.ll: ss-stdlib.cc
-	$(clang) $(cflags) ss-stdlib.cc -o ss-stdlib.ll $(includes)

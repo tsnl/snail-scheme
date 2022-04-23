@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(SnailScheme VERSION 0.0.0)
 
-##
-# Required Config
+## Cache config
 #
 
 set(CLANG_PATH "" CACHE FILEPATH "Path to 'clang' executable")
@@ -24,16 +23,22 @@ if ("" STREQUAL "${CLANG_PATH}")
     endif()
 endif()
 
-#
-# Google Test
+## Dependency: Google Test
 #
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchGoogleTest.cmake)
 include(GoogleTest)
 include(ExternalProject)
 
+## Generating Source
 #
-# Global Config
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh.in
+    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh
+)
+
+## Configuring targetss: global config
 #
 
 include_directories(
@@ -49,81 +54,47 @@ elseif(APPLE)
 else()
     # set linux stuff
 endif()
-include_directories(src)
 
-#
-# Generating Source
-#
 
-configure_file(
-    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh.in
-    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh
-)
-configure_file(
-    ${CMAKE_SOURCE_DIR}/src/ss-stdlib/Makefile.in
-    ${CMAKE_SOURCE_DIR}/src/ss-stdlib/Makefile
-)
-
-#
-# Configuring Targets
+## Configuring Targets
 #
 
+# core: shared between interpreter, compiler, and run-time library.
 add_library(
-    snail-scheme
-    
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/core.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/feedback.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/intern.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/object.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/parser.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/printing.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/vm.hh
-    # ${CMAKE_CURRENT_SOURCE_DIR}/inc/snail-scheme/heap.hh
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/feedback.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/intern.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/object.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/parser.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/printing.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/vm.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/reactor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/memory.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/std.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/smt.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/gc.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/mir.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/snail-scheme/compiler.cc
+    ss-core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/object.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/intern.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/feedback.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/memory.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
 )
 
-# see: https://cmake.org/cmake/help/v2.8.11/cmake.html#module:ExternalProject
-ExternalProject_Add(
-    ss-stdlib
-    DEPENDS snail-scheme
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-stdlib
-    CONFIGURE_COMMAND
-        ""
-    BUILD_COMMAND
-        ${CMAKE_COMMAND} -E env
-            make -C <SOURCE_DIR>
-    BUILD_IN_SOURCE TRUE
-    INSTALL_COMMAND
-        echo "TODO: install command"
+# jit: compiles, evaluates partially or fully, and generates binaries 
+add_library(
+    ss-jit
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/parser.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/printing.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/std.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/mir.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
 )
+target_link_libraries(ss-jit ss-core)
+
+##
+#
 
 add_executable(
     ssi
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ssi/ssi.cc
 )
-target_link_libraries(ssi snail-scheme)
-add_dependencies(ssi ss-stdlib)
+target_link_libraries(ssi ss-core ss-jit)
 
 add_executable(
     ss-tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/TestTest.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/TestObject1.cc
 )
-target_link_libraries(
-    ss-tests
-    gtest_main
-)
+target_link_libraries(ss-tests gtest_main ss-core ss-jit)
 gtest_discover_tests(ss-tests)

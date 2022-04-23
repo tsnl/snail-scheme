@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "snail-scheme/object.1.hh"
+#include "ss-core/object.1.hh"
 #include <bitset>
 
 ///
@@ -14,7 +14,7 @@
 TEST(ObjectTests1, NullTagTests) {
     // Expect Null to be a pointer
     auto iv = 0;
-    OBJECT null = OBJECT::make_null();
+    ss::OBJECT null = ss::OBJECT::make_null();
     DBG_PRINT("NullTagTests: BITSET: " << BITS(null));
     
     EXPECT_EQ(null.is_null(), 1);
@@ -30,9 +30,9 @@ TEST(ObjectTests1, NullTagTests) {
 TEST(ObjectTests1, IntTagTests) {
     // Expect signed integer fixnums to have a unique type.
     auto iv = 0;
-    OBJECT i1 = OBJECT::make_integer(iv);
+    ss::OBJECT i1 = ss::OBJECT::make_integer(iv);
     DBG_PRINT("IntTagTests: BITSET: " << BITS(i1));
-    EXPECT_EQ(i1.raw_data().signed_fixnum.tag, OBJECT::FIXNUM_TAG);
+    EXPECT_EQ(i1.raw_data().signed_fixnum.tag, ss::OBJECT::FIXNUM_TAG);
     EXPECT_EQ(i1.raw_data().signed_fixnum.val, iv);
     
     EXPECT_EQ(i1.is_integer(), 1);
@@ -47,9 +47,9 @@ TEST(ObjectTests1, IntTagTests) {
 }
 TEST(ObjectTests1, PtrTagTests) {
     char msg_buf[] = "hello world";
-    auto fake_ptr = new StringObject(sizeof(msg_buf), msg_buf);
+    auto fake_ptr = new ss::StringObject(sizeof(msg_buf), msg_buf);
     // auto fake_ptr = reinterpret_cast<BoxedObject*>(-7);
-    OBJECT p1 = OBJECT::make_generic_boxed(fake_ptr);
+    ss::OBJECT p1 = ss::OBJECT::make_generic_boxed(fake_ptr);
     ASSERT_EQ(p1.raw_data().ptr_unwrapped.tag, 0) << "invalid fake ptr";
     
     DBG_PRINT("PtrTagTests: FAKPTR: " << std::bitset<64>(reinterpret_cast<size_t>(fake_ptr)));

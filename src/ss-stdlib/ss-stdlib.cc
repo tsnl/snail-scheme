@@ -1,7 +1,7 @@
-namespace ss {
-    #include "snail-scheme/std.hh"
-    #include "snail-scheme/vm.hh"
-}
+#include "ss-jit/std.hh"
+#include "ss-jit/vm.hh"
+
+static_assert(sizeof(void*) == 8, "Expected 64-bit systems only");
 
 extern "C" {
 
