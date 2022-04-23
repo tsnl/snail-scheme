@@ -31,8 +31,9 @@ void destroy_vm(VirtualMachine* vm);
 // if multiple files are added, they are executed in the order in which they 
 // were added.
 void add_file_to_vm(
-  VirtualMachine* vm, std::string const& file_name, 
-  std::vector<OBJECT> line_code_obj_list
+    VirtualMachine* vm, 
+    std::string const& file_name, 
+    std::vector<OBJECT> line_code_obj_list
 );
 
 // bind_builtin adds a new definition to an initializer list that constructs the

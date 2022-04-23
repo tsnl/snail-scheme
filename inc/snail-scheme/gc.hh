@@ -174,7 +174,6 @@ class ObjectAllocator;
 class GenericFreeList {
 public:
     using Iterator = std::forward_list<GenericSpan>::iterator;
-
 protected:
     std::forward_list<GenericSpan> m_free_span_list;
     size_t m_item_stride_in_ablks;

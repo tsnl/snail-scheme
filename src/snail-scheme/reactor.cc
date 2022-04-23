@@ -47,9 +47,11 @@ void Reactor::unpause_reactor(int max_thread_count) {
 
     int available_thread_count = static_cast<int>(std::thread::hardware_concurrency());
     int thread_count = (
-        (max_thread_count <= 0) ?
-        available_thread_count :
-        std::min(available_thread_count, max_thread_count)
+        std::max(1, 
+            (max_thread_count <= 0) ?
+            available_thread_count - 1 :
+            std::min(available_thread_count - 1, max_thread_count)
+        )
     );
 
     APtr workers_heap = m_root_stack.reset_then_extract_all_bytes();
