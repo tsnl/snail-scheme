@@ -70,7 +70,7 @@ private:
 
 public:
     RootStackAllocator(
-        size_t capacity=MEGABYTES(64), 
+        size_t capacity=MIBIBYTES(64), 
         RootAllocCb alloc=malloc, 
         RootDeallocCb dealloc=free
     );

@@ -14,6 +14,13 @@ Gc::Gc(APtr single_contiguous_region, size_t single_contiguous_region_size)
 :   m_gc_back_end(),
     m_gc_middle_end()
 {
+    if (single_contiguous_region == nullptr) {
+        std::stringstream ss;
+        ss << "Insufficient system memory: could not allocate " << single_contiguous_region_size << "B";
+        error(ss.str());
+        throw SsiError();
+    }
+
     // ensuring the base pointer is page-aligned
     size_t bytes_after_page_start = reinterpret_cast<size_t>(single_contiguous_region) % gc::PAGE_SIZE_IN_BYTES;
     if (bytes_after_page_start > 0) {

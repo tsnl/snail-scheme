@@ -1,3 +1,6 @@
+#include "snail-scheme/std.hh"
+
+#include <cmath>
 #include "config/config.hh"
 #include "snail-scheme/vm.hh"
 #include "snail-scheme/object.hh"

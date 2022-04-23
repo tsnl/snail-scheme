@@ -14,16 +14,16 @@ include(GoogleTest)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/
-    ${CMAKE_CURRENT_SOURCE_DIR}/tcmalloc/
 )
 
 set(CMAKE_CXX_STANDARD 20)
+
 if (WIN32)
     # set stuff for windows
 elseif(APPLE)
-    set(CMAKE_CXX_FLAGS "-glldb")
+    
 else()
-    # TODO: set linux stuff
+    # set linux stuff
 endif()
 include_directories(src)
 

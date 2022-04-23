@@ -65,7 +65,7 @@ int main(int argc, char const* argv[]) {
         error(error_ss.str());
         return 1;
     } else {
-        size_t const max_heap_size_in_bytes = GIGABYTES(4);
+        size_t const max_heap_size_in_bytes = GIBIBYTES(4);
         size_t const num_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
         Gc gc {
             reinterpret_cast<APtr>(calloc(num_pages, gc::PAGE_SIZE_IN_BYTES)), 

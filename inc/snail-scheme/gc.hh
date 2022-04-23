@@ -142,7 +142,7 @@ private:
     std::priority_queue< MarkedPtr, reserved_vector<MarkedPtr>, std::greater<MarkedPtr> > m_ptr_max_heap;
 public:
     void mark(SizeClassIndex sci, APtr ptr) {
-        m_ptr_max_heap.emplace(ptr, sci);
+        m_ptr_max_heap.push(MarkedPtr{ptr, sci});
     }
     bool empty() {
         return m_ptr_max_heap.empty();

@@ -1,14 +1,15 @@
 #include "snail-scheme/smt.hh"
+#include <mutex>
 
 template <typename T>
 bool SmtFifo<T>::empty() const {
-    std::lock_guard lg{m_mutex};
+    std::unique_lock lg{m_mutex};
     return m_queue.empty();
 }
 template <typename T>
 void SmtFifo<T>::enqueue(T v) {
     {
-        std::lock_guard lg{m_mutex};
+        std::unique_lock lg{m_mutex};
         m_queue.push(std::move(v));
     }
     // NOTE: notify AFTER releasing the lock
@@ -17,7 +18,9 @@ void SmtFifo<T>::enqueue(T v) {
 }
 template <typename T>
 std::optional<T> SmtFifo<T>::try_dequeue() {
-    std::lock_guard lg{m_mutex};
+    std::unique_lock lock{m_mutex};
+    lock.lock();
+
     if (m_queue.empty()) {
         return {};
     } else {
@@ -27,10 +30,12 @@ std::optional<T> SmtFifo<T>::try_dequeue() {
     }
 }
 template <typename T>
-typename T SmtFifo<T>::wait_and_dequeue() {
-    std::lock_guard lg{m_mutex};
+T SmtFifo<T>::wait_and_dequeue() {
+    std::unique_lock lock{m_mutex};
+    lock.lock();
+
     while (m_queue.empty()) {
-        m_cv.wait(lg);
+        m_cv.wait(lock);
     }
     T popped = std::move(m_queue.front());
     m_queue.pop();
