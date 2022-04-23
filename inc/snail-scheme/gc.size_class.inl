@@ -16,7 +16,7 @@ static_assert(
 #if CONFIG_TCMALLOC_PAGE_SHIFT == 13
 constexpr int kMaxSize = 262144;
 constexpr int kSizeClassesCount = 86;
-const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
+constexpr SizeClassInfo kSizeClasses[kSizeClassesCount] = {
     // <bytes>, <pages>, <batch size>    <fixed>
     {        0,       0,           0},  // +Inf%
     {        8,       1,          32},  // 0.59%
@@ -108,7 +108,7 @@ const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
 #elif CONFIG_TCMALLOC_PAGE_SHIFT == 15
 constexpr int kMaxSize = 262144;
 constexpr int kSizeClassesCount = 78;
-const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
+constexpr SizeClassInfo kSizeClasses[kSizeClassesCount] = {
     // <bytes>, <pages>, <batch size>    <fixed>
     {        0,       0,           0},  // +Inf%
     {        8,       1,          32},  // 0.15%
@@ -192,7 +192,7 @@ const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
 #elif CONFIG_TCMALLOC_PAGE_SHIFT == 18
 constexpr int kMaxSize = 262144;
 constexpr int kSizeClassesCount = 89;
-const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
+constexpr SizeClassInfo kSizeClasses[kSizeClassesCount] = {
     // <bytes>, <pages>, <batch size>    <fixed>
     {        0,       0,           0},  // +Inf%
     {        8,       1,          32},  // 0.02%
@@ -287,7 +287,7 @@ const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
 #elif CONFIG_TCMALLOC_PAGE_SHIFT == 12
 constexpr int kMaxSize = 8192;
 constexpr int kSizeClassesCount = 46;
-const SizeClassInfo kSizeClasses[kSizeClassesCount] = {
+constexpr SizeClassInfo kSizeClasses[kSizeClassesCount] = {
     // <bytes>, <pages>, <batch size>    <fixed>
     {        0,       0,           0},  // +Inf%
     {        8,       1,          32},  // 1.17%

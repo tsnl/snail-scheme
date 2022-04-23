@@ -14,16 +14,20 @@
 OBJECT OBJECT::s_boolean_t{true};
 OBJECT OBJECT::s_boolean_f{false};
 
+constexpr gc::SizeClassIndex float64_sci = gc::sci(sizeof(Float64Object));
+constexpr gc::SizeClassIndex pair_sci = gc::sci(sizeof(PairObject));
+constexpr gc::SizeClassIndex string_sci = gc::sci(sizeof(StringObject));
+
 OBJECT OBJECT::make_float64(GcThreadFrontEnd* gc_tfe, double f64) {
-    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(Float64Object))) Float64Object(f64);
+    auto boxed_object = new (gc_tfe->allocate_size_class(float64_sci)) Float64Object(f64);
     return OBJECT::make_generic_boxed(boxed_object);
 }
 OBJECT OBJECT::make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
-    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(PairObject))) PairObject(head, tail);
+    auto boxed_object = new (gc_tfe->allocate_size_class(pair_sci)) PairObject(head, tail);
     return OBJECT::make_generic_boxed(boxed_object);
 }
 OBJECT OBJECT::make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes) {
-    auto boxed_object = new (gc_tfe->allocate_bytes(sizeof(StringObject))) StringObject(byte_count, mv_bytes);
+    auto boxed_object = new (gc_tfe->allocate_size_class(string_sci)) StringObject(byte_count, mv_bytes);
     return OBJECT::make_generic_boxed(boxed_object);
 }
 

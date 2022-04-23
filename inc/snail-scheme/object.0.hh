@@ -144,7 +144,6 @@ public:
     inline double to_double() const;
 public:
     Data64LittleEndian raw_data() const { return m_data; }
-
 public:
     OBJECT& operator=(OBJECT const& other) = default;
 };

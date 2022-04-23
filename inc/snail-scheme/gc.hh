@@ -62,8 +62,6 @@ inline constexpr size_t PAGE_SIZE_IN_ABLKS = PAGE_SIZE_IN_BYTES / sizeof(ABlk);
 //
 //
 
-using SizeClassIndex = int8_t;
-
 struct SizeClassInfo {
     // Size of each element in this size-class, in bytes.
     size_t size;
