@@ -11,6 +11,7 @@
 ; (+ 1 2 3)
 ; (* 1 2 3 4 5)
 
+; (define a0 (fibonacci 30))
 (define a0 (fibonacci 30))
 
 ; (display (format "~a" a0))

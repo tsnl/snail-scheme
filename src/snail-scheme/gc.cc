@@ -173,7 +173,7 @@ std::optional<ObjectSpan> CentralObjectAllocator::try_allocate_object_span() {
     size_t const count = kSizeClasses[m_sci].num_to_move;
     APtr ptr = m_object_free_list.try_allocate_items(count);
     if (ptr) {
-        retain_page_spans(ptr, ptr + count*kSizeClasses[m_sci].size/sizeof(ABlk));
+        retain_page_spans(ptr, ptr + ((count*kSizeClasses[m_sci].size) >> CONFIG_TCMALLOC_PAGE_SHIFT));
         return {{ptr, count}}; 
     } else {
         return {};
@@ -225,19 +225,42 @@ void CentralObjectAllocator::release_page_spans(APtr beg, APtr end) {
     );
 }
 void CentralObjectAllocator::help_map_intersecting_page_spans(std::function<void(size_t)> cb, APtr beg, APtr end) {
-    for (size_t i_page_span = 0; i_page_span < m_page_spans.size(); i_page_span++) {
+    // Using a binary search to locate the first page-span before 'beg'
+    // According to Wikipedia, using procedure to find the right-most element: this performs 'rounding down'
+    // https://en.wikipedia.org/wiki/Binary_search_algorithm#Procedure_for_finding_the_rightmost_element
+    // NOTE: 'r' should be 'n' with 'l' '0' where 'n' is array length
+    
+    
+    size_t l_page_span = 0;
+    size_t r_page_span = m_page_spans.size();
+    while (l_page_span < r_page_span) {
+        size_t i_page_span = l_page_span/2 + r_page_span/2;
+        if (m_page_spans[i_page_span].ptr > beg) {
+            r_page_span = i_page_span;
+        } else {
+            l_page_span = i_page_span + 1;
+        }
+    }
+    size_t i_page_span = r_page_span - 1;
+
+    // scanning through pages to determine intersection
+    while (i_page_span < m_page_spans.size()) {
         PageSpan span = m_page_spans[i_page_span];
         APtr span_beg = span.ptr;
         APtr span_end = span_beg + span.count * PAGE_SIZE_IN_ABLKS;
         bool intersect = (
             (beg <= span_beg && span_beg <= end) ||
-            (span_beg <= beg && beg <= span_end)
+            (span_beg <= beg && beg <= span_end) ||
+            (span_beg <= beg && end <= span_end) ||
+            (beg <= span_beg && span_end <= end)
         );
         if (intersect) {
             cb(i_page_span);
         }
         if (span_beg >= end) {
             break;
+        } else {
+            i_page_span++;
         }
     }
 }
@@ -344,6 +367,7 @@ void GcBackEnd::init(size_t single_contiguous_region_page_capacity, APtr single_
     m_single_contiguous_region_page_capacity = single_contiguous_region_page_capacity;
     
     // initializing the page free list:
+    m_page_free_list.init();
     return_page_span({m_single_contiguous_region_beg, m_single_contiguous_region_page_capacity});
 }
 std::optional<PageSpan> GcBackEnd::try_allocate_page_span(size_t page_count) {
@@ -443,9 +467,11 @@ APtr GcFrontEnd::allocate(SizeClassIndex sci) {
             assert(res && "Expected allocation to succeed after adding objects from transfer-cache");
             
             // DEBUG:
+            #if 0
             {
                 std::cerr << "INFO: GC.F: allocated " << res << " for sci=" << (int)sci << " with size=" << kSizeClasses[sci].size << std::endl;
             }
+            #endif
 
             return res;
         } else {
