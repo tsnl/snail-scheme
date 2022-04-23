@@ -504,7 +504,7 @@ APtr GcFrontEnd::allocate(SizeClassIndex sci) {
         } else {
             std::stringstream ss;
             ss  << "GC: allocation failed: could not allocate " << kSizeClasses[sci].size << " bytes " << std::endl
-                << "    for object with SizeClassIndex " << sci << std::endl;
+                << "    for object with SizeClassIndex " << static_cast<int>(sci) << std::endl;
             error(ss.str());
             throw SsiError();
         }

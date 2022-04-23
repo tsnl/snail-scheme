@@ -29,7 +29,7 @@ inline OBJECT::OBJECT(bool v)
     m_data.boolean.truth = v;
 }
 inline OBJECT::OBJECT(BaseBoxedObject* ptr)
-:   OBJECT() 
+:   OBJECT()
 {
     m_data.ptr = ptr;
     assert(m_data.ptr_unwrapped.tag == 0 && "Expected ptr to be a multiple of sizeof(void*)");
