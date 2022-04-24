@@ -7,6 +7,7 @@
 #include "ss-jit/parser.hh"
 #include "ss-jit/printing.hh"
 #include "ss-jit/vm.hh"
+#include "ss-jit/compiler.hh"
 #include "ss-core/gc.hh"
 
 namespace ss {
@@ -39,7 +40,15 @@ namespace ss {
 
         // compiling the program into VM representation:
         // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
-        add_file_to_vm(vm, file_path, std::move(line_code_obj_array));
+        ss::Compiler compiler{*vm_gc_tfe(vm)};
+        OBJECT init_var_rib = vm_default_init_var_rib(vm);
+        VScript script = compiler.compile_script(
+            file_path, std::move(line_code_obj_array),
+            init_var_rib
+        );
+        VRom rom { std::move(compiler.rom()) };
+        rom.add_script(file_path, std::move(script));
+        ss::program_vm(vm, std::move(rom));
 
         // Executing:
         {
@@ -60,6 +69,9 @@ namespace ss {
 }   // namespace ss
 
 int main(int argc, char const* argv[]) {
+    // Parsing command-line arguments:
+    // TODO: switch to more flexible command-line options parser with...
+    // - heap size in bytes
     if (argc != 2) {
         std::stringstream error_ss;
         error_ss
@@ -67,16 +79,19 @@ int main(int argc, char const* argv[]) {
             << "Invalid usage: expected 2 arguments, received " << argc << "." << std::endl;
         ss::error(error_ss.str());
         return 1;
-    } else {
-        size_t const max_heap_size_in_bytes = ss::GIBIBYTES(4);
-        size_t const num_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
-        ss::Gc gc {
-            reinterpret_cast<ss::APtr>(calloc(num_pages, ss::gc::PAGE_SIZE_IN_BYTES)), 
-            max_heap_size_in_bytes
-        };
-        // std::cerr << "INFO: successfully instantiated GC." << std::endl;
-        ss::VirtualMachine* vm = ss::create_vm(&gc);
-        ss::interpret_file(vm, argv[1]);
-        return 0;
     }
+
+    // Instantiating, programming, and running a VM:
+    // TODO: switch to JIT
+    size_t constexpr max_heap_size_in_bytes = ss::GIBIBYTES(4);
+    size_t constexpr max_heap_size_in_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
+    ss::Gc gc {
+        reinterpret_cast<ss::APtr>(calloc(max_heap_size_in_pages, ss::gc::PAGE_SIZE_IN_BYTES)), 
+        max_heap_size_in_bytes
+    };
+    ss::VirtualMachine* vm = ss::create_vm(&gc);
+    ss::interpret_file(vm, argv[1]);
+
+    // all OK
+    return 0;
 }

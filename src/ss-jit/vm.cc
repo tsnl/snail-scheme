@@ -16,22 +16,10 @@
 #include "ss-jit/printing.hh"
 #include "ss-core/common.hh"
 #include "ss-jit/std.hh"
-#include "ss-jit/mir.hh"
+#include "ss-jit/vrom.hh"
+#include "ss-jit/vthread.hh"
 
 namespace ss {
-
-    //
-    // Vm____TranslationResult
-    //
-
-    struct VmProgramTranslationResult {
-        VmProgram exp_id_span;
-        OBJECT new_var_env;
-    };
-    struct VmExpTranslationResult {
-        VmExpID first_exp_id;
-        OBJECT new_var_env;
-    };
 
     //
     // VmSyntheticEnv
@@ -44,15 +32,6 @@ namespace ss {
     };
 
     //
-    // VmFile: a collection of programs-- one per line, and the source code object (may be reused, e.g. 'quote')
-    //
-
-    struct VmFile {
-        std::vector<OBJECT> line_code_objs;
-        std::vector<VmProgram> line_programs;
-    };
-
-    //
     // VirtualMachine (VM)
     //  - stores and constructs VmExps
     //  - runs VmExps to `halt`
@@ -60,93 +39,21 @@ namespace ss {
     //
 
     class VirtualMachine {
-    public:
-        class Stack {
-        private:
-            std::vector<OBJECT> m_items;
-
-        public:
-            Stack(size_t capacity = (4<<20))
-            :   m_items(capacity, OBJECT::make_null())
-            {}
-
-        public:
-            my_ssize_t push(OBJECT x, my_ssize_t s) {
-                m_items[s] = x;
-                return s + 1;
-            }
-            OBJECT index (my_ssize_t s, my_ssize_t i) {
-                return m_items[s - i - 1];
-            }
-            void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) {
-                m_items[s - i - 1] = v;
-            }
-        
-        public:
-            std::vector<OBJECT>::iterator begin() { return m_items.begin(); }
-            size_t capacity() { return m_items.size(); }
-        };
-
     private:
-        struct {
-            OBJECT a;       // the accumulator
-            VmExpID x;      // the next expression
-            OBJECT e;       // the current environment
-            OBJECT r;       // value rib; used to compute arguments for 'apply'
-            my_ssize_t s;   // the current stack pointer
-        } m_reg;
-
-        std::vector<VmExp> m_exps;
-        std::vector<VmFile> m_files;
-        Stack m_stack;
+        VRom m_rom;
+        VThread m_thread;
         
         OBJECT m_init_var_rib;
         OBJECT m_init_val_rib;
         bool m_init_env_locked;
 
-        GcThreadFrontEnd m_gc_tfe;
-
-        const struct {
-            IntStr const quote;
-            IntStr const lambda;
-            IntStr const if_;
-            IntStr const set;
-            IntStr const call_cc;
-            IntStr const define;
-            IntStr const begin;
-        } m_builtin_intstr_id_cache;
-
     public:
         explicit VirtualMachine(Gc* gc, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
         ~VirtualMachine();
     
-    // creating VM expressions:
-    private:
-        std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
-        VmExpID new_vmx_halt();
-        VmExpID new_vmx_refer(OBJECT var, VmExpID next);
-        VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
-        VmExpID new_vmx_close(OBJECT vars, VmExpID body, VmExpID next);
-        VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
-        VmExpID new_vmx_assign(OBJECT var, VmExpID next);
-        VmExpID new_vmx_conti(VmExpID x);
-        VmExpID new_vmx_nuate(OBJECT stack, OBJECT var);
-        VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
-        VmExpID new_vmx_argument(VmExpID x);
-        VmExpID new_vmx_apply();
-        VmExpID new_vmx_return();
-        VmExpID new_vmx_define(OBJECT var, VmExpID next);
-
     // Source code loading + compilation:
     public:
-        // add_file eats an std::vector<OBJECT> containing each line
-        void add_file(std::string const& file_name, std::vector<OBJECT> objs);
-    
-    private:
-        VmProgramTranslationResult translate_single_line_code_obj(OBJECT line_code_obj, OBJECT var_e);
-        VmExpTranslationResult translate_code_obj(OBJECT obj, VmExpID next, OBJECT var_e);
-        VmExpTranslationResult translate_code_obj__pair_list(PairObject* obj, VmExpID next, OBJECT var_e);
-        bool is_tail_vmx(VmExpID vmx_id);
+        void program(VRom&& rom);
 
     // Blocking execution functions:
     // Run each expression in each file sequentially on this thread.
@@ -159,33 +66,23 @@ namespace ss {
         void define_builtin_value(std::string name_str, OBJECT elt_obj);
         void define_builtin_fn(std::string name_str, EXT_CallableCb callback, std::vector<std::string> arg_names);
         static OBJECT closure(VmExpID body, OBJECT env);
-        OBJECT compile_lookup(OBJECT symbol, OBJECT var_env_raw);
         static OBJECT lookup(OBJECT symbol, OBJECT env_raw);
         OBJECT continuation(my_ssize_t s);
     public:
-        OBJECT compile_extend(OBJECT e, OBJECT vars);
         OBJECT extend(OBJECT e, OBJECT vals);
     public:
         OBJECT save_stack(my_ssize_t s);
         my_ssize_t restore_stack(OBJECT vector);
-        my_ssize_t push(OBJECT v, my_ssize_t s) { return m_stack.push(v, s); }
-        OBJECT index(my_ssize_t s, my_ssize_t i) { return m_stack.index(s, i); }
-        void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_stack.index_set(s, i, v); }
+        my_ssize_t push(OBJECT v, my_ssize_t s) { return m_thread.stack().push(v, s); }
+        OBJECT index(my_ssize_t s, my_ssize_t i) { return m_thread.stack().index(s, i); }
+        void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_thread.stack().index_set(s, i, v); }
 
-    // Error functions:
+    // Properties:
     public:
-        void check_vars_list_else_throw(OBJECT vars);
-
-    // GC:
-    public:
-        GcThreadFrontEnd& gc_tfe() { return m_gc_tfe; }
-
-    // Debug dumps:
-    public:
-        void dump(std::ostream& out);
-        void print_all_exps(std::ostream& out);
-        void print_one_exp(VmExpID exp_id, std::ostream& out);
-        void dump_all_files(std::ostream& out);
+        GcThreadFrontEnd& gc_tfe() { return *m_thread.gc_tfe(); }
+        VRom const& rom() const { return m_rom; }
+        OBJECT default_init_var_rib() const { return m_init_var_rib; }
+        OBJECT default_init_val_rib() const { return m_init_val_rib; }
     };
 
     //
@@ -196,41 +93,24 @@ namespace ss {
         Gc* gc,
         size_t file_count, 
         VirtualMachineStandardProcedureBinder binder
-    ):  m_reg(),
-        m_exps(),
-        m_files(),
-        m_builtin_intstr_id_cache({
-            .quote = intern("quote"),
-            .lambda = intern("lambda"),
-            .if_ = intern("if"),
-            .set = intern("set!"),
-            .call_cc = intern("call/cc"),
-            .define = intern("define"),
-            .begin = intern("begin")
-        }),
+    ):  m_thread(gc),
+        m_rom(file_count),
         m_init_var_rib(OBJECT::make_null()),
         m_init_val_rib(OBJECT::make_null()),
-        m_stack(),
-        m_init_env_locked(false),
-        m_gc_tfe(gc)
+        m_init_env_locked(false)
     {
+        // setting up, then locking the initial environment:
         binder(this);
         m_init_env_locked = true;
-        
-        m_exps.reserve(4096);
-        m_files.reserve(file_count);
 
-        m_reg.a = OBJECT::make_null();
-        // m_reg.x set by loader.
-        m_reg.e = list(&m_gc_tfe, m_init_val_rib);
-        m_reg.r = OBJECT::make_null();
-        m_reg.s = 0;
+        // setting up threads using initial val-rib:
+        m_thread.init(m_init_val_rib);
     }
 
     VirtualMachine::~VirtualMachine() {
         // todo: clean up code object memory-- leaking for now.
         //  - cannot delete `BoolObject` or other singletons
-        // for (VmFile const& file: m_files) {
+        // for (VScript const& file: m_rom.files()) {
         //     for (OBJECT o: file.line_code_objs) {
         //         delete o;
         //     }
@@ -238,337 +118,12 @@ namespace ss {
     }
 
     //
-    // Creating VM Expressions:
-    //
-
-    std::pair<VmExpID, VmExp&> VirtualMachine::help_new_vmx(VmExpKind kind) {
-        auto exp_id = m_exps.size();
-        auto& exp_ref = m_exps.emplace_back(kind);
-        return {exp_id, exp_ref};
-    }
-    VmExpID VirtualMachine::new_vmx_halt() {
-        return help_new_vmx(VmExpKind::Halt).first;
-    }
-    VmExpID VirtualMachine::new_vmx_refer(OBJECT var, VmExpID next) {
-        assert(var.is_pair() && car(var).is_integer() && cdr(var).is_integer());
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Refer);
-        auto& args = exp_ref.args.i_refer;
-        args.var = var;
-        args.x = next;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_constant(OBJECT constant, VmExpID next) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Constant);
-        auto& args = exp_ref.args.i_constant;
-        args.constant = constant;
-        args.x = next;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_close(OBJECT vars, VmExpID body, VmExpID next) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Close);
-        auto& args = exp_ref.args.i_close;
-        args.body = body;
-        args.x = next;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_test(VmExpID next_if_t, VmExpID next_if_f) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Test);
-        auto& args = exp_ref.args.i_test;
-        args.next_if_t = next_if_t;
-        args.next_if_f = next_if_f;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_assign(OBJECT var, VmExpID next) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Assign);
-        auto& args = exp_ref.args.i_assign;
-        args.var = var;
-        args.x = next;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_conti(VmExpID x) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Conti);
-        auto& args = exp_ref.args.i_conti;
-        args.x = x;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_nuate(OBJECT stack, OBJECT var) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Nuate);
-        auto& args = exp_ref.args.i_nuate;
-        args.s = stack;
-        args.var = var;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_frame(VmExpID x, VmExpID ret) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Frame);
-        auto& args = exp_ref.args.i_frame;
-        args.x = x;
-        args.ret = ret;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_argument(VmExpID x) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Argument);
-        auto& args = exp_ref.args.i_argument;
-        args.x = x;
-        return exp_id;
-    }
-    VmExpID VirtualMachine::new_vmx_apply() {
-        return help_new_vmx(VmExpKind::Apply).first;
-    }
-    VmExpID VirtualMachine::new_vmx_return() {
-        return help_new_vmx(VmExpKind::Return).first;
-    }
-    VmExpID VirtualMachine::new_vmx_define(OBJECT var, VmExpID next) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Define);
-        auto& args = exp_ref.args.i_define;
-        args.var = var;
-        args.next = next;
-        return exp_id;
-    }
-
-    //
     // Source code loading + compilation (p. 57 of 'three-imp.pdf')
     //
 
-    void VirtualMachine::add_file(std::string const& file_name, std::vector<OBJECT> objs) {
-        if (!objs.empty()) {
-            // translating each line into a program that terminates with 'halt'
-            std::vector<VmProgram> line_programs;
-            line_programs.reserve(objs.size());
-            VmProgramTranslationResult program;
-            program.new_var_env = list(&m_gc_tfe, m_init_var_rib);
-            for (OBJECT line_code_obj: objs) {
-                program = translate_single_line_code_obj(line_code_obj, program.new_var_env);
-                line_programs.push_back(program.exp_id_span);
-            }
-
-            // storing the input lines and the programs on this VM:
-            VmFile new_file = {std::move(objs), line_programs};
-            m_files.push_back(std::move(new_file));
-        } else {
-            warning(std::string("VM: Input file `") + file_name + "` is empty.");
-        }
+    void VirtualMachine::program(VRom&& rom) {
+        m_rom.flash(std::move(rom));
     }
-
-    VmProgramTranslationResult VirtualMachine::translate_single_line_code_obj(OBJECT line_code_obj, OBJECT var_e) {
-        VmExpID last_exp_id = new_vmx_halt();
-        VmExpTranslationResult res = translate_code_obj(line_code_obj, last_exp_id, var_e);
-        return VmProgramTranslationResult { 
-            VmProgram {res.first_exp_id, last_exp_id}, 
-            res.new_var_env
-        };
-    }
-    VmExpTranslationResult VirtualMachine::translate_code_obj(OBJECT obj, VmExpID next, OBJECT var_e) {
-        // iteratively translating this line to a VmProgram
-        //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
-        switch (obj_kind(obj)) {
-            case GranularObjectType::InternedSymbol: {
-                return VmExpTranslationResult { new_vmx_refer(compile_lookup(obj, var_e), next), var_e };
-            }
-            case GranularObjectType::Pair: {
-                return translate_code_obj__pair_list(static_cast<PairObject*>(obj.as_ptr()), next, var_e);
-            }
-            default: {
-                return VmExpTranslationResult { new_vmx_constant(obj, next), var_e };
-            }
-        }
-    }
-    VmExpTranslationResult VirtualMachine::translate_code_obj__pair_list(PairObject* obj, VmExpID next, OBJECT var_e) {
-        // retrieving key properties:
-        OBJECT head = obj->car();
-        OBJECT args = obj->cdr();
-
-        // first, trying to handle a builtin function invocation:
-        if (head.is_interned_symbol()) {
-            // keyword first argument => may be builtin
-            auto keyword_symbol_id = head.as_interned_symbol();
-
-            if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
-                // quote
-                auto quoted = extract_args<1>(args)[0];
-                return VmExpTranslationResult { new_vmx_constant(quoted, next), var_e };
-            }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.lambda) {
-                // lambda
-                auto args_array = extract_args<2>(args);
-                auto vars = args_array[0];
-                auto body = args_array[1];
-                
-                check_vars_list_else_throw(vars);
-
-                return VmExpTranslationResult {
-                    new_vmx_close(
-                        vars,
-                        translate_code_obj(
-                            body,
-                            new_vmx_return(),
-                            compile_extend(var_e, vars)
-                        ).first_exp_id,
-                        next
-                    ),
-                    var_e
-                };
-            }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.if_) {
-                // if
-                auto args_array = extract_args<3>(args);
-                auto cond_code_obj = args_array[0];
-                auto then_code_obj = args_array[1];
-                auto else_code_obj = args_array[2];
-                return translate_code_obj(
-                    cond_code_obj,
-                    new_vmx_test(
-                        translate_code_obj(then_code_obj, next, var_e).first_exp_id,
-                        translate_code_obj(else_code_obj, next, var_e).first_exp_id
-                    ),
-                    var_e
-                );
-            }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
-                // set!
-                auto args_array = extract_args<2>(args);
-                auto var_obj = args_array[0];
-                auto set_obj = args_array[1];   // we set the variable to this object, 'set' in past-tense
-                assert(var_obj.is_interned_symbol());
-                return translate_code_obj(
-                    set_obj,
-                    new_vmx_assign(compile_lookup(var_obj, var_e), next),
-                    var_e
-                );
-            }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.call_cc) {
-                // call/cc
-                auto args_array = extract_args<1>(args);
-                auto x = args_array[0];
-                // todo: check that 'x', the called function, is in fact a procedure.
-                auto c = new_vmx_conti(
-                    new_vmx_argument(
-                        translate_code_obj(x, new_vmx_apply(), var_e).first_exp_id
-                    )
-                );
-                return VmExpTranslationResult {
-                    ((is_tail_vmx(next)) ? c : new_vmx_frame(next, c)),
-                    var_e
-                };
-            } 
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
-                // define
-                auto args_array = extract_args<2>(args);
-                auto structural_signature = args_array[0];
-                auto body = args_array[1];
-                auto name = OBJECT::make_null();
-                auto pattern_ok = false;
-
-                if (structural_signature.is_interned_symbol()) {
-                    // (define <var> <initializer>)
-                    pattern_ok = true;
-                    name = structural_signature;
-                }
-                else if (structural_signature.is_pair()) {
-                    // (define (<fn-name> <arg-vars...>) <initializer>)
-                    // desugars to 
-                    // (define <fn-name> (lambda (<arg-vars) <initializer>))
-                    pattern_ok = true;
-
-                    auto fn_name = car(structural_signature);
-                    auto arg_vars = cdr(structural_signature);
-                    
-                    check_vars_list_else_throw(arg_vars);
-
-                    if (!fn_name.is_interned_symbol()) {
-                        std::stringstream ss;
-                        ss << "define: invalid function name: ";
-                        print_obj(fn_name, ss);
-                        error(ss.str());
-                        throw SsiError();
-                    }
-
-                    name = fn_name;
-                    body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
-                }
-
-                // de-sugared handler:
-                // NOTE: when computing ref instances:
-                // - 'Define' instruction runs before 'Assign'
-                if (pattern_ok) {
-                    auto new_env = compile_extend(var_e, list(&m_gc_tfe, name));
-                    auto body_res = translate_code_obj(
-                        body,
-                        new_vmx_assign(compile_lookup(name, new_env), next),
-                        new_env
-                    );
-                    return VmExpTranslationResult {
-                        new_vmx_define(name, body_res.first_exp_id),
-                        body_res.new_var_env
-                    };
-                } else {
-                    error("Invalid args to 'define'");
-                    throw SsiError();
-                }
-            }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.begin) {
-                // (begin expr ...+)
-
-                // ensuring at least one argument is provided:
-                if (args.is_null()) {
-                    error("begin: expected at least one expression form to evaluate, got 0.");
-                    throw SsiError();
-                }
-
-                // assembling each code object on a stack to translate in reverse order:
-                std::vector<OBJECT> obj_stack;
-                obj_stack.reserve(32);
-                OBJECT rem_args = args;
-                while (!rem_args.is_null()) {
-                    obj_stack.push_back(car(rem_args));
-                    rem_args = cdr(rem_args);
-                }
-
-                // translating:
-                VmExpID final_begin_instruction = next;
-                while (!obj_stack.empty()) {
-                    final_begin_instruction = translate_code_obj(obj_stack.back(), final_begin_instruction, var_e).first_exp_id;
-                    obj_stack.pop_back();
-                }
-
-                return VmExpTranslationResult {final_begin_instruction, var_e};
-            }
-            else {
-                // continue to the branch below...
-            }
-        }
-
-        // otherwise, handling a function call:
-        //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
-        {
-            // function call
-            VmExpTranslationResult c = translate_code_obj(head, new_vmx_apply(), var_e);
-            OBJECT c_args = args;
-            while (!c_args.is_null()) {
-                c = translate_code_obj(
-                    car(c_args),
-                    new_vmx_argument(c.first_exp_id),
-                    c.new_var_env
-                );
-                c_args = cdr(c_args);
-            }
-            if (is_tail_vmx(next)) {
-                return c;
-            } else {
-                return VmExpTranslationResult {
-                    new_vmx_frame(next, c.first_exp_id),
-                    c.new_var_env
-                };
-            }
-        }
-    }
-    bool VirtualMachine::is_tail_vmx(VmExpID vmx_id) {
-        return m_exps[vmx_id].kind == VmExpKind::Return;
-    }
-
-    // todo: implement printing for VM instructions
-    // todo: implement execution for VM instructions
-    // todo: implement a debugger for the VM?
-    //   - some sort of line associations so our back-trace is meaningful
 
     //
     // Blocking execution:
@@ -585,7 +140,7 @@ namespace ss {
         //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
         // for each line object in each file...
-        for (auto f: m_files) {
+        for (VScript& f: m_rom.files()) {
             auto line_count = f.line_code_objs.size();
             for (size_t i = 0; i < line_count; i++) {
                 // acquiring input:
@@ -593,127 +148,127 @@ namespace ss {
                 VmProgram program = f.line_programs[i];
 
                 // setting start instruction:
-                m_reg.x = program.s;
+                m_thread.regs().x = program.s;
 
                 // running iteratively until 'halt':
                 //  - cf `VM` function on p. 60 of `three-imp.pdf`
                 bool vm_is_running = true;
                 while (vm_is_running) {
-                    VmExp const& exp = m_exps[m_reg.x];
+                    VmExp const& exp = m_rom[m_thread.regs().x];
 
                     // DEBUG ONLY: print each instruction on execution to help trace
                     // todo: perhaps include a thread-ID? Some synchronization around IO [basically GIL]
     #if CONFIG_PRINT_EACH_INSTRUCTION_ON_EXECUTION
-                    std::wcout << L"\tVM <- (" << m_reg.x << ") ";
-                    print_one_exp(m_reg.x, std::cout);
+                    std::wcout << L"\tVM <- (" << m_thread.regs().x << ") ";
+                    print_one_exp(m_thread.regs().x, std::cout);
                     std::cout << std::endl;
     #endif
 
                     switch (exp.kind) {
                         case VmExpKind::Halt: {
-                            // m_reg.a now contains the return value of this computation.
+                            // m_thread.regs().a now contains the return value of this computation.
                             vm_is_running = false;
                         } break;
                         case VmExpKind::Refer: {
-                            m_reg.a = car(lookup(exp.args.i_refer.var, m_reg.e));
-                            m_reg.x = exp.args.i_refer.x;
+                            m_thread.regs().a = car(lookup(exp.args.i_refer.var, m_thread.regs().e));
+                            m_thread.regs().x = exp.args.i_refer.x;
                         } break;
                         case VmExpKind::Constant: {
-                            m_reg.a = exp.args.i_constant.constant;
-                            m_reg.x = exp.args.i_constant.x;
+                            m_thread.regs().a = exp.args.i_constant.constant;
+                            m_thread.regs().x = exp.args.i_constant.x;
                         } break;
                         case VmExpKind::Close: {
-                            m_reg.a = closure(exp.args.i_close.body, m_reg.e);
-                            m_reg.x = exp.args.i_close.x;
+                            m_thread.regs().a = closure(exp.args.i_close.body, m_thread.regs().e);
+                            m_thread.regs().x = exp.args.i_close.x;
                         } break;
                         case VmExpKind::Test: {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                            if (!m_reg.a.is_boolean()) {
+                            if (!m_thread.regs().a.is_boolean()) {
                                 std::stringstream ss;
                                 ss << "test: expected a `bool` expression in a conditional, received: ";
-                                print_obj(m_reg.a, ss);
+                                print_obj(m_thread.regs().a, ss);
                                 error(ss.str());
                                 throw SsiError();
                             }
     #endif
-                            if (m_reg.a.is_boolean(true)) {
-                                m_reg.x = exp.args.i_test.next_if_t;
+                            if (m_thread.regs().a.is_boolean(true)) {
+                                m_thread.regs().x = exp.args.i_test.next_if_t;
                             } else {
-                                m_reg.x = exp.args.i_test.next_if_f;
+                                m_thread.regs().x = exp.args.i_test.next_if_f;
                             }
                         } break;
                         case VmExpKind::Assign: {
-                            auto rem_value_rib = lookup(exp.args.i_assign.var, m_reg.e);
-                            set_car(rem_value_rib, m_reg.a);
-                            m_reg.x = exp.args.i_assign.x;
+                            auto rem_value_rib = lookup(exp.args.i_assign.var, m_thread.regs().e);
+                            set_car(rem_value_rib, m_thread.regs().a);
+                            m_thread.regs().x = exp.args.i_assign.x;
                         } break;
                         case VmExpKind::Conti: {
-                            m_reg.a = continuation(m_reg.s);
-                            m_reg.x = exp.args.i_conti.x;
+                            m_thread.regs().a = continuation(m_thread.regs().s);
+                            m_thread.regs().x = exp.args.i_conti.x;
                         } break;
                         case VmExpKind::Nuate: {
-                            m_reg.a = car(lookup(exp.args.i_nuate.var, m_reg.e));
-                            m_reg.x = new_vmx_return();
-                            m_reg.s = restore_stack(exp.args.i_nuate.s);
+                            m_thread.regs().a = car(lookup(exp.args.i_nuate.var, m_thread.regs().e));
+                            m_thread.regs().x = m_rom.new_vmx_return();
+                            m_thread.regs().s = restore_stack(exp.args.i_nuate.s);
                         } break;
                         case VmExpKind::Frame: {
                             auto encoded_ret = OBJECT::make_integer(exp.args.i_frame.x);
-                            m_reg.x = exp.args.i_frame.ret;
-                            m_reg.s = push(encoded_ret, push(m_reg.e, push(m_reg.r, m_reg.s)));
-                            m_reg.r = OBJECT::make_null();
+                            m_thread.regs().x = exp.args.i_frame.ret;
+                            m_thread.regs().s = push(encoded_ret, push(m_thread.regs().e, push(m_thread.regs().r, m_thread.regs().s)));
+                            m_thread.regs().r = OBJECT::make_null();
                         } break;
                         case VmExpKind::Argument: {
-                            m_reg.x = exp.args.i_argument.x;
-                            m_reg.r = cons(&m_gc_tfe, m_reg.a, m_reg.r);
+                            m_thread.regs().x = exp.args.i_argument.x;
+                            m_thread.regs().r = cons(m_thread.gc_tfe(), m_thread.regs().a, m_thread.regs().r);
                         } break;
                         case VmExpKind::Apply: {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-                            if (!is_procedure(m_reg.a)) {
+                            if (!is_procedure(m_thread.regs().a)) {
                                 std::stringstream ss;
                                 ss << "apply: expected a procedure, received: ";
-                                print_obj(m_reg.a, ss);
+                                print_obj(m_thread.regs().a, ss);
                                 ss << std::endl;
                                 error(ss.str());
                                 throw SsiError();
                             }
     #endif
-                            if (m_reg.a.is_closure()) {
+                            if (m_thread.regs().a.is_closure()) {
                                 // a Scheme function is called
-                                auto a = static_cast<VMA_ClosureObject*>(m_reg.a.as_ptr());
+                                auto a = static_cast<VMA_ClosureObject*>(m_thread.regs().a.as_ptr());
                                 OBJECT new_e;
                                 try {
-                                    new_e = extend(a->e(), m_reg.r);
+                                    new_e = extend(a->e(), m_thread.regs().r);
                                 } catch (SsiError const&) {
                                     std::stringstream ss;
-                                    ss << "See applied procedure: " << m_reg.a;
+                                    ss << "See applied procedure: " << m_thread.regs().a;
                                     more(ss.str());
                                     throw;
                                 }
 
                                 // DEBUG:
                                 // std::cerr 
-                                //     << "Applying: " << m_reg.a << std::endl
-                                //     << "- args: " << m_reg.r << std::endl
-                                //     << "- next: " << m_reg.x << std::endl;
+                                //     << "Applying: " << m_thread.regs().a << std::endl
+                                //     << "- args: " << m_thread.regs().r << std::endl
+                                //     << "- next: " << m_thread.regs().x << std::endl;
 
-                                // m_reg.a = m_reg.a;
-                                m_reg.x = a->body();
-                                m_reg.e = new_e;
-                                m_reg.r = OBJECT::make_null();
+                                // m_thread.regs().a = m_thread.regs().a;
+                                m_thread.regs().x = a->body();
+                                m_thread.regs().e = new_e;
+                                m_thread.regs().r = OBJECT::make_null();
                             }
-                            else if (m_reg.a.is_ext_callable()) {
+                            else if (m_thread.regs().a.is_ext_callable()) {
                                 // a C++ function is called; no 'return' required since stack returns after function call
                                 // by C++ rules.
-                                auto a = static_cast<EXT_CallableObject*>(m_reg.a.as_ptr());
+                                auto a = static_cast<EXT_CallableObject*>(m_thread.regs().a.as_ptr());
     //                          // leave env unaffected, since after evaluation, we continue with original env
                                 
                                 // popping the stack frame added by 'Frame':
                                 // NOTE: this part is usually handled by VmExpKind::Return
-                                m_reg.a = a->cb()(m_reg.r);
-                                m_reg.x = index(m_reg.s, 0).as_signed_fixnum();
-                                m_reg.e = index(m_reg.s, 1);
-                                m_reg.r = index(m_reg.s, 2);
-                                m_reg.s = m_reg.s - 3;
+                                m_thread.regs().a = a->cb()(m_thread.regs().r);
+                                m_thread.regs().x = index(m_thread.regs().s, 0).as_signed_fixnum();
+                                m_thread.regs().e = index(m_thread.regs().s, 1);
+                                m_thread.regs().r = index(m_thread.regs().s, 2);
+                                m_thread.regs().s = m_thread.regs().s - 3;
                             }
                             else {
                                 error("Invalid callable while type-checks disabled");
@@ -721,22 +276,22 @@ namespace ss {
                             }
                         } break;
                         case VmExpKind::Return: {
-                            auto s = m_reg.s;
+                            auto s = m_thread.regs().s;
                             // std::cerr << "RETURN!" << std::endl;
-                            // m_reg.a = m_reg.a;
-                            m_reg.x = index(s, 0).as_signed_fixnum();
-                            m_reg.e = index(s, 1);
-                            m_reg.r = index(s, 2);
-                            m_reg.s = m_reg.s - 3;
+                            // m_thread.regs().a = m_thread.regs().a;
+                            m_thread.regs().x = index(s, 0).as_signed_fixnum();
+                            m_thread.regs().e = index(s, 1);
+                            m_thread.regs().r = index(s, 2);
+                            m_thread.regs().s = m_thread.regs().s - 3;
                         } break;
                         case VmExpKind::Define: {
-                            m_reg.x = exp.args.i_define.next;
-                            m_reg.e = extend(m_reg.e, list(&m_gc_tfe, OBJECT::make_boolean(false)));
+                            m_thread.regs().x = exp.args.i_define.next;
+                            m_thread.regs().e = extend(m_thread.regs().e, list(m_thread.gc_tfe(), OBJECT::make_boolean(false)));
                             // DEBUG:
                             // {
                             //     auto def_name = exp.args.i_define.var.as_interned_symbol();
-                            //     std::cout << "define: " << interned_string(def_name) << ": " m_reg.a << std::endl;
-                            //     std::cout << "  - now, env is: " << m_reg.e << std::endl;
+                            //     std::cout << "define: " << interned_string(def_name) << ": " m_thread.regs().a << std::endl;
+                            //     std::cout << "  - now, env is: " << m_thread.regs().e << std::endl;
                             // }
                         } break;
                         // default: {
@@ -755,7 +310,7 @@ namespace ss {
                     std::cout << std::endl;
 
                     std::cout << " => ";
-                    print_obj(m_reg.a, std::cout);
+                    print_obj(m_thread.regs().a, std::cout);
                     std::cout << std::endl;
                 }
             }
@@ -764,8 +319,8 @@ namespace ss {
 
     void VirtualMachine::define_builtin_value(std::string name_str, OBJECT elt_obj) {
         OBJECT var_obj = OBJECT::make_interned_symbol(intern(std::move(name_str)));
-        m_init_var_rib = cons(&m_gc_tfe, var_obj, m_init_var_rib);
-        m_init_val_rib = cons(&m_gc_tfe, elt_obj, m_init_val_rib);
+        m_init_var_rib = cons(m_thread.gc_tfe(), var_obj, m_init_var_rib);
+        m_init_val_rib = cons(m_thread.gc_tfe(), elt_obj, m_init_val_rib);
     }
 
     void VirtualMachine::define_builtin_fn(
@@ -776,7 +331,7 @@ namespace ss {
         // constructing a 'closure' object:
         OBJECT vars_list = OBJECT::make_null();
         for (size_t i = 0; i < arg_names.size(); i++) {
-            vars_list = cons(&m_gc_tfe, OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
+            vars_list = cons(m_thread.gc_tfe(), OBJECT::make_interned_symbol(intern(arg_names[i])), vars_list);
         }
         auto elt_obj_raw = new EXT_CallableObject(callback, m_init_val_rib, vars_list);
         auto elt_obj = OBJECT::make_generic_boxed(elt_obj_raw);
@@ -787,74 +342,6 @@ namespace ss {
 
     OBJECT VirtualMachine::closure(VmExpID body, OBJECT env) {
         return OBJECT{new VMA_ClosureObject(body, env)};
-    }
-
-    OBJECT VirtualMachine::compile_lookup(OBJECT symbol, OBJECT var_env) {
-        // compile-time type-checks
-        {
-            bool ok = (
-                (var_env.is_list() && "broken 'env' in compile_lookup") &&
-                (symbol.is_interned_symbol() && "broken 'symbol' in compile_lookup")
-            );
-            if (!ok) {
-                throw SsiError();
-            }
-        }
-
-        // DEBUG:
-        // {
-        //     std::cerr 
-        //         << "COMPILE_LOOKUP:" << std::endl
-        //         << "\t" << symbol << std::endl
-        //         << "\t" << var_env << std::endl;
-        // }
-
-        IntStr sym_name = symbol.as_interned_symbol();
-
-        // iterating through ribs in the environment:
-        // the environment is a 'list of pairs of lists'
-        //  - each pair of lists is called a rib-pair or 'ribs'
-        //  - each list in the pair is a named rib-- either the value rib or named rib
-        size_t rib_index = 0;
-        for (
-            OBJECT rem_ribs = var_env;
-            rem_ribs.is_pair();
-            rem_ribs = cdr(rem_ribs)
-        ) {
-            auto variable_rib = car(rem_ribs);
-            assert(
-                (variable_rib.is_pair() || variable_rib.is_null())
-                && "broken compile-time env"
-            );
-
-            size_t elt_index = 0;
-            for (
-                OBJECT rem_variable_rib = variable_rib;
-                !rem_variable_rib.is_null();
-                rem_variable_rib = cdr(rem_variable_rib)
-            ) {
-                assert(!rem_variable_rib.is_null() && "Expected rem_variable_rib to be non-null with rem_value_rib");
-                assert(car(rem_variable_rib).is_interned_symbol() && "Expected a symbol in variable rib");
-                auto variable_rib_head_name = car(rem_variable_rib).as_interned_symbol();
-                if (variable_rib_head_name == sym_name) {
-                    // return the remaining value rib so we can reuse for 'set'
-                    return cons(&m_gc_tfe, OBJECT::make_integer(rib_index), OBJECT::make_integer(elt_index));
-                } else {
-                    elt_index++;
-                }
-            }
-
-            rib_index++;
-        }
-
-        // lookup failed:
-        {
-            std::stringstream ss;
-            ss << "Lookup failed: symbol used but not defined: ";
-            print_obj(symbol, ss);
-            error(ss.str());
-            throw SsiError();
-        }
     }
 
     OBJECT VirtualMachine::lookup(OBJECT symbol, OBJECT env) {
@@ -894,166 +381,26 @@ namespace ss {
     }
 
     OBJECT VirtualMachine::continuation(my_ssize_t s) {
-        auto closest_var_ref = cons(&m_gc_tfe, OBJECT::make_integer(0), OBJECT::make_integer(0));
+        auto closest_var_ref = cons(m_thread.gc_tfe(), OBJECT::make_integer(0), OBJECT::make_integer(0));
         return closure(
-            new_vmx_nuate(save_stack(s), closest_var_ref), 
+            m_rom.new_vmx_nuate(save_stack(s), closest_var_ref), 
             OBJECT::make_null()
         );
     }
 
-    OBJECT VirtualMachine::compile_extend(OBJECT e, OBJECT vars) {
-        auto res = cons(&m_gc_tfe, vars, e);
-        // std::cerr 
-        //     << "COMPILE_EXTEND:" << std::endl
-        //     << "\tbefore: " << e << std::endl
-        //     << "\tafter:  " << res << std::endl;
-        return res;
-    }
     OBJECT VirtualMachine::extend(OBJECT e, OBJECT vals) {
-        return cons(&m_gc_tfe, vals, e);
+        return cons(m_thread.gc_tfe(), vals, e);
     }
     OBJECT VirtualMachine::save_stack(my_ssize_t s) {
-        std::vector<OBJECT> vs{m_stack.begin(), m_stack.begin() + s};
+        std::vector<OBJECT> vs{m_thread.stack().begin(), m_thread.stack().begin() + s};
         return OBJECT::make_generic_boxed(new VectorObject(std::move(vs)));
     }
     my_ssize_t VirtualMachine::restore_stack(OBJECT vector) {
         assert(vector.is_vector() && "Expected stack to restore to be a 'vector' object");
         std::vector<OBJECT>& cpp_vector = dynamic_cast<VectorObject*>(vector.as_ptr())->as_cpp_vec();
-        assert(cpp_vector.size() <= m_stack.capacity() && "Cannot restore a stack larger than VM stack's capacity.");
-        std::copy(cpp_vector.begin(), cpp_vector.end(), m_stack.begin());
+        assert(cpp_vector.size() <= m_thread.stack().capacity() && "Cannot restore a stack larger than VM stack's capacity.");
+        std::copy(cpp_vector.begin(), cpp_vector.end(), m_thread.stack().begin());
         return cpp_vector.size();
-    }
-
-    //
-    // Error functions:
-    //
-
-    void VirtualMachine::check_vars_list_else_throw(OBJECT vars) {
-        OBJECT rem_vars = vars;
-        while (!rem_vars.is_null()) {
-            OBJECT head = car(rem_vars);
-            rem_vars = cdr(rem_vars);
-
-            if (!head.is_interned_symbol()) {
-                std::stringstream ss;
-                ss << "Invalid variable list for lambda: expected symbol, got: ";
-                print_obj(head, ss);
-                ss << std::endl;
-                error(ss.str());
-                throw SsiError();
-            }
-        }
-    }
-
-    //
-    // VM dumps:
-    //
-
-    void VirtualMachine::dump(std::ostream& out) {
-        out << "[Expression Table]" << std::endl;
-        print_all_exps(out);
-        
-        out << "[File Table]" << std::endl;
-        dump_all_files(out);
-    }
-    void VirtualMachine::print_all_exps(std::ostream& out) {
-        size_t pad_w = static_cast<size_t>(std::ceil(std::log(1+m_exps.size()) / std::log(10)));
-        for (size_t index = 0; index < m_exps.size(); index++) {
-            out << "  [";
-            out << std::setfill('0') << std::setw(pad_w) << index;
-            out << "] ";
-
-            print_one_exp(index, out);
-            
-            out << std::endl;
-        }
-    }
-    void VirtualMachine::print_one_exp(VmExpID exp_id, std::ostream& out) {
-        auto exp = m_exps[exp_id];
-        out << "(";
-        switch (exp.kind) {
-            case VmExpKind::Halt: {
-                out << "halt";
-            } break;
-            case VmExpKind::Refer: {
-                out << "refer ";
-                print_obj(exp.args.i_refer.var, out);
-                out << ' ';
-                out << "#:vmx " << exp.args.i_refer.x;
-            } break;
-            case VmExpKind::Constant: {
-                out << "constant ";
-                print_obj(exp.args.i_constant.constant, out);
-                out << ' ';
-                out << "#:vmx " << exp.args.i_constant.x;
-            } break;
-            case VmExpKind::Close: {
-                out << "close ";
-                print_obj(exp.args.i_refer.var, out);
-                out << ' ';
-                out << "#:vmx " << exp.args.i_refer.x;
-            } break;
-            case VmExpKind::Test: {
-                out << "test "
-                    << "#:vmx " << exp.args.i_test.next_if_t << ' '
-                    << "#:vmx " << exp.args.i_test.next_if_f;
-            } break;
-            case VmExpKind::Assign: {
-                out << "assign ";
-                print_obj(exp.args.i_assign.var, out);
-                out << ' ';
-                out << "#:vmx " << exp.args.i_assign.x;
-            } break;
-            case VmExpKind::Conti: {
-                out << "conti ";
-                out << "#:vmx " << exp.args.i_conti.x;
-            } break;
-            case VmExpKind::Nuate: {
-                out << "nuate ";
-                print_obj(exp.args.i_nuate.var, out);
-                out << ' '
-                    << "#:vmx " << exp.args.i_nuate.s;
-            } break;
-            case VmExpKind::Frame: {
-                out << "frame "
-                    << "#:vmx " << exp.args.i_frame.x << ' '
-                    << "#:vmx " << exp.args.i_frame.ret;
-            } break;
-            case VmExpKind::Argument: {
-                out << "argument "
-                    << "#:vmx " << exp.args.i_argument.x;
-            } break;
-            case VmExpKind::Apply: {
-                out << "apply";
-            } break;
-            case VmExpKind::Return: {
-                out << "return";
-            } break;
-            case VmExpKind::Define: {
-                out << "define ";
-                print_obj(exp.args.i_define.var, out);
-                out << " "
-                    << "#:vmx " << exp.args.i_define.next;
-            } break;
-        }
-        out << ")";
-    }
-    void VirtualMachine::dump_all_files(std::ostream& out) {
-        for (size_t i = 0; i < m_files.size(); i++) {
-            out << "  " "- file #:" << 1+i << std::endl;
-            auto f = m_files[i];
-
-            for (size_t j = 0; j < f.line_code_objs.size(); j++) {
-                OBJECT line_code_obj = f.line_code_objs[j];
-                VmProgram program = f.line_programs[j];
-
-                out << "    " "  > ";
-                print_obj(line_code_obj, out);
-                out << std::endl;
-                out << "    " " => " << "(#:vmx" << program.s << " #:vmx" << program.t << ")";
-                out << std::endl;
-            }
-        }
     }
 
     //
@@ -1073,11 +420,14 @@ namespace ss {
     void destroy_vm(VirtualMachine* vm) {
         delete vm;
     }
-    void add_file_to_vm(VirtualMachine* vm, std::string const& file_name, std::vector<OBJECT> objs) {
-        vm->add_file(file_name, std::move(objs));
+    void program_vm(VirtualMachine* vm, VRom&& rom) {
+        vm->program(std::move(rom));
     }
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm) {
         return &vm->gc_tfe();
+    }
+    OBJECT vm_default_init_var_rib(VirtualMachine* vm) {
+        return vm->default_init_var_rib();
     }
     void define_builtin_value_in_vm(VirtualMachine* vm, std::string name_str, OBJECT object) {
         vm->define_builtin_value(std::move(name_str), object);
@@ -1093,7 +443,10 @@ namespace ss {
         }
     }
     void dump_vm(VirtualMachine* vm, std::ostream& out) {
-        vm->dump(out);
+        std::cerr << "<dump>" << std::endl;
+        std::cerr << "=== VROM ===" << std::endl;
+        vm->rom().dump(out);
+        std::cerr << "</dump>" << std::endl;
     }
 
 }   // namespace ss

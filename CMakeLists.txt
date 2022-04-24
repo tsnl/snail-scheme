@@ -74,10 +74,11 @@ add_library(
     ss-jit
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/parser.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/printing.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/std.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/mir.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vrom.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vthread.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
 )
 target_link_libraries(ss-jit ss-core)

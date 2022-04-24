@@ -1,0 +1,163 @@
+#pragma once
+
+#include <vector>
+
+#include "ss-core/object.hh"
+
+///
+// Expressions
+//
+
+namespace ss {
+
+    ///
+    // VmExp: each expression is a VM instruction.
+    // Name comes from CPS convention + 'x' for 'next expression' register in VM.
+    // All VmExps are are stored in a flat table in the 'VirtualMachine'.
+    //  - this ensures traversal during interpretation is of similar efficiency to bytecode with padding
+    //  - TODO: do we need to traverse this structure to perform GC? cf Ch4
+    //
+
+    using VmExpID = size_t;
+
+    enum class VmExpKind: VmExpID {
+        Halt,
+        Refer,
+        Constant,
+        Close,
+        Test,
+        Assign,
+        Conti,
+        Nuate,
+        Frame,
+        Argument,
+        Apply,
+        Return,
+        Define,
+        // todo: implement a CFFI function call instruction
+    };
+    union VmExpArgs {
+        struct {} i_halt;
+        struct { OBJECT var; VmExpID x; } i_refer;
+        struct { OBJECT constant; VmExpID x; } i_constant;
+        struct { VmExpID body; VmExpID x; } i_close;
+        struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
+        struct { OBJECT var; VmExpID x; } i_assign;
+        struct { VmExpID x; } i_conti;
+        struct { OBJECT s; OBJECT var; } i_nuate;
+        struct { VmExpID x; VmExpID ret; } i_frame;
+        struct { VmExpID x; } i_argument;
+        struct { OBJECT var; VmExpID next; } i_define;
+        struct {} i_apply;
+        struct {} i_return_;
+    };
+    struct VmExp {
+        VmExpKind kind;
+        VmExpArgs args;
+    public:
+        explicit VmExp(VmExpKind new_kind)
+        :   kind(new_kind),
+            args()
+        {}
+    };
+
+    ///
+    // VmProgram: 
+    // represents a path of execution in the ordered node graph: just an (s, t) pair corresponding to 1 expression.
+    //
+
+    struct VmProgram {
+        VmExpID s;
+        VmExpID t;  // must be a 'halt' expression so we can read the accumulator
+    };
+
+    //
+    // VScript: a collection of programs-- one per line, and the source code object (may be reused, e.g. 'quote')
+    //
+
+    struct VScript {
+        std::vector<OBJECT> line_code_objs;
+        std::vector<VmProgram> line_programs;
+
+        VScript(std::vector<OBJECT> obj, std::vector<VmProgram> line_programs)
+        :   line_code_objs(obj),
+            line_programs(line_programs)
+        {}
+        explicit VScript(VScript&& other) noexcept
+        :   line_code_objs(std::move(other.line_code_objs)),
+            line_programs(std::move(other.line_programs))
+        {}
+    };
+
+    //
+    // ScopedVm{Program|Exp}: compilation output
+    //
+
+    struct ScopedVmProgram {
+        VmProgram program_code;
+        OBJECT new_var_env;
+    };
+    struct ScopedVmExp {
+        VmExpID exp_id;
+        OBJECT new_var_env;
+    };
+
+}
+
+///
+// VRom = container of expressions
+//
+
+namespace ss {
+
+    class VRom {
+    // Data members, constructor:
+    public:
+        inline static constexpr size_t DEFAULT_RESERVED_FILE_COUNT = 1024;
+    private:
+        std::vector<VmExp> m_exps;
+        std::vector<VScript> m_files;
+    public:
+        explicit VRom(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
+        explicit VRom(VRom&& other) noexcept;
+    
+    // Adding expressions, files:
+    void add_script(std::string const& file_name, VScript&& script);
+    
+    // Core getters and setters:
+    public:
+        std::vector<VmExp>& exps() { return m_exps; };
+        std::vector<VScript>& files() { return m_files; };
+        VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
+    
+    // creating VM expressions:
+    private:
+        std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
+    public:
+        VmExpID new_vmx_halt();
+        VmExpID new_vmx_refer(OBJECT var, VmExpID next);
+        VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
+        VmExpID new_vmx_close(OBJECT vars, VmExpID body, VmExpID next);
+        VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
+        VmExpID new_vmx_assign(OBJECT var, VmExpID next);
+        VmExpID new_vmx_conti(VmExpID x);
+        VmExpID new_vmx_nuate(OBJECT stack, OBJECT var);
+        VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
+        VmExpID new_vmx_argument(VmExpID x);
+        VmExpID new_vmx_apply();
+        VmExpID new_vmx_return();
+        VmExpID new_vmx_define(OBJECT var, VmExpID next);
+    
+    public:
+        void flash(VRom&& other);
+
+    // dump:
+    public:
+        void dump(std::ostream& out) const;
+    private:        
+        void print_all_exps(std::ostream& out) const;
+        void print_one_exp(VmExpID exp_id, std::ostream& out) const;
+        void print_all_files(std::ostream& out) const;
+    };
+
+}   // namespace ss

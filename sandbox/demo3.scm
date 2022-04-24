@@ -13,9 +13,13 @@
 
 ; (define a0 (fibonacci 30))
 (define a0 (fibonacci 30))
+; (display (format "~a\n" a0))
 ; (define a1 (fibonacci 30))
+; (display (format "~a\n" a1))
 ; (define a2 (fibonacci 30))
+; (display (format "~a\n" a2))
 ; (define a3 (fibonacci 30))
+; (display (format "~a\n" a3))
 ; (define a4 (fibonacci 30))
 
 ; (display (format "~a" a0))

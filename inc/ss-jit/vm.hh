@@ -4,7 +4,7 @@
 #include "ss-core/object.hh"
 #include "std.hh"
 #include "ss-core/gc.hh"
-#include "mir.hh"
+#include "vrom.hh"
 
 namespace ss {
 
@@ -29,19 +29,19 @@ namespace ss {
     // TODO: clean up after destroying VM.
     void destroy_vm(VirtualMachine* vm);
 
-    // add_file_to_vm tells the VM to execute this file.
+    // program_vm tells the VM to execute this VRom.
     // if multiple files are added, they are executed in the order in which they 
-    // were added.
-    void add_file_to_vm(
-        VirtualMachine* vm, 
-        std::string const& file_name, 
-        std::vector<OBJECT> line_code_obj_list
-    );
+    // were added to the VRom.
+    void program_vm(VirtualMachine* vm, VRom&& rom);
 
     // getting GC front-end:
     // since only single-threaded, just one thread front-end
     static_assert(GC_SINGLE_THREADED_MODE);
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
+
+    // getting 'default' init_var_rib, used to provide globals
+    // TODO: switch to a more efficient O(1) array lookup mechanism for globals
+    OBJECT vm_default_init_var_rib(VirtualMachine* vm);
 
     // bind_builtin adds a new definition to an initializer list that constructs the
     // builtin environment.
