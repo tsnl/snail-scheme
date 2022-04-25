@@ -37,6 +37,27 @@ Many features to implement!
     -   run GC in single-threaded mode: perform necessary plumbing.
     -   update VM to latest available version of three-imp: this will allow 
         divergence from three-imp to support multithreading once stack is finalized.
+    -   basic feature bucket
+        -   (from three-imp) get global IDs working
+            -   can use `define` in local contexts as a shorthand for `push`
+        -   implement macros
+        -   get GC traces working now that stack design is finalized
+        -   use stored 'f' frame reference on stack to restore on return,
+            thereby supporting arbitrary `push` and variadic arguments
+            (basically dynamically-sized stacks).
+    -   improvement feature bucket
+        -   allow instructions to select allocator between stack and heap:
+            can perform lifetime analysis
+        -   detect and transform IIFEs (especially from de-sugared 'let')
+            -   can resolve as `define` aka `push`
+            -   can solve more generally using lifetime analysis, symbolic 
+                evaluation/reduction
+        -   extend and improve compiler to deal with refinements for 
+            optimization
+            -   can add explicit type-checking instructions, make all 
+                functions un-type-checked, and then elide unnecessary 
+                type-checks statically.
+            -   can reduce any pure function symbolically for efficiency
 
 2.  MULTI-THREADED EXECUTION
 
