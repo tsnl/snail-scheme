@@ -198,10 +198,12 @@ namespace ss {
                         } break;
                         case VmExpKind::Frame: {
                             // pushing...
-                            // first (ret, f, c) last
-                            auto encoded_ret = OBJECT::make_integer(exp.args.i_frame.x);
+                            // first (c, f, ret) last
                             m_thread.regs().x = exp.args.i_frame.ret;
-                            m_thread.regs().s = push(encoded_ret, push(m_thread.regs().f, push(m_thread.regs().c, m_thread.regs().s)));
+                            m_thread.regs().s = 
+                                push(OBJECT::make_integer(exp.args.i_frame.x), 
+                                    push(m_thread.regs().f, 
+                                        push(m_thread.regs().c, m_thread.regs().s)));
                         } break;
                         case VmExpKind::Argument: {
                             m_thread.regs().x = exp.args.i_argument.x;
