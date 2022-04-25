@@ -11,11 +11,10 @@ namespace ss {
     public:
         OBJECT a;       // the accumulator
         VmExpID x;      // the next expression
-        OBJECT e;       // the current environment
-        OBJECT r;       // value rib; used to compute arguments for 'apply'
+        my_ssize_t e;   // the current frame pointer on the stack
         my_ssize_t s;   // the current stack pointer
     public:
-        void init(GcThreadFrontEnd* gc_tfe, OBJECT init_val_rib);
+        void init(GcThreadFrontEnd* gc_tfe);
     };
 
     class VmStack {
@@ -56,7 +55,7 @@ namespace ss {
             m_gc_tfe(gc)
         {}
     public:
-        void init(OBJECT init_val_rib);
+        void init();
     public:
         inline VmRegs& regs() { return m_regs; }
         inline VmStack& stack() { return m_stack; }

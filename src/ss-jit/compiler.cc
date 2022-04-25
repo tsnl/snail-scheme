@@ -1,11 +1,13 @@
 #include "ss-jit/compiler.hh"
+
+#include <utility>
 #include "ss-jit/printing.hh"
 #include "ss-core/object.hh"
 
 namespace ss {
 
     Compiler::Compiler(GcThreadFrontEnd& gc_tfe) 
-    :   m_rom(),
+    :   m_code(),
         m_gc_tfe(gc_tfe),
         m_builtin_intstr_id_cache({
             .quote = intern("quote"),
@@ -16,9 +18,10 @@ namespace ss {
             .define = intern("define"),
             .begin = intern("begin")
         })
+        // TODO: add 'globals' table
     {}
      
-    OBJECT Compiler::compile_lookup(OBJECT symbol, OBJECT var_env) {
+    std::pair<size_t, size_t> Compiler::compile_lookup(OBJECT symbol, OBJECT var_env) {
         // compile-time type-checks
         {
             bool ok = (
@@ -67,7 +70,7 @@ namespace ss {
                 auto variable_rib_head_name = car(rem_variable_rib).as_interned_symbol();
                 if (variable_rib_head_name == sym_name) {
                     // return the remaining value rib so we can reuse for 'set'
-                    return cons(&m_gc_tfe, OBJECT::make_integer(rib_index), OBJECT::make_integer(elt_index));
+                    return {rib_index, elt_index};
                 } else {
                     elt_index++;
                 }
@@ -86,41 +89,39 @@ namespace ss {
         }
     }
 
-    VScript Compiler::compile_script(std::string str, std::vector<OBJECT> line_code_objects, OBJECT init_var_rib) {
+    VScript Compiler::compile_script(std::string str, std::vector<OBJECT> line_code_objects) {
         std::vector<VmProgram> line_programs;
         line_programs.reserve(line_code_objects.size());
-        ScopedVmProgram scoped_program;
-        scoped_program.new_var_env = list(&m_gc_tfe, init_var_rib);
         for (auto const code_object: line_code_objects) {
-            scoped_program = translate_single_line_code_obj(code_object, scoped_program.new_var_env);
-            line_programs.push_back(scoped_program.program_code);
+            auto program = compile_line(code_object, OBJECT::make_null());
+            line_programs.push_back(program);
         }
         return VScript{std::move(line_code_objects), std::move(line_programs)};
     }
-    ScopedVmProgram Compiler::translate_single_line_code_obj(OBJECT line_code_obj, OBJECT var_e) {
-        VmExpID last_exp_id = m_rom.new_vmx_halt();
-        ScopedVmExp res = translate_code_obj(line_code_obj, last_exp_id, var_e);
-        return ScopedVmProgram { 
-            VmProgram {res.exp_id, last_exp_id}, 
-            res.new_var_env
-        };
+    VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
+        VmExpID last_exp_id = m_code.new_vmx_halt();
+        VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e);
+        return {res, last_exp_id};
     }
-    ScopedVmExp Compiler::translate_code_obj(OBJECT obj, VmExpID next, OBJECT var_e) {
+    VmExpID Compiler::compile_exp(OBJECT obj, VmExpID next, OBJECT var_e) {
         // iteratively translating this line to a VmProgram
-        //  - cf p. 56 of 'three-imp.pdf', §3.4.2: Translation
+        //  - cf p. 87 of 'three-imp.pdf', §4.3.2: Translation and Evaluation
         switch (obj_kind(obj)) {
             case GranularObjectType::InternedSymbol: {
-                return ScopedVmExp{m_rom.new_vmx_refer(compile_lookup(obj, var_e), next), var_e};
+                auto [n, m] = compile_lookup(obj, var_e);
+                return m_code.new_vmx_refer(n, m, next);
             }
             case GranularObjectType::Pair: {
-                return translate_code_obj__pair_list(static_cast<PairObject*>(obj.as_ptr()), next, var_e);
+                return compile_pair_list_exp(static_cast<PairObject*>(obj.as_ptr()), next, var_e);
             }
             default: {
-                return ScopedVmExp{m_rom.new_vmx_constant(obj, next), var_e};
+                return m_code.new_vmx_constant(obj, next);
             }
         }
     }
-    ScopedVmExp Compiler::translate_code_obj__pair_list(PairObject* obj, VmExpID next, OBJECT var_e) {
+    VmExpID Compiler::compile_pair_list_exp(PairObject* obj, VmExpID next, OBJECT var_e) {
+        // corresponds to 'record-case'
+
         // retrieving key properties:
         OBJECT head = obj->car();
         OBJECT args = obj->cdr();
@@ -133,7 +134,7 @@ namespace ss {
             if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
                 // quote
                 auto quoted = extract_args<1>(args)[0];
-                return ScopedVmExp { m_rom.new_vmx_constant(quoted, next), var_e };
+                return m_code.new_vmx_constant(quoted, next);
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.lambda) {
                 // lambda
@@ -143,18 +144,15 @@ namespace ss {
                 
                 check_vars_list_else_throw(vars);
 
-                return ScopedVmExp {
-                    m_rom.new_vmx_close(
-                        vars,
-                        translate_code_obj(
-                            body,
-                            m_rom.new_vmx_return(),
-                            compile_extend(var_e, vars)
-                        ).exp_id,
-                        next
+                return m_code.new_vmx_close(
+                    vars,
+                    compile_exp(
+                        body,
+                        m_code.new_vmx_return(1 + list_length(vars)),
+                        compile_extend(var_e, vars)
                     ),
-                    var_e
-                };
+                    next
+                );
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.if_) {
                 // if
@@ -162,98 +160,100 @@ namespace ss {
                 auto cond_code_obj = args_array[0];
                 auto then_code_obj = args_array[1];
                 auto else_code_obj = args_array[2];
-                return translate_code_obj(
+                return compile_exp(
                     cond_code_obj,
-                    m_rom.new_vmx_test(
-                        translate_code_obj(then_code_obj, next, var_e).exp_id,
-                        translate_code_obj(else_code_obj, next, var_e).exp_id
+                    m_code.new_vmx_test(
+                        compile_exp(then_code_obj, next, var_e),
+                        compile_exp(else_code_obj, next, var_e)
                     ),
                     var_e
                 );
             }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
-                // set!
-                auto args_array = extract_args<2>(args);
-                auto var_obj = args_array[0];
-                auto set_obj = args_array[1];   // we set the variable to this object, 'set' in past-tense
-                assert(var_obj.is_interned_symbol());
-                return translate_code_obj(
-                    set_obj,
-                    m_rom.new_vmx_assign(compile_lookup(var_obj, var_e), next),
-                    var_e
-                );
-            }
+            // else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
+            //     // set!
+            //     auto args_array = extract_args<2>(args);
+            //     auto var_obj = args_array[0];
+            //     auto set_obj = args_array[1];   // we set the variable to this object, 'set' in past-tense
+            //     assert(var_obj.is_interned_symbol());
+            //     return compile_exp(
+            //         set_obj,
+            //         m_code.new_vmx_assign(compile_lookup(var_obj, var_e), next),
+            //         var_e
+            //     );
+            // }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.call_cc) {
                 // call/cc
+                // NOTE: procedure type check occurs in 'apply' later
+
                 auto args_array = extract_args<1>(args);
                 auto x = args_array[0];
-                // todo: check that 'x', the called function, is in fact a procedure.
-                auto c = m_rom.new_vmx_conti(
-                    m_rom.new_vmx_argument(
-                        translate_code_obj(x, m_rom.new_vmx_apply(), var_e).exp_id
+                
+                return m_code.new_vmx_frame(
+                    next, 
+                    m_code.new_vmx_conti(
+                        m_code.new_vmx_argument(
+                            compile_exp(x, m_code.new_vmx_apply(), var_e)
+                        )
                     )
                 );
-                return ScopedVmExp {
-                    ((is_tail_vmx(next)) ? c : m_rom.new_vmx_frame(next, c)),
-                    var_e
-                };
             } 
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
-                // define
-                auto args_array = extract_args<2>(args);
-                auto structural_signature = args_array[0];
-                auto body = args_array[1];
-                auto name = OBJECT::make_null();
-                auto pattern_ok = false;
+            // else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
+            //     // define
+            //     auto args_array = extract_args<2>(args);
+            //     auto structural_signature = args_array[0];
+            //     auto body = args_array[1];
+            //     auto name = OBJECT::make_null();
+            //     auto pattern_ok = false;
 
-                if (structural_signature.is_interned_symbol()) {
-                    // (define <var> <initializer>)
-                    pattern_ok = true;
-                    name = structural_signature;
-                }
-                else if (structural_signature.is_pair()) {
-                    // (define (<fn-name> <arg-vars...>) <initializer>)
-                    // desugars to 
-                    // (define <fn-name> (lambda (<arg-vars) <initializer>))
-                    pattern_ok = true;
+            //     if (structural_signature.is_interned_symbol()) {
+            //         // (define <var> <initializer>)
+            //         pattern_ok = true;
+            //         name = structural_signature;
+            //     }
+            //     else if (structural_signature.is_pair()) {
+            //         // (define (<fn-name> <arg-vars...>) <initializer>)
+            //         // desugars to 
+            //         // (define <fn-name> (lambda (<arg-vars) <initializer>))
+            //         pattern_ok = true;
 
-                    auto fn_name = car(structural_signature);
-                    auto arg_vars = cdr(structural_signature);
+            //         auto fn_name = car(structural_signature);
+            //         auto arg_vars = cdr(structural_signature);
                     
-                    check_vars_list_else_throw(arg_vars);
+            //         check_vars_list_else_throw(arg_vars);
 
-                    if (!fn_name.is_interned_symbol()) {
-                        std::stringstream ss;
-                        ss << "define: invalid function name: ";
-                        print_obj(fn_name, ss);
-                        error(ss.str());
-                        throw SsiError();
-                    }
+            //         if (!fn_name.is_interned_symbol()) {
+            //             std::stringstream ss;
+            //             ss << "define: invalid function name: ";
+            //             print_obj(fn_name, ss);
+            //             error(ss.str());
+            //             throw SsiError();
+            //         }
 
-                    name = fn_name;
-                    body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
-                }
+            //         name = fn_name;
+            //         body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
+            //     }
 
-                // de-sugared handler:
-                // NOTE: when computing ref instances:
-                // - 'Define' instruction runs before 'Assign'
-                if (pattern_ok) {
-                    OBJECT vars = list(&m_gc_tfe, name);
-                    OBJECT new_env = compile_extend(var_e, vars);
-                    ScopedVmExp body_res = translate_code_obj(
-                        body,
-                        m_rom.new_vmx_assign(compile_lookup(name, new_env), next),
-                        new_env
-                    );
-                    return ScopedVmExp {
-                        m_rom.new_vmx_define(name, body_res.exp_id),
-                        body_res.new_var_env
-                    };
-                } else {
-                    error("Invalid args to 'define'");
-                    throw SsiError();
-                }
-            }
+            //     // de-sugared handler:
+            //     // NOTE: when computing ref instances:
+            //     // - 'Define' instruction runs before 'Assign'
+            //     if (pattern_ok) {
+            //         OBJECT vars = list(&m_gc_tfe, name);
+            //         OBJECT new_env = compile_extend(var_e, vars);
+            //         auto [n, m] = compile_lookup(name, new_env);
+            //         ScopedVmExp body_res = compile_exp(
+            //             body,
+            //             m_code.new_vmx_assign(n, m, next),
+            //             new_env
+            //         );
+            //         return ScopedVmExp {
+            //             m_code.new_vmx_define(name, body_res),
+            //             body_res.new_var_env
+            //         };
+            //     } else {
+            //         error("Invalid args to 'define'");
+            //         throw SsiError();
+            //     }
+            // }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.begin) {
                 // (begin expr ...+)
 
@@ -272,14 +272,15 @@ namespace ss {
                     rem_args = cdr(rem_args);
                 }
 
-                // translating:
+                // compiling arguments from last to first, linking:
                 VmExpID final_begin_instruction = next;
                 while (!obj_stack.empty()) {
-                    final_begin_instruction = translate_code_obj(obj_stack.back(), final_begin_instruction, var_e).exp_id;
+                    final_begin_instruction = compile_exp(obj_stack.back(), final_begin_instruction, var_e);
                     obj_stack.pop_back();
                 }
 
-                return ScopedVmExp {final_begin_instruction, var_e};
+                // returning:
+                return final_begin_instruction;
             }
             else {
                 // continue to the branch below...
@@ -290,28 +291,26 @@ namespace ss {
         //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
         {
             // function call
-            ScopedVmExp c = translate_code_obj(head, m_rom.new_vmx_apply(), var_e);
-            OBJECT c_args = args;
-            while (!c_args.is_null()) {
-                c = translate_code_obj(
-                    car(c_args),
-                    m_rom.new_vmx_argument(c.exp_id),
-                    c.new_var_env
-                );
-                c_args = cdr(c_args);
-            }
-            if (is_tail_vmx(next)) {
-                return c;
-            } else {
-                return ScopedVmExp {
-                    m_rom.new_vmx_frame(next, c.exp_id),
-                    c.new_var_env
-                };
+            OBJECT rem_args = args;
+            VmExpID next_c = compile_exp(head, m_code.new_vmx_apply(), var_e);
+            for (;;) {
+                if (rem_args.is_null()) {
+                    return m_code.new_vmx_frame(next, next_c);
+                } else {
+                    next_c = compile_exp(
+                        car(rem_args),
+                        m_code.new_vmx_argument(next_c),
+                        var_e
+                    );
+                    rem_args = cdr(rem_args);
+                }
             }
         }
+
+        // unreachable
     }
     bool Compiler::is_tail_vmx(VmExpID vmx_id) {
-        return m_rom[vmx_id].kind == VmExpKind::Return;
+        return m_code[vmx_id].kind == VmExpKind::Return;
     }
     void Compiler::check_vars_list_else_throw(OBJECT vars) {
         OBJECT rem_vars = vars;

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.7)
 project(SnailScheme VERSION 0.0.0)
 
 ## Cache config
@@ -30,6 +30,11 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchGoogleTest.cmake)
 include(GoogleTest)
 include(ExternalProject)
 
+## Dependency: robin-hood-hashing
+#
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dep/robin-hood-hashing)
+
 ## Generating Source
 #
 
@@ -38,11 +43,12 @@ configure_file(
     ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh
 )
 
-## Configuring targetss: global config
+## Configuring targets: global config
 #
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/
+    ${CMAKE_CURRENT_SOURCE_DIR}/dep/robin-hood-hashing/src/include
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -68,6 +74,10 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/memory.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
 )
+target_link_libraries(
+    ss-core
+    robin_hood
+)
 
 # jit: compiles, evaluates partially or fully, and generates binaries 
 add_library(
@@ -78,20 +88,24 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vrom.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vthread.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vglobals.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
 )
-target_link_libraries(ss-jit ss-core)
+target_link_libraries(ss-jit 
+    ss-core
+    ${Boost_LIBRARIES} 
+    ${FOLLY_LIBRARIES}
+)
 
-##
-#
-
+# ssi: Snail-Scheme interpreter
 add_executable(
     ssi
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ssi/ssi.cc
 )
 target_link_libraries(ssi ss-core ss-jit)
 
+# ss-tests: tests for SS
 add_executable(
     ss-tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/TestTest.cc

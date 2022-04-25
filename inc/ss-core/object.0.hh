@@ -296,19 +296,19 @@ namespace ss {
 
     class VMA_ClosureObject: public BaseBoxedObject {
     private:
-        VmExpID m_body;    // the body expression to evaluate
-        OBJECT m_e;        // the environment to use
+        VmExpID m_body;     // the body expression to evaluate
+        my_ssize_t m_link;  // the environment to use
 
     public:
-        VMA_ClosureObject(VmExpID body, OBJECT e)
+        VMA_ClosureObject(VmExpID body, my_ssize_t e)
         :   BaseBoxedObject(GranularObjectType::VMA_Closure),
             m_body(body),
-            m_e(e)
+            m_link(e)
         {}
 
     public:
         [[nodiscard]] VmExpID body() const { return m_body; }
-        [[nodiscard]] OBJECT e() const { return m_e; }
+        [[nodiscard]] my_ssize_t link() const { return m_link; }
     };
 
     //
@@ -322,19 +322,16 @@ namespace ss {
         EXT_CallableCb m_cb;
         OBJECT m_e;
         OBJECT m_vars;
+        size_t m_arg_count;
 
     public:
-        EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars)
-        :   BaseBoxedObject(GranularObjectType::EXT_Callable),
-            m_cb(std::move(cb)),
-            m_e(e),
-            m_vars(vars)
-        {}
+        EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars);
 
     public:
         EXT_CallableCb const& cb() const { return m_cb; }
         OBJECT e() const { return m_e; }
         OBJECT vars() const { return m_vars; }
+        size_t arg_count() const { return m_arg_count; }
     };
 
     //
@@ -375,7 +372,7 @@ namespace ss {
     bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
     bool is_equal(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
 
-    inline my_ssize_t count_list_items(OBJECT pair_list);
+    inline my_ssize_t list_length(OBJECT pair_list);
 
     inline OBJECT vector_length(OBJECT vec);
     inline OBJECT vector_ref(OBJECT vec, OBJECT index);
@@ -432,6 +429,14 @@ namespace ss {
 
     inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
     :   m_kind(kind) {}
+
+    inline EXT_CallableObject::EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars)
+    :   BaseBoxedObject(GranularObjectType::EXT_Callable),
+        m_cb(std::move(cb)),
+        m_e(e),
+        m_vars(vars),
+        m_arg_count(list_length(vars))
+    {}
 
     inline OBJECT car(OBJECT object) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -512,7 +517,7 @@ namespace ss {
         return obj_kind(o) == GranularObjectType::Vector;
     }
 
-    inline my_ssize_t count_list_items(OBJECT pair_list) {
+    inline my_ssize_t list_length(OBJECT pair_list) {
         my_ssize_t var_ctr = 0;
         for (
             OBJECT rem_var_rib = pair_list;

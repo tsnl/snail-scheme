@@ -4,15 +4,14 @@
 
 namespace ss {
 
-    void VThread::init(OBJECT init_val_rib) {
-        m_regs.init(&m_gc_tfe, init_val_rib);
+    void VThread::init() {
+        m_regs.init(&m_gc_tfe);
     }
 
-    void VmRegs::init(GcThreadFrontEnd* gc_tfe, OBJECT init_val_rib) {
+    void VmRegs::init(GcThreadFrontEnd* gc_tfe) {
         a = OBJECT::make_null();
-        // m_reg.x set by loader.
-        e = list(gc_tfe, init_val_rib);
-        r = OBJECT::make_null();
+        // m_reg.x set by VCode loader.
+        e = 0;
         s = 0;
     }
 

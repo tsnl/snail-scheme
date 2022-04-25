@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #include "ss-core/object.hh"
 
@@ -38,18 +39,18 @@ namespace ss {
     };
     union VmExpArgs {
         struct {} i_halt;
-        struct { OBJECT var; VmExpID x; } i_refer;
-        struct { OBJECT constant; VmExpID x; } i_constant;
+        struct { size_t n; size_t m; VmExpID x; } i_refer;
+        struct { OBJECT obj; VmExpID x; } i_constant;
         struct { VmExpID body; VmExpID x; } i_close;
         struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
         struct { OBJECT var; VmExpID x; } i_assign;
         struct { VmExpID x; } i_conti;
-        struct { OBJECT s; OBJECT var; } i_nuate;
+        struct { OBJECT stack; VmExpID x; } i_nuate;
         struct { VmExpID x; VmExpID ret; } i_frame;
         struct { VmExpID x; } i_argument;
         struct { OBJECT var; VmExpID next; } i_define;
         struct {} i_apply;
-        struct {} i_return_;
+        struct { size_t n; } i_return;
     };
     struct VmExp {
         VmExpKind kind;
@@ -89,28 +90,15 @@ namespace ss {
         {}
     };
 
-    //
-    // ScopedVm{Program|Exp}: compilation output
-    //
-
-    struct ScopedVmProgram {
-        VmProgram program_code;
-        OBJECT new_var_env;
-    };
-    struct ScopedVmExp {
-        VmExpID exp_id;
-        OBJECT new_var_env;
-    };
-
 }
 
 ///
-// VRom = container of expressions
+// VCode = container of expressions
 //
 
 namespace ss {
 
-    class VRom {
+    class VCode {
     // Data members, constructor:
     public:
         inline static constexpr size_t DEFAULT_RESERVED_FILE_COUNT = 1024;
@@ -118,8 +106,8 @@ namespace ss {
         std::vector<VmExp> m_exps;
         std::vector<VScript> m_files;
     public:
-        explicit VRom(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
-        explicit VRom(VRom&& other) noexcept;
+        explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
+        explicit VCode(VCode&& other) noexcept;
     
     // Adding expressions, files:
     void add_script(std::string const& file_name, VScript&& script);
@@ -135,21 +123,21 @@ namespace ss {
         std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
     public:
         VmExpID new_vmx_halt();
-        VmExpID new_vmx_refer(OBJECT var, VmExpID next);
+        VmExpID new_vmx_refer(size_t n, size_t m, VmExpID x);
         VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
         VmExpID new_vmx_close(OBJECT vars, VmExpID body, VmExpID next);
         VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
-        VmExpID new_vmx_assign(OBJECT var, VmExpID next);
+        // VmExpID new_vmx_assign(size_t n, size_t m, VmExpID next);
         VmExpID new_vmx_conti(VmExpID x);
-        VmExpID new_vmx_nuate(OBJECT stack, OBJECT var);
+        VmExpID new_vmx_nuate(OBJECT stack, VmExpID x);
         VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
         VmExpID new_vmx_argument(VmExpID x);
         VmExpID new_vmx_apply();
-        VmExpID new_vmx_return();
+        VmExpID new_vmx_return(size_t n);
         VmExpID new_vmx_define(OBJECT var, VmExpID next);
     
     public:
-        void flash(VRom&& other);
+        void flash(VCode&& other);
 
     // dump:
     public:

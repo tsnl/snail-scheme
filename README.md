@@ -23,6 +23,11 @@ It includes a basic interpreter (SSI) written in C++.
 0.  No block comments supported
 0.  Like R7RS and unlike older Scheme revisions, identifiers are case-sensitive.
 
+## Build instructions
+
+0.  Ensure you run `git submodule update --init --recursive` to fetch all dependencies.
+1.  Build with CMake: will require a C++20-compliant compiler.
+
 ## Plan
 
 Many features to implement!
