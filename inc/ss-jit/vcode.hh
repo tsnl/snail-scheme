@@ -23,7 +23,8 @@ namespace ss {
 
     enum class VmExpKind: VmExpID {
         Halt,
-        Refer,
+        ReferLocal,
+        ReferFree,
         Constant,
         Close,
         Test,
@@ -39,9 +40,9 @@ namespace ss {
     };
     union VmExpArgs {
         struct {} i_halt;
-        struct { size_t n; size_t m; VmExpID x; } i_refer;
+        struct { size_t n; VmExpID x; } i_refer;
         struct { OBJECT obj; VmExpID x; } i_constant;
-        struct { VmExpID body; VmExpID x; } i_close;
+        struct { size_t vars_count; VmExpID body; VmExpID x; } i_close;
         struct { VmExpID next_if_t; VmExpID next_if_f; } i_test;
         struct { OBJECT var; VmExpID x; } i_assign;
         struct { VmExpID x; } i_conti;
@@ -123,9 +124,10 @@ namespace ss {
         std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
     public:
         VmExpID new_vmx_halt();
-        VmExpID new_vmx_refer(size_t n, size_t m, VmExpID x);
+        VmExpID new_vmx_refer_local(size_t n, VmExpID x);
+        VmExpID new_vmx_refer_free(size_t n, VmExpID x);
         VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
-        VmExpID new_vmx_close(OBJECT vars, VmExpID body, VmExpID next);
+        VmExpID new_vmx_close(size_t vars_count, VmExpID body, VmExpID next);
         VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
         // VmExpID new_vmx_assign(size_t n, size_t m, VmExpID next);
         VmExpID new_vmx_conti(VmExpID x);

@@ -16,8 +16,9 @@
 #include "ss-jit/printing.hh"
 #include "ss-core/common.hh"
 #include "ss-jit/std.hh"
-#include "ss-jit/vrom.hh"
+#include "ss-jit/vcode.hh"
 #include "ss-jit/vthread.hh"
+#include "ss-jit/compiler.hh"
 
 namespace ss {
 
@@ -41,7 +42,7 @@ namespace ss {
     class VirtualMachine {
     private:
         VThread m_thread;
-        VCode m_code;
+        Compiler m_jit_compiler;
     public:
         explicit VirtualMachine(Gc* gc, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
         ~VirtualMachine();
@@ -58,7 +59,7 @@ namespace ss {
 
     // Interpreter environment setup:
     public:
-        OBJECT closure(VmExpID body, my_ssize_t env);
+        OBJECT closure(VmExpID body, my_ssize_t vars_count, my_ssize_t s);
         my_ssize_t find_link(my_ssize_t n, my_ssize_t e);
         my_ssize_t find_link(my_ssize_t n, OBJECT e);
         OBJECT continuation(my_ssize_t s);
@@ -72,11 +73,15 @@ namespace ss {
         OBJECT index(my_ssize_t s, my_ssize_t i) { return m_thread.stack().index(s, i); }
         OBJECT index(OBJECT s, my_ssize_t i) { return index(s.as_signed_fixnum(), i); }
         void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_thread.stack().index_set(s, i, v); }
+    public:
+        VmExpID closure_body(OBJECT c);
+        OBJECT index_closure(OBJECT c, my_ssize_t n);
 
     // Properties:
     public:
         GcThreadFrontEnd& gc_tfe() { return *m_thread.gc_tfe(); }
-        VCode const& code() const { return m_code; }
+        Compiler& jit_compiler() { return m_jit_compiler; }
+        VCode& code() { return m_jit_compiler.code(); }
     };
 
     //
@@ -88,7 +93,7 @@ namespace ss {
         size_t file_count, 
         VirtualMachineStandardProcedureBinder binder
     ):  m_thread(gc),
-        m_code(file_count)
+        m_jit_compiler(*m_thread.gc_tfe())
     {
         // setting up threads using initial val-rib:
         m_thread.init();
@@ -108,8 +113,8 @@ namespace ss {
     // Source code loading + compilation (p. 57 of 'three-imp.pdf')
     //
 
-    void VirtualMachine::program(VCode&& code) {
-        m_code.flash(std::move(code));
+    void VirtualMachine::program(VCode&& new_code) {
+        code().flash(std::move(new_code));
     }
 
     //
@@ -127,7 +132,7 @@ namespace ss {
         //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
         // for each line object in each file...
-        for (VScript& f: m_code.files()) {
+        for (VScript& f: code().files()) {
             auto line_count = f.line_code_objs.size();
             for (size_t i = 0; i < line_count; i++) {
                 // acquiring input:
@@ -141,7 +146,7 @@ namespace ss {
                 //  - cf `VM` function on p. 60 of `three-imp.pdf`
                 bool vm_is_running = true;
                 while (vm_is_running) {
-                    VmExp const& exp = m_code[m_thread.regs().x];
+                    VmExp const& exp = code()[m_thread.regs().x];
 
                     // DEBUG ONLY: print each instruction on execution to help trace
                     // todo: perhaps include a thread-ID? Some synchronization around IO [basically GIL]
@@ -156,8 +161,12 @@ namespace ss {
                             // m_thread.regs().a now contains the return value of this computation.
                             vm_is_running = false;
                         } break;
-                        case VmExpKind::Refer: {
-                            m_thread.regs().a = index(find_link(exp.args.i_refer.n, m_thread.regs().e), exp.args.i_refer.m);
+                        case VmExpKind::ReferLocal: {
+                            m_thread.regs().a = index(m_thread.regs().f, exp.args.i_refer.n);
+                            m_thread.regs().x = exp.args.i_refer.x;
+                        } break;
+                        case VmExpKind::ReferFree: {
+                            m_thread.regs().a = index_closure(m_thread.regs().c, exp.args.i_refer.n);
                             m_thread.regs().x = exp.args.i_refer.x;
                         } break;
                         case VmExpKind::Constant: {
@@ -165,8 +174,9 @@ namespace ss {
                             m_thread.regs().x = exp.args.i_constant.x;
                         } break;
                         case VmExpKind::Close: {
-                            m_thread.regs().a = closure(exp.args.i_close.body, m_thread.regs().e);
+                            m_thread.regs().a = closure(exp.args.i_close.body, exp.args.i_close.vars_count, m_thread.regs().s);
                             m_thread.regs().x = exp.args.i_close.x;
+                            m_thread.regs().s -= exp.args.i_close.vars_count;
                         } break;
                         case VmExpKind::Test: {
                             if (m_thread.regs().a.is_boolean(false)) {
@@ -189,9 +199,11 @@ namespace ss {
                             m_thread.regs().s = restore_stack(exp.args.i_nuate.stack);
                         } break;
                         case VmExpKind::Frame: {
+                            // pushing...
+                            // first (ret, f, c) last
                             auto encoded_ret = OBJECT::make_integer(exp.args.i_frame.x);
                             m_thread.regs().x = exp.args.i_frame.ret;
-                            m_thread.regs().s = push(encoded_ret, push(m_thread.regs().e, m_thread.regs().s));
+                            m_thread.regs().s = push(encoded_ret, push(m_thread.regs().f, push(m_thread.regs().c, m_thread.regs().s)));
                         } break;
                         case VmExpKind::Argument: {
                             m_thread.regs().x = exp.args.i_argument.x;
@@ -199,11 +211,11 @@ namespace ss {
                         } break;
                         case VmExpKind::Apply: {
                             if (m_thread.regs().a.is_closure()) {
-                                // a Scheme function is called
-                                auto a = static_cast<VMA_ClosureObject*>(m_thread.regs().a.as_ptr());
-                                auto body = a->body();
-                                auto link = a->link();
-
+                                // a Scheme function is called: actually a vector
+                                OBJECT c = m_thread.regs().a;
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+                                assert(c.is_vector());
+#endif
                                 // DEBUG:
                                 // std::cerr 
                                 //     << "Applying: " << m_thread.regs().a << std::endl
@@ -211,9 +223,10 @@ namespace ss {
                                 //     << "- next: " << m_thread.regs().x << std::endl;
 
                                 // m_thread.regs().a = m_thread.regs().a;
-                                m_thread.regs().x = body;
-                                m_thread.regs().e = m_thread.regs().s;
-                                m_thread.regs().s = push(a->link(), m_thread.regs().s);
+                                m_thread.regs().x = closure_body(c);
+                                m_thread.regs().f = m_thread.regs().s;
+                                m_thread.regs().c = c;
+                                // m_thread.regs().s = m_thread.regs().s;
                             }
                             else if (m_thread.regs().a.is_ext_callable()) {
                                 // a C++ function is called; no 'return' required since stack returns after function call
@@ -231,12 +244,16 @@ namespace ss {
                                 //   This translates to s-1, s-2, ...
                                 // - HOWEVER, variadic arguments?
 
-                                auto num_args = a->arg_count();
-                                auto s = m_thread.regs().s - num_args;
-                                // m_thread.regs().a = a->cb()(m_thread.regs().r);
-                                m_thread.regs().x = index(s, 0).as_signed_fixnum();
-                                m_thread.regs().e = index(s, 1).as_signed_fixnum();
-                                m_thread.regs().s = s - 2;
+                                // auto num_args = a->arg_count();
+                                // auto s = m_thread.regs().s - num_args;
+                                // // m_thread.regs().a = a->cb()(m_thread.regs().r);
+                                // m_thread.regs().x = index(s, 0).as_signed_fixnum();
+                                // m_thread.regs().f = index(s, 1).as_signed_fixnum();
+                                // m_thread.regs().c = index(s, 2);
+                                // m_thread.regs().s = s - 3;
+
+                                error("NotImplemented: EXT_CallableObject");
+                                throw SsiError();
                             }
                             else {
                                 std::stringstream ss;
@@ -250,8 +267,9 @@ namespace ss {
                         case VmExpKind::Return: {
                             auto s = m_thread.regs().s - exp.args.i_return.n;
                             m_thread.regs().x = index(s, 0).as_signed_fixnum();
-                            m_thread.regs().e = index(s, 1).as_signed_fixnum();
-                            m_thread.regs().s = s - 2;
+                            m_thread.regs().f = index(s, 1).as_signed_fixnum();
+                            m_thread.regs().c = index(s, 2);
+                            m_thread.regs().s = s - 3;
                         } break;
                         // case VmExpKind::Define: {
                         //     m_thread.regs().x = exp.args.i_define.next;
@@ -286,10 +304,15 @@ namespace ss {
         }
     }
 
-    OBJECT VirtualMachine::closure(VmExpID body, my_ssize_t env) {
-        return OBJECT{
-            new VMA_ClosureObject(body, env)
-        };
+    OBJECT VirtualMachine::closure(VmExpID body, my_ssize_t n, my_ssize_t s) {
+        std::vector<OBJECT> items;
+        items.resize(1 + n);
+        items[0] = OBJECT::make_integer(body);
+        for (my_ssize_t i = 0; i < n; i++) {
+            items[1+i] = index(s, i);
+        }
+        auto mem = gc_tfe().allocate_bytes((1 + n) * sizeof(OBJECT));
+        return OBJECT::make_generic_boxed(new(mem) VectorObject(std::move(items)));
     }
 
     my_ssize_t VirtualMachine::find_link(my_ssize_t n, my_ssize_t e) {
@@ -300,13 +323,15 @@ namespace ss {
     }
 
     OBJECT VirtualMachine::continuation(my_ssize_t s) {
-        return closure(
-            m_code.new_vmx_refer(
-                0, 0, 
-                m_code.new_vmx_nuate(save_stack(s), m_code.new_vmx_return(0))
-            ),
-            0
-        );
+        // return closure(
+        //     m_jit_compiler.compile_refer(
+        //         0, 0, 
+        //         code().new_vmx_nuate(save_stack(s), code().new_vmx_return(0))
+        //     ),
+        //     0
+        // );
+        error("VirtualMachine::continuation");
+        throw SsiError();
     }
 
     OBJECT VirtualMachine::extend(OBJECT e, OBJECT vals) {
@@ -322,6 +347,13 @@ namespace ss {
         assert(cpp_vector.size() <= m_thread.stack().capacity() && "Cannot restore a stack larger than VM stack's capacity.");
         std::copy(cpp_vector.begin(), cpp_vector.end(), m_thread.stack().begin());
         return cpp_vector.size();
+    }
+
+    VmExpID VirtualMachine::closure_body(OBJECT c) {
+        return static_cast<VectorObject*>(c.as_ptr())->operator[](0).as_signed_fixnum();
+    }
+    OBJECT VirtualMachine::index_closure(OBJECT c, my_ssize_t n) {
+        return static_cast<VectorObject*>(c.as_ptr())->operator[](1 + n);
     }
 
     //

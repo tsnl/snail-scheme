@@ -1,4 +1,4 @@
-#include "ss-jit/vrom.hh"
+#include "ss-jit/vcode.hh"
 #include <iomanip>
 #include <sstream>
 
@@ -50,11 +50,17 @@ namespace ss {
     VmExpID VCode::new_vmx_halt() {
         return help_new_vmx(VmExpKind::Halt).first;
     }
-    VmExpID VCode::new_vmx_refer(size_t n, size_t m, VmExpID x) {
-        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Refer);
+    VmExpID VCode::new_vmx_refer_local(size_t n, VmExpID x) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::ReferLocal);
         auto& args = exp_ref.args.i_refer;
         args.n = n;
-        args.m = m;
+        args.x = x;
+        return exp_id;
+    }
+    VmExpID VCode::new_vmx_refer_free(size_t n, VmExpID x) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::ReferFree);
+        auto& args = exp_ref.args.i_refer;
+        args.n = n;
         args.x = x;
         return exp_id;
     }
@@ -65,9 +71,10 @@ namespace ss {
         args.x = next;
         return exp_id;
     }
-    VmExpID VCode::new_vmx_close(OBJECT vars, VmExpID body, VmExpID next) {
+    VmExpID VCode::new_vmx_close(size_t vars_count, VmExpID body, VmExpID next) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Close);
         auto& args = exp_ref.args.i_close;
+        args.vars_count = vars_count;
         args.body = body;
         args.x = next;
         return exp_id;
@@ -156,10 +163,14 @@ namespace ss {
             case VmExpKind::Halt: {
                 out << "halt";
             } break;
-            case VmExpKind::Refer: {
-                out << "refer "
+            case VmExpKind::ReferLocal: {
+                out << "refer-local "
                     << "#:n " << exp.args.i_refer.n << ' '
-                    << "#:m " << exp.args.i_refer.m << ' '
+                    << "#:x " << exp.args.i_refer.x;
+            } break;
+            case VmExpKind::ReferFree: {
+                out << "refer-free "
+                    << "#:n " << exp.args.i_refer.n << ' '
                     << "#:x " << exp.args.i_refer.x;
             } break;
             case VmExpKind::Constant: {

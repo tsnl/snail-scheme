@@ -11,7 +11,8 @@ namespace ss {
     void VmRegs::init(GcThreadFrontEnd* gc_tfe) {
         a = OBJECT::make_null();
         // m_reg.x set by VCode loader.
-        e = 0;
+        f = 0;
+        c = OBJECT::make_null();
         s = 0;
     }
 

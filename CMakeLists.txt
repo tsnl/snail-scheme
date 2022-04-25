@@ -86,7 +86,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/printing.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/std.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vrom.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vcode.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vthread.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vglobals.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc

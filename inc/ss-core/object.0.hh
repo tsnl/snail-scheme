@@ -294,6 +294,7 @@ namespace ss {
         VMA_CallFrameObject* parent() const { return m_opt_parent; }
     };
 
+    // TODO: delete this! No longer used.
     class VMA_ClosureObject: public BaseBoxedObject {
     private:
         VmExpID m_body;     // the body expression to evaluate

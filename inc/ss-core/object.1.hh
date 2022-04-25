@@ -85,7 +85,8 @@ namespace ss {
         return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Float64;
     }
     inline bool OBJECT::is_closure() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::VMA_Closure;
+        // return is_boxed_object() && as_ptr()->kind() == GranularObjectType::VMA_Closure;
+        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
     }
     inline bool OBJECT::is_ext_callable() const {
         return is_boxed_object() && as_ptr()->kind() == GranularObjectType::EXT_Callable;

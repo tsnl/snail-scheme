@@ -11,7 +11,8 @@ namespace ss {
     public:
         OBJECT a;       // the accumulator
         VmExpID x;      // the next expression
-        my_ssize_t e;   // the current frame pointer on the stack
+        my_ssize_t f;   // the current frame pointer on the stack
+        OBJECT c;       // the current 'closure' display vector
         my_ssize_t s;   // the current stack pointer
     public:
         void init(GcThreadFrontEnd* gc_tfe);

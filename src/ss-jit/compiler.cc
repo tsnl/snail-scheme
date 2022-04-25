@@ -2,7 +2,9 @@
 
 #include <utility>
 #include "ss-jit/printing.hh"
+#include "ss-core/common.hh"
 #include "ss-core/object.hh"
+#include "ss-core/feedback.hh"
 
 namespace ss {
 
@@ -21,16 +23,15 @@ namespace ss {
         // TODO: add 'globals' table
     {}
      
-    std::pair<size_t, size_t> Compiler::compile_lookup(OBJECT symbol, OBJECT var_env) {
+    // returns [n, m] = [rib_index, elt_index]
+    std::pair<RelVarScope, size_t> Compiler::compile_lookup(OBJECT symbol, OBJECT var_env) {
         // compile-time type-checks
-        {
-            bool ok = (
-                (var_env.is_list() && "broken 'env' in compile_lookup") &&
-                (symbol.is_interned_symbol() && "broken 'symbol' in compile_lookup")
-            );
-            if (!ok) {
-                throw SsiError();
-            }
+        bool ok = (
+            (var_env.is_list() && "broken 'env' in compile_lookup") &&
+            (symbol.is_interned_symbol() && "broken 'symbol' in compile_lookup")
+        );
+        if (!ok) {
+            throw SsiError();
         }
 
         // DEBUG:
@@ -40,45 +41,45 @@ namespace ss {
         //         << "\t" << symbol << std::endl
         //         << "\t" << var_env << std::endl;
         // }
-
-        IntStr sym_name = symbol.as_interned_symbol();
-
-        // iterating through ribs in the environment:
-        // the environment is a 'list of pairs of lists'
-        //  - each pair of lists is called a rib-pair or 'ribs'
-        //  - each list in the pair is a named rib-- either the value rib or named rib
-        size_t rib_index = 0;
-        for (
-            OBJECT rem_ribs = var_env;
-            rem_ribs.is_pair();
-            rem_ribs = cdr(rem_ribs)
-        ) {
-            auto variable_rib = car(rem_ribs);
-            assert(
-                (variable_rib.is_pair() || variable_rib.is_null())
-                && "broken compile-time env"
-            );
-
-            size_t elt_index = 0;
-            for (
-                OBJECT rem_variable_rib = variable_rib;
-                !rem_variable_rib.is_null();
-                rem_variable_rib = cdr(rem_variable_rib)
-            ) {
-                assert(!rem_variable_rib.is_null() && "Expected rem_variable_rib to be non-null with rem_value_rib");
-                assert(car(rem_variable_rib).is_interned_symbol() && "Expected a symbol in variable rib");
-                auto variable_rib_head_name = car(rem_variable_rib).as_interned_symbol();
-                if (variable_rib_head_name == sym_name) {
-                    // return the remaining value rib so we can reuse for 'set'
-                    return {rib_index, elt_index};
-                } else {
-                    elt_index++;
+        
+        // checking 'locals'
+        {
+            OBJECT const all_locals = car(var_env);
+            OBJECT locals = all_locals;
+            size_t n = 0;
+            for (;;) {
+                if (locals.is_null()) {
+                    break;
                 }
+                if (ss::is_eq(&m_gc_tfe, car(locals), symbol)) {
+                    return {RelVarScope::Local, n};
+                }
+                // preparing for the next iteration:
+                locals = cdr(locals);
+                ++n;
             }
-
-            rib_index++;
         }
 
+        // checking 'free'
+        {
+            OBJECT const all_free_vars = cdr(var_env);
+            OBJECT free = all_free_vars;
+            size_t n = 0;
+            for (;;) {
+                if (free.is_null()) {
+                    break;
+                }
+                if (ss::is_eq(&m_gc_tfe, car(free), symbol)) {
+                    return {RelVarScope::Free, n};
+                }
+                // preparing for the next iteration:
+                free = cdr(free);
+                ++n;
+            }
+        }
+
+        // TODO: check globals
+        
         // lookup failed:
         {
             std::stringstream ss;
@@ -91,9 +92,10 @@ namespace ss {
 
     VScript Compiler::compile_script(std::string str, std::vector<OBJECT> line_code_objects) {
         std::vector<VmProgram> line_programs;
+        OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::make_null(), OBJECT::make_null());
         line_programs.reserve(line_code_objects.size());
         for (auto const code_object: line_code_objects) {
-            auto program = compile_line(code_object, OBJECT::make_null());
+            auto program = compile_line(code_object, default_env);
             line_programs.push_back(program);
         }
         return VScript{std::move(line_code_objects), std::move(line_programs)};
@@ -103,19 +105,18 @@ namespace ss {
         VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e);
         return {res, last_exp_id};
     }
-    VmExpID Compiler::compile_exp(OBJECT obj, VmExpID next, OBJECT var_e) {
+    VmExpID Compiler::compile_exp(OBJECT x, VmExpID next, OBJECT var_e) {
         // iteratively translating this line to a VmProgram
         //  - cf p. 87 of 'three-imp.pdf', §4.3.2: Translation and Evaluation
-        switch (obj_kind(obj)) {
+        switch (obj_kind(x)) {
             case GranularObjectType::InternedSymbol: {
-                auto [n, m] = compile_lookup(obj, var_e);
-                return m_code.new_vmx_refer(n, m, next);
+                return compile_refer(x, var_e, next);
             }
             case GranularObjectType::Pair: {
-                return compile_pair_list_exp(static_cast<PairObject*>(obj.as_ptr()), next, var_e);
+                return compile_pair_list_exp(static_cast<PairObject*>(x.as_ptr()), next, var_e);
             }
             default: {
-                return m_code.new_vmx_constant(obj, next);
+                return m_code.new_vmx_constant(x, next);
             }
         }
     }
@@ -124,7 +125,7 @@ namespace ss {
 
         // retrieving key properties:
         OBJECT head = obj->car();
-        OBJECT args = obj->cdr();
+        OBJECT tail = obj->cdr();
 
         // first, trying to handle a builtin function invocation:
         if (head.is_interned_symbol()) {
@@ -133,30 +134,34 @@ namespace ss {
 
             if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
                 // quote
-                auto quoted = extract_args<1>(args)[0];
+                auto quoted = extract_args<1>(tail)[0];
                 return m_code.new_vmx_constant(quoted, next);
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.lambda) {
                 // lambda
-                auto args_array = extract_args<2>(args);
+                auto args_array = extract_args<2>(tail);
                 auto vars = args_array[0];
                 auto body = args_array[1];
                 
                 check_vars_list_else_throw(vars);
 
-                return m_code.new_vmx_close(
-                    vars,
-                    compile_exp(
-                        body,
-                        m_code.new_vmx_return(1 + list_length(vars)),
-                        compile_extend(var_e, vars)
-                    ),
-                    next
+                auto free = find_free(body, vars);
+                return collect_free(
+                    free, var_e, 
+                    m_code.new_vmx_close(
+                        list_length(free),
+                        compile_exp(
+                            body,
+                            m_code.new_vmx_return(list_length(vars)),
+                            cons(&m_gc_tfe, vars, free)    // new env: (local . free)
+                        ),
+                        next
+                    )
                 );
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.if_) {
                 // if
-                auto args_array = extract_args<3>(args);
+                auto args_array = extract_args<3>(tail);
                 auto cond_code_obj = args_array[0];
                 auto then_code_obj = args_array[1];
                 auto else_code_obj = args_array[2];
@@ -185,7 +190,7 @@ namespace ss {
                 // call/cc
                 // NOTE: procedure type check occurs in 'apply' later
 
-                auto args_array = extract_args<1>(args);
+                auto args_array = extract_args<1>(tail);
                 auto x = args_array[0];
                 
                 return m_code.new_vmx_frame(
@@ -258,7 +263,7 @@ namespace ss {
                 // (begin expr ...+)
 
                 // ensuring at least one argument is provided:
-                if (args.is_null()) {
+                if (tail.is_null()) {
                     error("begin: expected at least one expression form to evaluate, got 0.");
                     throw SsiError();
                 }
@@ -266,7 +271,7 @@ namespace ss {
                 // assembling each code object on a stack to translate in reverse order:
                 std::vector<OBJECT> obj_stack;
                 obj_stack.reserve(32);
-                OBJECT rem_args = args;
+                OBJECT rem_args = tail;
                 while (!rem_args.is_null()) {
                     obj_stack.push_back(car(rem_args));
                     rem_args = cdr(rem_args);
@@ -291,8 +296,8 @@ namespace ss {
         //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
         {
             // function call
-            OBJECT rem_args = args;
             VmExpID next_c = compile_exp(head, m_code.new_vmx_apply(), var_e);
+            OBJECT rem_args = tail;
             for (;;) {
                 if (rem_args.is_null()) {
                     return m_code.new_vmx_frame(next, next_c);
@@ -309,6 +314,26 @@ namespace ss {
 
         // unreachable
     }
+    VmExpID Compiler::compile_refer(OBJECT x, OBJECT e, VmExpID next) {
+        auto [rel_scope, n] = compile_lookup(x, e);
+        switch (rel_scope) {
+            case RelVarScope::Local: {
+                return m_code.new_vmx_refer_local(n, next);
+            } break;
+            case RelVarScope::Free: {
+                return m_code.new_vmx_refer_free(n, next);
+            } break;
+            case RelVarScope::Global: {
+                error("NotImplemented: RelVarScope::Global");
+                throw SsiError();
+            } break;
+            default: {
+                error("NotImplemented: unknown RelVarScope");
+                throw SsiError();
+            }
+        }
+    }
+
     bool Compiler::is_tail_vmx(VmExpID vmx_id) {
         return m_code[vmx_id].kind == VmExpKind::Return;
     }
@@ -336,5 +361,129 @@ namespace ss {
         //     << "\tafter:  " << res << std::endl;
         return res;
     }
+    VmExpID Compiler::collect_free(OBJECT vars, OBJECT e, VmExpID next) {
+        if (vars.is_null()) {
+            return next;
+        } else {
+            return collect_free(
+                cdr(vars), e,
+                compile_refer(car(vars), e, m_code.new_vmx_argument(next))
+            );
+        }
+    }
 
+    /// Scheme Set functions
+    //
+
+    bool Compiler::is_set_member(OBJECT x, OBJECT s) {
+        if (s.is_null()) {
+            return false;
+        }
+        if (is_eq(&m_gc_tfe, x, car(s))) {
+            return true;
+        }
+        return is_set_member(x, cdr(s));
+    }
+    OBJECT Compiler::set_cons(OBJECT x, OBJECT s) {
+        if (is_set_member(x, s)) {
+            return s;
+        } else {
+            return cons(&m_gc_tfe, x, s);
+        }
+    }
+    OBJECT Compiler::set_union(OBJECT s1, OBJECT s2) {
+        if (s1.is_null()) {
+            return s2;
+        } else {
+            return set_union(cdr(s1), set_cons(car(s1), s2));
+        }
+    }
+    OBJECT Compiler::set_minus(OBJECT s1, OBJECT s2) {
+        if (s1.is_null()) {
+            return OBJECT::make_null();
+        } else if (is_set_member(car(s1), s2)) {
+            return set_minus(cdr(s1), s2);
+        } else {
+            return cons(&m_gc_tfe, car(s1), set_minus(cdr(s1), s2));
+        }
+    }
+    OBJECT Compiler::set_intersect(OBJECT s1, OBJECT s2) {
+        if (s1.is_null()) {
+            return OBJECT::make_null();
+        } else if (is_set_member(car(s1), s2)) {
+            return cons(&m_gc_tfe, car(s1), set_intersect(cdr(s1), s2));
+        } else {
+            return set_intersect(cdr(s1), s2);
+        }
+    }
+
+    /// Find-Free
+    //
+
+    OBJECT Compiler::find_free(OBJECT x, OBJECT b) {
+        // main case:
+        if (x.is_interned_symbol()) {
+            if (is_set_member(x, b)) {
+                return OBJECT::make_null();
+            } else {
+                return list(&m_gc_tfe, x);
+            }
+        }
+
+        // structural recursion:
+        else if (x.is_pair()) {
+            OBJECT head = car(x);
+            OBJECT tail = cdr(x);
+
+            // checking if builtin:
+            if (head.is_interned_symbol()) {
+                auto head_symbol = head.as_interned_symbol();
+                if (head_symbol == m_builtin_intstr_id_cache.quote) {
+                    return OBJECT::make_null();
+                }
+                else if (head_symbol == m_builtin_intstr_id_cache.lambda) {
+                    auto args = extract_args<2>(tail);
+                    auto vars = args[0];
+                    auto body = args[1];
+                    return find_free(body, set_union(vars, b));
+                }
+                else if (head_symbol == m_builtin_intstr_id_cache.if_) {
+                    auto args = extract_args<3>(tail);
+                    auto cond = args[0];
+                    auto then = args[1];
+                    auto else_ = args[2];
+                    return set_union(
+                        find_free(cond, b),
+                        set_union(
+                            find_free(then, b),
+                            find_free(else_, b)
+                        )
+                    );
+                }
+                else if (head_symbol == m_builtin_intstr_id_cache.call_cc) {
+                    auto args = extract_args<1>(tail);
+                    auto exp = args[0];
+                    return find_free(exp, b);
+                }
+            }
+            
+            // otherwise, function call, so recurse through function and arguments:
+            {
+                OBJECT rem = x;
+                OBJECT res = OBJECT::make_null();
+                for (;;) {
+                    if (rem.is_null()) {
+                        return res;
+                    } else {
+                        res = set_union(res, find_free(car(rem), b));
+                        rem = cdr(rem);
+                    }
+                }
+            }
+        }
+        else {
+            return OBJECT::make_null();
+        }
+    }
+    
 }

@@ -4,7 +4,7 @@
 #include "ss-core/object.hh"
 #include "std.hh"
 #include "ss-core/gc.hh"
-#include "vrom.hh"
+#include "vcode.hh"
 
 namespace ss {
 
