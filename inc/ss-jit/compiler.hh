@@ -34,8 +34,8 @@ namespace ss {
     public:
         VScript compile_script(std::string str, std::vector<OBJECT> line_code_objects);
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
-        VmExpID compile_exp(OBJECT obj, VmExpID next, OBJECT var_e);
-        VmExpID compile_pair_list_exp(PairObject* obj, VmExpID next, OBJECT var_e);
+        VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
+        VmExpID compile_pair_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
         VmExpID compile_refer(OBJECT x, OBJECT e, VmExpID next);
         bool is_tail_vmx(VmExpID vmx_id);
 
@@ -43,7 +43,11 @@ namespace ss {
         std::pair<RelVarScope, size_t> compile_lookup(OBJECT symbol, OBJECT var_env_raw);
         void check_vars_list_else_throw(OBJECT vars);
         OBJECT compile_extend(OBJECT e, OBJECT vars);
+        
+    // Utility builders:
+    private:
         VmExpID collect_free(OBJECT vars, OBJECT e, VmExpID next);
+        VmExpID make_boxes(OBJECT sets, OBJECT vars, VmExpID next);
 
     // Scheme set functions:
     private:
@@ -53,9 +57,14 @@ namespace ss {
         OBJECT set_minus(OBJECT s1, OBJECT s2);
         OBJECT set_intersect(OBJECT s1, OBJECT s2);
 
-    // Find-free:
+    // Find-free: finds all free variables in use
+    //   b => 'bound', the set of bound variable symbol objects, implemented using 'Scheme set'
     private:
         OBJECT find_free(OBJECT x, OBJECT b);
+
+    // Find-sets: finds all occurrences of `set!` that apply to free variables.
+    private:
+        OBJECT find_sets(OBJECT x, OBJECT v);
 
     // Code:
     public:

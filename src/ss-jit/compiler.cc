@@ -101,26 +101,30 @@ namespace ss {
         return VScript{std::move(line_code_objects), std::move(line_programs)};
     }
     VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
+        OBJECT s = OBJECT::make_null();     // empty set
         VmExpID last_exp_id = m_code.new_vmx_halt();
-        VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e);
+        VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e, s);
         return {res, last_exp_id};
     }
-    VmExpID Compiler::compile_exp(OBJECT x, VmExpID next, OBJECT var_e) {
+    VmExpID Compiler::compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s) {
         // iteratively translating this line to a VmProgram
         //  - cf p. 87 of 'three-imp.pdf', §4.3.2: Translation and Evaluation
         switch (obj_kind(x)) {
             case GranularObjectType::InternedSymbol: {
-                return compile_refer(x, var_e, next);
+                return compile_refer(
+                    x, e, 
+                    (is_set_member(x, s) ? m_code.new_vmx_indirect(next) : next)
+                );
             }
             case GranularObjectType::Pair: {
-                return compile_pair_list_exp(static_cast<PairObject*>(x.as_ptr()), next, var_e);
+                return compile_pair_list_exp(static_cast<PairObject*>(x.as_ptr()), next, e, s);
             }
             default: {
                 return m_code.new_vmx_constant(x, next);
             }
         }
     }
-    VmExpID Compiler::compile_pair_list_exp(PairObject* obj, VmExpID next, OBJECT var_e) {
+    VmExpID Compiler::compile_pair_list_exp(PairObject* obj, VmExpID next, OBJECT e, OBJECT s) {
         // corresponds to 'record-case'
 
         // retrieving key properties:
@@ -139,21 +143,26 @@ namespace ss {
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.lambda) {
                 // lambda
-                auto args_array = extract_args<2>(tail);
-                auto vars = args_array[0];
-                auto body = args_array[1];
+                auto args = extract_args<2>(tail);
+                auto vars = args[0];
+                auto body = args[1];
                 
                 check_vars_list_else_throw(vars);
 
                 auto free = find_free(body, vars);
+                auto sets = find_sets(body, vars);
                 return collect_free(
-                    free, var_e, 
+                    free, e, 
                     m_code.new_vmx_close(
                         list_length(free),
-                        compile_exp(
-                            body,
-                            m_code.new_vmx_return(list_length(vars)),
-                            cons(&m_gc_tfe, vars, free)    // new env: (local . free)
+                        make_boxes(
+                            sets, vars,
+                            compile_exp(
+                                body,
+                                m_code.new_vmx_return(list_length(vars)),
+                                cons(&m_gc_tfe, vars, free),   // new env: (local . free)
+                                set_union(sets, set_intersect(s, free))
+                            )
                         ),
                         next
                     )
@@ -161,44 +170,53 @@ namespace ss {
             }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.if_) {
                 // if
-                auto args_array = extract_args<3>(tail);
-                auto cond_code_obj = args_array[0];
-                auto then_code_obj = args_array[1];
-                auto else_code_obj = args_array[2];
+                auto args = extract_args<3>(tail);
+                auto cond_code_obj = args[0];
+                auto then_code_obj = args[1];
+                auto else_code_obj = args[2];
                 return compile_exp(
                     cond_code_obj,
                     m_code.new_vmx_test(
-                        compile_exp(then_code_obj, next, var_e),
-                        compile_exp(else_code_obj, next, var_e)
+                        compile_exp(then_code_obj, next, e, s),
+                        compile_exp(else_code_obj, next, e, s)
                     ),
-                    var_e
+                    e, s
                 );
             }
-            // else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
-            //     // set!
-            //     auto args_array = extract_args<2>(args);
-            //     auto var_obj = args_array[0];
-            //     auto set_obj = args_array[1];   // we set the variable to this object, 'set' in past-tense
-            //     assert(var_obj.is_interned_symbol());
-            //     return compile_exp(
-            //         set_obj,
-            //         m_code.new_vmx_assign(compile_lookup(var_obj, var_e), next),
-            //         var_e
-            //     );
-            // }
+            else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
+                // set!
+                auto args = extract_args<2>(tail);
+                auto var = args[0];
+                auto x = args[1];   // we set the variable to this object, 'set' in past-tense
+                assert(var.is_interned_symbol());
+                
+                auto [rel_var_scope, n] = compile_lookup(var, e);
+                switch (rel_var_scope) {
+                    case RelVarScope::Local: {
+                        return compile_exp(x, m_code.new_vmx_assign_local(n, next), e, s);
+                    } break;
+                    case RelVarScope::Free: {
+                        return compile_exp(x, m_code.new_vmx_assign_free(n, next), e, s);
+                    } break;
+                    default: {
+                        error("Unknown RelVarScope");
+                        throw SsiError();
+                    }
+                }
+            }
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.call_cc) {
                 // call/cc
                 // NOTE: procedure type check occurs in 'apply' later
                 // SEE: p. 97
 
-                auto args_array = extract_args<1>(tail);
-                auto x = args_array[0];
+                auto args = extract_args<1>(tail);
+                auto x = args[0];
                 
                 return m_code.new_vmx_frame(
                     // 'x' in three-imp, p.97
                     m_code.new_vmx_conti(
                         m_code.new_vmx_argument(
-                            compile_exp(x, m_code.new_vmx_apply(), var_e)
+                            compile_exp(x, m_code.new_vmx_apply(), e, s)
                         )
                     ),
 
@@ -208,9 +226,9 @@ namespace ss {
             } 
             // else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
             //     // define
-            //     auto args_array = extract_args<2>(args);
-            //     auto structural_signature = args_array[0];
-            //     auto body = args_array[1];
+            //     auto args = extract_args<2>(args);
+            //     auto structural_signature = args[0];
+            //     auto body = args[1];
             //     auto name = OBJECT::make_null();
             //     auto pattern_ok = false;
 
@@ -284,7 +302,7 @@ namespace ss {
                 // compiling arguments from last to first, linking:
                 VmExpID final_begin_instruction = next;
                 while (!obj_stack.empty()) {
-                    final_begin_instruction = compile_exp(obj_stack.back(), final_begin_instruction, var_e);
+                    final_begin_instruction = compile_exp(obj_stack.back(), final_begin_instruction, e, s);
                     obj_stack.pop_back();
                 }
 
@@ -300,7 +318,7 @@ namespace ss {
         //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
         {
             // function call
-            VmExpID next_c = compile_exp(head, m_code.new_vmx_apply(), var_e);
+            VmExpID next_c = compile_exp(head, m_code.new_vmx_apply(), e, s);
             OBJECT rem_args = tail;
             for (;;) {
                 if (rem_args.is_null()) {
@@ -312,7 +330,7 @@ namespace ss {
                     next_c = compile_exp(
                         car(rem_args),
                         m_code.new_vmx_argument(next_c),
-                        var_e
+                        e, s
                     );
                     rem_args = cdr(rem_args);
                 }
@@ -377,6 +395,20 @@ namespace ss {
                 compile_refer(car(vars), e, m_code.new_vmx_argument(next))
             );
         }
+    }
+    VmExpID Compiler::make_boxes(OBJECT sets, OBJECT vars, VmExpID next) {
+        // see three-imp p.102
+        // NOTE: 'box' instructions are generated in reverse-order vs. in
+        // three-imp, aligning with tail-position: indices used in 'box' 
+        // instruction do not change: car(vars) indexed 0, ...
+        size_t n = 0;
+        VmExpID x = next;
+        for (size_t n = 0; !vars.is_null(); (++n, vars=cdr(vars))) {
+            if (is_set_member(car(vars), sets)) {
+                x = m_code.new_vmx_box(n, x);
+            }
+        }
+        return x;
     }
 
     /// Scheme Set functions
@@ -467,10 +499,32 @@ namespace ss {
                         )
                     );
                 }
+                else if (head_symbol == m_builtin_intstr_id_cache.set) {
+                    auto args = extract_args<2>(tail);
+                    auto var = args[0];
+                    auto exp = args[1];
+                    return set_union(
+                        (is_set_member(var, b) ? OBJECT::make_null() : list(&m_gc_tfe, var)),
+                        find_free(exp, b)
+                    );
+                }
                 else if (head_symbol == m_builtin_intstr_id_cache.call_cc) {
                     auto args = extract_args<1>(tail);
                     auto exp = args[0];
                     return find_free(exp, b);
+                }
+                else if (head_symbol == m_builtin_intstr_id_cache.begin) {
+                    OBJECT rem_args = tail;
+                    OBJECT res = OBJECT::make_null();
+                    while (!rem_args.is_null()) {
+                        OBJECT const head_exp = car(rem_args);
+                        // TODO: if 'head_exp' is 'define', it should be added to 'b' here.
+                        res = set_union(res, find_free(head_exp, b));
+                        rem_args = cdr(rem_args);
+                    }
+                    return res;
+                } else {
+                    // continue to below block...
                 }
             }
             
@@ -489,6 +543,96 @@ namespace ss {
             }
         }
         else {
+            return OBJECT::make_null();
+        }
+    }
+
+    OBJECT Compiler::find_sets(OBJECT x, OBJECT v) {
+        // cf p.101 of three-imp
+
+        // individual variables:
+        {
+            if (x.is_interned_symbol()) {
+                return OBJECT::make_null();
+            }
+        }
+        
+        // builtin operators AND function calls:
+        {
+            if (x.is_pair()) {
+                // maybe builtin operator?
+                if (car(x).is_interned_symbol()) {
+                    OBJECT head = car(x);
+                    OBJECT tail = cdr(x);
+
+                    IntStr head_name = head.as_interned_symbol();
+
+                    if (head_name == m_builtin_intstr_id_cache.quote) {
+                        return OBJECT::make_null();
+                    }
+                    if (head_name == m_builtin_intstr_id_cache.lambda) {
+                        auto args = extract_args<2>(tail);
+                        auto vars = args[0];
+                        auto body = args[1];
+                        find_sets(body, set_minus(v, vars));
+                    }
+                    if (head_name == m_builtin_intstr_id_cache.if_) {
+                        auto args = extract_args<3>(tail);
+                        auto test = args[0];
+                        auto then = args[1];
+                        auto else_ = args[2];
+                        return set_union(
+                            find_sets(test, v),
+                            set_union(
+                                find_sets(then, v),
+                                find_sets(else_, v)
+                            )
+                        );
+                    }
+                    if (head_name == m_builtin_intstr_id_cache.set) {
+                        auto args = ss::extract_args<2>(tail);
+                        auto var = args[0];
+                        auto x = args[1];
+                        if (is_set_member(var, v)) {
+                            return v;
+                        } else {
+                            return set_cons(var, v);
+                        }
+                    }
+                    if (head_name == m_builtin_intstr_id_cache.call_cc) {
+                        auto args = ss::extract_args<1>(tail);
+                        auto exp = args[0];
+                        return find_sets(exp, v);
+                    }
+                    if (head_name == m_builtin_intstr_id_cache.begin) {
+                        OBJECT rem_args = tail;
+                        OBJECT res = OBJECT::make_null();
+                        while (!rem_args.is_null()) {
+                            OBJECT const head_exp = car(rem_args);
+                            // TODO: if 'head_exp' is 'define', it should be added to 'b' here.
+                            res = set_union(res, find_sets(head_exp, v));
+                            rem_args = cdr(rem_args);
+                        }
+                        return res;
+                    }
+                }
+
+                // else function call: get 'set!'s in each term
+                OBJECT rem = x;
+                OBJECT res = OBJECT::make_null();
+                for (;;) {
+                    if (rem.is_null()) {
+                        break;
+                    } else {
+                        res = set_union(find_sets(car(rem), v), res);
+                        rem = cdr(rem);
+                    }
+                }
+            }
+        }
+
+        // everything else
+        {
             return OBJECT::make_null();
         }
     }

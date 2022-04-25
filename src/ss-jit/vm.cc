@@ -167,6 +167,10 @@ namespace ss {
                             m_thread.regs().a = index_closure(m_thread.regs().c, exp.args.i_refer.n);
                             m_thread.regs().x = exp.args.i_refer.x;
                         } break;
+                        case VmExpKind::Indirect: {
+                            m_thread.regs().a = unbox(m_thread.regs().a);
+                            m_thread.regs().x = exp.args.i_indirect.x;
+                        } break;
                         case VmExpKind::Constant: {
                             m_thread.regs().a = exp.args.i_constant.obj;
                             m_thread.regs().x = exp.args.i_constant.x;
@@ -176,6 +180,13 @@ namespace ss {
                             m_thread.regs().x = exp.args.i_close.x;
                             m_thread.regs().s -= exp.args.i_close.vars_count;
                         } break;
+                        case VmExpKind::Box: {
+                            // see three-imp p.105
+                            auto s = m_thread.regs().s;
+                            auto n = exp.args.i_box.n;
+                            index_set(s, n, box(&gc_tfe(), index(s, n)));
+                            m_thread.regs().x = exp.args.i_box.x;
+                        } break;
                         case VmExpKind::Test: {
                             if (m_thread.regs().a.is_boolean(false)) {
                                 m_thread.regs().x = exp.args.i_test.next_if_f;
@@ -183,11 +194,19 @@ namespace ss {
                                 m_thread.regs().x = exp.args.i_test.next_if_t;
                             }
                         } break;
-                        // case VmExpKind::Assign: {
-                        //     auto rem_value_rib = lookup(exp.args.i_assign.var, m_thread.regs().e);
-                        //     set_car(rem_value_rib, m_thread.regs().a);
-                        //     m_thread.regs().x = exp.args.i_assign.x;
-                        // } break;
+                        case VmExpKind::AssignLocal: {
+                            // see three-imp p.106
+                            auto f = m_thread.regs().f;
+                            auto n = exp.args.i_assign.n;
+                            set_box(index(f, n), m_thread.regs().a);
+                            m_thread.regs().x = exp.args.i_assign.x;
+                        } break;
+                        case VmExpKind::AssignFree: {
+                            auto c = m_thread.regs().c;
+                            auto n = exp.args.i_assign.n;
+                            set_box(index_closure(c, n), m_thread.regs().a);
+                            m_thread.regs().x = exp.args.i_assign.x;
+                        } break;
                         case VmExpKind::Conti: {
                             m_thread.regs().a = continuation(m_thread.regs().s);
                             m_thread.regs().x = exp.args.i_conti.x;

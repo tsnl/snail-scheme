@@ -97,6 +97,9 @@ namespace ss {
     inline bool OBJECT::is_vector() const {
         return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
     }
+    inline bool OBJECT::is_box() const {
+        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Box;
+    }
 
     size_t OBJECT::as_raw() const { 
         return m_data.raw; 

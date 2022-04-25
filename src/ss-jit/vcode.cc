@@ -86,13 +86,6 @@ namespace ss {
         args.next_if_f = next_if_f;
         return exp_id;
     }
-    // VmExpID VCode::new_vmx_assign(size_t n, size_t m, VmExpID next) {
-    //     auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Assign);
-    //     auto& args = exp_ref.args.i_assign;
-    //     args.var = var;
-    //     args.x = next;
-    //     return exp_id;
-    // }
     VmExpID VCode::new_vmx_conti(VmExpID x) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Conti);
         auto& args = exp_ref.args.i_conti;
@@ -133,6 +126,33 @@ namespace ss {
         auto& args = exp_ref.args.i_define;
         args.var = var;
         args.next = next;
+        return exp_id;
+    }
+    VmExpID VCode::new_vmx_box(my_ssize_t n, VmExpID next) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Box);
+        auto& args = exp_ref.args.i_box;
+        args.n = n;
+        args.x = next;
+        return exp_id;
+    }
+    VmExpID VCode::new_vmx_indirect(VmExpID next) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Indirect);
+        auto& args = exp_ref.args.i_indirect;
+        args.x = next;
+        return exp_id;
+    }
+    VmExpID VCode::new_vmx_assign_local(size_t n, VmExpID next) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::AssignLocal);
+        auto& args = exp_ref.args.i_assign;
+        args.n = n;
+        args.x = next;
+        return exp_id;
+    }
+    VmExpID VCode::new_vmx_assign_free(size_t n, VmExpID next) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::AssignFree);
+        auto& args = exp_ref.args.i_assign;
+        args.n = n;
+        args.x = next;
         return exp_id;
     }
 

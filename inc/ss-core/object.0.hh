@@ -35,6 +35,7 @@ namespace ss {
     enum class GranularObjectType {
         // native primitives:
         Null, Eof,
+        Box,
         Boolean,
         Fixnum,
         Float32,
@@ -94,7 +95,9 @@ namespace ss {
         };
         Data64LittleEndian m_data;
     public:
-        explicit OBJECT() = default;
+        OBJECT() = default;
+        // OBJECT(OBJECT const& other) = default;
+        // explicit OBJECT(OBJECT&& other) = default; 
         explicit OBJECT(bool v);
         explicit OBJECT(BaseBoxedObject* ptr);
         static OBJECT s_boolean_t;
@@ -111,6 +114,7 @@ namespace ss {
         // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
         static OBJECT make_generic_boxed(BaseBoxedObject* obj);
         static OBJECT make_float64(GcThreadFrontEnd* gc_tfe, double f64);
+        static OBJECT make_box(GcThreadFrontEnd* gc_tfe, OBJECT stored);
         static OBJECT make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
         static OBJECT make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes);
     public:
@@ -132,7 +136,8 @@ namespace ss {
         inline bool is_ext_callable() const;
         inline bool is_string() const;
         inline bool is_vector() const;
-
+        bool is_box() const;
+        
         inline GranularObjectType kind() const;
     public:
         inline size_t as_raw() const;
@@ -164,6 +169,20 @@ namespace ss {
         [[nodiscard]] GranularObjectType kind();
     };
     static_assert(sizeof(OBJECT) == sizeof(void*));
+
+    class BoxObject: public BaseBoxedObject {
+    private:
+        OBJECT m_boxed;
+    
+    public:
+        inline explicit BoxObject(OBJECT boxed)
+        :   BaseBoxedObject(GranularObjectType::Box),
+            m_boxed(std::move(boxed))
+        {}
+
+    public:
+        OBJECT& boxed() { return m_boxed; }
+    };
 
 
     class Float64Object: public BaseBoxedObject {
@@ -204,13 +223,13 @@ namespace ss {
         OBJECT m_car;
         OBJECT m_cdr;
     public:
-        PairObject() 
-        :   PairObject(OBJECT::make_null(), OBJECT::make_null())
-        {}
         explicit PairObject(OBJECT car, OBJECT cdr)
         :   BaseBoxedObject(GranularObjectType::Pair),
             m_car(car),
             m_cdr(cdr)
+        {}
+        PairObject() 
+        :   PairObject(OBJECT::make_null(), OBJECT::make_null())
         {}
     public:
         [[nodiscard]] inline OBJECT car() const { return m_car; }
@@ -352,13 +371,16 @@ namespace ss {
     inline OBJECT cdr(OBJECT object);
     inline void set_car(OBJECT pair, OBJECT a);
     inline void set_cdr(OBJECT pair, OBJECT d);
+    inline void set_box(OBJECT box, OBJECT new_stored);
     template <typename... Objects> OBJECT list(GcThreadFrontEnd* gc_tfe, Objects... objs);
     template <size_t n> std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic = false);
+    inline OBJECT box(GcThreadFrontEnd* gc_tfe, OBJECT boxed);
     inline OBJECT cons(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
     inline OBJECT boolean(bool v);
     inline bool is_boolean(OBJECT o);
     inline bool is_char(OBJECT o);
     inline bool is_null(OBJECT o);
+    inline bool is_box(OBJECT o);
     inline bool is_pair(OBJECT o);
     inline bool is_procedure(OBJECT o);
     inline bool is_symbol(OBJECT o);
@@ -476,6 +498,33 @@ namespace ss {
         return static_cast<PairObject*>(pair.as_ptr())->set_cdr(d);
     }
 
+    inline OBJECT unbox(OBJECT box) {
+    #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+        if (!is_box(box)) {
+            std::stringstream ss;
+            ss << "unbox: expected argument object to be a box, instead got " << box;
+            error(ss.str());
+            throw SsiError();
+        }
+    #endif
+        return static_cast<BoxObject*>(box.as_ptr())->boxed();
+    }
+    inline void set_box(OBJECT box, OBJECT new_stored) {
+    #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+        if (!is_box(box)) {
+            std::stringstream ss;
+            ss << "unbox: expected argument object to be a box, instead got " << box;
+            error(ss.str());
+            throw SsiError();
+        }
+    #endif
+        static_cast<BoxObject*>(box.as_ptr())->boxed() = new_stored;
+    }
+
+    inline OBJECT box(GcThreadFrontEnd* gc_tfe, OBJECT stored) {
+        return OBJECT::make_box(gc_tfe, stored);
+    }
+
     inline OBJECT cons(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
         return OBJECT::make_pair(gc_tfe, head, tail);
     }
@@ -485,37 +534,37 @@ namespace ss {
     }
 
     inline bool is_boolean(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Boolean;
+        return o.is_boolean();
     }
     inline bool is_null(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Null;
+        return o.is_null();
+    }
+    inline bool is_box(OBJECT o) {
+        return o.is_box();
     }
     inline bool is_pair(OBJECT o) {
         return obj_kind(o) == GranularObjectType::Pair;
     }
     inline bool is_procedure(OBJECT o) {
-        return (
-            obj_kind(o) == GranularObjectType::VMA_Closure ||
-            obj_kind(o) == GranularObjectType::EXT_Callable
-        );
+        return o.is_closure();
     }
     inline bool is_symbol(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::InternedSymbol;
+        return o.is_interned_symbol();
     }
     inline bool is_integer(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Fixnum;
+        return o.is_integer();
     }
     inline bool is_float(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Float64;
+        return o.is_float64() || o.is_float32();
     }
     inline bool is_number(OBJECT o) {
         return is_integer(o) || is_float(o);
     }
     inline bool is_string(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::String;
+        return o.is_string();
     }
     inline bool is_vector(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Vector;
+        return o.is_vector();
     }
 
     inline my_ssize_t list_length(OBJECT pair_list) {
