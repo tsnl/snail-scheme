@@ -155,6 +155,14 @@ namespace ss {
         args.x = next;
         return exp_id;
     }
+    VmExpID VCode::new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Shift);
+        auto& args = exp_ref.args.i_shift;
+        args.n = n;
+        args.m = m;
+        args.x = x;
+        return exp_id;
+    }
 
     /// Dump
     //

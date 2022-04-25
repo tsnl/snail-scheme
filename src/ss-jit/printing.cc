@@ -93,16 +93,6 @@ namespace ss {
             case GranularObjectType::Vector: {
                 out << "<Vector>";
             } break;
-            case GranularObjectType::VMA_CallFrame: {
-                out << "<VMA_CallFrame>";
-            } break;
-            case GranularObjectType::VMA_Closure: {
-                auto closure_obj = static_cast<VMA_ClosureObject*>(obj.as_ptr());
-                out << "(vma-closure";
-                out << " #:vmx " << closure_obj->body()
-                    << " #:env (<...>)";
-                out << ")";
-            } break;
             case GranularObjectType::EXT_Callable: {
                 auto callable_obj = static_cast<EXT_CallableObject*>(obj.as_ptr());
                 out << "(ext-callable ";

@@ -7,6 +7,8 @@
 
 namespace ss {
   
+    using VmExpID = my_ssize_t;
+
     struct VmRegs {
     public:
         OBJECT a;       // the accumulator

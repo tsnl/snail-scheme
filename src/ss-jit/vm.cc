@@ -74,6 +74,8 @@ namespace ss {
     public:
         VmExpID closure_body(OBJECT c);
         OBJECT index_closure(OBJECT c, my_ssize_t n);
+    public: // for tail-call optimizations, three-imp 4.6.2 p.111
+        my_ssize_t shift_args(my_ssize_t n, my_ssize_t m, my_ssize_t s);
 
     // Properties:
     public:
@@ -300,6 +302,15 @@ namespace ss {
                         //     //     std::cout << "  - now, env is: " << m_thread.regs().e << std::endl;
                         //     // }
                         // } break;
+                        case VmExpKind::Shift: {
+                            // three-imp p.112
+                            auto m = exp.args.i_shift.m;
+                            auto n = exp.args.i_shift.n;
+                            auto x = exp.args.i_shift.x;
+                            auto s = m_thread.regs().s;
+                            m_thread.regs().x = x;
+                            m_thread.regs().s = shift_args(n, m, s);
+                        } break;
                         default: {
                             std::stringstream ss;
                             ss << "NotImplemented: running interpreter for instruction VmExpKind::?";
@@ -370,6 +381,16 @@ namespace ss {
     }
     OBJECT VirtualMachine::index_closure(OBJECT c, my_ssize_t n) {
         return static_cast<VectorObject*>(c.as_ptr())->operator[](1 + n);
+    }
+
+    my_ssize_t VirtualMachine::shift_args(my_ssize_t n, my_ssize_t m, my_ssize_t s) {
+        // see three-imp p.111
+        my_ssize_t i = n - 1;
+        while (i >= 0) {
+            index_set(s, i + m, index(s, i));
+            --i;
+        }
+        return s - m;
     }
 
     //

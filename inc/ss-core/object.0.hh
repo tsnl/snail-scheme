@@ -46,12 +46,6 @@ namespace ss {
         Pair,
         Vector,
 
-        // VMA = VM Accelerator
-        // The VM uses some data-structures so frequently that they can be optimized.
-        // These are also 'opaque' to the user.
-        VMA_CallFrame,
-        VMA_Closure,
-
         // EXT = Extension objects
         EXT_Callable
     };
@@ -275,60 +269,6 @@ namespace ss {
         [[nodiscard]] inline size_t count() const { return m_impl.size(); }
         [[nodiscard]] inline OBJECT* array() { return m_impl.data(); }
         inline std::vector<OBJECT>& as_cpp_vec() { return m_impl; }
-    };
-
-    //
-    // Builtins for VM:
-    //  - these are used to accelerate the VM.
-    //  - todo: move to a different file
-    //
-
-    using VmExpID = size_t;
-
-    class VMA_CallFrameObject: public BaseBoxedObject {
-    private:
-        VmExpID m_x;
-        OBJECT m_e;
-        OBJECT m_r;
-        VMA_CallFrameObject* m_opt_parent;
-
-    public:
-        VMA_CallFrameObject(
-            VmExpID x,
-            OBJECT e,
-            OBJECT r,
-            VMA_CallFrameObject* opt_parent
-        )
-        :   BaseBoxedObject(GranularObjectType::VMA_CallFrame),
-            m_x(x),
-            m_e(e),
-            m_r(r),
-            m_opt_parent(opt_parent)
-        {}
-
-    public:
-        VmExpID x() const { return m_x; }
-        OBJECT e() const { return m_e; }
-        OBJECT r() const { return m_r; }
-        VMA_CallFrameObject* parent() const { return m_opt_parent; }
-    };
-
-    // TODO: delete this! No longer used.
-    class VMA_ClosureObject: public BaseBoxedObject {
-    private:
-        VmExpID m_body;     // the body expression to evaluate
-        my_ssize_t m_link;  // the environment to use
-
-    public:
-        VMA_ClosureObject(VmExpID body, my_ssize_t e)
-        :   BaseBoxedObject(GranularObjectType::VMA_Closure),
-            m_body(body),
-            m_link(e)
-        {}
-
-    public:
-        [[nodiscard]] VmExpID body() const { return m_body; }
-        [[nodiscard]] my_ssize_t link() const { return m_link; }
     };
 
     //

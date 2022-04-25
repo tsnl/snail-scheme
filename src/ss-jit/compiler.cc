@@ -212,11 +212,26 @@ namespace ss {
                 auto args = extract_args<1>(tail);
                 auto x = args[0];
                 
+                bool is_tail_call = is_tail_vmx(next);
+                my_ssize_t m; 
+                if (is_tail_call) {
+                    assert(m_code[next].kind == VmExpKind::Return);
+                    m = m_code[next].args.i_return.n;
+                } else {
+                    // 'm' unused
+                }
+
                 return m_code.new_vmx_frame(
                     // 'x' in three-imp, p.97
                     m_code.new_vmx_conti(
                         m_code.new_vmx_argument(
-                            compile_exp(x, m_code.new_vmx_apply(), e, s)
+                            compile_exp(
+                                x, 
+                                (is_tail_call ? 
+                                    m_code.new_vmx_shift(1, m, m_code.new_vmx_apply()) : 
+                                    m_code.new_vmx_apply()), 
+                                e, s
+                            )
                         )
                     ),
 
@@ -318,14 +333,26 @@ namespace ss {
         //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
         {
             // function call
-            VmExpID next_c = compile_exp(head, m_code.new_vmx_apply(), e, s);
+            bool is_tail_call = is_tail_vmx(next);
+            my_ssize_t m;
+            if (is_tail_call) {
+                assert(m_code[next].kind == VmExpKind::Return);
+                m = m_code[next].args.i_return.n;
+            }
+            VmExpID next_c = compile_exp(
+                head, 
+                (is_tail_call ?
+                    m_code.new_vmx_shift(list_length(obj->cdr()), m, m_code.new_vmx_apply()) :
+                    m_code.new_vmx_apply()), 
+                e, s
+            );
             OBJECT rem_args = tail;
             for (;;) {
                 if (rem_args.is_null()) {
-                    return m_code.new_vmx_frame(
-                        next_c,     // 'x' (cf three-imp p.97)
-                        next        // 'ret' (cf three-imp p.97)
-                    );
+                    return 
+                        (is_tail_call ?
+                            next_c :
+                            m_code.new_vmx_frame(next_c, next));        // new_vmx_frame(x, ret)
                 } else {
                     next_c = compile_exp(
                         car(rem_args),

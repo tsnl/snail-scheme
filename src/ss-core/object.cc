@@ -102,11 +102,6 @@ namespace ss {
                         v1->count() == v2->count() &&
                         v1->array() == v2->array();
                 }
-                case GranularObjectType::VMA_Closure: {
-                    auto c1 = static_cast<VMA_ClosureObject*>(e1.as_ptr());
-                    auto c2 = static_cast<VMA_ClosureObject*>(e2.as_ptr());
-                    return c1->body() == c2->body();
-                }
                 default: {
                     std::stringstream ss;
                     ss << "eqv?: invalid arguments: ";
@@ -166,11 +161,6 @@ namespace ss {
                     } else {
                         return false;
                     }
-                }
-                case GranularObjectType::VMA_Closure: {
-                    auto c1 = static_cast<VMA_ClosureObject*>(e1.as_ptr());
-                    auto c2 = static_cast<VMA_ClosureObject*>(e2.as_ptr());
-                    return c1->body() == c2->body();
                 }
                 default: {
                     std::stringstream ss;

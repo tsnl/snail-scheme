@@ -19,7 +19,7 @@ namespace ss {
     //  - TODO: do we need to traverse this structure to perform GC? cf Ch4
     //
 
-    using VmExpID = size_t;
+    using VmExpID = my_ssize_t;
 
     enum class VmExpKind: VmExpID {
         Halt,
@@ -39,6 +39,7 @@ namespace ss {
         Define,
         Indirect,
         Box,
+        Shift
     };
     union VmExpArgs {
         struct {} i_halt;
@@ -56,6 +57,7 @@ namespace ss {
         struct { size_t n; } i_return;
         struct { VmExpID x; } i_indirect;                                   // see three-imp p.105
         struct { my_ssize_t n; VmExpID x; } i_box;                          // see three-imp p.105
+        struct { my_ssize_t n; my_ssize_t m; VmExpID x; } i_shift;          // see three-imp p.111
     };
     struct VmExp {
         VmExpKind kind;
@@ -144,7 +146,8 @@ namespace ss {
         VmExpID new_vmx_indirect(VmExpID next);
         VmExpID new_vmx_assign_local(size_t n, VmExpID next);
         VmExpID new_vmx_assign_free(size_t n, VmExpID next);
-    
+        VmExpID new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x);
+
     public:
         void flash(VCode&& other);
 
