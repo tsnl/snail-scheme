@@ -189,17 +189,21 @@ namespace ss {
             else if (keyword_symbol_id == m_builtin_intstr_id_cache.call_cc) {
                 // call/cc
                 // NOTE: procedure type check occurs in 'apply' later
+                // SEE: p. 97
 
                 auto args_array = extract_args<1>(tail);
                 auto x = args_array[0];
                 
                 return m_code.new_vmx_frame(
-                    next, 
+                    // 'x' in three-imp, p.97
                     m_code.new_vmx_conti(
                         m_code.new_vmx_argument(
                             compile_exp(x, m_code.new_vmx_apply(), var_e)
                         )
-                    )
+                    ),
+
+                    // 'ret' in three-imp, p.97
+                    next
                 );
             } 
             // else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
@@ -300,7 +304,10 @@ namespace ss {
             OBJECT rem_args = tail;
             for (;;) {
                 if (rem_args.is_null()) {
-                    return m_code.new_vmx_frame(next, next_c);
+                    return m_code.new_vmx_frame(
+                        next_c,     // 'x' (cf three-imp p.97)
+                        next        // 'ret' (cf three-imp p.97)
+                    );
                 } else {
                     next_c = compile_exp(
                         car(rem_args),
