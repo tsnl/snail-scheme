@@ -64,8 +64,6 @@ namespace ss {
         my_ssize_t find_link(my_ssize_t n, OBJECT e);
         OBJECT continuation(my_ssize_t s);
     public:
-        OBJECT extend(OBJECT e, OBJECT vals);
-    public:
         OBJECT save_stack(my_ssize_t s);
         my_ssize_t restore_stack(OBJECT vector);
         my_ssize_t push(OBJECT v, my_ssize_t s) { return m_thread.stack().push(v, s); }
@@ -323,19 +321,16 @@ namespace ss {
     }
 
     OBJECT VirtualMachine::continuation(my_ssize_t s) {
-        // return closure(
-        //     m_jit_compiler.compile_refer(
-        //         0, 0, 
-        //         code().new_vmx_nuate(save_stack(s), code().new_vmx_return(0))
-        //     ),
-        //     0
-        // );
-        error("VirtualMachine::continuation");
+        // cf p.86 of three-imp
+        return closure(
+            code().new_vmx_refer_local(
+                0,
+                code().new_vmx_nuate(save_stack(s), code().new_vmx_return(0))
+            ),
+            0,
+            s   // -> FIXME: guess, check if this is right, could be a source of bugs
+        );
         throw SsiError();
-    }
-
-    OBJECT VirtualMachine::extend(OBJECT e, OBJECT vals) {
-        return cons(m_thread.gc_tfe(), vals, e);
     }
     OBJECT VirtualMachine::save_stack(my_ssize_t s) {
         std::vector<OBJECT> vs{m_thread.stack().begin(), m_thread.stack().begin() + s};
