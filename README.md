@@ -81,6 +81,16 @@ Many features to implement!
         E.g. windowing and 3D game engine can both use the reactor as a generic
         event pump and job manager.
     
+    >   Consider: wouldn't it be better if the user generated 'kernels' in LLVM IR
+    >   that could make better use of remaining cores?
+    >   This would also embrace Scheme's strengths as a 'bootstrapping' language.
+
+    >   Consider: main-thread restrictions for most GUI applications, overhead for 'thread-local' variables/
+    >   synchronized globals.
+
+    >   Consider: ease of virtual multiprocessing, as an easier way to utilize shared memory
+    >   -   Can allow the user to pass objects directly through channels, we only serialize across native process boundaries.
+    
 3.  ACCELERATORS, DISTRIBUTED COMPUTING
 
     -   Key feature: ability to generate different code. <br/>
