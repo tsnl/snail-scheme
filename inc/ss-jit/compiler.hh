@@ -6,6 +6,7 @@
 
 #include "ss-core/gc.hh"
 #include "ss-jit/vcode.hh"
+#include "ss-jit/analyst.hh"
 
 namespace ss {
 
@@ -13,20 +14,10 @@ namespace ss {
 
     enum class RelVarScope { Local, Free, Global };
 
-    class Compiler {
+    class Compiler: public Analyst {
     private:
         VCode m_code;
         GcThreadFrontEnd& m_gc_tfe;
-        
-        const struct {
-            IntStr const quote;
-            IntStr const lambda;
-            IntStr const if_;
-            IntStr const set;
-            IntStr const call_cc;
-            IntStr const define;
-            IntStr const begin;
-        } m_builtin_intstr_id_cache;
 
     public:
         explicit Compiler(GcThreadFrontEnd& gc_tfe);

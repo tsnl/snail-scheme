@@ -116,7 +116,7 @@ namespace ss {
         explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
         explicit VCode(VCode&& other) noexcept;
     
-    // Adding expressions, files:
+    // Adding script: these are run in the order in which they are added.
     void add_script(std::string const& file_name, VScript&& script);
     
     // Core getters and setters:
@@ -161,3 +161,15 @@ namespace ss {
     };
 
 }   // namespace ss
+
+///
+// VObject: compiled VCode (with 'include's expanded) + tabular globals/imports/exports
+//
+
+namespace ss {
+
+    class VModule {
+
+    };
+
+}

@@ -9,17 +9,9 @@
 namespace ss {
 
     Compiler::Compiler(GcThreadFrontEnd& gc_tfe) 
-    :   m_code(),
-        m_gc_tfe(gc_tfe),
-        m_builtin_intstr_id_cache({
-            .quote = intern("quote"),
-            .lambda = intern("lambda"),
-            .if_ = intern("if"),
-            .set = intern("set!"),
-            .call_cc = intern("call/cc"),
-            .define = intern("define"),
-            .begin = intern("begin")
-        })
+    :   Analyst(),
+        m_code(),
+        m_gc_tfe(gc_tfe)
         // TODO: add 'globals' table
     {}
      
@@ -136,12 +128,12 @@ namespace ss {
             // keyword first argument => may be builtin
             auto keyword_symbol_id = head.as_interned_symbol();
 
-            if (keyword_symbol_id == m_builtin_intstr_id_cache.quote) {
+            if (keyword_symbol_id == m_id_cache.quote) {
                 // quote
                 auto quoted = extract_args<1>(tail)[0];
                 return m_code.new_vmx_constant(quoted, next);
             }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.lambda) {
+            else if (keyword_symbol_id == m_id_cache.lambda) {
                 // lambda
                 auto args = extract_args<2>(tail);
                 auto vars = args[0];
@@ -168,7 +160,7 @@ namespace ss {
                     )
                 );
             }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.if_) {
+            else if (keyword_symbol_id == m_id_cache.if_) {
                 // if
                 auto args = extract_args<3>(tail);
                 auto cond_code_obj = args[0];
@@ -183,7 +175,7 @@ namespace ss {
                     e, s
                 );
             }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.set) {
+            else if (keyword_symbol_id == m_id_cache.set) {
                 // set!
                 auto args = extract_args<2>(tail);
                 auto var = args[0];
@@ -204,7 +196,7 @@ namespace ss {
                     }
                 }
             }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.call_cc) {
+            else if (keyword_symbol_id == m_id_cache.call_cc) {
                 // call/cc
                 // NOTE: procedure type check occurs in 'apply' later
                 // SEE: p. 97
@@ -296,7 +288,7 @@ namespace ss {
             //         throw SsiError();
             //     }
             // }
-            else if (keyword_symbol_id == m_builtin_intstr_id_cache.begin) {
+            else if (keyword_symbol_id == m_id_cache.begin) {
                 // (begin expr ...+)
 
                 // ensuring at least one argument is provided:
@@ -504,16 +496,16 @@ namespace ss {
             // checking if builtin:
             if (head.is_interned_symbol()) {
                 auto head_symbol = head.as_interned_symbol();
-                if (head_symbol == m_builtin_intstr_id_cache.quote) {
+                if (head_symbol == m_id_cache.quote) {
                     return OBJECT::make_null();
                 }
-                else if (head_symbol == m_builtin_intstr_id_cache.lambda) {
+                else if (head_symbol == m_id_cache.lambda) {
                     auto args = extract_args<2>(tail);
                     auto vars = args[0];
                     auto body = args[1];
                     return find_free(body, set_union(vars, b));
                 }
-                else if (head_symbol == m_builtin_intstr_id_cache.if_) {
+                else if (head_symbol == m_id_cache.if_) {
                     auto args = extract_args<3>(tail);
                     auto cond = args[0];
                     auto then = args[1];
@@ -526,7 +518,7 @@ namespace ss {
                         )
                     );
                 }
-                else if (head_symbol == m_builtin_intstr_id_cache.set) {
+                else if (head_symbol == m_id_cache.set) {
                     auto args = extract_args<2>(tail);
                     auto var = args[0];
                     auto exp = args[1];
@@ -535,12 +527,12 @@ namespace ss {
                         find_free(exp, b)
                     );
                 }
-                else if (head_symbol == m_builtin_intstr_id_cache.call_cc) {
+                else if (head_symbol == m_id_cache.call_cc) {
                     auto args = extract_args<1>(tail);
                     auto exp = args[0];
                     return find_free(exp, b);
                 }
-                else if (head_symbol == m_builtin_intstr_id_cache.begin) {
+                else if (head_symbol == m_id_cache.begin) {
                     OBJECT rem_args = tail;
                     OBJECT res = OBJECT::make_null();
                     while (!rem_args.is_null()) {
@@ -594,16 +586,16 @@ namespace ss {
 
                     IntStr head_name = head.as_interned_symbol();
 
-                    if (head_name == m_builtin_intstr_id_cache.quote) {
+                    if (head_name == m_id_cache.quote) {
                         return OBJECT::make_null();
                     }
-                    if (head_name == m_builtin_intstr_id_cache.lambda) {
+                    if (head_name == m_id_cache.lambda) {
                         auto args = extract_args<2>(tail);
                         auto vars = args[0];
                         auto body = args[1];
                         find_sets(body, set_minus(v, vars));
                     }
-                    if (head_name == m_builtin_intstr_id_cache.if_) {
+                    if (head_name == m_id_cache.if_) {
                         auto args = extract_args<3>(tail);
                         auto test = args[0];
                         auto then = args[1];
@@ -616,7 +608,7 @@ namespace ss {
                             )
                         );
                     }
-                    if (head_name == m_builtin_intstr_id_cache.set) {
+                    if (head_name == m_id_cache.set) {
                         auto args = ss::extract_args<2>(tail);
                         auto var = args[0];
                         auto x = args[1];
@@ -626,12 +618,12 @@ namespace ss {
                             return set_cons(var, v);
                         }
                     }
-                    if (head_name == m_builtin_intstr_id_cache.call_cc) {
+                    if (head_name == m_id_cache.call_cc) {
                         auto args = ss::extract_args<1>(tail);
                         auto exp = args[0];
                         return find_sets(exp, v);
                     }
-                    if (head_name == m_builtin_intstr_id_cache.begin) {
+                    if (head_name == m_id_cache.begin) {
                         OBJECT rem_args = tail;
                         OBJECT res = OBJECT::make_null();
                         while (!rem_args.is_null()) {

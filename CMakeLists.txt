@@ -88,9 +88,10 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vcode.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vthread.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vglobals.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/analyst.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/expander.cc
 )
 target_link_libraries(ss-jit 
     ss-core
