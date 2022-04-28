@@ -2,8 +2,11 @@
 
 #include <vector>
 #include <string>
+#include <queue>
 
 #include "ss-core/object.hh"
+#include "ss-core/common.hh"
+#include "ss-core/gdef.hh"
 
 ///
 // Expressions
@@ -82,18 +85,18 @@ namespace ss {
     };
 
     //
-    // VScript: a collection of programs-- one per line, and the source code object (may be reused, e.g. 'quote')
+    // VSubr: a collection of programs-- one per line, and the source code object (may be reused, e.g. 'quote')
     //
 
-    struct VScript {
+    struct VSubr {
         std::vector<OBJECT> line_code_objs;
         std::vector<VmProgram> line_programs;
 
-        VScript(std::vector<OBJECT> obj, std::vector<VmProgram> line_programs)
+        VSubr(std::vector<OBJECT> obj, std::vector<VmProgram> line_programs)
         :   line_code_objs(obj),
             line_programs(line_programs)
         {}
-        explicit VScript(VScript&& other) noexcept
+        explicit VSubr(VSubr&& other) noexcept
         :   line_code_objs(std::move(other.line_code_objs)),
             line_programs(std::move(other.line_programs))
         {}
@@ -102,7 +105,12 @@ namespace ss {
 }
 
 ///
-// VCode = container of expressions
+// VCode = instructions + globals/imports
+// - basically an SO file: contains a global symbol table, definitions use an index that will be
+//   rewritten on linking.
+// - also an output container for linker: can link multiple VCodeObject instances into one
+//   VCodeObject.
+// - used as compiler output and VM input to allow dynamic compilation (e.g. for conti/nuate)
 //
 
 namespace ss {
@@ -113,20 +121,27 @@ namespace ss {
         inline static constexpr size_t DEFAULT_RESERVED_FILE_COUNT = 1024;
     private:
         std::vector<VmExp> m_exps;
-        std::vector<VScript> m_files;
+        std::vector<VSubr> m_subrs;
+        std::vector<GDef> m_gdef_table;
+        UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
+        UnstableHashSet<size_t> m_thin_gdef_ids;
+
     public:
         explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
         explicit VCode(VCode&& other) noexcept;
     
-    // Adding script: these are run in the order in which they are added.
-    void add_script(std::string const& file_name, VScript&& script);
+    // Appending subroutine: these are run in the order in which they are added.
+    void append_subroutine(std::string const& file_name, VSubr&& subr);
     
     // Core getters and setters:
     public:
         std::vector<VmExp>& exps() { return m_exps; };
-        std::vector<VScript>& files() { return m_files; };
+        std::vector<VSubr>& files() { return m_subrs; };
         VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
-    
+        std::vector<GDef>& gdef_table() { return m_gdef_table; };
+        UnstableHashMap<IntStr, GDefID>& gdef_id_symtab() { return m_gdef_id_symtab; }
+        UnstableHashSet<size_t>& thin_gdef_ids() { return m_thin_gdef_ids; }
+
     // creating VM expressions:
     private:
         std::pair<VmExpID, VmExp&> help_new_vmx(VmExpKind kind);
@@ -152,8 +167,12 @@ namespace ss {
         VmExpID new_vmx_assign_global(size_t gn, VmExpID next);
         VmExpID new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x);
 
+    // Globals:
     public:
-        void flash(VCode&& other);
+        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
+        GDef const& lookup_gdef(GDefID gdef_id) const;
+        GDef const* try_lookup_gdef_by_name(IntStr name) const;
+        size_t count_globals() const { return m_gdef_table.size(); }
 
     // dump:
     public:
@@ -165,15 +184,3 @@ namespace ss {
     };
 
 }   // namespace ss
-
-///
-// VObject: compiled VCode (with 'include's expanded) + tabular globals/imports/exports
-//
-
-namespace ss {
-
-    class VModule {
-
-    };
-
-}

@@ -30,18 +30,15 @@ namespace ss {
     // TODO: clean up after destroying VM.
     void destroy_vm(VirtualMachine* vm);
 
-    // program_vm tells the VM to execute this VCode.
-    // if multiple files are added, they are executed in the order in which they 
-    // were added to the VCode.
-    void program_vm(VirtualMachine* vm, VCode&& rom);
-
     // getting GC front-end:
     // since only single-threaded, just one thread front-end
     static_assert(GC_SINGLE_THREADED_MODE);
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
 
-    // getting VM compiler:
-    // used to bind globals, compile source code.
+    // Getting VM compiler:
+    // Used to bind globals, compile source code.
+    // Should only be directly used by the linker: each library has its own env, and
+    // its own compiler; the linker splices libraries into the main program.
     Compiler* vm_compiler(VirtualMachine* vm);
 
     // sync_execute_vm uses std::this_thread to begin the VM execution.

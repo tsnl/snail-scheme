@@ -111,14 +111,6 @@ namespace ss {
     }
 
     //
-    // Source code loading + compilation (p. 57 of 'three-imp.pdf')
-    //
-
-    void VirtualMachine::program(VCode&& new_code) {
-        code().flash(std::move(new_code));
-    }
-
-    //
     // Blocking execution:
     //
 
@@ -137,7 +129,7 @@ namespace ss {
         m_global_vals.resize(m_jit_compiler.count_globals(), OBJECT::undef);
 
         // for each line object in each file...
-        for (VScript& f: code().files()) {
+        for (VSubr& f: code().files()) {
             auto line_count = f.line_code_objs.size();
             for (size_t i = 0; i < line_count; i++) {
                 // acquiring input:
@@ -422,9 +414,6 @@ namespace ss {
     }
     void destroy_vm(VirtualMachine* vm) {
         delete vm;
-    }
-    void program_vm(VirtualMachine* vm, VCode&& code) {
-        vm->program(std::move(code));
     }
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm) {
         return &vm->gc_tfe();

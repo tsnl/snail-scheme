@@ -21,14 +21,12 @@ namespace ss {
     private:
         VCode m_code;
         GcThreadFrontEnd& m_gc_tfe;
-        std::vector<GDef> m_gdef_table;
-        UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
-
+        
     public:
         explicit Compiler(GcThreadFrontEnd& gc_tfe);
     
     public:
-        VScript compile_script(std::string str, std::vector<OBJECT> line_code_objects);
+        VSubr compile_subroutine(std::string str, std::vector<OBJECT> line_code_objects);
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
         VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
         VmExpID compile_pair_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
@@ -50,7 +48,7 @@ namespace ss {
         GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
         GDef const& lookup_gdef(GDefID gdef_id) const;
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
-        size_t count_globals() const { return m_gdef_table.size(); }
+        size_t count_globals() const { return m_code.count_globals(); }
 
     // Scheme set functions:
     private:

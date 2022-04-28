@@ -11,19 +11,19 @@ namespace ss {
     //
     VCode::VCode(size_t file_count)
     :   m_exps(), 
-        m_files()
+        m_subrs()
     {
         m_exps.reserve(4096);
-        m_files.reserve(file_count);
+        m_subrs.reserve(file_count);
     }
-    void VCode::add_script(std::string const& file_name, VScript&& script) {
+    void VCode::append_subroutine(std::string const& file_name, VSubr&& script) {
         assert(script.line_code_objs.size() == script.line_programs.size());
 
         bool is_empty = true;
 
         if (!script.line_programs.empty()) {
             // storing the input lines and the programs on this VM:
-            m_files.push_back(std::move(script));
+            m_subrs.push_back(std::move(script));
             is_empty = false;
         }
         if (is_empty) {
@@ -32,12 +32,25 @@ namespace ss {
     }
     VCode::VCode(VCode&& other) noexcept
     :   m_exps(std::move(other.m_exps)),
-        m_files(std::move(other.m_files)) 
+        m_subrs(std::move(other.m_subrs)) 
     {}
-
-    void VCode::flash(VCode&& other) {
-        VCode::~VCode();
-        new(this) VCode(std::move(other));
+    GDefID VCode::define_global(IntStr name, OBJECT code, std::string docstring) {
+        GDefID new_gdef_id = m_gdef_table.size();
+        m_gdef_table.emplace_back(name, code, docstring);
+        m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
+        return new_gdef_id;
+    }
+    GDef const& VCode::lookup_gdef(GDefID gdef_id) const {
+        assert(gdef_id < m_gdef_table.size());
+        return m_gdef_table[gdef_id];
+    }
+    GDef const* VCode::try_lookup_gdef_by_name(IntStr name) const {
+        auto it = m_gdef_id_symtab.find(name);
+        if (it == m_gdef_id_symtab.cend()) {
+            return nullptr;
+        } else {
+            return &lookup_gdef(it->second);
+        }
     }
 
     /// Creating VM Expressions:
@@ -284,9 +297,9 @@ namespace ss {
         out << ")";
     }
     void VCode::print_all_files(std::ostream& out) const {
-        for (size_t i = 0; i < m_files.size(); i++) {
+        for (size_t i = 0; i < m_subrs.size(); i++) {
             out << "  " "- file #:" << 1+i << std::endl;
-            VScript const& f = *(m_files.cbegin() + i);
+            VSubr const& f = *(m_subrs.cbegin() + i);
 
             for (size_t j = 0; j < f.line_code_objs.size(); j++) {
                 OBJECT line_code_obj = f.line_code_objs[j];

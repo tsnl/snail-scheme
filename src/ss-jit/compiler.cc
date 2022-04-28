@@ -73,8 +73,9 @@ namespace ss {
         // checking globals
         {
             IntStr sym = symbol.as_interned_symbol();
-            auto it = m_gdef_id_symtab.find(sym);
-            if (it != m_gdef_id_symtab.end()) {
+            auto& gdef_id_symtab = m_code.gdef_id_symtab();
+            auto it = gdef_id_symtab.find(sym);
+            if (it != gdef_id_symtab.end()) {
                 return {RelVarScope::Global, it->second};
             }
         }
@@ -89,7 +90,7 @@ namespace ss {
         }
     }
 
-    VScript Compiler::compile_script(std::string str, std::vector<OBJECT> line_code_objects) {
+    VSubr Compiler::compile_subroutine(std::string str, std::vector<OBJECT> line_code_objects) {
         std::vector<VmProgram> line_programs;
         OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::null, OBJECT::null);
         line_programs.reserve(line_code_objects.size());
@@ -97,7 +98,7 @@ namespace ss {
             auto program = compile_line(code_object, default_env);
             line_programs.push_back(program);
         }
-        return VScript{std::move(line_code_objects), std::move(line_programs)};
+        return VSubr{std::move(line_code_objects), std::move(line_programs)};
     }
     VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
         OBJECT s = OBJECT::null;     // empty set
@@ -435,22 +436,13 @@ namespace ss {
         return x;
     }
     GDefID Compiler::define_global(IntStr name, OBJECT code, std::string docstring) {
-        GDefID new_gdef_id = m_gdef_table.size();
-        m_gdef_table.emplace_back(name, code, docstring);
-        m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
-        return new_gdef_id;
+        return m_code.define_global(name, code, docstring);
     }
     GDef const& Compiler::lookup_gdef(GDefID gdef_id) const {
-        assert(gdef_id < m_gdef_table.size());
-        return m_gdef_table[gdef_id];
+        return m_code.lookup_gdef(gdef_id);
     }
     GDef const* Compiler::try_lookup_gdef_by_name(IntStr name) const {
-        auto it = m_gdef_id_symtab.find(name);
-        if (it == m_gdef_id_symtab.cend()) {
-            return nullptr;
-        } else {
-            return &lookup_gdef(it->second);
-        }
+        return m_code.try_lookup_gdef_by_name(name);
     }
 
     /// Scheme Set functions
