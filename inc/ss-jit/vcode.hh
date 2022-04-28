@@ -25,11 +25,13 @@ namespace ss {
         Halt,
         ReferLocal,
         ReferFree,
+        ReferGlobal,
         Constant,
         Close,
         Test,
         AssignLocal,
         AssignFree,
+        AssignGlobal,
         Conti,
         Nuate,
         Frame,
@@ -132,6 +134,7 @@ namespace ss {
         VmExpID new_vmx_halt();
         VmExpID new_vmx_refer_local(size_t n, VmExpID x);
         VmExpID new_vmx_refer_free(size_t n, VmExpID x);
+        VmExpID new_vmx_refer_global(size_t n, VmExpID x);
         VmExpID new_vmx_constant(OBJECT constant, VmExpID next);
         VmExpID new_vmx_close(size_t vars_count, VmExpID body, VmExpID next);
         VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
@@ -146,6 +149,7 @@ namespace ss {
         VmExpID new_vmx_indirect(VmExpID next);
         VmExpID new_vmx_assign_local(size_t n, VmExpID next);
         VmExpID new_vmx_assign_free(size_t n, VmExpID next);
+        VmExpID new_vmx_assign_global(size_t gn, VmExpID next);
         VmExpID new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x);
 
     public:

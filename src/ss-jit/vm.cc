@@ -43,6 +43,7 @@ namespace ss {
     private:
         VThread m_thread;
         Compiler m_jit_compiler;
+        std::vector<OBJECT> m_global_vals;
     public:
         explicit VirtualMachine(Gc* gc, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
         ~VirtualMachine();
@@ -131,6 +132,10 @@ namespace ss {
         //      - if `print_each_line` is true, we print the input and output lines to stdout
         //      - NOTE: `print_each_line` is a compile-time-constant-- if false, branches should be optimized out.
 
+        // initializing globals to 'undef':
+        m_global_vals.clear();
+        m_global_vals.resize(m_jit_compiler.count_globals(), OBJECT::undef);
+
         // for each line object in each file...
         for (VScript& f: code().files()) {
             auto line_count = f.line_code_objs.size();
@@ -167,6 +172,10 @@ namespace ss {
                         } break;
                         case VmExpKind::ReferFree: {
                             m_thread.regs().a = index_closure(m_thread.regs().c, exp.args.i_refer.n);
+                            m_thread.regs().x = exp.args.i_refer.x;
+                        } break;
+                        case VmExpKind::ReferGlobal: {
+                            m_thread.regs().a = m_global_vals[exp.args.i_refer.n];
                             m_thread.regs().x = exp.args.i_refer.x;
                         } break;
                         case VmExpKind::Indirect: {
@@ -208,6 +217,10 @@ namespace ss {
                             auto n = exp.args.i_assign.n;
                             set_box(index_closure(c, n), m_thread.regs().a);
                             m_thread.regs().x = exp.args.i_assign.x;
+                        } break;
+                        case VmExpKind::AssignGlobal: {
+                            m_global_vals[exp.args.i_refer.n] = m_thread.regs().a;
+                            m_thread.regs().x = exp.args.i_refer.x;
                         } break;
                         case VmExpKind::Conti: {
                             m_thread.regs().a = continuation(m_thread.regs().s);
@@ -428,6 +441,9 @@ namespace ss {
         std::cerr << "=== VROM ===" << std::endl;
         vm->code().dump(out);
         std::cerr << "</dump>" << std::endl;
+    }
+    Compiler* vm_compiler(VirtualMachine* vm) {
+        return &vm->jit_compiler();
     }
 
 }   // namespace ss

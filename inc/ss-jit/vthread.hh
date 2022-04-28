@@ -26,7 +26,7 @@ namespace ss {
 
     public:
         explicit VmStack(size_t capacity)
-        :   m_items(capacity, OBJECT::make_null())
+        :   m_items(capacity, OBJECT::null)
         {}
 
     public:

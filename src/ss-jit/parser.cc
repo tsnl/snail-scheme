@@ -734,7 +734,7 @@ namespace ss {
             OBJECT pair_list = (
                 (parsed_improper_list) ?
                 list_stack.back() :
-                OBJECT::make_null()
+                OBJECT::null
             );
             int start_index = (
                 (parsed_improper_list) ?

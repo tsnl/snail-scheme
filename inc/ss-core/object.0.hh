@@ -88,22 +88,66 @@ namespace ss {
             struct { uint64_t tag: 6; uint64_t pad: 58; } undef;
         };
         Data64LittleEndian m_data;
+    // unboxed representation:
+    private:
+        static const OBJECT s_boolean_t;
+        static const OBJECT s_boolean_f;
     public:
-        OBJECT() = default;
-        // OBJECT(OBJECT const& other) = default;
-        // explicit OBJECT(OBJECT&& other) = default; 
-        explicit OBJECT(bool v);
-        explicit OBJECT(BaseBoxedObject* ptr);
-        static OBJECT s_boolean_t;
-        static OBJECT s_boolean_f;
-    public: // unboxed objects
-        static OBJECT make_undef();
-        static OBJECT make_integer(my_ssize_t val);
-        static OBJECT make_interned_symbol(IntStr s);
-        static OBJECT make_float32(float f32);
-        static OBJECT make_boolean(bool v);
-        static OBJECT make_null();
-        static OBJECT make_eof();
+        static const OBJECT null;
+        static const OBJECT undef;
+        static const OBJECT eof;
+    public:
+        constexpr OBJECT() = default;
+        constexpr OBJECT(OBJECT const& other) = default;
+        constexpr OBJECT(OBJECT&& other) = default; 
+        constexpr OBJECT(bool v) 
+        :   OBJECT() 
+        {
+            m_data.boolean.tag = BOOL_TAG;
+            m_data.boolean.truth = v;
+        }
+        constexpr OBJECT(BaseBoxedObject* ptr)
+        :   OBJECT()
+        {
+            m_data.ptr = ptr;
+            assert(m_data.ptr_unwrapped.tag == 0 && "Expected ptr to be a multiple of sizeof(void*)");
+        }
+    public:
+        inline constexpr static OBJECT make_integer(my_ssize_t val) {
+            OBJECT res;
+            res.m_data.signed_fixnum.tag = FIXNUM_TAG;
+            res.m_data.signed_fixnum.val = val;
+            return res;
+        }
+        inline constexpr static OBJECT make_interned_symbol(IntStr s) {
+            OBJECT res;
+            res.m_data.interned_symbol.tag = INTSTR_TAG;
+            res.m_data.interned_symbol.val = s;
+            return res;
+        }
+        inline constexpr static OBJECT make_float32(float f32) {
+            OBJECT res;
+            res.m_data.f32.tag = FL32_TAG;
+            res.m_data.f32.val = f32;
+            return res;
+        }
+        inline constexpr static OBJECT make_boolean(bool v) {
+            return v ? s_boolean_t : s_boolean_f;
+        }
+    private:
+        inline constexpr static OBJECT make_undef() {
+            OBJECT res;
+            res.m_data.undef.tag = UNDEF_TAG;
+            return res;
+        }
+        inline constexpr static OBJECT make_null() {
+            return OBJECT{nullptr};
+        }
+        inline constexpr static OBJECT make_eof() {
+            OBJECT res;
+            res.m_data.eof.tag = EOF_TAG;
+            return res;
+        }
     public: // boxed objects
         // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
         static OBJECT make_generic_boxed(BaseBoxedObject* obj);
@@ -223,7 +267,7 @@ namespace ss {
             m_cdr(cdr)
         {}
         PairObject() 
-        :   PairObject(OBJECT::make_null(), OBJECT::make_null())
+        :   PairObject(OBJECT::null, OBJECT::null)
         {}
     public:
         [[nodiscard]] inline OBJECT car() const { return m_car; }
@@ -347,7 +391,7 @@ namespace ss {
 
     template <typename... Objects>
     OBJECT list(GcThreadFrontEnd* gc_tfe) {
-        return OBJECT::make_null();
+        return OBJECT::null;
     }
     template <typename... Objects>
     OBJECT list(GcThreadFrontEnd* gc_tfe, OBJECT first, Objects... objs) {

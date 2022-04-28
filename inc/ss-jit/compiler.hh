@@ -1,10 +1,13 @@
 #pragma once
 
+#include <vector>
+#include <optional>
 #include <utility>
 
-#include "robin_hood.h"
-
+#include "ss-core/common.hh"
+#include "ss-core/intern.hh"
 #include "ss-core/gc.hh"
+#include "ss-core/gdef.hh"
 #include "ss-jit/vcode.hh"
 #include "ss-jit/analyst.hh"
 
@@ -18,6 +21,8 @@ namespace ss {
     private:
         VCode m_code;
         GcThreadFrontEnd& m_gc_tfe;
+        std::vector<GDef> m_gdef_table;
+        UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
 
     public:
         explicit Compiler(GcThreadFrontEnd& gc_tfe);
@@ -39,6 +44,13 @@ namespace ss {
     private:
         VmExpID collect_free(OBJECT vars, OBJECT e, VmExpID next);
         VmExpID make_boxes(OBJECT sets, OBJECT vars, VmExpID next);
+
+    // Globals:
+    public:
+        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
+        GDef const& lookup_gdef(GDefID gdef_id) const;
+        GDef const* try_lookup_gdef_by_name(IntStr name) const;
+        size_t count_globals() const { return m_gdef_table.size(); }
 
     // Scheme set functions:
     private:

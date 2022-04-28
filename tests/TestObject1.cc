@@ -14,7 +14,7 @@
 TEST(ObjectTests1, NullTagTests) {
     // Expect Null to be a pointer
     auto iv = 0;
-    ss::OBJECT null = ss::OBJECT::make_null();
+    ss::OBJECT null = ss::OBJECT::null;
     DBG_PRINT("NullTagTests: BITSET: " << BITS(null));
     
     EXPECT_EQ(null.is_null(), 1);

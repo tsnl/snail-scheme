@@ -2,9 +2,10 @@
 
 #include <ostream>
 #include "ss-core/object.hh"
-#include "std.hh"
 #include "ss-core/gc.hh"
-#include "vcode.hh"
+#include "ss-jit/compiler.hh"
+#include "ss-jit/std.hh"
+#include "ss-jit/vcode.hh"
 
 namespace ss {
 
@@ -38,6 +39,10 @@ namespace ss {
     // since only single-threaded, just one thread front-end
     static_assert(GC_SINGLE_THREADED_MODE);
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
+
+    // getting VM compiler:
+    // used to bind globals, compile source code.
+    Compiler* vm_compiler(VirtualMachine* vm);
 
     // sync_execute_vm uses std::this_thread to begin the VM execution.
     void sync_execute_vm(VirtualMachine* vm, bool print_each_line);

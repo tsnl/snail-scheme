@@ -73,6 +73,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/feedback.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/memory.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gdef.cc
 )
 target_link_libraries(
     ss-core

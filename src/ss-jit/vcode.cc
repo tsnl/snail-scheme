@@ -64,6 +64,13 @@ namespace ss {
         args.x = x;
         return exp_id;
     }
+    VmExpID VCode::new_vmx_refer_global(size_t n, VmExpID x) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::ReferGlobal);
+        auto& args = exp_ref.args.i_refer;
+        args.n = n;
+        args.x = x;
+        return exp_id;
+    }
     VmExpID VCode::new_vmx_constant(OBJECT constant, VmExpID next) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Constant);
         auto& args = exp_ref.args.i_constant;
@@ -155,6 +162,13 @@ namespace ss {
         args.x = next;
         return exp_id;
     }
+    VmExpID VCode::new_vmx_assign_global(size_t gn, VmExpID next) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::AssignGlobal);
+        auto& args = exp_ref.args.i_assign;
+        args.n = gn;
+        args.x = next;
+        return exp_id;
+    }
     VmExpID VCode::new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Shift);
         auto& args = exp_ref.args.i_shift;
@@ -201,6 +215,26 @@ namespace ss {
                     << "#:n " << exp.args.i_refer.n << ' '
                     << "#:x " << exp.args.i_refer.x;
             } break;
+            case VmExpKind::ReferGlobal: {
+                out << "refer-global "
+                    << "#:n " << exp.args.i_refer.n << ' '
+                    << "#:x " << exp.args.i_refer.x;
+            } break;
+            case VmExpKind::AssignLocal: {
+                out << "assign-local "
+                    << "#:n " << exp.args.i_assign.n << ' '
+                    << "#:x " << exp.args.i_assign.x;
+            } break;
+            case VmExpKind::AssignFree: {
+                out << "assign-free "
+                    << "#:n " << exp.args.i_assign.n << ' '
+                    << "#:x " << exp.args.i_assign.x;
+            } break;
+            case VmExpKind::AssignGlobal: {
+                out << "assign-global "
+                    << "#:n " << exp.args.i_assign.n << ' '
+                    << "#:x " << exp.args.i_assign.x;
+            } break;
             case VmExpKind::Constant: {
                 out << "constant "
                     << "#:obj " << exp.args.i_constant.obj << ' '
@@ -216,12 +250,6 @@ namespace ss {
                     << "#:vmx " << exp.args.i_test.next_if_t << ' '
                     << "#:vmx " << exp.args.i_test.next_if_f;
             } break;
-            // case VmExpKind::Assign: {
-            //     out << "assign ";
-            //     print_obj(exp.args.i_assign.var, out);
-            //     out << ' ';
-            //     out << "#:vmx " << exp.args.i_assign.x;
-            // } break;
             case VmExpKind::Conti: {
                 out << "conti ";
                 out << "#:x " << exp.args.i_conti.x;

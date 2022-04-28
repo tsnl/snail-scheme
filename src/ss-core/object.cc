@@ -13,8 +13,11 @@ namespace ss {
     // OBJECT::*
     //
 
-    OBJECT OBJECT::s_boolean_t{true};
-    OBJECT OBJECT::s_boolean_f{false};
+    const OBJECT OBJECT::null{make_null()};
+    const OBJECT OBJECT::undef{make_undef()};
+    const OBJECT OBJECT::eof{make_eof()};
+    const OBJECT OBJECT::s_boolean_t{true};
+    const OBJECT OBJECT::s_boolean_f{false};
 
     constexpr gc::SizeClassIndex float64_sci = gc::sci(sizeof(Float64Object));
     constexpr gc::SizeClassIndex pair_sci = gc::sci(sizeof(PairObject));

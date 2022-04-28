@@ -70,7 +70,14 @@ namespace ss {
             }
         }
 
-        // TODO: check globals
+        // checking globals
+        {
+            IntStr sym = symbol.as_interned_symbol();
+            auto it = m_gdef_id_symtab.find(sym);
+            if (it != m_gdef_id_symtab.end()) {
+                return {RelVarScope::Global, it->second};
+            }
+        }
         
         // lookup failed:
         {
@@ -84,7 +91,7 @@ namespace ss {
 
     VScript Compiler::compile_script(std::string str, std::vector<OBJECT> line_code_objects) {
         std::vector<VmProgram> line_programs;
-        OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::make_null(), OBJECT::make_null());
+        OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::null, OBJECT::null);
         line_programs.reserve(line_code_objects.size());
         for (auto const code_object: line_code_objects) {
             auto program = compile_line(code_object, default_env);
@@ -93,7 +100,7 @@ namespace ss {
         return VScript{std::move(line_code_objects), std::move(line_programs)};
     }
     VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
-        OBJECT s = OBJECT::make_null();     // empty set
+        OBJECT s = OBJECT::null;     // empty set
         VmExpID last_exp_id = m_code.new_vmx_halt();
         VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e, s);
         return {res, last_exp_id};
@@ -231,63 +238,59 @@ namespace ss {
                     next
                 );
             } 
-            // else if (keyword_symbol_id == m_builtin_intstr_id_cache.define) {
-            //     // define
-            //     auto args = extract_args<2>(args);
-            //     auto structural_signature = args[0];
-            //     auto body = args[1];
-            //     auto name = OBJECT::make_null();
-            //     auto pattern_ok = false;
+            else if (keyword_symbol_id == m_id_cache.define) {
+                // define
+                auto args = extract_args<2>(tail);
+                auto structural_signature = args[0];
+                auto body = args[1];
+                auto name = OBJECT::null;
+                auto pattern_ok = false;
 
-            //     if (structural_signature.is_interned_symbol()) {
-            //         // (define <var> <initializer>)
-            //         pattern_ok = true;
-            //         name = structural_signature;
-            //     }
-            //     else if (structural_signature.is_pair()) {
-            //         // (define (<fn-name> <arg-vars...>) <initializer>)
-            //         // desugars to 
-            //         // (define <fn-name> (lambda (<arg-vars) <initializer>))
-            //         pattern_ok = true;
+                if (structural_signature.is_interned_symbol()) {
+                    // (define <var> <initializer>)
+                    pattern_ok = true;
+                    name = structural_signature;
+                }
+                else if (structural_signature.is_pair()) {
+                    // (define (<fn-name> <arg-vars...>) <initializer>)
+                    // desugars to 
+                    // (define <fn-name> (lambda (<arg-vars) <initializer>))
+                    pattern_ok = true;
 
-            //         auto fn_name = car(structural_signature);
-            //         auto arg_vars = cdr(structural_signature);
+                    auto fn_name = car(structural_signature);
+                    auto arg_vars = cdr(structural_signature);
                     
-            //         check_vars_list_else_throw(arg_vars);
+                    check_vars_list_else_throw(arg_vars);
 
-            //         if (!fn_name.is_interned_symbol()) {
-            //             std::stringstream ss;
-            //             ss << "define: invalid function name: ";
-            //             print_obj(fn_name, ss);
-            //             error(ss.str());
-            //             throw SsiError();
-            //         }
+                    if (!fn_name.is_interned_symbol()) {
+                        std::stringstream ss;
+                        ss << "define: invalid function name: ";
+                        print_obj(fn_name, ss);
+                        error(ss.str());
+                        throw SsiError();
+                    }
 
-            //         name = fn_name;
-            //         body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
-            //     }
+                    name = fn_name;
+                    body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
+                }
 
-            //     // de-sugared handler:
-            //     // NOTE: when computing ref instances:
-            //     // - 'Define' instruction runs before 'Assign'
-            //     if (pattern_ok) {
-            //         OBJECT vars = list(&m_gc_tfe, name);
-            //         OBJECT new_env = compile_extend(var_e, vars);
-            //         auto [n, m] = compile_lookup(name, new_env);
-            //         ScopedVmExp body_res = compile_exp(
-            //             body,
-            //             m_code.new_vmx_assign(n, m, next),
-            //             new_env
-            //         );
-            //         return ScopedVmExp {
-            //             m_code.new_vmx_define(name, body_res),
-            //             body_res.new_var_env
-            //         };
-            //     } else {
-            //         error("Invalid args to 'define'");
-            //         throw SsiError();
-            //     }
-            // }
+                // de-sugared handler:
+                // NOTE: when computing ref instances:
+                // - 'Define' instruction runs before 'Assign'
+                assert(name.is_interned_symbol());
+                IntStr name_sym = name.as_interned_symbol();
+                GDefID gdef_id = define_global(name_sym);
+                if (pattern_ok) {
+                    return compile_exp(
+                        body,
+                        m_code.new_vmx_assign_global(gdef_id, next),
+                        e, s
+                    );
+                } else {
+                    error("Invalid args to 'define'");
+                    throw SsiError();
+                }
+            }
             else if (keyword_symbol_id == m_id_cache.begin) {
                 // (begin expr ...+)
 
@@ -368,8 +371,7 @@ namespace ss {
                 return m_code.new_vmx_refer_free(n, next);
             } break;
             case RelVarScope::Global: {
-                error("NotImplemented: RelVarScope::Global");
-                throw SsiError();
+                return m_code.new_vmx_refer_global(n, next);
             } break;
             default: {
                 error("NotImplemented: unknown RelVarScope");
@@ -406,9 +408,12 @@ namespace ss {
         return res;
     }
     VmExpID Compiler::collect_free(OBJECT vars, OBJECT e, VmExpID next) {
+        // collecting in reverse-order
         if (vars.is_null()) {
             return next;
         } else {
+            // collect each free var by (1) referring, and (2) passing as argument
+            // (hence pushing onto stack)
             return collect_free(
                 cdr(vars), e,
                 compile_refer(car(vars), e, m_code.new_vmx_argument(next))
@@ -428,6 +433,24 @@ namespace ss {
             }
         }
         return x;
+    }
+    GDefID Compiler::define_global(IntStr name, OBJECT code, std::string docstring) {
+        GDefID new_gdef_id = m_gdef_table.size();
+        m_gdef_table.emplace_back(name, code, docstring);
+        m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
+        return new_gdef_id;
+    }
+    GDef const& Compiler::lookup_gdef(GDefID gdef_id) const {
+        assert(gdef_id < m_gdef_table.size());
+        return m_gdef_table[gdef_id];
+    }
+    GDef const* Compiler::try_lookup_gdef_by_name(IntStr name) const {
+        auto it = m_gdef_id_symtab.find(name);
+        if (it == m_gdef_id_symtab.cend()) {
+            return nullptr;
+        } else {
+            return &lookup_gdef(it->second);
+        }
     }
 
     /// Scheme Set functions
@@ -458,7 +481,7 @@ namespace ss {
     }
     OBJECT Compiler::set_minus(OBJECT s1, OBJECT s2) {
         if (s1.is_null()) {
-            return OBJECT::make_null();
+            return OBJECT::null;
         } else if (is_set_member(car(s1), s2)) {
             return set_minus(cdr(s1), s2);
         } else {
@@ -467,7 +490,7 @@ namespace ss {
     }
     OBJECT Compiler::set_intersect(OBJECT s1, OBJECT s2) {
         if (s1.is_null()) {
-            return OBJECT::make_null();
+            return OBJECT::null;
         } else if (is_set_member(car(s1), s2)) {
             return cons(&m_gc_tfe, car(s1), set_intersect(cdr(s1), s2));
         } else {
@@ -482,7 +505,7 @@ namespace ss {
         // main case:
         if (x.is_interned_symbol()) {
             if (is_set_member(x, b)) {
-                return OBJECT::make_null();
+                return OBJECT::null;
             } else {
                 return list(&m_gc_tfe, x);
             }
@@ -497,7 +520,7 @@ namespace ss {
             if (head.is_interned_symbol()) {
                 auto head_symbol = head.as_interned_symbol();
                 if (head_symbol == m_id_cache.quote) {
-                    return OBJECT::make_null();
+                    return OBJECT::null;
                 }
                 else if (head_symbol == m_id_cache.lambda) {
                     auto args = extract_args<2>(tail);
@@ -523,7 +546,7 @@ namespace ss {
                     auto var = args[0];
                     auto exp = args[1];
                     return set_union(
-                        (is_set_member(var, b) ? OBJECT::make_null() : list(&m_gc_tfe, var)),
+                        (is_set_member(var, b) ? OBJECT::null : list(&m_gc_tfe, var)),
                         find_free(exp, b)
                     );
                 }
@@ -534,7 +557,7 @@ namespace ss {
                 }
                 else if (head_symbol == m_id_cache.begin) {
                     OBJECT rem_args = tail;
-                    OBJECT res = OBJECT::make_null();
+                    OBJECT res = OBJECT::null;
                     while (!rem_args.is_null()) {
                         OBJECT const head_exp = car(rem_args);
                         // TODO: if 'head_exp' is 'define', it should be added to 'b' here.
@@ -550,7 +573,7 @@ namespace ss {
             // otherwise, function call, so recurse through function and arguments:
             {
                 OBJECT rem = x;
-                OBJECT res = OBJECT::make_null();
+                OBJECT res = OBJECT::null;
                 for (;;) {
                     if (rem.is_null()) {
                         return res;
@@ -562,7 +585,7 @@ namespace ss {
             }
         }
         else {
-            return OBJECT::make_null();
+            return OBJECT::null;
         }
     }
 
@@ -572,7 +595,7 @@ namespace ss {
         // individual variables:
         {
             if (x.is_interned_symbol()) {
-                return OBJECT::make_null();
+                return OBJECT::null;
             }
         }
         
@@ -587,7 +610,7 @@ namespace ss {
                     IntStr head_name = head.as_interned_symbol();
 
                     if (head_name == m_id_cache.quote) {
-                        return OBJECT::make_null();
+                        return OBJECT::null;
                     }
                     if (head_name == m_id_cache.lambda) {
                         auto args = extract_args<2>(tail);
@@ -625,7 +648,7 @@ namespace ss {
                     }
                     if (head_name == m_id_cache.begin) {
                         OBJECT rem_args = tail;
-                        OBJECT res = OBJECT::make_null();
+                        OBJECT res = OBJECT::null;
                         while (!rem_args.is_null()) {
                             OBJECT const head_exp = car(rem_args);
                             // TODO: if 'head_exp' is 'define', it should be added to 'b' here.
@@ -638,7 +661,7 @@ namespace ss {
 
                 // else function call: get 'set!'s in each term
                 OBJECT rem = x;
-                OBJECT res = OBJECT::make_null();
+                OBJECT res = OBJECT::null;
                 for (;;) {
                     if (rem.is_null()) {
                         break;
@@ -652,7 +675,7 @@ namespace ss {
 
         // everything else
         {
-            return OBJECT::make_null();
+            return OBJECT::null;
         }
     }
     

@@ -24,54 +24,6 @@ namespace ss {
         throw SsiError();
     }
 
-    inline OBJECT::OBJECT(bool v) 
-    :   OBJECT() 
-    {
-        m_data.boolean.tag = BOOL_TAG;
-        m_data.boolean.truth = v;
-    }
-    inline OBJECT::OBJECT(BaseBoxedObject* ptr)
-    :   OBJECT()
-    {
-        m_data.ptr = ptr;
-        assert(m_data.ptr_unwrapped.tag == 0 && "Expected ptr to be a multiple of sizeof(void*)");
-    }
-
-    inline OBJECT OBJECT::make_undef() {
-        OBJECT res;
-        res.m_data.undef.tag = UNDEF_TAG;
-        return res;
-    }
-    inline OBJECT OBJECT::make_integer(my_ssize_t val) {
-        OBJECT res;
-        res.m_data.signed_fixnum.tag = FIXNUM_TAG;
-        res.m_data.signed_fixnum.val = val;
-        return res;
-    }
-    inline OBJECT OBJECT::make_interned_symbol(IntStr s) {
-        OBJECT res;
-        res.m_data.interned_symbol.tag = INTSTR_TAG;
-        res.m_data.interned_symbol.val = s;
-        return res;
-    }
-    inline OBJECT OBJECT::make_float32(float f32) {
-        OBJECT res;
-        res.m_data.f32.tag = FL32_TAG;
-        res.m_data.f32.val = f32;
-        return res;
-    }
-    inline OBJECT OBJECT::make_boolean(bool v) {
-        return v ? s_boolean_t : s_boolean_f;
-    }
-    inline OBJECT OBJECT::make_null() {
-        return OBJECT{nullptr};
-    }
-    inline OBJECT OBJECT::make_eof() {
-        OBJECT res;
-        res.m_data.eof.tag = EOF_TAG;
-        return res;
-    }
-
     // inline OBJECT OBJECT::make_port(std::string file_path, std::ios_base::openmode mode) {
     //     OBJECT res{new Port};
     // }
