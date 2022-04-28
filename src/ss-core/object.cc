@@ -1,8 +1,10 @@
 #include "ss-core/object.hh"
 
 #include <map>
-#include <cstring>
 #include <exception>
+
+#include <cstring>
+#include <cassert>
 
 #include "ss-jit/printing.hh"
 #include "ss-core/gc.hh"
@@ -23,21 +25,23 @@ namespace ss {
     constexpr gc::SizeClassIndex pair_sci = gc::sci(sizeof(PairObject));
     constexpr gc::SizeClassIndex string_sci = gc::sci(sizeof(StringObject));
     constexpr gc::SizeClassIndex box_sci = gc::sci(sizeof(BoxObject));
+    const gc::SizeClassIndex VectorObject::sci = gc::sci(sizeof(VectorObject));
+
 
     OBJECT OBJECT::make_float64(GcThreadFrontEnd* gc_tfe, double f64) {
-        auto boxed_object = new (gc_tfe->allocate_size_class(float64_sci)) Float64Object(f64);
+        auto boxed_object = new (gc_tfe, float64_sci) Float64Object(f64);
         return OBJECT::make_generic_boxed(boxed_object);
     }
     OBJECT OBJECT::make_box(GcThreadFrontEnd* gc_tfe, OBJECT stored) {
-        auto boxed_object = new(gc_tfe->allocate_size_class(box_sci)) BoxObject(stored);
+        auto boxed_object = new(gc_tfe, box_sci) BoxObject(stored);
         return OBJECT::make_generic_boxed(boxed_object);
     }
     OBJECT OBJECT::make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
-        auto boxed_object = new (gc_tfe->allocate_size_class(pair_sci)) PairObject(head, tail);
+        auto boxed_object = new (gc_tfe, pair_sci) PairObject(head, tail);
         return OBJECT::make_generic_boxed(boxed_object);
     }
     OBJECT OBJECT::make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes) {
-        auto boxed_object = new (gc_tfe->allocate_size_class(string_sci)) StringObject(byte_count, mv_bytes);
+        auto boxed_object = new (gc_tfe, string_sci) StringObject(byte_count, mv_bytes);
         return OBJECT::make_generic_boxed(boxed_object);
     }
 
@@ -178,6 +182,37 @@ namespace ss {
     std::ostream& operator<<(std::ostream& out, const OBJECT& obj) {
         print_obj(obj, out);
         return out;
+    }
+
+    ///
+    // BaseBoxedObject
+    //
+
+    void* BaseBoxedObject::operator new(size_t allocation_size, void* placement_ptr) {
+        return placement_ptr;
+    }
+    void* BaseBoxedObject::operator new(size_t alloc_size, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
+        return reinterpret_cast<APtr>(gc_tfe->allocate_size_class(sci));
+    }
+    void BaseBoxedObject::operator delete(void* ptr, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
+#if CONFIG_DEBUG_MODE
+        assert(m_sci == sci && "SCI corruption detected");
+        assert(GcThreadFrontEnd::get_by_tfid(m_gc_tfid) == gc_tfe && "GC_TFE corruption detected");
+#endif
+        BaseBoxedObject::operator delete(ptr);
+    }
+    void BaseBoxedObject::operator delete(void* ptr) {
+        BaseBoxedObject* p = static_cast<BaseBoxedObject*>(ptr);
+        p->delete_();
+    }
+    void BaseBoxedObject::operator delete(void* ptr, size_t size_in_bytes) {
+#if CONFIG_DEBUG_MODE
+        assert(gc::sci(size_in_bytes) == m_sci && "SCI corruption detected");
+#endif
+        BaseBoxedObject::operator delete(ptr);
+    }
+    void BaseBoxedObject::delete_() {
+        return GcThreadFrontEnd::get_by_tfid(m_gc_tfid)->deallocate_size_class(reinterpret_cast<APtr>(this), m_sci);
     }
 
 }   // namespace ss

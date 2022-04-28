@@ -40,10 +40,10 @@ namespace ss {
 
         // compiling the program into VM representation:
         // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
-        ss::Compiler& compiler = *vm_compiler(vm);;
-        ss::VCode& code = compiler.code();
+        ss::Compiler& compiler = *vm_compiler(vm);
+        ss::VCode* code = compiler.code();
         VSubr subr = compiler.compile_subroutine(file_path, std::move(line_code_obj_array));
-        code.append_subroutine(file_path, std::move(subr));
+        code->append_subroutine(file_path, std::move(subr));
         
         // Executing:
         {

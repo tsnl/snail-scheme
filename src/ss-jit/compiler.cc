@@ -8,9 +8,11 @@
 
 namespace ss {
 
+    constexpr gc::SizeClassIndex vcode_sci = gc::sci(sizeof(VCode));
+
     Compiler::Compiler(GcThreadFrontEnd& gc_tfe) 
     :   Analyst(),
-        m_code(),
+        m_code(new(gc_tfe.allocate_size_class(vcode_sci)) VCode()),
         m_gc_tfe(gc_tfe)
         // TODO: add 'globals' table
     {}
@@ -73,7 +75,7 @@ namespace ss {
         // checking globals
         {
             IntStr sym = symbol.as_interned_symbol();
-            auto& gdef_id_symtab = m_code.gdef_id_symtab();
+            auto& gdef_id_symtab = m_code->gdef_id_symtab();
             auto it = gdef_id_symtab.find(sym);
             if (it != gdef_id_symtab.end()) {
                 return {RelVarScope::Global, it->second};
@@ -102,7 +104,7 @@ namespace ss {
     }
     VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
         OBJECT s = OBJECT::null;     // empty set
-        VmExpID last_exp_id = m_code.new_vmx_halt();
+        VmExpID last_exp_id = m_code->new_vmx_halt();
         VmExpID res = compile_exp(line_code_obj, last_exp_id, var_e, s);
         return {res, last_exp_id};
     }
@@ -113,14 +115,14 @@ namespace ss {
             case GranularObjectType::InternedSymbol: {
                 return compile_refer(
                     x, e, 
-                    (is_set_member(x, s) ? m_code.new_vmx_indirect(next) : next)
+                    (is_set_member(x, s) ? m_code->new_vmx_indirect(next) : next)
                 );
             }
             case GranularObjectType::Pair: {
                 return compile_pair_list_exp(static_cast<PairObject*>(x.as_ptr()), next, e, s);
             }
             default: {
-                return m_code.new_vmx_constant(x, next);
+                return m_code->new_vmx_constant(x, next);
             }
         }
     }
@@ -139,7 +141,7 @@ namespace ss {
             if (keyword_symbol_id == m_id_cache.quote) {
                 // quote
                 auto quoted = extract_args<1>(tail)[0];
-                return m_code.new_vmx_constant(quoted, next);
+                return m_code->new_vmx_constant(quoted, next);
             }
             else if (keyword_symbol_id == m_id_cache.lambda) {
                 // lambda
@@ -153,13 +155,13 @@ namespace ss {
                 auto sets = find_sets(body, vars);
                 return collect_free(
                     free, e, 
-                    m_code.new_vmx_close(
+                    m_code->new_vmx_close(
                         list_length(free),
                         make_boxes(
                             sets, vars,
                             compile_exp(
                                 body,
-                                m_code.new_vmx_return(list_length(vars)),
+                                m_code->new_vmx_return(list_length(vars)),
                                 cons(&m_gc_tfe, vars, free),   // new env: (local . free)
                                 set_union(sets, set_intersect(s, free))
                             )
@@ -176,7 +178,7 @@ namespace ss {
                 auto else_code_obj = args[2];
                 return compile_exp(
                     cond_code_obj,
-                    m_code.new_vmx_test(
+                    m_code->new_vmx_test(
                         compile_exp(then_code_obj, next, e, s),
                         compile_exp(else_code_obj, next, e, s)
                     ),
@@ -193,10 +195,10 @@ namespace ss {
                 auto [rel_var_scope, n] = compile_lookup(var, e);
                 switch (rel_var_scope) {
                     case RelVarScope::Local: {
-                        return compile_exp(x, m_code.new_vmx_assign_local(n, next), e, s);
+                        return compile_exp(x, m_code->new_vmx_assign_local(n, next), e, s);
                     } break;
                     case RelVarScope::Free: {
-                        return compile_exp(x, m_code.new_vmx_assign_free(n, next), e, s);
+                        return compile_exp(x, m_code->new_vmx_assign_free(n, next), e, s);
                     } break;
                     default: {
                         error("Unknown RelVarScope");
@@ -215,21 +217,21 @@ namespace ss {
                 bool is_tail_call = is_tail_vmx(next);
                 my_ssize_t m; 
                 if (is_tail_call) {
-                    assert(m_code[next].kind == VmExpKind::Return);
-                    m = m_code[next].args.i_return.n;
+                    assert((*m_code)[next].kind == VmExpKind::Return);
+                    m = (*m_code)[next].args.i_return.n;
                 } else {
                     // 'm' unused
                 }
 
-                return m_code.new_vmx_frame(
+                return m_code->new_vmx_frame(
                     // 'x' in three-imp, p.97
-                    m_code.new_vmx_conti(
-                        m_code.new_vmx_argument(
+                    m_code->new_vmx_conti(
+                        m_code->new_vmx_argument(
                             compile_exp(
                                 x, 
                                 (is_tail_call ? 
-                                    m_code.new_vmx_shift(1, m, m_code.new_vmx_apply()) : 
-                                    m_code.new_vmx_apply()), 
+                                    m_code->new_vmx_shift(1, m, m_code->new_vmx_apply()) : 
+                                    m_code->new_vmx_apply()), 
                                 e, s
                             )
                         )
@@ -284,7 +286,7 @@ namespace ss {
                 if (pattern_ok) {
                     return compile_exp(
                         body,
-                        m_code.new_vmx_assign_global(gdef_id, next),
+                        m_code->new_vmx_assign_global(gdef_id, next),
                         e, s
                     );
                 } else {
@@ -332,14 +334,14 @@ namespace ss {
             bool is_tail_call = is_tail_vmx(next);
             my_ssize_t m;
             if (is_tail_call) {
-                assert(m_code[next].kind == VmExpKind::Return);
-                m = m_code[next].args.i_return.n;
+                assert((*m_code)[next].kind == VmExpKind::Return);
+                m = (*m_code)[next].args.i_return.n;
             }
             VmExpID next_c = compile_exp(
                 head, 
                 (is_tail_call ?
-                    m_code.new_vmx_shift(list_length(obj->cdr()), m, m_code.new_vmx_apply()) :
-                    m_code.new_vmx_apply()), 
+                    m_code->new_vmx_shift(list_length(obj->cdr()), m, m_code->new_vmx_apply()) :
+                    m_code->new_vmx_apply()), 
                 e, s
             );
             OBJECT rem_args = tail;
@@ -348,11 +350,11 @@ namespace ss {
                     return 
                         (is_tail_call ?
                             next_c :
-                            m_code.new_vmx_frame(next_c, next));        // new_vmx_frame(x, ret)
+                            m_code->new_vmx_frame(next_c, next));        // new_vmx_frame(x, ret)
                 } else {
                     next_c = compile_exp(
                         car(rem_args),
-                        m_code.new_vmx_argument(next_c),
+                        m_code->new_vmx_argument(next_c),
                         e, s
                     );
                     rem_args = cdr(rem_args);
@@ -366,13 +368,13 @@ namespace ss {
         auto [rel_scope, n] = compile_lookup(x, e);
         switch (rel_scope) {
             case RelVarScope::Local: {
-                return m_code.new_vmx_refer_local(n, next);
+                return m_code->new_vmx_refer_local(n, next);
             } break;
             case RelVarScope::Free: {
-                return m_code.new_vmx_refer_free(n, next);
+                return m_code->new_vmx_refer_free(n, next);
             } break;
             case RelVarScope::Global: {
-                return m_code.new_vmx_refer_global(n, next);
+                return m_code->new_vmx_refer_global(n, next);
             } break;
             default: {
                 error("NotImplemented: unknown RelVarScope");
@@ -382,7 +384,7 @@ namespace ss {
     }
 
     bool Compiler::is_tail_vmx(VmExpID vmx_id) {
-        return m_code[vmx_id].kind == VmExpKind::Return;
+        return (*m_code)[vmx_id].kind == VmExpKind::Return;
     }
     void Compiler::check_vars_list_else_throw(OBJECT vars) {
         OBJECT rem_vars = vars;
@@ -417,7 +419,7 @@ namespace ss {
             // (hence pushing onto stack)
             return collect_free(
                 cdr(vars), e,
-                compile_refer(car(vars), e, m_code.new_vmx_argument(next))
+                compile_refer(car(vars), e, m_code->new_vmx_argument(next))
             );
         }
     }
@@ -430,19 +432,19 @@ namespace ss {
         VmExpID x = next;
         for (size_t n = 0; !vars.is_null(); (++n, vars=cdr(vars))) {
             if (is_set_member(car(vars), sets)) {
-                x = m_code.new_vmx_box(n, x);
+                x = m_code->new_vmx_box(n, x);
             }
         }
         return x;
     }
     GDefID Compiler::define_global(IntStr name, OBJECT code, std::string docstring) {
-        return m_code.define_global(name, code, docstring);
+        return m_code->define_global(name, code, docstring);
     }
     GDef const& Compiler::lookup_gdef(GDefID gdef_id) const {
-        return m_code.lookup_gdef(gdef_id);
+        return m_code->lookup_gdef(gdef_id);
     }
     GDef const* Compiler::try_lookup_gdef_by_name(IntStr name) const {
-        return m_code.try_lookup_gdef_by_name(name);
+        return m_code->try_lookup_gdef_by_name(name);
     }
 
     /// Scheme Set functions

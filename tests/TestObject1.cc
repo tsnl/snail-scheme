@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "ss-core/object.1.hh"
+#include "ss-core/gc.hh"
 #include <bitset>
 
 ///
@@ -10,6 +11,7 @@
 
 #define BITS(it) std::bitset<64>((it.as_raw()))
 #define DBG_PRINT(it) std::cerr << "             " << it << std::endl
+ss::Gc gc{new ss::ABlk[1024], 1024 * sizeof(ss::ABlk)};
 
 TEST(ObjectTests1, NullTagTests) {
     // Expect Null to be a pointer
@@ -47,11 +49,11 @@ TEST(ObjectTests1, IntTagTests) {
 }
 TEST(ObjectTests1, PtrTagTests) {
     char msg_buf[] = "hello world";
-    auto fake_ptr = new ss::StringObject(sizeof(msg_buf), msg_buf);
+    ss::GcThreadFrontEnd gc_tfe{&gc};
     // auto fake_ptr = reinterpret_cast<BoxedObject*>(-7);
-    ss::OBJECT p1 = ss::OBJECT::make_generic_boxed(fake_ptr);
-    ASSERT_EQ(p1.raw_data().ptr_unwrapped.tag, 0) << "invalid fake ptr";
+    ss::OBJECT p1 = ss::OBJECT::make_string(&gc_tfe, sizeof(msg_buf), msg_buf, false);
+    ASSERT_EQ(p1.raw_data().ptr_unwrapped.tag, 0) << "invalid ptr";
     
-    DBG_PRINT("PtrTagTests: FAKPTR: " << std::bitset<64>(reinterpret_cast<size_t>(fake_ptr)));
-    DBG_PRINT("PtrTagTests: BITSET: " << std::bitset<64>(p1.as_raw()));
+    DBG_PRINT("PtrTagTests: PTR:  " << std::bitset<64>(p1.as_raw()));
+    DBG_PRINT("PtrTagTests: BITS: " << std::bitset<64>(p1.as_raw()));
 }

@@ -20,11 +20,12 @@
 #include <vector>
 #include <ios>
 #include <cassert>
+#include <cstdint>
 
 #include "ss-core/common.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/feedback.hh"
-#include "ss-core/gc.d.hh"
+#include "ss-core/gc.hh"
 
 namespace ss {
 
@@ -32,7 +33,7 @@ namespace ss {
     // Objects:
     //
 
-    enum class GranularObjectType {
+    enum class GranularObjectType: int8_t {
         // native primitives:
         Null, Eof,
         Box,
@@ -45,6 +46,7 @@ namespace ss {
         String,
         Pair,
         Vector,
+        ImmutableVector,
 
         // EXT = Extension objects
         EXT_Callable
@@ -197,15 +199,29 @@ namespace ss {
         friend GranularObjectType obj_kind(OBJECT obj);
 
     private:
+        gc::SizeClassIndex m_sci;
+        uint8_t m_gc_tfid;
         GranularObjectType m_kind;
+        unsigned m_rc_weak: 20;
+        unsigned m_rc_strong: 20;
 
     protected:
         explicit BaseBoxedObject(GranularObjectType kind);
         virtual ~BaseBoxedObject() = default;
 
     public:
+        void* operator new(size_t allocation_size, void* placement_ptr);
+        void* operator new(size_t allocation_size, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci);
+        void operator delete(void* ptr, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci);
+        void operator delete(void* ptr, size_t size_in_bytes);
+        void operator delete(void* ptr);
+    private:
+        void delete_();
+
+    public:
         [[nodiscard]] GranularObjectType kind();
     };
+    static_assert(sizeof(OBJECT) == 8);
     static_assert(sizeof(OBJECT) == sizeof(void*));
 
     class BoxObject: public BaseBoxedObject {
@@ -277,6 +293,9 @@ namespace ss {
     };
 
     class VectorObject: public BaseBoxedObject {
+    public:
+        static const gc::SizeClassIndex sci;
+
     private:
         std::vector<OBJECT> m_impl;
 

@@ -442,9 +442,16 @@ namespace ss {
 
     class GcThreadFrontEnd {
     private:
+        inline static uint8_t s_tfid_counter = 0;
+        inline static std::vector<GcThreadFrontEnd*> s_all_table{256, nullptr};
+    private:
         gc::GcFrontEnd m_impl;
+        uint8_t m_tfid;
     public:
         GcThreadFrontEnd(Gc* gc);
+    public:
+        uint8_t tfid();
+        inline static GcThreadFrontEnd* get_by_tfid(uint8_t tfid) { return s_all_table[tfid]; }
     public:
         APtr allocate_size_class(gc::SizeClassIndex sci) {
             return m_impl.allocate(sci);

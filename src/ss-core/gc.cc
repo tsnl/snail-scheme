@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cassert>
 #include "ss-config/config.hh"
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
@@ -24,6 +25,8 @@ namespace ss {
         }
 
         // ensuring the base pointer is page-aligned
+        // TODO: consider using `std::align`?
+        // see: https://en.cppreference.com/w/cpp/memory/align
         size_t bytes_after_page_start = reinterpret_cast<size_t>(single_contiguous_region) % gc::PAGE_SIZE_IN_BYTES;
         if (bytes_after_page_start > 0) {
             size_t wasted_starting_byte_count = gc::PAGE_SIZE_IN_BYTES - bytes_after_page_start;
@@ -40,9 +43,13 @@ namespace ss {
     }
 
     GcThreadFrontEnd::GcThreadFrontEnd(Gc* gc)
-    :   m_impl()
+    :   m_tfid(s_tfid_counter++),
+        m_impl()
     {
+        assert(m_tfid_counter > m_tfid && "Too many GcThreadFrontEnds spawned: maximum 255 front-ends supported.");
         m_impl.init(&gc->middle_end_impl());
+
+        s_all_table[m_tfid] = this;
     }
 
     void GcThreadFrontEnd::sweep(gc::MarkedSet& marked_set) {

@@ -19,7 +19,7 @@ namespace ss {
 
     class Compiler: public Analyst {
     private:
-        VCode m_code;
+        VCode* m_code;
         GcThreadFrontEnd& m_gc_tfe;
         
     public:
@@ -48,7 +48,7 @@ namespace ss {
         GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
         GDef const& lookup_gdef(GDefID gdef_id) const;
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
-        size_t count_globals() const { return m_code.count_globals(); }
+        size_t count_globals() const { return m_code->count_globals(); }
 
     // Scheme set functions:
     private:
@@ -69,8 +69,8 @@ namespace ss {
 
     // Code:
     public:
-        inline VCode& code() { return m_code; }
-        inline VCode const& code() const { return m_code; }
+        inline VCode* code() { return m_code; }
+        inline VCode const* code() const { return m_code; }
     };
 
 }

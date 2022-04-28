@@ -82,7 +82,7 @@ namespace ss {
     public:
         GcThreadFrontEnd& gc_tfe() { return *m_thread.gc_tfe(); }
         Compiler& jit_compiler() { return m_jit_compiler; }
-        VCode& code() { return m_jit_compiler.code(); }
+        VCode& code() { return *m_jit_compiler.code(); }
     };
 
     //
@@ -100,15 +100,7 @@ namespace ss {
         m_thread.init();
     }
 
-    VirtualMachine::~VirtualMachine() {
-        // todo: clean up code object memory-- leaking for now.
-        //  - cannot delete `BoolObject` or other singletons
-        // for (VScript const& file: m_rom.files()) {
-        //     for (OBJECT o: file.line_code_objs) {
-        //         delete o;
-        //     }
-        // }
-    }
+    VirtualMachine::~VirtualMachine() {}
 
     //
     // Blocking execution:
@@ -346,8 +338,7 @@ namespace ss {
         for (my_ssize_t i = 0; i < n; i++) {
             items[1+i] = index(s, i);
         }
-        auto mem = gc_tfe().allocate_bytes((1 + n) * sizeof(OBJECT));
-        return OBJECT::make_generic_boxed(new(mem) VectorObject(std::move(items)));
+        return OBJECT::make_generic_boxed(new(&gc_tfe(), VectorObject::sci) VectorObject(std::move(items)));
     }
 
     my_ssize_t VirtualMachine::find_link(my_ssize_t n, my_ssize_t e) {
@@ -371,7 +362,7 @@ namespace ss {
     }
     OBJECT VirtualMachine::save_stack(my_ssize_t s) {
         std::vector<OBJECT> vs{m_thread.stack().begin(), m_thread.stack().begin() + s};
-        return OBJECT::make_generic_boxed(new VectorObject(std::move(vs)));
+        return OBJECT::make_generic_boxed(new(&gc_tfe(), VectorObject::sci) VectorObject(std::move(vs)));
     }
     my_ssize_t VirtualMachine::restore_stack(OBJECT vector) {
         assert(vector.is_vector() && "Expected stack to restore to be a 'vector' object");
