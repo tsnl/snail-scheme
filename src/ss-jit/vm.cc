@@ -289,16 +289,6 @@ namespace ss {
                             m_thread.regs().c = index(s, 2);
                             m_thread.regs().s = s - 3;
                         } break;
-                        // case VmExpKind::Define: {
-                        //     m_thread.regs().x = exp.args.i_define.next;
-                        //     m_thread.regs().e = extend(m_thread.regs().e, list(m_thread.gc_tfe(), OBJECT::make_boolean(false)));
-                        //     // DEBUG:
-                        //     // {
-                        //     //     auto def_name = exp.args.i_define.var.as_interned_symbol();
-                        //     //     std::cout << "define: " << interned_string(def_name) << ": " m_thread.regs().a << std::endl;
-                        //     //     std::cout << "  - now, env is: " << m_thread.regs().e << std::endl;
-                        //     // }
-                        // } break;
                         case VmExpKind::Shift: {
                             // three-imp p.112
                             auto m = exp.args.i_shift.m;

@@ -195,9 +195,10 @@ namespace ss {
         return reinterpret_cast<APtr>(gc_tfe->allocate_size_class(sci));
     }
     void BaseBoxedObject::operator delete(void* ptr, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
+        auto self = static_cast<BaseBoxedObject*>(ptr);
 #if CONFIG_DEBUG_MODE
-        assert(m_sci == sci && "SCI corruption detected");
-        assert(GcThreadFrontEnd::get_by_tfid(m_gc_tfid) == gc_tfe && "GC_TFE corruption detected");
+        assert(self->m_sci == sci && "SCI corruption detected");
+        assert(GcThreadFrontEnd::get_by_tfid(self->m_gc_tfid) == gc_tfe && "GC_TFE corruption detected");
 #endif
         BaseBoxedObject::operator delete(ptr);
     }
@@ -206,8 +207,9 @@ namespace ss {
         p->delete_();
     }
     void BaseBoxedObject::operator delete(void* ptr, size_t size_in_bytes) {
+        auto self = static_cast<BaseBoxedObject*>(ptr);
 #if CONFIG_DEBUG_MODE
-        assert(gc::sci(size_in_bytes) == m_sci && "SCI corruption detected");
+        assert(gc::sci(size_in_bytes) == self->m_sci && "SCI corruption detected");
 #endif
         BaseBoxedObject::operator delete(ptr);
     }

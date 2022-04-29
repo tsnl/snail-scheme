@@ -46,7 +46,7 @@ namespace ss {
     :   m_tfid(s_tfid_counter++),
         m_impl()
     {
-        assert(m_tfid_counter > m_tfid && "Too many GcThreadFrontEnds spawned: maximum 255 front-ends supported.");
+        assert(s_tfid_counter > m_tfid && "Too many GcThreadFrontEnds spawned: maximum 255 front-ends supported.");
         m_impl.init(&gc->middle_end_impl());
 
         s_all_table[m_tfid] = this;
@@ -250,7 +250,7 @@ void CentralObjectAllocator::add_page_span_to_pool(PageSpan span) {
     size_t span_page_count = span.count;
     size_t span_pages_size_in_bytes = span_page_count * PAGE_SIZE_IN_BYTES;
     size_t num_objects = span_pages_size_in_bytes / kSizeClasses[m_sci].size;
-    assert(span_pages_size_in_bytes % kSizeClasses[m_sci].size == 0);
+    // assert(span_pages_size_in_bytes % kSizeClasses[m_sci].size == 0);
     m_object_free_list.return_items(span.ptr, num_objects);
 }
 void CentralObjectAllocator::retain_page_spans(APtr beg, APtr end) {
