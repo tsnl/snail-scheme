@@ -319,6 +319,8 @@ namespace ss {
                 }
             }
         }
+        assert(m_thread.regs().s == 0);
+        assert(m_thread.regs().f == 0);
     }
 
     OBJECT VirtualMachine::closure(VmExpID body, my_ssize_t n, my_ssize_t s) {
