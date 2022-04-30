@@ -116,3 +116,10 @@ add_executable(
 )
 target_link_libraries(ss-tests gtest_main ss-core ss-jit)
 gtest_discover_tests(ss-tests)
+
+##
+# Installation
+#
+
+install(TARGETS ssi)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib DESTINATION ${CMAKE_INSTALL_PREFIX}/snail-scheme-root)

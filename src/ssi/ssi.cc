@@ -4,16 +4,17 @@
 
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
+#include "ss-core/gc.hh"
 #include "ss-jit/parser.hh"
 #include "ss-jit/printing.hh"
 #include "ss-jit/vm.hh"
 #include "ss-jit/compiler.hh"
-#include "ss-core/gc.hh"
+#include "ss-jit/libs.hh"
 
 namespace ss {
 
     void interpret_file(VirtualMachine* vm, std::string file_path) {
-        // opening the file:
+        // Opening the file:
         std::ifstream f;
         f.open(file_path);
         if (!f.is_open()) {
@@ -74,6 +75,16 @@ int main(int argc, char const* argv[]) {
             << "Invalid usage: expected 2 arguments, received " << argc << "." << std::endl;
         ss::error(error_ss.str());
         return 1;
+    }
+
+    // Initializing the central library repository:
+    bool clr_init_ok = ss::CentralLibraryRepository::ensure_init(argv[0]);
+    if (!clr_init_ok) {
+        std::stringstream error_ss;
+        error_ss
+            << "Failed to initialize the Central Library Repository (CLR)";
+        ss::error(error_ss.str());
+        return 2;
     }
 
     // Instantiating, programming, and running a VM:

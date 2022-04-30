@@ -7,10 +7,17 @@
 #include <cstdlib>
 #include <cassert>
 
+///
+// Common
+//
+
 namespace ss {
 
     static std::string const ROOT_PATH_ENV_VAR = "SNAIL_SCHEME_ROOT_PATH";
-
+    static std::string const LIB_SUBDIR = "/lib";
+    static std::string const SUBREPO_SUBDIR = "/subrepo";
+    static std::string const BIN_SUBDIR = "/bin";
+    
     static std::string dirname(std::filesystem::path file_path, bool exists_check = true);
 
     static std::string dirname(std::string file_path, bool exists_check = true) {
@@ -36,27 +43,120 @@ namespace ss {
         }
     }
 
-    bool CentralLibraryRepository::try_init(std::string executable_file_path) {
+}
+
+///
+// BaseLibraryContainer: inherited by LibraryRepository and BaseLibrary
+//
+
+namespace ss {
+
+    OBJECT BaseLibraryContainer::extract_key_from_path(std::filesystem::path path) {
+        std::string filename = path.filename().string();
+        bool is_numeric = true;
+        int num_decimal_points = 0;
+        for (auto ch: filename) {
+            if (isdigit(ch)) {
+                // is_numeric = true;
+            }
+            else if (ch == '.') {
+                num_decimal_points++;
+                // is_numeric = true;
+            }
+            else {
+                is_numeric = false;
+                break;
+            }
+        }
+
+        if (is_numeric) {
+            return OBJECT::make_integer(std::strtoull(filename.c_str(), nullptr, 10));
+        } else {
+            return OBJECT::make_interned_symbol(intern(std::move(filename)));
+        }
+    }
+
+    void BaseLibraryContainer::install(std::filesystem::path src_path, OBJECT dst_key) {
+        std::stringstream dst_path_ss;
+        dst_path_ss << abspath() << "/" << dst_key;
+        std::filesystem::path dst_path = dst_path_ss.str();
+        if (!std::filesystem::is_directory(dst_path)) {
+            bool ok = std::filesystem::remove(dst_path);
+            if (!ok) {
+                std::stringstream ss;
+                ss << "Installation failed: could not remove existing file/directory in conflict: " << dst_path;
+                error(ss.str());
+                throw SsiError();
+            }
+        }
+        
+        // copy from 'src_path' into 'dst_path'
+        std::filesystem::copy(
+            src_path, dst_path, 
+            std::filesystem::copy_options::recursive | 
+            std::filesystem::copy_options::update_existing |
+            std::filesystem::copy_options::create_symlinks
+        );
+
+        OBJECT key = discover(dst_path);
+        assert(key.as_raw() == dst_key.as_raw());
+
+    }
+
+    void BaseLibraryContainer::uninstall(OBJECT key) {
+        auto it = m_index.find(key.as_raw());
+        if (it != m_index.end()) {
+            it->second->uninstall_self();
+            m_index.erase(it);
+        } else {
+            std::stringstream ss;
+            ss << "uninstall: library not installed, so no action taken: " << key << std::endl;
+            warning(ss.str());
+        }
+    }
+    BaseLibrary const* BaseLibraryContainer::lookup(OBJECT key) const {
+        auto it = m_index.find(key.as_raw());
+        if (it != m_index.end()) {
+            return it->second;
+        } else {
+            return nullptr;
+        }
+        // TODO: perform file deletion
+    }
+
+    void BaseLibraryContainer::uninstall_self() {
+        for (auto const& it: m_index) {
+            it.second->uninstall_self();
+        }
+        m_index.clear();
+    }
+
+}
+
+///
+// CentralLibraryRepository
+//
+
+namespace ss {
+
+    bool CentralLibraryRepository::ensure_init(std::string executable_file_path) {
+        if (s_singleton == nullptr) {
+            s_singleton = new CentralLibraryRepository();
+        }
+        return s_singleton->try_init_instance(std::move(executable_file_path));
+    }
+    bool CentralLibraryRepository::try_init_instance(std::string executable_file_path) {
         return (
             try_init_env(std::move(executable_file_path)) &&
             try_init_index()
-        );     
+        );
     }
-
     bool CentralLibraryRepository::try_init_env(std::string executable_file_path) {
         // determine a root path:
-        bool using_local_repo;
-        {
-            std::string const env_path = std::getenv(ROOT_PATH_ENV_VAR.c_str());
-            using_local_repo = env_path.empty();
-            if (using_local_repo) {
-                // local/portable interpreter build: setenv ourselves
-                m_abspath = dirname(executable_file_path);
-            } else {
-                // use the global environment variable-specified central library repo:
-                m_abspath = env_path;
-            }
-        }
+        // NOTE: this install directory is determined AT BUILD TIME.
+        // If the installation is moved, it must be rebuilt from source with the new install path.
+        // This allows us to NOT USE ENVIRONMENT VARS.
+        m_abspath = CONFIG_SNAIL_SCHEME_ROOT;
 
         // validate determined root path:
         {
@@ -89,23 +189,14 @@ namespace ss {
             }
             
             // terminating if any errors were encountered:
-            if (!in_error) {
-                throw SsiError();
+            if (in_error) {
+                return false;
             }
-        }
-
-        // set the environment variable to the computed root path:
-        {
-#ifdef _WIN32
-            _putenv_s(ROOT_PATH_ENV_VAR.c_str(), m_abspath.c_str());
-#else
-            setenv(ROOT_PATH_ENV_VAR.c_str(), m_abspath.c_str());
-#endif
         }
 
         // Reporting:
         {
-            std::cerr << "INFO: using " << ROOT_PATH_ENV_VAR << "=" << m_abspath << " (local=" << using_local_repo << ")" << std::endl;
+            std::cerr << "INFO: using " << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl;
         }
 
         return true;
@@ -113,10 +204,69 @@ namespace ss {
 
     bool CentralLibraryRepository::try_init_index() {
         assert(!m_abspath.empty() && "CentralLibraryRepository: Expected 'm_abspath' to be initialized");
-        // TODO: initialize the index by scanning all available directory entries
-        // - upon install, we always copy relevant portions of the source subtree into the root.
-        // - upon init-index, scan all files in the `lib` subdirectory of the root directory
+        
+        // ensuring the 'lib' subdirectory exists:
+        auto lib_path = m_abspath + LIB_SUBDIR;
+        if (!std::filesystem::is_directory(lib_path)) {
+            std::stringstream ss;
+            ss  << "Broken installation: missing subdir: " << lib_path << std::endl
+                << "Please re-run the installer to repair." << std::endl;
+            error(ss.str());
+            return false;
+        }
+
+        // scanning this directory:
+        size_t entry_count = 0;
+        for (auto entry: std::filesystem::directory_iterator(lib_path)) {
+            auto root_lib_path = entry.path();
+            std::cerr << "INFO: detected installed root-library in CLR: " << root_lib_path.filename() << std::endl;
+            discover(std::move(root_lib_path));
+            entry_count++;
+        }
+        std::cerr << "INFO: indexed " << entry_count << " libs." << std::endl;
+
+        // returning whether successful:
         return true;
     }
 
+    OBJECT CentralLibraryRepository::discover(std::filesystem::path dirent_path) {
+        OBJECT key = extract_key_from_path(dirent_path);
+        auto res = m_index.insert_or_assign(key.as_raw(), new RootLibrary(std::move(dirent_path.string()), key, this));
+        if (!res.second) {
+            std::stringstream ss;
+            ss << "install: library re-installed: " << key << std::endl;
+            warning(ss.str());
+        }
+
+        // TODO: discover sub-packages
+
+        return key;
+    }
+}
+
+///
+// BaseLibrary, RootLibrary, SubLibrary
+//
+
+namespace ss {
+
+    BaseLibrary::BaseLibrary(std::string relpath, OBJECT key, BaseLibrary* opt_parent)
+    :   BaseLibraryContainer(),
+        m_relpath(std::move(relpath)),
+        m_key(std::move(key)),
+        m_opt_parent(opt_parent),
+        m_wb_ast(OBJECT::undef)
+    {}
+
+    OBJECT BaseLibrary::discover(std::filesystem::path dirent_path) {
+        OBJECT key = extract_key_from_path(dirent_path);
+        auto res = m_index.insert_or_assign(key.as_raw(), new SubLibrary(dirent_path.string(), key, this));
+        if (!res.second) {
+            std::stringstream ss;
+            ss << "install: library re-installed: " << key << std::endl;
+            warning(ss.str());
+        }
+        return key;
+    }
+    
 }

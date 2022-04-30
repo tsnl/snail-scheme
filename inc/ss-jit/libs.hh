@@ -1,5 +1,5 @@
 /// Libraries
-// - all packages are registered at a central `SNAIL_SCHEME_ROOT` repo whose path is an environment variable.
+// - all packages are registered at a central `SNAIL_SCHEME_ROOT` repo whose path is determined at compile-time.
 // - installations performed by copying source code + the path from which files were copied
 //   - will initially try loading from original source code.
 //   - if this fails, will try loading from copy, which may be stale.
@@ -11,11 +11,13 @@
 //     directory name within this library root (sub-libraries). The library root also contains the library
 //     loader entry-point, named `init.scm`
 //   - Upon library pre-compilation, all libraries and sub-packages are compiled into byte-code.
+// - each library is a directory containing a `main.scm` file
 
 #pragma once
 
 #include <string>
 #include <optional>
+#include <filesystem>
 #include "ss-core/object.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/common.hh"
@@ -29,20 +31,53 @@ namespace ss {
     class BaseLibrary;
 
     class BaseLibraryContainer {
-    private:
+    protected:
         UnstableHashMap<size_t, BaseLibrary*> m_index;
     public:
         BaseLibraryContainer() = default;
     public:
-        void install(std::string path);
+        virtual OBJECT discover(std::filesystem::path dirent_path) = 0;
+        void install(std::filesystem::path src_path, OBJECT dst_key);
         void uninstall(OBJECT key);
-        BaseLibrary* lookup(OBJECT key) const;
+        BaseLibrary const* lookup(OBJECT key) const;
+        void uninstall_self();
+    public:
+        static OBJECT extract_key_from_path(std::filesystem::path path);
+    public:
+        virtual std::string abspath() const = 0;
     };
 
 }
 
 ///
-// BaseLibrary
+// LibraryRepository, CentralLibraryRepository
+//
+
+namespace ss {
+
+    class CentralLibraryRepository: public BaseLibraryContainer {
+    private:
+        std::string m_abspath;
+        bool m_is_init;
+    private:
+        inline static CentralLibraryRepository* s_singleton = nullptr;
+    public:
+        static bool ensure_init(std::string executable_file_path);
+    private:
+        bool try_init_instance(std::string executable_file_path);
+        bool try_init_env(std::string executable_file_path);
+        bool try_init_index();
+    public:
+        OBJECT discover(std::filesystem::path path) override;
+    public:
+        void abspath(std::string v) { m_abspath = std::move(v); }
+        std::string abspath() const override { return m_abspath; }
+    };
+
+}
+
+///
+// BaseLibrary, RootLibrary, SubLibrary
 //
 
 namespace ss {
@@ -50,100 +85,51 @@ namespace ss {
     // All libraries are loaded lazily and in a cached way.
     // This lets us 'load all installed libraries' at run-time without
     // paying a variable initialization cost depending on the environment.
-    // Each library is associated with a single file OR a directory containing
-    // a single `init.scm` file. Each directory library may contain sub-libraries
-    // that are also files or directories. Hence, each library is associated with 
-    // a single OBJECT called its 'key'.
+    // Each library is a directory, optionally containing a single `main.scm` file. 
+    // Each directory library may contain sub-libraries that are also directories. 
+    // Hence, each library is associated with a single OBJECT called its 'key' that
+    // is the name of the directory containing 'main.scm' and/or more sub-directories.
     // E.g.
-    // (scheme base v1.0.0) => 
-    //      (lookup (lookup (lookup 'scheme) 'base) 'v1.0.0)...
-    enum BaseLibraryFlag: size_t {
-        LIB_IS_DIRECTORY_NOT_SINGLE_FILE = 0x1,
-        LIB_IS_PARSED_ALREADY            = 0x2,
-    };
+    // (scheme base 1 0 0) => /scheme/base/1/0/0/main.scm
     class BaseLibrary: public BaseLibraryContainer {
     protected:
+        std::string m_relpath;
         OBJECT m_key;
         BaseLibrary* m_opt_parent;
-        std::string m_relpath;
-        BaseLibraryFlag m_flags;
         OBJECT m_wb_ast;
     protected:
         BaseLibrary(std::string relpath, OBJECT key, BaseLibrary* opt_parent);
     public:
+        bool is_parsed() { return !m_wb_ast.is_undef(); }
         void wb_ast(OBJECT ast) { m_wb_ast = m_wb_ast; }
         OBJECT wb_ast() const { return m_wb_ast; }
     public:
-        virtual std::string relpath() const = 0;
-        virtual std::string abspath() const = 0;
+        std::string relpath() const { return m_relpath; };
+    public:
+        OBJECT discover(std::filesystem::path path) override;
     };
-
-}
-
-///
-// LibraryRepository
-//
-
-namespace ss {
-
-    // LibraryRepository 
-    class LibraryRepository: public BaseLibraryContainer {
-    protected:
-        std::string m_abspath;
-
-    public:
-        explicit LibraryRepository(std::string abspath);
-
-    public:
-        static std::optional<LibraryRepository> load(std::string path);
-        void save();
-    
-    public:
-        std::string abspath() const { return m_abspath; }
-    };
-
-}
-
-///
-// CentralLibraryRepository
-//
-
-namespace ss {
-
-    class CentralLibraryRepository: public LibraryRepository {
-    public:
-        bool try_init(std::string executable_file_path);
-    private:
-        bool try_init_env(std::string executable_file_path);
-        bool try_init_index();
-    };
-
-}
-
-///
-// RootLibrary, SubLibrary
-//
-
-namespace ss {
 
     // RootLibrary is installed into a repository.
     // This string cannot be `scheme` or `srfi`
     class RootLibrary: public BaseLibrary {
-        LibraryRepository* m_repo;
+    private:
+        CentralLibraryRepository* m_clr;
     public:
-        RootLibrary(OBJECT key, std::string abspath, LibraryRepository* repo);
+        RootLibrary(std::string relpath, OBJECT key, CentralLibraryRepository* clr)
+        :   BaseLibrary(std::move(relpath), std::move(key), nullptr),
+            m_clr(clr)
+        {}
     public:
-    public:
-        std::string relpath() const override { return m_relpath; }
-        std::string abspath() const override { return m_repo->abspath() + "/" + relpath(); }
+        std::string abspath() const override { return m_clr->abspath() + "/" + relpath(); }
     };
 
     // SubLibrary is a library contained within a RootLibrary.
     class SubLibrary: public BaseLibrary {
     public:
-        SubLibrary(IntStr name, std::string relpath, BaseLibrary* parent);
+        SubLibrary(std::string relpath, OBJECT key, BaseLibrary* parent)
+        :   BaseLibrary(std::move(relpath), std::move(key), nullptr)
+        {}
     public:
-        std::string relpath() const override { return m_relpath; }
         std::string abspath() const override { return m_opt_parent->abspath() + "/" + relpath(); }
     };
 
