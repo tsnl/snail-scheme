@@ -1,7 +1,8 @@
 /build/
+/install/
+/tmp
 /cmake-build-debug/
 /.idea/
-/.vscode/
 /ssi
 /ssc
 

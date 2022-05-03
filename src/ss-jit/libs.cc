@@ -151,12 +151,12 @@ namespace ss {
             try_init_index()
         );
     }
-    bool CentralLibraryRepository::try_init_env(std::string executable_file_path) {
+    bool CentralLibraryRepository::try_init_env(std::string snail_scheme_root_path) {
         // determine a root path:
         // NOTE: this install directory is determined AT BUILD TIME.
         // If the installation is moved, it must be rebuilt from source with the new install path.
         // This allows us to NOT USE ENVIRONMENT VARS.
-        m_abspath = CONFIG_SNAIL_SCHEME_ROOT;
+        m_abspath = snail_scheme_root_path;
 
         // validate determined root path:
         {
@@ -165,8 +165,9 @@ namespace ss {
             // ensuring path is a directory:
             if (!std::filesystem::is_directory(m_abspath)) {
                 std::stringstream ss;
-                ss  << "ERROR: " << ROOT_PATH_ENV_VAR << " does not refer to a directory." << std::endl
-                    << "       " << ROOT_PATH_ENV_VAR << "=" << m_abspath;
+                ss  << "Compile-time-variable " << ROOT_PATH_ENV_VAR << " does not refer to a directory." << std::endl
+                    << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl
+                    << "Have you installed this application with (e.g. with `cmake --install`)?" << std::endl;
                 error(ss.str());
                 in_error = true;
             }

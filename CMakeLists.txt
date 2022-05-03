@@ -10,7 +10,7 @@ if ("" STREQUAL "${CLANG_PATH}")
     if (WIN32)
         set(DEFAULT_PATH "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/bin/clang.exe")
     else()
-        set(DEFAULT_PATH "$--inexistent-phony--$")
+        set(DEFAULT_PATH "/usr/lib/clang/13.0.1")
     endif()
     if (EXISTS ${DEFAULT_PATH})
         set(CLANG_PATH ${DEFAULT_PATH} CACHE FILEPATH "Path to 'clang' executable" FORCE)
@@ -74,6 +74,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/memory.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gdef.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc
 )
 target_link_libraries(
     ss-core

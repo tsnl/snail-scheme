@@ -16,7 +16,7 @@ namespace ss {
 
     ///
     // VmExp: each expression is a VM instruction.
-    // Name comes from CPS convention + 'x' for 'next expression' register in VM.
+    // Term 'expression' rather than 'instruction' comes from CPS convention: 'x' for 'next expression' register in VM.
     // All VmExps are are stored in a flat table in the 'VirtualMachine'.
     //  - this ensures traversal during interpretation is of similar efficiency to bytecode with padding
     //  - TODO: do we need to traverse this structure to perform GC? cf Ch4

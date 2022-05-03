@@ -99,7 +99,17 @@ namespace ss {
                 print_obj(callable_obj->vars(), out);
                 out << " #:env (<...>)";
                 out << ")";
-            }
+            } break;
+            case GranularObjectType::Box: {
+                auto box_obj = static_cast<BoxObject*>(obj.as_ptr());
+                out << "(box ";
+                print_obj(box_obj->boxed(), out);
+                out << ")";
+            } break;
+            case GranularObjectType::ImmutableVector: {
+                error("NotImplemented: support for immutable-vector");
+                throw SsiError();
+            } break;
         }
     }
 

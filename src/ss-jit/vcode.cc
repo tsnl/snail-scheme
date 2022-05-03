@@ -1,9 +1,9 @@
 #include "ss-jit/vcode.hh"
 #include <iomanip>
 #include <sstream>
+#include <cmath>
 
 #include "ss-jit/printing.hh"
-
 
 namespace ss {
 
@@ -292,6 +292,15 @@ namespace ss {
                 print_obj(exp.args.i_define.var, out);
                 out << " "
                     << "#:vmx " << exp.args.i_define.next;
+            } break;
+            case VmExpKind::Indirect: {
+                out << "indirect #:x" << exp.args.i_indirect.x;
+            } break;
+            case VmExpKind::Box: {
+                out << "box #:n " << exp.args.i_box.n << " #:x " << exp.args.i_box.x;
+            } break;
+            case VmExpKind::Shift: {
+                out << "box #:m " << exp.args.i_shift.m << " #:n " << exp.args.i_box.n << " #:x " << exp.args.i_box.x;
             } break;
         }
         out << ")";

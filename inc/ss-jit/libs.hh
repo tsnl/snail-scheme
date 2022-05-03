@@ -62,10 +62,10 @@ namespace ss {
     private:
         inline static CentralLibraryRepository* s_singleton = nullptr;
     public:
-        static bool ensure_init(std::string executable_file_path);
+        static bool ensure_init(std::string snail_scheme_root_path);
     private:
-        bool try_init_instance(std::string executable_file_path);
-        bool try_init_env(std::string executable_file_path);
+        bool try_init_instance(std::string snail_scheme_root_path);
+        bool try_init_env(std::string snail_scheme_root_path);
         bool try_init_index();
     public:
         OBJECT discover(std::filesystem::path path) override;
@@ -101,7 +101,7 @@ namespace ss {
         BaseLibrary(std::string relpath, OBJECT key, BaseLibrary* opt_parent);
     public:
         bool is_parsed() { return !m_wb_ast.is_undef(); }
-        void wb_ast(OBJECT ast) { m_wb_ast = m_wb_ast; }
+        void wb_ast(OBJECT ast) { m_wb_ast = ast; }
         OBJECT wb_ast() const { return m_wb_ast; }
     public:
         std::string relpath() const { return m_relpath; };

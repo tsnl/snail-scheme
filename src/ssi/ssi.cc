@@ -5,6 +5,7 @@
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
 #include "ss-core/gc.hh"
+#include "ss-core/cli.hh"
 #include "ss-jit/parser.hh"
 #include "ss-jit/printing.hh"
 #include "ss-jit/vm.hh"
@@ -12,6 +13,53 @@
 #include "ss-jit/libs.hh"
 
 namespace ss {
+
+    struct SsiArgs {
+        std::string entry_point_path;
+        std::string snail_root;
+        size_t heap_size_in_bytes;
+        bool debug;
+        bool help;
+    };
+
+    SsiArgs parse_cli_args(int argc, char const* argv[]) {
+        CliArgsParser parser;
+        parser.add_ar0_option_rule("help");
+        parser.add_ar0_option_rule("debug");
+        parser.add_ar1_option_rule("heap-gib");
+        parser.add_ar1_option_rule("snail-root");
+        CliArgs raw = parser.parse(argc, argv);
+        
+        SsiArgs res; {
+            // checking:
+            auto snail_root_it = raw.ar1.find("snail-root");
+            auto heap_gib_it = raw.ar1.find("heap-gib");
+            if (snail_root_it == raw.ar1.end()) {
+                error("Expected mandatory optional parameter '-snail-root'");
+                throw SsiError();
+            }
+            if (raw.pos.size() != 1) {
+                error("Expected exactly 1 positional argument, denoting the entry-point filepath");
+                throw SsiError();
+            }
+
+            // pos:
+            res.entry_point_path = raw.pos[0];
+
+            // ar1
+            res.snail_root = snail_root_it->second;
+            res.heap_size_in_bytes = (
+                heap_gib_it == raw.ar1.end() ? 
+                GIBIBYTES(2) :      // default heap size: 2GiB
+                GIBIBYTES(strtoull(heap_gib_it->second.c_str(), nullptr, 10))
+            );
+
+            // ar0
+            res.help = (raw.ar0.find("help") != raw.ar0.end());
+            res.debug = (raw.ar0.find("debug") != raw.ar0.end());
+        }
+        return std::move(res);
+    }
 
     void interpret_file(VirtualMachine* vm, std::string file_path) {
         // Opening the file:
@@ -66,16 +114,28 @@ namespace ss {
 
 int main(int argc, char const* argv[]) {
     // Parsing command-line arguments:
-    // TODO: switch to more flexible command-line options parser with...
-    // - heap size in bytes
-    if (argc != 2) {
-        std::stringstream error_ss;
-        error_ss
-            << "Usage:\t" << argv[0] << " <source-file-path>" << std::endl
-            << "Invalid usage: expected 2 arguments, received " << argc << "." << std::endl;
-        ss::error(error_ss.str());
-        return 1;
+    ss::SsiArgs args = ss::parse_cli_args(argc, argv);
+    if (args.help) {
+        ss::info("TODO: printing 'help' and exiting");
+        return 0;
     }
+    if (true) {
+        std::cerr 
+            << "TODO: using command-line args:" << std::endl
+            << argv[0] << std::endl
+            << "    " << args.entry_point_path << std::endl
+            << "    -snail-root " << args.snail_root << std::endl
+            << "    -heap-gib " << args.heap_size_in_bytes / ss::GIBIBYTES(1) << std::endl;
+    }
+    if (args.debug) {
+        std::cerr
+            << "    -debug" << std::endl;
+    }
+    if (args.help) {
+        std::cerr
+            << "    -help" << std::endl;
+    }
+    return 0;
 
     // Initializing the central library repository:
     bool clr_init_ok = ss::CentralLibraryRepository::ensure_init(argv[0]);

@@ -8,6 +8,4 @@
 #define CONFIG_PRINT_EACH_INSTRUCTION_ON_EXECUTION  (0)
 #define CONFIG_DUMP_VM_STATE_AFTER_EXECUTION        (0)
 
-#define CONFIG_SNAIL_SCHEME_ROOT                    ("C:/Program Files/SnailScheme/snail-scheme-root/")
-
 #define CONFIG_TCMALLOC_PAGE_SHIFT                  (13)
