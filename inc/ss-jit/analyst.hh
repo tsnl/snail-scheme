@@ -5,8 +5,8 @@
 namespace ss {
 
     class Analyst {
-    protected:
-        const struct {
+    public:
+        struct IdCache {
             IntStr const quote;
             IntStr const lambda;
             IntStr const if_;
@@ -15,9 +15,15 @@ namespace ss {
             IntStr const define;
             IntStr const begin;
             IntStr const define_syntax;
-        } m_id_cache;
+            IntStr const ellipses;
+            IntStr const underscore;
+        };
+    protected:
+        IdCache const m_id_cache;
     protected:
         Analyst();
+    public:
+        IdCache const& id_cache() const { return m_id_cache; }
     };
 
 }

@@ -93,6 +93,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/analyst.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/syntax-rules.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/expander.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/libs.cc
 )

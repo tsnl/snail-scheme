@@ -32,32 +32,10 @@ namespace ss {
     }
     bool Expander::expand_iter(WorkingSet& ws) {
         bool is_fixed = true;
-        
+        ExpanderEnv env;
         for (OBJECT input_line: ws.input_lines) {
-            if (input_line.is_pair()) {
-                auto head = car(input_line);
-                auto tail = cdr(input_line);
-
-                if (head.is_interned_symbol()) {
-                    auto head_sym = head.as_interned_symbol();
-
-                    // TODO: respond to various top-level statements.
-                    if (head_sym == m_id_cache.define_syntax) {
-                        // define a new macro in the top symbol table
-                        error("NotImplemented: 'define_syntax");
-                        throw SsiError();
-                    }
-
-                    // TODO: check if this is a macro invocation, and if so,
-                    //       expand that macro here.
-                    // NOTE: because macros are hygienic in Scheme, the expanded
-                    //       expression 'fits within' the macro invocation,
-                    //       so we can continue expanding subsequent lines in the
-                    //       same phase-level.
-                }
-            }
+            OBJECT output_line = expand_line(input_line, &env);
         }
-        
         return is_fixed;
     }
     std::string Expander::resolve_include_path(std::string const& includer_cwd, std::string include_path) {

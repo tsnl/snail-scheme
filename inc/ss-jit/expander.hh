@@ -3,11 +3,13 @@
 #include <vector>
 #include <stack>
 #include <string>
+#include <stack>
 #include <utility>
 
 #include "ss-core/common.hh"
 #include "ss-core/object.hh"
 #include "ss-jit/analyst.hh"
+#include "ss-jit/syntax-rules.hh"
 
 /// Simple phase-based iterative macro expansion that...
 // - provides...
@@ -21,6 +23,12 @@
 //   - lines classified by purpose: macro, library-spec, or value-{def, eval}
 
 namespace ss {
+
+    class ExpanderEnv {
+    private:
+        using Scope = UnstableHashMap<IntStr, SyntaxRules>;
+        std::stack<Scope> m_scope_stack;
+    };
 
     class Expander: public Analyst {
     private:
@@ -46,7 +54,6 @@ namespace ss {
     private:
         std::string m_root_abspath;
         UnstableHashMap< std::string, std::vector<OBJECT> > m_cached_input_map;
-
     public:
         explicit Expander(std::string project_root_abspath);
     public:
@@ -55,7 +62,7 @@ namespace ss {
         bool expand_iter(WorkingSet& ws);
     public:
         std::string resolve_include_path(std::string const& includer_cwd, std::string include_path);
-        
+        OBJECT expand_line(OBJECT o, ExpanderEnv* env);
     };
     
 }

@@ -13,7 +13,9 @@ namespace ss {
             .call_cc = intern("call/cc"),
             .define = intern("define"),
             .begin = intern("begin"),
-            .define_syntax = intern("define-syntax")
+            .define_syntax = intern("define-syntax"),
+            .ellipses = intern("..."),
+            .underscore = intern("_")
         })
     {}
 

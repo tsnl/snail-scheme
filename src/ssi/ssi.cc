@@ -39,11 +39,13 @@ namespace ss {
                 throw SsiError();
             }
             if (raw.pos.size() != 1) {
-                error("Expected exactly 1 positional argument, denoting the entry-point filepath");
+                std::stringstream ss;
+                ss << "Expected exactly 1 positional argument, denoting the entry-point filepath: got " << raw.pos.size();
+                error(ss.str());
                 throw SsiError();
             }
 
-            // pos:
+            // pos
             res.entry_point_path = raw.pos[0];
 
             // ar1
@@ -57,6 +59,8 @@ namespace ss {
             // ar0
             res.help = (raw.ar0.find("help") != raw.ar0.end());
             res.debug = (raw.ar0.find("debug") != raw.ar0.end());
+
+            // arN: none
         }
         return std::move(res);
     }
@@ -114,6 +118,7 @@ namespace ss {
 
 int main(int argc, char const* argv[]) {
     // Parsing command-line arguments:
+    // TODO: detect if 'snail-venv' directory exists in CWD: if so, elide `-snail-venv` arg.
     ss::SsiArgs args = ss::parse_cli_args(argc, argv);
     if (args.help) {
         ss::info("TODO: printing 'help' and exiting");
