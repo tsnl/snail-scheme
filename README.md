@@ -1,5 +1,7 @@
 # `snail-scheme`
 
+(WIP)
+
 `snail-scheme` is my personal minimal Scheme implementation.
 
 It offers a nice-to-use C++ API that is easily extended using C++'s native OOP

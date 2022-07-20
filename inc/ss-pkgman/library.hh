@@ -50,11 +50,14 @@ namespace ss {
 }
 
 ///
-// LibraryRepository, CentralLibraryRepository
+// CentralLibraryRepository
 //
 
 namespace ss {
 
+    /// The CentralLibraryRepository manages all foreign libraries in a
+    /// flat structure.
+    /// It manages the `libs` subdirectory of the snail-root.
     class CentralLibraryRepository: public BaseLibraryContainer {
     private:
         std::string m_abspath;

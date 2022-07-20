@@ -1,6 +1,4 @@
 /build/
-/install/
-/tmp
 /cmake-build-debug/
 /.idea/
 /ssi
@@ -14,3 +12,6 @@
 /.ninja_log
 
 .DS_Store
+
+/tmp/
+/venv/

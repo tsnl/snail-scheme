@@ -81,6 +81,12 @@ target_link_libraries(
     robin_hood
 )
 
+# pkgman: handles downloading, installing, versioning, and 
+add_library(
+    ss-pkgman
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-pkgman/library.cc
+)
+
 # jit: compiles, evaluates partially or fully, and generates binaries 
 add_library(
     ss-jit
@@ -95,10 +101,10 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/syntax-rules.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/expander.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/libs.cc
 )
 target_link_libraries(ss-jit 
     ss-core
+    ss-pkgman
     ${Boost_LIBRARIES} 
     ${FOLLY_LIBRARIES}
 )
@@ -118,10 +124,3 @@ add_executable(
 )
 target_link_libraries(ss-tests gtest_main ss-core ss-jit)
 gtest_discover_tests(ss-tests)
-
-##
-# Installation
-#
-
-install(TARGETS ssi)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib DESTINATION ${CMAKE_INSTALL_PREFIX}/snail-scheme-root)

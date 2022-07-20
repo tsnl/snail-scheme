@@ -10,7 +10,7 @@
 #include "ss-jit/printing.hh"
 #include "ss-jit/vm.hh"
 #include "ss-jit/compiler.hh"
-#include "ss-jit/libs.hh"
+#include "ss-pkgman/library.hh"
 
 namespace ss {
 
@@ -95,13 +95,19 @@ namespace ss {
         // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
         ss::Compiler& compiler = *vm_compiler(vm);
         ss::VCode* code = compiler.code();
-        VSubr subr = compiler.compile_subroutine(file_path, std::move(line_code_obj_array));
-        code->append_subroutine(file_path, std::move(subr));
+        try {
+            VSubr subr = compiler.compile_subroutine(file_path, std::move(line_code_obj_array));
+            code->append_subroutine(file_path, std::move(subr));
+        } catch (SsiError const& ssi_error) {
+            return;
+        }
         
         // Executing:
-        {
+        try {
             bool print_each_line = true;
             sync_execute_vm(vm, print_each_line);
+        } catch (SsiError const& ssi_error) {
+            return;
         }
 
         // Dumping:
@@ -124,26 +130,25 @@ int main(int argc, char const* argv[]) {
         ss::info("TODO: printing 'help' and exiting");
         return 0;
     }
-    if (true) {
+    if (args.debug) {
         std::cerr 
-            << "TODO: using command-line args:" << std::endl
+            << "INFO: using command-line args:" << std::endl
             << argv[0] << std::endl
             << "    " << args.entry_point_path << std::endl
             << "    -snail-root " << args.snail_root << std::endl
             << "    -heap-gib " << args.heap_size_in_bytes / ss::GIBIBYTES(1) << std::endl;
+        if (args.debug) {
+            std::cerr
+                << "    -debug" << std::endl;
+        }
+        if (args.help) {
+            std::cerr
+                << "    -help" << std::endl;
+        }
     }
-    if (args.debug) {
-        std::cerr
-            << "    -debug" << std::endl;
-    }
-    if (args.help) {
-        std::cerr
-            << "    -help" << std::endl;
-    }
-    return 0;
 
-    // Initializing the central library repository:
-    bool clr_init_ok = ss::CentralLibraryRepository::ensure_init(argv[0]);
+    // Initializing the central library repository at the snail-root specified:
+    bool clr_init_ok = ss::CentralLibraryRepository::ensure_init(args.snail_root);
     if (!clr_init_ok) {
         std::stringstream error_ss;
         error_ss

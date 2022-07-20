@@ -1,4 +1,4 @@
-#include "ss-jit/libs.hh"
+#include "ss-pkgman/library.hh"
 
 #include "ss-config/config.hh"
 
@@ -156,7 +156,7 @@ namespace ss {
         // NOTE: this install directory is determined AT BUILD TIME.
         // If the installation is moved, it must be rebuilt from source with the new install path.
         // This allows us to NOT USE ENVIRONMENT VARS.
-        m_abspath = snail_scheme_root_path;
+        m_abspath = std::filesystem::absolute(snail_scheme_root_path);
 
         // validate determined root path:
         {
@@ -165,9 +165,8 @@ namespace ss {
             // ensuring path is a directory:
             if (!std::filesystem::is_directory(m_abspath)) {
                 std::stringstream ss;
-                ss  << "Compile-time-variable " << ROOT_PATH_ENV_VAR << " does not refer to a directory." << std::endl
-                    << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl
-                    << "Have you installed this application with (e.g. with `cmake --install`)?" << std::endl;
+                ss  << "Supplied '-snail-root " << m_abspath << "' does not refer to a directory." << std::endl
+                    << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl;
                 error(ss.str());
                 in_error = true;
             }
@@ -209,23 +208,39 @@ namespace ss {
         // ensuring the 'lib' subdirectory exists:
         auto lib_path = m_abspath + LIB_SUBDIR;
         if (!std::filesystem::is_directory(lib_path)) {
-            std::stringstream ss;
-            ss  << "Broken installation: missing subdir: " << lib_path << std::endl
-                << "Please re-run the installer to repair." << std::endl;
-            error(ss.str());
-            return false;
+            // notifying the user:
+            {
+                std::stringstream ss;
+                ss  << "Broken snail-root: missing subdir: " << lib_path << std::endl
+                    << "Repairing...";
+                info(ss.str());
+            }
+
+            // trying to create the directory
+            bool libs_dir_create_ok = std::filesystem::create_directory(lib_path);
+            if (!libs_dir_create_ok) {
+                std::stringstream ss;
+                ss  << "Could not repair snail-root: directory creation failed." << std::endl
+                    << "Does the user running this process have write perissions here?" << std::endl;
+                error(ss.str());
+                return false;
+            }
         }
 
         // scanning this directory:
-        size_t entry_count = 0;
-        for (auto entry: std::filesystem::directory_iterator(lib_path)) {
-            auto root_lib_path = entry.path();
-            std::cerr << "INFO: detected installed root-library in CLR: " << root_lib_path.filename() << std::endl;
-            discover(std::move(root_lib_path));
-            entry_count++;
+#if CONFIG_DEBUG_MODE
+        {
+            size_t entry_count = 0;
+            for (auto entry: std::filesystem::directory_iterator(lib_path)) {
+                auto root_lib_path = entry.path();
+                std::cerr << "INFO: detected cached library in snail-root: " << root_lib_path.filename() << std::endl;
+                discover(std::move(root_lib_path));
+                entry_count++;
+            }
+            std::cerr << "INFO: detected " << entry_count << " cached libs." << std::endl;
         }
-        std::cerr << "INFO: indexed " << entry_count << " libs." << std::endl;
-
+#endif
+        
         // returning whether successful:
         return true;
     }
