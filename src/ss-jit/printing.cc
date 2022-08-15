@@ -100,7 +100,7 @@ namespace ss {
                 out << ")";
             } break;
             case GranularObjectType::ImmutableVector: {
-                error("NotImplemented: support for immutable-vector");
+                out << "<Immutable-Vector>";
                 throw SsiError();
             } break;
         }

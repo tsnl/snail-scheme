@@ -197,9 +197,7 @@ namespace ss {
         gc::SizeClassIndex m_sci;
         uint8_t m_gc_tfid;
         GranularObjectType m_kind;
-        unsigned m_rc_weak: 20;
-        unsigned m_rc_strong: 20;
-
+        
     protected:
         explicit BaseBoxedObject(GranularObjectType kind);
         virtual ~BaseBoxedObject() = default;
