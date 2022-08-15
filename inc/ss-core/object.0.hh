@@ -343,17 +343,13 @@ namespace ss {
     class EXT_CallableObject: public BaseBoxedObject {
     private:
         EXT_CallableCb m_cb;
-        OBJECT m_e;
-        OBJECT m_vars;
         size_t m_arg_count;
 
     public:
-        EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars);
+        EXT_CallableObject(EXT_CallableCb cb, size_t arg_count);
 
     public:
         EXT_CallableCb const& cb() const { return m_cb; }
-        OBJECT e() const { return m_e; }
-        OBJECT vars() const { return m_vars; }
         size_t arg_count() const { return m_arg_count; }
     };
 
@@ -456,12 +452,10 @@ namespace ss {
     inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
     :   m_kind(kind) {}
 
-    inline EXT_CallableObject::EXT_CallableObject(EXT_CallableCb cb, OBJECT e, OBJECT vars)
+    inline EXT_CallableObject::EXT_CallableObject(EXT_CallableCb cb, size_t arg_count)
     :   BaseBoxedObject(GranularObjectType::EXT_Callable),
         m_cb(std::move(cb)),
-        m_e(e),
-        m_vars(vars),
-        m_arg_count(list_length(vars))
+        m_arg_count(arg_count)
     {}
 
     inline OBJECT car(OBJECT object) {

@@ -98,6 +98,9 @@ namespace ss {
     {
         // setting up threads using initial val-rib:
         m_thread.init();
+
+        // binding platform globals:
+        binder(this);
     }
 
     VirtualMachine::~VirtualMachine() {}
@@ -119,6 +122,7 @@ namespace ss {
         // initializing globals to 'undef':
         m_global_vals.clear();
         m_global_vals.resize(m_jit_compiler.count_globals(), OBJECT::undef);
+        m_jit_compiler.initialize_platform_globals(m_global_vals);
 
         // for each line object in each file...
         for (VSubr& f: code().files()) {
@@ -267,7 +271,7 @@ namespace ss {
                                 // m_thread.regs().c = index(s, 2);
                                 // m_thread.regs().s = s - 3;
 
-                                error("NotImplemented: EXT_CallableObject");
+                                error("NotImplemented: Apply instruction for EXT_CallableObject");
                                 throw SsiError();
                             }
                             else {
@@ -414,5 +418,44 @@ namespace ss {
     Compiler* vm_compiler(VirtualMachine* vm) {
         return &vm->jit_compiler();
     }
+
+    //
+    // Utility
+    //
+
+    void define_builtin_procedure_in_vm(
+        VirtualMachine* vm, 
+        std::string proc_name,
+        EXT_CallableCb callable_cb,
+        std::vector<std::string> arg_names,
+        std::string docstring_more
+    ) {
+        std::stringstream docstring;
+        docstring
+            << "(" << proc_name << " ";
+            for (size_t i = 0; i < arg_names.size(); i++) {
+                docstring << arg_names[i];
+                if (i+1 < arg_names.size()) {
+                    docstring << " ";
+                }
+            }
+        docstring
+            << ")";
+        if (!docstring_more.empty()) {
+            docstring << ": " << docstring_more;
+        }
+
+        Compiler* c = vm_compiler(vm);
+        c->code()->define_global(
+            intern(std::move(proc_name)),
+            OBJECT::null,
+            OBJECT::make_generic_boxed(
+                new(vm_gc_tfe(vm)->allocate_bytes(sizeof(EXT_CallableObject))) 
+                EXT_CallableObject(callable_cb, arg_names.size())
+            ),
+            std::move(docstring.str())
+        );
+    }
+
 
 }   // namespace ss

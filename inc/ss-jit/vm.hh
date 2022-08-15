@@ -35,6 +35,14 @@ namespace ss {
     static_assert(GC_SINGLE_THREADED_MODE);
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
 
+    void define_builtin_procedure_in_vm(
+        VirtualMachine* vm, 
+        std::string proc_name,
+        EXT_CallableCb callable_cb,
+        std::vector<std::string> arg_names,
+        std::string docstring_more = ""
+    );
+
     // Getting VM compiler:
     // Used to bind globals, compile source code.
     // Should only be directly used by the linker: each library has its own env, and

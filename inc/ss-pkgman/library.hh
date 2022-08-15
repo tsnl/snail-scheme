@@ -92,7 +92,7 @@ namespace ss {
     // Hence, each library is associated with a single OBJECT called its 'key' that
     // is the name of the directory containing 'main.scm' and/or more sub-directories.
     // E.g.
-    // (scheme base 1 0 0) => /scheme/base/1/0/0/main.scm
+    // (scheme base v1.0.0) => /scheme/base/v1.0.0/main.scm
     class BaseLibrary: public BaseLibraryContainer {
     protected:
         std::string m_relpath;

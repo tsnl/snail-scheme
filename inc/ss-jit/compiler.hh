@@ -45,10 +45,11 @@ namespace ss {
 
     // Globals:
     public:
-        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
+        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
         GDef const& lookup_gdef(GDefID gdef_id) const;
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_code->count_globals(); }
+        void initialize_platform_globals(std::vector<OBJECT>& global_vals);
 
     // Scheme set functions:
     private:

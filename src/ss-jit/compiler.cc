@@ -433,14 +433,21 @@ namespace ss {
         }
         return x;
     }
-    GDefID Compiler::define_global(IntStr name, OBJECT code, std::string docstring) {
-        return m_code->define_global(name, code, docstring);
+    GDefID Compiler::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
+        return m_code->define_global(name, code, init, docstring);
     }
     GDef const& Compiler::lookup_gdef(GDefID gdef_id) const {
         return m_code->lookup_gdef(gdef_id);
     }
     GDef const* Compiler::try_lookup_gdef_by_name(IntStr name) const {
         return m_code->try_lookup_gdef_by_name(name);
+    }
+
+    void Compiler::initialize_platform_globals(std::vector<OBJECT>& global_vals) {
+        for (size_t i = 0; i < m_code->gdef_table().size(); i++) {
+            GDef const& gdef = m_code->gdef_table()[i];
+            global_vals[i] = gdef.init();
+        }
     }
 
     /// Scheme Set functions

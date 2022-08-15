@@ -124,7 +124,6 @@ namespace ss {
         std::vector<VSubr> m_subrs;
         std::vector<GDef> m_gdef_table;
         UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
-        UnstableHashSet<size_t> m_thin_gdef_ids;
 
     public:
         explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
@@ -140,7 +139,6 @@ namespace ss {
         VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
         std::vector<GDef>& gdef_table() { return m_gdef_table; };
         UnstableHashMap<IntStr, GDefID>& gdef_id_symtab() { return m_gdef_id_symtab; }
-        UnstableHashSet<size_t>& thin_gdef_ids() { return m_thin_gdef_ids; }
 
     // creating VM expressions:
     private:
@@ -169,7 +167,7 @@ namespace ss {
 
     // Globals:
     public:
-        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, std::string docstring = "");
+        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
         GDef const& lookup_gdef(GDefID gdef_id) const;
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_gdef_table.size(); }

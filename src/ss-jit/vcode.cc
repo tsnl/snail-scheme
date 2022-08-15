@@ -11,10 +11,15 @@ namespace ss {
     //
     VCode::VCode(size_t file_count)
     :   m_exps(), 
-        m_subrs()
+        m_subrs(),
+        m_gdef_table(),
+        m_gdef_id_symtab()
     {
+        size_t expected_num_defs = file_count * 100;
         m_exps.reserve(4096);
-        m_subrs.reserve(file_count);
+        m_subrs.reserve(expected_num_defs);
+        m_gdef_table.reserve(expected_num_defs);
+        m_gdef_id_symtab.reserve(expected_num_defs);
     }
     void VCode::append_subroutine(std::string const& file_name, VSubr&& script) {
         assert(script.line_code_objs.size() == script.line_programs.size());
@@ -34,9 +39,9 @@ namespace ss {
     :   m_exps(std::move(other.m_exps)),
         m_subrs(std::move(other.m_subrs)) 
     {}
-    GDefID VCode::define_global(IntStr name, OBJECT code, std::string docstring) {
+    GDefID VCode::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
         GDefID new_gdef_id = m_gdef_table.size();
-        m_gdef_table.emplace_back(name, code, docstring);
+        m_gdef_table.emplace_back(name, code, init, docstring);
         m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
         return new_gdef_id;
     }
