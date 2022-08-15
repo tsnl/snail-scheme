@@ -116,7 +116,7 @@ namespace ss {
         
         // Executing:
         try {
-            bool print_each_line = true;
+            bool print_each_line = false;
             sync_execute_vm(vm, print_each_line);
         } catch (SsiError const& ssi_error) {
             return;

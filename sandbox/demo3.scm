@@ -34,3 +34,5 @@
 ;     (set! b 42)
 ;     (x a)))
 ; (call/cc w)
+
+(p/invoke displayln a1)

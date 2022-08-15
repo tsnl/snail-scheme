@@ -379,12 +379,19 @@ namespace ss {
         vm_bind_platform_procedure(vm,
             "display",
             [=](ArgView const& aa) -> OBJECT {
-                std::cout << "DISPLAY: " << aa[0] << std::endl;
+                std::cout << aa[0];
                 return OBJECT::null;
             },
             {"it"}
         );
-        
+        vm_bind_platform_procedure(vm,
+            "displayln",
+            [=](ArgView const& aa) -> OBJECT {
+                std::cout << aa[0] << std::endl;
+                return OBJECT::null;
+            },
+            {"it"}
+        );
     }
 
 }   // namespace ss

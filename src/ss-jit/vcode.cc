@@ -73,7 +73,12 @@ namespace ss {
         return new_id;
     }
     PlatformProcID VCode::lookup_platform_proc(IntStr platform_proc_name) {
-        return m_platform_proc_id_symtab[platform_proc_name];
+        auto res = m_platform_proc_id_symtab.find(platform_proc_name);
+        if (res == m_platform_proc_id_symtab.end()) {
+            error("Undefined platform procedure used: " + interned_string(platform_proc_name));
+            throw new SsiError();
+        }
+        return res->second;
     }
 
 

@@ -206,9 +206,9 @@ namespace ss {
         }
 
         // Reporting:
-        {
-            std::cerr << "INFO: using " << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl;
-        }
+        // {
+        //     std::cerr << "INFO: using " << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl;
+        // }
 
         return true;
     }
@@ -244,11 +244,11 @@ namespace ss {
             size_t entry_count = 0;
             for (auto entry: std::filesystem::directory_iterator(lib_path)) {
                 auto root_lib_path = entry.path();
-                std::cerr << "INFO: detected cached library in snail-root: " << root_lib_path.filename() << std::endl;
+                // std::cerr << "INFO: detected cached library in snail-root: " << root_lib_path.filename() << std::endl;
                 discover(std::move(root_lib_path));
                 entry_count++;
             }
-            std::cerr << "INFO: detected " << entry_count << " cached libs." << std::endl;
+            // std::cerr << "INFO: detected " << entry_count << " cached libs." << std::endl;
         }
 #endif
         
