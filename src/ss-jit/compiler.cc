@@ -59,19 +59,20 @@ namespace ss {
             OBJECT const all_free_vars = cdr(var_env);
             OBJECT free = all_free_vars;
             size_t n = 0;
-            for (;;) {
-                if (free.is_null()) {
-                    break;
-                }
+            while (!free.is_null()) {
                 if (ss::is_eq(&m_gc_tfe, car(free), symbol)) {
-                    return {RelVarScope::Free, n};
+                    if (!cdr(free).is_null()) {
+                        return {RelVarScope::Free, n};
+                    }
+                    // otherwise global
+                    break;
                 }
                 // preparing for the next iteration:
                 free = cdr(free);
                 ++n;
             }
         }
-
+        
         // checking globals
         {
             IntStr sym = symbol.as_interned_symbol();

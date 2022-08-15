@@ -1,20 +1,23 @@
 ; fibonacci
 
-(define (fibonacci n)
-  (if (or (= n 1) (= n 0))
-    n
-    (+
-      (fibonacci (- n 1))
-      (fibonacci (- n 2)))))
+(define fibonacci 
+  (lambda (n)
+    (if (p/invoke or (p/invoke = n 1) (p/invoke = n 0))
+      n
+      (begin
+        ; (p/invoke display fibonacci)
+        (p/invoke +
+          (fibonacci (p/invoke - n 1))
+          (fibonacci (p/invoke - n 2)))))))
 
 ;;; TODO: fix me!
 ; (+ 1 2 3)
 ; (* 1 2 3 4 5)
 
 ; (define a0 (fibonacci 30))
-(define a0 (fibonacci 30))
+; (define a0 (fibonacci 2))
 ; (display (format "~a\n" a0))
-; (define a1 (fibonacci 30))
+(define a1 (fibonacci 30))
 ; (display (format "~a\n" a1))
 ; (define a2 (fibonacci 30))
 ; (display (format "~a\n" a2))

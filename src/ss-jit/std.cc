@@ -375,6 +375,18 @@ namespace ss {
     inline void float64_add_cb(double& accum, double item) { accum += item; }
     inline void float64_sub_cb(double& accum, double item) { accum -= item; }
 
+    void bind_standard_console_io_procedures(VirtualMachine* vm) {
+        vm_bind_platform_procedure(vm,
+            "display",
+            [=](ArgView const& aa) -> OBJECT {
+                std::cout << "DISPLAY: " << aa[0] << std::endl;
+                return OBJECT::null;
+            },
+            {"it"}
+        );
+        
+    }
+
 }   // namespace ss
 
 ///
@@ -392,6 +404,7 @@ namespace ss {
         bind_standard_logical_operators(vm);
         bind_standard_list_procedures(vm);
         bind_standard_arithmetic_procedures(vm);
+        bind_standard_console_io_procedures(vm);
     }
 
 }

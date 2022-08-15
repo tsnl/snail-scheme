@@ -144,8 +144,8 @@ namespace ss {
                     // DEBUG ONLY: print each instruction on execution to help trace
                     // todo: perhaps include a thread-ID? Some synchronization around IO [basically GIL]
     #if CONFIG_PRINT_EACH_INSTRUCTION_ON_EXECUTION
-                    std::wcout << L"\tVM <- (" << m_thread.regs().x << ") ";
-                    print_one_exp(m_thread.regs().x, std::cout);
+                    std::cout << "\tVM <- (" << m_thread.regs().x << ") ";
+                    code().print_one_exp(m_thread.regs().x, std::cout);
                     std::cout << std::endl;
     #endif
 
@@ -251,9 +251,7 @@ namespace ss {
                                 // m_thread.regs().s = m_thread.regs().s;
                             } else {
                                 std::stringstream ss;
-                                ss << "apply: expected a procedure, received: ";
-                                print_obj(m_thread.regs().a, ss);
-                                ss << std::endl;
+                                ss << "apply: expected a procedure, received: " << m_thread.regs().a;
                                 error(ss.str());
                                 throw SsiError();
                             }
@@ -275,6 +273,10 @@ namespace ss {
                             m_thread.regs().s = shift_args(n, m, s);
                         } break;
                         case VmExpKind::PInvoke: {
+                            // WARNING: 
+                            // args are pushed without a wrapping Frame for this.
+                            // This elides a 'Frame' and 'Return' instruction pair.
+
                             auto n = exp.args.i_pinvoke.n;
                             auto x = exp.args.i_pinvoke.x;
                             auto p = exp.args.i_pinvoke.proc_id;

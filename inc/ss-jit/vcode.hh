@@ -189,7 +189,6 @@ namespace ss {
     // dump:
     public:
         void dump(std::ostream& out) const;
-    private:        
         void print_all_exps(std::ostream& out) const;
         void print_one_exp(VmExpID exp_id, std::ostream& out) const;
         void print_all_files(std::ostream& out) const;
