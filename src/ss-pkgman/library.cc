@@ -163,10 +163,21 @@ namespace ss {
             bool in_error = false;
             
             // ensuring path is a directory:
+            bool directory_creation_failed = false;
             if (!std::filesystem::is_directory(m_abspath)) {
                 std::stringstream ss;
+                ss  << "Broken snail-root: missing rootdir: " << m_abspath << std::endl
+                    << "Attempting to repair...";
+                info(ss.str());
+                bool created_ok = std::filesystem::create_directory(m_abspath);
+                directory_creation_failed = !created_ok;
+            }
+            if (directory_creation_failed) {
+                std::stringstream ss;
                 ss  << "Supplied '-snail-root " << m_abspath << "' does not refer to a directory." << std::endl
-                    << ROOT_PATH_ENV_VAR << "=" << m_abspath << std::endl;
+                    << "Furthermore, failed to automatically create a directory here." << std::endl
+                    << "Does the user running this process have write perissions here?" << std::endl
+                    << ROOT_PATH_ENV_VAR << "=" << m_abspath;
                 error(ss.str());
                 in_error = true;
             }
@@ -212,7 +223,7 @@ namespace ss {
             {
                 std::stringstream ss;
                 ss  << "Broken snail-root: missing subdir: " << lib_path << std::endl
-                    << "Repairing...";
+                    << "Attempting to repair...";
                 info(ss.str());
             }
 

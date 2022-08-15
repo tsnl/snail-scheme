@@ -73,7 +73,11 @@
     "thread": "cpp",
     "typeinfo": "cpp",
     "variant": "cpp",
-    "*.inc": "cpp"
+    "*.inc": "cpp",
+    "span": "cpp",
+    "cfenv": "cpp",
+    "typeindex": "cpp",
+    "valarray": "cpp"
   },
   "C_Cpp.default.cppStandard": "c++20",
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"

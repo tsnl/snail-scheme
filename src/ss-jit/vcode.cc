@@ -119,11 +119,11 @@ namespace ss {
         args.x = x;
         return exp_id;
     }
-    VmExpID VCode::new_vmx_frame(VmExpID x, VmExpID ret) {
+    VmExpID VCode::new_vmx_frame(VmExpID fn_body_x, VmExpID post_ret_x) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Frame);
         auto& args = exp_ref.args.i_frame;
-        args.x = x;
-        args.ret = ret;
+        args.fn_body_x = fn_body_x;
+        args.post_ret_x = post_ret_x;
         return exp_id;
     }
     VmExpID VCode::new_vmx_argument(VmExpID x) {
@@ -274,8 +274,8 @@ namespace ss {
             } break;
             case VmExpKind::Frame: {
                 out << "frame "
-                    << "#:x " << exp.args.i_frame.x << ' '
-                    << "#:ret " << exp.args.i_frame.ret;
+                    << "#:fn-body-x " << exp.args.i_frame.fn_body_x << ' '
+                    << "#:post-ret-x " << exp.args.i_frame.post_ret_x;
             } break;
             case VmExpKind::Argument: {
                 out << "argument "

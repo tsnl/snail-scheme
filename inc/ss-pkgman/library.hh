@@ -1,9 +1,10 @@
 /// Libraries
-// - all packages are registered at a central `SNAIL_SCHEME_ROOT` repo whose path is determined at compile-time.
-// - installations performed by copying source code + the path from which files were copied
+// - All packages are registered at a central `SNAIL_SCHEME_ROOT` repo whose path is determined at compile-time.
+//   You ship scripts as dependencies with this interpreter executable.
+// - installations performed by copying source code + the path from which files were copied (cf Racket)
 //   - will initially try loading from original source code.
 //   - if this fails, will try loading from copy, which may be stale.
-//   - upon reinstallation, source directory soft-link is updated and files are re-copied.
+//   - upon reinstallation, source directory path is updated and files are re-copied.
 //   - Installation => copying + pre-compilation
 // - libraries referenced/loaded by a unique library identifiers: (list of identifier or 0.1)
 //   - cf R7RS-Small
@@ -86,8 +87,6 @@ namespace ss {
 namespace ss {
 
     // All libraries are loaded lazily and in a cached way.
-    // This lets us 'load all installed libraries' at run-time without
-    // paying a variable initialization cost depending on the environment.
     // Each library is a directory, optionally containing a single `main.scm` file. 
     // Each directory library may contain sub-libraries that are also directories. 
     // Hence, each library is associated with a single OBJECT called its 'key' that

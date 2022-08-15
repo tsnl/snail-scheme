@@ -217,9 +217,9 @@ namespace ss {
                         case VmExpKind::Frame: {
                             // pushing...
                             // first (c, f, ret) last
-                            m_thread.regs().x = exp.args.i_frame.x;
+                            m_thread.regs().x = exp.args.i_frame.fn_body_x;
                             m_thread.regs().s = 
-                                push(OBJECT::make_integer(exp.args.i_frame.ret), 
+                                push(OBJECT::make_integer(exp.args.i_frame.post_ret_x), 
                                     push(m_thread.regs().f, 
                                         push(m_thread.regs().c, m_thread.regs().s)));
                         } break;
@@ -255,12 +255,9 @@ namespace ss {
                                 // popping the stack frame added by 'Frame':
                                 // NOTE: this part is usually handled by VmExpKind::Return
                                 
-                                // TODO: retrieve arguments as stack pointer, provide as arguments
-                                // - builtin functions will not work until this is fixed!
-                                // - since arguments are pushed last to first, can index (0, 1, 2, ...)
-                                //   to access arguments.
-                                //   This translates to s-1, s-2, ...
-                                // - HOWEVER, variadic arguments?
+                                // TODO: extract arguments from the stack, cf 'refer_local', cf reg 'f'
+                                // TODO: evaluate and set appropriate register, DO NOT clean up stack
+                                // a subsequent 'return' instruction will do this for us, emitted for any apply
 
                                 // auto num_args = a->arg_count();
                                 // auto s = m_thread.regs().s - num_args;

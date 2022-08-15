@@ -55,7 +55,7 @@ namespace ss {
         struct { size_t n; VmExpID x; } i_assign;                           // see three-imp p.105
         struct { VmExpID x; } i_conti;
         struct { OBJECT stack; VmExpID x; } i_nuate;
-        struct { VmExpID x; VmExpID ret; } i_frame;
+        struct { VmExpID fn_body_x; VmExpID post_ret_x; } i_frame;
         struct { VmExpID x; } i_argument;
         struct { OBJECT var; VmExpID next; } i_define;
         struct {} i_apply;
@@ -155,7 +155,7 @@ namespace ss {
         VmExpID new_vmx_test(VmExpID next_if_t, VmExpID next_if_f);
         VmExpID new_vmx_conti(VmExpID x);
         VmExpID new_vmx_nuate(OBJECT stack, VmExpID x);
-        VmExpID new_vmx_frame(VmExpID x, VmExpID ret);
+        VmExpID new_vmx_frame(VmExpID fn_body_x, VmExpID post_ret_x);
         VmExpID new_vmx_argument(VmExpID x);
         VmExpID new_vmx_apply();
         VmExpID new_vmx_return(size_t n);

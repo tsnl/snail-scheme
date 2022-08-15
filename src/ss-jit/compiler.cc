@@ -119,14 +119,14 @@ namespace ss {
                 );
             }
             case GranularObjectType::Pair: {
-                return compile_pair_list_exp(static_cast<PairObject*>(x.as_ptr()), next, e, s);
+                return compile_list_exp(static_cast<PairObject*>(x.as_ptr()), next, e, s);
             }
             default: {
                 return m_code->new_vmx_constant(x, next);
             }
         }
     }
-    VmExpID Compiler::compile_pair_list_exp(PairObject* obj, VmExpID next, OBJECT e, OBJECT s) {
+    VmExpID Compiler::compile_list_exp(PairObject* obj, VmExpID next, OBJECT e, OBJECT s) {
         // corresponds to 'record-case'
 
         // retrieving key properties:
@@ -337,7 +337,7 @@ namespace ss {
                 assert((*m_code)[next].kind == VmExpKind::Return);
                 m = (*m_code)[next].args.i_return.n;
             }
-            VmExpID next_c = compile_exp(
+            VmExpID next_body = compile_exp(
                 head, 
                 (is_tail_call ?
                     m_code->new_vmx_shift(list_length(obj->cdr()), m, m_code->new_vmx_apply()) :
@@ -345,21 +345,17 @@ namespace ss {
                 e, s
             );
             OBJECT rem_args = tail;
-            for (;;) {
-                if (rem_args.is_null()) {
-                    return 
-                        (is_tail_call ?
-                            next_c :
-                            m_code->new_vmx_frame(next_c, next));        // new_vmx_frame(x, ret)
-                } else {
-                    next_c = compile_exp(
-                        car(rem_args),
-                        m_code->new_vmx_argument(next_c),
-                        e, s
-                    );
-                    rem_args = cdr(rem_args);
-                }
+            // evaluating arguments in reverse order: first is 'next' of second, ...
+            while (!rem_args.is_null()) {
+                next_body = compile_exp(
+                    car(rem_args),
+                    m_code->new_vmx_argument(next_body),
+                    e, s
+                );
+                rem_args = cdr(rem_args);
             }
+            // new_vmx_frame(body_x, post_ret_x) ---v
+            return (is_tail_call ? next_body : m_code->new_vmx_frame(next_body, next));
         }
 
         // unreachable

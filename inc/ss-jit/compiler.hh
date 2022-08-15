@@ -29,7 +29,7 @@ namespace ss {
         VSubr compile_subroutine(std::string str, std::vector<OBJECT> line_code_objects);
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
         VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
-        VmExpID compile_pair_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
+        VmExpID compile_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
         VmExpID compile_refer(OBJECT x, OBJECT e, VmExpID next);
         bool is_tail_vmx(VmExpID vmx_id);
 

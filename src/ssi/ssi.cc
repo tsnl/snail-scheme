@@ -31,13 +31,6 @@ namespace ss {
         CliArgs raw = parser.parse(argc, argv);
         
         SsiArgs res; {
-            // checking:
-            auto snail_root_it = raw.ar1.find("snail-root");
-            auto heap_gib_it = raw.ar1.find("heap-gib");
-            if (snail_root_it == raw.ar1.end()) {
-                error("Expected mandatory optional parameter '-snail-root'");
-                throw SsiError();
-            }
             if (raw.pos.size() != 1) {
                 std::stringstream ss;
                 ss << "Expected exactly 1 positional argument, denoting the entry-point filepath: got " << raw.pos.size();
@@ -45,22 +38,41 @@ namespace ss {
                 throw SsiError();
             }
 
-            // pos
+            // pos args
+            //
+            
+            // entry_point_path
             res.entry_point_path = raw.pos[0];
 
-            // ar1
-            res.snail_root = snail_root_it->second;
+            // arity-1 (ar1) args
+            //
+
+            // snail_root:
+            auto const snail_root_default = "./snail-venv";
+            auto snail_root_it = raw.ar1.find("snail-root");
+            res.snail_root = (
+                snail_root_it == raw.ar1.end() ? 
+                std::string{snail_root_default} : 
+                snail_root_it->second
+            );
+
+            // heap_gib:
+            auto const heap_size_in_bytes_default = GIBIBYTES(2);
+            auto heap_gib_it = raw.ar1.find("heap-gib");
             res.heap_size_in_bytes = (
                 heap_gib_it == raw.ar1.end() ? 
-                GIBIBYTES(2) :      // default heap size: 2GiB
+                heap_size_in_bytes_default :
                 GIBIBYTES(strtoull(heap_gib_it->second.c_str(), nullptr, 10))
             );
 
             // ar0
+            //
+
             res.help = (raw.ar0.find("help") != raw.ar0.end());
             res.debug = (raw.ar0.find("debug") != raw.ar0.end());
 
             // arN: none
+            //
         }
         return std::move(res);
     }
