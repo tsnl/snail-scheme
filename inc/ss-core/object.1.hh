@@ -39,9 +39,6 @@ namespace ss {
     inline bool OBJECT::is_closure() const {
         return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
     }
-    inline bool OBJECT::is_ext_callable() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::EXT_Callable;
-    }
     inline bool OBJECT::is_string() const { 
         return is_boxed_object() && as_ptr()->kind() == GranularObjectType::String;
     }

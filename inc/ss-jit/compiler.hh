@@ -7,6 +7,7 @@
 #include "ss-core/common.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/gc.hh"
+#include "ss-core/pproc.hh"
 #include "ss-core/gdef.hh"
 #include "ss-jit/vcode.hh"
 #include "ss-jit/analyst.hh"
@@ -50,6 +51,11 @@ namespace ss {
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_code->count_globals(); }
         void initialize_platform_globals(std::vector<OBJECT>& global_vals);
+
+    // Platform procs:
+    public:
+        PlatformProcID define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring);
+        PlatformProcID lookup_platform_proc(IntStr name);
 
     // Scheme set functions:
     private:

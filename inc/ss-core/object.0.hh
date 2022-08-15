@@ -34,7 +34,6 @@ namespace ss {
     //
 
     enum class GranularObjectType: int8_t {
-        // native primitives:
         Null, Eof,
         Box,
         Boolean,
@@ -46,10 +45,7 @@ namespace ss {
         String,
         Pair,
         Vector,
-        ImmutableVector,
-
-        // EXT = Extension objects
-        EXT_Callable
+        ImmutableVector
     };
 
     class BaseBoxedObject;
@@ -173,7 +169,6 @@ namespace ss {
         inline bool is_pair() const;
         inline bool is_float64() const;
         inline bool is_closure() const;
-        inline bool is_ext_callable() const;
         inline bool is_string() const;
         inline bool is_vector() const;
         bool is_box() const;
@@ -335,25 +330,6 @@ namespace ss {
     };
 
     //
-    // EXT_: Extension objects: used to inject C++ code into the runtime
-    //
-
-    using EXT_CallableCb = std::function<OBJECT(OBJECT args)>;
-
-    class EXT_CallableObject: public BaseBoxedObject {
-    private:
-        EXT_CallableCb m_cb;
-        size_t m_arg_count;
-
-    public:
-        EXT_CallableObject(EXT_CallableCb cb, size_t arg_count);
-
-    public:
-        EXT_CallableCb const& cb() const { return m_cb; }
-        size_t arg_count() const { return m_arg_count; }
-    };
-
-    //
     //
     // Inline functions:
     //
@@ -451,12 +427,6 @@ namespace ss {
 
     inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
     :   m_kind(kind) {}
-
-    inline EXT_CallableObject::EXT_CallableObject(EXT_CallableCb cb, size_t arg_count)
-    :   BaseBoxedObject(GranularObjectType::EXT_Callable),
-        m_cb(std::move(cb)),
-        m_arg_count(arg_count)
-    {}
 
     inline OBJECT car(OBJECT object) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS

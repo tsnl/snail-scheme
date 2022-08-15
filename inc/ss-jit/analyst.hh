@@ -13,6 +13,7 @@ namespace ss {
             IntStr const set;
             IntStr const call_cc;
             IntStr const define;
+            IntStr const p_invoke;
             IntStr const begin;
             IntStr const define_syntax;
             IntStr const ellipses;

@@ -12,6 +12,7 @@ namespace ss {
             .set = intern("set!"),
             .call_cc = intern("call/cc"),
             .define = intern("define"),
+            .p_invoke = intern("p/invoke"),
             .begin = intern("begin"),
             .define_syntax = intern("define-syntax"),
             .ellipses = intern("..."),

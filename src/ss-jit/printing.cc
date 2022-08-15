@@ -93,10 +93,6 @@ namespace ss {
             case GranularObjectType::Vector: {
                 out << "<Vector>";
             } break;
-            case GranularObjectType::EXT_Callable: {
-                auto callable_obj = static_cast<EXT_CallableObject*>(obj.as_ptr());
-                out << "(ext-callable ...)";
-            } break;
             case GranularObjectType::Box: {
                 auto box_obj = static_cast<BoxObject*>(obj.as_ptr());
                 out << "(box ";

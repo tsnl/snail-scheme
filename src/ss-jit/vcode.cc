@@ -58,6 +58,25 @@ namespace ss {
         }
     }
 
+    // Platform procedures:
+    //
+
+    PlatformProcID VCode::define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring) {
+        if (m_platform_proc_id_symtab.find(platform_proc_name) != m_platform_proc_id_symtab.end()) {
+            error("Cannot re-define platform procedure: " + interned_string(platform_proc_name));
+            throw new SsiError();
+        }
+        auto new_id = m_platform_proc_cb_table.size();
+        m_platform_proc_cb_table.push_back(callable_cb);
+        m_platform_proc_docstring_table.emplace_back(std::move(docstring));
+        m_platform_proc_id_symtab[platform_proc_name] = new_id;
+        return new_id;
+    }
+    PlatformProcID VCode::lookup_platform_proc(IntStr platform_proc_name) {
+        return m_platform_proc_id_symtab[platform_proc_name];
+    }
+
+
     /// Creating VM Expressions:
     //
     std::pair<VmExpID, VmExp&> VCode::help_new_vmx(VmExpKind kind) {
@@ -195,6 +214,14 @@ namespace ss {
         args.x = x;
         return exp_id;
     }
+    VmExpID VCode::new_vmx_pinvoke(my_ssize_t arg_count, size_t platform_proc_idx, VmExpID x) {
+        auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::PInvoke);
+        auto& args = exp_ref.args.i_pinvoke;
+        args.n = arg_count;
+        args.proc_id = platform_proc_idx;
+        args.x = x;
+        return exp_id;
+    }
 
     /// Dump
     //
@@ -306,6 +333,9 @@ namespace ss {
             } break;
             case VmExpKind::Shift: {
                 out << "box #:m " << exp.args.i_shift.m << " #:n " << exp.args.i_box.n << " #:x " << exp.args.i_box.x;
+            } break;
+            case VmExpKind::PInvoke: {
+                out << "p/invoke #:n " << exp.args.i_pinvoke.n << " #:proc_idx " << exp.args.i_pinvoke.proc_id;
             } break;
         }
         out << ")";

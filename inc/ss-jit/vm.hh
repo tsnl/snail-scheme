@@ -35,10 +35,10 @@ namespace ss {
     static_assert(GC_SINGLE_THREADED_MODE);
     GcThreadFrontEnd* vm_gc_tfe(VirtualMachine* vm);
 
-    void define_builtin_procedure_in_vm(
+    void vm_bind_platform_procedure(
         VirtualMachine* vm, 
         std::string proc_name,
-        EXT_CallableCb callable_cb,
+        PlatformProcCb callable_cb,
         std::vector<std::string> arg_names,
         std::string docstring_more = ""
     );

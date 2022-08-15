@@ -6,6 +6,7 @@
 #include "ss-config/config.hh"
 #include "ss-jit/vm.hh"
 #include "ss-core/object.hh"
+#include "ss-core/pproc.hh"
 #include "ss-jit/printing.hh"
 
 ///
@@ -52,82 +53,72 @@ namespace ss {
 namespace ss {
 
     void bind_standard_kind_predicates(VirtualMachine* vm) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "null?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_null(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "boolean?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_boolean(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "pair?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_pair(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "procedure?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_procedure(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "integer?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_integer(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "real?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_float(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "number?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_number(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "symbol?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_symbol(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "string?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_string(aa[0]));
             },
             {"obj"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "vector?",
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
                 return boolean(is_vector(aa[0]));
             },
             {"obj"}
@@ -135,18 +126,16 @@ namespace ss {
     }
 
     void bind_standard_pair_procedures(VirtualMachine* vm) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "cons", 
-            [vm](OBJECT args) -> OBJECT {
-                auto aa = extract_args<2>(args);
+            [vm](ArgView const& aa) -> OBJECT {
                 return cons(vm_gc_tfe(vm), aa[0], aa[1]); 
             }, 
             {"ar", "dr"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "car", 
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
                 if (!aa[0].is_pair()) {
                     std::stringstream ss;
@@ -160,10 +149,9 @@ namespace ss {
             }, 
             {"pair"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "cdr", 
-            [](OBJECT args) -> OBJECT {
-                auto aa = extract_args<1>(args);
+            [](ArgView const& aa) -> OBJECT {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
                 if (!aa[0].is_pair()) {
                     std::stringstream ss;
@@ -180,34 +168,30 @@ namespace ss {
     }
 
     void bind_standard_equality_procedures(VirtualMachine* vm) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "=",
-            [vm](OBJECT args) -> OBJECT {
-                auto aa = extract_args<2>(args);
+            [vm](ArgView const& aa) -> OBJECT {
                 return boolean(is_eqn(aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "eq?",
-            [vm](OBJECT args) -> OBJECT {
-                auto aa = extract_args<2>(args);
+            [vm](ArgView const& aa) -> OBJECT {
                 return boolean(is_eq(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "eqv?",
-            [vm](OBJECT args) -> OBJECT {
-                auto aa = extract_args<2>(args);
+            [vm](ArgView const& aa) -> OBJECT {
                 return boolean(is_eqv(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "equal?",
-            [vm](OBJECT args) -> OBJECT {
-                auto aa = extract_args<2>(args);
+            [vm](ArgView const& aa) -> OBJECT {
                 return boolean(is_equal(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
@@ -215,30 +199,31 @@ namespace ss {
     }
 
     void bind_standard_list_procedures(VirtualMachine* vm) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "list",
-            [](OBJECT args) -> OBJECT {
-                return args;
+            [vm](ArgView const& aa) -> OBJECT {
+                OBJECT res = OBJECT::null;
+                for (size_t i = 0; i < aa.size(); i++) {
+                    res = cons(vm_gc_tfe(vm), aa[i], res);
+                }
+                return res;
             },
             {"items..."}
         );
     }
 
     void bind_standard_logical_operators(VirtualMachine* vm) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "and",
-            [](OBJECT args) -> OBJECT {
-                OBJECT rem_args = args;
-                while (!rem_args.is_null()) {
-                    OBJECT head = car(rem_args);
-                    rem_args = cdr(rem_args);
+            [](ArgView const& args) -> OBJECT {
+                for (size_t i = 0; i < args.size(); i++) {
+                    OBJECT maybe_boolean_obj = args[i];
 
-                    OBJECT maybe_boolean_obj = head;
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
                     if (!maybe_boolean_obj.is_boolean()) {
                         std::stringstream ss;
                         ss << "and: expected boolean, received: ";
-                        print_obj(head, ss);
+                        print_obj(maybe_boolean_obj, ss);
                         error(ss.str());
                         throw SsiError();
                     }
@@ -252,20 +237,17 @@ namespace ss {
             },
             {"booleans..."}
         );
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             "or",
-            [](OBJECT args) -> OBJECT {
-                OBJECT rem_args = args;
-                while (!rem_args.is_null()) {
-                    OBJECT head = car(rem_args);
-                    rem_args = cdr(rem_args);
+            [](ArgView const& args) -> OBJECT {
+                for (size_t i = 0; i < args.size(); i++) {
+                    OBJECT maybe_boolean_obj = args[i];
 
-                    OBJECT maybe_boolean_obj = head;
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
                     if (!maybe_boolean_obj.is_boolean()) {
                         std::stringstream ss;
                         ss << "or: expected boolean, received: ";
-                        print_obj(head, ss);
+                        print_obj(maybe_boolean_obj, ss);
                         error(ss.str());
                         throw SsiError();
                     }
@@ -290,11 +272,11 @@ namespace ss {
     }
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
     void bind_standard_variadic_arithmetic_procedure(VirtualMachine* vm, char const* const name_str) {
-        define_builtin_procedure_in_vm(vm,
+        vm_bind_platform_procedure(vm,
             name_str,
-            [=](OBJECT args) -> OBJECT {
+            [=](ArgView const& args) -> OBJECT {
                 // first, ensuring we have at least 1 argument:
-                if (args.is_null()) {
+                if (args.size() == 0) {
                     std::stringstream ss;
                     ss << "Expected 1 or more arguments to arithmetic operator " << name_str << ": got 0";
                     error(ss.str());
@@ -308,15 +290,8 @@ namespace ss {
                 bool float64_operand_present = false;
                 bool float32_operand_present = false;
                 bool int_operand_present = false;
-                size_t arg_count = 0;
-                for (
-                    OBJECT rem_args = args;
-                    !rem_args.is_null();
-                    rem_args = cdr(rem_args)
-                ) {
-                    OBJECT operand = car(rem_args);
-                    ++arg_count;
-
+                for (size_t i = 0; i < args.size(); i++) {
+                    OBJECT operand = args[i];
                     if (operand.is_float64()) {
                         float64_operand_present = true;
                     } else if (operand.is_float32()) {
@@ -335,61 +310,49 @@ namespace ss {
 
                 // next, computing the result of this operation:
                 // NOTE: computation broken into several 'hot paths' for frequent operations.
-                if (arg_count == 1) {
+                if (args.size() == 1) {
                     // returning identity:
-                    return car(args);
+                    return args[0];
                 }
-                else if (!float64_operand_present && !float32_operand_present && arg_count == 2) {
+                else if (!float64_operand_present && !float32_operand_present && args.size() == 2) {
                     // adding two integers:
-                    auto aa = extract_args<2>(args);
+                    auto& aa = args;
                     my_ssize_t res = aa[0].as_signed_fixnum();
                     int_fold_cb(res, aa[1].as_signed_fixnum());
                     return OBJECT::make_integer(res);
                 }
-                else if (!int_operand_present && !float64_operand_present && arg_count == 2) {
+                else if (!int_operand_present && !float64_operand_present && args.size() == 2) {
                     // adding two float32:
-                    auto aa = extract_args<2>(args);
+                    auto& aa = args;
                     auto res = aa[0].as_float32();
                     float32_fold_cb(res, aa[1].as_float32());
                     return OBJECT::make_float32(res);
                 }
-                else if (!int_operand_present && !float32_operand_present && arg_count == 2) {
+                else if (!int_operand_present && !float32_operand_present && args.size() == 2) {
                     // adding two float64:
-                    auto aa = extract_args<2>(args);
+                    auto& aa = args;
                     auto res = aa[0].as_float64();
                     float64_fold_cb(res, aa[1].as_float64());
                     return OBJECT::make_float64(vm_gc_tfe(vm), res);
                 }
                 else if (int_operand_present && !float32_operand_present && !float64_operand_present) {
                     // compute result from only integers: no floats found
-                    OBJECT rem_args = args;
-
-                    OBJECT first_arg = car(rem_args);
-                    rem_args = cdr(rem_args);
-
-                    my_ssize_t unwrapped_accum = first_arg.as_signed_fixnum();
-                    for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
-                        OBJECT operand = car(rem_args);
+                    my_ssize_t unwrapped_accum = args[0].as_signed_fixnum();
+                    for (size_t i = 1; i < args.size(); i++) {
+                        OBJECT operand = args[i];
                         my_ssize_t v = operand.as_signed_fixnum();
                         int_fold_cb(unwrapped_accum, v);
                     }
-
                     return OBJECT::make_integer(unwrapped_accum);
                 }
                 else {
                     // compute result as a float64:
-                    OBJECT rem_args = args;
-
-                    OBJECT first_arg = car(rem_args);
-                    rem_args = cdr(rem_args);
-                    
-                    double unwrapped_accum = first_arg.to_double();
-                    for (; !rem_args.is_null(); rem_args = cdr(rem_args)) {
-                        OBJECT operand = car(rem_args);
+                    double unwrapped_accum = args[0].to_double();
+                    for (size_t i = 1; i < args.size(); i++) {
+                        OBJECT operand = args[i];
                         my_float_t v = operand.to_double();
                         float64_fold_cb(unwrapped_accum, v);
                     }
-                    
                     return OBJECT::make_float64(vm_gc_tfe(vm), unwrapped_accum);
                 } 
             },

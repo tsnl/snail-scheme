@@ -7,6 +7,7 @@
 #include "ss-core/object.hh"
 #include "ss-core/common.hh"
 #include "ss-core/gdef.hh"
+#include "ss-core/pproc.hh"
 
 ///
 // Expressions
@@ -44,7 +45,8 @@ namespace ss {
         Define,
         Indirect,
         Box,
-        Shift
+        Shift,
+        PInvoke
     };
     union VmExpArgs {
         struct {} i_halt;
@@ -63,6 +65,7 @@ namespace ss {
         struct { VmExpID x; } i_indirect;                                   // see three-imp p.105
         struct { my_ssize_t n; VmExpID x; } i_box;                          // see three-imp p.105
         struct { my_ssize_t n; my_ssize_t m; VmExpID x; } i_shift;          // see three-imp p.111
+        struct { my_ssize_t n; size_t proc_id; VmExpID x; } i_pinvoke;
     };
     struct VmExp {
         VmExpKind kind;
@@ -124,6 +127,9 @@ namespace ss {
         std::vector<VSubr> m_subrs;
         std::vector<GDef> m_gdef_table;
         UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
+        std::vector<PlatformProcCb> m_platform_proc_cb_table;
+        std::vector<std::string> m_platform_proc_docstring_table;
+        UnstableHashMap<IntStr, PlatformProcID> m_platform_proc_id_symtab;
 
     public:
         explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
@@ -164,6 +170,7 @@ namespace ss {
         VmExpID new_vmx_assign_free(size_t n, VmExpID next);
         VmExpID new_vmx_assign_global(size_t gn, VmExpID next);
         VmExpID new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x);
+        VmExpID new_vmx_pinvoke(my_ssize_t arg_count, size_t platform_proc_idx, VmExpID x);
 
     // Globals:
     public:
@@ -171,6 +178,13 @@ namespace ss {
         GDef const& lookup_gdef(GDefID gdef_id) const;
         GDef const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_gdef_table.size(); }
+
+    // Platform procedures:
+    public:
+        PlatformProcID define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring);
+        PlatformProcID lookup_platform_proc(IntStr platform_proc_name);
+        PlatformProcCb platform_proc_cb(PlatformProcID id) { return m_platform_proc_cb_table[id]; }
+        size_t count_platform_procs() const { return m_platform_proc_cb_table.size(); }
 
     // dump:
     public:

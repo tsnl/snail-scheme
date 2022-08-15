@@ -294,6 +294,37 @@ namespace ss {
                     throw SsiError();
                 }
             }
+            else if (keyword_symbol_id == m_id_cache.p_invoke) {
+                // p/invoke
+                auto proc_name = car(tail);
+                auto proc_args = cdr(tail);
+            
+                if (!proc_name.is_interned_symbol()) {
+                    error("Invalid args to 'p/invoke': expected first arg to be a symbol");
+                    throw SsiError();
+                }
+
+                OBJECT rem_args = proc_args;
+                my_ssize_t arg_count = list_length(rem_args);
+                PlatformProcID platform_proc_idx = lookup_platform_proc(proc_name.as_interned_symbol());
+                VmExpID next_body = m_code->new_vmx_pinvoke(
+                    arg_count, platform_proc_idx,
+                    next
+                );
+
+                // TODO: compare this form against expected signature, which is already available.
+
+                // evaluating arguments in reverse order: first is 'next' of second, ...
+                while (!rem_args.is_null()) {
+                    next_body = compile_exp(
+                        car(rem_args),
+                        m_code->new_vmx_argument(next_body),
+                        e, s
+                    );
+                    rem_args = cdr(rem_args);
+                }
+                return next_body;
+            }
             else if (keyword_symbol_id == m_id_cache.begin) {
                 // (begin expr ...+)
 
@@ -450,6 +481,16 @@ namespace ss {
         }
     }
 
+    // Globals:
+    //
+
+    PlatformProcID Compiler::define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring) {
+        return m_code->define_platform_proc(platform_proc_name, callable_cb, std::move(docstring));
+    }
+    PlatformProcID Compiler::lookup_platform_proc(IntStr name) {
+        return m_code->lookup_platform_proc(name);
+    }
+
     /// Scheme Set functions
     //
 
@@ -558,6 +599,15 @@ namespace ss {
                     while (!rem_args.is_null()) {
                         OBJECT const head_exp = car(rem_args);
                         // TODO: if 'head_exp' is 'define', it should be added to 'b' here.
+                        res = set_union(res, find_free(head_exp, b));
+                        rem_args = cdr(rem_args);
+                    }
+                    return res;
+                } else if (head_symbol == m_id_cache.p_invoke) {
+                    OBJECT res = OBJECT::null;
+                    OBJECT rem_args = cdr(tail);
+                    while (!rem_args.is_null()) {
+                        OBJECT const head_exp = car(rem_args);
                         res = set_union(res, find_free(head_exp, b));
                         rem_args = cdr(rem_args);
                     }

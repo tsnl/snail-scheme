@@ -249,32 +249,7 @@ namespace ss {
                                 m_thread.regs().f = m_thread.regs().s;
                                 m_thread.regs().c = c;
                                 // m_thread.regs().s = m_thread.regs().s;
-                            }
-                            else if (m_thread.regs().a.is_ext_callable()) {
-                                // a C++ function is called; no 'return' required since stack returns after function call
-                                // by C++ rules.
-                                auto a = static_cast<EXT_CallableObject*>(m_thread.regs().a.as_ptr());
-                                // leave env unaffected, since after evaluation, we continue with original env
-                                
-                                // popping the stack frame added by 'Frame':
-                                // NOTE: this part is usually handled by VmExpKind::Return
-                                
-                                // TODO: extract arguments from the stack, cf 'refer_local', cf reg 'f'
-                                // TODO: evaluate and set appropriate register, DO NOT clean up stack
-                                // a subsequent 'return' instruction will do this for us, emitted for any apply
-
-                                // auto num_args = a->arg_count();
-                                // auto s = m_thread.regs().s - num_args;
-                                // // m_thread.regs().a = a->cb()(m_thread.regs().r);
-                                // m_thread.regs().x = index(s, 0).as_signed_fixnum();
-                                // m_thread.regs().f = index(s, 1).as_signed_fixnum();
-                                // m_thread.regs().c = index(s, 2);
-                                // m_thread.regs().s = s - 3;
-
-                                error("NotImplemented: Apply instruction for EXT_CallableObject");
-                                throw SsiError();
-                            }
-                            else {
+                            } else {
                                 std::stringstream ss;
                                 ss << "apply: expected a procedure, received: ";
                                 print_obj(m_thread.regs().a, ss);
@@ -298,6 +273,18 @@ namespace ss {
                             auto s = m_thread.regs().s;
                             m_thread.regs().x = x;
                             m_thread.regs().s = shift_args(n, m, s);
+                        } break;
+                        case VmExpKind::PInvoke: {
+                            auto n = exp.args.i_pinvoke.n;
+                            auto x = exp.args.i_pinvoke.x;
+                            auto p = exp.args.i_pinvoke.proc_id;
+                            
+                            ArgView args{m_thread.stack(), m_thread.regs().s, n};
+                            auto res = m_jit_compiler.code()->platform_proc_cb(p)(args);
+                            
+                            m_thread.regs().a = res;    // store retval in accum reg
+                            m_thread.regs().x = x;      // prep for next statement
+                            m_thread.regs().s -= n;     // pop arguments
                         } break;
                         default: {
                             std::stringstream ss;
@@ -423,10 +410,10 @@ namespace ss {
     // Utility
     //
 
-    void define_builtin_procedure_in_vm(
+    void vm_bind_platform_procedure(
         VirtualMachine* vm, 
         std::string proc_name,
-        EXT_CallableCb callable_cb,
+        PlatformProcCb callable_cb,
         std::vector<std::string> arg_names,
         std::string docstring_more
     ) {
@@ -446,13 +433,9 @@ namespace ss {
         }
 
         Compiler* c = vm_compiler(vm);
-        c->code()->define_global(
+        c->code()->define_platform_proc(
             intern(std::move(proc_name)),
-            OBJECT::null,
-            OBJECT::make_generic_boxed(
-                new(vm_gc_tfe(vm)->allocate_bytes(sizeof(EXT_CallableObject))) 
-                EXT_CallableObject(callable_cb, arg_names.size())
-            ),
+            callable_cb,
             std::move(docstring.str())
         );
     }
