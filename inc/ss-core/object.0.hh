@@ -320,6 +320,9 @@ namespace ss {
         OBJECT& operator[] (size_t i) {
             return m_impl[i];
         }
+        my_ssize_t size() {
+            return m_impl.size();
+        }
 
     public:
         [[nodiscard]] inline size_t count() const { return m_impl.size(); }

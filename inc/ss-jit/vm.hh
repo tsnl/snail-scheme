@@ -40,7 +40,8 @@ namespace ss {
         std::string proc_name,
         PlatformProcCb callable_cb,
         std::vector<std::string> arg_names,
-        std::string docstring_more = ""
+        std::string docstring_more = "",
+        bool is_variadic = false
     );
 
     // Getting VM compiler:

@@ -127,6 +127,7 @@ namespace ss {
         std::vector<VSubr> m_subrs;
         std::vector<GDef> m_gdef_table;
         UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
+        std::vector<my_ssize_t> m_platform_proc_arity_table;
         std::vector<PlatformProcCb> m_platform_proc_cb_table;
         std::vector<std::string> m_platform_proc_docstring_table;
         UnstableHashMap<IntStr, PlatformProcID> m_platform_proc_id_symtab;
@@ -181,9 +182,11 @@ namespace ss {
 
     // Platform procedures:
     public:
-        PlatformProcID define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring);
+        PlatformProcID define_platform_proc(IntStr platform_proc_name, size_t arity, PlatformProcCb callable_cb, std::string docstring, bool is_variadic);
         PlatformProcID lookup_platform_proc(IntStr platform_proc_name);
         PlatformProcCb platform_proc_cb(PlatformProcID id) { return m_platform_proc_cb_table[id]; }
+        bool platform_proc_is_variadic(PlatformProcID id) { return platform_proc_arity(id) < 0; }
+        size_t platform_proc_arity(PlatformProcID id) { return m_platform_proc_arity_table[id]; }
         size_t count_platform_procs() const { return m_platform_proc_cb_table.size(); }
 
     // dump:

@@ -313,8 +313,17 @@ namespace ss {
                     next
                 );
 
-                // TODO: compare this form against expected signature, which is already available.
-
+                size_t expected_arg_count = m_code->platform_proc_arity(platform_proc_idx);
+                if (!m_code->platform_proc_is_variadic(platform_proc_idx)) {
+                    if (arg_count != expected_arg_count) {
+                        std::stringstream ss;
+                        ss  << "Invalid argument count for 'p/invoke' " << interned_string(proc_name.as_interned_symbol())
+                            << ": expected "
+                            << expected_arg_count << " args but got " << arg_count << " args";
+                        error(ss.str());
+                    }                
+                }
+                
                 // evaluating arguments in reverse order: first is 'next' of second, ...
                 while (!rem_args.is_null()) {
                     next_body = compile_exp(
@@ -485,8 +494,14 @@ namespace ss {
     // Globals:
     //
 
-    PlatformProcID Compiler::define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring) {
-        return m_code->define_platform_proc(platform_proc_name, callable_cb, std::move(docstring));
+    PlatformProcID Compiler::define_platform_proc(
+        IntStr platform_proc_name, 
+        size_t arity, 
+        PlatformProcCb callable_cb, 
+        std::string docstring, 
+        bool is_variadic
+    ) {
+        return m_code->define_platform_proc(platform_proc_name, arity, callable_cb, std::move(docstring), is_variadic);
     }
     PlatformProcID Compiler::lookup_platform_proc(IntStr name) {
         return m_code->lookup_platform_proc(name);

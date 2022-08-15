@@ -23,11 +23,12 @@ namespace ss {
     static void bind_standard_pair_procedures(VirtualMachine* vm);
     static void bind_standard_equality_procedures(VirtualMachine* vm);
     static void bind_standard_list_procedures(VirtualMachine* vm);
+    static void bind_standard_vector_procedures(VirtualMachine* vm);
     static void bind_standard_logical_operators(VirtualMachine* vm);
     void bind_standard_arithmetic_procedures(VirtualMachine* vm);
 
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
-    void bind_standard_variadic_arithmetic_procedure(VirtualMachine* vm, char const* const name_str);
+    void bind_standard_binary_arithmetic_procedure(VirtualMachine* vm, char const* const name_str);
     inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item);
     inline void int_div_cb(my_ssize_t& accum, my_ssize_t item);
     inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item);
@@ -128,7 +129,7 @@ namespace ss {
     void bind_standard_pair_procedures(VirtualMachine* vm) {
         vm_bind_platform_procedure(vm,
             "cons", 
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 return cons(vm_gc_tfe(vm), aa[0], aa[1]); 
             }, 
             {"ar", "dr"}
@@ -170,28 +171,28 @@ namespace ss {
     void bind_standard_equality_procedures(VirtualMachine* vm) {
         vm_bind_platform_procedure(vm,
             "=",
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 return boolean(is_eqn(aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
         vm_bind_platform_procedure(vm,
             "eq?",
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 return boolean(is_eq(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
         vm_bind_platform_procedure(vm,
             "eqv?",
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 return boolean(is_eqv(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
         vm_bind_platform_procedure(vm,
             "equal?",
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 return boolean(is_equal(vm_gc_tfe(vm), aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
@@ -201,14 +202,131 @@ namespace ss {
     void bind_standard_list_procedures(VirtualMachine* vm) {
         vm_bind_platform_procedure(vm,
             "list",
-            [vm](ArgView const& aa) -> OBJECT {
+            [=](ArgView const& aa) -> OBJECT {
                 OBJECT res = OBJECT::null;
                 for (size_t i = 0; i < aa.size(); i++) {
                     res = cons(vm_gc_tfe(vm), aa[i], res);
                 }
                 return res;
             },
-            {"items..."}
+            {"items..."},
+            "constructs a list from a sequence of items",
+            true
+        );
+        vm_bind_platform_procedure(vm,
+            "length",
+            [=](ArgView const& aa) -> OBJECT {
+                return list_length(aa[0]);
+            },
+            {"lst"},
+            "returns the number of elements in a list. May be improper.",
+            false
+        );
+        vm_bind_platform_procedure(vm,
+            "set-car!",
+            [=](ArgView const& aa) -> OBJECT {
+                set_car(aa[0], aa[1]);
+                return OBJECT::null;
+            },
+            {"lst", "v"}
+        );
+        vm_bind_platform_procedure(vm,
+            "set-cdr!",
+            [=](ArgView const& aa) -> OBJECT {
+                set_cdr(aa[0], aa[1]);
+                return OBJECT::null;
+            },
+            {"lst", "v"}
+        );
+        vm_bind_platform_procedure(vm,
+            "member",
+            [=](ArgView const& aa) -> OBJECT {
+                for (OBJECT rem = aa[1]; rem.is_pair(); rem = cdr(rem)) {
+                    if (is_eq(vm_gc_tfe(vm), car(rem), aa[0])) {
+                        return rem;
+                    }
+                }
+                return OBJECT::make_boolean(false);
+            },
+            {"x", "list"}
+        );
+    }
+
+    void bind_standard_vector_procedures(VirtualMachine* vm) {
+        vm_bind_platform_procedure(vm,
+            "vector",
+            [=](ArgView const& aa) -> OBJECT {
+                std::vector<OBJECT> items;
+                items.reserve(aa.size());
+                for (size_t i = 0; i < aa.size(); i++) {
+                    items[i] = aa[i];
+                }
+                return OBJECT::make_generic_boxed(
+                    new(vm_gc_tfe(vm)->allocate_size_class(VectorObject::sci))
+                    VectorObject(std::move(items))
+                );
+            },
+            {"items..."},
+            "constructs a list from a sequence of items",
+            true
+        );
+        vm_bind_platform_procedure(vm,
+            "vector-length",
+            [=](ArgView const& aa) -> OBJECT {
+                if (!aa[0].is_vector()) {
+                    std::stringstream ss;
+                    ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
+                    error(ss.str());
+                    throw new SsiError();
+                }
+                auto idx = aa[1].as_signed_fixnum();
+                auto size = static_cast<VectorObject*>(aa[0].as_ptr())->size();
+                return OBJECT::make_integer(size);
+            },
+            {"vec"},
+            "returns length of this vector"
+        );
+        vm_bind_platform_procedure(vm,
+            "vector-ref",
+            [=](ArgView const& aa) -> OBJECT {
+                if (!aa[0].is_vector()) {
+                    std::stringstream ss;
+                    ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
+                    error(ss.str());
+                    throw new SsiError();
+                }
+                if (!aa[1].is_integer()) {
+                    std::stringstream ss;
+                    ss << "vector-ref: expected second arg to be int, not " << aa[1] << std::endl;
+                    error(ss.str());
+                    throw new SsiError();
+                }
+                auto idx = aa[1].as_signed_fixnum();
+                return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx);
+            },
+            {"vec, pos"},
+            "acquires the element of vec at pos, first slot at index 0"
+        );
+        vm_bind_platform_procedure(vm,
+            "vector-set!",
+            [=](ArgView const& aa) -> OBJECT {
+                if (!aa[0].is_vector()) {
+                    std::stringstream ss;
+                    ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
+                    error(ss.str());
+                    throw new SsiError();
+                }
+                if (!aa[1].is_integer()) {
+                    std::stringstream ss;
+                    ss << "vector-ref: expected second arg to be int, not " << aa[1] << std::endl;
+                    error(ss.str());
+                    throw new SsiError();
+                }
+                auto idx = aa[1].as_signed_fixnum();
+                return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx) = aa[2];
+            },
+            {"vec, pos", "v"},
+            "acquires the element of vec at pos, first slot at index 0"
         );
     }
 
@@ -216,7 +334,7 @@ namespace ss {
         vm_bind_platform_procedure(vm,
             "and",
             [](ArgView const& args) -> OBJECT {
-                for (size_t i = 0; i < args.size(); i++) {
+                for (size_t i = 0; i < 2; i++) {
                     OBJECT maybe_boolean_obj = args[i];
 
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -235,12 +353,12 @@ namespace ss {
                 }
                 return OBJECT::make_boolean(true);
             },
-            {"booleans..."}
+            {"lt-arg", "rt-arg"}
         );
         vm_bind_platform_procedure(vm,
             "or",
             [](ArgView const& args) -> OBJECT {
-                for (size_t i = 0; i < args.size(); i++) {
+                for (size_t i = 0; i < 2; i++) {
                     OBJECT maybe_boolean_obj = args[i];
 
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -259,26 +377,26 @@ namespace ss {
                 }
                 return OBJECT::make_boolean(false);
             },
-            {"booleans..."}
+            {"lt-arg", "rt-arg"}
         );
     }
 
     void bind_standard_arithmetic_procedures(VirtualMachine* vm) {
-        bind_standard_variadic_arithmetic_procedure<int_mul_cb, float32_mul_cb, float64_mul_cb>(vm, "*");
-        bind_standard_variadic_arithmetic_procedure<int_div_cb, float32_div_cb, float64_div_cb>(vm, "/");
-        bind_standard_variadic_arithmetic_procedure<int_rem_cb, float32_rem_cb, float64_rem_cb>(vm, "%");
-        bind_standard_variadic_arithmetic_procedure<int_add_cb, float32_add_cb, float64_add_cb>(vm, "+");
-        bind_standard_variadic_arithmetic_procedure<int_sub_cb, float32_sub_cb, float64_sub_cb>(vm, "-");
+        bind_standard_binary_arithmetic_procedure<int_mul_cb, float32_mul_cb, float64_mul_cb>(vm, "*");
+        bind_standard_binary_arithmetic_procedure<int_div_cb, float32_div_cb, float64_div_cb>(vm, "/");
+        bind_standard_binary_arithmetic_procedure<int_rem_cb, float32_rem_cb, float64_rem_cb>(vm, "%");
+        bind_standard_binary_arithmetic_procedure<int_add_cb, float32_add_cb, float64_add_cb>(vm, "+");
+        bind_standard_binary_arithmetic_procedure<int_sub_cb, float32_sub_cb, float64_sub_cb>(vm, "-");
     }
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
-    void bind_standard_variadic_arithmetic_procedure(VirtualMachine* vm, char const* const name_str) {
+    void bind_standard_binary_arithmetic_procedure(VirtualMachine* vm, char const* const name_str) {
         vm_bind_platform_procedure(vm,
             name_str,
             [=](ArgView const& args) -> OBJECT {
-                // first, ensuring we have at least 1 argument:
-                if (args.size() == 0) {
+                // first, ensuring we have exactly 2 arguments:
+                if (args.size() != 2) {
                     std::stringstream ss;
-                    ss << "Expected 1 or more arguments to arithmetic operator " << name_str << ": got 0";
+                    ss << "Expected 2 arguments to binary arithmetic operator " << name_str << ": got 0";
                     error(ss.str());
                     throw SsiError();
                 }
@@ -290,7 +408,7 @@ namespace ss {
                 bool float64_operand_present = false;
                 bool float32_operand_present = false;
                 bool int_operand_present = false;
-                for (size_t i = 0; i < args.size(); i++) {
+                for (size_t i = 0; i < 2; i++) {
                     OBJECT operand = args[i];
                     if (operand.is_float64()) {
                         float64_operand_present = true;
@@ -310,53 +428,29 @@ namespace ss {
 
                 // next, computing the result of this operation:
                 // NOTE: computation broken into several 'hot paths' for frequent operations.
-                if (args.size() == 1) {
-                    // returning identity:
-                    return args[0];
-                }
-                else if (!float64_operand_present && !float32_operand_present && args.size() == 2) {
+                if (!float64_operand_present && !float32_operand_present) {
                     // adding two integers:
                     auto& aa = args;
                     my_ssize_t res = aa[0].as_signed_fixnum();
                     int_fold_cb(res, aa[1].as_signed_fixnum());
                     return OBJECT::make_integer(res);
                 }
-                else if (!int_operand_present && !float64_operand_present && args.size() == 2) {
+                else if (!int_operand_present && !float64_operand_present) {
                     // adding two float32:
                     auto& aa = args;
                     auto res = aa[0].as_float32();
                     float32_fold_cb(res, aa[1].as_float32());
                     return OBJECT::make_float32(res);
                 }
-                else if (!int_operand_present && !float32_operand_present && args.size() == 2) {
+                else {
                     // adding two float64:
                     auto& aa = args;
                     auto res = aa[0].as_float64();
                     float64_fold_cb(res, aa[1].as_float64());
                     return OBJECT::make_float64(vm_gc_tfe(vm), res);
                 }
-                else if (int_operand_present && !float32_operand_present && !float64_operand_present) {
-                    // compute result from only integers: no floats found
-                    my_ssize_t unwrapped_accum = args[0].as_signed_fixnum();
-                    for (size_t i = 1; i < args.size(); i++) {
-                        OBJECT operand = args[i];
-                        my_ssize_t v = operand.as_signed_fixnum();
-                        int_fold_cb(unwrapped_accum, v);
-                    }
-                    return OBJECT::make_integer(unwrapped_accum);
-                }
-                else {
-                    // compute result as a float64:
-                    double unwrapped_accum = args[0].to_double();
-                    for (size_t i = 1; i < args.size(); i++) {
-                        OBJECT operand = args[i];
-                        my_float_t v = operand.to_double();
-                        float64_fold_cb(unwrapped_accum, v);
-                    }
-                    return OBJECT::make_float64(vm_gc_tfe(vm), unwrapped_accum);
-                } 
             },
-            {"args..."}
+            {"lt-arg", "rt-arg"}
         );
     }
     inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item) { accum *= item; }
@@ -410,6 +504,7 @@ namespace ss {
         bind_standard_equality_procedures(vm);
         bind_standard_logical_operators(vm);
         bind_standard_list_procedures(vm);
+        bind_standard_vector_procedures(vm);
         bind_standard_arithmetic_procedures(vm);
         bind_standard_console_io_procedures(vm);
     }

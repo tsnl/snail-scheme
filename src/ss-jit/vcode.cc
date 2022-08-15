@@ -61,13 +61,19 @@ namespace ss {
     // Platform procedures:
     //
 
-    PlatformProcID VCode::define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring) {
+    PlatformProcID VCode::define_platform_proc(
+        IntStr platform_proc_name, size_t arity,
+        PlatformProcCb callable_cb, 
+        std::string docstring,
+        bool is_variadic
+    ) {
         if (m_platform_proc_id_symtab.find(platform_proc_name) != m_platform_proc_id_symtab.end()) {
             error("Cannot re-define platform procedure: " + interned_string(platform_proc_name));
             throw new SsiError();
         }
         auto new_id = m_platform_proc_cb_table.size();
         m_platform_proc_cb_table.push_back(callable_cb);
+        m_platform_proc_arity_table.push_back(is_variadic ? -1 : arity);
         m_platform_proc_docstring_table.emplace_back(std::move(docstring));
         m_platform_proc_id_symtab[platform_proc_name] = new_id;
         return new_id;

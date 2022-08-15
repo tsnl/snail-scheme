@@ -54,7 +54,7 @@ namespace ss {
 
     // Platform procs:
     public:
-        PlatformProcID define_platform_proc(IntStr platform_proc_name, PlatformProcCb callable_cb, std::string docstring);
+        PlatformProcID define_platform_proc(IntStr platform_proc_name, size_t arity, PlatformProcCb callable_cb, std::string docstring, bool is_variadic = false);
         PlatformProcID lookup_platform_proc(IntStr name);
 
     // Scheme set functions:

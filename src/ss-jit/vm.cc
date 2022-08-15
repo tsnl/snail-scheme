@@ -417,7 +417,8 @@ namespace ss {
         std::string proc_name,
         PlatformProcCb callable_cb,
         std::vector<std::string> arg_names,
-        std::string docstring_more
+        std::string docstring_more,
+        bool is_variadic
     ) {
         std::stringstream docstring;
         docstring
@@ -437,8 +438,10 @@ namespace ss {
         Compiler* c = vm_compiler(vm);
         c->code()->define_platform_proc(
             intern(std::move(proc_name)),
+            arg_names.size(),
             callable_cb,
-            std::move(docstring.str())
+            std::move(docstring.str()),
+            is_variadic
         );
     }
 
