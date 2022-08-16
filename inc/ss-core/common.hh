@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "ss-config/config.hh"
+#include "ss-core/config.hh"
 #include "robin_hood.h"
 
 namespace ss {

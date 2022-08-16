@@ -8,6 +8,7 @@
 #include "ss-core/object.hh"
 #include "ss-core/gc.hh"
 
+// Core 'Parser' API: useful for parsing multiple files:
 namespace ss {
 
     class Parser;
@@ -17,9 +18,17 @@ namespace ss {
     Parser* create_parser(std::istream& input_stream, std::string input_desc, GcThreadFrontEnd* gc_tfe);
     void dispose_parser(Parser* p);
 
-    std::optional<OBJECT> parse_next_line(Parser* p);
-    std::vector<OBJECT> parse_all_subsequent_lines(Parser* p);
+    // (deprecated) extract one line datum from the stream:
+    std::optional<OBJECT> parse_next_line_datum(Parser* p);
 
-    void run_lexer_test_and_dispose_parser(Parser* p);
+    // (deprecated) extract as many line datums as possible from the stream:
+    std::vector<OBJECT> parse_all_subsequent_line_datums(Parser* p);
+
+    // TODO: parse syntax instead of datums
 
 }   // namespace ss
+
+// Debug:
+namespace ss {
+    void run_lexer_test_and_dispose_parser(Parser* p);
+}

@@ -9,8 +9,8 @@
 #include "ss-core/gc.hh"
 #include "ss-core/pproc.hh"
 #include "ss-core/gdef.hh"
-#include "ss-jit/vcode.hh"
-#include "ss-jit/analyst.hh"
+#include "ss-core/vcode.hh"
+#include "ss-core/analyst.hh"
 
 namespace ss {
 
@@ -27,7 +27,8 @@ namespace ss {
         explicit Compiler(GcThreadFrontEnd& gc_tfe);
     
     public:
-        VSubr compile_subroutine(std::string str, std::vector<OBJECT> line_code_objects);
+        VSubr compile_subr_1shot(std::string subr_name, OBJECT line_code_object);
+        VSubr compile_subr(std::string subr_name, std::vector<OBJECT> line_code_objects);
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
         VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
         VmExpID compile_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);

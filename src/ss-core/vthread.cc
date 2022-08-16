@@ -1,4 +1,4 @@
-#include "ss-jit/vthread.hh"
+#include "ss-core/vthread.hh"
 
 #include "ss-core/object.hh"
 

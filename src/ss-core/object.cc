@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cassert>
 
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
 #include "ss-core/gc.hh"
 
 namespace ss {
@@ -26,23 +26,34 @@ namespace ss {
     constexpr gc::SizeClassIndex string_sci = gc::sci(sizeof(StringObject));
     constexpr gc::SizeClassIndex box_sci = gc::sci(sizeof(BoxObject));
     const gc::SizeClassIndex VectorObject::sci = gc::sci(sizeof(VectorObject));
-
+    const gc::SizeClassIndex SyntaxObject::sci = gc::sci(sizeof(SyntaxObject));
 
     OBJECT OBJECT::make_float64(GcThreadFrontEnd* gc_tfe, double f64) {
         auto boxed_object = new (gc_tfe, float64_sci) Float64Object(f64);
-        return OBJECT::make_generic_boxed(boxed_object);
+        return OBJECT::make_ptr(boxed_object);
     }
     OBJECT OBJECT::make_box(GcThreadFrontEnd* gc_tfe, OBJECT stored) {
         auto boxed_object = new(gc_tfe, box_sci) BoxObject(stored);
-        return OBJECT::make_generic_boxed(boxed_object);
+        return OBJECT::make_ptr(boxed_object);
     }
     OBJECT OBJECT::make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail) {
         auto boxed_object = new (gc_tfe, pair_sci) PairObject(head, tail);
-        return OBJECT::make_generic_boxed(boxed_object);
+        return OBJECT::make_ptr(boxed_object);
     }
     OBJECT OBJECT::make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes) {
         auto boxed_object = new (gc_tfe, string_sci) StringObject(byte_count, mv_bytes);
-        return OBJECT::make_generic_boxed(boxed_object);
+        return OBJECT::make_ptr(boxed_object);
+    }
+
+    bool OBJECT::is_atom() const {
+        return 0
+        || is_null()
+        || is_boolean()
+        || is_string() 
+        || is_integer()
+        || is_float32()
+        || is_float64()
+        || is_interned_symbol();
     }
 
     ///
@@ -215,6 +226,56 @@ namespace ss {
     }
     void BaseBoxedObject::delete_() {
         return GcThreadFrontEnd::get_by_tfid(m_gc_tfid)->deallocate_size_class(reinterpret_cast<APtr>(this), m_sci);
+    }
+
+    OBJECT SyntaxObject::to_datum(GcThreadFrontEnd* gc_tfe) const {
+        SyntaxObject::data_to_datum(gc_tfe, m_data);
+    }
+    OBJECT SyntaxObject::data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT data) {
+        if (data.is_pair()) {
+            return pair_data_to_datum(gc_tfe, data);
+        }
+        else if (data.is_vector()) {
+            return vector_data_to_datum(gc_tfe, data);
+        }
+        else {
+            assert(data.is_atom());
+            return data;
+        }
+    } 
+    OBJECT SyntaxObject::pair_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT pair_data) {
+        assert(pair_data.is_pair());
+        auto p = static_cast<PairObject*>(pair_data.as_ptr());
+            
+        assert(p->car().is_syntax());
+        auto new_car = static_cast<SyntaxObject*>(p->car().as_ptr())->to_datum(gc_tfe);
+        
+        auto new_cdr = OBJECT::null;
+        if (p->cdr().is_syntax()) {
+            new_cdr = static_cast<SyntaxObject*>(p->cdr().as_ptr())->to_datum(gc_tfe);
+        } else if (p->cdr().is_pair()) {
+            new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
+        } else {
+            assert(p->cdr().is_atom());
+            new_cdr = p->cdr();
+        }
+
+        return cons(gc_tfe, new_car, new_cdr);
+    }
+    OBJECT SyntaxObject::vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data) {
+        assert(vec_data.is_vector());
+        auto p = static_cast<VectorObject*>(vec_data.as_ptr());
+
+        std::vector<OBJECT> res{p->size(), OBJECT::null};
+        for (size_t i = 0; i < p->size(); i++) {
+            auto it = (*p)[i];
+            assert(it.is_syntax());
+            res[i] = static_cast<SyntaxObject*>(it.as_ptr())->to_datum(gc_tfe);
+        }
+        return OBJECT::make_ptr(
+            new(gc_tfe->allocate_size_class(VectorObject::sci))
+            VectorObject(std::move(res))
+        );
     }
 
 }   // namespace ss

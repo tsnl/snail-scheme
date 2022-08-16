@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <cassert>
-#include "ss-config/config.hh"
+#include "ss-core/config.hh"
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
 

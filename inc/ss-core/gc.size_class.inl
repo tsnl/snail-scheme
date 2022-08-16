@@ -1,4 +1,4 @@
-#include "ss-config/config.hh"
+#include "ss-core/config.hh"
 
 ///
 // Size class info tables: (Bulky) 

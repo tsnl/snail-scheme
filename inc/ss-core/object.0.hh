@@ -23,6 +23,7 @@
 #include <cstdint>
 
 #include "ss-core/common.hh"
+#include "ss-core/file-loc.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/feedback.hh"
 #include "ss-core/gc.hh"
@@ -45,7 +46,7 @@ namespace ss {
         String,
         Pair,
         Vector,
-        ImmutableVector
+        Syntax
     };
 
     class BaseBoxedObject;
@@ -148,14 +149,14 @@ namespace ss {
         }
     public: // boxed objects
         // static OBJECT make_port(std::string file_path, std::ios_base::openmode mode);
-        static OBJECT make_generic_boxed(BaseBoxedObject* obj);
+        static OBJECT make_ptr(BaseBoxedObject* obj);
         static OBJECT make_float64(GcThreadFrontEnd* gc_tfe, double f64);
         static OBJECT make_box(GcThreadFrontEnd* gc_tfe, OBJECT stored);
         static OBJECT make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
         static OBJECT make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes);
     public:
         bool is_null() const { return m_data.raw == 0; }
-        bool is_boxed_object() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
+        bool is_ptr() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
         bool is_integer() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
         bool is_interned_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
         bool is_float32() const { return m_data.f32.tag == FL32_TAG; }
@@ -171,9 +172,12 @@ namespace ss {
         inline bool is_closure() const;
         inline bool is_string() const;
         inline bool is_vector() const;
-        bool is_box() const;
-        
+        inline bool is_syntax() const;
+        inline bool is_box() const;     // beware: different than 'IsBoxedObject'
+    public:
         inline GranularObjectType kind() const;
+    public:
+        inline bool is_atom() const;
     public:
         inline size_t as_raw() const;
         inline my_ssize_t as_signed_fixnum() const;
@@ -328,6 +332,36 @@ namespace ss {
         [[nodiscard]] inline size_t count() const { return m_impl.size(); }
         [[nodiscard]] inline OBJECT* array() { return m_impl.data(); }
         inline std::vector<OBJECT>& as_cpp_vec() { return m_impl; }
+    };
+
+    class SyntaxObject: public BaseBoxedObject {
+    public:
+        static const gc::SizeClassIndex sci;
+    
+    private:
+        OBJECT m_data;
+        FLoc m_loc;
+        OBJECT m_env;
+        
+    public:
+        inline SyntaxObject(OBJECT data, FLoc loc, OBJECT env = OBJECT::make_boolean(false))
+        :   BaseBoxedObject(GranularObjectType::Syntax),
+            m_data(data),
+            m_loc(loc),
+            m_env(env)
+        {}
+    
+    public:
+        [[nodiscard]] inline OBJECT data() const { return m_data; }
+        [[nodiscard]] inline FLoc loc() const { return m_loc; }
+
+    public:
+        OBJECT to_datum(GcThreadFrontEnd* gc_tfe) const;
+    
+    private:
+        static OBJECT data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT data);
+        static OBJECT pair_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT pair_data);
+        static OBJECT vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data);
     };
 
     //

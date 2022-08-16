@@ -1,7 +1,7 @@
-#include "ss-jit/compiler.hh"
+#include "ss-core/compiler.hh"
 
 #include <utility>
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
 #include "ss-core/common.hh"
 #include "ss-core/object.hh"
 #include "ss-core/feedback.hh"
@@ -93,7 +93,11 @@ namespace ss {
         }
     }
 
-    VSubr Compiler::compile_subroutine(std::string str, std::vector<OBJECT> line_code_objects) {
+    VSubr Compiler::compile_subr_1shot(std::string subr_name, OBJECT line_code_object) {
+        std::vector<OBJECT> line_code_objects{1, line_code_object};
+        return compile_subr(std::move(subr_name), std::move(line_code_objects));
+    }
+    VSubr Compiler::compile_subr(std::string subr_name, std::vector<OBJECT> line_code_objects) {
         std::vector<VmProgram> line_programs;
         OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::null, OBJECT::null);
         line_programs.reserve(line_code_objects.size());
@@ -101,7 +105,7 @@ namespace ss {
             auto program = compile_line(code_object, default_env);
             line_programs.push_back(program);
         }
-        return VSubr{std::move(line_code_objects), std::move(line_programs)};
+        return VSubr{std::move(subr_name), std::move(line_code_objects), std::move(line_programs)};
     }
     VmProgram Compiler::compile_line(OBJECT line_code_obj, OBJECT var_e) {
         OBJECT s = OBJECT::null;     // empty set

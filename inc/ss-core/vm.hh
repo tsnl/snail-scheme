@@ -3,9 +3,9 @@
 #include <ostream>
 #include "ss-core/object.hh"
 #include "ss-core/gc.hh"
-#include "ss-jit/compiler.hh"
-#include "ss-jit/std.hh"
-#include "ss-jit/vcode.hh"
+#include "ss-core/compiler.hh"
+#include "ss-core/std.hh"
+#include "ss-core/vcode.hh"
 
 namespace ss {
 
@@ -50,8 +50,13 @@ namespace ss {
     // its own compiler; the linker splices libraries into the main program.
     Compiler* vm_compiler(VirtualMachine* vm);
 
-    // sync_execute_vm uses std::this_thread to begin the VM execution.
-    void sync_execute_vm(VirtualMachine* vm, bool print_each_line);
+    // interp interface:
+    OBJECT vm_interp_subr_1shot(VirtualMachine* vm, OBJECT line_code_obj);
+    OBJECT vm_interp_subr(VirtualMachine* vm, std::vector<OBJECT> line_code_objs, bool print_each_line);
+
+    // sync_execute_vm uses std::this_thread to begin the VM execution,
+    // evaluating each subr in the order it was encountered.
+    OBJECT sync_execute_vm(VirtualMachine* vm, bool print_each_line);
 
     // dump_vm prints the VM's state for debug information.
     void dump_vm(VirtualMachine* vm, std::ostream& out);

@@ -2,15 +2,16 @@
 #include <sstream>
 #include <fstream>
 
+#include "ss-core/syntax.hh"
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
 #include "ss-core/gc.hh"
 #include "ss-core/cli.hh"
-#include "ss-jit/parser.hh"
-#include "ss-jit/printing.hh"
-#include "ss-jit/vm.hh"
-#include "ss-jit/compiler.hh"
-#include "ss-pkgman/library.hh"
+#include "ss-core/parser.hh"
+#include "ss-core/printing.hh"
+#include "ss-core/vm.hh"
+#include "ss-core/compiler.hh"
+#include "ss-core/library.hh"
 
 namespace ss {
 
@@ -92,23 +93,14 @@ namespace ss {
 
         // parsing all lines into a vector:
         Parser* p = create_parser(f, file_path, vm_gc_tfe(vm));
-        std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_lines(p);
+        std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_line_datums(p);
         
-        // todo: load into a module before compilation
-        //  - cf https://docs.racket-lang.org/guide/Module_Syntax.html?q=modules#%28part._module-syntax%29
-        //  - first, implement the 'module' syntax
-        //  - later, can implement '#lang' syntax (see below)
-
-        // todo: languages by modifying reader level
-        //  - specifying a '#lang <language>' line can delegate to different parsers
-        //  - cf https://docs.racket-lang.org/guide/languages.html?q=modules
-
         // compiling the program into VM representation:
         // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
         ss::Compiler& compiler = *vm_compiler(vm);
         ss::VCode* code = compiler.code();
         try {
-            VSubr subr = compiler.compile_subroutine(file_path, std::move(line_code_obj_array));
+            VSubr subr = compiler.compile_subr(file_path, std::move(line_code_obj_array));
             code->append_subroutine(file_path, std::move(subr));
         } catch (SsiError const& ssi_error) {
             return;
@@ -159,6 +151,14 @@ int main(int argc, char const* argv[]) {
         }
     }
 
+    // Initializing the GC, may be shared among multiple VMs
+    size_t constexpr max_heap_size_in_bytes = ss::GIBIBYTES(4);
+    size_t constexpr max_heap_size_in_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
+    ss::Gc gc {
+        reinterpret_cast<ss::APtr>(calloc(max_heap_size_in_pages, ss::gc::PAGE_SIZE_IN_BYTES)), 
+        max_heap_size_in_bytes
+    };
+
     // Initializing the central library repository at the snail-root specified:
     bool clr_init_ok = ss::CentralLibraryRepository::ensure_init(args.snail_root);
     if (!clr_init_ok) {
@@ -171,12 +171,6 @@ int main(int argc, char const* argv[]) {
 
     // Instantiating, programming, and running a VM:
     // TODO: switch to JIT
-    size_t constexpr max_heap_size_in_bytes = ss::GIBIBYTES(4);
-    size_t constexpr max_heap_size_in_pages = max_heap_size_in_bytes >> CONFIG_TCMALLOC_PAGE_SHIFT;
-    ss::Gc gc {
-        reinterpret_cast<ss::APtr>(calloc(max_heap_size_in_pages, ss::gc::PAGE_SIZE_IN_BYTES)), 
-        max_heap_size_in_bytes
-    };
     ss::VirtualMachine* vm = ss::create_vm(&gc);
     ss::interpret_file(vm, argv[1]);
 

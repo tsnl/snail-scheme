@@ -1,9 +1,9 @@
-#include "ss-jit/vcode.hh"
+#include "ss-core/vcode.hh"
 #include <iomanip>
 #include <sstream>
 #include <cmath>
 
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
 
 namespace ss {
 

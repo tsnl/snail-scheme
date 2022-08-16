@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include "ss-jit/vthread.hh"
+#include "ss-core/vthread.hh"
 
 #include "common.hh"
 

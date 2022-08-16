@@ -1,4 +1,4 @@
-#include "ss-jit/analyst.hh"
+#include "ss-core/analyst.hh"
 
 #include "ss-core/intern.hh"
 

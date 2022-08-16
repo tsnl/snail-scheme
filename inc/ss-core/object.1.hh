@@ -12,7 +12,7 @@ namespace ss {
     }
 
     GranularObjectType OBJECT::kind() const {
-        if (is_boxed_object()) { return m_data.ptr->kind(); }
+        if (is_ptr()) { return m_data.ptr->kind(); }
         if (is_integer()) { return GranularObjectType::Fixnum; }
         if (is_interned_symbol()) { return GranularObjectType::InternedSymbol; }
         if (is_float32()) { return GranularObjectType::Float32; }
@@ -27,26 +27,29 @@ namespace ss {
     // inline OBJECT OBJECT::make_port(std::string file_path, std::ios_base::openmode mode) {
     //     OBJECT res{new Port};
     // }
-    inline OBJECT OBJECT::make_generic_boxed(BaseBoxedObject* obj) {
+    inline OBJECT OBJECT::make_ptr(BaseBoxedObject* obj) {
         return OBJECT{obj};
     }
     inline bool OBJECT::is_pair() const { 
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Pair; 
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Pair; 
     }
     inline bool OBJECT::is_float64() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Float64;
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Float64;
     }
     inline bool OBJECT::is_closure() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Vector;
     }
     inline bool OBJECT::is_string() const { 
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::String;
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::String;
     }
     inline bool OBJECT::is_vector() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Vector;
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Vector;
+    }
+    inline bool OBJECT::is_syntax() const {
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Syntax;
     }
     inline bool OBJECT::is_box() const {
-        return is_boxed_object() && as_ptr()->kind() == GranularObjectType::Box;
+        return is_ptr() && as_ptr()->kind() == GranularObjectType::Box;
     }
 
     size_t OBJECT::as_raw() const { 
@@ -61,7 +64,7 @@ namespace ss {
         return m_data.raw == s_boolean_t.as_raw();
     }
     BaseBoxedObject* OBJECT::as_ptr() const {
-        assert(is_boxed_object() && "expected boxed object");
+        assert(is_ptr() && "expected boxed object");
         return m_data.ptr;
     }
     IntStr OBJECT::as_interned_symbol() const {

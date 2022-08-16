@@ -27,7 +27,7 @@ TEST(ObjectTests1, NullTagTests) {
     EXPECT_EQ(null.is_eof(), 0);
     EXPECT_EQ(null.is_undef(), 0);
     EXPECT_EQ(null.is_interned_symbol(), 0);
-    EXPECT_EQ(null.is_boxed_object(), 0);
+    EXPECT_EQ(null.is_ptr(), 0);
 }
 TEST(ObjectTests1, IntTagTests) {
     // Expect signed integer fixnums to have a unique type.
@@ -45,7 +45,7 @@ TEST(ObjectTests1, IntTagTests) {
     EXPECT_EQ(i1.is_eof(), 0);
     EXPECT_EQ(i1.is_undef(), 0);
     EXPECT_EQ(i1.is_interned_symbol(), 0);
-    EXPECT_EQ(i1.is_boxed_object(), 0);
+    EXPECT_EQ(i1.is_ptr(), 0);
 }
 TEST(ObjectTests1, PtrTagTests) {
     char msg_buf[] = "hello world";

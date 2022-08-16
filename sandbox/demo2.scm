@@ -11,7 +11,7 @@
 (define (or2 x y) (if x x y))
 (define m (or2 #t #f))
 
-(or2 #t #f)
-(or2 #f #f)
-(or2 #t #t)
-(or2 #f #t)
+(p/invoke displayln (or2 #t #f))
+(p/invoke displayln (or2 #f #f))
+(p/invoke displayln (or2 #t #t))
+(p/invoke displayln (or2 #f #t))

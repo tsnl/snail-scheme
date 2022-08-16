@@ -1,13 +1,13 @@
-#include "ss-jit/std.hh"
+#include "ss-core/std.hh"
 
 #include "ss-core/feedback.hh"
 
 #include <cmath>
-#include "ss-config/config.hh"
-#include "ss-jit/vm.hh"
+#include "ss-core/config.hh"
+#include "ss-core/vm.hh"
 #include "ss-core/object.hh"
 #include "ss-core/pproc.hh"
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
 
 ///
 // Declarations:
@@ -261,7 +261,7 @@ namespace ss {
                 for (size_t i = 0; i < aa.size(); i++) {
                     items[i] = aa[i];
                 }
-                return OBJECT::make_generic_boxed(
+                return OBJECT::make_ptr(
                     new(vm_gc_tfe(vm)->allocate_size_class(VectorObject::sci))
                     VectorObject(std::move(items))
                 );

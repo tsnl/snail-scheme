@@ -1,4 +1,4 @@
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
 #include "ss-core/object.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/feedback.hh"
@@ -99,9 +99,12 @@ namespace ss {
                 print_obj(box_obj->boxed(), out);
                 out << ")";
             } break;
-            case GranularObjectType::ImmutableVector: {
-                out << "<Immutable-Vector>";
-                throw SsiError();
+            case GranularObjectType::Syntax: {
+                auto syntax_obj = static_cast<SyntaxObject*>(obj.as_ptr());
+                out << "(syntax '" 
+                    << syntax_obj->data() 
+                    << " \"" << syntax_obj->loc().as_text() << "\""
+                    << ")";
             } break;
         }
     }

@@ -1,6 +1,6 @@
-#include "ss-pkgman/library.hh"
+#include "ss-core/library.hh"
 
-#include "ss-config/config.hh"
+#include "ss-core/config.hh"
 
 #include <filesystem>
 #include <sstream>

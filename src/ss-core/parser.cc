@@ -1,4 +1,4 @@
-#include "ss-jit/parser.hh"
+#include "ss-core/parser.hh"
 
 #include <istream>
 #include <fstream>
@@ -15,7 +15,8 @@
 #include "ss-core/intern.hh"
 #include "ss-core/common.hh"
 #include "ss-core/feedback.hh"
-#include "ss-jit/printing.hh"
+#include "ss-core/printing.hh"
+#include "ss-core/file-loc.hh"
 
 namespace ss {
 
@@ -23,10 +24,6 @@ namespace ss {
     // Source Reader implementation:
     //
 
-    struct FLocPos {
-        long line_index;
-        long column_index;
-    };
     class SourceReader {
     private:
         std::string m_input_desc;
@@ -169,29 +166,6 @@ namespace ss {
             char* bytes;
         } string;
     };
-    struct FLocSpan {
-        FLocPos first_pos;
-        FLocPos last_pos;
-
-        std::string as_text();
-    };
-    std::string FLocSpan::as_text() {
-        std::stringstream ss;
-        ss << '[';
-        if (first_pos.line_index == last_pos.line_index) {
-            ss << 1+first_pos.line_index << ":";
-            if (first_pos.column_index == last_pos.column_index) {
-                ss << 1+first_pos.column_index;
-            } else {
-                ss << 1+first_pos.column_index << "-" << 1+last_pos.column_index;
-            }
-        } else {
-            ss << 1+first_pos.line_index << ":" << 1+first_pos.column_index
-            << 1+last_pos.line_index << ":" << 1+last_pos.column_index;
-        }
-        ss << ']';
-        return ss.str();   
-    }
     struct TokenInfo {
         FLocSpan span;
         KindDependentTokenInfo as;
@@ -522,7 +496,6 @@ namespace ss {
 
     //
     // Parser Implementation:
-    // TODO:
     //
 
     class Parser {
@@ -532,7 +505,7 @@ namespace ss {
     public:
         explicit Parser(std::istream& istream, std::string file_path, GcThreadFrontEnd* gc_tfe);
     public:
-        std::optional<OBJECT> parse_next_line();
+        std::optional<OBJECT> parse_next_line_datum();
         void run_lexer_test();
     private:
         OBJECT parse_top_level_line();
@@ -550,7 +523,7 @@ namespace ss {
         m_gc_tfe(gc_tfe)
     {}
 
-    std::optional<OBJECT> Parser::parse_next_line() {
+    std::optional<OBJECT> Parser::parse_next_line_datum() {
         auto& ts = m_lexer;
         if (ts.eof()) {
             return {};
@@ -813,14 +786,14 @@ namespace ss {
     void dispose_parser(Parser* p) {
         delete p;
     }
-    std::optional<OBJECT> parse_next_line(Parser* p) {
-        return p->parse_next_line();
+    std::optional<OBJECT> parse_next_line_datum(Parser* p) {
+        return p->parse_next_line_datum();
     }
-    std::vector<OBJECT> parse_all_subsequent_lines(Parser* p) {
+    std::vector<OBJECT> parse_all_subsequent_line_datums(Parser* p) {
         std::vector<OBJECT> objects;
         objects.reserve(1024);
         for (;;) {
-            std::optional<OBJECT> o = p->parse_next_line();
+            std::optional<OBJECT> o = p->parse_next_line_datum();
             if (o.has_value()) {
                 // std::cerr << "LINE: " << o.value() << std::endl;
                 objects.push_back(o.value());

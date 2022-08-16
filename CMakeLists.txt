@@ -39,8 +39,8 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dep/robin-hood-hashing)
 #
 
 configure_file(
-    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh.in
-    ${CMAKE_SOURCE_DIR}/inc/ss-config/config.hh
+    ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh.in
+    ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh
 )
 
 ## Configuring targets: global config
@@ -75,38 +75,23 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gdef.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/parser.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/printing.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/std.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/smt.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vcode.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vthread.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vm.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/analyst.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/compiler.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/syntax.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/expander.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/library.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/file-loc.cc
 )
 target_link_libraries(
     ss-core
     robin_hood
-)
-
-# pkgman: handles downloading, installing, versioning, and 
-add_library(
-    ss-pkgman
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-pkgman/library.cc
-)
-
-# jit: compiles, evaluates partially or fully, and generates binaries 
-add_library(
-    ss-jit
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/parser.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/printing.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/std.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/smt.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vcode.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vthread.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/vm.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/analyst.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/compiler.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/syntax-rules.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-jit/expander.cc
-)
-target_link_libraries(ss-jit 
-    ss-core
-    ss-pkgman
-    ${Boost_LIBRARIES} 
-    ${FOLLY_LIBRARIES}
 )
 
 # ssi: Snail-Scheme interpreter
@@ -114,7 +99,7 @@ add_executable(
     ssi
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ssi/ssi.cc
 )
-target_link_libraries(ssi ss-core ss-jit)
+target_link_libraries(ssi ss-core)
 
 # ss-tests: tests for SS
 add_executable(
@@ -122,5 +107,5 @@ add_executable(
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/TestTest.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/TestObject1.cc
 )
-target_link_libraries(ss-tests gtest_main ss-core ss-jit)
+target_link_libraries(ss-tests gtest_main ss-core)
 gtest_discover_tests(ss-tests)

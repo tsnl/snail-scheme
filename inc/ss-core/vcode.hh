@@ -94,14 +94,17 @@ namespace ss {
     struct VSubr {
         std::vector<OBJECT> line_code_objs;
         std::vector<VmProgram> line_programs;
+        std::string name;
 
-        VSubr(std::vector<OBJECT> obj, std::vector<VmProgram> line_programs)
+        VSubr(std::string name, std::vector<OBJECT> obj, std::vector<VmProgram> line_programs)
         :   line_code_objs(obj),
-            line_programs(line_programs)
+            line_programs(line_programs),
+            name(name)
         {}
         explicit VSubr(VSubr&& other) noexcept
         :   line_code_objs(std::move(other.line_code_objs)),
-            line_programs(std::move(other.line_programs))
+            line_programs(std::move(other.line_programs)),
+            name(std::move(other.name))
         {}
     };
 
@@ -142,7 +145,7 @@ namespace ss {
     // Core getters and setters:
     public:
         std::vector<VmExp>& exps() { return m_exps; };
-        std::vector<VSubr>& files() { return m_subrs; };
+        std::vector<VSubr>& subrs() { return m_subrs; };
         VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
         std::vector<GDef>& gdef_table() { return m_gdef_table; };
         UnstableHashMap<IntStr, GDefID>& gdef_id_symtab() { return m_gdef_id_symtab; }

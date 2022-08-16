@@ -1,4 +1,4 @@
-#include "ss-jit/smt.hh"
+#include "ss-core/smt.hh"
 #include <mutex>
 
 namespace ss {
