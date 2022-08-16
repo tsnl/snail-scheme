@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cctype>
 
+#include "ss-core/gc.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/common.hh"
 #include "ss-core/feedback.hh"
@@ -501,11 +502,12 @@ namespace ss {
     class Parser {
     private:
         Lexer m_lexer;
+        IntStr m_source;
         GcThreadFrontEnd* m_gc_tfe;
     public:
         explicit Parser(std::istream& istream, std::string file_path, GcThreadFrontEnd* gc_tfe);
     public:
-        std::optional<OBJECT> parse_next_line_datum();
+        std::optional<OBJECT> parse_next_line();
         void run_lexer_test();
     private:
         OBJECT parse_top_level_line();
@@ -516,14 +518,18 @@ namespace ss {
         OBJECT parse_list();
         
         OBJECT parse_form();
+    
+    public:
+        GcThreadFrontEnd* gc_tfe() const { return m_gc_tfe; }
     };
 
     Parser::Parser(std::istream& input_stream, std::string input_desc, GcThreadFrontEnd* gc_tfe) 
     :   m_lexer(input_stream, std::move(input_desc)),
+        m_source(intern(input_desc)),
         m_gc_tfe(gc_tfe)
     {}
 
-    std::optional<OBJECT> Parser::parse_next_line_datum() {
+    std::optional<OBJECT> Parser::parse_next_line() {
         auto& ts = m_lexer;
         if (ts.eof()) {
             return {};
@@ -541,27 +547,43 @@ namespace ss {
         Lexer& ts = m_lexer;
 
         la_tk = ts.peek(&la_ti);
-        
+        FLoc loc{m_source, la_ti.span};
+
         switch (la_tk) {
             case TokenKind::Identifier: {
                 ts.skip();
-                return OBJECT::make_interned_symbol(la_ti.as.identifier);
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{OBJECT::make_interned_symbol(la_ti.as.identifier), loc}
+                );
             }
             case TokenKind::Boolean: {
                 ts.skip();
-                return OBJECT::make_boolean(la_ti.as.boolean);
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{OBJECT::make_boolean(la_ti.as.boolean), loc}
+                );
             }
             case TokenKind::Integer: {
                 ts.skip();
-                return OBJECT::make_integer(la_ti.as.integer);
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{OBJECT::make_integer(la_ti.as.integer), loc}
+                );
             }
             case TokenKind::Float: {
                 ts.skip();
-                return OBJECT::make_float64(m_gc_tfe, la_ti.as.floating_pt);
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{OBJECT::make_float64(m_gc_tfe, la_ti.as.floating_pt), loc}
+                );
             }
             case TokenKind::String: {
                 ts.skip();
-                return OBJECT::make_string(m_gc_tfe, la_ti.as.string.count, la_ti.as.string.bytes, true);
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{OBJECT::make_string(m_gc_tfe, la_ti.as.string.count, la_ti.as.string.bytes, true), loc}
+                );
             }
             default: {
                 error("Expected constant, got unknown character.");
@@ -585,11 +607,13 @@ namespace ss {
             case TokenKind::String: 
             {
                 auto out = try_parse_constant();
-                assert(!out.is_undef() && "Expected a constant based on look-ahead.");
+                assert(out.is_syntax());
                 return out;
             }
             case TokenKind::LParen: {
-                return parse_list<true>();
+                auto out = parse_list<true>();
+                assert(out.is_syntax());
+                return out;
             }
             default: {
                 error("Unexpected token in datum: " + std::string(tk_text(la_tk)));
@@ -613,16 +637,7 @@ namespace ss {
             case TokenKind::String: 
             {
                 auto out = try_parse_constant();
-                assert(
-                    (
-                        out.is_interned_symbol() ||
-                        out.is_boolean() ||
-                        out.is_integer() ||
-                        out.is_float32() ||
-                        out.is_float64() ||
-                        out.is_string()
-                    ) && 
-                    "Expected a constant based on look-ahead.");
+                assert(out.is_syntax());
                 return out;
             }
             case TokenKind::LParen: {
@@ -631,10 +646,28 @@ namespace ss {
             case TokenKind::Quote: {
                 ts.skip();
                 OBJECT quoted = parse_datum();
-                return list(
-                    m_gc_tfe,
-                    OBJECT::make_interned_symbol(intern("quote")),
-                    quoted
+                auto quoted_stx = static_cast<SyntaxObject*>(quoted.as_ptr());
+                FLocSpan span{la_ti.span.first_pos, quoted_stx->loc().span.last_pos};
+                
+                FLoc loc{m_source, span};
+                FLoc quote_loc{m_source, la_ti.span};
+
+                return OBJECT::make_ptr(
+                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                    SyntaxObject{
+                        list(
+                            m_gc_tfe,
+                            OBJECT::make_ptr(
+                                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                                SyntaxObject{
+                                    OBJECT::make_interned_symbol(intern("quote")),
+                                    quote_loc
+                                }
+                            ),
+                            quoted
+                        ), 
+                        loc
+                    }
                 );
             }
             default: {
@@ -648,7 +681,8 @@ namespace ss {
     OBJECT Parser::parse_list() {
         Lexer& ts = m_lexer;
 
-        ts.expect(TokenKind::LParen);
+        TokenInfo lp_token_info;
+        ts.expect(TokenKind::LParen, &lp_token_info);
 
         std::function<OBJECT()> parse_item;
         if (contents_is_datum_not_exp) {
@@ -663,11 +697,12 @@ namespace ss {
         //  - a dotted pair is always the last element in this list
         //  - if the dotted pair is also the first element in the list, we return the dotted pair identically.
         std::vector<OBJECT> list_stack;
+        TokenInfo rp_token_info;
         list_stack.reserve(8);
         bool ended_ok = false;
         bool parsed_improper_list = false;
         while (!ts.eof()) {
-            if (ts.match(TokenKind::RParen)) {
+            if (ts.match(TokenKind::RParen, &rp_token_info)) {
                 ended_ok = true;
                 break;
             } else if (parsed_improper_list) {
@@ -683,6 +718,7 @@ namespace ss {
                     element_object = OBJECT::make_pair(m_gc_tfe, car, cdr);
                     parsed_improper_list = true;
                 }
+                assert(element_object.is_syntax() || element_object.is_pair() || element_object.is_vector());
                 list_stack.push_back(element_object);
             }
         }
@@ -698,17 +734,23 @@ namespace ss {
             throw SsiError();
         }
 
-        // popping from the stack to build the pair-list:
-        if (list_stack.size() == 1 && parsed_improper_list) {
+        // composing floc before return
+        FLocSpan span;
+        span.first_pos = lp_token_info.span.first_pos;
+        span.last_pos = rp_token_info.span.last_pos;
+        FLoc loc{m_source, span};
+        
+        // popping from the stack to build the pair-list, return:
+        if (parsed_improper_list && list_stack.size() == 1) {
             // singleton pair
-            return list_stack[0];
+            return OBJECT::make_ptr(
+                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                SyntaxObject{list_stack[0], loc}
+            );
         } else {
             // consing all but the last element to the last element recursively:
-            OBJECT pair_list = (
-                (parsed_improper_list) ?
-                list_stack.back() :
-                OBJECT::null
-            );
+            // - iff improper list, then last item in the stack is post-dot.
+            OBJECT pair_list = (parsed_improper_list) ? list_stack.back() : OBJECT::null;
             int start_index = (
                 (parsed_improper_list) ?
                 static_cast<int>(list_stack.size() - 2) :
@@ -718,7 +760,10 @@ namespace ss {
                 pair_list = OBJECT::make_pair(m_gc_tfe, list_stack[i], pair_list);
                 list_stack.pop_back();
             }
-            return pair_list;
+            return OBJECT::make_ptr(
+                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
+                SyntaxObject{pair_list, loc}
+            );
         }
     }
     void Parser::run_lexer_test() {
@@ -787,13 +832,34 @@ namespace ss {
         delete p;
     }
     std::optional<OBJECT> parse_next_line_datum(Parser* p) {
-        return p->parse_next_line_datum();
+        auto res = parse_next_line(p);
+        if (res.has_value()) {
+            return {
+                static_cast<SyntaxObject*>(res.value().as_ptr())
+                ->to_datum(p->gc_tfe())
+            };
+        } else {
+            return {};
+        }
     }
     std::vector<OBJECT> parse_all_subsequent_line_datums(Parser* p) {
+        auto syntax_objs = parse_all_subsequent_lines(p);
+        std::vector<OBJECT> objs;
+        objs.reserve(syntax_objs.size());
+        for (size_t i = 0; i < syntax_objs.size(); i++) {
+            auto it = static_cast<SyntaxObject*>(syntax_objs[i].as_ptr())->to_datum(p->gc_tfe());
+            objs.push_back(it);
+        }
+        return objs;
+    }
+    std::optional<OBJECT> parse_next_line(Parser* p) {
+        return p->parse_next_line();
+    }
+    std::vector<OBJECT> parse_all_subsequent_lines(Parser* p) {
         std::vector<OBJECT> objects;
         objects.reserve(1024);
         for (;;) {
-            std::optional<OBJECT> o = p->parse_next_line_datum();
+            std::optional<OBJECT> o = p->parse_next_line();
             if (o.has_value()) {
                 // std::cerr << "LINE: " << o.value() << std::endl;
                 objects.push_back(o.value());

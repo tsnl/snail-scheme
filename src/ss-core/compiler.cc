@@ -59,6 +59,7 @@ namespace ss {
             OBJECT const all_free_vars = cdr(var_env);
             OBJECT free = all_free_vars;
             size_t n = 0;
+            
             while (!free.is_null()) {
                 if (ss::is_eq(&m_gc_tfe, car(free), symbol)) {
                     return {RelVarScope::Free, n};
@@ -98,7 +99,12 @@ namespace ss {
         OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::null, OBJECT::null);
         line_programs.reserve(line_code_objects.size());
         for (auto const code_object: line_code_objects) {
-            auto program = compile_line(code_object, default_env);
+            // FIXME: (hacky): convert 'syntax' object into datum before compiling
+            auto datum_code_object = code_object;
+            if (code_object.is_syntax()) {
+                datum_code_object = static_cast<SyntaxObject*>(code_object.as_ptr())->to_datum(&m_gc_tfe);
+            }
+            auto program = compile_line(datum_code_object, default_env);
             line_programs.push_back(program);
         }
         return VSubr{std::move(subr_name), std::move(line_code_objects), std::move(line_programs)};
@@ -201,8 +207,11 @@ namespace ss {
                     case RelVarScope::Free: {
                         return compile_exp(x, m_code->new_vmx_assign_free(n, next), e, s);
                     } break;
+                    case RelVarScope::Global: {
+                        return compile_exp(x, m_code->new_vmx_assign_global(n, next), e, s);
+                    } break;
                     default: {
-                        error("Unknown RelVarScope");
+                        error("set!: unknown RelVarScope");
                         throw SsiError();
                     }
                 }

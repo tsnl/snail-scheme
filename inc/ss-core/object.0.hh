@@ -399,14 +399,15 @@ namespace ss {
     inline bool is_number(OBJECT o);
     inline bool is_string(OBJECT o);
     inline bool is_vector(OBJECT o);
-
+    
     bool is_eqn(OBJECT e1, OBJECT e2);
     bool is_eq(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
     bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
     bool is_equal(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
 
     inline my_ssize_t list_length(OBJECT pair_list);
-
+    inline OBJECT list_member(GcThreadFrontEnd* gc_tfe, OBJECT x, OBJECT lst);
+    
     inline OBJECT vector_length(OBJECT vec);
     inline OBJECT vector_ref(OBJECT vec, OBJECT index);
     inline void vector_set(OBJECT vec, OBJECT index, OBJECT v);
@@ -579,6 +580,14 @@ namespace ss {
             var_ctr++;
         }
         return var_ctr;
+    }
+    inline OBJECT list_member(GcThreadFrontEnd* gc_tfe, OBJECT x, OBJECT lst) {
+        for (OBJECT rem = lst; rem.is_pair(); rem = cdr(rem)) {
+            if (is_eq(gc_tfe, car(rem), x)) {
+                return rem;
+            }
+        }
+        return OBJECT::make_boolean(false);
     }
 
     inline OBJECT vector_length(OBJECT vec) {

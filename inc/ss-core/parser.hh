@@ -24,7 +24,11 @@ namespace ss {
     // (deprecated) extract as many line datums as possible from the stream:
     std::vector<OBJECT> parse_all_subsequent_line_datums(Parser* p);
 
-    // TODO: parse syntax instead of datums
+    // extract one line's syntax object from the stream:
+    std::optional<OBJECT> parse_next_line(Parser* p);
+
+    // extract as many lines' syntax objects as possible from the stream:
+    std::vector<OBJECT> parse_all_subsequent_lines(Parser* p);
 
 }   // namespace ss
 

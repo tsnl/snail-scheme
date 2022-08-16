@@ -101,10 +101,10 @@ namespace ss {
             } break;
             case GranularObjectType::Syntax: {
                 auto syntax_obj = static_cast<SyntaxObject*>(obj.as_ptr());
-                out << "(syntax '" << std::endl
-                    << "  #:data " << syntax_obj->data() << std::endl
-                    << "  #:floc " << " \"" << syntax_obj->loc().as_text() << "\"" << std::endl
-                    << "  #:env  " << syntax_obj->env() << ")";
+                out << "(syntax "
+                    << " #:data '" << syntax_obj->data()
+                    << " #:floc " << "\"" << syntax_obj->loc().as_text() << "\""
+                    << " #:env " << syntax_obj->env() << ")";
             } break;
         }
     }

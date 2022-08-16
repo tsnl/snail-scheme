@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <chrono>
 
 #include "ss-core/syntax.hh"
 #include "ss-core/allocator.hh"
@@ -92,26 +93,77 @@ namespace ss {
         }
 
         // parsing all lines into a vector:
-        Parser* p = create_parser(f, file_path, vm_gc_tfe(vm));
-        std::vector<OBJECT> line_code_obj_array = parse_all_subsequent_line_datums(p);
-        
+        std::vector<OBJECT> line_code_obj_array;
+        {
+            auto start = std::chrono::steady_clock::now();
+            Parser* p = create_parser(f, file_path, vm_gc_tfe(vm));
+            line_code_obj_array = parse_all_subsequent_line_datums(p);
+            auto end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+#if CONFIG_DEBUG_MODE
+            {
+                std::stringstream ss;
+                ss << "parsing took " << duration;
+                info(ss.str());
+            }
+#endif
+
+#if CONFIG_DEBUG_MODE
+            {
+                std::stringstream ss;
+                ss << "parsed '" << file_path << "'" << std::endl;
+                for (size_t i = 0; i < line_code_obj_array.size(); i++) {
+                    auto o = line_code_obj_array[i];
+                    ss << "- " << o;
+                    if (i+1 < line_code_obj_array.size()) {
+                        ss << std::endl;
+                    }
+                }
+                info(ss.str());
+            }
+#endif
+        }
+
         // compiling the program into VM representation:
         // c.f. §3.4.2 (Translation) on p.56 (pos 66/190)
-        ss::Compiler& compiler = *vm_compiler(vm);
-        ss::VCode* code = compiler.code();
-        try {
-            VSubr subr = compiler.compile_subr(file_path, std::move(line_code_obj_array));
-            code->append_subroutine(file_path, std::move(subr));
-        } catch (SsiError const& ssi_error) {
-            return;
+        {
+            auto start = std::chrono::steady_clock::now();
+            ss::Compiler& compiler = *vm_compiler(vm);
+            ss::VCode* code = compiler.code();
+            try {
+                VSubr subr = compiler.compile_subr(file_path, std::move(line_code_obj_array));
+                code->append_subroutine(file_path, std::move(subr));
+            } catch (SsiError const& ssi_error) {
+                return;
+            }
+            auto end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+#if CONFIG_DEBUG_MODE
+            std::stringstream ss;
+            ss << "compile and lib-loading took " << duration;
+            info(ss.str());
+#endif
         }
         
         // Executing:
-        try {
-            bool print_each_line = false;
-            sync_execute_vm(vm, print_each_line);
-        } catch (SsiError const& ssi_error) {
-            return;
+        {
+            auto start = std::chrono::steady_clock::now();
+            try {
+                bool print_each_line = false;
+                sync_execute_vm(vm, print_each_line);
+            } catch (SsiError const& ssi_error) {
+                return;
+            }
+            auto end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            
+#if CONFIG_DEBUG_MODE
+            std::stringstream ss;
+            ss << "runtime took " << duration;
+            info(ss.str());
+#endif
         }
 
         // Dumping:

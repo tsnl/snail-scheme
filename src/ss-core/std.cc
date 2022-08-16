@@ -241,12 +241,7 @@ namespace ss {
         vm_bind_platform_procedure(vm,
             "member",
             [=](ArgView const& aa) -> OBJECT {
-                for (OBJECT rem = aa[1]; rem.is_pair(); rem = cdr(rem)) {
-                    if (is_eq(vm_gc_tfe(vm), car(rem), aa[0])) {
-                        return rem;
-                    }
-                }
-                return OBJECT::make_boolean(false);
+                return list_member(vm_gc_tfe(vm), aa[0], aa[1]);
             },
             {"x", "list"}
         );
