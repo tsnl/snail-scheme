@@ -7,16 +7,15 @@
 #include "ss-core/common.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/gc.hh"
-#include "ss-core/pproc.hh"
+#include "ss-core/pinvoke.hh"
 #include "ss-core/gdef.hh"
 #include "ss-core/vcode.hh"
 #include "ss-core/analyst.hh"
+#include "ss-core/expander.hh"
 
 namespace ss {
 
     class OBJECT;
-
-    enum class RelVarScope { Local, Free, Global };
 
     class Compiler: public Analyst {
     private:
@@ -28,7 +27,7 @@ namespace ss {
         explicit Compiler(GcThreadFrontEnd& gc_tfe);
     
     public:
-        VSubr compile_subr_1shot(std::string subr_name, OBJECT line_code_object);
+        VSubr compile_expr(std::string subr_name, OBJECT line_code_object);
         VSubr compile_subr(std::string subr_name, std::vector<OBJECT> line_code_objects);
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
         VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.9)
 project(SnailScheme VERSION 0.0.0)
 
 ## Cache config
@@ -35,9 +35,22 @@ include(ExternalProject)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dep/robin-hood-hashing)
 
+## CXX compiler config
+#
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+endif()
+
 ## Generating Source
 #
 
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    set(SNAIL_DEBUG_MODE 1)
+else()
+    set(SNAIL_DEBUG_MODE 0)
+endif()
 configure_file(
     ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh.in
     ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh
@@ -74,7 +87,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/memory.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gc.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/gdef.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/pinvoke.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/parser.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/printing.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/std.cc
@@ -84,10 +97,10 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/analyst.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/compiler.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/syntax.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/expander.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/library.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/file-loc.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc
 )
 target_link_libraries(
     ss-core

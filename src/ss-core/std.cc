@@ -6,7 +6,7 @@
 #include "ss-core/config.hh"
 #include "ss-core/vm.hh"
 #include "ss-core/object.hh"
-#include "ss-core/pproc.hh"
+#include "ss-core/pinvoke.hh"
 #include "ss-core/printing.hh"
 
 ///

@@ -3,7 +3,6 @@
 #include <fstream>
 #include <chrono>
 
-#include "ss-core/syntax.hh"
 #include "ss-core/allocator.hh"
 #include "ss-core/feedback.hh"
 #include "ss-core/gc.hh"

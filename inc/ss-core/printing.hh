@@ -6,6 +6,6 @@
 
 namespace ss {
 
-    void print_obj(OBJECT obj, std::ostream& out);
+  void print_obj(OBJECT obj, std::ostream& out);
 
 }   // namespace ss

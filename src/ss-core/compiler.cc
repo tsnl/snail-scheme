@@ -90,8 +90,8 @@ namespace ss {
         }
     }
 
-    VSubr Compiler::compile_subr_1shot(std::string subr_name, OBJECT line_code_object) {
-        std::vector<OBJECT> line_code_objects{1, line_code_object};
+    VSubr Compiler::compile_expr(std::string subr_name, OBJECT expr_datum) {
+        std::vector<OBJECT> line_code_objects{1, expr_datum};
         return compile_subr(std::move(subr_name), std::move(line_code_objects));
     }
     VSubr Compiler::compile_subr(std::string subr_name, std::vector<OBJECT> line_code_objects) {
@@ -134,7 +134,7 @@ namespace ss {
         }
     }
     VmExpID Compiler::compile_list_exp(PairObject* obj, VmExpID next, OBJECT e, OBJECT s) {
-        // corresponds to 'record-case'
+        // corresponds to 'record-case' in three-imp
 
         // retrieving key properties:
         OBJECT head = obj->car();
