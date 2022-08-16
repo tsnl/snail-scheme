@@ -22,6 +22,7 @@ namespace ss {
     private:
         VCode* m_code;
         GcThreadFrontEnd& m_gc_tfe;
+        OBJECT m_gdef_set;
         
     public:
         explicit Compiler(GcThreadFrontEnd& gc_tfe);

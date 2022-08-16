@@ -13,22 +13,22 @@ namespace ss {
     Compiler::Compiler(GcThreadFrontEnd& gc_tfe) 
     :   Analyst(),
         m_code(new(gc_tfe.allocate_size_class(vcode_sci)) VCode()),
-        m_gc_tfe(gc_tfe)
-        // TODO: add 'globals' table
+        m_gc_tfe(gc_tfe),
+        m_gdef_set(OBJECT::null)
     {}
      
     // returns [n, m] = [rib_index, elt_index]
     std::pair<RelVarScope, size_t> Compiler::compile_lookup(OBJECT symbol, OBJECT var_env) {
         // compile-time type-checks
         bool ok = (
-            (var_env.is_list() && "broken 'env' in compile_lookup") &&
-            (symbol.is_interned_symbol() && "broken 'symbol' in compile_lookup")
+            (var_env.is_pair() && "broken 'env' in compile_lookup: expected pair") &&
+            (symbol.is_interned_symbol() && "broken query symbol in compile_lookup: expected symbol")
         );
         if (!ok) {
             throw SsiError();
         }
 
-        // DEBUG:
+        // // DEBUG:
         // {
         //     std::cerr 
         //         << "COMPILE_LOOKUP:" << std::endl
@@ -152,8 +152,8 @@ namespace ss {
                 
                 check_vars_list_else_throw(vars);
 
-                auto free = find_free(body, vars);
-                auto sets = find_sets(body, vars);
+                auto free = set_minus(find_free(body, vars), m_gdef_set);
+                auto sets = set_intersect(find_sets(body, vars), free);
                 return collect_free(
                     free, e, 
                     m_code->new_vmx_close(
@@ -474,6 +474,7 @@ namespace ss {
         return x;
     }
     GDefID Compiler::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
+        m_gdef_set = set_cons(OBJECT::make_interned_symbol(name), m_gdef_set);
         return m_code->define_global(name, code, init, docstring);
     }
     GDef const& Compiler::lookup_gdef(GDefID gdef_id) const {
@@ -552,6 +553,7 @@ namespace ss {
     }
 
     /// Find-Free
+    // NOTE: includes globals, must remove explicitly later
     //
 
     OBJECT Compiler::find_free(OBJECT x, OBJECT b) {
