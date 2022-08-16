@@ -235,7 +235,6 @@ namespace ss {
         OBJECT& boxed() { return m_boxed; }
     };
 
-
     class Float64Object: public BaseBoxedObject {
     protected:
         double m_value;
@@ -354,6 +353,7 @@ namespace ss {
     public:
         [[nodiscard]] inline OBJECT data() const { return m_data; }
         [[nodiscard]] inline FLoc loc() const { return m_loc; }
+        [[nodiscard]] inline OBJECT env() const { return m_env; }
 
     public:
         OBJECT to_datum(GcThreadFrontEnd* gc_tfe) const;

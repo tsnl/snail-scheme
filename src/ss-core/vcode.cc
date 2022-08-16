@@ -62,7 +62,8 @@ namespace ss {
     //
 
     PlatformProcID VCode::define_platform_proc(
-        IntStr platform_proc_name, size_t arity,
+        IntStr platform_proc_name, 
+        size_t arity,
         PlatformProcCb callable_cb, 
         std::string docstring,
         bool is_variadic
@@ -73,9 +74,12 @@ namespace ss {
         }
         auto new_id = m_platform_proc_cb_table.size();
         m_platform_proc_cb_table.push_back(callable_cb);
-        m_platform_proc_arity_table.push_back(is_variadic ? -1 : arity);
+        m_platform_proc_arity_table.push_back(is_variadic ? static_cast<my_ssize_t>(-1) : (my_ssize_t)arity);
         m_platform_proc_docstring_table.emplace_back(std::move(docstring));
         m_platform_proc_id_symtab[platform_proc_name] = new_id;
+        if (is_variadic) {
+            assert(this->platform_proc_is_variadic(new_id));
+        }
         return new_id;
     }
     PlatformProcID VCode::lookup_platform_proc(IntStr platform_proc_name) {

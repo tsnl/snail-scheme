@@ -61,11 +61,7 @@ namespace ss {
             size_t n = 0;
             while (!free.is_null()) {
                 if (ss::is_eq(&m_gc_tfe, car(free), symbol)) {
-                    if (!cdr(free).is_null()) {
-                        return {RelVarScope::Free, n};
-                    }
-                    // otherwise global
-                    break;
+                    return {RelVarScope::Free, n};
                 }
                 // preparing for the next iteration:
                 free = cdr(free);
@@ -322,8 +318,7 @@ namespace ss {
                     if (arg_count != expected_arg_count) {
                         std::stringstream ss;
                         ss  << "Invalid argument count for 'p/invoke' " << interned_string(proc_name.as_interned_symbol())
-                            << ": expected "
-                            << expected_arg_count << " args but got " << arg_count << " args";
+                            << ": expected " << expected_arg_count << " args but got " << arg_count << " args";
                         error(ss.str());
                     }                
                 }

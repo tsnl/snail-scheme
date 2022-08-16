@@ -188,8 +188,8 @@ namespace ss {
         PlatformProcID define_platform_proc(IntStr platform_proc_name, size_t arity, PlatformProcCb callable_cb, std::string docstring, bool is_variadic);
         PlatformProcID lookup_platform_proc(IntStr platform_proc_name);
         PlatformProcCb platform_proc_cb(PlatformProcID id) { return m_platform_proc_cb_table[id]; }
-        bool platform_proc_is_variadic(PlatformProcID id) { return platform_proc_arity(id) < 0; }
-        size_t platform_proc_arity(PlatformProcID id) { return m_platform_proc_arity_table[id]; }
+        bool platform_proc_is_variadic(PlatformProcID id) { return platform_proc_arity(id) == -1; }
+        my_ssize_t platform_proc_arity(PlatformProcID id) { return m_platform_proc_arity_table[id]; }
         size_t count_platform_procs() const { return m_platform_proc_cb_table.size(); }
 
     // dump:

@@ -229,7 +229,7 @@ namespace ss {
     }
 
     OBJECT SyntaxObject::to_datum(GcThreadFrontEnd* gc_tfe) const {
-        SyntaxObject::data_to_datum(gc_tfe, m_data);
+        return SyntaxObject::data_to_datum(gc_tfe, m_data);
     }
     OBJECT SyntaxObject::data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT data) {
         if (data.is_pair()) {
