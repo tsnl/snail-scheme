@@ -71,7 +71,7 @@ namespace ss {
     ) {
         if (m_platform_proc_id_symtab.find(platform_proc_name) != m_platform_proc_id_symtab.end()) {
             error("Cannot re-define platform procedure: " + interned_string(platform_proc_name));
-            throw new SsiError();
+            throw SsiError();
         }
         auto new_id = m_platform_proc_cb_table.size();
         m_platform_proc_cb_table.push_back(callable_cb);
@@ -87,7 +87,7 @@ namespace ss {
         auto res = m_platform_proc_id_symtab.find(platform_proc_name);
         if (res == m_platform_proc_id_symtab.end()) {
             error("Undefined platform procedure used: " + interned_string(platform_proc_name));
-            throw new SsiError();
+            throw SsiError();
         }
         return res->second;
     }

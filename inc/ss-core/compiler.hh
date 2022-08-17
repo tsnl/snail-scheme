@@ -11,7 +11,7 @@
 #include "ss-core/defn.hh"
 #include "ss-core/vcode.hh"
 #include "ss-core/analyst.hh"
-#include "ss-core/expander.hh"
+#include "ss-core/rewrite.hh"
 
 namespace ss {
 
@@ -37,7 +37,6 @@ namespace ss {
 
     private:
         std::pair<RelVarScope, size_t> compile_lookup(OBJECT symbol, OBJECT var_env_raw);
-        void check_vars_list_else_throw(OBJECT vars);
         OBJECT compile_extend(OBJECT e, OBJECT vars);
         
     // Utility builders:

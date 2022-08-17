@@ -24,7 +24,7 @@ namespace ss {
         return m_stack.index(m_offset, idx);
       } else {
         error("out-of-bounds stack access: cannot reach arg at index " + std::to_string(idx));
-        throw new SsiError();
+        throw SsiError();
       }
     }
   };

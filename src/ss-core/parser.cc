@@ -200,7 +200,7 @@ namespace ss {
                 << "Before " << tk_text(la_tk) << ", expected " << expected << std::endl
                 << "see: " << la_ti.span.as_text();
             error(expect_error_ss.str());
-            throw new SsiError();
+            throw SsiError();
         }
 
     public:
@@ -359,7 +359,7 @@ namespace ss {
                     << "invalid character encountered; is this an ASCII file?";
             }
             error(error_ss.str());
-            throw new SsiError();
+            throw SsiError();
         }
     }
     TokenKind Lexer::help_scan_one_identifier_or_number_literal(TokenInfo* out_info_p, char opt_first_char) {
@@ -552,37 +552,38 @@ namespace ss {
         switch (la_tk) {
             case TokenKind::Identifier: {
                 ts.skip();
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{OBJECT::make_interned_symbol(la_ti.as.identifier), loc}
+                return OBJECT::make_syntax(
+                    m_gc_tfe, 
+                    OBJECT::make_interned_symbol(la_ti.as.identifier), loc
                 );
             }
             case TokenKind::Boolean: {
                 ts.skip();
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{OBJECT::make_boolean(la_ti.as.boolean), loc}
+                return OBJECT::make_syntax(
+                    m_gc_tfe, 
+                    OBJECT::make_boolean(la_ti.as.boolean), loc
                 );
             }
             case TokenKind::Integer: {
                 ts.skip();
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{OBJECT::make_integer(la_ti.as.integer), loc}
+                return OBJECT::make_syntax(
+                    m_gc_tfe, 
+                    OBJECT::make_integer(la_ti.as.integer), loc
                 );
             }
             case TokenKind::Float: {
                 ts.skip();
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{OBJECT::make_float64(m_gc_tfe, la_ti.as.floating_pt), loc}
+                return OBJECT::make_syntax(
+                    m_gc_tfe, 
+                    OBJECT::make_float64(m_gc_tfe, la_ti.as.floating_pt), loc
                 );
             }
             case TokenKind::String: {
                 ts.skip();
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{OBJECT::make_string(m_gc_tfe, la_ti.as.string.count, la_ti.as.string.bytes, true), loc}
+                return OBJECT::make_syntax(
+                    m_gc_tfe, 
+                    OBJECT::make_string(m_gc_tfe, la_ti.as.string.count, la_ti.as.string.bytes, true), 
+                    loc
                 );
             }
             default: {
@@ -652,22 +653,18 @@ namespace ss {
                 FLoc loc{m_source, span};
                 FLoc quote_loc{m_source, la_ti.span};
 
-                return OBJECT::make_ptr(
-                    new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                    SyntaxObject{
-                        list(
+                return OBJECT::make_syntax(
+                    m_gc_tfe,
+                    list(
+                        m_gc_tfe,
+                        OBJECT::make_syntax(
                             m_gc_tfe,
-                            OBJECT::make_ptr(
-                                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                                SyntaxObject{
-                                    OBJECT::make_interned_symbol(intern("quote")),
-                                    quote_loc
-                                }
-                            ),
-                            quoted
-                        ), 
-                        loc
-                    }
+                            OBJECT::make_interned_symbol(intern("quote")),
+                            quote_loc
+                        ),
+                        quoted
+                    ), 
+                    loc
                 );
             }
             default: {
@@ -743,10 +740,7 @@ namespace ss {
         // popping from the stack to build the pair-list, return:
         if (parsed_improper_list && list_stack.size() == 1) {
             // singleton pair
-            return OBJECT::make_ptr(
-                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                SyntaxObject{list_stack[0], loc}
-            );
+            return OBJECT::make_syntax(m_gc_tfe, list_stack[0], loc);
         } else {
             // consing all but the last element to the last element recursively:
             // - iff improper list, then last item in the stack is post-dot.
@@ -760,10 +754,7 @@ namespace ss {
                 pair_list = OBJECT::make_pair(m_gc_tfe, list_stack[i], pair_list);
                 list_stack.pop_back();
             }
-            return OBJECT::make_ptr(
-                new(m_gc_tfe->allocate_size_class(SyntaxObject::sci))
-                SyntaxObject{pair_list, loc}
-            );
+            return OBJECT::make_syntax(m_gc_tfe, pair_list, loc);
         }
     }
     void Parser::run_lexer_test() {

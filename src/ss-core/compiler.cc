@@ -423,22 +423,6 @@ namespace ss {
     bool Compiler::is_tail_vmx(VmExpID vmx_id) {
         return (*m_code)[vmx_id].kind == VmExpKind::Return;
     }
-    void Compiler::check_vars_list_else_throw(OBJECT vars) {
-        OBJECT rem_vars = vars;
-        while (!rem_vars.is_null()) {
-            OBJECT head = car(rem_vars);
-            rem_vars = cdr(rem_vars);
-
-            if (!head.is_interned_symbol()) {
-                std::stringstream ss;
-                ss << "Invalid variable list for lambda: expected symbol, got: ";
-                print_obj(head, ss);
-                ss << std::endl;
-                error(ss.str());
-                throw SsiError();
-            }
-        }
-    }
     OBJECT Compiler::compile_extend(OBJECT e, OBJECT vars) {
         auto res = cons(&m_gc_tfe, vars, e);
         // std::cerr 

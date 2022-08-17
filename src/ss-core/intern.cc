@@ -39,7 +39,10 @@ namespace ss {
                 .define_syntax = intern("define-syntax"),
                 .ellipses = intern("..."),
                 .underscore = intern("_"),
-                .reference = intern("reference")
+                .reference = intern("reference"),
+                .local = intern("local"),
+                .free = intern("free"),
+                .global = intern("global"),
             };
             s_id_cache = new IdCache(init);
         }

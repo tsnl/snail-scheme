@@ -26,7 +26,7 @@
 #include "ss-core/file-loc.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/feedback.hh"
-#include "ss-core/gc.hh"
+#include "ss-core/gc.d.hh"
 
 namespace ss {
 
@@ -154,6 +154,8 @@ namespace ss {
         static OBJECT make_box(GcThreadFrontEnd* gc_tfe, OBJECT stored);
         static OBJECT make_pair(GcThreadFrontEnd* gc_tfe, OBJECT head, OBJECT tail);
         static OBJECT make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes);
+        static OBJECT make_vector(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT> raw);
+        static OBJECT make_syntax(GcThreadFrontEnd* gc_tfe, OBJECT data, FLoc loc);
     public:
         bool is_null() const { return m_data.raw == 0; }
         bool is_ptr() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
@@ -404,6 +406,8 @@ namespace ss {
 
     inline my_ssize_t list_length(OBJECT pair_list);
     inline OBJECT list_member(GcThreadFrontEnd* gc_tfe, OBJECT x, OBJECT lst);
+    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT>& vec);
+    OBJECT vector_to_list(GcThreadFrontEnd* gc_tfe, OBJECT vec);
     
     inline OBJECT vector_length(OBJECT vec);
     inline OBJECT vector_ref(OBJECT vec, OBJECT index);
@@ -586,7 +590,7 @@ namespace ss {
         }
         return OBJECT::make_boolean(false);
     }
-
+    
     inline OBJECT vector_length(OBJECT vec) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
         if (!vec.is_vector()) {

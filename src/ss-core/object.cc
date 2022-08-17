@@ -44,6 +44,14 @@ namespace ss {
         auto boxed_object = new (gc_tfe, string_sci) StringObject(byte_count, mv_bytes);
         return OBJECT::make_ptr(boxed_object);
     }
+    OBJECT OBJECT::make_vector(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT> raw) {
+        auto ptr = new(gc_tfe, VectorObject::sci) VectorObject(std::move(raw));
+        return OBJECT::make_ptr(ptr);
+    }
+    OBJECT OBJECT::make_syntax(GcThreadFrontEnd* gc_tfe, OBJECT data, FLoc loc) {
+        auto ptr = new(gc_tfe, SyntaxObject::sci) SyntaxObject{data, loc};
+        return OBJECT::make_ptr(ptr);
+    }
 
     bool OBJECT::is_atom() const {
         return 0
@@ -228,6 +236,10 @@ namespace ss {
         return GcThreadFrontEnd::get_by_tfid(m_gc_tfid)->deallocate_size_class(reinterpret_cast<APtr>(this), m_sci);
     }
 
+    //
+    // SyntaxObject
+    //
+
     OBJECT SyntaxObject::to_datum(GcThreadFrontEnd* gc_tfe) const {
         return SyntaxObject::data_to_datum(gc_tfe, m_data);
     }
@@ -288,5 +300,33 @@ namespace ss {
             VectorObject(std::move(res))
         );
     }
+
+    //
+    // Vector
+    //
+
+    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT>& vec) {
+        auto raw_mem = gc_tfe->allocate_bytes(sizeof(PairObject) * vec.size());
+        auto mem = reinterpret_cast<PairObject*>(raw_mem);
+        OBJECT lst = OBJECT::null;
+        for (my_ssize_t i = vec.size()-1; i >= 0; i--) {
+            lst = new(mem+i) PairObject(vec[i], lst);
+        }
+        return lst;
+    }
+    OBJECT vector_to_list(GcThreadFrontEnd* gc_tfe, OBJECT vec) {
+#if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
+        if (!vec.is_vector()) {
+            std::stringstream ss;
+            ss << "vector->list: expected 'vec' as first argument, got: " << vec << std::endl;
+            throw SsiError();
+        }
+#endif        
+        return cpp_vector_to_list(
+            gc_tfe, 
+            static_cast<VectorObject*>(vec.as_ptr())->as_cpp_vec()
+        );
+    }
+
 
 }   // namespace ss

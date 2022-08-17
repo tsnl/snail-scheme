@@ -97,7 +97,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/analyst.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/compiler.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/expander.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/rewrite.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/library.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/file-loc.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc

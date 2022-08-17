@@ -272,7 +272,7 @@ namespace ss {
                     std::stringstream ss;
                     ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
                     error(ss.str());
-                    throw new SsiError();
+                    throw SsiError();
                 }
                 auto idx = aa[1].as_signed_fixnum();
                 auto size = static_cast<VectorObject*>(aa[0].as_ptr())->size();
@@ -288,13 +288,13 @@ namespace ss {
                     std::stringstream ss;
                     ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
                     error(ss.str());
-                    throw new SsiError();
+                    throw SsiError();
                 }
                 if (!aa[1].is_integer()) {
                     std::stringstream ss;
                     ss << "vector-ref: expected second arg to be int, not " << aa[1] << std::endl;
                     error(ss.str());
-                    throw new SsiError();
+                    throw SsiError();
                 }
                 auto idx = aa[1].as_signed_fixnum();
                 return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx);
@@ -309,13 +309,13 @@ namespace ss {
                     std::stringstream ss;
                     ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
                     error(ss.str());
-                    throw new SsiError();
+                    throw SsiError();
                 }
                 if (!aa[1].is_integer()) {
                     std::stringstream ss;
                     ss << "vector-ref: expected second arg to be int, not " << aa[1] << std::endl;
                     error(ss.str());
-                    throw new SsiError();
+                    throw SsiError();
                 }
                 auto idx = aa[1].as_signed_fixnum();
                 return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx) = aa[2];
