@@ -32,14 +32,15 @@ namespace ss {
   using PlatformProcCb = std::function<OBJECT(ArgView const& args)>;
   using PlatformProcID = size_t;
 
-  struct PlatformProcHotData {
-    PlatformProcCb cb;
-    my_ssize_t arity;
-  };
-  struct PlatformProcColdData {
+  struct PlatformProcMetadata {
     IntStr name;
+    my_ssize_t arity;
     std::string docstring;
     std::vector<IntStr> args;
+
+    PlatformProcMetadata(IntStr name, my_ssize_t arity, std::string docstring, std::vector<IntStr> args)
+    : name(name), arity(arity), docstring(std::move(docstring)), args(std::move(args)) 
+    {}
   };
 
   class PlatformProcTable {
@@ -47,8 +48,8 @@ namespace ss {
     inline static size_t const INIT_CAPACITY = 512;
     
   private:
-    std::vector<PlatformProcColdData> m_cold_table;
-    std::vector<PlatformProcHotData> m_hot_table;
+    std::vector<PlatformProcCb> m_cb_table;
+    std::vector<PlatformProcMetadata> m_metadata_table;
     UnstableHashMap<IntStr, PlatformProcID> m_id_symtab;
     
   public:
@@ -63,7 +64,7 @@ namespace ss {
     );
   public:
     PlatformProcID lookup(IntStr proc_name) { return m_id_symtab[proc_name]; }
-    PlatformProcHotData const& hot(PlatformProcID proc_id) const { return m_hot_table[proc_id]; }
-    PlatformProcColdData const& cold(PlatformProcID proc_id) const { return m_cold_table[proc_id]; }
+    PlatformProcCb const& cb(PlatformProcID proc_id) const { return m_cb_table[proc_id]; }
+    PlatformProcMetadata const& metadata(PlatformProcID proc_id) const { return m_metadata_table[proc_id]; }
   };
 }

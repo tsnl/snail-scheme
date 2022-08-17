@@ -21,7 +21,7 @@ namespace ss {
         m_gdef_table.reserve(expected_num_defs);
         m_gdef_id_symtab.reserve(expected_num_defs);
     }
-    void VCode::append_subroutine(std::string const& file_name, VSubr&& script) {
+    void VCode::enqueue_main_subr(std::string const& file_name, VSubr&& script) {
         assert(script.line_code_objs.size() == script.line_programs.size());
 
         bool is_empty = true;
@@ -41,15 +41,16 @@ namespace ss {
     {}
     GDefID VCode::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
         GDefID new_gdef_id = m_gdef_table.size();
-        m_gdef_table.emplace_back(name, code, init, docstring);
+        Definition gdef{{}, name, code, init, docstring};
+        m_gdef_table.push_back(gdef);
         m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
         return new_gdef_id;
     }
-    GDef const& VCode::lookup_gdef(GDefID gdef_id) const {
+    Definition const& VCode::lookup_gdef(GDefID gdef_id) const {
         assert(gdef_id < m_gdef_table.size());
         return m_gdef_table[gdef_id];
     }
-    GDef const* VCode::try_lookup_gdef_by_name(IntStr name) const {
+    Definition const* VCode::try_lookup_gdef_by_name(IntStr name) const {
         auto it = m_gdef_id_symtab.find(name);
         if (it == m_gdef_id_symtab.cend()) {
             return nullptr;

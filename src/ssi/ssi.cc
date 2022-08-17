@@ -132,7 +132,7 @@ namespace ss {
             ss::VCode* code = compiler.code();
             try {
                 VSubr subr = compiler.compile_subr(file_path, std::move(line_code_obj_array));
-                code->append_subroutine(file_path, std::move(subr));
+                code->enqueue_main_subr(file_path, std::move(subr));
             } catch (SsiError const& ssi_error) {
                 return;
             }

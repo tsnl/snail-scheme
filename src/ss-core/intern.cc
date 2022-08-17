@@ -6,6 +6,7 @@ namespace ss {
 
     static std::map<std::string, IntStr> s_intern_map;
     static std::vector<std::string>      s_string_map;
+    static IdCache* s_id_cache = nullptr;
 
     IntStr intern(std::string s) {
         IntStr new_int_str = s_string_map.size();
@@ -22,6 +23,27 @@ namespace ss {
 
     std::string const& interned_string(IntStr int_str) {
         return s_string_map[int_str];
+    }
+
+    IdCache const& g_id_cache() {
+        if (s_id_cache == nullptr) {
+            IdCache init {
+                .quote = intern("quote"),
+                .lambda = intern("lambda"),
+                .if_ = intern("if"),
+                .set = intern("set!"),
+                .call_cc = intern("call/cc"),
+                .define = intern("define"),
+                .p_invoke = intern("p/invoke"),
+                .begin = intern("begin"),
+                .define_syntax = intern("define-syntax"),
+                .ellipses = intern("..."),
+                .underscore = intern("_"),
+                .reference = intern("reference")
+            };
+            s_id_cache = new IdCache(init);
+        }
+        return *s_id_cache;
     }
 
 }   // namespace ss

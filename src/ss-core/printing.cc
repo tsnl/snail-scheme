@@ -104,7 +104,7 @@ namespace ss {
                 out << "(syntax "
                     << " #:data '" << syntax_obj->data()
                     << " #:floc " << "\"" << syntax_obj->loc().as_text() << "\""
-                    << " #:env " << syntax_obj->env() << ")";
+                    << ")";
             } break;
         }
     }

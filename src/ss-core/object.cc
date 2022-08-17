@@ -247,20 +247,31 @@ namespace ss {
         assert(pair_data.is_pair());
         auto p = static_cast<PairObject*>(pair_data.as_ptr());
             
-        assert(p->car().is_syntax());
-        auto new_car = static_cast<SyntaxObject*>(p->car().as_ptr())->to_datum(gc_tfe);
-        
-        auto new_cdr = OBJECT::null;
-        if (p->cdr().is_syntax()) {
-            new_cdr = static_cast<SyntaxObject*>(p->cdr().as_ptr())->to_datum(gc_tfe);
-        } else if (p->cdr().is_pair()) {
-            new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
-        } else {
-            assert(p->cdr().is_atom());
-            new_cdr = p->cdr();
+        if (p->car().is_syntax()) {
+            auto new_car = static_cast<SyntaxObject*>(p->car().as_ptr())->to_datum(gc_tfe);
+            auto new_cdr = OBJECT::null;
+            if (p->cdr().is_syntax()) {
+                new_cdr = static_cast<SyntaxObject*>(p->cdr().as_ptr())->to_datum(gc_tfe);
+            } else if (p->cdr().is_pair()) {
+                new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
+            } else {
+                assert(p->cdr().is_atom());
+                new_cdr = p->cdr();
+            }
+            return cons(gc_tfe, new_car, new_cdr);
         }
-
-        return cons(gc_tfe, new_car, new_cdr);
+        if (p->car().is_interned_symbol()) {
+            auto sym = p->car().as_interned_symbol();
+            if (sym == g_id_cache().reference) {
+                return pair_data;
+            }
+        }
+        
+        // error:
+        {
+            error("Malformed syntax object: expected (car pair) to be syntax OR symbol (for unwritable ref-*)");
+            throw SsiError();
+        }
     }
     OBJECT SyntaxObject::vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data) {
         assert(vec_data.is_vector());

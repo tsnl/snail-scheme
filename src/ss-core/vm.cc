@@ -417,7 +417,7 @@ namespace ss {
         return &vm->jit_compiler();
     }
 
-    OBJECT vm_interp_subr_1shot(VirtualMachine* vm, OBJECT line_code_obj) {
+    OBJECT vm_interp_expr(VirtualMachine* vm, OBJECT line_code_obj) {
         VSubr subr = vm->jit_compiler().compile_expr("subr-1shot", line_code_obj);
         return vm->sync_execute_subr<false>(subr);
     }

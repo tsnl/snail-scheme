@@ -340,20 +340,17 @@ namespace ss {
     private:
         OBJECT m_data;
         FLoc m_loc;
-        OBJECT m_env;
         
     public:
-        inline SyntaxObject(OBJECT data, FLoc loc, OBJECT env = OBJECT::make_boolean(false))
+        inline SyntaxObject(OBJECT data, FLoc loc)
         :   BaseBoxedObject(GranularObjectType::Syntax),
             m_data(data),
-            m_loc(loc),
-            m_env(env)
+            m_loc(loc)
         {}
     
     public:
         [[nodiscard]] inline OBJECT data() const { return m_data; }
         [[nodiscard]] inline FLoc loc() const { return m_loc; }
-        [[nodiscard]] inline OBJECT env() const { return m_env; }
 
     public:
         OBJECT to_datum(GcThreadFrontEnd* gc_tfe) const;

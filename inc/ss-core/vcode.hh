@@ -6,7 +6,7 @@
 
 #include "ss-core/object.hh"
 #include "ss-core/common.hh"
-#include "ss-core/gdef.hh"
+#include "ss-core/defn.hh"
 #include "ss-core/pinvoke.hh"
 
 ///
@@ -128,7 +128,7 @@ namespace ss {
     private:
         std::vector<VmExp> m_exps;
         std::vector<VSubr> m_subrs;
-        std::vector<GDef> m_gdef_table;
+        std::vector<Definition> m_gdef_table;
         UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
         std::vector<my_ssize_t> m_platform_proc_arity_table;
         std::vector<PlatformProcCb> m_platform_proc_cb_table;
@@ -140,14 +140,15 @@ namespace ss {
         explicit VCode(VCode&& other) noexcept;
     
     // Appending subroutine: these are run in the order in which they are added.
-    void append_subroutine(std::string const& file_name, VSubr&& subr);
+    public:
+        void enqueue_main_subr(std::string const& file_name, VSubr&& subr);
     
     // Core getters and setters:
     public:
         std::vector<VmExp>& exps() { return m_exps; };
         std::vector<VSubr>& subrs() { return m_subrs; };
         VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
-        std::vector<GDef>& gdef_table() { return m_gdef_table; };
+        std::vector<Definition>& gdef_table() { return m_gdef_table; };
         UnstableHashMap<IntStr, GDefID>& gdef_id_symtab() { return m_gdef_id_symtab; }
 
     // creating VM expressions:
@@ -179,8 +180,8 @@ namespace ss {
     // Globals:
     public:
         GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
-        GDef const& lookup_gdef(GDefID gdef_id) const;
-        GDef const* try_lookup_gdef_by_name(IntStr name) const;
+        Definition const& lookup_gdef(GDefID gdef_id) const;
+        Definition const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_gdef_table.size(); }
 
     // Platform procedures:

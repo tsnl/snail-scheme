@@ -51,7 +51,7 @@ namespace ss {
     Compiler* vm_compiler(VirtualMachine* vm);
 
     // interp interface:
-    OBJECT vm_interp_subr_1shot(VirtualMachine* vm, OBJECT line_code_obj);
+    OBJECT vm_interp_expr(VirtualMachine* vm, OBJECT line_code_obj);
     OBJECT vm_interp_subr(VirtualMachine* vm, std::vector<OBJECT> line_code_objs, bool print_each_line);
 
     // sync_execute_vm uses std::this_thread to begin the VM execution,

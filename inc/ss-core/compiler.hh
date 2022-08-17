@@ -8,7 +8,7 @@
 #include "ss-core/intern.hh"
 #include "ss-core/gc.hh"
 #include "ss-core/pinvoke.hh"
-#include "ss-core/gdef.hh"
+#include "ss-core/defn.hh"
 #include "ss-core/vcode.hh"
 #include "ss-core/analyst.hh"
 #include "ss-core/expander.hh"
@@ -48,8 +48,8 @@ namespace ss {
     // Globals:
     public:
         GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
-        GDef const& lookup_gdef(GDefID gdef_id) const;
-        GDef const* try_lookup_gdef_by_name(IntStr name) const;
+        Definition const& lookup_gdef(GDefID gdef_id) const;
+        Definition const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_code->count_globals(); }
         void initialize_platform_globals(std::vector<OBJECT>& global_vals);
 

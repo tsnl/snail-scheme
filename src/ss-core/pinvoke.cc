@@ -13,19 +13,18 @@ namespace ss {
         throw SsiError();
       }
       
-      if (m_hot_table.size() != m_cold_table.size()) {
+      if (m_cb_table.size() != m_metadata_table.size()) {
         error("Corrupt PlatformProcTable; expected hot and cold tables to be same length");
         throw SsiError();
       }
-      auto new_id = m_hot_table.size();
+      auto new_id = m_cb_table.size();
       
-      m_hot_table.emplace_back(
-        std::move(cb), 
-        is_variadic ? -1 : static_cast<my_ssize_t>(arg_names.size())
-      );
-      m_cold_table.emplace_back(
+      m_cb_table.emplace_back(std::move(cb));
+      m_metadata_table.emplace_back(
         proc_name, 
-        std::move(docstring), std::move(arg_names)
+        is_variadic ? -1 : static_cast<my_ssize_t>(arg_names.size()),
+        std::move(docstring), 
+        std::move(arg_names)
       );
       
       m_id_symtab[proc_name] = new_id;
