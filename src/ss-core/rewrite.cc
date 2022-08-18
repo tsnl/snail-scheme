@@ -13,6 +13,8 @@
 //   Each args element is an ldef-id integer wrapped in a SyntaxObject; we replace ID by int.
 // 1 Similarly, 'define' is replaced 
 //    (define ,rel-var-scope #,def-id #,scoped-initializer-stx)
+// 1 Similarly, 'p/invoke' is replaced
+//    (p/invoke #,pproc-id #,args ...)
 // 2 Macros are expanded recursively and completely, line-by-line.
 //   This means we will not proceed to line N+1 until line N is fully expanded.
 // 3 As an optimization, we rewrite
@@ -199,11 +201,11 @@ namespace ss {
     OBJECT scope_unwrapped_list_syntax_data_for_lambda(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_if(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_set(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT expr_stx_data);
     OBJECT scope_unwrapped_list_syntax_data_for_define(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_begin(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT expr_stx_data);
   private:
     bool in_global_scope() const { return m_closure_scope_stack.empty(); }
   };
@@ -454,15 +456,15 @@ namespace ss {
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_if(FLoc loc, OBJECT head, OBJECT tail) {
     auto args = extract_args<3>(tail);
-    auto cond = args[0];
-    auto then = args[1];
-    auto else_ = args[2];
+    auto cond_stx = args[0];
+    auto then_stx = args[1];
+    auto else_stx = args[2];
     return list(
       &m_gc_tfe,
       head,   // if, but a syntax object
-      scope_expr_syntax(cond),
-      scope_expr_syntax(then),
-      scope_expr_syntax(else_)
+      scope_expr_syntax(cond_stx),
+      scope_expr_syntax(then_stx),
+      scope_expr_syntax(else_stx)
     );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_set(FLoc loc, OBJECT head, OBJECT tail) {
@@ -495,9 +497,9 @@ namespace ss {
       scope_expr_syntax(init_obj_stx)
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT expr_stx_data) {
     // don't do anything!
-    return cons(&m_gc_tfe, head, tail);
+    return expr_stx_data;
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_define(FLoc loc, OBJECT head, OBJECT tail) {
     auto args = extract_args<2>(tail);
@@ -535,32 +537,89 @@ namespace ss {
     );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail) {
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_p_invoke");
-    throw SsiError();
+    auto args = extract_args<1>(tail, true);
+    auto proc_name_obj_stx = args[0];
+    auto proc_name_obj_stx_p = static_cast<SyntaxObject*>(proc_name_obj_stx.as_ptr());
+    assert(proc_name_obj_stx.is_syntax());
+    auto proc_name_obj = proc_name_obj_stx_p->data();
+    
+    if (!proc_name_obj.is_interned_symbol()) {
+      std::stringstream s;
+      s << "p/invoke: expected first arg to be name symbol, got: " 
+        << proc_name_obj_stx_p->to_datum(&m_gc_tfe) << std::endl
+        << "see: " << loc.as_text();
+      error(s.str());
+      throw SsiError();
+    }
+
+    IntStr proc_name = proc_name_obj.as_interned_symbol();
+    auto opt_pproc_id = m_pproc_tab.lookup(proc_name);
+    if (!opt_pproc_id.has_value()) {
+      std::stringstream s;
+      s << "p/invoke: unbound platform procedure referenced: " 
+        << proc_name_obj << std::endl
+        << "see: " << loc.as_text();
+      error(s.str());
+      throw SsiError();
+    }
+    PlatformProcID pproc_id = opt_pproc_id.value();
+    auto pproc_id_obj = OBJECT::make_integer(pproc_id);
+
+    return list(&m_gc_tfe,
+      head,   // p/invoke syntax
+      OBJECT::make_syntax(&m_gc_tfe, pproc_id_obj, proc_name_obj_stx_p->loc())
+    );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_begin(FLoc loc, OBJECT head, OBJECT tail) {
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_begin");
-    throw SsiError();
+    bool is_global = in_global_scope();
+
+    if (!tail.is_pair()) {
+      std::stringstream s;
+      s << "begin: expected at least 1 expression to evaluate, got 0 OR improper list" << std::endl
+        << "see: " << loc.as_text();
+      throw SsiError();
+    }
+
+    // if (begin ...) in top-level scope (i.e. not under a closure), then definitions
+    // apply to the global scope, otherwise local to a scope unique to this 'begin'
+    OBJECT rewritten_elements = OBJECT::null;
+    if (!is_global) { push_scope(); }
+    {
+      for (OBJECT rem = tail; !rem.is_null(); rem = cdr(tail)) {
+        OBJECT old_stx_obj = car(rem);
+        OBJECT new_stx_obj = scope_expr_syntax(old_stx_obj);
+        rewritten_elements = cons(&m_gc_tfe, new_stx_obj, rewritten_elements);
+      }
+    }
+    if (!is_global) { pop_scope(); }
+
+    return cons(&m_gc_tfe, head, rewritten_elements);
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT head, OBJECT tail) {
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_apply");
-    throw SsiError();
+  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT expr_data) {
+    OBJECT res_data = OBJECT::null;
+    for (OBJECT rem = expr_data; !rem.is_null(); rem = cdr(rem)) {
+      OBJECT old_elem_stx = car(rem);
+      assert(old_elem_stx.is_syntax());
+      OBJECT new_elem_stx = scope_expr_syntax(old_elem_stx);
+      res_data = cons(&m_gc_tfe, new_elem_stx, res_data);
+    }
+    return res_data;
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data(FLoc loc, OBJECT expr_stx_data) {
-    auto obj = static_cast<PairObject*>(expr_stx_data.as_ptr());
+    auto expr_stx_data_p = static_cast<PairObject*>(expr_stx_data.as_ptr());
 
-    if (!obj->car().is_syntax()) {
+    if (!expr_stx_data_p->car().is_syntax()) {
       // synthetic form
-      assert(obj->car().is_interned_symbol());
-      if (obj->car().as_interned_symbol() == g_id_cache().reference) {
+      assert(expr_stx_data_p->car().is_interned_symbol());
+      if (expr_stx_data_p->car().as_interned_symbol() == g_id_cache().reference) {
         return expr_stx_data;
       }
       error("compiler-error: unknown synthetic syntax atom");
       throw SsiError();
     }
 
-    OBJECT head_syntax = obj->car();
-    OBJECT tail_syntax = obj->cdr();
+    OBJECT head_syntax = expr_stx_data_p->car();
+    OBJECT tail_syntax = expr_stx_data_p->cdr();
     
     assert(tail_syntax.is_list());
 
@@ -590,7 +649,7 @@ namespace ss {
 
       // call/cc
       if (keyword_symbol_id == g_id_cache().call_cc) {
-        return scope_unwrapped_list_syntax_data_for_call_cc(loc, head, tail);
+        return scope_unwrapped_list_syntax_data_for_call_cc(loc, expr_stx_data);
       }
 
       // define
@@ -616,7 +675,7 @@ namespace ss {
       // fallthrough
     }
 
-    return scope_unwrapped_list_syntax_data_for_apply(loc, head, tail);
+    return scope_unwrapped_list_syntax_data_for_apply(loc, expr_stx_data);
   }
 }
 
@@ -628,11 +687,11 @@ namespace ss {
   OBJECT macroexpand_syntax_impl(OBJECT expr_stx) {
     OBJECT env = OBJECT::null;
     
-    // TODO: scope this expression, excluding templates of syntax-case.
+    // scope this expression, excluding templates of syntax-case.
     // If macro applications are detected, they are expanded fully before 
     // scoping continues.
     // Thus, we can use the same pass to perform scoping, full macro expansion.
-
+    
     // for each top-level statement, first expand fully using bound transformers,
     // then try binding a new transformer if needed.
     // - fully expand => recursively expand upto fixed point

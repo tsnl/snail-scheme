@@ -1,6 +1,14 @@
 #include "ss-core/pinvoke.hh"
 
 namespace ss {
+    std::optional<PlatformProcID> PlatformProcTable::lookup(IntStr proc_name) {
+      auto it = m_id_symtab.find(proc_name);
+      if (it != m_id_symtab.end()) {
+        return {it->second};
+      } else {
+        return {};
+      }
+    }
     PlatformProcID PlatformProcTable::define(
       IntStr proc_name, 
       std::vector<IntStr> arg_names,

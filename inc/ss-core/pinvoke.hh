@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 
 #include "ss-core/vthread.hh"
 
@@ -63,7 +64,7 @@ namespace ss {
       std::string docstring, bool is_variadic
     );
   public:
-    PlatformProcID lookup(IntStr proc_name) { return m_id_symtab[proc_name]; }
+    std::optional<PlatformProcID> lookup(IntStr proc_name);
     PlatformProcCb const& cb(PlatformProcID proc_id) const { return m_cb_table[proc_id]; }
     PlatformProcMetadata const& metadata(PlatformProcID proc_id) const { return m_metadata_table[proc_id]; }
   };
