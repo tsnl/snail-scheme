@@ -43,6 +43,7 @@ namespace ss {
                 .local = intern("local"),
                 .free = intern("free"),
                 .global = intern("global"),
+                .mutation = intern("mutation")
             };
             s_id_cache = new IdCache(init);
         }

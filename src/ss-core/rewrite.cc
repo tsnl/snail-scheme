@@ -3,12 +3,16 @@
 // It performs the following rewrites in this order:
 // 1 To resolve scoping, reference symbols are replaced by the list
 //   Treated as a pseudo-atom
-//    `(reference ,(any 'local 'free 'global) ,def-id)
+//    `(reference ,rel-var-scope ,def-id)
 // 1 Similarly, 'set!' is replaced by the pseudo-atom
-//    `(mutation ,(any 'local 'free 'global) ,def-id)
+//    `(mutation ,rel-var-scope ,def-id ,scoped-initializer-stx)
 // 1 To avoid forwarding scopes and recomputing frees, lambdas are rewritten as
 //   (lambda #'(args) '(bound-free-vars) #'body)
-//   Note that bound-free-vars is an ordered list, and are not syntax objects
+//   Note that bound-free-vars is an ordered list of pairs, and are not syntax objects
+//   Each bound-free-var element is a pair (ldef-id . use-is-mut) (cf Nonlocal)
+//   Each args element is an ldef-id integer wrapped in a SyntaxObject; we replace ID by int.
+// 1 Similarly, 'define' is replaced 
+//    (define ,rel-var-scope #,def-id #,scoped-initializer-stx)
 // 2 Macros are expanded recursively and completely, line-by-line.
 //   This means we will not proceed to line N+1 until line N is fully expanded.
 // 3 As an optimization, we rewrite
@@ -37,6 +41,19 @@
 // abbreviations:
 namespace ss {
   using GCTFE = GcThreadFrontEnd;
+}
+
+// RelVarScope as sym
+namespace ss {
+  IntStr rel_var_scope_to_sym(RelVarScope rel_var_scope) {
+    switch (rel_var_scope) {
+      case RelVarScope::Local: return g_id_cache().local;
+      case RelVarScope::Free: return g_id_cache().free;
+      case RelVarScope::Global: return g_id_cache().global;
+    }
+    error("Unknown rel_var_scope");
+    throw SsiError();
+  }
 }
 
 // OrderedSymbolSet: flat vector-based ordered sets
@@ -115,12 +132,17 @@ namespace ss {
 //
 
 namespace ss {
+  struct Nonlocal {
+    LDefID ldef_id;
+    bool use_is_mut;
+    Nonlocal(LDefID ldef_id, bool use_is_mut): ldef_id(ldef_id), use_is_mut(use_is_mut) {}
+  };
   struct Scope {
   public:
     OrderedSymbolSet locals;
     std::vector<LDefID> local_defs;
     OrderedSymbolSet inuse_nonlocals;
-    std::vector<LDefID> inuse_nonlocal_defs;
+    std::vector<Nonlocal> inuse_nonlocal_defs;
   public:
     Scope()
     : locals(),
@@ -144,27 +166,31 @@ namespace ss {
     GCTFE& m_gc_tfe;
     DefTable& m_def_tab; 
     PlatformProcTable& m_pproc_tab;
-    std::vector<Scope> m_scope_stack;
+    std::vector<Scope> m_closure_scope_stack;
   public:
     inline Scoper(GCTFE& gc_tfe, DefTable& gdef_tab, PlatformProcTable& pproc_tab);
+  
   public:
+    OBJECT scope_expr_syntax(OBJECT expr_stx);
+
+  private:
     // pushes a fresh scope containing the given symbols
     void push_scope();
-
     // returns a unique list of free variables referenced
-    std::vector<LDefID> pop_scope();
-
+    std::vector<Nonlocal> pop_scope();
     // defines a local variable in the current scope
     LDefID define_local(FLoc loc, IntStr name);
-    
+    // defines a global variable
+    GDefID define_global(FLoc loc, IntStr name);
+    // defines a local or global variable depending on the current scope stack.
+    // RelVarScope is either Local or Global, indicating where the symbol was defined.
+    std::pair<RelVarScope, size_t> define(FLoc loc, IntStr name); 
     // looks up a variable, returning the scope it was found in and an ID
     // - if local, then (RelVarScope::Local, LDefID)
     // - if nonlocal, then (RelVarScope::Free, LDefID) 
     // - if global, then (RelVarScope::Global, GDefID)
-    std::pair<RelVarScope, size_t> refer(OBJECT symbol);
+    std::pair<RelVarScope, size_t> refer(OBJECT symbol, bool is_mut = false);
 
-  public:
-    OBJECT scope_expr_syntax(OBJECT expr_stx);
   private:
     OBJECT scope_const_expr_syntax(OBJECT expr_stx);
     OBJECT scope_pair_expr_syntax(OBJECT expr_stx);
@@ -178,43 +204,72 @@ namespace ss {
     OBJECT scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_begin(FLoc loc, OBJECT head, OBJECT tail);
     OBJECT scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT head, OBJECT tail);
+  private:
+    bool in_global_scope() const { return m_closure_scope_stack.empty(); }
   };
   
   inline Scoper::Scoper(GCTFE& gc_tfe, DefTable& def_tab, PlatformProcTable& pproc_tab)
   : m_gc_tfe(gc_tfe),
     m_def_tab(def_tab),
     m_pproc_tab(pproc_tab),
-    m_scope_stack()
+    m_closure_scope_stack()
   {
-    m_scope_stack.reserve(256);
+    m_closure_scope_stack.reserve(256);
   }
   
   void Scoper::push_scope() {
-    m_scope_stack.emplace_back();
+    m_closure_scope_stack.emplace_back();
   }
-  std::vector<LDefID> Scoper::pop_scope() {
-    auto res = std::move(m_scope_stack.back().inuse_nonlocal_defs);
-    m_scope_stack.pop_back();
+  std::vector<Nonlocal> Scoper::pop_scope() {
+    auto res = std::move(m_closure_scope_stack.back().inuse_nonlocal_defs);
+    m_closure_scope_stack.pop_back();
     return res;
   }
 
   LDefID Scoper::define_local(FLoc loc, IntStr name) {
-    assert(!m_scope_stack.empty());
-    if (m_scope_stack.back().locals.contains(name)) {
+    assert(!m_closure_scope_stack.empty());
+    auto old_def = m_closure_scope_stack.back().locals.idx(name);
+    if (old_def.has_value()) {
       std::stringstream s;
       s << "Local variable re-defined in scope: " << interned_string(name) << std::endl
-        << "see: " << loc.as_text();
+        << "new: " << loc.as_text() << std::endl
+        << "old: " << m_def_tab.local(old_def.value()).loc().as_text();
       error(s.str());
       throw SsiError();
     } else {
       LDefID ldef_id = m_def_tab.define_local(loc, name);
-      m_scope_stack.back().locals.add(name);
-      m_scope_stack.back().local_defs.push_back(ldef_id);
+      m_closure_scope_stack.back().locals.add(name);
+      m_closure_scope_stack.back().local_defs.push_back(ldef_id);
       return ldef_id;
     }
   }
+  GDefID Scoper::define_global(FLoc loc, IntStr name) {
+    assert(m_closure_scope_stack.empty());
+    auto old_def = m_def_tab.lookup_global_id(name);
+    if (old_def.has_value()) {
+      std::stringstream s;
+      s << "Global variable re-defined: " << interned_string(name) << std::endl
+        << "new: " << loc.as_text() << std::endl
+        << "old: " << m_def_tab.global(old_def.value()).loc().as_text() << std::endl
+        << "HINT: to update an existing value, use 'set!' instead.";
+      error(s.str());
+      throw SsiError();
+    } else {
+      LDefID ldef_id = m_def_tab.define_local(loc, name);
+      m_closure_scope_stack.back().locals.add(name);
+      m_closure_scope_stack.back().local_defs.push_back(ldef_id);
+      return ldef_id;
+    }
+  }
+  std::pair<RelVarScope, size_t> Scoper::define(FLoc loc, IntStr name) {
+    if (in_global_scope()) {
+      return {RelVarScope::Global, define_global(loc, name)};
+    } else {
+      return {RelVarScope::Local, define_local(loc, name)};
+    }
+  }
   
-  inline std::pair<RelVarScope, size_t> Scoper::refer(OBJECT symbol) {
+  inline std::pair<RelVarScope, size_t> Scoper::refer(OBJECT symbol, bool is_mut) {
     // compile-time type-checks
     if (!symbol.is_interned_symbol()) {
       error("broken query symbol in refer: expected symbol");
@@ -222,7 +277,7 @@ namespace ss {
     }
     
     IntStr sym = symbol.as_interned_symbol();
-    Scope& top = m_scope_stack.back();
+    Scope& top = m_closure_scope_stack.back();
 
     // checking 'locals'
     {
@@ -238,24 +293,31 @@ namespace ss {
       auto opt_cached_idx = top.inuse_nonlocals.idx(sym);
       if (opt_cached_idx.has_value()) {
         auto cached_idx = opt_cached_idx.value();
-        LDefID ldef_id = top.inuse_nonlocal_defs[cached_idx];
+        auto& nonlocal = top.inuse_nonlocal_defs[cached_idx];
+        if (is_mut) {
+          nonlocal.use_is_mut |= true;
+        }
+        LDefID ldef_id = nonlocal.ldef_id;
         return {RelVarScope::Free, ldef_id};
       } else {
         // must check whole scope stack, and if found, must insert into 'inuse' table
         my_ssize_t found_idx = -1;
         LDefID found_ldef_id = static_cast<LDefID>(-1);
-        for (my_ssize_t i = m_scope_stack.size()-2; i >= 0; i--) {
-          auto opt_idx = m_scope_stack[i].locals.idx(sym);
+        bool found_ldef_is_mut = false;
+        for (my_ssize_t i = m_closure_scope_stack.size()-2; i >= 0; i--) {
+          auto opt_idx = m_closure_scope_stack[i].locals.idx(sym);
           if (opt_idx.has_value()) {
             found_idx = opt_idx.value();
-            found_ldef_id = m_scope_stack[i].inuse_nonlocal_defs[found_idx];
+            auto const& nonlocal = m_closure_scope_stack[i].inuse_nonlocal_defs[found_idx];
+            found_ldef_id = nonlocal.ldef_id;
+            found_ldef_is_mut = nonlocal.use_is_mut;
             break;
           }
         }
         if (found_idx >= 0) {
           // insert into 'inuse' table, then return
           top.inuse_nonlocals.add(sym);
-          top.inuse_nonlocal_defs.push_back(found_ldef_id);
+          top.inuse_nonlocal_defs.emplace_back(found_ldef_id, found_ldef_is_mut);
           return {RelVarScope::Free, found_ldef_id};
         }
       }
@@ -284,19 +346,10 @@ namespace ss {
     OBJECT data = expr_stx_p->data();
     if (data.is_interned_symbol()) {
       auto [rel_var_scope, def_id] = refer(data);
-      IntStr rel_var_scope_sym = [](RelVarScope rel_var_scope) -> IntStr {
-        switch (rel_var_scope) {
-          case RelVarScope::Local: return g_id_cache().local;
-          case RelVarScope::Free: return g_id_cache().free;
-          case RelVarScope::Global: return g_id_cache().global;
-        };
-        error("Unknown rel_var_scope");
-        throw SsiError();
-      }(rel_var_scope);
+      IntStr rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
       return OBJECT::make_syntax(
         &m_gc_tfe,
-        list(
-          &m_gc_tfe, 
+        list(&m_gc_tfe, 
           OBJECT::make_interned_symbol(g_id_cache().reference),
           OBJECT::make_interned_symbol(rel_var_scope_sym),
           OBJECT::make_integer(def_id)
@@ -347,6 +400,9 @@ namespace ss {
     OBJECT vars = vars_syntax_p->to_datum(&m_gc_tfe);
     check_vars_list_else_throw(vars);
 
+    std::vector<std::pair<LDefID, FLoc>> args_vec;
+    args_vec.reserve(10);
+    OBJECT rewritten_body_stx;
     push_scope();
     {
       for (OBJECT args = vars_syntax_d; !args.is_null(); args = cdr(args)) {
@@ -355,23 +411,45 @@ namespace ss {
         auto arg_p = static_cast<SyntaxObject*>(arg.as_ptr());
         OBJECT arg_name = arg_p->data();
         assert(arg_name.is_interned_symbol());
-        define_local(arg_p->loc(), arg_name.as_interned_symbol());
+        LDefID ldef_id = define_local(arg_p->loc(), arg_name.as_interned_symbol());
+        args_vec.push_back({ldef_id, arg_p->loc()});
       }
-      scope_expr_syntax(body_syntax);
+
+      // ensuring we scope the body while the formal argument scope is pushed
+      // - any 'define' gets added to this scope
+      // - any mutation gets registered in this scope
+      rewritten_body_stx = scope_expr_syntax(body_syntax);
     }
-    auto free_vars_vec = pop_scope();
-    OBJECT free_vars = OBJECT::null;
-    for (IntStr it: free_vars_vec) {
-      free_vars = cons(&m_gc_tfe, OBJECT::make_interned_symbol(it), free_vars);
+    auto nonlocals_vec = pop_scope();
+    
+    // assembling 'nonlocals' list:
+    OBJECT nonlocals = OBJECT::null;
+    for (Nonlocal const& nonlocal: nonlocals_vec) {
+      auto element = cons(   // (nonlocal-ldef-id . use-is-mut)
+        &m_gc_tfe,
+        OBJECT::make_interned_symbol(nonlocal.ldef_id), 
+        OBJECT::make_boolean(nonlocal.use_is_mut)
+      );
+      nonlocals = cons(&m_gc_tfe, element, nonlocals);
+    }
+
+    // assembling 'vars' list (args):
+    OBJECT res_args = OBJECT::null;
+    for (auto [ldef_id, loc]: args_vec) {
+      auto element = OBJECT::make_syntax(
+        &m_gc_tfe,
+        OBJECT::make_integer(ldef_id),
+        loc
+      );
+      res_args = cons(&m_gc_tfe, element, res_args);
     }
 
     // (lambda #'(formal-vars) '(bound-vars) #'body)
-    return list(
-      &m_gc_tfe, 
-      head,           // lambda, but a syntax object
-      vars_syntax,
-      free_vars,      // note: not syntax objects since synthetic
-      body_syntax
+    return list(&m_gc_tfe, 
+      head,               // lambda, but a syntax object
+      res_args,           // note: replaced ID in syntax object with an integer LDefID
+      nonlocals,          // note: not syntax objects since synthetic
+      rewritten_body_stx  // body after scoping, expanding
     );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_if(FLoc loc, OBJECT head, OBJECT tail) {
@@ -388,17 +466,73 @@ namespace ss {
     );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_set(FLoc loc, OBJECT head, OBJECT tail) {
-    // (mutation ,(any 'local 'free 'global) ,def-id)
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_set");
-    throw SsiError();
+    // (mutation ,rel-var-scope ,def-id)
+    auto args = extract_args<2>(tail);
+    auto name_obj_stx = args[0];
+    auto init_obj_stx = args[1];
+
+    assert(name_obj_stx.is_syntax());
+    assert(init_obj_stx.is_syntax());
+    auto name_obj = static_cast<SyntaxObject*>(name_obj_stx.as_ptr())->data();
+    auto init_obj = static_cast<SyntaxObject*>(init_obj_stx.as_ptr())->data();
+
+    if (!name_obj.is_interned_symbol()) {
+      std::stringstream ss;
+      ss << "set!: expected first argument to be a symbol, got: " << name_obj << std::endl;
+      ss << "see: " << loc.as_text();
+      error(ss.str());
+      throw SsiError();
+    }
+    IntStr name = name_obj.as_interned_symbol();
+    auto [rel_var_scope, def_id] = refer(name, true);
+    auto mutation_obj = OBJECT::make_interned_symbol(g_id_cache().mutation);
+    auto rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
+    auto rel_var_scope_sym_obj = OBJECT::make_interned_symbol(rel_var_scope_sym);
+    auto def_id_obj = OBJECT::make_integer(def_id);
+    return list(
+      &m_gc_tfe, 
+      mutation_obj, rel_var_scope_sym_obj, def_id_obj,
+      scope_expr_syntax(init_obj_stx)
+    );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT head, OBJECT tail) {
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_call_cc");
-    throw SsiError();
+    // don't do anything!
+    return cons(&m_gc_tfe, head, tail);
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_define(FLoc loc, OBJECT head, OBJECT tail) {
-    error("not-implemented: scope_unwrapped_list_syntax_data_for_define");
-    throw SsiError();
+    auto args = extract_args<2>(tail);
+    auto name_obj_stx = args[0];
+    auto init_obj_stx = args[1];
+
+    assert(name_obj_stx.is_syntax());
+    auto name_obj_stx_p = static_cast<SyntaxObject*>(name_obj_stx.as_ptr());
+    auto name_obj = name_obj_stx_p->data();
+    if (!name_obj.is_interned_symbol()) {
+      std::stringstream s;
+      s << "define: expected first arg to be name symbol, got: " 
+        << name_obj_stx_p->to_datum(&m_gc_tfe) << std::endl;
+      s << "see: " << loc.as_text();
+      error(s.str());
+      throw SsiError();
+    }
+
+    IntStr name = name_obj.as_interned_symbol();
+    auto [rel_var_scope, def_id] = define(loc, name);
+    auto def_id_obj = OBJECT::make_integer(def_id);
+    auto rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
+    auto rel_var_scope_sym_obj = OBJECT::make_interned_symbol(rel_var_scope_sym);
+    auto def_id_obj_stx = OBJECT::make_syntax(
+      &m_gc_tfe,
+      def_id_obj,
+      name_obj_stx_p->loc()
+    );
+
+    return list(&m_gc_tfe,
+      head,                                 // define
+      rel_var_scope_sym_obj,                // rel-var-scope
+      def_id_obj_stx,                       // stx replacing IntStr name with GDefID
+      scope_expr_syntax(init_obj_stx)       // initializer
+    );
   }
   OBJECT Scoper::scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail) {
     error("not-implemented: scope_unwrapped_list_syntax_data_for_p_invoke");

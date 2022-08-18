@@ -4,7 +4,11 @@
 
 namespace ss {
   
-  enum class RelVarScope { Local, Free, Global };
+  enum class RelVarScope { 
+    Local, 
+    Free, 
+    Global 
+  };
 
   OBJECT macroexpand_syntax(OBJECT expr_stx);
 

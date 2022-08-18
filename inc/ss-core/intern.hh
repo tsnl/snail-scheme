@@ -26,6 +26,7 @@ namespace ss {
         IntStr const local;
         IntStr const free;
         IntStr const global;
+        IntStr const mutation;
     };
     IdCache const& g_id_cache();
 
