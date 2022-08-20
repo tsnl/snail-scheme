@@ -31,13 +31,13 @@ namespace ss {
     return new_ldef_id;
   }
 
-  std::optional<GDefID> DefTable::lookup_global_id(IntStr name) { 
+  std::optional<GDefID> DefTable::lookup_global_id(IntStr name) const { 
     auto found_it = m_globals_id_symtab.find(name);
     if (found_it != m_globals_id_symtab.end()) {
       return {found_it->second};
     } else {
       std::optional<GDefID> res = {};
-      return {};
+      return res;
     }
   }
 }

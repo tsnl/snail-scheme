@@ -52,32 +52,41 @@ namespace ss {
         return is_ptr() && as_ptr()->kind() == GranularObjectType::Box;
     }
 
-    size_t OBJECT::as_raw() const { 
+    inline size_t OBJECT::as_raw() const { 
         return m_data.raw; 
     }
-    my_ssize_t OBJECT::as_signed_fixnum() const {
+    inline ssize_t OBJECT::as_signed_fixnum() const {
         assert(is_integer() && "expected fixnum object");
         return m_data.signed_fixnum.val;
     }
-    bool OBJECT::as_boolean() const {
+    inline bool OBJECT::as_boolean() const {
         assert(is_boolean() && "expected boolean object");
         return m_data.raw == s_boolean_t.as_raw();
     }
-    BaseBoxedObject* OBJECT::as_ptr() const {
+    inline BaseBoxedObject* OBJECT::as_ptr() const {
         assert(is_ptr() && "expected boxed object");
         return m_data.ptr;
     }
-    IntStr OBJECT::as_interned_symbol() const {
+    inline IntStr OBJECT::as_interned_symbol() const {
         assert(is_interned_symbol() && "expected interned symbol object");
         return m_data.interned_symbol.val;
     }
-    float OBJECT::as_float32() const {
+    inline float OBJECT::as_float32() const {
         assert(is_float32() && "expected float32 object");
         return m_data.f32.val;
     }
-    double OBJECT::as_float64() const {
+    inline double OBJECT::as_float64() const {
         assert(is_float64() && "expected float64 object");
         return static_cast<Float64Object*>(as_ptr())->value();
+    }
+    inline PairObject* OBJECT::as_pair_p() const { 
+        return static_cast<PairObject*>(as_ptr()); 
+    }
+    inline VectorObject* OBJECT::as_vector_p() const { 
+        return static_cast<VectorObject*>(as_ptr()); 
+    }
+    inline SyntaxObject* OBJECT::as_syntax_p() const { 
+        return static_cast<SyntaxObject*>(as_ptr()); 
     }
 
     inline double OBJECT::to_double() const {

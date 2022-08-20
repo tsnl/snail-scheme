@@ -23,7 +23,7 @@ namespace ss {
     //  - TODO: do we need to traverse this structure to perform GC? cf Ch4
     //
 
-    using VmExpID = my_ssize_t;
+    using VmExpID = ssize_t;
 
     enum class VmExpKind: VmExpID {
         Halt,
@@ -63,9 +63,9 @@ namespace ss {
         struct {} i_apply;
         struct { size_t n; } i_return;
         struct { VmExpID x; } i_indirect;                                   // see three-imp p.105
-        struct { my_ssize_t n; VmExpID x; } i_box;                          // see three-imp p.105
-        struct { my_ssize_t n; my_ssize_t m; VmExpID x; } i_shift;          // see three-imp p.111
-        struct { my_ssize_t n; size_t proc_id; VmExpID x; } i_pinvoke;
+        struct { ssize_t n; VmExpID x; } i_box;                          // see three-imp p.105
+        struct { ssize_t n; ssize_t m; VmExpID x; } i_shift;          // see three-imp p.111
+        struct { ssize_t n; size_t proc_id; VmExpID x; } i_pinvoke;
     };
     struct VmExp {
         VmExpKind kind;
@@ -128,12 +128,8 @@ namespace ss {
     private:
         std::vector<VmExp> m_exps;
         std::vector<VSubr> m_subrs;
-        std::vector<Definition> m_gdef_table;
-        UnstableHashMap<IntStr, GDefID> m_gdef_id_symtab;
-        std::vector<my_ssize_t> m_platform_proc_arity_table;
-        std::vector<PlatformProcCb> m_platform_proc_cb_table;
-        std::vector<std::string> m_platform_proc_docstring_table;
-        UnstableHashMap<IntStr, PlatformProcID> m_platform_proc_id_symtab;
+        DefTable m_def_tab;
+        PlatformProcTable m_pproc_tab;
 
     public:
         explicit VCode(size_t reserved_file_count = DEFAULT_RESERVED_FILE_COUNT);
@@ -148,8 +144,8 @@ namespace ss {
         std::vector<VmExp>& exps() { return m_exps; };
         std::vector<VSubr>& subrs() { return m_subrs; };
         VmExp& operator[] (VmExpID exp_id) { return m_exps[exp_id]; }
-        std::vector<Definition>& gdef_table() { return m_gdef_table; };
-        UnstableHashMap<IntStr, GDefID>& gdef_id_symtab() { return m_gdef_id_symtab; }
+        DefTable& def_tab() { return m_def_tab; }
+        PlatformProcTable& pproc_tab() { return m_pproc_tab; }
 
     // creating VM expressions:
     private:
@@ -169,29 +165,29 @@ namespace ss {
         VmExpID new_vmx_apply();
         VmExpID new_vmx_return(size_t n);
         VmExpID new_vmx_define(OBJECT var, VmExpID next);
-        VmExpID new_vmx_box(my_ssize_t n, VmExpID next);
+        VmExpID new_vmx_box(ssize_t n, VmExpID next);
         VmExpID new_vmx_indirect(VmExpID next);
         VmExpID new_vmx_assign_local(size_t n, VmExpID next);
         VmExpID new_vmx_assign_free(size_t n, VmExpID next);
         VmExpID new_vmx_assign_global(size_t gn, VmExpID next);
-        VmExpID new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x);
-        VmExpID new_vmx_pinvoke(my_ssize_t arg_count, size_t platform_proc_idx, VmExpID x);
+        VmExpID new_vmx_shift(ssize_t n, ssize_t m, VmExpID x);
+        VmExpID new_vmx_pinvoke(ssize_t arg_count, size_t platform_proc_idx, VmExpID x);
 
     // Globals:
     public:
-        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
-        Definition const& lookup_gdef(GDefID gdef_id) const;
+        GDefID define_global(FLoc loc, IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
+        Definition const& global(GDefID gdef_id) const;
         Definition const* try_lookup_gdef_by_name(IntStr name) const;
-        size_t count_globals() const { return m_gdef_table.size(); }
+        size_t count_globals() const { return m_def_tab.count_globals(); }
 
     // Platform procedures:
     public:
-        PlatformProcID define_platform_proc(IntStr platform_proc_name, size_t arity, PlatformProcCb callable_cb, std::string docstring, bool is_variadic);
+        PlatformProcID define_platform_proc(IntStr platform_proc_name, std::vector<IntStr> arg_names, PlatformProcCb callable_cb, std::string docstring, bool is_variadic);
         PlatformProcID lookup_platform_proc(IntStr platform_proc_name);
-        PlatformProcCb platform_proc_cb(PlatformProcID id) { return m_platform_proc_cb_table[id]; }
-        bool platform_proc_is_variadic(PlatformProcID id) { return platform_proc_arity(id) < 0; }
-        my_ssize_t platform_proc_arity(PlatformProcID id) { return m_platform_proc_arity_table[id]; }
-        size_t count_platform_procs() const { return m_platform_proc_cb_table.size(); }
+        PlatformProcCb platform_proc_cb(PlatformProcID id) { return m_pproc_tab.cb(id); }
+        bool platform_proc_is_variadic(PlatformProcID id) { return m_pproc_tab.metadata(id).arity < 0; }
+        ssize_t platform_proc_arity(PlatformProcID id) { return m_pproc_tab.metadata(id).arity; }
+        size_t count_platform_procs() const { return m_pproc_tab.size(); }
 
     // dump:
     public:

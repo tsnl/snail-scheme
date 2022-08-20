@@ -5,10 +5,10 @@
 namespace ss {
 
     void VThread::init() {
-        m_regs.init(&m_gc_tfe);
+        m_regs.init();
     }
 
-    void VmRegs::init(GcThreadFrontEnd* gc_tfe) {
+    void VmRegs::init() {
         a = OBJECT::null;
         // m_reg.x set by VCode loader.
         f = 0;

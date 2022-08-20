@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cassert>
 
+#include "ss-core/common.hh"
 #include "ss-core/printing.hh"
 #include "ss-core/gc.hh"
 
@@ -41,7 +42,7 @@ namespace ss {
         return OBJECT::make_ptr(boxed_object);
     }
     OBJECT OBJECT::make_string(GcThreadFrontEnd* gc_tfe, size_t byte_count, char* mv_bytes, bool collect_bytes) {
-        auto boxed_object = new (gc_tfe, string_sci) StringObject(byte_count, mv_bytes);
+        auto boxed_object = new (gc_tfe, string_sci) StringObject(byte_count, mv_bytes, collect_bytes);
         return OBJECT::make_ptr(boxed_object);
     }
     OBJECT OBJECT::make_vector(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT> raw) {
@@ -74,7 +75,7 @@ namespace ss {
         auto v2 = e2.to_double();
         return v1 == v2;
     }
-    bool is_eq(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
+    bool is_eq(OBJECT e1, OBJECT e2) {
         return e1.as_raw() == e2.as_raw();
     }
     bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
@@ -91,7 +92,7 @@ namespace ss {
                 case GranularObjectType::Boolean: 
                 case GranularObjectType::Fixnum:
                 {
-                    return is_eq(gc_tfe, e1, e2);
+                    return is_eq(e1, e2);
                 }
                 case GranularObjectType::Float32:
                 {
@@ -115,15 +116,15 @@ namespace ss {
                     return e1.as_float64() == e2.as_float64();
                 }
                 case GranularObjectType::Pair: {
-                    auto p1 = static_cast<PairObject*>(e1.as_ptr());
-                    auto p2 = static_cast<PairObject*>(e2.as_ptr());
+                    auto p1 = e1.as_pair_p();
+                    auto p2 = e2.as_pair_p();
                     return 
-                        is_eq(gc_tfe, p1->car(), p2->car()) &&
-                        is_eq(gc_tfe, p1->cdr(), p2->cdr());
+                        is_eq(p1->car(), p2->car()) &&
+                        is_eq(p1->cdr(), p2->cdr());
                 }
                 case GranularObjectType::Vector: {
-                    auto v1 = static_cast<VectorObject*>(e1.as_ptr());
-                    auto v2 = static_cast<VectorObject*>(e2.as_ptr());
+                    auto v1 = e1.as_vector_p();
+                    auto v2 = e2.as_vector_p();
                     return 
                         v1->count() == v2->count() &&
                         v1->array() == v2->array();
@@ -166,15 +167,15 @@ namespace ss {
                     );
                 }
                 case GranularObjectType::Pair: {
-                    auto p1 = static_cast<PairObject*>(e1.as_ptr());
-                    auto p2 = static_cast<PairObject*>(e2.as_ptr());
+                    auto p1 = e1.as_pair_p();
+                    auto p2 = e2.as_pair_p();
                     return 
                         is_equal(gc_tfe, p1->car(), p2->car()) &&
                         is_equal(gc_tfe, p1->cdr(), p2->cdr());
                 }
                 case GranularObjectType::Vector: {
-                    auto v1 = static_cast<VectorObject*>(e1.as_ptr());
-                    auto v2 = static_cast<VectorObject*>(e2.as_ptr());
+                    auto v1 = e1.as_vector_p();
+                    auto v2 = e2.as_vector_p();
                     
                     if (v1->count() == v2->count()) {
                         size_t count = v1->count();
@@ -208,9 +209,11 @@ namespace ss {
     //
 
     void* BaseBoxedObject::operator new(size_t allocation_size, void* placement_ptr) {
+        SUPPRESS_UNUSED_VARIABLE_WARNING(allocation_size);
         return placement_ptr;
     }
     void* BaseBoxedObject::operator new(size_t alloc_size, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
+        SUPPRESS_UNUSED_VARIABLE_WARNING(alloc_size);
         return reinterpret_cast<APtr>(gc_tfe->allocate_size_class(sci));
     }
     void BaseBoxedObject::operator delete(void* ptr, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
@@ -257,13 +260,13 @@ namespace ss {
     } 
     OBJECT SyntaxObject::pair_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT pair_data) {
         assert(pair_data.is_pair());
-        auto p = static_cast<PairObject*>(pair_data.as_ptr());
+        auto p = pair_data.as_pair_p();
             
         if (p->car().is_syntax()) {
-            auto new_car = static_cast<SyntaxObject*>(p->car().as_ptr())->to_datum(gc_tfe);
+            auto new_car = p->car().as_syntax_p()->to_datum(gc_tfe);
             auto new_cdr = OBJECT::null;
             if (p->cdr().is_syntax()) {
-                new_cdr = static_cast<SyntaxObject*>(p->cdr().as_ptr())->to_datum(gc_tfe);
+                new_cdr = p->cdr().as_syntax_p()->to_datum(gc_tfe);
             } else if (p->cdr().is_pair()) {
                 new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
             } else {
@@ -287,13 +290,13 @@ namespace ss {
     }
     OBJECT SyntaxObject::vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data) {
         assert(vec_data.is_vector());
-        auto p = static_cast<VectorObject*>(vec_data.as_ptr());
+        auto p = vec_data.as_vector_p();
 
         std::vector<OBJECT> res{p->size(), OBJECT::null};
-        for (size_t i = 0; i < p->size(); i++) {
+        for (ssize_t i = 0; i <p->size(); i++) {
             auto it = (*p)[i];
             assert(it.is_syntax());
-            res[i] = static_cast<SyntaxObject*>(it.as_ptr())->to_datum(gc_tfe);
+            res[i] = it.as_syntax_p()->to_datum(gc_tfe);
         }
         return OBJECT::make_ptr(
             new(gc_tfe->allocate_size_class(VectorObject::sci))
@@ -302,14 +305,14 @@ namespace ss {
     }
 
     //
-    // Vector
+    // List
     //
 
-    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT>& vec) {
+    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT> const& vec) {
         auto raw_mem = gc_tfe->allocate_bytes(sizeof(PairObject) * vec.size());
         auto mem = reinterpret_cast<PairObject*>(raw_mem);
         OBJECT lst = OBJECT::null;
-        for (my_ssize_t i = vec.size()-1; i >= 0; i--) {
+        for (ssize_t i = vec.size()-1; i >= 0; i--) {
             lst = new(mem+i) PairObject(vec[i], lst);
         }
         return lst;
@@ -324,9 +327,20 @@ namespace ss {
 #endif        
         return cpp_vector_to_list(
             gc_tfe, 
-            static_cast<VectorObject*>(vec.as_ptr())->as_cpp_vec()
+            vec.as_vector_p()->as_cpp_vec()
         );
     }
 
+    //
+    // Vector
+    //
+
+    std::vector<OBJECT> list_to_cpp_vector(OBJECT lst) {
+        std::vector<OBJECT> res;
+        for (OBJECT rem = lst; !rem.is_null(); rem = cdr(rem)) {
+            res.push_back(car(rem));
+        }
+        return res;
+    }
 
 }   // namespace ss

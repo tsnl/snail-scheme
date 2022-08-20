@@ -50,6 +50,10 @@ namespace ss {
     };
 
     class BaseBoxedObject;
+    class PairObject;
+    class VectorObject;
+    class SyntaxObject;
+    class ArrayObject;
 
     class OBJECT {
         // NOTE: 'nullptr' <=> 'null' for interop with C++
@@ -112,7 +116,7 @@ namespace ss {
             assert(m_data.ptr_unwrapped.tag == 0 && "Expected ptr to be a multiple of sizeof(void*)");
         }
     public:
-        inline constexpr static OBJECT make_integer(my_ssize_t val) {
+        inline constexpr static OBJECT make_integer(ssize_t val) {
             OBJECT res;
             res.m_data.signed_fixnum.tag = FIXNUM_TAG;
             res.m_data.signed_fixnum.val = val;
@@ -182,7 +186,7 @@ namespace ss {
         inline bool is_atom() const;
     public:
         inline size_t as_raw() const;
-        inline my_ssize_t as_signed_fixnum() const;
+        inline ssize_t as_signed_fixnum() const;
         inline bool as_boolean() const;
         inline BaseBoxedObject* as_ptr() const;
         inline IntStr as_interned_symbol() const;
@@ -190,6 +194,10 @@ namespace ss {
         inline double as_float64() const;
     public:
         inline double to_double() const;
+    public:
+        inline PairObject* as_pair_p() const;
+        inline VectorObject* as_vector_p() const;
+        inline SyntaxObject* as_syntax_p() const;
     public:
         Data64LittleEndian raw_data() const { return m_data; }
     public:
@@ -253,17 +261,19 @@ namespace ss {
     private:
         size_t m_count;
         char* m_bytes;
+        bool m_bytes_gc_collectable;
     public:
         StringObject()
         :   BaseBoxedObject(GranularObjectType::String),
             m_count(),
             m_bytes()
         {}
-        StringObject(size_t count, char* bytes)
+        StringObject(size_t count, char* bytes, bool collect_bytes)
         :   StringObject()
         {
             m_count = count;
             m_bytes = bytes;
+            m_bytes_gc_collectable = collect_bytes;
         }
     public:
         inline size_t count() const { return m_count; }
@@ -325,7 +335,7 @@ namespace ss {
         OBJECT& operator[] (size_t i) {
             return m_impl[i];
         }
-        my_ssize_t size() {
+        ssize_t size() {
             return m_impl.size();
         }
 
@@ -378,6 +388,12 @@ namespace ss {
     inline GranularObjectType obj_kind(OBJECT object);
     inline OBJECT car(OBJECT object);
     inline OBJECT cdr(OBJECT object);
+    inline OBJECT cadr(OBJECT object) { return car(cdr(object)); }
+    inline OBJECT cddr(OBJECT object) { return cdr(cdr(object)); }
+    inline OBJECT caddr(OBJECT object) { return car(cdr(cdr(object))); }
+    inline OBJECT cdddr(OBJECT object) { return cdr(cdr(cdr(object))); }
+    inline OBJECT cadddr(OBJECT object) { return car(cdr(cdr(cdr(object)))); }
+    inline OBJECT cddddr(OBJECT object) { return cdr(cdr(cdr(cdr(object)))); }
     inline void set_car(OBJECT pair, OBJECT a);
     inline void set_cdr(OBJECT pair, OBJECT d);
     inline void set_box(OBJECT box, OBJECT new_stored);
@@ -400,18 +416,19 @@ namespace ss {
     inline bool is_vector(OBJECT o);
     
     bool is_eqn(OBJECT e1, OBJECT e2);
-    bool is_eq(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
+    bool is_eq(OBJECT e1, OBJECT e2);
     bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
     bool is_equal(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2);
 
-    inline my_ssize_t list_length(OBJECT pair_list);
-    inline OBJECT list_member(GcThreadFrontEnd* gc_tfe, OBJECT x, OBJECT lst);
-    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT>& vec);
+    inline ssize_t list_length(OBJECT pair_list);
+    inline OBJECT list_member(OBJECT x, OBJECT lst);
+    OBJECT cpp_vector_to_list(GcThreadFrontEnd* gc_tfe, std::vector<OBJECT> const& vec);
     OBJECT vector_to_list(GcThreadFrontEnd* gc_tfe, OBJECT vec);
     
     inline OBJECT vector_length(OBJECT vec);
     inline OBJECT vector_ref(OBJECT vec, OBJECT index);
     inline void vector_set(OBJECT vec, OBJECT index, OBJECT v);
+    std::vector<OBJECT> list_to_cpp_vector(OBJECT lst);
 
     //
     // defs
@@ -419,6 +436,7 @@ namespace ss {
 
     template <typename... Objects>
     OBJECT list(GcThreadFrontEnd* gc_tfe) {
+        (void)gc_tfe;       // no-op marking usable
         return OBJECT::null;
     }
     template <typename... Objects>
@@ -472,7 +490,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        return static_cast<PairObject*>(object.as_ptr())->car();
+        return object.as_pair_p()->car();
     }
     inline OBJECT cdr(OBJECT object) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -481,7 +499,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        return static_cast<PairObject*>(object.as_ptr())->cdr();
+        return object.as_pair_p()->cdr();
     }
     inline void set_car(OBJECT pair, OBJECT a) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -490,7 +508,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        return static_cast<PairObject*>(pair.as_ptr())->set_car(a);
+        return pair.as_pair_p()->set_car(a);
     }
     inline void set_cdr(OBJECT pair, OBJECT d) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -499,7 +517,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        return static_cast<PairObject*>(pair.as_ptr())->set_cdr(d);
+        return pair.as_pair_p()->set_cdr(d);
     }
 
     inline OBJECT unbox(OBJECT box) {
@@ -571,8 +589,8 @@ namespace ss {
         return o.is_vector();
     }
 
-    inline my_ssize_t list_length(OBJECT pair_list) {
-        my_ssize_t var_ctr = 0;
+    inline ssize_t list_length(OBJECT pair_list) {
+        ssize_t var_ctr = 0;
         for (
             OBJECT rem_var_rib = pair_list;
             rem_var_rib.is_pair();
@@ -582,9 +600,9 @@ namespace ss {
         }
         return var_ctr;
     }
-    inline OBJECT list_member(GcThreadFrontEnd* gc_tfe, OBJECT x, OBJECT lst) {
+    inline OBJECT list_member(OBJECT x, OBJECT lst) {
         for (OBJECT rem = lst; rem.is_pair(); rem = cdr(rem)) {
-            if (is_eq(gc_tfe, car(rem), x)) {
+            if (is_eq(car(rem), x)) {
                 return rem;
             }
         }

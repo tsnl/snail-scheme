@@ -37,7 +37,7 @@ namespace ss {
                 if (locals.is_null()) {
                     break;
                 }
-                if (ss::is_eq(&m_gc_tfe, car(locals), symbol)) {
+                if (ss::is_eq(car(locals), symbol)) {
                     return {RelVarScope::Local, n};
                 }
                 // preparing for the next iteration:
@@ -53,7 +53,7 @@ namespace ss {
             size_t n = 0;
             
             while (!free.is_null()) {
-                if (ss::is_eq(&m_gc_tfe, car(free), symbol)) {
+                if (ss::is_eq(car(free), symbol)) {
                     return {RelVarScope::Free, n};
                 }
                 // preparing for the next iteration:
@@ -65,10 +65,9 @@ namespace ss {
         // checking globals
         {
             IntStr sym = symbol.as_interned_symbol();
-            auto& gdef_id_symtab = m_code->gdef_id_symtab();
-            auto it = gdef_id_symtab.find(sym);
-            if (it != gdef_id_symtab.end()) {
-                return {RelVarScope::Global, it->second};
+            auto it = m_code->def_tab().lookup_global_id(sym);
+            if (it.has_value()) {
+                return {RelVarScope::Global, it.value()};
             }
         }
         
@@ -94,7 +93,7 @@ namespace ss {
             // FIXME: (hacky): convert 'syntax' object into datum before compiling
             auto datum_code_object = code_object;
             if (code_object.is_syntax()) {
-                datum_code_object = static_cast<SyntaxObject*>(code_object.as_ptr())->to_datum(&m_gc_tfe);
+                datum_code_object = code_object.as_syntax_p()->to_datum(&m_gc_tfe);
             }
             auto program = compile_line(datum_code_object, default_env);
             line_programs.push_back(program);
@@ -118,7 +117,7 @@ namespace ss {
                 );
             }
             case GranularObjectType::Pair: {
-                return compile_list_exp(static_cast<PairObject*>(x.as_ptr()), next, e, s);
+                return compile_list_exp(x.as_pair_p(), next, e, s);
             }
             default: {
                 return m_code->new_vmx_constant(x, next);
@@ -137,18 +136,19 @@ namespace ss {
             // keyword first argument => may be builtin
             auto keyword_symbol_id = head.as_interned_symbol();
 
+            // quote
             if (keyword_symbol_id == g_id_cache().quote) {
-                // quote
                 auto quoted = extract_args<1>(tail)[0];
                 return m_code->new_vmx_constant(quoted, next);
             }
+            
+            // lambda
             else if (keyword_symbol_id == g_id_cache().lambda) {
-                // lambda
                 auto args = extract_args<2>(tail);
                 auto vars = args[0];
                 auto body = args[1];
                 
-                check_vars_list_else_throw(vars);
+                // check_vars_list_else_throw(std::move(loc), vars);
 
                 auto free = set_minus(find_free(body, vars), m_gdef_set);
                 auto sets = set_intersect(find_sets(body, vars), free);
@@ -169,8 +169,9 @@ namespace ss {
                     )
                 );
             }
+
+            // if
             else if (keyword_symbol_id == g_id_cache().if_) {
-                // if
                 auto args = extract_args<3>(tail);
                 auto cond_code_obj = args[0];
                 auto then_code_obj = args[1];
@@ -184,8 +185,9 @@ namespace ss {
                     e, s
                 );
             }
+
+            // set!
             else if (keyword_symbol_id == g_id_cache().set) {
-                // set!
                 auto args = extract_args<2>(tail);
                 auto var = args[0];
                 auto x = args[1];   // we set the variable to this object, 'set' in past-tense
@@ -208,8 +210,9 @@ namespace ss {
                     }
                 }
             }
+
+            // call/cc
             else if (keyword_symbol_id == g_id_cache().call_cc) {
-                // call/cc
                 // NOTE: procedure type check occurs in 'apply' later
                 // SEE: p. 97
 
@@ -217,7 +220,7 @@ namespace ss {
                 auto x = args[0];
                 
                 bool is_tail_call = is_tail_vmx(next);
-                my_ssize_t m; 
+                ssize_t m; 
                 if (is_tail_call) {
                     assert((*m_code)[next].kind == VmExpKind::Return);
                     m = (*m_code)[next].args.i_return.n;
@@ -243,8 +246,9 @@ namespace ss {
                     next
                 );
             } 
+
+            // define
             else if (keyword_symbol_id == g_id_cache().define) {
-                // define
                 auto args = extract_args<2>(tail);
                 auto structural_signature = args[0];
                 auto body = args[1];
@@ -265,8 +269,6 @@ namespace ss {
                     auto fn_name = car(structural_signature);
                     auto arg_vars = cdr(structural_signature);
                     
-                    check_vars_list_else_throw(arg_vars);
-
                     if (!fn_name.is_interned_symbol()) {
                         std::stringstream ss;
                         ss << "define: invalid function name: ";
@@ -284,7 +286,7 @@ namespace ss {
                 // - 'Define' instruction runs before 'Assign'
                 assert(name.is_interned_symbol());
                 IntStr name_sym = name.as_interned_symbol();
-                GDefID gdef_id = define_global(name_sym);
+                GDefID gdef_id = define_global({}, name_sym);
                 if (pattern_ok) {
                     return compile_exp(
                         body,
@@ -296,8 +298,9 @@ namespace ss {
                     throw SsiError();
                 }
             }
+
+            // p/invoke
             else if (keyword_symbol_id == g_id_cache().p_invoke) {
-                // p/invoke
                 auto proc_name = car(tail);
                 auto proc_args = cdr(tail);
             
@@ -307,14 +310,14 @@ namespace ss {
                 }
 
                 OBJECT rem_args = proc_args;
-                my_ssize_t arg_count = list_length(rem_args);
+                ssize_t arg_count = list_length(rem_args);
                 PlatformProcID platform_proc_idx = lookup_platform_proc(proc_name.as_interned_symbol());
                 VmExpID next_body = m_code->new_vmx_pinvoke(
                     arg_count, platform_proc_idx,
                     next
                 );
 
-                size_t expected_arg_count = m_code->platform_proc_arity(platform_proc_idx);
+                ssize_t expected_arg_count = m_code->platform_proc_arity(platform_proc_idx);
                 if (!m_code->platform_proc_is_variadic(platform_proc_idx)) {
                     if (arg_count != expected_arg_count) {
                         std::stringstream ss;
@@ -335,9 +338,9 @@ namespace ss {
                 }
                 return next_body;
             }
-            else if (keyword_symbol_id == g_id_cache().begin) {
-                // (begin expr ...+)
 
+            // (begin expr ...+)
+            else if (keyword_symbol_id == g_id_cache().begin) {
                 // ensuring at least one argument is provided:
                 if (tail.is_null()) {
                     error("begin: expected at least one expression form to evaluate, got 0.");
@@ -368,12 +371,12 @@ namespace ss {
             }
         }
 
-        // otherwise, handling a function call:
+        // otherwise, apply (since all macros expanded)
         //  NOTE: the 'car' expression could be a non-symbol, e.g. a lambda expression for an IIFE
         {
             // function call
             bool is_tail_call = is_tail_vmx(next);
-            my_ssize_t m;
+            ssize_t m;
             if (is_tail_call) {
                 assert((*m_code)[next].kind == VmExpKind::Return);
                 m = (*m_code)[next].args.i_return.n;
@@ -449,7 +452,6 @@ namespace ss {
         // NOTE: 'box' instructions are generated in reverse-order vs. in
         // three-imp, aligning with tail-position: indices used in 'box' 
         // instruction do not change: car(vars) indexed 0, ...
-        size_t n = 0;
         VmExpID x = next;
         for (size_t n = 0; !vars.is_null(); (++n, vars=cdr(vars))) {
             if (is_set_member(car(vars), sets)) {
@@ -458,20 +460,21 @@ namespace ss {
         }
         return x;
     }
-    GDefID Compiler::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
+    GDefID Compiler::define_global(FLoc loc, IntStr name, OBJECT code, OBJECT init, std::string docstring) {
         m_gdef_set = set_cons(OBJECT::make_interned_symbol(name), m_gdef_set);
-        return m_code->define_global(name, code, init, docstring);
+        return m_code->define_global(loc, name, code, init, docstring);
     }
     Definition const& Compiler::lookup_gdef(GDefID gdef_id) const {
-        return m_code->lookup_gdef(gdef_id);
+        return m_code->global(gdef_id);
     }
     Definition const* Compiler::try_lookup_gdef_by_name(IntStr name) const {
         return m_code->try_lookup_gdef_by_name(name);
     }
 
     void Compiler::initialize_platform_globals(std::vector<OBJECT>& global_vals) {
-        for (size_t i = 0; i < m_code->gdef_table().size(); i++) {
-            Definition const& gdef = m_code->gdef_table()[i];
+        for (size_t i = 0; i < m_code->count_globals(); i++) {
+            GDefID gdef_id = static_cast<GDefID>(i);
+            Definition const& gdef = m_code->def_tab().global(gdef_id);
             global_vals[i] = gdef.init();
         }
     }
@@ -481,12 +484,23 @@ namespace ss {
 
     PlatformProcID Compiler::define_platform_proc(
         IntStr platform_proc_name, 
-        size_t arity, 
+        std::vector<std::string> arg_names, 
         PlatformProcCb callable_cb, 
         std::string docstring, 
         bool is_variadic
     ) {
-        return m_code->define_platform_proc(platform_proc_name, arity, callable_cb, std::move(docstring), is_variadic);
+        std::vector<IntStr> rw_arg_names;
+        rw_arg_names.reserve(arg_names.size());
+        for (auto const& s: arg_names) {
+            rw_arg_names.push_back(intern(s));
+        }
+        return m_code->define_platform_proc(
+            platform_proc_name, 
+            std::move(rw_arg_names), 
+            callable_cb, 
+            std::move(docstring), 
+            is_variadic
+        );
     }
     PlatformProcID Compiler::lookup_platform_proc(IntStr name) {
         return m_code->lookup_platform_proc(name);
@@ -499,7 +513,7 @@ namespace ss {
         if (s.is_null()) {
             return false;
         }
-        if (is_eq(&m_gc_tfe, x, car(s))) {
+        if (is_eq(x, car(s))) {
             return true;
         }
         return is_set_member(x, cdr(s));
@@ -683,7 +697,6 @@ namespace ss {
                     if (head_name == g_id_cache().set) {
                         auto args = ss::extract_args<2>(tail);
                         auto var = args[0];
-                        auto x = args[1];
                         if (is_set_member(var, v)) {
                             return v;
                         } else {

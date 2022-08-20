@@ -45,7 +45,7 @@ namespace ss {
         Compiler m_jit_compiler;
         std::vector<OBJECT> m_global_vals;
     public:
-        explicit VirtualMachine(Gc* gc, size_t reserved_file_count, VirtualMachineStandardProcedureBinder binder);
+        explicit VirtualMachine(Gc* gc, VirtualMachineStandardProcedureBinder binder);
         ~VirtualMachine();
     
     // Source code loading + compilation:
@@ -63,23 +63,23 @@ namespace ss {
 
     // Interpreter environment setup:
     public:
-        OBJECT closure(VmExpID body, my_ssize_t vars_count, my_ssize_t s);
-        my_ssize_t find_link(my_ssize_t n, my_ssize_t e);
-        my_ssize_t find_link(my_ssize_t n, OBJECT e);
-        OBJECT continuation(my_ssize_t s);
+        OBJECT closure(VmExpID body, ssize_t vars_count, ssize_t s);
+        ssize_t find_link(ssize_t n, ssize_t e);
+        ssize_t find_link(ssize_t n, OBJECT e);
+        OBJECT continuation(ssize_t s);
     public:
-        OBJECT save_stack(my_ssize_t s);
-        my_ssize_t restore_stack(OBJECT vector);
-        my_ssize_t push(OBJECT v, my_ssize_t s) { return m_thread.stack().push(v, s); }
-        my_ssize_t push(my_ssize_t v, my_ssize_t s) { return push(OBJECT::make_integer(v), s); }
-        OBJECT index(my_ssize_t s, my_ssize_t i) { return m_thread.stack().index(s, i); }
-        OBJECT index(OBJECT s, my_ssize_t i) { return index(s.as_signed_fixnum(), i); }
-        void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) { m_thread.stack().index_set(s, i, v); }
+        OBJECT save_stack(ssize_t s);
+        ssize_t restore_stack(OBJECT vector);
+        ssize_t push(OBJECT v, ssize_t s) { return m_thread.stack().push(v, s); }
+        ssize_t push(ssize_t v, ssize_t s) { return push(OBJECT::make_integer(v), s); }
+        OBJECT index(ssize_t s, ssize_t i) { return m_thread.stack().index(s, i); }
+        OBJECT index(OBJECT s, ssize_t i) { return index(s.as_signed_fixnum(), i); }
+        void index_set(ssize_t s, ssize_t i, OBJECT v) { m_thread.stack().index_set(s, i, v); }
     public:
         VmExpID closure_body(OBJECT c);
-        OBJECT index_closure(OBJECT c, my_ssize_t n);
+        OBJECT index_closure(OBJECT c, ssize_t n);
     public: // for tail-call optimizations, three-imp 4.6.2 p.111
-        my_ssize_t shift_args(my_ssize_t n, my_ssize_t m, my_ssize_t s);
+        ssize_t shift_args(ssize_t n, ssize_t m, ssize_t s);
 
     // Properties:
     public:
@@ -94,7 +94,6 @@ namespace ss {
 
     VirtualMachine::VirtualMachine(
         Gc* gc,
-        size_t file_count, 
         VirtualMachineStandardProcedureBinder binder
     ):  m_thread(gc),
         m_jit_compiler(*m_thread.gc_tfe())
@@ -322,24 +321,24 @@ namespace ss {
         return m_thread.regs().a;
     }
 
-    OBJECT VirtualMachine::closure(VmExpID body, my_ssize_t n, my_ssize_t s) {
+    OBJECT VirtualMachine::closure(VmExpID body, ssize_t n, ssize_t s) {
         std::vector<OBJECT> items;
         items.resize(1 + n);
         items[0] = OBJECT::make_integer(body);
-        for (my_ssize_t i = 0; i < n; i++) {
+        for (ssize_t i = 0; i < n; i++) {
             items[1+i] = index(s, i);
         }
         return OBJECT::make_ptr(new(&gc_tfe(), VectorObject::sci) VectorObject(std::move(items)));
     }
 
-    my_ssize_t VirtualMachine::find_link(my_ssize_t n, my_ssize_t e) {
+    ssize_t VirtualMachine::find_link(ssize_t n, ssize_t e) {
         return (n == 0) ? e : find_link(n - 1, index(e, -1));
     }
-    my_ssize_t VirtualMachine::find_link(my_ssize_t n, OBJECT e) {
+    ssize_t VirtualMachine::find_link(ssize_t n, OBJECT e) {
         return find_link(n, e.as_signed_fixnum());
     }
 
-    OBJECT VirtualMachine::continuation(my_ssize_t s) {
+    OBJECT VirtualMachine::continuation(ssize_t s) {
         // cf p.86 of three-imp
         return closure(
             code().new_vmx_refer_local(
@@ -351,11 +350,11 @@ namespace ss {
         );
         throw SsiError();
     }
-    OBJECT VirtualMachine::save_stack(my_ssize_t s) {
+    OBJECT VirtualMachine::save_stack(ssize_t s) {
         std::vector<OBJECT> vs{m_thread.stack().begin(), m_thread.stack().begin() + s};
         return OBJECT::make_ptr(new(&gc_tfe(), VectorObject::sci) VectorObject(std::move(vs)));
     }
-    my_ssize_t VirtualMachine::restore_stack(OBJECT vector) {
+    ssize_t VirtualMachine::restore_stack(OBJECT vector) {
         assert(vector.is_vector() && "Expected stack to restore to be a 'vector' object");
         std::vector<OBJECT>& cpp_vector = dynamic_cast<VectorObject*>(vector.as_ptr())->as_cpp_vec();
         assert(cpp_vector.size() <= m_thread.stack().capacity() && "Cannot restore a stack larger than VM stack's capacity.");
@@ -364,15 +363,15 @@ namespace ss {
     }
 
     VmExpID VirtualMachine::closure_body(OBJECT c) {
-        return static_cast<VectorObject*>(c.as_ptr())->operator[](0).as_signed_fixnum();
+        return c.as_vector_p()->operator[](0).as_signed_fixnum();
     }
-    OBJECT VirtualMachine::index_closure(OBJECT c, my_ssize_t n) {
-        return static_cast<VectorObject*>(c.as_ptr())->operator[](1 + n);
+    OBJECT VirtualMachine::index_closure(OBJECT c, ssize_t n) {
+        return c.as_vector_p()->operator[](1 + n);
     }
 
-    my_ssize_t VirtualMachine::shift_args(my_ssize_t n, my_ssize_t m, my_ssize_t s) {
+    ssize_t VirtualMachine::shift_args(ssize_t n, ssize_t m, ssize_t s) {
         // see three-imp p.111
-        my_ssize_t i = n - 1;
+        ssize_t i = n - 1;
         while (i >= 0) {
             index_set(s, i + m, index(s, i));
             --i;
@@ -388,10 +387,9 @@ namespace ss {
 
     VirtualMachine* create_vm(
         Gc* gc,
-        VirtualMachineStandardProcedureBinder binder,
-        int reserved_file_count
+        VirtualMachineStandardProcedureBinder binder
     ) {
-        auto vm = new VirtualMachine(gc, reserved_file_count, binder); 
+        auto vm = new VirtualMachine(gc, binder); 
         return vm;
     }
     void destroy_vm(VirtualMachine* vm) {
@@ -458,11 +456,11 @@ namespace ss {
         }
 
         Compiler* c = vm_compiler(vm);
-        c->code()->define_platform_proc(
+        c->define_platform_proc(
             intern(std::move(proc_name)),
-            arg_names.size(),
+            std::move(arg_names),
             callable_cb,
-            std::move(docstring.str()),
+            docstring.str(),
             is_variadic
         );
     }

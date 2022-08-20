@@ -1,5 +1,7 @@
 // cf https://www.gnu.org/software/guile/manual/html_node/Syntax-Case.html
 // This module handles 2 jobs: resolving lexical scoping and macro expansion.
+// Rather than an iterative approach, we fully, recursively expand each line
+// before moving to the next one.
 // It performs the following rewrites in this order:
 // 1 To resolve scoping, reference symbols are replaced by the list
 //   Treated as a pseudo-atom
@@ -30,7 +32,7 @@
 
 #include "ss-core/analyst.hh"
 #include "ss-core/common.hh"
-#include "ss-core/rewrite.hh"
+#include "ss-core/expander.hh"
 #include "ss-core/defn.hh"
 #include "ss-core/pinvoke.hh"
 #include "ss-core/gc.hh"
@@ -134,11 +136,13 @@ namespace ss {
 //
 
 namespace ss {
+  
   struct Nonlocal {
     LDefID ldef_id;
     bool use_is_mut;
     Nonlocal(LDefID ldef_id, bool use_is_mut): ldef_id(ldef_id), use_is_mut(use_is_mut) {}
   };
+
   struct Scope {
   public:
     OrderedSymbolSet locals;
@@ -155,10 +159,11 @@ namespace ss {
       assert(locals.size() == local_defs.size());
     }
   };
+
 }
 
 //
-// Impl: scoper
+// Impl: expander
 //
 
 namespace ss {
@@ -169,21 +174,26 @@ namespace ss {
     DefTable& m_def_tab; 
     PlatformProcTable& m_pproc_tab;
     std::vector<Scope> m_closure_scope_stack;
+
   public:
     inline Scoper(GCTFE& gc_tfe, DefTable& gdef_tab, PlatformProcTable& pproc_tab);
   
   public:
-    OBJECT scope_expr_syntax(OBJECT expr_stx);
+    OBJECT rw_expr_stx(OBJECT expr_stx);
 
   private:
     // pushes a fresh scope containing the given symbols
     void push_scope();
+    
     // returns a unique list of free variables referenced
     std::vector<Nonlocal> pop_scope();
+    
     // defines a local variable in the current scope
     LDefID define_local(FLoc loc, IntStr name);
+
     // defines a global variable
     GDefID define_global(FLoc loc, IntStr name);
+    
     // defines a local or global variable depending on the current scope stack.
     // RelVarScope is either Local or Global, indicating where the symbol was defined.
     std::pair<RelVarScope, size_t> define(FLoc loc, IntStr name); 
@@ -194,18 +204,19 @@ namespace ss {
     std::pair<RelVarScope, size_t> refer(OBJECT symbol, bool is_mut = false);
 
   private:
-    OBJECT scope_const_expr_syntax(OBJECT expr_stx);
-    OBJECT scope_pair_expr_syntax(OBJECT expr_stx);
-    OBJECT scope_unwrapped_pair_syntax_data(FLoc loc, OBJECT expr_stx_data);
-    OBJECT scope_unwrapped_list_syntax_data(FLoc loc, OBJECT expr_stx_data);
-    OBJECT scope_unwrapped_list_syntax_data_for_lambda(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_if(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_set(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT expr_stx_data);
-    OBJECT scope_unwrapped_list_syntax_data_for_define(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_begin(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_const_expr_stx(OBJECT expr_stx);
+    OBJECT rw_pair_expr_stx(OBJECT expr_stx);
+    OBJECT rw_pair_stx_data(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__lambda(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT rw_list_stx_data__if(OBJECT head, OBJECT tail);
+    OBJECT rw_list_stx_data__set(FLoc loc, OBJECT tail);
+    OBJECT rw_list_stx_data__call_cc(OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__define(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT rw_list_stx_data__p_invoke(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT rw_list_stx_data__begin(FLoc loc, OBJECT head, OBJECT tail);
+    OBJECT rw_list_stx_data__apply(OBJECT expr_stx_data);
+  
   private:
     bool in_global_scope() const { return m_closure_scope_stack.empty(); }
   };
@@ -222,6 +233,7 @@ namespace ss {
   void Scoper::push_scope() {
     m_closure_scope_stack.emplace_back();
   }
+
   std::vector<Nonlocal> Scoper::pop_scope() {
     auto res = std::move(m_closure_scope_stack.back().inuse_nonlocal_defs);
     m_closure_scope_stack.pop_back();
@@ -245,6 +257,7 @@ namespace ss {
       return ldef_id;
     }
   }
+
   GDefID Scoper::define_global(FLoc loc, IntStr name) {
     assert(m_closure_scope_stack.empty());
     auto old_def = m_def_tab.lookup_global_id(name);
@@ -263,6 +276,7 @@ namespace ss {
       return ldef_id;
     }
   }
+
   std::pair<RelVarScope, size_t> Scoper::define(FLoc loc, IntStr name) {
     if (in_global_scope()) {
       return {RelVarScope::Global, define_global(loc, name)};
@@ -303,10 +317,10 @@ namespace ss {
         return {RelVarScope::Free, ldef_id};
       } else {
         // must check whole scope stack, and if found, must insert into 'inuse' table
-        my_ssize_t found_idx = -1;
+        ssize_t found_idx = -1;
         LDefID found_ldef_id = static_cast<LDefID>(-1);
         bool found_ldef_is_mut = false;
-        for (my_ssize_t i = m_closure_scope_stack.size()-2; i >= 0; i--) {
+        for (ssize_t i = m_closure_scope_stack.size()-2; i >= 0; i--) {
           auto opt_idx = m_closure_scope_stack[i].locals.idx(sym);
           if (opt_idx.has_value()) {
             found_idx = opt_idx.value();
@@ -342,9 +356,9 @@ namespace ss {
     }
   }
 
-  OBJECT Scoper::scope_expr_syntax(OBJECT expr_stx) {
+  OBJECT Scoper::rw_expr_stx(OBJECT expr_stx) {
     assert(expr_stx.is_syntax());
-    auto expr_stx_p = static_cast<SyntaxObject*>(expr_stx.as_ptr());
+    auto expr_stx_p = expr_stx.as_syntax_p();
     OBJECT data = expr_stx_p->data();
     if (data.is_interned_symbol()) {
       auto [rel_var_scope, def_id] = refer(data);
@@ -360,47 +374,46 @@ namespace ss {
       );
     }
     if (data.is_pair()) {
-      auto new_data = scope_unwrapped_pair_syntax_data(expr_stx_p->loc(), data);
+      auto new_data = rw_pair_stx_data(expr_stx_p->loc(), data);
       return OBJECT::make_syntax(&m_gc_tfe, new_data, expr_stx_p->loc());
     }
-    return scope_const_expr_syntax(expr_stx);
+    return rw_const_expr_stx(expr_stx);
   }
-  OBJECT Scoper::scope_const_expr_syntax(OBJECT expr_stx) {
+  OBJECT Scoper::rw_const_expr_stx(OBJECT expr_stx) {
     assert(expr_stx.is_syntax());
-    error("not-implemented: scope_const_expr_syntax");
-    throw SsiError();
+    return expr_stx;
   }
-  OBJECT Scoper::scope_unwrapped_pair_syntax_data(FLoc loc, OBJECT expr_stx_data) {
-    auto obj = static_cast<PairObject*>(expr_stx_data.as_ptr());
+  OBJECT Scoper::rw_pair_stx_data(FLoc loc, OBJECT expr_stx_data) {
+    auto obj = expr_stx_data.as_pair_p();
 
     OBJECT car_syntax = obj->car();
     OBJECT cdr = obj->cdr();
 
     if (cdr.is_list()) {
-      return scope_unwrapped_list_syntax_data(loc, expr_stx_data);
+      return rw_list_stx_data(loc, expr_stx_data);
     } else {
       return cons(
         &m_gc_tfe,
-        scope_expr_syntax(car_syntax),
-        scope_expr_syntax(cdr)
+        rw_expr_stx(car_syntax),
+        rw_expr_stx(cdr)
       );
     }
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_lambda(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__lambda(FLoc loc, OBJECT head, OBJECT tail) {
     auto args = extract_args<2>(tail);
     auto vars_syntax = args[0];
     auto body_syntax = args[1];
 
     assert(vars_syntax.is_syntax());
-    auto vars_syntax_p = static_cast<SyntaxObject*>(vars_syntax.as_ptr());
+    auto vars_syntax_p = vars_syntax.as_syntax_p();
 
     assert(body_syntax.is_syntax());
-    auto body_syntax_p = static_cast<PairObject*>(body_syntax.as_ptr());
+    // auto body_syntax_p = body_syntax.as_pair_p();
 
     OBJECT vars_syntax_d = vars_syntax_p->data();
 
     OBJECT vars = vars_syntax_p->to_datum(&m_gc_tfe);
-    check_vars_list_else_throw(vars);
+    check_vars_list_else_throw(loc, vars);
 
     std::vector<std::pair<LDefID, FLoc>> args_vec;
     args_vec.reserve(10);
@@ -410,7 +423,7 @@ namespace ss {
       for (OBJECT args = vars_syntax_d; !args.is_null(); args = cdr(args)) {
         OBJECT arg = car(args);
         assert(arg.is_syntax());
-        auto arg_p = static_cast<SyntaxObject*>(arg.as_ptr());
+        auto arg_p = arg.as_syntax_p();
         OBJECT arg_name = arg_p->data();
         assert(arg_name.is_interned_symbol());
         LDefID ldef_id = define_local(arg_p->loc(), arg_name.as_interned_symbol());
@@ -420,7 +433,7 @@ namespace ss {
       // ensuring we scope the body while the formal argument scope is pushed
       // - any 'define' gets added to this scope
       // - any mutation gets registered in this scope
-      rewritten_body_stx = scope_expr_syntax(body_syntax);
+      rewritten_body_stx = rw_expr_stx(body_syntax);
     }
     auto nonlocals_vec = pop_scope();
     
@@ -454,7 +467,7 @@ namespace ss {
       rewritten_body_stx  // body after scoping, expanding
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_if(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__if(OBJECT head, OBJECT tail) {
     auto args = extract_args<3>(tail);
     auto cond_stx = args[0];
     auto then_stx = args[1];
@@ -462,12 +475,12 @@ namespace ss {
     return list(
       &m_gc_tfe,
       head,   // if, but a syntax object
-      scope_expr_syntax(cond_stx),
-      scope_expr_syntax(then_stx),
-      scope_expr_syntax(else_stx)
+      rw_expr_stx(cond_stx),
+      rw_expr_stx(then_stx),
+      rw_expr_stx(else_stx)
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_set(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__set(FLoc loc, OBJECT tail) {
     // (mutation ,rel-var-scope ,def-id)
     auto args = extract_args<2>(tail);
     auto name_obj_stx = args[0];
@@ -475,9 +488,8 @@ namespace ss {
 
     assert(name_obj_stx.is_syntax());
     assert(init_obj_stx.is_syntax());
-    auto name_obj = static_cast<SyntaxObject*>(name_obj_stx.as_ptr())->data();
-    auto init_obj = static_cast<SyntaxObject*>(init_obj_stx.as_ptr())->data();
-
+    
+    auto name_obj = name_obj_stx.as_syntax_p()->data();
     if (!name_obj.is_interned_symbol()) {
       std::stringstream ss;
       ss << "set!: expected first argument to be a symbol, got: " << name_obj << std::endl;
@@ -487,6 +499,7 @@ namespace ss {
     }
     IntStr name = name_obj.as_interned_symbol();
     auto [rel_var_scope, def_id] = refer(name, true);
+    
     auto mutation_obj = OBJECT::make_interned_symbol(g_id_cache().mutation);
     auto rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
     auto rel_var_scope_sym_obj = OBJECT::make_interned_symbol(rel_var_scope_sym);
@@ -494,20 +507,26 @@ namespace ss {
     return list(
       &m_gc_tfe, 
       mutation_obj, rel_var_scope_sym_obj, def_id_obj,
-      scope_expr_syntax(init_obj_stx)
+      rw_expr_stx(init_obj_stx)
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_call_cc(FLoc loc, OBJECT expr_stx_data) {
-    // don't do anything!
+  OBJECT Scoper::rw_list_stx_data__call_cc(OBJECT expr_stx_data) {
+    OBJECT res_data = OBJECT::null;
+    for (OBJECT rem = expr_stx_data; !rem.is_null(); rem = cdr(rem)) {
+      OBJECT old_elem_stx = cadr(expr_stx_data);
+      assert(old_elem_stx.is_syntax());
+      OBJECT new_elem_stx = rw_expr_stx(old_elem_stx);
+      res_data = cons(&m_gc_tfe, new_elem_stx, res_data);
+    }
     return expr_stx_data;
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_define(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__define(FLoc loc, OBJECT head, OBJECT tail) {
     auto args = extract_args<2>(tail);
     auto name_obj_stx = args[0];
     auto init_obj_stx = args[1];
 
     assert(name_obj_stx.is_syntax());
-    auto name_obj_stx_p = static_cast<SyntaxObject*>(name_obj_stx.as_ptr());
+    auto name_obj_stx_p = name_obj_stx.as_syntax_p();
     auto name_obj = name_obj_stx_p->data();
     if (!name_obj.is_interned_symbol()) {
       std::stringstream s;
@@ -533,13 +552,13 @@ namespace ss {
       head,                                 // define
       rel_var_scope_sym_obj,                // rel-var-scope
       def_id_obj_stx,                       // stx replacing IntStr name with GDefID
-      scope_expr_syntax(init_obj_stx)       // initializer
+      rw_expr_stx(init_obj_stx)       // initializer
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_p_invoke(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__p_invoke(FLoc loc, OBJECT head, OBJECT tail) {
     auto args = extract_args<1>(tail, true);
     auto proc_name_obj_stx = args[0];
-    auto proc_name_obj_stx_p = static_cast<SyntaxObject*>(proc_name_obj_stx.as_ptr());
+    auto proc_name_obj_stx_p = proc_name_obj_stx.as_syntax_p();
     assert(proc_name_obj_stx.is_syntax());
     auto proc_name_obj = proc_name_obj_stx_p->data();
     
@@ -570,7 +589,7 @@ namespace ss {
       OBJECT::make_syntax(&m_gc_tfe, pproc_id_obj, proc_name_obj_stx_p->loc())
     );
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_begin(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__begin(FLoc loc, OBJECT head, OBJECT tail) {
     bool is_global = in_global_scope();
 
     if (!tail.is_pair()) {
@@ -587,7 +606,7 @@ namespace ss {
     {
       for (OBJECT rem = tail; !rem.is_null(); rem = cdr(tail)) {
         OBJECT old_stx_obj = car(rem);
-        OBJECT new_stx_obj = scope_expr_syntax(old_stx_obj);
+        OBJECT new_stx_obj = rw_expr_stx(old_stx_obj);
         rewritten_elements = cons(&m_gc_tfe, new_stx_obj, rewritten_elements);
       }
     }
@@ -595,18 +614,17 @@ namespace ss {
 
     return cons(&m_gc_tfe, head, rewritten_elements);
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data_for_apply(FLoc loc, OBJECT expr_data) {
-    OBJECT res_data = OBJECT::null;
-    for (OBJECT rem = expr_data; !rem.is_null(); rem = cdr(rem)) {
-      OBJECT old_elem_stx = car(rem);
-      assert(old_elem_stx.is_syntax());
-      OBJECT new_elem_stx = scope_expr_syntax(old_elem_stx);
-      res_data = cons(&m_gc_tfe, new_elem_stx, res_data);
+  OBJECT Scoper::rw_list_stx_data__apply(OBJECT expr_data) {
+    auto expr_items = list_to_cpp_vector(expr_data);
+    std::vector<OBJECT> rw_items;
+    rw_items.reserve(expr_items.size());
+    for (OBJECT arg: expr_items) {
+      rw_items.push_back(rw_expr_stx(arg));
     }
-    return res_data;
+    return cpp_vector_to_list(&m_gc_tfe, rw_items);
   }
-  OBJECT Scoper::scope_unwrapped_list_syntax_data(FLoc loc, OBJECT expr_stx_data) {
-    auto expr_stx_data_p = static_cast<PairObject*>(expr_stx_data.as_ptr());
+  OBJECT Scoper::rw_list_stx_data(FLoc loc, OBJECT expr_stx_data) {
+    auto expr_stx_data_p = expr_stx_data.as_pair_p();
 
     if (!expr_stx_data_p->car().is_syntax()) {
       // synthetic form
@@ -623,8 +641,8 @@ namespace ss {
     
     assert(tail_syntax.is_list());
 
-    auto head_syntax_p = static_cast<SyntaxObject*>(head_syntax.as_ptr());
-    auto tail_syntax_p = static_cast<SyntaxObject*>(head_syntax.as_ptr());
+    auto head_syntax_p = head_syntax.as_syntax_p();
+    auto tail_syntax_p = head_syntax.as_syntax_p();
 
     OBJECT head = head_syntax_p->data();
     OBJECT tail = tail_syntax_p->data();
@@ -634,37 +652,37 @@ namespace ss {
 
       // lambda
       if (keyword_symbol_id == g_id_cache().lambda) {
-        return scope_unwrapped_list_syntax_data_for_lambda(loc, head, tail);
+        return rw_list_stx_data__lambda(loc, head, tail);
       }
 
       // if
       if (keyword_symbol_id == g_id_cache().if_) {
-        return scope_unwrapped_list_syntax_data_for_if(loc, head, tail);
+        return rw_list_stx_data__if(head, tail);
       }
 
       // set!
       if (keyword_symbol_id == g_id_cache().set) {
-        return scope_unwrapped_list_syntax_data_for_set(loc, head, tail);
+        return rw_list_stx_data__set(loc, tail);
       }
 
       // call/cc
       if (keyword_symbol_id == g_id_cache().call_cc) {
-        return scope_unwrapped_list_syntax_data_for_call_cc(loc, expr_stx_data);
+        return rw_list_stx_data__call_cc(expr_stx_data);
       }
 
       // define
       if (keyword_symbol_id == g_id_cache().define) {
-        return scope_unwrapped_list_syntax_data_for_define(loc, head, tail);
+        return rw_list_stx_data__define(loc, head, tail);
       }
 
       // p/invoke
       if (keyword_symbol_id == g_id_cache().p_invoke) {
-        return scope_unwrapped_list_syntax_data_for_p_invoke(loc, head, tail);
+        return rw_list_stx_data__p_invoke(loc, head, tail);
       }
 
       // begin
       if (keyword_symbol_id == g_id_cache().begin) {
-        return scope_unwrapped_list_syntax_data_for_begin(loc, head, tail);
+        return rw_list_stx_data__begin(loc, head, tail);
       }
 
       // quote
@@ -675,7 +693,9 @@ namespace ss {
       // fallthrough
     }
 
-    return scope_unwrapped_list_syntax_data_for_apply(loc, expr_stx_data);
+    // apply:
+    // TODO: detect macro application
+    return rw_list_stx_data__apply(expr_stx_data);
   }
 }
 
@@ -684,24 +704,19 @@ namespace ss {
 //
 
 namespace ss {
-  OBJECT macroexpand_syntax_impl(OBJECT expr_stx) {
-    OBJECT env = OBJECT::null;
-    
-    // scope this expression, excluding templates of syntax-case.
-    // If macro applications are detected, they are expanded fully before 
-    // scoping continues.
-    // Thus, we can use the same pass to perform scoping, full macro expansion.
-    
-    // for each top-level statement, first expand fully using bound transformers,
-    // then try binding a new transformer if needed.
-    // - fully expand => recursively expand upto fixed point
-    //   - on each expansion,
-    //     - replace template with actual syntax objects => replacement
-    //     - scope the replacement, expanding macros as found.
-    //     - replace macro invocation with replacement
-
-
-    return expr_stx;
+  std::vector<OBJECT> macroexpand_syntax_impl(
+    GcThreadFrontEnd& gc_tfe,
+    DefTable& def_tab,
+    PlatformProcTable& pproc_tab,
+    std::vector<OBJECT> expr_stx_vec
+  ) {
+    std::vector<OBJECT> out_expr_stx_vec;
+    Scoper scoper{gc_tfe, def_tab, pproc_tab};
+    out_expr_stx_vec.reserve(expr_stx_vec.size());
+    for (OBJECT expr_stx: expr_stx_vec) {
+      out_expr_stx_vec.push_back(scoper.rw_expr_stx(expr_stx));
+    }
+    return out_expr_stx_vec;
   }
 }
 
@@ -710,7 +725,15 @@ namespace ss {
 //
 
 namespace ss {
-  OBJECT macroexpand_syntax(OBJECT expr_stx) {
-    return macroexpand_syntax_impl(expr_stx);
+  std::vector<OBJECT> macroexpand_syntax(
+    GcThreadFrontEnd& gc_tfe,
+    DefTable& def_tab,
+    PlatformProcTable& pproc_tab,
+    std::vector<OBJECT> expr_stx_vec
+  ) {
+    return macroexpand_syntax_impl(
+      gc_tfe, def_tab, pproc_tab,
+      std::move(expr_stx_vec)
+    );
   }
 }

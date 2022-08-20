@@ -94,17 +94,17 @@ namespace ss {
             else if (!m_parsed_double_dash_separator && s[0] == '-') {
                 // flag
                 std::string flag_content = s+1;
-                eat_arg(flag_content, out_args, i, argc, argv);
+                eat_arg(flag_content, out_args, i, argv);
             }
             else {
                 // positional
                 out_args.pos.emplace_back(s);
             }
         }
-        return std::move(out_args);
+        return out_args;
     }
 
-    void CliArgsParser::eat_arg(std::string flag_content, CliArgs& out, int& index, int argc, char const* argv[]) {
+    void CliArgsParser::eat_arg(std::string flag_content, CliArgs& out, int& index, char const* argv[]) {
         size_t max_match_index = m_rules.size();
         for (size_t rule_index = 0; rule_index < m_rules.size(); rule_index++) {
             ArgRule const& rule = m_rules[rule_index];

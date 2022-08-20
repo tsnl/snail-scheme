@@ -35,11 +35,12 @@ namespace ss {
   public:
     GDefID define_global(FLoc loc, IntStr name, OBJECT code=OBJECT::null, OBJECT init=OBJECT::null, std::string docstring="");
     LDefID define_local(FLoc loc, IntStr name, OBJECT code=OBJECT::null, OBJECT init=OBJECT::null, std::string docstring="");
-    std::optional<GDefID> lookup_global_id(IntStr name);
+    std::optional<GDefID> lookup_global_id(IntStr name) const;
   public:
     inline Definition const& global(GDefID gdef_id) const { return m_globals_vec[gdef_id]; }
     inline Definition const& local(LDefID ldef_id) const { return m_locals_vec[ldef_id]; }
-    inline size_t global_count() const { return m_globals_vec.size(); }
+  public:
+    inline size_t count_globals() const { return m_globals_vec.size(); }
   };
 
 }

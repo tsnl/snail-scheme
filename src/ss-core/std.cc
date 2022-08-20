@@ -15,7 +15,7 @@
 
 namespace ss {
 
-    typedef void(*IntFoldCb)(my_ssize_t& accum, my_ssize_t item);
+    typedef void(*IntFoldCb)(ssize_t& accum, ssize_t item);
     typedef void(*Float32FoldCb)(float& accum, float item);
     typedef void(*Float64FoldCb)(double& accum, double item);
 
@@ -29,11 +29,11 @@ namespace ss {
 
     template <IntFoldCb int_fold_cb, Float32FoldCb float32_fold_cb, Float64FoldCb float64_fold_cb>
     void bind_standard_binary_arithmetic_procedure(VirtualMachine* vm, char const* const name_str);
-    inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item);
-    inline void int_div_cb(my_ssize_t& accum, my_ssize_t item);
-    inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item);
-    inline void int_add_cb(my_ssize_t& accum, my_ssize_t item);
-    inline void int_sub_cb(my_ssize_t& accum, my_ssize_t item);
+    inline void int_mul_cb(ssize_t& accum, ssize_t item);
+    inline void int_div_cb(ssize_t& accum, ssize_t item);
+    inline void int_rem_cb(ssize_t& accum, ssize_t item);
+    inline void int_add_cb(ssize_t& accum, ssize_t item);
+    inline void int_sub_cb(ssize_t& accum, ssize_t item);
     inline void float32_mul_cb(float& accum, float item);
     inline void float32_div_cb(float& accum, float item);
     inline void float32_rem_cb(float& accum, float item);
@@ -179,7 +179,7 @@ namespace ss {
         vm_bind_platform_procedure(vm,
             "eq?",
             [=](ArgView const& aa) -> OBJECT {
-                return boolean(is_eq(vm_gc_tfe(vm), aa[0], aa[1]));
+                return boolean(is_eq(aa[0], aa[1]));
             },
             {"lt-arg", "rt-arg"}
         );
@@ -204,7 +204,7 @@ namespace ss {
             "list",
             [=](ArgView const& aa) -> OBJECT {
                 OBJECT res = OBJECT::null;
-                for (size_t i = 0; i < aa.size(); i++) {
+                for (ssize_t i = 0; i < aa.size(); i++) {
                     res = cons(vm_gc_tfe(vm), aa[i], res);
                 }
                 return res;
@@ -240,8 +240,8 @@ namespace ss {
         );
         vm_bind_platform_procedure(vm,
             "member",
-            [=](ArgView const& aa) -> OBJECT {
-                return list_member(vm_gc_tfe(vm), aa[0], aa[1]);
+            [](ArgView const& aa) -> OBJECT {
+                return list_member(aa[0], aa[1]);
             },
             {"x", "list"}
         );
@@ -253,7 +253,7 @@ namespace ss {
             [=](ArgView const& aa) -> OBJECT {
                 std::vector<OBJECT> items;
                 items.reserve(aa.size());
-                for (size_t i = 0; i < aa.size(); i++) {
+                for (ssize_t i = 0; i < aa.size(); i++) {
                     items[i] = aa[i];
                 }
                 return OBJECT::make_ptr(
@@ -270,12 +270,11 @@ namespace ss {
             [=](ArgView const& aa) -> OBJECT {
                 if (!aa[0].is_vector()) {
                     std::stringstream ss;
-                    ss << "vector-ref: expected first arg to be a vector, not " << aa[0] << std::endl;
+                    ss << "vector-length: expected first arg to be a vector, not " << aa[0] << std::endl;
                     error(ss.str());
                     throw SsiError();
                 }
-                auto idx = aa[1].as_signed_fixnum();
-                auto size = static_cast<VectorObject*>(aa[0].as_ptr())->size();
+                auto size = aa[0].as_vector_p()->size();
                 return OBJECT::make_integer(size);
             },
             {"vec"},
@@ -297,7 +296,7 @@ namespace ss {
                     throw SsiError();
                 }
                 auto idx = aa[1].as_signed_fixnum();
-                return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx);
+                return aa[0].as_vector_p()->operator[](idx);
             },
             {"vec, pos"},
             "acquires the element of vec at pos, first slot at index 0"
@@ -318,7 +317,7 @@ namespace ss {
                     throw SsiError();
                 }
                 auto idx = aa[1].as_signed_fixnum();
-                return static_cast<VectorObject*>(aa[0].as_ptr())->operator[](idx) = aa[2];
+                return aa[0].as_vector_p()->operator[](idx) = aa[2];
             },
             {"vec, pos", "v"},
             "acquires the element of vec at pos, first slot at index 0"
@@ -426,7 +425,7 @@ namespace ss {
                 if (!float64_operand_present && !float32_operand_present) {
                     // adding two integers:
                     auto& aa = args;
-                    my_ssize_t res = aa[0].as_signed_fixnum();
+                    ssize_t res = aa[0].as_signed_fixnum();
                     int_fold_cb(res, aa[1].as_signed_fixnum());
                     return OBJECT::make_integer(res);
                 }
@@ -448,11 +447,11 @@ namespace ss {
             {"lt-arg", "rt-arg"}
         );
     }
-    inline void int_mul_cb(my_ssize_t& accum, my_ssize_t item) { accum *= item; }
-    inline void int_div_cb(my_ssize_t& accum, my_ssize_t item) { accum /= item; }
-    inline void int_rem_cb(my_ssize_t& accum, my_ssize_t item) { accum %= item; }
-    inline void int_add_cb(my_ssize_t& accum, my_ssize_t item) { accum += item; }
-    inline void int_sub_cb(my_ssize_t& accum, my_ssize_t item) { accum -= item; }
+    inline void int_mul_cb(ssize_t& accum, ssize_t item) { accum *= item; }
+    inline void int_div_cb(ssize_t& accum, ssize_t item) { accum /= item; }
+    inline void int_rem_cb(ssize_t& accum, ssize_t item) { accum %= item; }
+    inline void int_add_cb(ssize_t& accum, ssize_t item) { accum += item; }
+    inline void int_sub_cb(ssize_t& accum, ssize_t item) { accum -= item; }
     inline void float32_mul_cb(float& accum, float item) { accum *= item; }
     inline void float32_div_cb(float& accum, float item) { accum /= item; }
     inline void float32_rem_cb(float& accum, float item) { accum = fmod(accum, item); }

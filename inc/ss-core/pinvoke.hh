@@ -11,16 +11,16 @@ namespace ss {
   class ArgView {
   private:
     VmStack& m_stack;
-    my_ssize_t m_offset;
-    my_ssize_t m_count;
+    ssize_t m_offset;
+    ssize_t m_count;
   public:
-    ArgView(VmStack& s, my_ssize_t offset, my_ssize_t count) 
+    ArgView(VmStack& s, ssize_t offset, ssize_t count) 
     : m_stack(s),
       m_offset(offset),
       m_count(count) {}
   public:
-    my_ssize_t size() const { return m_count; }
-    OBJECT operator[](my_ssize_t idx) const {
+    ssize_t size() const { return m_count; }
+    OBJECT operator[](ssize_t idx) const {
       if (0 <= idx && idx < m_count) {
         return m_stack.index(m_offset, idx);
       } else {
@@ -35,11 +35,11 @@ namespace ss {
 
   struct PlatformProcMetadata {
     IntStr name;
-    my_ssize_t arity;
+    ssize_t arity;
     std::string docstring;
     std::vector<IntStr> args;
 
-    PlatformProcMetadata(IntStr name, my_ssize_t arity, std::string docstring, std::vector<IntStr> args)
+    PlatformProcMetadata(IntStr name, ssize_t arity, std::string docstring, std::vector<IntStr> args)
     : name(name), arity(arity), docstring(std::move(docstring)), args(std::move(args)) 
     {}
   };
@@ -67,5 +67,7 @@ namespace ss {
     std::optional<PlatformProcID> lookup(IntStr proc_name);
     PlatformProcCb const& cb(PlatformProcID proc_id) const { return m_cb_table[proc_id]; }
     PlatformProcMetadata const& metadata(PlatformProcID proc_id) const { return m_metadata_table[proc_id]; }
+  public:
+    size_t size() const { return m_cb_table.size(); }
   };
 }

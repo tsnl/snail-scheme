@@ -12,14 +12,12 @@ namespace ss {
     VCode::VCode(size_t file_count)
     :   m_exps(), 
         m_subrs(),
-        m_gdef_table(),
-        m_gdef_id_symtab()
+        m_def_tab(),
+        m_pproc_tab()
     {
         size_t expected_num_defs = file_count * 100;
         m_exps.reserve(4096);
         m_subrs.reserve(expected_num_defs);
-        m_gdef_table.reserve(expected_num_defs);
-        m_gdef_id_symtab.reserve(expected_num_defs);
     }
     void VCode::enqueue_main_subr(std::string const& file_name, VSubr&& script) {
         assert(script.line_code_objs.size() == script.line_programs.size());
@@ -39,23 +37,18 @@ namespace ss {
     :   m_exps(std::move(other.m_exps)),
         m_subrs(std::move(other.m_subrs)) 
     {}
-    GDefID VCode::define_global(IntStr name, OBJECT code, OBJECT init, std::string docstring) {
-        GDefID new_gdef_id = m_gdef_table.size();
-        Definition gdef{{}, name, code, init, docstring};
-        m_gdef_table.push_back(gdef);
-        m_gdef_id_symtab.insert_or_assign(name, new_gdef_id);
-        return new_gdef_id;
+    GDefID VCode::define_global(FLoc loc, IntStr name, OBJECT code, OBJECT init, std::string docstring) {
+        return m_def_tab.define_global(loc, name, code, init, std::move(docstring));
     }
-    Definition const& VCode::lookup_gdef(GDefID gdef_id) const {
-        assert(gdef_id < m_gdef_table.size());
-        return m_gdef_table[gdef_id];
+    Definition const& VCode::global(GDefID gdef_id) const {
+        return m_def_tab.global(gdef_id);
     }
     Definition const* VCode::try_lookup_gdef_by_name(IntStr name) const {
-        auto it = m_gdef_id_symtab.find(name);
-        if (it == m_gdef_id_symtab.cend()) {
+        auto opt_res = m_def_tab.lookup_global_id(name);
+        if (!opt_res.has_value()) {
             return nullptr;
         } else {
-            return &lookup_gdef(it->second);
+            return &global(opt_res.value());
         }
     }
 
@@ -64,32 +57,26 @@ namespace ss {
 
     PlatformProcID VCode::define_platform_proc(
         IntStr platform_proc_name, 
-        size_t arity,
+        std::vector<IntStr> arg_names,
         PlatformProcCb callable_cb, 
         std::string docstring,
         bool is_variadic
     ) {
-        if (m_platform_proc_id_symtab.find(platform_proc_name) != m_platform_proc_id_symtab.end()) {
-            error("Cannot re-define platform procedure: " + interned_string(platform_proc_name));
-            throw SsiError();
-        }
-        auto new_id = m_platform_proc_cb_table.size();
-        m_platform_proc_cb_table.push_back(callable_cb);
-        m_platform_proc_arity_table.push_back(is_variadic ? static_cast<my_ssize_t>(-1) : (my_ssize_t)arity);
-        m_platform_proc_docstring_table.emplace_back(std::move(docstring));
-        m_platform_proc_id_symtab[platform_proc_name] = new_id;
-        if (is_variadic) {
-            assert(this->platform_proc_is_variadic(new_id));
-        }
-        return new_id;
+        return m_pproc_tab.define(
+            platform_proc_name,
+            std::move(arg_names),
+            std::move(callable_cb),
+            std::move(docstring),
+            is_variadic
+        );
     }
     PlatformProcID VCode::lookup_platform_proc(IntStr platform_proc_name) {
-        auto res = m_platform_proc_id_symtab.find(platform_proc_name);
-        if (res == m_platform_proc_id_symtab.end()) {
+        auto opt_res = m_pproc_tab.lookup(platform_proc_name);
+        if (!opt_res.has_value()) {
             error("Undefined platform procedure used: " + interned_string(platform_proc_name));
             throw SsiError();
         }
-        return res->second;
+        return opt_res.value();
     }
 
 
@@ -188,7 +175,7 @@ namespace ss {
         args.next = next;
         return exp_id;
     }
-    VmExpID VCode::new_vmx_box(my_ssize_t n, VmExpID next) {
+    VmExpID VCode::new_vmx_box(ssize_t n, VmExpID next) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Box);
         auto& args = exp_ref.args.i_box;
         args.n = n;
@@ -222,7 +209,7 @@ namespace ss {
         args.x = next;
         return exp_id;
     }
-    VmExpID VCode::new_vmx_shift(my_ssize_t n, my_ssize_t m, VmExpID x) {
+    VmExpID VCode::new_vmx_shift(ssize_t n, ssize_t m, VmExpID x) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::Shift);
         auto& args = exp_ref.args.i_shift;
         args.n = n;
@@ -230,7 +217,7 @@ namespace ss {
         args.x = x;
         return exp_id;
     }
-    VmExpID VCode::new_vmx_pinvoke(my_ssize_t arg_count, size_t platform_proc_idx, VmExpID x) {
+    VmExpID VCode::new_vmx_pinvoke(ssize_t arg_count, size_t platform_proc_idx, VmExpID x) {
         auto [exp_id, exp_ref] = help_new_vmx(VmExpKind::PInvoke);
         auto& args = exp_ref.args.i_pinvoke;
         args.n = arg_count;

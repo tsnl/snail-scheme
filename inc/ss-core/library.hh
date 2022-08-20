@@ -62,7 +62,7 @@ namespace ss {
     class CentralLibraryRepository: public BaseLibraryContainer {
     private:
         std::string m_abspath;
-        bool m_is_init;
+        // bool m_is_init;
     private:
         inline static CentralLibraryRepository* s_singleton = nullptr;
     public:
@@ -129,7 +129,7 @@ namespace ss {
     class SubLibrary: public BaseLibrary {
     public:
         SubLibrary(std::string relpath, OBJECT key, BaseLibrary* parent)
-        :   BaseLibrary(std::move(relpath), std::move(key), nullptr)
+        :   BaseLibrary(std::move(relpath), std::move(key), parent)
         {}
     public:
         std::string abspath() const override { return m_opt_parent->abspath() + "/" + relpath(); }

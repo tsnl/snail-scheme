@@ -7,17 +7,17 @@
 
 namespace ss {
   
-    using VmExpID = my_ssize_t;
+    using VmExpID = ssize_t;
 
     struct VmRegs {
     public:
         OBJECT a;       // the accumulator
         VmExpID x;      // the next expression
-        my_ssize_t f;   // the current frame pointer on the stack
+        ssize_t f;   // the current frame pointer on the stack
         OBJECT c;       // the current 'closure' display vector
-        my_ssize_t s;   // the current stack pointer
+        ssize_t s;   // the current stack pointer
     public:
-        void init(GcThreadFrontEnd* gc_tfe);
+        void init();
     };
 
     class VmStack {
@@ -30,14 +30,14 @@ namespace ss {
         {}
 
     public:
-        my_ssize_t push(OBJECT x, my_ssize_t s) {
+        ssize_t push(OBJECT x, ssize_t s) {
             m_items[s] = x;
             return s + 1;
         }
-        OBJECT index (my_ssize_t s, my_ssize_t i) {
+        OBJECT index (ssize_t s, ssize_t i) {
             return m_items[s - i - 1];
         }
-        void index_set(my_ssize_t s, my_ssize_t i, OBJECT v) {
+        void index_set(ssize_t s, ssize_t i, OBJECT v) {
             m_items[s - i - 1] = v;
         }
     

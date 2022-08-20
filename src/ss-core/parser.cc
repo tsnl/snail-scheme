@@ -106,12 +106,12 @@ namespace ss {
     inline static bool is_first_number_char(char c) {
         return isdigit(c) || !!strchr(".+-", c);
     }
-    inline static bool is_number_char(char c) {
-        return isdigit(c) || !!strchr(".", c);
-    }
-    inline static bool is_first_identifier_char(char c) {
-        return isalpha(c) || !!strchr("!$%&*+-./:<=>?@^_~", c);
-    }
+    // inline static bool is_number_char(char c) {
+    //     return isdigit(c) || !!strchr(".", c);
+    // }
+    // inline static bool is_first_identifier_char(char c) {
+    //     return isalpha(c) || !!strchr("!$%&*+-./:<=>?@^_~", c);
+    // }
     inline static bool is_identifier_char(char c) {
         return isalnum(c) || !!strchr("!$%&*+-./:<=>?@^_~", c);
     }
@@ -160,8 +160,8 @@ namespace ss {
     union KindDependentTokenInfo {
         IntStr identifier;
         bool boolean;
-        my_ssize_t integer;
-        my_float_t floating_pt;
+        ssize_t integer;
+        float_t floating_pt;
         struct {
             size_t count;
             char* bytes;

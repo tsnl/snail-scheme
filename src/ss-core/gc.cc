@@ -43,8 +43,8 @@ namespace ss {
     }
 
     GcThreadFrontEnd::GcThreadFrontEnd(Gc* gc)
-    :   m_tfid(s_tfid_counter++),
-        m_impl()
+    :   m_impl(),
+        m_tfid(s_tfid_counter++)
     {
         assert(s_tfid_counter > m_tfid && "Too many GcThreadFrontEnds spawned: maximum 255 front-ends supported.");
         m_impl.init(&gc->middle_end_impl());

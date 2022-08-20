@@ -91,7 +91,7 @@ namespace ss {
             return;
         }
 
-        // parsing all lines into a vector:
+        // parsing all lines into a vector of syntax objects:
         std::vector<OBJECT> line_code_obj_array;
         {
             auto start = std::chrono::steady_clock::now();
@@ -131,7 +131,20 @@ namespace ss {
             ss::Compiler& compiler = *vm_compiler(vm);
             ss::VCode* code = compiler.code();
             try {
-                VSubr subr = compiler.compile_subr(file_path, std::move(line_code_obj_array));
+                // scoping, performing macro expansion:
+                auto expanded_line_code_obj_array = macroexpand_syntax(
+                    *vm_gc_tfe(vm),
+                    code->def_tab(),
+                    code->pproc_tab(),            
+                    std::move(line_code_obj_array)
+                );
+                
+                
+        
+                VSubr subr = compiler.compile_subr(
+                    file_path, 
+                    std::move(expanded_line_code_obj_array)
+                );
                 code->enqueue_main_subr(file_path, std::move(subr));
             } catch (SsiError const& ssi_error) {
                 return;

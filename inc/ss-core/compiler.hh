@@ -11,7 +11,7 @@
 #include "ss-core/defn.hh"
 #include "ss-core/vcode.hh"
 #include "ss-core/analyst.hh"
-#include "ss-core/rewrite.hh"
+#include "ss-core/expander.hh"
 
 namespace ss {
 
@@ -46,7 +46,7 @@ namespace ss {
 
     // Globals:
     public:
-        GDefID define_global(IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
+        GDefID define_global(FLoc loc, IntStr name, OBJECT code = OBJECT::null, OBJECT init = OBJECT::null, std::string docstring = "");
         Definition const& lookup_gdef(GDefID gdef_id) const;
         Definition const* try_lookup_gdef_by_name(IntStr name) const;
         size_t count_globals() const { return m_code->count_globals(); }
@@ -54,7 +54,13 @@ namespace ss {
 
     // Platform procs:
     public:
-        PlatformProcID define_platform_proc(IntStr platform_proc_name, size_t arity, PlatformProcCb callable_cb, std::string docstring, bool is_variadic = false);
+        PlatformProcID define_platform_proc(
+            IntStr platform_proc_name, 
+            std::vector<std::string> arg_names, 
+            PlatformProcCb callable_cb, 
+            std::string docstring, 
+            bool is_variadic = false
+        );
         PlatformProcID lookup_platform_proc(IntStr name);
 
     // Scheme set functions:

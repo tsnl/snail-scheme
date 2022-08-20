@@ -18,30 +18,30 @@ namespace ss {
     static std::string const SUBREPO_SUBDIR = "/subrepo";
     static std::string const BIN_SUBDIR = "/bin";
     
-    static std::string dirname(std::filesystem::path file_path, bool exists_check = true);
+//     static std::string dirname(std::filesystem::path file_path, bool exists_check = true);
 
-    static std::string dirname(std::string file_path, bool exists_check = true) {
-#if CONFIG_DEBUG_MODE
-        if (exists_check) {
-            if (!std::filesystem::exists(file_path)) {
-                throw SsiError();
-            }
-        }
-#endif
-        // scanning for the last occurrence of '/' on all platforms and '\\' on Windows
-        size_t lp;
-#ifdef _WIN32
-        lp = file_path.find_last_of("/\\");
-#else
-        lp = file_path.rfind('/');
-#endif
-        if (lp != std::string::npos) {
-            return file_path.substr(0, lp);
-        } else {
-            // no '/' found => this is a relpath => return '.'
-            return ".";
-        }
-    }
+//     static std::string dirname(std::string file_path, bool exists_check = true) {
+// #if CONFIG_DEBUG_MODE
+//         if (exists_check) {
+//             if (!std::filesystem::exists(file_path)) {
+//                 throw SsiError();
+//             }
+//         }
+// #endif
+//         // scanning for the last occurrence of '/' on all platforms and '\\' on Windows
+//         size_t lp;
+// #ifdef _WIN32
+//         lp = file_path.find_last_of("/\\");
+// #else
+//         lp = file_path.rfind('/');
+// #endif
+//         if (lp != std::string::npos) {
+//             return file_path.substr(0, lp);
+//         } else {
+//             // no '/' found => this is a relpath => return '.'
+//             return ".";
+//         }
+//     }
 
 }
 
@@ -258,7 +258,7 @@ namespace ss {
 
     OBJECT CentralLibraryRepository::discover(std::filesystem::path dirent_path) {
         OBJECT key = extract_key_from_path(dirent_path);
-        auto res = m_index.insert_or_assign(key.as_raw(), new RootLibrary(std::move(dirent_path.string()), key, this));
+        auto res = m_index.insert_or_assign(key.as_raw(), new RootLibrary(dirent_path.string(), key, this));
         if (!res.second) {
             std::stringstream ss;
             ss << "install: library re-installed: " << key << std::endl;

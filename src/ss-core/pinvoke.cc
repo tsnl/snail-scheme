@@ -1,6 +1,13 @@
 #include "ss-core/pinvoke.hh"
 
 namespace ss {
+
+    PlatformProcTable::PlatformProcTable(size_t init_capacity) {
+      m_cb_table.reserve(init_capacity);
+      m_metadata_table.reserve(init_capacity);
+      m_id_symtab.reserve(init_capacity);
+    }
+
     std::optional<PlatformProcID> PlatformProcTable::lookup(IntStr proc_name) {
       auto it = m_id_symtab.find(proc_name);
       if (it != m_id_symtab.end()) {
@@ -30,7 +37,7 @@ namespace ss {
       m_cb_table.emplace_back(std::move(cb));
       m_metadata_table.emplace_back(
         proc_name, 
-        is_variadic ? -1 : static_cast<my_ssize_t>(arg_names.size()),
+        is_variadic ? -1 : static_cast<ssize_t>(arg_names.size()),
         std::move(docstring), 
         std::move(arg_names)
       );

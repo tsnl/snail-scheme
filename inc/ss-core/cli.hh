@@ -54,7 +54,7 @@ namespace ss {
         CliArgs parse(int argc, char const* argv[]);
     private:
         void add_generic_option_rule(std::string name, int arity, bool allow_multiple);
-        void eat_arg(std::string flag_content, CliArgs& out, int& index, int argc, char const* argv[]);
+        void eat_arg(std::string flag_content, CliArgs& out, int& index, char const* argv[]);
     };
 
 }

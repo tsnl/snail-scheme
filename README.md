@@ -23,6 +23,9 @@ It includes a basic interpreter (SSI) written in C++.
 1.  No block comments supported
 2.  Like R7RS and unlike older Scheme revisions, identifiers are case-sensitive.
 
+Extensions
+- `p/invoke` mechanism (differs from dotnet because require explicit binding in interpreter)
+
 ## Build instructions
 
 0.  Ensure you run `git submodule update --init --recursive` to fetch all dependencies.

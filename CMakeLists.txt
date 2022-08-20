@@ -38,6 +38,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dep/robin-hood-hashing)
 ## CXX compiler config
 #
 
+# release optimizations:
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
@@ -46,7 +47,8 @@ endif()
 ## Generating Source
 #
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR 
+    "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     set(SNAIL_DEBUG_MODE 1)
 else()
     set(SNAIL_DEBUG_MODE 0)
@@ -97,7 +99,7 @@ add_library(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/vm.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/analyst.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/compiler.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/rewrite.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/expander.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/library.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/file-loc.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ss-core/cli.cc
@@ -106,6 +108,13 @@ target_link_libraries(
     ss-core
     robin_hood
 )
+# Enable all arnings
+if(MSVC)
+    target_compile_options(ss-core PRIVATE /W4 /WX)
+else()
+    target_compile_options(ss-core PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 
 # ssi: Snail-Scheme interpreter
 add_executable(

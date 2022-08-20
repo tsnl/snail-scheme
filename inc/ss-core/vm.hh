@@ -22,8 +22,7 @@ namespace ss {
     // create_vm instantiates a VM.
     VirtualMachine* create_vm(
         Gc* gc,
-        VirtualMachineStandardProcedureBinder binder = bind_standard_procedures,
-        int init_reserved_file_count = 32
+        VirtualMachineStandardProcedureBinder binder = bind_standard_procedures
     );
 
     // destroy_vm destroys a VM.

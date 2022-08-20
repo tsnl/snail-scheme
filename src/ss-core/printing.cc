@@ -100,7 +100,7 @@ namespace ss {
                 out << ")";
             } break;
             case GranularObjectType::Syntax: {
-                auto syntax_obj = static_cast<SyntaxObject*>(obj.as_ptr());
+                auto syntax_obj = obj.as_syntax_p();
                 out << "(syntax "
                     << " #:data '" << syntax_obj->data()
                     << " #:floc " << "\"" << syntax_obj->loc().as_text() << "\""
