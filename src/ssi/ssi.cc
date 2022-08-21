@@ -138,6 +138,10 @@ namespace ss {
                     code->pproc_tab(),            
                     std::move(line_code_obj_array)
                 );
+
+                std::stringstream ss;
+                ss << "macro expansion complete";
+                info(ss.str());
                 
                 VSubr subr = compiler.compile_subr(
                     file_path, 

@@ -261,7 +261,7 @@ namespace ss {
     OBJECT SyntaxObject::pair_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT pair_data) {
         assert(pair_data.is_pair());
 
-        std::cerr << "pair_data_to_datum: " << pair_data << std::endl;
+        // std::cerr << "pair_data_to_datum: " << pair_data << std::endl;
 
         auto p = pair_data.as_pair_p();
 

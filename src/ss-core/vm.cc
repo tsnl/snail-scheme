@@ -185,11 +185,14 @@ namespace ss {
                         m_thread.regs().x = exp.args.i_constant.x;
                     } break;
                     case VmExpKind::Close: {
+                        // instantiate a closure with bound free-var arguments,
+                        // then pop these args as though a constructor were applied.
                         m_thread.regs().a = closure(exp.args.i_close.body, exp.args.i_close.vars_count, m_thread.regs().s);
                         m_thread.regs().x = exp.args.i_close.x;
                         m_thread.regs().s -= exp.args.i_close.vars_count;
                     } break;
                     case VmExpKind::Box: {
+                        // replaces nth argument with a box of its former contents
                         // see three-imp p.105
                         auto s = m_thread.regs().s;
                         auto n = exp.args.i_box.n;

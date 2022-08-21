@@ -90,14 +90,15 @@ namespace ss {
         OBJECT const default_env = ss::cons(&m_gc_tfe, OBJECT::null, OBJECT::null);
         line_programs.reserve(line_code_objects.size());
         for (auto const code_object: line_code_objects) {
-            // FIXME: (hacky): convert 'syntax' object into datum before compiling
+            // convert 'syntax' object into datum before compiling, discarding line info
+            // if passes previous pass, then only runtime errors can be generated
             auto datum_code_object = code_object;
             if (code_object.is_syntax()) {
                 datum_code_object = code_object.as_syntax_p()->to_datum(&m_gc_tfe);
-                std::cerr 
-                    << "syntax->datum: " << std::endl
-                    << "syntax: " << code_object << std::endl
-                    << "datum:  " << datum_code_object << std::endl;
+                // std::cerr 
+                //     << "syntax->datum: " << std::endl
+                //     << "syntax: " << code_object << std::endl
+                //     << "datum:  " << datum_code_object << std::endl;
             }
             auto program = compile_line(datum_code_object, default_env);
             line_programs.push_back(program);
@@ -290,14 +291,17 @@ namespace ss {
                 auto proc_name = car(tail);
                 auto proc_args = cdr(tail);
             
-                if (!proc_name.is_symbol()) {
-                    error("Invalid args to 'p/invoke': expected first arg to be a symbol");
+                if (!proc_name.is_integer()) {
+                    std::stringstream ss;
+                    ss << "Invalid args to 'p/invoke': expected first arg to be a symbol" << std::endl;
+                    ss << "got: " << proc_name;
+                    error(ss.str());
                     throw SsiError();
                 }
 
                 OBJECT rem_args = proc_args;
                 ssize_t arg_count = list_length(rem_args);
-                PlatformProcID platform_proc_idx = lookup_platform_proc(proc_name.as_symbol());
+                PlatformProcID platform_proc_idx = static_cast<PlatformProcID>(proc_name.as_integer());
                 VmExpID next_body = m_code->new_vmx_pinvoke(
                     arg_count, platform_proc_idx,
                     next
@@ -448,7 +452,7 @@ namespace ss {
         return res;
     }
     VmExpID Compiler::collect_free(OBJECT vars, OBJECT e, VmExpID next) {
-        // collecting in reverse-order
+        // collecting in reverse-order vs. in three-imp
         if (vars.is_null()) {
             return next;
         } else {

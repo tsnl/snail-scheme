@@ -138,25 +138,38 @@ namespace ss {
 namespace ss {
   
   struct Nonlocal {
+    RelVarScope parent_rel_var_scope;
+    ssize_t parent_idx;
     LDefID ldef_id;
     bool use_is_mut;
-    Nonlocal(LDefID ldef_id, bool use_is_mut): ldef_id(ldef_id), use_is_mut(use_is_mut) {}
+  public:
+    Nonlocal(
+      RelVarScope parent_rel_var_scope,
+      ssize_t parent_idx,
+      LDefID ldef_id, 
+      bool use_is_mut
+    )
+    : parent_rel_var_scope(parent_rel_var_scope),
+      parent_idx(parent_idx),
+      ldef_id(ldef_id),
+      use_is_mut(use_is_mut)
+    {}
   };
 
   struct Scope {
   public:
-    OrderedSymbolSet locals;
+    OrderedSymbolSet locals_ordered_set;
     std::vector<LDefID> local_defs;
-    OrderedSymbolSet inuse_nonlocals;
+    OrderedSymbolSet inuse_nonlocal_ordered_set;
     std::vector<Nonlocal> inuse_nonlocal_defs;
   public:
     Scope()
-    : locals(),
+    : locals_ordered_set(),
       local_defs(),
-      inuse_nonlocals(),
+      inuse_nonlocal_ordered_set(),
       inuse_nonlocal_defs()
     {
-      assert(locals.size() == local_defs.size());
+      assert(locals_ordered_set.size() == local_defs.size());
     }
   };
 
@@ -205,7 +218,7 @@ namespace ss {
     // - if local, then (RelVarScope::Local, LDefID)
     // - if nonlocal, then (RelVarScope::Free, LDefID) 
     // - if global, then (RelVarScope::Global, GDefID)
-    std::pair<RelVarScope, size_t> lookup_defn(FLoc loc, IntStr symbol, bool is_mut);
+    std::pair<RelVarScope, size_t> lookup_defn(FLoc loc, IntStr symbol, bool is_mut, size_t offset = 0);
 
   private:
     OBJECT rw_id_expr_stx_data(FLoc loc, OBJECT expr_stx_data);
@@ -245,7 +258,7 @@ namespace ss {
 
   LDefID Scoper::define_local(FLoc loc, IntStr name) {
     assert(!m_closure_scope_stack.empty());
-    auto old_def = m_closure_scope_stack.back().locals.idx(name);
+    auto old_def = m_closure_scope_stack.back().locals_ordered_set.idx(name);
     if (old_def.has_value()) {
       std::stringstream s;
       s << "Local variable re-defined in scope: " << interned_string(name) << std::endl
@@ -255,7 +268,7 @@ namespace ss {
       throw SsiError();
     } else {
       LDefID ldef_id = m_def_tab.define_local(loc, name);
-      m_closure_scope_stack.back().locals.add(name);
+      m_closure_scope_stack.back().locals_ordered_set.add(name);
       m_closure_scope_stack.back().local_defs.push_back(ldef_id);
       return ldef_id;
     }
@@ -285,23 +298,27 @@ namespace ss {
     }
   }
   
-  inline std::pair<RelVarScope, size_t> Scoper::lookup_defn(FLoc loc, IntStr sym, bool is_mut) {
-    // compile-time type-checks
-    std::cerr << "REFER: " << interned_string(sym) << std::endl;
+  inline std::pair<RelVarScope, size_t> Scoper::lookup_defn(
+    FLoc loc, 
+    IntStr sym, 
+    bool is_mut, 
+    size_t offset
+  ) {
+    // std::cerr << "REFER: " << interned_string(sym) << std::endl;
 
     // checking 'locals'
-    if (!m_closure_scope_stack.empty()) {
-      Scope& top = m_closure_scope_stack.back();
-      auto opt_idx = top.locals.idx(sym);
+    if (m_closure_scope_stack.size() > offset) {
+      Scope& top = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
+      auto opt_idx = top.locals_ordered_set.idx(sym);
       if (opt_idx.has_value()) {
         return {RelVarScope::Local, opt_idx.value()};
       }
     }
 
     // checking 'free', trying to get index:
-    if (!m_closure_scope_stack.empty()) {
-      Scope& top = m_closure_scope_stack.back();
-      auto opt_cached_idx = top.inuse_nonlocals.idx(sym);
+    if (m_closure_scope_stack.size() > 1+offset) {
+      Scope& top = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
+      auto opt_cached_idx = top.inuse_nonlocal_ordered_set.idx(sym);
       if (opt_cached_idx.has_value()) {
         auto cached_idx = opt_cached_idx.value();
         auto& nonlocal = top.inuse_nonlocal_defs[cached_idx];
@@ -311,26 +328,19 @@ namespace ss {
         return {RelVarScope::Free, cached_idx};
       } else {
         // must check whole scope stack, and if found, must insert into 'inuse' table
-        ssize_t found_idx = -1;
         LDefID found_ldef_id = static_cast<LDefID>(-1);
-        bool found_ldef_is_mut = false;
-        for (ssize_t i = m_closure_scope_stack.size()-2; i >= 0; i--) {
-          auto opt_idx = m_closure_scope_stack[i].locals.idx(sym);
-          if (opt_idx.has_value()) {
-            found_idx = opt_idx.value();
-            auto const& nonlocal = m_closure_scope_stack[i].inuse_nonlocal_defs[found_idx];
-            found_ldef_id = nonlocal.ldef_id;
-            found_ldef_is_mut = nonlocal.use_is_mut;
-            break;
-          }
-        }
-        if (found_idx >= 0) {
-          // insert into 'inuse' table, then return
-          ssize_t nonlocal_idx = static_cast<ssize_t>(top.inuse_nonlocal_defs.size());
-          top.inuse_nonlocals.add(sym);
-          top.inuse_nonlocal_defs.emplace_back(found_ldef_id, found_ldef_is_mut);
-          return {RelVarScope::Free, nonlocal_idx};
-        }
+        auto [parent_rel_var_scope, found_idx] = lookup_defn(loc, sym, is_mut, 1+offset);
+
+        // insert fresh into top 'inuse_nonlocals' table, then return
+        ssize_t nonlocal_idx = static_cast<ssize_t>(top.inuse_nonlocal_defs.size());
+        top.inuse_nonlocal_ordered_set.add(sym);
+        top.inuse_nonlocal_defs.emplace_back(
+          parent_rel_var_scope,
+          found_idx,
+          found_ldef_id, 
+          is_mut
+        );
+        return {RelVarScope::Free, nonlocal_idx};
       }
     }
     
@@ -361,21 +371,21 @@ namespace ss {
     );
   }
   OBJECT Scoper::rw_expr_stx_data(FLoc loc, OBJECT expr_stx_data) {
-    std::cerr << "RWs " << expr_stx_data << std::endl;
+    // std::cerr << "RWs " << expr_stx_data << std::endl;
     if (expr_stx_data.is_symbol()) {
       auto res = rw_id_expr_stx_data(loc, expr_stx_data);      
-      std::cerr << "RWf " << expr_stx_data << std::endl;
-      std::cerr << "1-> " << res << std::endl;
+      // std::cerr << "RWf " << expr_stx_data << std::endl;
+      // std::cerr << "1-> " << res << std::endl;
       return res;
     }
     if (expr_stx_data.is_pair()) {
       auto new_data = rw_pair_stx_data(loc, expr_stx_data);
-      std::cerr << "RWf " << expr_stx_data << std::endl;
-      std::cerr << "2-> " << new_data << std::endl;
+      // std::cerr << "RWf " << expr_stx_data << std::endl;
+      // std::cerr << "2-> " << new_data << std::endl;
       return new_data;
     }
-    std::cerr << "RWf " << expr_stx_data << std::endl;
-    std::cerr << "3-> " << expr_stx_data << std::endl;
+    // std::cerr << "RWf " << expr_stx_data << std::endl;
+    // std::cerr << "3-> " << expr_stx_data << std::endl;
     return expr_stx_data;
   }
   OBJECT Scoper::rw_id_expr_stx_data(FLoc loc, OBJECT expr_stx_data) {
@@ -433,7 +443,7 @@ namespace ss {
     // assembling 'nonlocals' list:
     OBJECT nonlocals = OBJECT::null;
     for (Nonlocal const& nonlocal: nonlocals_vec) {
-      auto element = cons(   // (nonlocal-ldef-id . use-is-mut)
+      auto element = list(   // (parent-rel-var-scope idx use-is-mut ldef-id)
         &m_gc_tfe,
         OBJECT::make_symbol(nonlocal.ldef_id), 
         OBJECT::make_boolean(nonlocal.use_is_mut)
