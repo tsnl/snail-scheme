@@ -116,10 +116,12 @@ namespace ss {
         //  - cf p. 87 of 'three-imp.pdf', §4.3.2: Translation and Evaluation
         switch (obj_kind(x)) {
             case ObjectKind::InternedSymbol: {
-                return compile_refer(
-                    x, e, 
-                    (is_set_member(x, s) ? m_code->new_vmx_indirect(next) : next)
-                );
+                // return decode_nonlocal(
+                //     x, e, 
+                //     (is_set_member(x, s) ? m_code->new_vmx_indirect(next) : next)
+                // );
+                error("NotImplemented: Compiler::compile_exp");
+                throw SsiError();
             }
             case ObjectKind::Pair: {
                 return compile_list_exp(x.as_pair_p(), next, e, s);
@@ -147,6 +149,25 @@ namespace ss {
                 return m_code->new_vmx_constant(quoted, next);
             }
             
+            // expanded-lambda
+            else if (keyword_symbol_id == g_id_cache().expanded_lambda) {
+                auto args = extract_args<3>(tail);
+                auto vars = args[0];
+                auto free = args[1];
+                auto body = args[2];
+                
+                return collect_free(
+                    free,
+                    m_code->new_vmx_close(
+                        list_length(free),
+                        // make_boxes(
+
+                        // )
+                        next
+                    )
+                );
+            }
+
             // lambda
             else if (keyword_symbol_id == g_id_cache().lambda) {
                 auto args = extract_args<2>(tail);
@@ -421,23 +442,38 @@ namespace ss {
 
         // unreachable
     }
-    VmExpID Compiler::compile_refer(OBJECT x, OBJECT e, VmExpID next) {
-        auto [rel_scope, n] = compile_lookup(x, e);
-        switch (rel_scope) {
-            case RelVarScope::Local: {
-                return m_code->new_vmx_refer_local(n, next);
-            } break;
-            case RelVarScope::Free: {
-                return m_code->new_vmx_refer_free(n, next);
-            } break;
-            case RelVarScope::Global: {
-                return m_code->new_vmx_refer_global(n, next);
-            } break;
-            default: {
-                error("NotImplemented: unknown RelVarScope");
-                throw SsiError();
-            }
+    VmExpID Compiler::refer_nonlocal(OBJECT x, VmExpID next) {
+        // 'x' is a 'Nonlocal' list, cf expander
+        auto nonlocal_array = extract_args<4>(x);
+        OBJECT parent_rel_var_scope_sym_obj = nonlocal_array[0];
+        OBJECT parent_idx_obj = nonlocal_array[1];
+        OBJECT ldef_id_obj = nonlocal_array[2];
+        OBJECT use_is_mut_obj = nonlocal_array[3];
+        
+        assert(parent_rel_var_scope_sym_obj.is_symbol());
+        assert(parent_idx_obj.is_integer());
+        assert(ldef_id_obj.is_integer());
+        assert(use_is_mut_obj.is_boolean());
+
+        IntStr parent_rel_var_scope_sym = parent_rel_var_scope_sym_obj.as_symbol();
+        ssize_t parent_idx = parent_idx_obj.as_integer();
+        // LDefID ldef_id = static_cast<LDefID>(ldef_id_obj.as_integer());
+        // bool is_mut = use_is_mut_obj.as_boolean();
+
+        if (parent_rel_var_scope_sym == g_id_cache().local) {
+            return m_code->new_vmx_refer_local(parent_idx, next);
         }
+        if (parent_rel_var_scope_sym == g_id_cache().free) {
+            return m_code->new_vmx_refer_free(parent_idx, next);
+        }
+        if (parent_rel_var_scope_sym == g_id_cache().global) {
+            return m_code->new_vmx_refer_global(parent_idx, next);
+        }
+
+        std::stringstream ss;
+        ss << "NotImplemented: unknown RelVarScopeSym: " << parent_rel_var_scope_sym_obj << std::endl;
+        error(ss.str());
+        throw SsiError();
     }
 
     bool Compiler::is_tail_vmx(VmExpID vmx_id) {
@@ -451,7 +487,7 @@ namespace ss {
         //     << "\tafter:  " << res << std::endl;
         return res;
     }
-    VmExpID Compiler::collect_free(OBJECT vars, OBJECT e, VmExpID next) {
+    VmExpID Compiler::collect_free(OBJECT vars, VmExpID next) {
         // collecting in reverse-order vs. in three-imp
         if (vars.is_null()) {
             return next;
@@ -459,8 +495,8 @@ namespace ss {
             // collect each free var by (1) referring, and (2) passing as argument
             // (hence pushing onto stack)
             return collect_free(
-                cdr(vars), e,
-                compile_refer(car(vars), e, m_code->new_vmx_argument(next))
+                cdr(vars),
+                refer_nonlocal(car(vars), m_code->new_vmx_argument(next))
             );
         }
     }
@@ -470,7 +506,7 @@ namespace ss {
         // three-imp, aligning with tail-position: indices used in 'box' 
         // instruction do not change: car(vars) indexed 0, ...
         VmExpID x = next;
-        for (size_t n = 0; !vars.is_null(); (++n, vars=cdr(vars))) {
+        for (size_t n = 0; !vars.is_null(); (++n, vars = cdr(vars))) {
             if (is_set_member(car(vars), sets)) {
                 x = m_code->new_vmx_box(n, x);
             }

@@ -32,7 +32,7 @@ namespace ss {
         VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
         VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
         VmExpID compile_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
-        VmExpID compile_refer(OBJECT x, OBJECT e, VmExpID next);
+        VmExpID refer_nonlocal(OBJECT x, VmExpID next);
         bool is_tail_vmx(VmExpID vmx_id);
 
     private:
@@ -41,7 +41,7 @@ namespace ss {
         
     // Utility builders:
     private:
-        VmExpID collect_free(OBJECT vars, OBJECT e, VmExpID next);
+        VmExpID collect_free(OBJECT vars, VmExpID next);
         VmExpID make_boxes(OBJECT sets, OBJECT vars, VmExpID next);
 
     // Globals:

@@ -11,7 +11,7 @@
 // - To avoid forwarding scopes and recomputing frees, lambdas are rewritten as
 //   (expanded-lambda #'(args) '(bound-free-vars) #'body)
 //   Note that bound-free-vars is an ordered list of pairs, and are not syntax objects
-//   Each bound-free-var element is a pair (ldef-id . use-is-mut) (cf Nonlocal)
+//   Each bound-free-var element is a list (cf Nonlocal)
 //   Each args element is an ldef-id integer wrapped in a SyntaxObject; we replace ID by int.
 // - Similarly, 'define' is replaced 
 //    (expanded-define ,rel-var-scope #,def-id #,scoped-initializer-stx)
@@ -435,7 +435,7 @@ namespace ss {
 
       // ensuring we scope the body while the formal argument scope is pushed
       // - any 'define' gets added to this scope
-      // - any mutation gets registered in this scope
+      // - any lookup + opt mutation gets registered in this scope as free var
       rewritten_body_stx = rw_expr_stx(body_syntax);
     }
     auto nonlocals_vec = pop_scope();
@@ -443,10 +443,12 @@ namespace ss {
     // assembling 'nonlocals' list:
     OBJECT nonlocals = OBJECT::null;
     for (Nonlocal const& nonlocal: nonlocals_vec) {
-      auto element = list(   // (parent-rel-var-scope idx use-is-mut ldef-id)
+      auto element = list(   // (parent-rel-var-scope parent-idx use-is-mut ldef-id)
         &m_gc_tfe,
-        OBJECT::make_symbol(nonlocal.ldef_id), 
-        OBJECT::make_boolean(nonlocal.use_is_mut)
+        OBJECT::make_symbol(rel_var_scope_to_sym(nonlocal.parent_rel_var_scope)),
+        OBJECT::make_integer(nonlocal.parent_idx),
+        OBJECT::make_boolean(nonlocal.use_is_mut),
+        OBJECT::make_symbol(nonlocal.ldef_id)
       );
       nonlocals = cons(&m_gc_tfe, element, nonlocals);
     }
