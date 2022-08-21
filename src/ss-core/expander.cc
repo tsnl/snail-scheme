@@ -197,25 +197,27 @@ namespace ss {
     // defines a local or global variable depending on the current scope stack.
     // RelVarScope is either Local or Global, indicating where the symbol was defined.
     std::pair<RelVarScope, size_t> define(FLoc loc, IntStr name); 
+
     // looks up a variable, returning the scope it was found in and an ID
     // - if local, then (RelVarScope::Local, LDefID)
     // - if nonlocal, then (RelVarScope::Free, LDefID) 
     // - if global, then (RelVarScope::Global, GDefID)
-    std::pair<RelVarScope, size_t> refer(OBJECT symbol, bool is_mut = false);
+    std::pair<RelVarScope, size_t> refer(FLoc loc, OBJECT symbol, bool is_mut = false);
 
   private:
     OBJECT rw_const_expr_stx(OBJECT expr_stx);
+    OBJECT rw_id_expr_stx_data(FLoc loc, OBJECT expr_stx_data);
     OBJECT rw_pair_expr_stx(OBJECT expr_stx);
     OBJECT rw_pair_stx_data(FLoc loc, OBJECT expr_stx_data);
     OBJECT rw_list_stx_data(FLoc loc, OBJECT expr_stx_data);
-    OBJECT rw_list_stx_data__lambda(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT rw_list_stx_data__if(OBJECT head, OBJECT tail);
-    OBJECT rw_list_stx_data__set(FLoc loc, OBJECT tail);
+    OBJECT rw_list_stx_data__lambda(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__if(OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__set(FLoc loc, OBJECT expr_stx_data);
     OBJECT rw_list_stx_data__call_cc(OBJECT expr_stx_data);
-    OBJECT rw_list_stx_data__define(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT rw_list_stx_data__p_invoke(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT rw_list_stx_data__begin(FLoc loc, OBJECT head, OBJECT tail);
-    OBJECT rw_list_stx_data__apply(OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__define(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__p_invoke(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__begin(FLoc loc, OBJECT expr_stx_data);
+    OBJECT rw_list_stx_data__apply(FLoc loc, OBJECT expr_stx_data);
   
   private:
     bool in_global_scope() const { return m_closure_scope_stack.empty(); }
@@ -270,10 +272,7 @@ namespace ss {
       error(s.str());
       throw SsiError();
     } else {
-      LDefID ldef_id = m_def_tab.define_local(loc, name);
-      m_closure_scope_stack.back().locals.add(name);
-      m_closure_scope_stack.back().local_defs.push_back(ldef_id);
-      return ldef_id;
+      return m_def_tab.define_global(loc, name);
     }
   }
 
@@ -285,18 +284,20 @@ namespace ss {
     }
   }
   
-  inline std::pair<RelVarScope, size_t> Scoper::refer(OBJECT symbol, bool is_mut) {
+  inline std::pair<RelVarScope, size_t> Scoper::refer(FLoc loc, OBJECT symbol, bool is_mut) {
     // compile-time type-checks
     if (!symbol.is_interned_symbol()) {
       error("broken query symbol in refer: expected symbol");
       throw SsiError();
     }
     
+    std::cerr << "REFER: " << symbol << std::endl;
+
     IntStr sym = symbol.as_interned_symbol();
-    Scope& top = m_closure_scope_stack.back();
 
     // checking 'locals'
-    {
+    if (!m_closure_scope_stack.empty()) {
+      Scope& top = m_closure_scope_stack.back();
       auto opt_idx = top.locals.idx(sym);
       if (opt_idx.has_value()) {
         LDefID ldef_id = top.local_defs[opt_idx.value()];
@@ -305,7 +306,8 @@ namespace ss {
     }
 
     // checking 'free', trying to get index:
-    {
+    if (!m_closure_scope_stack.empty()) {
+      Scope& top = m_closure_scope_stack.back();
       auto opt_cached_idx = top.inuse_nonlocals.idx(sym);
       if (opt_cached_idx.has_value()) {
         auto cached_idx = opt_cached_idx.value();
@@ -350,34 +352,48 @@ namespace ss {
     // lookup failed:
     {
       std::stringstream ss;
-      ss << "Lookup failed: symbol used but not defined: " << symbol;
+      ss << "Lookup failed: symbol used but not defined: " << symbol << std::endl;
+      ss << "see: " << loc.as_text();
       error(ss.str());
       throw SsiError();
     }
   }
 
   OBJECT Scoper::rw_expr_stx(OBJECT expr_stx) {
+    std::cerr << "RW: " << expr_stx << std::endl;
+
     assert(expr_stx.is_syntax());
     auto expr_stx_p = expr_stx.as_syntax_p();
     OBJECT data = expr_stx_p->data();
     if (data.is_interned_symbol()) {
-      auto [rel_var_scope, def_id] = refer(data);
-      IntStr rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
-      return OBJECT::make_syntax(
-        &m_gc_tfe,
-        list(&m_gc_tfe, 
-          OBJECT::make_interned_symbol(g_id_cache().reference),
-          OBJECT::make_interned_symbol(rel_var_scope_sym),
-          OBJECT::make_integer(def_id)
-        ),
-        expr_stx_p->loc()
-      );
+      auto res = rw_id_expr_stx_data(expr_stx_p->loc(), data);
+      std::cerr << "-> " << res << std::endl;
+      return res;
     }
     if (data.is_pair()) {
       auto new_data = rw_pair_stx_data(expr_stx_p->loc(), data);
-      return OBJECT::make_syntax(&m_gc_tfe, new_data, expr_stx_p->loc());
+      auto res = OBJECT::make_syntax(&m_gc_tfe, new_data, expr_stx_p->loc());
+      std::cerr << "-> " << res << std::endl;
+      return res;
     }
-    return rw_const_expr_stx(expr_stx);
+    auto res = rw_const_expr_stx(expr_stx);
+    std::cerr << "-> " << res << std::endl;
+    return res;
+  }
+  OBJECT Scoper::rw_id_expr_stx_data(FLoc loc, OBJECT expr_stx_data) {
+    assert(expr_stx_data.is_interned_symbol());
+    auto [rel_var_scope, def_id] = refer(loc, expr_stx_data);
+    IntStr rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
+    auto res = OBJECT::make_syntax(
+      &m_gc_tfe,
+      list(&m_gc_tfe, 
+        OBJECT::make_interned_symbol(g_id_cache().reference),
+        OBJECT::make_interned_symbol(rel_var_scope_sym),
+        OBJECT::make_integer(def_id)
+      ),
+      loc
+    );
+    return res;
   }
   OBJECT Scoper::rw_const_expr_stx(OBJECT expr_stx) {
     assert(expr_stx.is_syntax());
@@ -399,10 +415,12 @@ namespace ss {
       );
     }
   }
-  OBJECT Scoper::rw_list_stx_data__lambda(FLoc loc, OBJECT head, OBJECT tail) {
-    auto args = extract_args<2>(tail);
-    auto vars_syntax = args[0];
-    auto body_syntax = args[1];
+  OBJECT Scoper::rw_list_stx_data__lambda(FLoc loc, OBJECT expr_stx_data) {
+    assert(expr_stx_data.is_pair());
+    auto args = extract_args<3>(expr_stx_data);
+    auto lambda_syntax = args[0];
+    auto vars_syntax = args[1];
+    auto body_syntax = args[2];
 
     assert(vars_syntax.is_syntax());
     auto vars_syntax_p = vars_syntax.as_syntax_p();
@@ -461,30 +479,31 @@ namespace ss {
 
     // (lambda #'(formal-vars) '(bound-vars) #'body)
     return list(&m_gc_tfe, 
-      head,               // lambda, but a syntax object
+      lambda_syntax,      // lambda, but a syntax object
       res_args,           // note: replaced ID in syntax object with an integer LDefID
       nonlocals,          // note: not syntax objects since synthetic
       rewritten_body_stx  // body after scoping, expanding
     );
   }
-  OBJECT Scoper::rw_list_stx_data__if(OBJECT head, OBJECT tail) {
-    auto args = extract_args<3>(tail);
-    auto cond_stx = args[0];
-    auto then_stx = args[1];
-    auto else_stx = args[2];
+  OBJECT Scoper::rw_list_stx_data__if(OBJECT expr_stx_data) {
+    auto args = extract_args<4>(expr_stx_data);
+    auto if_kw_stx = args[0];
+    auto cond_stx = args[1];
+    auto then_stx = args[2];
+    auto else_stx = args[3];
     return list(
       &m_gc_tfe,
-      head,   // if, but a syntax object
+      if_kw_stx,    // if, but a syntax object
       rw_expr_stx(cond_stx),
       rw_expr_stx(then_stx),
       rw_expr_stx(else_stx)
     );
   }
-  OBJECT Scoper::rw_list_stx_data__set(FLoc loc, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__set(FLoc loc, OBJECT expr_stx_data) {
     // (mutation ,rel-var-scope ,def-id)
-    auto args = extract_args<2>(tail);
-    auto name_obj_stx = args[0];
-    auto init_obj_stx = args[1];
+    auto args = extract_args<3>(expr_stx_data);
+    auto name_obj_stx = args[1];
+    auto init_obj_stx = args[2];
 
     assert(name_obj_stx.is_syntax());
     assert(init_obj_stx.is_syntax());
@@ -498,7 +517,7 @@ namespace ss {
       throw SsiError();
     }
     IntStr name = name_obj.as_interned_symbol();
-    auto [rel_var_scope, def_id] = refer(name, true);
+    auto [rel_var_scope, def_id] = refer(loc, name, true);
     
     auto mutation_obj = OBJECT::make_interned_symbol(g_id_cache().mutation);
     auto rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
@@ -511,19 +530,19 @@ namespace ss {
     );
   }
   OBJECT Scoper::rw_list_stx_data__call_cc(OBJECT expr_stx_data) {
-    OBJECT res_data = OBJECT::null;
-    for (OBJECT rem = expr_stx_data; !rem.is_null(); rem = cdr(rem)) {
-      OBJECT old_elem_stx = cadr(expr_stx_data);
-      assert(old_elem_stx.is_syntax());
-      OBJECT new_elem_stx = rw_expr_stx(old_elem_stx);
-      res_data = cons(&m_gc_tfe, new_elem_stx, res_data);
-    }
-    return expr_stx_data;
+    auto args = extract_args<2>(expr_stx_data);
+    auto kw_call_cc_stx = args[0];
+    auto continuation_cb_stx = args[1];
+    return list(&m_gc_tfe,
+      kw_call_cc_stx,
+      rw_expr_stx(continuation_cb_stx)
+    );
   }
-  OBJECT Scoper::rw_list_stx_data__define(FLoc loc, OBJECT head, OBJECT tail) {
-    auto args = extract_args<2>(tail);
-    auto name_obj_stx = args[0];
-    auto init_obj_stx = args[1];
+  OBJECT Scoper::rw_list_stx_data__define(FLoc loc, OBJECT expr_stx_data) {
+    auto args = extract_args<3>(expr_stx_data);
+    auto define_kw_stx = args[0];
+    auto name_obj_stx = args[1];
+    auto init_obj_stx = args[2];
 
     assert(name_obj_stx.is_syntax());
     auto name_obj_stx_p = name_obj_stx.as_syntax_p();
@@ -549,15 +568,16 @@ namespace ss {
     );
 
     return list(&m_gc_tfe,
-      head,                                 // define
-      rel_var_scope_sym_obj,                // rel-var-scope
-      def_id_obj_stx,                       // stx replacing IntStr name with GDefID
-      rw_expr_stx(init_obj_stx)       // initializer
+      define_kw_stx,                // define
+      rel_var_scope_sym_obj,        // rel-var-scope
+      def_id_obj_stx,               // stx replacing IntStr name with GDefID
+      rw_expr_stx(init_obj_stx)     // initializer
     );
   }
-  OBJECT Scoper::rw_list_stx_data__p_invoke(FLoc loc, OBJECT head, OBJECT tail) {
-    auto args = extract_args<1>(tail, true);
-    auto proc_name_obj_stx = args[0];
+  OBJECT Scoper::rw_list_stx_data__p_invoke(FLoc loc, OBJECT expr_stx_data) {
+    auto args = extract_args<2>(expr_stx_data, true);
+    auto p_invoke_stx = args[0];
+    auto proc_name_obj_stx = args[1];
     auto proc_name_obj_stx_p = proc_name_obj_stx.as_syntax_p();
     assert(proc_name_obj_stx.is_syntax());
     auto proc_name_obj = proc_name_obj_stx_p->data();
@@ -585,14 +605,14 @@ namespace ss {
     auto pproc_id_obj = OBJECT::make_integer(pproc_id);
 
     return list(&m_gc_tfe,
-      head,   // p/invoke syntax
+      p_invoke_stx,   // p/invoke syntax
       OBJECT::make_syntax(&m_gc_tfe, pproc_id_obj, proc_name_obj_stx_p->loc())
     );
   }
-  OBJECT Scoper::rw_list_stx_data__begin(FLoc loc, OBJECT head, OBJECT tail) {
+  OBJECT Scoper::rw_list_stx_data__begin(FLoc loc, OBJECT expr_stx_data) {
     bool is_global = in_global_scope();
 
-    if (!tail.is_pair()) {
+    if (!expr_stx_data.is_pair()) {
       std::stringstream s;
       s << "begin: expected at least 1 expression to evaluate, got 0 OR improper list" << std::endl
         << "see: " << loc.as_text();
@@ -604,7 +624,16 @@ namespace ss {
     OBJECT rewritten_elements = OBJECT::null;
     if (!is_global) { push_scope(); }
     {
-      for (OBJECT rem = tail; !rem.is_null(); rem = cdr(tail)) {
+      for (OBJECT rem = cdr(expr_stx_data); !rem.is_null(); rem = cdr(rem)) {
+        if (!rem.is_pair()) {
+          std::stringstream ss;
+          ss << "begin: expected a pair-list, got improper pair-list" << std::endl;
+          ss << "item: " << rem << std::endl;
+          ss << "see:  " << loc.as_text() << std::endl;
+          error(ss.str());
+          throw SsiError();
+        }
+
         OBJECT old_stx_obj = car(rem);
         OBJECT new_stx_obj = rw_expr_stx(old_stx_obj);
         rewritten_elements = cons(&m_gc_tfe, new_stx_obj, rewritten_elements);
@@ -612,10 +641,11 @@ namespace ss {
     }
     if (!is_global) { pop_scope(); }
 
-    return cons(&m_gc_tfe, head, rewritten_elements);
+    return cons(&m_gc_tfe, car(expr_stx_data), rewritten_elements);
   }
-  OBJECT Scoper::rw_list_stx_data__apply(OBJECT expr_data) {
-    auto expr_items = list_to_cpp_vector(expr_data);
+  OBJECT Scoper::rw_list_stx_data__apply(FLoc loc, OBJECT expr_stx_data) {
+    SUPPRESS_UNUSED_VARIABLE_WARNING(loc);
+    auto expr_items = list_to_cpp_vector(expr_stx_data);
     std::vector<OBJECT> rw_items;
     rw_items.reserve(expr_items.size());
     for (OBJECT arg: expr_items) {
@@ -637,32 +667,25 @@ namespace ss {
     }
 
     OBJECT head_syntax = expr_stx_data_p->car();
-    OBJECT tail_syntax = expr_stx_data_p->cdr();
-    
-    assert(tail_syntax.is_list());
-
     auto head_syntax_p = head_syntax.as_syntax_p();
-    auto tail_syntax_p = head_syntax.as_syntax_p();
-
     OBJECT head = head_syntax_p->data();
-    OBJECT tail = tail_syntax_p->data();
 
     if (head.is_interned_symbol()) {
       auto keyword_symbol_id = head.as_interned_symbol();
 
       // lambda
       if (keyword_symbol_id == g_id_cache().lambda) {
-        return rw_list_stx_data__lambda(loc, head, tail);
+        return rw_list_stx_data__lambda(loc, expr_stx_data);
       }
 
       // if
       if (keyword_symbol_id == g_id_cache().if_) {
-        return rw_list_stx_data__if(head, tail);
+        return rw_list_stx_data__if(expr_stx_data);
       }
 
       // set!
       if (keyword_symbol_id == g_id_cache().set) {
-        return rw_list_stx_data__set(loc, tail);
+        return rw_list_stx_data__set(loc, expr_stx_data);
       }
 
       // call/cc
@@ -672,17 +695,17 @@ namespace ss {
 
       // define
       if (keyword_symbol_id == g_id_cache().define) {
-        return rw_list_stx_data__define(loc, head, tail);
+        return rw_list_stx_data__define(loc, expr_stx_data);
       }
 
       // p/invoke
       if (keyword_symbol_id == g_id_cache().p_invoke) {
-        return rw_list_stx_data__p_invoke(loc, head, tail);
+        return rw_list_stx_data__p_invoke(loc, expr_stx_data);
       }
 
       // begin
       if (keyword_symbol_id == g_id_cache().begin) {
-        return rw_list_stx_data__begin(loc, head, tail);
+        return rw_list_stx_data__begin(loc, expr_stx_data);
       }
 
       // quote
@@ -695,7 +718,7 @@ namespace ss {
 
     // apply:
     // TODO: detect macro application
-    return rw_list_stx_data__apply(expr_stx_data);
+    return rw_list_stx_data__apply(loc, expr_stx_data);
   }
 }
 

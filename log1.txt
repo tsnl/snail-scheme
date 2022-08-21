@@ -1,0 +1,41 @@
+RW: (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:1:2-8") (syntax ':data 'x ':floc "sandbox/demo13.scm:1:8-10") (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12")) ':floc "sandbox/demo13.scm:1:1-13")
+DEFINE: define-global
+RW: (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12")
+-> (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12")
+-> (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:1:2-8") global (syntax ':data '0 ':floc "sandbox/demo13.scm:1:8-10") (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12")) ':floc "sandbox/demo13.scm:1:1-13")
+RW: (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:2:2-8") (syntax ':data 'y ':floc "sandbox/demo13.scm:2:8-10") (syntax ':data 'x ':floc "sandbox/demo13.scm:2:10-12")) ':floc "sandbox/demo13.scm:1:132:13")
+DEFINE: define-global
+RW: (syntax ':data 'x ':floc "sandbox/demo13.scm:2:10-12")
+REFER: x
+-> (syntax ':data '(reference global 0) ':floc "sandbox/demo13.scm:2:10-12")
+-> (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:2:2-8") global (syntax ':data '1 ':floc "sandbox/demo13.scm:2:8-10") (syntax ':data '(reference global 0) ':floc "sandbox/demo13.scm:2:10-12")) ':floc "sandbox/demo13.scm:1:132:13")
+RW: (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:3:2-8") (syntax ':data 'f ':floc "sandbox/demo13.scm:3:8-10") (syntax ':data '((syntax ':data 'lambda ':floc "sandbox/demo13.scm:3:12-18") (syntax ':data '((syntax ':data 'a ':floc "sandbox/demo13.scm:3:20-21") (syntax ':data 'b ':floc "sandbox/demo13.scm:3:21-23")) ':floc "sandbox/demo13.scm:3:18-24") (syntax ':data '((syntax ':data 'f ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data 'a ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")) ':floc "sandbox/demo13.scm:3:10-31")) ':floc "sandbox/demo13.scm:2:133:32")
+DEFINE: define-global
+RW: (syntax ':data '((syntax ':data 'lambda ':floc "sandbox/demo13.scm:3:12-18") (syntax ':data '((syntax ':data 'a ':floc "sandbox/demo13.scm:3:20-21") (syntax ':data 'b ':floc "sandbox/demo13.scm:3:21-23")) ':floc "sandbox/demo13.scm:3:18-24") (syntax ':data '((syntax ':data 'f ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data 'a ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")) ':floc "sandbox/demo13.scm:3:10-31")
+RW: (syntax ':data '((syntax ':data 'f ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data 'a ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")
+RW: (syntax ':data 'f ':floc "sandbox/demo13.scm:3:26-27")
+REFER: f
+-> (syntax ':data '(reference global 2) ':floc "sandbox/demo13.scm:3:26-27")
+RW: (syntax ':data 'a ':floc "sandbox/demo13.scm:3:27-29")
+REFER: a
+-> (syntax ':data '(reference local 0) ':floc "sandbox/demo13.scm:3:27-29")
+-> (syntax ':data '((syntax ':data '(reference global 2) ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data '(reference local 0) ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")
+-> (syntax ':data '((syntax ':data 'lambda ':floc "sandbox/demo13.scm:3:12-18") ((syntax ':data '1 ':floc "sandbox/demo13.scm:3:21-23") (syntax ':data '0 ':floc "sandbox/demo13.scm:3:20-21")) () (syntax ':data '((syntax ':data '(reference global 2) ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data '(reference local 0) ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")) ':floc "sandbox/demo13.scm:3:10-31")
+-> (syntax ':data '((syntax ':data 'define ':floc "sandbox/demo13.scm:3:2-8") global (syntax ':data '2 ':floc "sandbox/demo13.scm:3:8-10") (syntax ':data '((syntax ':data 'lambda ':floc "sandbox/demo13.scm:3:12-18") ((syntax ':data '1 ':floc "sandbox/demo13.scm:3:21-23") (syntax ':data '0 ':floc "sandbox/demo13.scm:3:20-21")) () (syntax ':data '((syntax ':data '(reference global 2) ':floc "sandbox/demo13.scm:3:26-27") (syntax ':data '(reference local 0) ':floc "sandbox/demo13.scm:3:27-29")) ':floc "sandbox/demo13.scm:3:24-30")) ':floc "sandbox/demo13.scm:3:10-31")) ':floc "sandbox/demo13.scm:2:133:32")
+syntax->datum: 
+syntax: 
+  (syntax 
+    ':data 
+      '((syntax ':data 'define ':floc "sandbox/demo13.scm:1:2-8") 
+        global 
+        (syntax ':data '0 ':floc "sandbox/demo13.scm:1:8-10") 
+        (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12")) 
+    ':floc 
+      "sandbox/demo13.scm:1:1-13")
+datum:  
+  (define 
+    global 
+    (syntax ':data '0 ':floc "sandbox/demo13.scm:1:8-10") 
+    (syntax ':data '0 ':floc "sandbox/demo13.scm:1:10-12"))
+
+ssi: /home/nti/Workshop/snail-scheme.d/v3/src/ss-core/compiler.cc:262: ss::VmExpID ss::Compiler::compile_list_exp(ss::PairObject *, ss::VmExpID, ss::OBJECT, ss::OBJECT): Assertion `name.is_integer()' failed.

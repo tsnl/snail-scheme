@@ -13,6 +13,7 @@
 #include <cctype>
 
 #include "ss-core/gc.hh"
+#include "ss-core/object.hh"
 #include "ss-core/intern.hh"
 #include "ss-core/common.hh"
 #include "ss-core/feedback.hh"
@@ -524,7 +525,7 @@ namespace ss {
     };
 
     Parser::Parser(std::istream& input_stream, std::string input_desc, GcThreadFrontEnd* gc_tfe) 
-    :   m_lexer(input_stream, std::move(input_desc)),
+    :   m_lexer(input_stream, input_desc),
         m_source(intern(input_desc)),
         m_gc_tfe(gc_tfe)
     {}
@@ -554,7 +555,8 @@ namespace ss {
                 ts.skip();
                 return OBJECT::make_syntax(
                     m_gc_tfe, 
-                    OBJECT::make_interned_symbol(la_ti.as.identifier), loc
+                    OBJECT::make_interned_symbol(la_ti.as.identifier), 
+                    loc
                 );
             }
             case TokenKind::Boolean: {
@@ -838,7 +840,7 @@ namespace ss {
         std::vector<OBJECT> objs;
         objs.reserve(syntax_objs.size());
         for (size_t i = 0; i < syntax_objs.size(); i++) {
-            auto it = static_cast<SyntaxObject*>(syntax_objs[i].as_ptr())->to_datum(p->gc_tfe());
+            auto it = syntax_objs[i].as_syntax_p()->to_datum(p->gc_tfe());
             objs.push_back(it);
         }
         return objs;

@@ -3,9 +3,13 @@
 #include <sstream>
 
 namespace ss {
-  std::string FLocSpan::as_text() {
+  std::string FLocSpan::as_text(bool include_guard_brackets) {
       std::stringstream ss;
-      ss << '[';
+      
+      if (include_guard_brackets) {
+        ss << '[';
+      }
+      
       if (first_pos.line_index == last_pos.line_index) {
           ss << 1+first_pos.line_index << ":";
           if (first_pos.column_index == last_pos.column_index) {
@@ -17,10 +21,14 @@ namespace ss {
           ss << 1+first_pos.line_index << ":" << 1+first_pos.column_index
           << 1+last_pos.line_index << ":" << 1+last_pos.column_index;
       }
-      ss << ']';
+      
+      if (include_guard_brackets) {
+        ss << ']';
+      }
+      
       return ss.str();   
   }
   std::string FLoc::as_text() {
-    return interned_string(source) + ":" + span.as_text();
+    return interned_string(source) + ":" + span.as_text(false);
   }
 }

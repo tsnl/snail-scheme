@@ -94,6 +94,10 @@ namespace ss {
             auto datum_code_object = code_object;
             if (code_object.is_syntax()) {
                 datum_code_object = code_object.as_syntax_p()->to_datum(&m_gc_tfe);
+                std::cerr 
+                    << "syntax->datum: " << std::endl
+                    << "syntax: " << code_object << std::endl
+                    << "datum:  " << datum_code_object << std::endl;
             }
             auto program = compile_line(datum_code_object, default_env);
             line_programs.push_back(program);
@@ -110,13 +114,13 @@ namespace ss {
         // iteratively translating this line to a VmProgram
         //  - cf p. 87 of 'three-imp.pdf', §4.3.2: Translation and Evaluation
         switch (obj_kind(x)) {
-            case GranularObjectType::InternedSymbol: {
+            case ObjectKind::InternedSymbol: {
                 return compile_refer(
                     x, e, 
                     (is_set_member(x, s) ? m_code->new_vmx_indirect(next) : next)
                 );
             }
-            case GranularObjectType::Pair: {
+            case ObjectKind::Pair: {
                 return compile_list_exp(x.as_pair_p(), next, e, s);
             }
             default: {
@@ -249,54 +253,36 @@ namespace ss {
 
             // define
             else if (keyword_symbol_id == g_id_cache().define) {
-                auto args = extract_args<2>(tail);
-                auto structural_signature = args[0];
-                auto body = args[1];
-                auto name = OBJECT::null;
-                auto pattern_ok = false;
+                auto args = extract_args<3>(tail);
+                auto scope_sym_obj = args[0];
+                auto name = args[1];
+                auto body = args[2];
+                
+                assert(scope_sym_obj.is_interned_symbol());
+                assert(name.is_integer());
 
-                if (structural_signature.is_interned_symbol()) {
-                    // (define <var> <initializer>)
-                    pattern_ok = true;
-                    name = structural_signature;
-                }
-                else if (structural_signature.is_pair()) {
-                    // (define (<fn-name> <arg-vars...>) <initializer>)
-                    // desugars to 
-                    // (define <fn-name> (lambda (<arg-vars) <initializer>))
-                    pattern_ok = true;
-
-                    auto fn_name = car(structural_signature);
-                    auto arg_vars = cdr(structural_signature);
-                    
-                    if (!fn_name.is_interned_symbol()) {
-                        std::stringstream ss;
-                        ss << "define: invalid function name: ";
-                        print_obj(fn_name, ss);
-                        error(ss.str());
-                        throw SsiError();
-                    }
-
-                    name = fn_name;
-                    body = list(&m_gc_tfe, OBJECT::make_interned_symbol(intern("lambda")), arg_vars, body);
-                }
-
-                // de-sugared handler:
-                // NOTE: when computing ref instances:
-                // - 'Define' instruction runs before 'Assign'
-                assert(name.is_interned_symbol());
-                IntStr name_sym = name.as_interned_symbol();
-                GDefID gdef_id = define_global({}, name_sym);
-                if (pattern_ok) {
+                auto scope_sym = scope_sym_obj.as_interned_symbol();
+                if (scope_sym == g_id_cache().global) {
+                    GDefID gdef_id = static_cast<LDefID>(name.as_integer());
                     return compile_exp(
                         body,
                         m_code->new_vmx_assign_global(gdef_id, next),
                         e, s
                     );
-                } else {
-                    error("Invalid args to 'define'");
-                    throw SsiError();
                 }
+                if (scope_sym == g_id_cache().local) {
+                    LDefID ldef_id = static_cast<LDefID>(name.as_integer());
+                    return compile_exp(
+                        body,
+                        m_code->new_vmx_assign_local(ldef_id, next),
+                        e, s
+                    );
+                }
+
+                std::stringstream ss;
+                ss << "expected scope symbol to be 'local', 'global', but got: " << scope_sym_obj << std::endl;
+                error(ss.str());
+                throw SsiError();
             }
 
             // p/invoke

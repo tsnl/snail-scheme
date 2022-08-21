@@ -13,7 +13,7 @@ namespace ss {
   struct FLocSpan {
     FLocPos first_pos;
     FLocPos last_pos;
-    std::string as_text();
+    std::string as_text(bool include_guard_brackets = true);
     FLocSpan() = default;
     FLocSpan(FLocPos p0, FLocPos p1): first_pos(p0), last_pos(p1) {}
   };

@@ -96,7 +96,7 @@ namespace ss {
         {
             auto start = std::chrono::steady_clock::now();
             Parser* p = create_parser(f, file_path, vm_gc_tfe(vm));
-            line_code_obj_array = parse_all_subsequent_line_datums(p);
+            line_code_obj_array = parse_all_subsequent_lines(p);
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
@@ -139,8 +139,6 @@ namespace ss {
                     std::move(line_code_obj_array)
                 );
                 
-                
-        
                 VSubr subr = compiler.compile_subr(
                     file_path, 
                     std::move(expanded_line_code_obj_array)

@@ -295,7 +295,7 @@ namespace ss {
                     error(ss.str());
                     throw SsiError();
                 }
-                auto idx = aa[1].as_signed_fixnum();
+                auto idx = aa[1].as_integer();
                 return aa[0].as_vector_p()->operator[](idx);
             },
             {"vec, pos"},
@@ -316,7 +316,7 @@ namespace ss {
                     error(ss.str());
                     throw SsiError();
                 }
-                auto idx = aa[1].as_signed_fixnum();
+                auto idx = aa[1].as_integer();
                 return aa[0].as_vector_p()->operator[](idx) = aa[2];
             },
             {"vec, pos", "v"},
@@ -425,8 +425,8 @@ namespace ss {
                 if (!float64_operand_present && !float32_operand_present) {
                     // adding two integers:
                     auto& aa = args;
-                    ssize_t res = aa[0].as_signed_fixnum();
-                    int_fold_cb(res, aa[1].as_signed_fixnum());
+                    ssize_t res = aa[0].as_integer();
+                    int_fold_cb(res, aa[1].as_integer());
                     return OBJECT::make_integer(res);
                 }
                 else if (!int_operand_present && !float64_operand_present) {

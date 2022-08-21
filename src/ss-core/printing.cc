@@ -8,28 +8,28 @@ namespace ss {
 
     void print_obj(OBJECT obj, std::ostream& out) {
         switch (obj_kind(obj)) {
-            case GranularObjectType::Eof: {
+            case ObjectKind::Eof: {
                 out << "#\\eof";
             }
-            case GranularObjectType::Null: {
+            case ObjectKind::Null: {
                 out << "()";
             } break;
-            case GranularObjectType::Rune: {
+            case ObjectKind::Rune: {
                 throw std::runtime_error("NotImplemented: print_obj for GraunlarObjectType::Rune");
             } break;
-            case GranularObjectType::Boolean: {
+            case ObjectKind::Boolean: {
                 out << (obj.as_boolean() ? "#t": "#f");
             } break;
-            case GranularObjectType::Fixnum: {
-                out << obj.as_signed_fixnum();
+            case ObjectKind::Fixnum: {
+                out << obj.as_integer();
             } break;
-            case GranularObjectType::Float32: {
+            case ObjectKind::Float32: {
                 out << obj.as_float32();
             } break;
-            case GranularObjectType::Float64: {
+            case ObjectKind::Float64: {
                 out << obj.as_float64();
             } break;
-            case GranularObjectType::String: {
+            case ObjectKind::String: {
                 auto str_obj = static_cast<StringObject*>(obj.as_ptr());
                 out << '"';
                 for (size_t i = 0; i < str_obj->count(); i++) {
@@ -51,10 +51,10 @@ namespace ss {
                 }
                 out << '"';
             } break;
-            case GranularObjectType::InternedSymbol: {
+            case ObjectKind::InternedSymbol: {
                 out << interned_string(obj.as_interned_symbol());
             } break;
-            case GranularObjectType::Pair: {
+            case ObjectKind::Pair: {
                 auto pair_obj = obj;
                 out << '(';
                 if (cdr(pair_obj).is_null()) {
@@ -90,20 +90,20 @@ namespace ss {
                 }
                 out << ')';
             } break;
-            case GranularObjectType::Vector: {
+            case ObjectKind::Vector: {
                 out << "<Vector>";
             } break;
-            case GranularObjectType::Box: {
+            case ObjectKind::Box: {
                 auto box_obj = static_cast<BoxObject*>(obj.as_ptr());
                 out << "(box ";
                 print_obj(box_obj->boxed(), out);
                 out << ")";
             } break;
-            case GranularObjectType::Syntax: {
+            case ObjectKind::Syntax: {
                 auto syntax_obj = obj.as_syntax_p();
                 out << "(syntax "
-                    << " #:data '" << syntax_obj->data()
-                    << " #:floc " << "\"" << syntax_obj->loc().as_text() << "\""
+                    << "':data '" << syntax_obj->data() << " "
+                    << "':floc " << "\"" << syntax_obj->loc().as_text() << "\""
                     << ")";
             } break;
         }

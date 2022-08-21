@@ -4,24 +4,40 @@
 
 namespace ss {
 
-    inline GranularObjectType BaseBoxedObject::kind() {
+    inline ObjectKind BaseBoxedObject::kind() {
         return m_kind;
     }
-    inline GranularObjectType obj_kind(OBJECT object) {
-        return object.kind();
-    }
-
-    GranularObjectType OBJECT::kind() const {
+    inline ObjectKind OBJECT::kind() const {
         if (is_ptr()) { return m_data.ptr->kind(); }
-        if (is_integer()) { return GranularObjectType::Fixnum; }
-        if (is_interned_symbol()) { return GranularObjectType::InternedSymbol; }
-        if (is_float32()) { return GranularObjectType::Float32; }
-        if (is_uchar()) { return GranularObjectType::Rune; }
-        if (is_boolean()) { return GranularObjectType::Boolean; }
-        if (is_null()) { return GranularObjectType::Null; }
-        if (is_eof()) { return GranularObjectType::Eof; }
+        if (is_integer()) { return ObjectKind::Fixnum; }
+        if (is_interned_symbol()) { return ObjectKind::InternedSymbol; }
+        if (is_float32()) { return ObjectKind::Float32; }
+        if (is_uchar()) { return ObjectKind::Rune; }
+        if (is_boolean()) { return ObjectKind::Boolean; }
+        if (is_null()) { return ObjectKind::Null; }
+        if (is_eof()) { return ObjectKind::Eof; }
         error("NotImplemented: kind: Unknown OBJECT kind");
         throw SsiError();
+    }
+    inline ObjectKind obj_kind(OBJECT object) {
+        return object.kind();
+    }
+    inline std::string obj_kind_name(ObjectKind object_kind) {
+        switch (object_kind) {
+            case ObjectKind::Null: return "Null";
+            case ObjectKind::Eof: return "Eof";
+            case ObjectKind::Box: return "Box";
+            case ObjectKind::Boolean: return "Boolean";
+            case ObjectKind::Fixnum: return "Fixnum";
+            case ObjectKind::Float32: return "Float32";
+            case ObjectKind::Float64: return "Float64";
+            case ObjectKind::Rune: return "Rune";
+            case ObjectKind::InternedSymbol: return "InternedSymbol";
+            case ObjectKind::String: return "String";
+            case ObjectKind::Pair: return "Pair";
+            case ObjectKind::Vector: return "Vector";
+            case ObjectKind::Syntax: return "Syntax";
+        }
     }
 
     // inline OBJECT OBJECT::make_port(std::string file_path, std::ios_base::openmode mode) {
@@ -31,31 +47,31 @@ namespace ss {
         return OBJECT{obj};
     }
     inline bool OBJECT::is_pair() const { 
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Pair; 
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Pair; 
     }
     inline bool OBJECT::is_float64() const {
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Float64;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Float64;
     }
     inline bool OBJECT::is_closure() const {
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Vector;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Vector;
     }
     inline bool OBJECT::is_string() const { 
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::String;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::String;
     }
     inline bool OBJECT::is_vector() const {
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Vector;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Vector;
     }
     inline bool OBJECT::is_syntax() const {
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Syntax;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Syntax;
     }
     inline bool OBJECT::is_box() const {
-        return is_ptr() && as_ptr()->kind() == GranularObjectType::Box;
+        return is_ptr() && as_ptr()->kind() == ObjectKind::Box;
     }
 
     inline size_t OBJECT::as_raw() const { 
         return m_data.raw; 
     }
-    inline ssize_t OBJECT::as_signed_fixnum() const {
+    inline ssize_t OBJECT::as_integer() const {
         assert(is_integer() && "expected fixnum object");
         return m_data.signed_fixnum.val;
     }
@@ -92,7 +108,7 @@ namespace ss {
     inline double OBJECT::to_double() const {
         OBJECT const& it = *this;
         if (it.is_integer()) {
-            return static_cast<double>(it.as_signed_fixnum());
+            return static_cast<double>(it.as_integer());
         } else if (it.is_float32()) {
             return static_cast<double>(it.as_float32());
         } else if (it.is_float64()) {

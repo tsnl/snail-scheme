@@ -73,7 +73,7 @@ namespace ss {
         ssize_t push(OBJECT v, ssize_t s) { return m_thread.stack().push(v, s); }
         ssize_t push(ssize_t v, ssize_t s) { return push(OBJECT::make_integer(v), s); }
         OBJECT index(ssize_t s, ssize_t i) { return m_thread.stack().index(s, i); }
-        OBJECT index(OBJECT s, ssize_t i) { return index(s.as_signed_fixnum(), i); }
+        OBJECT index(OBJECT s, ssize_t i) { return index(s.as_integer(), i); }
         void index_set(ssize_t s, ssize_t i, OBJECT v) { m_thread.stack().index_set(s, i, v); }
     public:
         VmExpID closure_body(OBJECT c);
@@ -268,8 +268,8 @@ namespace ss {
                     } break;
                     case VmExpKind::Return: {
                         auto s = m_thread.regs().s - exp.args.i_return.n;
-                        m_thread.regs().x = index(s, 0).as_signed_fixnum();
-                        m_thread.regs().f = index(s, 1).as_signed_fixnum();
+                        m_thread.regs().x = index(s, 0).as_integer();
+                        m_thread.regs().f = index(s, 1).as_integer();
                         m_thread.regs().c = index(s, 2);
                         m_thread.regs().s = s - 3;
                     } break;
@@ -335,7 +335,7 @@ namespace ss {
         return (n == 0) ? e : find_link(n - 1, index(e, -1));
     }
     ssize_t VirtualMachine::find_link(ssize_t n, OBJECT e) {
-        return find_link(n, e.as_signed_fixnum());
+        return find_link(n, e.as_integer());
     }
 
     OBJECT VirtualMachine::continuation(ssize_t s) {
@@ -363,7 +363,7 @@ namespace ss {
     }
 
     VmExpID VirtualMachine::closure_body(OBJECT c) {
-        return c.as_vector_p()->operator[](0).as_signed_fixnum();
+        return c.as_vector_p()->operator[](0).as_integer();
     }
     OBJECT VirtualMachine::index_closure(OBJECT c, ssize_t n) {
         return c.as_vector_p()->operator[](1 + n);

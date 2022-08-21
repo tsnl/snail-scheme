@@ -79,29 +79,29 @@ namespace ss {
         return e1.as_raw() == e2.as_raw();
     }
     bool is_eqv(GcThreadFrontEnd* gc_tfe, OBJECT e1, OBJECT e2) {
-        GranularObjectType e1_kind = e1.kind();
-        GranularObjectType e2_kind = e2.kind();
+        ObjectKind e1_kind = e1.kind();
+        ObjectKind e2_kind = e2.kind();
         if (e1_kind != e2_kind) {
             return false;
         } else {
             // e1 != null, e2 != null
             switch (e1_kind) {
-                case GranularObjectType::Null:
-                case GranularObjectType::Eof:
-                case GranularObjectType::Rune:
-                case GranularObjectType::Boolean: 
-                case GranularObjectType::Fixnum:
+                case ObjectKind::Null:
+                case ObjectKind::Eof:
+                case ObjectKind::Rune:
+                case ObjectKind::Boolean: 
+                case ObjectKind::Fixnum:
                 {
                     return is_eq(e1, e2);
                 }
-                case GranularObjectType::Float32:
+                case ObjectKind::Float32:
                 {
                     return e1.as_float32() == e2.as_float32();
                 }
-                case GranularObjectType::InternedSymbol: {
+                case ObjectKind::InternedSymbol: {
                     return e1.as_interned_symbol() == e2.as_interned_symbol();
                 }
-                case GranularObjectType::String: {
+                case ObjectKind::String: {
                     auto s1 = static_cast<StringObject*>(e1.as_ptr());
                     auto s2 = static_cast<StringObject*>(e2.as_ptr());
                     return (
@@ -110,19 +110,19 @@ namespace ss {
                     );
                 }
                 
-                case GranularObjectType::Float64:
+                case ObjectKind::Float64:
                 {
                     // kind-independent bit-based check:
                     return e1.as_float64() == e2.as_float64();
                 }
-                case GranularObjectType::Pair: {
+                case ObjectKind::Pair: {
                     auto p1 = e1.as_pair_p();
                     auto p2 = e2.as_pair_p();
                     return 
                         is_eq(p1->car(), p2->car()) &&
                         is_eq(p1->cdr(), p2->cdr());
                 }
-                case GranularObjectType::Vector: {
+                case ObjectKind::Vector: {
                     auto v1 = e1.as_vector_p();
                     auto v2 = e2.as_vector_p();
                     return 
@@ -148,17 +148,17 @@ namespace ss {
         } else {
             // e1 != null, e2 != null
             switch (e1_kind) {
-                case GranularObjectType::Boolean:
-                case GranularObjectType::Fixnum:
-                case GranularObjectType::Float32:
-                case GranularObjectType::Float64:
+                case ObjectKind::Boolean:
+                case ObjectKind::Fixnum:
+                case ObjectKind::Float32:
+                case ObjectKind::Float64:
                 {
                     return is_eqv(gc_tfe, e1, e2);
                 }
-                case GranularObjectType::InternedSymbol: {
+                case ObjectKind::InternedSymbol: {
                     return e1.as_interned_symbol() == e2.as_interned_symbol();
                 }
-                case GranularObjectType::String: {
+                case ObjectKind::String: {
                     auto s1 = static_cast<StringObject*>(e1.as_ptr());
                     auto s2 = static_cast<StringObject*>(e2.as_ptr());
                     return (
@@ -166,14 +166,14 @@ namespace ss {
                         (s1->bytes() == s2->bytes())
                     );
                 }
-                case GranularObjectType::Pair: {
+                case ObjectKind::Pair: {
                     auto p1 = e1.as_pair_p();
                     auto p2 = e2.as_pair_p();
                     return 
                         is_equal(gc_tfe, p1->car(), p2->car()) &&
                         is_equal(gc_tfe, p1->cdr(), p2->cdr());
                 }
-                case GranularObjectType::Vector: {
+                case ObjectKind::Vector: {
                     auto v1 = e1.as_vector_p();
                     auto v2 = e2.as_vector_p();
                     
@@ -260,33 +260,62 @@ namespace ss {
     } 
     OBJECT SyntaxObject::pair_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT pair_data) {
         assert(pair_data.is_pair());
+
+        std::cerr << "pair_data_to_datum: " << pair_data << std::endl;
+
         auto p = pair_data.as_pair_p();
-            
+
+        // pair-list (possibly improper) of syntax objects
+        OBJECT new_car = OBJECT::null;
         if (p->car().is_syntax()) {
-            auto new_car = p->car().as_syntax_p()->to_datum(gc_tfe);
-            auto new_cdr = OBJECT::null;
-            if (p->cdr().is_syntax()) {
-                new_cdr = p->cdr().as_syntax_p()->to_datum(gc_tfe);
-            } else if (p->cdr().is_pair()) {
-                new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
-            } else {
-                assert(p->cdr().is_atom());
-                new_cdr = p->cdr();
-            }
-            return cons(gc_tfe, new_car, new_cdr);
+            new_car = p->car().as_syntax_p()->to_datum(gc_tfe);
         }
-        if (p->car().is_interned_symbol()) {
+        else if (p->car().is_interned_symbol()) {
             auto sym = p->car().as_interned_symbol();
-            if (sym == g_id_cache().reference) {
-                return pair_data;
+            
+            bool is_pseudo_atom = false; {    
+                if (sym == g_id_cache().reference) {
+                    is_pseudo_atom = true;
+                    // (reference ...) can return as is
+                    return pair_data;
+                }
+                if (sym == g_id_cache().mutation) {
+                    is_pseudo_atom = true;
+                    // (mutation ...) can return as is
+                    return pair_data;
+                }
+                if (sym == g_id_cache().global || sym == g_id_cache().local) {
+                    // (define 'global ...) or (define 'local ...)
+                    // this is a 'global or 'local term
+                    is_pseudo_atom = true;
+                }
+            }
+            if (is_pseudo_atom) {
+                new_car = p->car();
             }
         }
-        
-        // error:
-        {
-            error("Malformed syntax object: expected (car pair) to be syntax OR symbol (for unwritable ref-*)");
+        else {
+            std::stringstream ss;
+            ss << "Malformed syntax object: " << std::endl;
+            ss << "Expected (car pair) to be syntax OR pseudo-atom symbol" << std::endl;
+            ss << "got:  " << p->car() << std::endl;
+            ss << "kind: " << obj_kind_name(obj_kind(p->car())) << std::endl;
+            error(ss.str());
             throw SsiError();
         }
+
+        OBJECT new_cdr = OBJECT::null;
+        if (p->cdr().is_syntax()) {
+            // improper list
+            new_cdr = p->cdr().as_syntax_p()->to_datum(gc_tfe);
+        } else if (p->cdr().is_pair()) {
+            // proper list => recurse
+            new_cdr = pair_data_to_datum(gc_tfe, p->cdr());
+        } else {
+            assert(p->cdr().is_atom());
+            new_cdr = p->cdr();
+        }
+        return cons(gc_tfe, new_car, new_cdr);
     }
     OBJECT SyntaxObject::vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data) {
         assert(vec_data.is_vector());

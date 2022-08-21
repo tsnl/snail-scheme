@@ -34,7 +34,7 @@ namespace ss {
     // Objects:
     //
 
-    enum class GranularObjectType: int8_t {
+    enum class ObjectKind: int8_t {
         Null, Eof,
         Box,
         Boolean,
@@ -181,12 +181,12 @@ namespace ss {
         inline bool is_syntax() const;
         inline bool is_box() const;     // beware: different than 'IsBoxedObject'
     public:
-        inline GranularObjectType kind() const;
+        inline ObjectKind kind() const;
     public:
         inline bool is_atom() const;
     public:
         inline size_t as_raw() const;
-        inline ssize_t as_signed_fixnum() const;
+        inline ssize_t as_integer() const;
         inline bool as_boolean() const;
         inline BaseBoxedObject* as_ptr() const;
         inline IntStr as_interned_symbol() const;
@@ -205,15 +205,15 @@ namespace ss {
     };
 
     class BaseBoxedObject {
-        friend GranularObjectType obj_kind(OBJECT obj);
+        friend ObjectKind obj_kind(OBJECT obj);
 
     private:
         gc::SizeClassIndex m_sci;
         uint8_t m_gc_tfid;
-        GranularObjectType m_kind;
+        ObjectKind m_kind;
         
     protected:
-        explicit BaseBoxedObject(GranularObjectType kind);
+        explicit BaseBoxedObject(ObjectKind kind);
         virtual ~BaseBoxedObject() = default;
 
     public:
@@ -226,7 +226,7 @@ namespace ss {
         void delete_();
 
     public:
-        [[nodiscard]] GranularObjectType kind();
+        [[nodiscard]] ObjectKind kind();
     };
     static_assert(sizeof(OBJECT) == 8);
     static_assert(sizeof(OBJECT) == sizeof(void*));
@@ -237,7 +237,7 @@ namespace ss {
     
     public:
         inline explicit BoxObject(OBJECT boxed)
-        :   BaseBoxedObject(GranularObjectType::Box),
+        :   BaseBoxedObject(ObjectKind::Box),
             m_boxed(std::move(boxed))
         {}
 
@@ -250,7 +250,7 @@ namespace ss {
         double m_value;
     public:
         explicit Float64Object(double float_pt)
-        :   BaseBoxedObject(GranularObjectType::Float64),
+        :   BaseBoxedObject(ObjectKind::Float64),
             m_value(float_pt)
         {}
     public:
@@ -264,7 +264,7 @@ namespace ss {
         bool m_bytes_gc_collectable;
     public:
         StringObject()
-        :   BaseBoxedObject(GranularObjectType::String),
+        :   BaseBoxedObject(ObjectKind::String),
             m_count(),
             m_bytes()
         {}
@@ -286,7 +286,7 @@ namespace ss {
         OBJECT m_cdr;
     public:
         explicit PairObject(OBJECT car, OBJECT cdr)
-        :   BaseBoxedObject(GranularObjectType::Pair),
+        :   BaseBoxedObject(ObjectKind::Pair),
             m_car(car),
             m_cdr(cdr)
         {}
@@ -309,11 +309,11 @@ namespace ss {
 
     public:
         VectorObject()
-        :   BaseBoxedObject(GranularObjectType::Vector),
+        :   BaseBoxedObject(ObjectKind::Vector),
             m_impl()
         {}
         VectorObject(std::vector<OBJECT>&& items)
-        :   BaseBoxedObject(GranularObjectType::Vector),
+        :   BaseBoxedObject(ObjectKind::Vector),
             m_impl(std::move(items))
         {}
 
@@ -355,7 +355,7 @@ namespace ss {
         
     public:
         inline SyntaxObject(OBJECT data, FLoc loc)
-        :   BaseBoxedObject(GranularObjectType::Syntax),
+        :   BaseBoxedObject(ObjectKind::Syntax),
             m_data(data),
             m_loc(loc)
         {}
@@ -385,7 +385,8 @@ namespace ss {
 
     std::ostream& operator<<(std::ostream& out, const OBJECT& obj);
 
-    inline GranularObjectType obj_kind(OBJECT object);
+    inline ObjectKind obj_kind(OBJECT object);
+    inline std::string obj_kind_name(ObjectKind object_kind);
     inline OBJECT car(OBJECT object);
     inline OBJECT cdr(OBJECT object);
     inline OBJECT cadr(OBJECT object) { return car(cdr(object)); }
@@ -446,12 +447,25 @@ namespace ss {
 
     template <size_t n> 
     std::array<OBJECT, n> extract_args(OBJECT pair_list, bool is_variadic) {
+        if (!pair_list.is_list()) {
+            std::stringstream ss;
+            ss  << "extract_args: invalid args: " << pair_list << std::endl;
+            error(ss.str());
+            throw SsiError();
+        }
+        
         // reading upto `n` objects into an array:
         OBJECT rem_list = pair_list;
         std::array<OBJECT, n> out;
         size_t index = 0;
         while (!rem_list.is_null() && index < n) {
-            assert(rem_list.is_pair() && "expected arg list to be a pair-list");
+            if (!rem_list.is_pair()) {
+                std::stringstream ss;
+                ss  << "invalid item in list: " << rem_list << std::endl
+                    << "list: " << pair_list << std::endl;
+                error(ss.str());
+                throw SsiError();
+            };
             out[index++] = car(rem_list);
             rem_list = cdr(rem_list);
         }
@@ -480,7 +494,7 @@ namespace ss {
         return out;
     }
 
-    inline BaseBoxedObject::BaseBoxedObject(GranularObjectType kind)
+    inline BaseBoxedObject::BaseBoxedObject(ObjectKind kind)
     :   m_kind(kind) {}
 
     inline OBJECT car(OBJECT object) {
@@ -494,7 +508,7 @@ namespace ss {
     }
     inline OBJECT cdr(OBJECT object) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
-        if (obj_kind(object) != GranularObjectType::Pair) {
+        if (obj_kind(object) != ObjectKind::Pair) {
             error("cdr: expected argument object to be a pair");
             throw SsiError();
         }
@@ -565,7 +579,7 @@ namespace ss {
         return o.is_box();
     }
     inline bool is_pair(OBJECT o) {
-        return obj_kind(o) == GranularObjectType::Pair;
+        return obj_kind(o) == ObjectKind::Pair;
     }
     inline bool is_procedure(OBJECT o) {
         return o.is_closure();
@@ -635,7 +649,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        return dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_signed_fixnum());
+        return dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_integer());
     }
     inline void vector_set(OBJECT vec, OBJECT index, OBJECT v) {
     #if !CONFIG_DISABLE_RUNTIME_TYPE_CHECKS
@@ -652,7 +666,7 @@ namespace ss {
             throw SsiError();
         }
     #endif
-        dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_signed_fixnum()) = v;
+        dynamic_cast<VectorObject*>(vec.as_ptr())->operator[](index.as_integer()) = v;
     }
 
 }   // namespace ss
