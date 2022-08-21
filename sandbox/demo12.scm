@@ -13,6 +13,6 @@
 
 
 (define x 0)
-(define (thunk) (set! x 42))
+(define thunk (lambda () (set! x 42)))
 (thunk)
 (p/invoke displayln x)

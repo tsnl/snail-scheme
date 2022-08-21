@@ -27,6 +27,8 @@ namespace ss {
         IntStr const free;
         IntStr const global;
         IntStr const mutation;
+        IntStr const expanded_lambda;
+        IntStr const expanded_define;
     };
     IdCache const& g_id_cache();
 

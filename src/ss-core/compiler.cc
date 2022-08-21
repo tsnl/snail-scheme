@@ -22,7 +22,7 @@ namespace ss {
         // compile-time type-checks
         bool ok = (
             (var_env.is_pair() && "broken 'env' in compile_lookup: expected pair") &&
-            (symbol.is_interned_symbol() && "broken query symbol in compile_lookup: expected symbol")
+            (symbol.is_symbol() && "broken query symbol in compile_lookup: expected symbol")
         );
         if (!ok) {
             throw SsiError();
@@ -64,7 +64,7 @@ namespace ss {
         
         // checking globals
         {
-            IntStr sym = symbol.as_interned_symbol();
+            IntStr sym = symbol.as_symbol();
             auto it = m_code->def_tab().lookup_global_id(sym);
             if (it.has_value()) {
                 return {RelVarScope::Global, it.value()};
@@ -136,9 +136,9 @@ namespace ss {
         OBJECT tail = obj->cdr();
 
         // first, trying to handle a builtin function invocation:
-        if (head.is_interned_symbol()) {
+        if (head.is_symbol()) {
             // keyword first argument => may be builtin
-            auto keyword_symbol_id = head.as_interned_symbol();
+            auto keyword_symbol_id = head.as_symbol();
 
             // quote
             if (keyword_symbol_id == g_id_cache().quote) {
@@ -195,7 +195,7 @@ namespace ss {
                 auto args = extract_args<2>(tail);
                 auto var = args[0];
                 auto x = args[1];   // we set the variable to this object, 'set' in past-tense
-                assert(var.is_interned_symbol());
+                assert(var.is_symbol());
                 
                 auto [rel_var_scope, n] = compile_lookup(var, e);
                 switch (rel_var_scope) {
@@ -251,17 +251,17 @@ namespace ss {
                 );
             } 
 
-            // define
-            else if (keyword_symbol_id == g_id_cache().define) {
+            // expanded-define
+            else if (keyword_symbol_id == g_id_cache().expanded_define) {
                 auto args = extract_args<3>(tail);
                 auto scope_sym_obj = args[0];
                 auto name = args[1];
                 auto body = args[2];
                 
-                assert(scope_sym_obj.is_interned_symbol());
+                assert(scope_sym_obj.is_symbol());
                 assert(name.is_integer());
 
-                auto scope_sym = scope_sym_obj.as_interned_symbol();
+                auto scope_sym = scope_sym_obj.as_symbol();
                 if (scope_sym == g_id_cache().global) {
                     GDefID gdef_id = static_cast<LDefID>(name.as_integer());
                     return compile_exp(
@@ -290,14 +290,14 @@ namespace ss {
                 auto proc_name = car(tail);
                 auto proc_args = cdr(tail);
             
-                if (!proc_name.is_interned_symbol()) {
+                if (!proc_name.is_symbol()) {
                     error("Invalid args to 'p/invoke': expected first arg to be a symbol");
                     throw SsiError();
                 }
 
                 OBJECT rem_args = proc_args;
                 ssize_t arg_count = list_length(rem_args);
-                PlatformProcID platform_proc_idx = lookup_platform_proc(proc_name.as_interned_symbol());
+                PlatformProcID platform_proc_idx = lookup_platform_proc(proc_name.as_symbol());
                 VmExpID next_body = m_code->new_vmx_pinvoke(
                     arg_count, platform_proc_idx,
                     next
@@ -307,7 +307,7 @@ namespace ss {
                 if (!m_code->platform_proc_is_variadic(platform_proc_idx)) {
                     if (arg_count != expected_arg_count) {
                         std::stringstream ss;
-                        ss  << "Invalid argument count for 'p/invoke' " << interned_string(proc_name.as_interned_symbol())
+                        ss  << "Invalid argument count for 'p/invoke' " << interned_string(proc_name.as_symbol())
                             << ": expected " << expected_arg_count << " args but got " << arg_count << " args";
                         error(ss.str());
                     }                
@@ -352,6 +352,33 @@ namespace ss {
                 // returning:
                 return final_begin_instruction;
             }
+
+            // (reference ...)
+            else if (keyword_symbol_id == g_id_cache().reference) {
+                auto args = extract_args<2>(tail);
+                OBJECT rel_var_scope_sym_obj = args[0];
+                OBJECT def_id_obj = args[1];
+
+                assert(rel_var_scope_sym_obj.is_symbol());
+                IntStr rel_var_scope_sym = rel_var_scope_sym_obj.as_symbol();
+                
+                assert(def_id_obj.is_integer());
+                ssize_t def_id = def_id_obj.as_integer();
+
+                if (rel_var_scope_sym == g_id_cache().local) {
+                    return m_code->new_vmx_refer_local(def_id, next);
+                }
+                if (rel_var_scope_sym == g_id_cache().free) {
+                    return m_code->new_vmx_refer_free(def_id, next);
+                }
+                if (rel_var_scope_sym == g_id_cache().global) {
+                    return m_code->new_vmx_refer_global(def_id, next);
+                }
+
+                error("Unknown rel_var_scope_sym: " + interned_string(rel_var_scope_sym));
+                throw SsiError();
+            }
+
             else {
                 // continue to the branch below...
             }
@@ -447,7 +474,7 @@ namespace ss {
         return x;
     }
     GDefID Compiler::define_global(FLoc loc, IntStr name, OBJECT code, OBJECT init, std::string docstring) {
-        m_gdef_set = set_cons(OBJECT::make_interned_symbol(name), m_gdef_set);
+        m_gdef_set = set_cons(OBJECT::make_symbol(name), m_gdef_set);
         return m_code->define_global(loc, name, code, init, docstring);
     }
     Definition const& Compiler::lookup_gdef(GDefID gdef_id) const {
@@ -543,7 +570,7 @@ namespace ss {
 
     OBJECT Compiler::find_free(OBJECT x, OBJECT b) {
         // main case:
-        if (x.is_interned_symbol()) {
+        if (x.is_symbol()) {
             if (is_set_member(x, b)) {
                 return OBJECT::null;
             } else {
@@ -557,8 +584,8 @@ namespace ss {
             OBJECT tail = cdr(x);
 
             // checking if builtin:
-            if (head.is_interned_symbol()) {
-                auto head_symbol = head.as_interned_symbol();
+            if (head.is_symbol()) {
+                auto head_symbol = head.as_symbol();
                 if (head_symbol == g_id_cache().quote) {
                     return OBJECT::null;
                 }
@@ -605,7 +632,10 @@ namespace ss {
                         rem_args = cdr(rem_args);
                     }
                     return res;
-                } else if (head_symbol == g_id_cache().p_invoke) {
+                } 
+                
+                // p/invoke
+                else if (head_symbol == g_id_cache().p_invoke) {
                     OBJECT res = OBJECT::null;
                     OBJECT rem_args = cdr(tail);
                     while (!rem_args.is_null()) {
@@ -614,7 +644,9 @@ namespace ss {
                         rem_args = cdr(rem_args);
                     }
                     return res;
-                } else {
+                } 
+                
+                else {
                     // continue to below block...
                 }
             }
@@ -643,7 +675,7 @@ namespace ss {
 
         // individual variables:
         {
-            if (x.is_interned_symbol()) {
+            if (x.is_symbol()) {
                 return OBJECT::null;
             }
         }
@@ -652,11 +684,11 @@ namespace ss {
         {
             if (x.is_pair()) {
                 // maybe builtin operator?
-                if (car(x).is_interned_symbol()) {
+                if (car(x).is_symbol()) {
                     OBJECT head = car(x);
                     OBJECT tail = cdr(x);
 
-                    IntStr head_name = head.as_interned_symbol();
+                    IntStr head_name = head.as_symbol();
 
                     if (head_name == g_id_cache().quote) {
                         return OBJECT::null;

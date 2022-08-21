@@ -216,7 +216,7 @@ namespace ss {
         vm_bind_platform_procedure(vm,
             "length",
             [=](ArgView const& aa) -> OBJECT {
-                return list_length(aa[0]);
+                return OBJECT::make_integer(list_length(aa[0]));
             },
             {"lst"},
             "returns the number of elements in a list. May be improper.",

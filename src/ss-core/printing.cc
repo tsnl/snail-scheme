@@ -52,7 +52,7 @@ namespace ss {
                 out << '"';
             } break;
             case ObjectKind::InternedSymbol: {
-                out << interned_string(obj.as_interned_symbol());
+                out << interned_string(obj.as_symbol());
             } break;
             case ObjectKind::Pair: {
                 auto pair_obj = obj;
@@ -101,10 +101,7 @@ namespace ss {
             } break;
             case ObjectKind::Syntax: {
                 auto syntax_obj = obj.as_syntax_p();
-                out << "(syntax "
-                    << "':data '" << syntax_obj->data() << " "
-                    << "':floc " << "\"" << syntax_obj->loc().as_text() << "\""
-                    << ")";
+                out << "(syntax " << syntax_obj->data() << ")";
             } break;
         }
     }

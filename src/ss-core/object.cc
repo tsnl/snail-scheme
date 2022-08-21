@@ -62,7 +62,7 @@ namespace ss {
         || is_integer()
         || is_float32()
         || is_float64()
-        || is_interned_symbol();
+        || is_symbol();
     }
 
     ///
@@ -99,7 +99,7 @@ namespace ss {
                     return e1.as_float32() == e2.as_float32();
                 }
                 case ObjectKind::InternedSymbol: {
-                    return e1.as_interned_symbol() == e2.as_interned_symbol();
+                    return e1.as_symbol() == e2.as_symbol();
                 }
                 case ObjectKind::String: {
                     auto s1 = static_cast<StringObject*>(e1.as_ptr());
@@ -156,7 +156,7 @@ namespace ss {
                     return is_eqv(gc_tfe, e1, e2);
                 }
                 case ObjectKind::InternedSymbol: {
-                    return e1.as_interned_symbol() == e2.as_interned_symbol();
+                    return e1.as_symbol() == e2.as_symbol();
                 }
                 case ObjectKind::String: {
                     auto s1 = static_cast<StringObject*>(e1.as_ptr());
@@ -267,11 +267,12 @@ namespace ss {
 
         // pair-list (possibly improper) of syntax objects
         OBJECT new_car = OBJECT::null;
+        OBJECT new_cdr = OBJECT::null;
         if (p->car().is_syntax()) {
             new_car = p->car().as_syntax_p()->to_datum(gc_tfe);
         }
-        else if (p->car().is_interned_symbol()) {
-            auto sym = p->car().as_interned_symbol();
+        else if (p->car().is_symbol()) {
+            auto sym = p->car().as_symbol();
             
             bool is_pseudo_atom = false; {    
                 if (sym == g_id_cache().reference) {
@@ -284,27 +285,57 @@ namespace ss {
                     // (mutation ...) can return as is
                     return pair_data;
                 }
-                if (sym == g_id_cache().global || sym == g_id_cache().local) {
-                    // (define 'global ...) or (define 'local ...)
-                    // this is a 'global or 'local term
-                    is_pseudo_atom = true;
+                if (sym == g_id_cache().expanded_lambda) {
+                    // (_ ((arg-syntax-object-list ...)) (non-local-vars ...) body-syntax)
+                    auto args = extract_args<3>(p->cdr());
+                    OBJECT arg_stx_list = args[0];
+                    OBJECT non_local_vars = args[1];
+                    OBJECT body_stx = args[2];
+                    
+                    std::cerr << "expanded-lambda: " << p->cdr() << std::endl;
+                    
+                    return list(gc_tfe,
+                        p->car(),
+                        (arg_stx_list.is_null() ?
+                            arg_stx_list :
+                            pair_data_to_datum(gc_tfe, arg_stx_list)),
+                        non_local_vars,
+                        body_stx
+                    );
+                }
+                if (sym == g_id_cache().expanded_define) {
+                    // (_ 'scope 'name-id init)
+                    auto args = extract_args<3>(p->cdr());
+                    OBJECT rel_var_scope_sym_obj = args[0];
+                    OBJECT def_id_obj_stx = args[1];
+                    OBJECT body_stx = args[2];
+
+                    assert(rel_var_scope_sym_obj.is_symbol());
+                    assert(def_id_obj_stx.is_syntax());
+                    assert(body_stx.is_syntax());
+
+                    OBJECT def_id_obj = def_id_obj_stx.as_syntax_p()->data();
+                    assert(def_id_obj.is_integer());
+                    ssize_t def_id = def_id_obj.as_integer();
+
+                    return list(gc_tfe,
+                        p->car(),
+                        rel_var_scope_sym_obj,
+                        OBJECT::make_integer(def_id),
+                        body_stx.as_syntax_p()->to_datum(gc_tfe)
+                    );
                 }
             }
             if (is_pseudo_atom) {
                 new_car = p->car();
+            } else {
+                goto malformed_syntax_object_error;
             }
         }
         else {
-            std::stringstream ss;
-            ss << "Malformed syntax object: " << std::endl;
-            ss << "Expected (car pair) to be syntax OR pseudo-atom symbol" << std::endl;
-            ss << "got:  " << p->car() << std::endl;
-            ss << "kind: " << obj_kind_name(obj_kind(p->car())) << std::endl;
-            error(ss.str());
-            throw SsiError();
+            goto malformed_syntax_object_error;
         }
 
-        OBJECT new_cdr = OBJECT::null;
         if (p->cdr().is_syntax()) {
             // improper list
             new_cdr = p->cdr().as_syntax_p()->to_datum(gc_tfe);
@@ -316,12 +347,22 @@ namespace ss {
             new_cdr = p->cdr();
         }
         return cons(gc_tfe, new_car, new_cdr);
+
+    malformed_syntax_object_error:
+        std::stringstream ss;
+        ss << "Malformed syntax object: " << std::endl;
+        ss << "Expected (car pair) to be syntax OR pseudo-atom symbol" << std::endl;
+        ss << "got:  " << p->car() << std::endl;
+        ss << "kind: " << obj_kind_name(obj_kind(p->car())) << std::endl;
+        error(ss.str());
+        throw SsiError();
     }
     OBJECT SyntaxObject::vector_data_to_datum(GcThreadFrontEnd* gc_tfe, OBJECT vec_data) {
         assert(vec_data.is_vector());
         auto p = vec_data.as_vector_p();
 
-        std::vector<OBJECT> res{p->size(), OBJECT::null};
+        std::vector<OBJECT> res;
+        res.resize(p->size(), OBJECT::null);
         for (ssize_t i = 0; i <p->size(); i++) {
             auto it = (*p)[i];
             assert(it.is_syntax());
@@ -342,7 +383,7 @@ namespace ss {
         auto mem = reinterpret_cast<PairObject*>(raw_mem);
         OBJECT lst = OBJECT::null;
         for (ssize_t i = vec.size()-1; i >= 0; i--) {
-            lst = new(mem+i) PairObject(vec[i], lst);
+            lst = OBJECT::make_ptr(new(mem+i) PairObject(vec[i], lst));
         }
         return lst;
     }

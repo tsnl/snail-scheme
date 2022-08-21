@@ -103,17 +103,23 @@ namespace ss {
         constexpr OBJECT() = default;
         constexpr OBJECT(OBJECT const& other) = default;
         constexpr OBJECT(OBJECT&& other) = default; 
-        constexpr OBJECT(bool v) 
+        explicit constexpr OBJECT(bool v) 
         :   OBJECT() 
         {
             m_data.boolean.tag = BOOL_TAG;
             m_data.boolean.truth = v;
         }
-        constexpr OBJECT(BaseBoxedObject* ptr)
+        explicit constexpr OBJECT(BaseBoxedObject* ptr)
         :   OBJECT()
         {
             m_data.ptr = ptr;
             assert(m_data.ptr_unwrapped.tag == 0 && "Expected ptr to be a multiple of sizeof(void*)");
+        }
+        explicit constexpr OBJECT(IntStr v) 
+        :   OBJECT()
+        {
+            m_data.interned_symbol.val = v;
+            m_data.interned_symbol.tag = INTSTR_TAG;
         }
     public:
         inline constexpr static OBJECT make_integer(ssize_t val) {
@@ -122,7 +128,7 @@ namespace ss {
             res.m_data.signed_fixnum.val = val;
             return res;
         }
-        inline constexpr static OBJECT make_interned_symbol(IntStr s) {
+        inline constexpr static OBJECT make_symbol(IntStr s) {
             OBJECT res;
             res.m_data.interned_symbol.tag = INTSTR_TAG;
             res.m_data.interned_symbol.val = s;
@@ -164,7 +170,7 @@ namespace ss {
         bool is_null() const { return m_data.raw == 0; }
         bool is_ptr() const { return m_data.ptr_unwrapped.tag == PTR_TAG && !is_null(); }
         bool is_integer() const { return m_data.signed_fixnum.tag == FIXNUM_TAG; }
-        bool is_interned_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
+        bool is_symbol() const { return m_data.interned_symbol.tag == INTSTR_TAG; }
         bool is_float32() const { return m_data.f32.tag == FL32_TAG; }
         bool is_uchar() const { return m_data.rune.tag == RUNE_TAG; }
         bool is_boolean() const { return m_data.boolean.tag == BOOL_TAG; }
@@ -189,7 +195,7 @@ namespace ss {
         inline ssize_t as_integer() const;
         inline bool as_boolean() const;
         inline BaseBoxedObject* as_ptr() const;
-        inline IntStr as_interned_symbol() const;
+        inline IntStr as_symbol() const;
         inline float as_float32() const;
         inline double as_float64() const;
     public:
@@ -585,7 +591,7 @@ namespace ss {
         return o.is_closure();
     }
     inline bool is_symbol(OBJECT o) {
-        return o.is_interned_symbol();
+        return o.is_symbol();
     }
     inline bool is_integer(OBJECT o) {
         return o.is_integer();

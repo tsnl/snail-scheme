@@ -43,7 +43,9 @@ namespace ss {
                 .local = intern("local"),
                 .free = intern("free"),
                 .global = intern("global"),
-                .mutation = intern("mutation")
+                .mutation = intern("mutation"),
+                .expanded_lambda = intern("scheme::expanded-lambda"),
+                .expanded_define = intern("scheme::expanded-define")
             };
             s_id_cache = new IdCache(init);
         }

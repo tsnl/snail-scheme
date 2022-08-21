@@ -18,8 +18,9 @@ namespace ss {
               ss << 1+first_pos.column_index << "-" << 1+last_pos.column_index;
           }
       } else {
-          ss << 1+first_pos.line_index << ":" << 1+first_pos.column_index
-          << 1+last_pos.line_index << ":" << 1+last_pos.column_index;
+          ss 
+            << 1+first_pos.line_index << ":" << 1+first_pos.column_index << "-"
+            << 1+last_pos.line_index << ":" << 1+last_pos.column_index;
       }
       
       if (include_guard_brackets) {

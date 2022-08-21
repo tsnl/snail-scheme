@@ -26,7 +26,7 @@ TEST(ObjectTests1, NullTagTests) {
     EXPECT_EQ(null.is_uchar(), 0);
     EXPECT_EQ(null.is_eof(), 0);
     EXPECT_EQ(null.is_undef(), 0);
-    EXPECT_EQ(null.is_interned_symbol(), 0);
+    EXPECT_EQ(null.is_symbol(), 0);
     EXPECT_EQ(null.is_ptr(), 0);
 }
 TEST(ObjectTests1, IntTagTests) {
@@ -44,7 +44,7 @@ TEST(ObjectTests1, IntTagTests) {
     EXPECT_EQ(i1.is_null(), 0);
     EXPECT_EQ(i1.is_eof(), 0);
     EXPECT_EQ(i1.is_undef(), 0);
-    EXPECT_EQ(i1.is_interned_symbol(), 0);
+    EXPECT_EQ(i1.is_symbol(), 0);
     EXPECT_EQ(i1.is_ptr(), 0);
 }
 TEST(ObjectTests1, PtrTagTests) {

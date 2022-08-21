@@ -10,7 +10,7 @@ namespace ss {
     inline ObjectKind OBJECT::kind() const {
         if (is_ptr()) { return m_data.ptr->kind(); }
         if (is_integer()) { return ObjectKind::Fixnum; }
-        if (is_interned_symbol()) { return ObjectKind::InternedSymbol; }
+        if (is_symbol()) { return ObjectKind::InternedSymbol; }
         if (is_float32()) { return ObjectKind::Float32; }
         if (is_uchar()) { return ObjectKind::Rune; }
         if (is_boolean()) { return ObjectKind::Boolean; }
@@ -83,8 +83,8 @@ namespace ss {
         assert(is_ptr() && "expected boxed object");
         return m_data.ptr;
     }
-    inline IntStr OBJECT::as_interned_symbol() const {
-        assert(is_interned_symbol() && "expected interned symbol object");
+    inline IntStr OBJECT::as_symbol() const {
+        assert(is_symbol() && "expected interned symbol object");
         return m_data.interned_symbol.val;
     }
     inline float OBJECT::as_float32() const {

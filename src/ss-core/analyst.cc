@@ -13,7 +13,7 @@ namespace ss {
             OBJECT head = car(rem_vars);
             rem_vars = cdr(rem_vars);
 
-            if (!head.is_interned_symbol()) {
+            if (!head.is_symbol()) {
                 std::stringstream ss;
                 ss << "Invalid variable list for lambda: expected symbol, got: " << head << std::endl;
                 ss << "see: " << loc.as_text();

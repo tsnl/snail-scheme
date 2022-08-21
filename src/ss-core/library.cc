@@ -72,7 +72,7 @@ namespace ss {
         if (is_numeric) {
             return OBJECT::make_integer(std::strtoull(filename.c_str(), nullptr, 10));
         } else {
-            return OBJECT::make_interned_symbol(intern(std::move(filename)));
+            return OBJECT::make_symbol(intern(std::move(filename)));
         }
     }
 

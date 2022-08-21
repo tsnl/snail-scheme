@@ -186,8 +186,8 @@ namespace ss {
         SourceReader source() const { return m_source_reader; }
 
     private:
-        void advance_cursor_by_one_token();
-        TokenKind help_advance_cursor_by_one_token(TokenInfo* out_info_p);
+        void advance();
+        TokenKind advance_no_trim(TokenInfo* out_info_p);
         TokenKind help_scan_one_identifier_or_number_literal(TokenInfo* out_info_p, char opt_first_char);
         TokenKind help_scan_one_string_literal(TokenInfo* out_info_p, char quote_char);
         char help_scan_one_char_in_string_literal(char quote_char);
@@ -206,7 +206,7 @@ namespace ss {
 
     public:
         void skip() {
-            advance_cursor_by_one_token();
+            advance();
         }
         bool eof() const { 
             return m_peek_token_kind == TokenKind::Eof; 
@@ -238,16 +238,10 @@ namespace ss {
         m_peek_token_info()
     {
         // populating the initial 'peek' variables:
-        advance_cursor_by_one_token();
+        advance();
     }
 
-    void Lexer::advance_cursor_by_one_token() {
-        auto start_pos = m_source_reader.cursor_pos();
-        m_peek_token_kind = help_advance_cursor_by_one_token(&m_peek_token_info);
-        auto end_pos = m_source_reader.cursor_pos();
-        m_peek_token_info.span = {start_pos, end_pos};
-    }
-    TokenKind Lexer::help_advance_cursor_by_one_token(TokenInfo* out_info_p) {
+    void Lexer::advance() {
         auto& f = m_source_reader;
 
         // scanning out all leading whitespace and comments:
@@ -277,6 +271,14 @@ namespace ss {
             }
         }
         
+        auto start_pos = m_source_reader.cursor_pos();
+        m_peek_token_kind = advance_no_trim(&m_peek_token_info);
+        auto end_pos = m_source_reader.cursor_pos();
+        m_peek_token_info.span = {start_pos, end_pos};
+    }
+    TokenKind Lexer::advance_no_trim(TokenInfo* out_info_p) {
+        auto& f = m_source_reader;
+
         // EOF:
         if (f.eof()) {
             return TokenKind::Eof;
@@ -555,7 +557,7 @@ namespace ss {
                 ts.skip();
                 return OBJECT::make_syntax(
                     m_gc_tfe, 
-                    OBJECT::make_interned_symbol(la_ti.as.identifier), 
+                    OBJECT::make_symbol(la_ti.as.identifier), 
                     loc
                 );
             }
@@ -661,7 +663,7 @@ namespace ss {
                         m_gc_tfe,
                         OBJECT::make_syntax(
                             m_gc_tfe,
-                            OBJECT::make_interned_symbol(intern("quote")),
+                            OBJECT::make_symbol(intern("quote")),
                             quote_loc
                         ),
                         quoted
