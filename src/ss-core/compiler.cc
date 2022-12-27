@@ -120,7 +120,7 @@ namespace ss {
                 //     x, e, 
                 //     (is_set_member(x, s) ? m_code->new_vmx_indirect(next) : next)
                 // );
-                error("NotImplemented: Compiler::compile_exp for InternedSymbol");
+                error("NotImplemented: Compiler::compile_exp");
                 throw SsiError();
             }
             case ObjectKind::Pair: {
@@ -149,24 +149,24 @@ namespace ss {
                 return m_code->new_vmx_constant(quoted, next);
             }
             
-            // // expanded-lambda
-            // else if (keyword_symbol_id == g_id_cache().expanded_lambda) {
-            //     auto args = extract_args<3>(tail);
-            //     auto vars = args[0];
-            //     auto free = args[1];
-            //     auto body = args[2];
+            // expanded-lambda
+            else if (keyword_symbol_id == g_id_cache().expanded_lambda) {
+                auto args = extract_args<3>(tail);
+                auto vars = args[0];
+                auto free = args[1];
+                auto body = args[2];
                 
-            //     return collect_free(
-            //         free,
-            //         m_code->new_vmx_close(
-            //             list_length(free),
-            //             // make_boxes(
+                return collect_free(
+                    free,
+                    m_code->new_vmx_close(
+                        list_length(free),
+                        // make_boxes(
 
-            //             // )
-            //             next
-            //         )
-            //     );
-            // }
+                        // )
+                        next
+                    )
+                );
+            }
 
             // lambda
             else if (keyword_symbol_id == g_id_cache().lambda) {
@@ -179,7 +179,7 @@ namespace ss {
                 auto free = set_minus(find_free(body, vars), m_gdef_set);
                 auto sets = set_intersect(find_sets(body, vars), free);
                 return collect_free(
-                    free, 
+                    free, e, 
                     m_code->new_vmx_close(
                         list_length(free),
                         make_boxes(

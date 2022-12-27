@@ -4,27 +4,24 @@ project(SnailScheme VERSION 0.0.0)
 ## Cache config
 #
 
-# set(CLANG_PATH "" CACHE FILEPATH "Path to 'clang' executable")
-# if ("" STREQUAL "${CLANG_PATH}")
-#     # trying to recover by setting a default path
-#     if (WIN32)
-#         set(DEFAULT_PATH "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/bin/clang.exe")
-#     elif (APPLE)
-#         set(DEFAULT_PATH "/usr/bin/clang")
-#     else()
-#         set(DEFAULT_PATH "/usr/lib/clang/13.0.1")
-#     endif()
-
-#     if (EXISTS ${DEFAULT_PATH})
-#         set(CLANG_PATH ${DEFAULT_PATH} CACHE FILEPATH "Path to 'clang' executable")
-#     else()
-#         message(
-#             FATAL_ERROR
-#             "Please set 'CLANG_PATH' configuration variable.\n"
-#             "auto-detected `clang` at: ${DEFAULT_LLVM_PATH}"
-#         )
-#     endif()
-# endif()
+set(CLANG_PATH "" CACHE FILEPATH "Path to 'clang' executable")
+if ("" STREQUAL "${CLANG_PATH}")
+    # trying to recover by setting a default path
+    if (WIN32)
+        set(DEFAULT_PATH "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/bin/clang.exe")
+    else()
+        set(DEFAULT_PATH "/usr/lib/clang/13.0.1")
+    endif()
+    if (EXISTS ${DEFAULT_PATH})
+        set(CLANG_PATH ${DEFAULT_PATH} CACHE FILEPATH "Path to 'clang' executable" FORCE)
+    else()
+        message(
+            FATAL_ERROR
+            "Please set 'CLANG_PATH' configuration variable.\n"
+            "auto-detected `clang` at: ${DEFAULT_LLVM_PATH}"
+        )
+    endif()
+endif()
 
 ## Dependency: Google Test
 #
