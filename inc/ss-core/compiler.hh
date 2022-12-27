@@ -29,20 +29,16 @@ namespace ss {
     public:
         VSubr compile_expr(std::string subr_name, OBJECT line_code_object);
         VSubr compile_subr(std::string subr_name, std::vector<OBJECT> line_code_objects);
-        VmProgram compile_line(OBJECT line_code_obj, OBJECT var_e);
-        VmExpID compile_exp(OBJECT x, VmExpID next, OBJECT e, OBJECT s);
-        VmExpID compile_list_exp(PairObject* x, VmExpID next, OBJECT e, OBJECT s);
+        VmProgram compile_line(OBJECT line_code_obj);
+        VmExpID compile_exp(OBJECT x, VmExpID next);
+        VmExpID compile_list_exp(PairObject* x, VmExpID next);
         VmExpID refer_nonlocal(OBJECT x, VmExpID next);
         bool is_tail_vmx(VmExpID vmx_id);
 
-    private:
-        std::pair<RelVarScope, size_t> compile_lookup(OBJECT symbol, OBJECT var_env_raw);
-        OBJECT compile_extend(OBJECT e, OBJECT vars);
-        
     // Utility builders:
     private:
         VmExpID collect_free(OBJECT vars, VmExpID next);
-        VmExpID make_boxes(OBJECT sets, OBJECT vars, VmExpID next);
+        VmExpID make_boxes(OBJECT vars, VmExpID next);
 
     // Globals:
     public:

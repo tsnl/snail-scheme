@@ -15,8 +15,9 @@
 ; (* 1 2 3 4 5)
 
 ; (define a0 (fibonacci 30))
-; (define a0 (fibonacci 2))
-; (display (format "~a\n" a0))
+(define a0 (fibonacci 2))
+; (p/invoke displayln a0)
+
 (define a1 (fibonacci 30))
 ; (display (format "~a\n" a1))
 ; (define a2 (fibonacci 30))
@@ -35,4 +36,4 @@
 ;     (x a)))
 ; (call/cc w)
 
-(p/invoke displayln a1)
+; (p/invoke displayln a1)

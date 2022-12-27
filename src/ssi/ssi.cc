@@ -103,7 +103,7 @@ namespace ss {
 #if CONFIG_DEBUG_MODE
             {
                 std::stringstream ss;
-                ss << "parsing took " << duration;
+                ss << "parsing took " << duration.count();
                 info(ss.str());
             }
 #endif
@@ -139,10 +139,12 @@ namespace ss {
                     std::move(line_code_obj_array)
                 );
 
+#if CONFIG_DEBUG_MODE
                 std::stringstream ss;
                 ss << "macro expansion complete";
                 info(ss.str());
-                
+#endif
+
                 VSubr subr = compiler.compile_subr(
                     file_path, 
                     std::move(expanded_line_code_obj_array)
@@ -156,7 +158,7 @@ namespace ss {
 
 #if CONFIG_DEBUG_MODE
             std::stringstream ss;
-            ss << "compile and lib-loading took " << duration;
+            ss << "compile and lib-loading took " << duration.count();
             info(ss.str());
 #endif
         }
@@ -175,7 +177,7 @@ namespace ss {
             
 #if CONFIG_DEBUG_MODE
             std::stringstream ss;
-            ss << "runtime took " << duration;
+            ss << "runtime took " << duration.count();
             info(ss.str());
 #endif
         }
@@ -195,7 +197,12 @@ namespace ss {
 int main(int argc, char const* argv[]) {
     // Parsing command-line arguments:
     // TODO: detect if 'snail-venv' directory exists in CWD: if so, elide `-snail-venv` arg.
-    ss::SsiArgs args = ss::parse_cli_args(argc, argv);
+    ss::SsiArgs args; 
+    try {
+        args = ss::parse_cli_args(argc, argv);
+    } catch (ss::SsiError) {
+        return 1;
+    }
     if (args.help) {
         ss::info("TODO: printing 'help' and exiting");
         return 0;

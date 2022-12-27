@@ -139,18 +139,18 @@ namespace ss {
   
   struct Nonlocal {
     RelVarScope parent_rel_var_scope;
-    ssize_t parent_idx;
+    ssize_t idx_in_parent_scope;
     LDefID ldef_id;
     bool use_is_mut;
   public:
     Nonlocal(
       RelVarScope parent_rel_var_scope,
-      ssize_t parent_idx,
+      ssize_t idx_in_parent_scope,
       LDefID ldef_id, 
       bool use_is_mut
     )
     : parent_rel_var_scope(parent_rel_var_scope),
-      parent_idx(parent_idx),
+      idx_in_parent_scope(idx_in_parent_scope),
       ldef_id(ldef_id),
       use_is_mut(use_is_mut)
     {}
@@ -317,11 +317,11 @@ namespace ss {
 
     // checking 'free', trying to get index:
     if (m_closure_scope_stack.size() > 1+offset) {
-      Scope& top = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
-      auto opt_cached_idx = top.inuse_nonlocal_ordered_set.idx(sym);
+      Scope& top_scope = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
+      auto opt_cached_idx = top_scope.inuse_nonlocal_ordered_set.idx(sym);
       if (opt_cached_idx.has_value()) {
         auto cached_idx = opt_cached_idx.value();
-        auto& nonlocal = top.inuse_nonlocal_defs[cached_idx];
+        auto& nonlocal = top_scope.inuse_nonlocal_defs[cached_idx];
         if (is_mut) {
           nonlocal.use_is_mut |= true;
         }
@@ -332,9 +332,9 @@ namespace ss {
         auto [parent_rel_var_scope, found_idx] = lookup_defn(loc, sym, is_mut, 1+offset);
 
         // insert fresh into top 'inuse_nonlocals' table, then return
-        ssize_t nonlocal_idx = static_cast<ssize_t>(top.inuse_nonlocal_defs.size());
-        top.inuse_nonlocal_ordered_set.add(sym);
-        top.inuse_nonlocal_defs.emplace_back(
+        ssize_t nonlocal_idx = static_cast<ssize_t>(top_scope.inuse_nonlocal_defs.size());
+        top_scope.inuse_nonlocal_ordered_set.add(sym);
+        top_scope.inuse_nonlocal_defs.emplace_back(
           parent_rel_var_scope,
           found_idx,
           found_ldef_id, 
@@ -378,15 +378,17 @@ namespace ss {
       // std::cerr << "1-> " << res << std::endl;
       return res;
     }
-    if (expr_stx_data.is_pair()) {
+    else if (expr_stx_data.is_pair()) {
       auto new_data = rw_pair_stx_data(loc, expr_stx_data);
       // std::cerr << "RWf " << expr_stx_data << std::endl;
       // std::cerr << "2-> " << new_data << std::endl;
       return new_data;
     }
-    // std::cerr << "RWf " << expr_stx_data << std::endl;
-    // std::cerr << "3-> " << expr_stx_data << std::endl;
-    return expr_stx_data;
+    else {
+      // std::cerr << "RWf " << expr_stx_data << std::endl;
+      // std::cerr << "3-> " << expr_stx_data << std::endl;
+      return expr_stx_data;
+    }
   }
   OBJECT Scoper::rw_id_expr_stx_data(FLoc loc, OBJECT expr_stx_data) {
     assert(expr_stx_data.is_symbol());
@@ -441,12 +443,13 @@ namespace ss {
     auto nonlocals_vec = pop_scope();
 
     // assembling 'nonlocals' list:
+    // TODO: confirm if reverse-order here is expected.
     OBJECT nonlocals = OBJECT::null;
     for (Nonlocal const& nonlocal: nonlocals_vec) {
       auto element = list(   // (parent-rel-var-scope parent-idx use-is-mut ldef-id)
         &m_gc_tfe,
         OBJECT::make_symbol(rel_var_scope_to_sym(nonlocal.parent_rel_var_scope)),
-        OBJECT::make_integer(nonlocal.parent_idx),
+        OBJECT::make_integer(nonlocal.idx_in_parent_scope),
         OBJECT::make_boolean(nonlocal.use_is_mut),
         OBJECT::make_symbol(nonlocal.ldef_id)
       );
@@ -454,6 +457,7 @@ namespace ss {
     }
 
     // assembling 'vars' list (args):
+    // TODO: confirm if reverse-order here is expected.
     OBJECT res_args = OBJECT::null;
     for (auto [ldef_id, loc]: args_vec) {
       auto element = OBJECT::make_syntax(
@@ -496,6 +500,7 @@ namespace ss {
     assert(name_obj_stx.is_syntax());
     assert(init_obj_stx.is_syntax());
     
+    // resolving the definition for this symbol:
     auto name_obj = name_obj_stx.as_syntax_p()->data();
     if (!name_obj.is_symbol()) {
       std::stringstream ss;
@@ -506,7 +511,23 @@ namespace ss {
     }
     IntStr name = name_obj.as_symbol();
     auto [rel_var_scope, def_id] = lookup_defn(loc, name, true);
-    
+
+    // updating this definition's properties to indicate that it may be mutated 
+    // at some point during execution:
+    switch (rel_var_scope) {
+      case RelVarScope::Local:
+      case RelVarScope::Free:
+        m_def_tab.mark_local_defn_mutated(def_id);
+        break;
+      case RelVarScope::Global:
+        m_def_tab.mark_global_defn_mutated(def_id);
+        break;
+      default:
+        error("Unknown set target rel_var_scope when rewriting 'set!'");
+        throw SsiError();
+    }
+
+    // creating the replacement 'mutation' term:
     auto mutation_obj = OBJECT::make_symbol(g_id_cache().mutation);
     auto rel_var_scope_sym = rel_var_scope_to_sym(rel_var_scope);
     auto rel_var_scope_sym_obj = OBJECT::make_symbol(rel_var_scope_sym);

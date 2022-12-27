@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cassert>
 
+#include "ss-core/config.hh"
 #include "ss-core/common.hh"
 #include "ss-core/printing.hh"
 #include "ss-core/gc.hh"
@@ -217,10 +218,16 @@ namespace ss {
         return reinterpret_cast<APtr>(gc_tfe->allocate_size_class(sci));
     }
     void BaseBoxedObject::operator delete(void* ptr, GcThreadFrontEnd* gc_tfe, gc::SizeClassIndex sci) {
-        auto self = static_cast<BaseBoxedObject*>(ptr);
 #if CONFIG_DEBUG_MODE
+        auto self = static_cast<BaseBoxedObject*>(ptr);
         assert(self->m_sci == sci && "SCI corruption detected");
         assert(GcThreadFrontEnd::get_by_tfid(self->m_gc_tfid) == gc_tfe && "GC_TFE corruption detected");
+        SUPPRESS_UNUSED_VARIABLE_WARNING(self);     // if in release mode
+        SUPPRESS_UNUSED_VARIABLE_WARNING(gc_tfe);   // if in release mode
+        SUPPRESS_UNUSED_VARIABLE_WARNING(sci);      // if in release mode
+#else
+        SUPPRESS_UNUSED_VARIABLE_WARNING(gc_tfe);
+        SUPPRESS_UNUSED_VARIABLE_WARNING(sci);
 #endif
         BaseBoxedObject::operator delete(ptr);
     }
@@ -229,9 +236,13 @@ namespace ss {
         p->delete_();
     }
     void BaseBoxedObject::operator delete(void* ptr, size_t size_in_bytes) {
-        auto self = static_cast<BaseBoxedObject*>(ptr);
 #if CONFIG_DEBUG_MODE
+        auto self = static_cast<BaseBoxedObject*>(ptr);
         assert(gc::sci(size_in_bytes) == self->m_sci && "SCI corruption detected");
+        SUPPRESS_UNUSED_VARIABLE_WARNING(self);             // if in release mode
+        SUPPRESS_UNUSED_VARIABLE_WARNING(size_in_bytes);    // if in release mode
+#else
+        SUPPRESS_UNUSED_VARIABLE_WARNING(size_in_bytes);
 #endif
         BaseBoxedObject::operator delete(ptr);
     }
@@ -292,7 +303,7 @@ namespace ss {
                     OBJECT non_local_vars = args[1];
                     OBJECT body_stx = args[2];
                     
-                    std::cerr << "expanded-lambda: " << p->cdr() << std::endl;
+                    // std::cerr << "expanded-lambda: " << p->cdr() << std::endl;
                     
                     return list(gc_tfe,
                         p->car(),
@@ -300,7 +311,7 @@ namespace ss {
                             arg_stx_list :
                             pair_data_to_datum(gc_tfe, arg_stx_list)),
                         non_local_vars,
-                        body_stx
+                        body_stx.as_syntax_p()->to_datum(gc_tfe)
                     );
                 }
                 if (sym == g_id_cache().expanded_define) {

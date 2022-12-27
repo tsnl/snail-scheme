@@ -47,12 +47,17 @@ endif()
 ## Generating Source
 #
 
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR 
-    "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    set(SNAIL_DEBUG_MODE 1)
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     set(SNAIL_DEBUG_MODE 1)
 else()
     set(SNAIL_DEBUG_MODE 0)
 endif()
+
+# manual override for SNAIL_DEBUG_MODE
+set(SNAIL_DEBUG_MODE 0)
+
 configure_file(
     ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh.in
     ${CMAKE_SOURCE_DIR}/inc/ss-core/config.hh

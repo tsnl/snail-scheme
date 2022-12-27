@@ -7,8 +7,20 @@ namespace ss {
     m_code(code),
     m_init(init),
     m_docstring(std::move(docstring)),
-    m_loc(loc)
+    m_loc(loc),
+    m_is_mutated(false)
   {}
+
+  void Definition::mark_as_mutated() {
+    m_is_mutated = true;
+  }
+
+  void DefTable::mark_global_defn_mutated(GDefID def_id) {
+    m_globals_vec[def_id].mark_as_mutated();
+  }
+  void DefTable::mark_local_defn_mutated(LDefID def_id) {
+    m_locals_vec[def_id].mark_as_mutated();
+  }
 
   GDefID DefTable::define_global(
     FLoc loc, IntStr name, 

@@ -39,13 +39,13 @@ namespace ss {
                 .define_syntax = intern("define-syntax"),
                 .ellipses = intern("..."),
                 .underscore = intern("_"),
-                .reference = intern("reference"),
+                .reference = intern("scheme::private::reference"),
                 .local = intern("local"),
                 .free = intern("free"),
                 .global = intern("global"),
-                .mutation = intern("mutation"),
-                .expanded_lambda = intern("scheme::expanded-lambda"),
-                .expanded_define = intern("scheme::expanded-define")
+                .mutation = intern("scheme::private::mutation"),
+                .expanded_lambda = intern("scheme::private::expanded-lambda"),
+                .expanded_define = intern("scheme::private::expanded-define")
             };
             s_id_cache = new IdCache(init);
         }
