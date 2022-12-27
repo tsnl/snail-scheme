@@ -103,7 +103,7 @@ namespace ss {
 #if CONFIG_DEBUG_MODE
             {
                 std::stringstream ss;
-                ss << "parsing took " << duration;
+                ss << "parsing took " << duration.count();
                 info(ss.str());
             }
 #endif
@@ -156,7 +156,7 @@ namespace ss {
 
 #if CONFIG_DEBUG_MODE
             std::stringstream ss;
-            ss << "compile and lib-loading took " << duration;
+            ss << "compile and lib-loading took " << duration.count();
             info(ss.str());
 #endif
         }
@@ -175,7 +175,7 @@ namespace ss {
             
 #if CONFIG_DEBUG_MODE
             std::stringstream ss;
-            ss << "runtime took " << duration;
+            ss << "runtime took " << duration.count();
             info(ss.str());
 #endif
         }
