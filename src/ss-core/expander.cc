@@ -304,9 +304,7 @@ namespace ss {
     bool is_mut, 
     size_t offset
   ) {
-    // std::cerr << "REFER: " << interned_string(sym) << std::endl;
-
-    // checking 'locals'
+    // checking 'locals' unless in global scope already:
     if (m_closure_scope_stack.size() > offset) {
       Scope& top = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
       auto opt_idx = top.locals_ordered_set.idx(sym);
@@ -314,9 +312,13 @@ namespace ss {
         return {RelVarScope::Local, opt_idx.value()};
       }
     }
-
-    // checking 'free', trying to get index:
+    
+    // checking 'free' unless in top-most function already:
+    // NOTE: what about 'begin'? It never pushes a new scope. This means that
+    // nested begins' definitions _will_ conflict.
     if (m_closure_scope_stack.size() > 1+offset) {
+      // seeing if this is a free variable that has been referred in this closure
+      // already:
       Scope& top_scope = m_closure_scope_stack[m_closure_scope_stack.size()-1 - offset];
       auto opt_cached_idx = top_scope.inuse_nonlocal_ordered_set.idx(sym);
       if (opt_cached_idx.has_value()) {
@@ -330,6 +332,9 @@ namespace ss {
         // must check whole scope stack, and if found, must insert into 'inuse' table
         LDefID found_ldef_id = static_cast<LDefID>(-1);
         auto [parent_rel_var_scope, found_idx] = lookup_defn(loc, sym, is_mut, 1+offset);
+        if (parent_rel_var_scope == RelVarScope::Global) {
+          return {RelVarScope::Global, found_idx};
+        }
 
         // insert fresh into top 'inuse_nonlocals' table, then return
         ssize_t nonlocal_idx = static_cast<ssize_t>(top_scope.inuse_nonlocal_defs.size());
@@ -343,7 +348,7 @@ namespace ss {
         return {RelVarScope::Free, nonlocal_idx};
       }
     }
-    
+
     // checking globals
     {
       auto opt_gdef_id = m_def_tab.lookup_global_id(sym);
@@ -635,8 +640,6 @@ namespace ss {
     return res;
   }
   OBJECT Scoper::rw_list_stx_data__begin(FLoc loc, OBJECT expr_stx_data) {
-    bool is_global = in_global_scope();
-
     if (!expr_stx_data.is_pair()) {
       std::stringstream s;
       s << "begin: expected at least 1 expression to evaluate, got 0 OR improper list" << std::endl
@@ -645,10 +648,15 @@ namespace ss {
     }
 
     // if (begin ...) in top-level scope (i.e. not under a closure), then definitions
-    // apply to the global scope, otherwise local to a scope unique to this 'begin'
+    // apply to the global scope, otherwise local to a scope unique to this 'begin'.
+    // NOTE: do NOT push_scope; this will cause variables that are actually locals
+    // to be resolved as nonlocals.
+    // NOTE: this decision means that definitions in nested 'begin' terms will clash.
     OBJECT rewritten_elements = OBJECT::null;
-    if (!is_global) { push_scope(); }
     {
+      std::vector<OBJECT> items;
+      items.reserve(list_length(cdr(expr_stx_data)));
+    
       for (OBJECT rem = cdr(expr_stx_data); !rem.is_null(); rem = cdr(rem)) {
         if (!rem.is_pair()) {
           std::stringstream ss;
@@ -661,11 +669,15 @@ namespace ss {
 
         OBJECT old_stx_obj = car(rem);
         OBJECT new_stx_obj = rw_expr_stx(old_stx_obj);
-        rewritten_elements = cons(&m_gc_tfe, new_stx_obj, rewritten_elements);
+        items.push_back(new_stx_obj);
+      }
+
+      while (!items.empty()) {
+        rewritten_elements = cons(&m_gc_tfe, items.back(), rewritten_elements);
+        items.pop_back();
       }
     }
-    if (!is_global) { pop_scope(); }
-
+    
     return cons(&m_gc_tfe, car(expr_stx_data), rewritten_elements);
   }
   OBJECT Scoper::rw_list_stx_data__apply(FLoc loc, OBJECT expr_stx_data) {

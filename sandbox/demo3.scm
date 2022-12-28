@@ -5,7 +5,6 @@
     (if (p/invoke or (p/invoke = n 1) (p/invoke = n 0))
       n
       (begin
-        ; (p/invoke display fibonacci)
         (p/invoke +
           (fibonacci (p/invoke - n 1))
           (fibonacci (p/invoke - n 2)))))))
@@ -15,7 +14,7 @@
 ; (* 1 2 3 4 5)
 
 ; (define a0 (fibonacci 30))
-(define a0 (fibonacci 2))
+(define a0 (fibonacci 30))
 ; (p/invoke displayln a0)
 
 ; (define a1 (fibonacci 10))
