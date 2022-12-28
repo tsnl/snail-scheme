@@ -98,9 +98,10 @@ namespace ss {
             std::filesystem::copy_options::create_symlinks
         );
 
+#if CONFIG_DEBUG_MODE && !defined(NDEBUG)
         OBJECT key = discover(dst_path);
         assert(key.as_raw() == dst_key.as_raw());
-
+#endif
     }
 
     void BaseLibraryContainer::uninstall(OBJECT key) {

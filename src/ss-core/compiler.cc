@@ -395,7 +395,7 @@ namespace ss {
 
 #if NDEBUG
         SUPPRESS_UNUSED_VARIABLE_WARNING(ldef_id_obj);
-        SUPPRESS_UNUSED_VARIABLE_WARNING(use_is_mut_obj)
+        SUPPRESS_UNUSED_VARIABLE_WARNING(use_is_mut_obj);
 #endif
 
         IntStr parent_rel_var_scope_sym = parent_rel_var_scope_sym_obj.as_symbol();
