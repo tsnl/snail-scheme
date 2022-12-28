@@ -247,8 +247,8 @@ namespace ss {
                 throw SsiError();
             }
 
-            // p/invoke
-            else if (keyword_symbol_id == g_id_cache().p_invoke) {
+            // expanded-p/invoke
+            else if (keyword_symbol_id == g_id_cache().expanded_p_invoke) {
                 auto proc_name = car(tail);
                 auto proc_args = cdr(tail);
             

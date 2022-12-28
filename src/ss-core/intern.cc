@@ -45,7 +45,8 @@ namespace ss {
                 .global = intern("global"),
                 .mutation = intern("scheme::private::mutation"),
                 .expanded_lambda = intern("scheme::private::expanded-lambda"),
-                .expanded_define = intern("scheme::private::expanded-define")
+                .expanded_define = intern("scheme::private::expanded-define"),
+                .expanded_p_invoke = intern("scheme::private::expanded-p/invoke")
             };
             s_id_cache = new IdCache(init);
         }

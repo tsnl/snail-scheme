@@ -8,15 +8,17 @@
 //    `(reference ,rel-var-scope ,def-id)
 // - Similarly, 'set!' is replaced by the pseudo-atom
 //    `(mutation ,rel-var-scope ,def-id ,scoped-initializer-stx)
-// - To avoid forwarding scopes and recomputing frees, lambdas are rewritten as
+// - To avoid store scoping information, free-vars, and mutables, lambdas are 
+//   rewritten as:
 //   (expanded-lambda #'(args) '(bound-free-vars) #'body)
-//   Note that bound-free-vars is an ordered list of pairs, and are not syntax objects
-//   Each bound-free-var element is a list (cf Nonlocal)
-//   Each args element is an ldef-id integer wrapped in a SyntaxObject; we replace ID by int.
+//   Note that bound-free-vars is an ordered list of pair objects, not syntax 
+//   objects. In fact, each bound-free-var element is a list (cf Nonlocal).
+//   Each args element is an ldef-id integer wrapped in a SyntaxObject; we 
+//   replace ID by an int FixNum.
 // - Similarly, 'define' is replaced 
 //    (expanded-define ,rel-var-scope #,def-id #,scoped-initializer-stx)
 // - Similarly, 'p/invoke' is replaced
-//    (p/invoke #,pproc-id #,args ...)
+//    (expanded-p/invoke #,pproc-id #,args ...)
 // - Macros are expanded recursively and completely, line-by-line.
 //   This means we will not proceed to line N+1 until line N is fully expanded.
 // - As an optimization, we rewrite
@@ -635,7 +637,17 @@ namespace ss {
       OBJECT::make_syntax(&m_gc_tfe, pproc_id_obj, proc_name_obj_stx_p->loc()),
       res
     );
-    res = cons(&m_gc_tfe, p_invoke_stx, res);
+
+    // adding the 'expanded-pinvoke' prefix and returning:
+    res = cons(
+      &m_gc_tfe, 
+      OBJECT::make_syntax(
+        &m_gc_tfe, 
+        OBJECT::make_symbol(g_id_cache().expanded_p_invoke),
+        p_invoke_stx.as_syntax_p()->loc()
+      ), 
+      res
+    );
 
     return res;
   }

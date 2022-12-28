@@ -29,6 +29,7 @@ namespace ss {
         IntStr const mutation;
         IntStr const expanded_lambda;
         IntStr const expanded_define;
+        IntStr const expanded_p_invoke;
     };
     IdCache const& g_id_cache();
 
