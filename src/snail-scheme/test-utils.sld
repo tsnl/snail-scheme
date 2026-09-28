@@ -28,5 +28,6 @@
           (display-error "rhs: ")
           (display-error rhs)
           (display-error "\n")
-          (display-error (string-append (repeat-string "-" 80) "\n")))))
+          (display-error (string-append (repeat-string "-" 80) "\n"))
+          (error "expect failed" lhs rhs))))
     ))

@@ -11,7 +11,10 @@
 ;
 
 (define-record-type <cli-args>
-  (make-cli-args self-path input-path output-path)
+  (make-cli-args
+    self-path     ; string
+    input-path    ; string or null
+    output-path)  ; string or null
   cli-args?
   (self-path cli-args-self-path)
   (input-path cli-args-input-path)
@@ -83,11 +86,23 @@
       (display-error "\n")
       (display-error "Hello, world\n"))))
 
-
 ;
 ; test
 ;
 
 (define (test argv)
+  ; main
   (run-test test-parse-cli-args)
+
+  ; parser
+  (run-test test-input-stream)
+  (run-test test->>=)
+  (run-test test-chain)
+  (run-test test-char-if)
+  (run-test test-repeat)
+  (run-test test-discard)
+  (run-test test-tuple)
+  (run-test test-optional)
+  (run-test test-tag)
+
   (display-error "All tests ok\n"))
