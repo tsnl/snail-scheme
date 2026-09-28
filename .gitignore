@@ -1,0 +1,8 @@
+# direnv cache and Nix build outputs
+/.direnv/
+/result
+/result-*
+
+# Generated executable and intermediate build files
+/snail-scheme
+/build/
