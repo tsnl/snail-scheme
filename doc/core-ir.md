@@ -19,9 +19,9 @@ functions. Ownership grades are `1` and `omega` and belong to types. A user
 can specify a grade only in a `struct` expression, restricting the grade
 inferred from its fields.
 
-`Π` and `λ` each have a required explicit binder group, optionally preceded
-by an implicit binder group. Implicit-only parameters are inferred from the
-supplied explicit arguments. By convention, write the implicit group in square
+`Π` and `λ` each require an implicit binder group followed by an explicit
+binder group, even when either is empty. Implicit-only parameters are inferred
+from the supplied explicit arguments. By convention, write the implicit group in square
 brackets; bracket style has no semantic meaning. A parameter never switches
 between implicit and explicit at a call site. Both forms require `→` followed
 by an explicit result type after the binders; `λ` then adds `=` followed by a
@@ -82,7 +82,7 @@ family, a function, or an ordinary value follows from its expression.
     → Element-Type))
 
 (def increment
-  (λ #:captures () ((x i64))
+  (λ #:captures () [] ((x i64))
     → i64
     = (i64-add x 1)))
 ```
@@ -92,16 +92,14 @@ binder grade or type-separator token. The forms are:
 
 ```text
 (Π [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type)
-(Π (Explicit-Binder ...) → Result-Type)
 (λ #:captures (Capture-Name ...) [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
-(λ #:captures (Capture-Name ...) (Explicit-Binder ...) → Result-Type = Body)
 ```
 
 Each `Implicit-Binder` or `Explicit-Binder` stands for `(Name Type-Expression)`.
-With two parameter groups before `→`, the first is implicit and the second is
-explicit. With one group, it is explicit and the implicit group is empty.
-The explicit group is always present, even as `()` for no explicit parameters.
-An empty implicit group `[]` is equivalent to omitting it.
+Both parameter groups are mandatory: the first is implicit and the second is
+explicit. Write `[]` when there are no implicit parameters and `()` when there
+are no explicit parameters. A lambda with no captures and no parameters has
+the header `(λ #:captures () [] () → Result-Type = Body)`.
 
 The capture clause is separate from the parameter groups and never appears on
 `Π`. Capture names resolve in the enclosing scope; their types are known from
@@ -111,7 +109,7 @@ result type, and body. The ownership and completeness rules are in section 6.
 The reader accepts matching `(...)`, `[...]`, and `{...}` interchangeably as
 list delimiters and rejects mismatched pairs. Square brackets for the implicit
 group are a writing convention only. For example, `[(T type)]` and
-`((T type))` mean the same thing in that position. Group count, rather than
+`((T type))` mean the same thing in that position. Position, rather than
 delimiter shape, determines parameter roles. Calls still supply only explicit
 arguments; this convention does not introduce an implicit-argument call form.
 
@@ -150,7 +148,7 @@ Nest `let` expressions when a later computation depends on an earlier result:
 
 ```scheme
 (def increment-twice
-  (λ #:captures () ((x i64))
+  (λ #:captures () [] ((x i64))
     → i64
     = (let ((first-step (i64-add x 1)))
         (let ((second-step (i64-add first-step 1)))
@@ -291,7 +289,7 @@ whereas its value constructor `make-pair` infers them:
 
 ```scheme
 (def pair
-  (λ #:captures () ((first-type type) (second-type type))
+  (λ #:captures () [] ((first-type type) (second-type type))
     → type
     = (struct ((first first-type) (second second-type)))))
 
@@ -336,27 +334,27 @@ A type family is an ordinary function returning a type:
   (struct ()))
 
 (def some
-  (λ #:captures () ((value-type type))
+  (λ #:captures () [] ((value-type type))
     → type
     = (struct ((value value-type)))))
 
 (def option
-  (λ #:captures () ((value-type type))
+  (λ #:captures () [] ((value-type type))
     → type
     = (union none (some value-type))))
 
 (def ok
-  (λ #:captures () ((value-type type))
+  (λ #:captures () [] ((value-type type))
     → type
     = (struct ((value value-type)))))
 
 (def err
-  (λ #:captures () ((error-type type))
+  (λ #:captures () [] ((error-type type))
     → type
     = (struct ((error error-type)))))
 
 (def result
-  (λ #:captures () ((value-type type) (error-type type))
+  (λ #:captures () [] ((value-type type) (error-type type))
     → type
     = (union (ok value-type) (err error-type))))
 ```
@@ -424,12 +422,12 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 
 ```scheme
 (def maybe
-  (λ #:captures () ((value-type type))
+  (λ #:captures () [] ((value-type type))
     → type
     = (union (singleton #f) value-type)))
 
 (def scalar-to-integer
-  (λ #:captures () ((x scalar))
+  (λ #:captures () [] ((x scalar))
     → i64
     = (if (is-i64 x)
         x
@@ -583,13 +581,13 @@ unused owners on scope exit and abandoned control paths.
 
 ```scheme
 (def bad-copy
-  (λ #:captures () ((value ticket))
+  (λ #:captures () [] ((value ticket))
     → (pair ticket ticket)
     = (make-pair value value)))
 ; Rejected: two ownership transfers from one ticket.
 
 (def copy-integer
-  (λ #:captures () ((n i64))
+  (λ #:captures () [] ((n i64))
     → (pair i64 i64)
     = (make-pair n n)))
 ; Accepted: grade-of(i64) = omega.
@@ -675,16 +673,16 @@ capture identities and capture/parameter name collisions.
 
 ```scheme
 (def make-adder
-  (λ #:captures () ((offset i64))
-    → (Π ((x i64)) → i64)
-    = (λ #:captures (offset) ((x i64))
+  (λ #:captures () [] ((offset i64))
+    → (Π [] ((x i64)) → i64)
+    = (λ #:captures (offset) [] ((x i64))
         → i64
         = (i64-add x offset))))
 
 (def retain-ticket
-  (λ #:captures () ((value ticket))
-    → (Π () → ticket)
-    = (λ #:captures (value) ()
+  (λ #:captures () [] ((value ticket))
+    → (Π [] () → ticket)
+    = (λ #:captures (value) [] ()
         → ticket
         = value)))
 ```
@@ -767,7 +765,7 @@ ordinary Scheme `call/cc`:
 ```scheme
 (def capture-1-type
   (Π [(A type)]
-      ((body (Π ((k (cont-1 A))) → nothing)))
+      ((body (Π [] ((k (cont-1 A))) → nothing)))
     → A))
 
 (def invoke-1-type
@@ -777,7 +775,7 @@ ordinary Scheme `call/cc`:
 (def answer
   (i64-add 1
     (capture-1
-      (λ #:captures () ((k (cont-1 i64)))
+      (λ #:captures () [] ((k (cont-1 i64)))
         → nothing
         = (invoke-1 k 41)))))
 ; Produces 42.
@@ -852,7 +850,7 @@ Expose immutable syntax and an affine compiler context through abstract types:
 
 ```scheme
 (def transformer-type
-  (Π ((context expand-context) (form syntax))
+  (Π [] ((context expand-context) (form syntax))
     → (result (pair expand-context syntax) diagnostic)))
 ```
 
@@ -916,11 +914,11 @@ elaborator, typechecker, and interpreter. The later stages extend that working
 pipeline with control, compilation, transformers, and Scheme runtime support.
 
 1. **Parsing, elaboration, and dependent checking.** Implement `def`, the
-   optional implicit and required explicit binder groups with telescope
+   required implicit and explicit binder groups with telescope
    scoping, explicit `#:captures` clauses, mandatory result types with `→`,
    λ bodies introduced by `=`, `Π`, universes, and pure type normalization.
    Accept matching list delimiters interchangeably; determine parameter roles
-   by the number of binder groups.
+   by their fixed positions.
    Exercise identity and dependent array signatures, including rejected calls
    with undetermined implicits.
 2. **Type-forming values.** Implement `struct` field telescopes, stable family

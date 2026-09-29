@@ -40,8 +40,9 @@ There is no implicit conversion from quoted Scheme data to a core value.
 In this grammar, `*`, `+`, `?`, and `|` are metanotation. Parentheses are literal
 list delimiters. `Name` and `Field` are identifiers, and `Literal` is an admitted
 core literal. `Type-Expr` is the same grammatical category as `Expr`, checked to
-denote a type. The two alternatives for `Groups` encode the optional implicit
-group; delimiter shape is irrelevant.
+denote a type. In both function forms, the first telescope is implicit and the
+second explicit. Both are required, including when empty; delimiter shape is
+irrelevant.
 
 ```text
 Program       ::= Definition*
@@ -49,8 +50,8 @@ Definition    ::= (def Name Expr)
 
 Expr          ::= Name
                 | Literal
-                | (Π Groups → Type-Expr)
-                | (λ #:captures (Name*) Groups → Type-Expr = Expr)
+                | (Π Telescope Telescope → Type-Expr)
+                | (λ #:captures (Name*) Telescope Telescope → Type-Expr = Expr)
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
                 | (let (Binding*) Expr)
@@ -60,8 +61,6 @@ Expr          ::= Name
                 | (new Type-Expr (Field-Value*))
                 | (match Expr Clause+)
 
-Groups        ::= Telescope
-                | Telescope Telescope
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
 Binding       ::= (Name Expr)
@@ -116,7 +115,8 @@ scalar values. Neither adds a top-level introduction form.
 
 `Π`, `λ`, and `struct` use left-to-right telescope scope. A binder enters scope
 after its annotation; all function parameters are in scope in the result type
-and body. A single function group is explicit; with two, the first is implicit.
+and body. Both function groups are mandatory: the first is implicit and the
+second explicit. Every lambda also requires its capture list, which may be empty.
 Implicit parameters are solved only from explicit arguments, not expected call
 results. Duplicate binders and forward references are rejected.
 
@@ -166,7 +166,7 @@ unused ones. Pattern binders are in scope only in their branch body.
 
 ```scheme
 (def package-length
-  (λ #:captures () ((value sized-array))
+  (λ #:captures () [] ((value sized-array))
     → i64
     = (match value
         ((new sized-array ((length n) (items _))) n))))
@@ -432,18 +432,18 @@ themselves are to be implemented; these definitions describe their signatures:
 
 ```scheme
 (def compile-syntax-rules-type
-  (Π ((definition-view binding-view) (spec syntax))
+  (Π [] ((definition-view binding-view) (spec syntax))
     → (result rules-transformer diagnostic)))
 
 (def match-rule-type
-  (Π ((definition-view binding-view)
+  (Π [] ((definition-view binding-view)
       (use-view binding-view)
       (rule rule-plan)
       (form syntax))
     → (option captures)))
 
 (def instantiate-template-type
-  (Π ((introduction introduction-context)
+  (Π [] ((introduction introduction-context)
       (rule rule-plan)
       (matched captures))
     → (result syntax diagnostic)))
