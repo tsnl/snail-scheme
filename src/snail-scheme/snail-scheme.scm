@@ -92,15 +92,6 @@
   ; main
   (run-test test-parse-cli-args)
 
-  ; parser
-  (run-test test-input-stream)
-  (run-test test->>=)
-  (run-test test-chain)
-  (run-test test-char-if)
-  (run-test test-repeat)
-  (run-test test-discard)
-  (run-test test-tuple)
-  (run-test test-optional)
-  (run-test test-tag)
+  (test-parser)
 
   (display-error "All tests ok\n"))
