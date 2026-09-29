@@ -3,6 +3,5 @@
 /result
 /result-*
 
-# Generated executable and intermediate build files
-/snail-scheme
+# Intermediate build files
 /build/

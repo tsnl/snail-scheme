@@ -1,80 +1,54 @@
 (define-library (snail-scheme parser)
-  (export parse-file test-parser)
+  (export
+    ; Results
+    <parse-result>
+    make-parse-result
+    parse-result?
+    parse-result-success
+    parse-result-value
+    parse-result-input
+    parse-result-ok
+    parse-result-err
+    parse-result-ok?
+    parse-result-err?
+
+    ; Combinators and primitive parsers
+    return
+    fail
+    >>=
+    chain
+    pmap
+    char-if
+    char
+    char-from
+    tag
+    tag-val
+    choice
+    repeat
+    repeat-at-least-once
+    discard
+    tuple
+    optional
+    eof
+    location)
 
   (import
-    (rename (scheme base) (map list-map))
-    (scheme char)
+    (scheme base)
     (snail-scheme common)
-    (snail-scheme test-utils)
-    (snail-scheme syntax))
+    (snail-scheme reader))
 
   (begin
     ;
-    ; Input stream
-    ;
-
-    (define-record-type <input-stream>
-      (make-input-stream
-        filename ; filename to include in syntax `<loc>`
-        chars ; list of chars
-        line ; the 1-indexed line of the first character
-        column) ; the 1-indexed column of the first character
-      input-stream?
-      (filename input-stream-filename)
-      (chars input-stream-chars)
-      (line input-stream-line)
-      (column input-stream-column))
-
-    (define (string->input-stream str)
-      (let
-        ((chars (string->list str)))
-        (list->input-stream chars)))
-
-    (define (list->input-stream chars)
-      (make-input-stream "<anonymous-input-stream>" chars 1 1))
-
-    (define (input-stream-eof? input-stream)
-      (null? (peek-input-stream input-stream)))
-
-    (define (peek-input-stream input-stream)
-      (let
-        ((chars (input-stream-chars input-stream)))
-        (if (null? chars) '() (car chars))))
-
-    (define (next-input-stream input-stream)
-      (let*
-        ((filename (input-stream-filename input-stream))
-          (old-chars (input-stream-chars input-stream))
-          (old-line (input-stream-line input-stream))
-          (old-column (input-stream-column input-stream))
-          (car-char (car old-chars))
-          (next-chars (cdr old-chars))
-          ; Count CRLF as one line ending, and also accept a standalone CR.
-          (newline? (or (eqv? car-char #\newline)
-                     (and (eqv? car-char #\return)
-                       (not (and (pair? next-chars)
-                             (eqv? (car next-chars) #\newline))))))
-          (next-line (if newline? (+ 1 old-line) old-line))
-          (next-column (if newline? 1 (+ 1 old-column))))
-        (make-input-stream filename next-chars next-line next-column)))
-
-    (define (input-stream-loc input-stream)
-      (make-loc
-        (input-stream-filename input-stream)
-        (input-stream-line input-stream)
-        (input-stream-column input-stream)))
-
-    ;
     ; ParseResult
     ; Do not confuse with (Parser T):
-    ; Parser T := (InputStream) -> (ParseResult T)
+    ; Parser T := (Reader) -> (ParseResult T)
     ;
 
     (define-record-type <parse-result>
       (make-parse-result
         success ; whether the parse succeeded
         value ; value payload if success, null if failure
-        input) ; input-stream post-parse
+        input) ; reader post-parse
       parse-result?
       (success parse-result-success)
       (value parse-result-value)
@@ -94,7 +68,7 @@
 
     ;
     ; Basic Monadic (Parser T)
-    ; Parser T := (InputStream) -> (ParseResult T)
+    ; Parser T := (Reader) -> (ParseResult T)
     ; IMPORTANT: the monadic type is (Parser T), NOT (ParseResult T).
     ;
 
@@ -123,21 +97,21 @@
     ;;; monadic return operator for (Parser T)
     ;;;   return :: (T) -> Parser T
     (define (return value)
-      (lambda (input-stream)
-        (parse-result-ok value input-stream)))
+      (lambda (reader)
+        (parse-result-ok value reader)))
 
     ;;; monadic return operator (fail variant) for (Parser T)
     ;;;   fail :: () -> Parser T
     (define (fail)
-      (lambda (input-stream)
-        (parse-result-err input-stream)))
+      (lambda (reader)
+        (parse-result-err reader)))
 
     ;;; monadic bind operator for (Parser T)
     ;;;   >>= :: (Parser T, ((T) -> Parser U)) -> Parser U
     (define (>>= parser binder)
-      (lambda (input-stream)
+      (lambda (reader)
         (let
-          ((parse-result (parser input-stream)))
+          ((parse-result (parser reader)))
           (if (parse-result-err? parse-result)
             parse-result
             (let*
@@ -147,8 +121,8 @@
               (parser input))))))
 
     ; Transform a parser's value without changing consumption or failure.
-    ; Like Nom: (map parser transform). Use list-map for Scheme's list operation.
-    (define (map parser transform)
+    ; Parser value mapping: (pmap parser transform).
+    (define (pmap parser transform)
       (>>= parser (lambda (value) (return (transform value)))))
 
     ;
@@ -156,51 +130,51 @@
     ;
 
     (define (char-if predicate)
-      (lambda (input-stream)
+      (lambda (reader)
         (let
-          ((peek (peek-input-stream input-stream)))
+          ((peek (peek-reader reader)))
           (if (and (not (null? peek)) (predicate peek))
-            (parse-result-ok peek (next-input-stream input-stream))
-            (parse-result-err input-stream)))))
+            (parse-result-ok peek (next-reader reader))
+            (parse-result-err reader)))))
 
     (define (repeat parser)
-      (lambda (input-stream)
+      (lambda (reader)
         (let recur
-          ((input-stream input-stream)
+          ((reader reader)
             (acc '()))
           (let
-            ((parse-result (parser input-stream)))
+            ((parse-result (parser reader)))
             (if (parse-result-ok? parse-result)
               (let ((next-input (parse-result-input parse-result)))
                 ; A nullable parser here is a programming error, not a parse failure.
-                (if (and (= (input-stream-line input-stream) (input-stream-line next-input))
-                     (= (input-stream-column input-stream) (input-stream-column next-input)))
+                (if (and (= (reader-line reader) (reader-line next-input))
+                     (= (reader-column reader) (reader-column next-input)))
                   (error "repeat: parser succeeded without consuming input")
                   (recur next-input (cons (parse-result-value parse-result) acc))))
-              (parse-result-ok (reverse acc) input-stream))))))
+              (parse-result-ok (reverse acc) reader))))))
 
     (define (choice . parsers)
-      (lambda (input-stream)
+      (lambda (reader)
         (let recur
-          ((input-stream input-stream)
+          ((reader reader)
             (parsers parsers))
           (if (null? parsers)
-            (parse-result-err input-stream)
+            (parse-result-err reader)
             (let
-              ((parse-result ((car parsers) input-stream)))
+              ((parse-result ((car parsers) reader)))
               (if (parse-result-ok? parse-result)
                 parse-result
-                (recur input-stream (cdr parsers))))))))
+                (recur reader (cdr parsers))))))))
 
     (define (eof)
-      (lambda (input-stream)
-        (if (input-stream-eof? input-stream)
-          (parse-result-ok '() input-stream)
-          (parse-result-err input-stream))))
+      (lambda (reader)
+        (if (reader-eof? reader)
+          (parse-result-ok '() reader)
+          (parse-result-err reader))))
 
     (define (location)
-      (lambda (input-stream)
-        (parse-result-ok (input-stream-loc input-stream) input-stream)))
+      (lambda (reader)
+        (parse-result-ok (reader-loc reader) reader)))
 
     ;
     ; Higher-order general-purpose parsers and combinators
@@ -214,7 +188,7 @@
       (tag-val str str))
 
     (define (tag-val str val)
-      (map (apply tuple (list-map char (string->list str)))
+      (pmap (apply tuple (map char (string->list str)))
         (lambda (_) val)))
 
     (define (char-from lst)
@@ -225,287 +199,13 @@
         (lambda (v) (if (null? v) (fail) (return v)))))
 
     (define (discard parser)
-      (map parser (lambda (_) '())))
-
-    (define (whitespace)
-      ; Intertoken space includes line, nested block and datum comments.
-      (discard (repeat (choice (whitespace-char) (line-comment) (block-comment) (datum-comment)))))
-
-    (define (whitespace-char)
-      (discard (char-from '(#\newline #\return #\space #\tab))))
-
-    (define (line-comment)
-      (discard
-        (tuple (char #\;)
-          (repeat (char-if (lambda (c) (not (memv c '(#\newline #\return)))))))))
-
-    (define (block-comment)
-      (chain
-        (lambda (_) (tag "#|"))
-        (lambda (_)
-          (lambda (input)
-            (let loop ((input input) (depth 1))
-              (let ((open ((tag "#|") input))
-                    (close ((tag "|#") input)))
-                (cond
-                  ((parse-result-ok? open)
-                    (loop (parse-result-input open) (+ depth 1)))
-                  ((parse-result-ok? close)
-                    (if (= depth 1)
-                      (parse-result-ok '() (parse-result-input close))
-                      (loop (parse-result-input close) (- depth 1))))
-                  ((input-stream-eof? input) (parse-result-err input))
-                  (else (loop (next-input-stream input) depth)))))))))
-
-    (define (datum-comment)
-      (discard
-        (chain
-          (lambda (_) (tag "#;"))
-          (lambda (_) (expr)))))
+      (pmap parser (lambda (_) '())))
 
     (define (tuple . parsers)
       (define (make-binder parser)
         (lambda (reversed-values)
-          (map parser (lambda (value) (cons value reversed-values)))))
-      (map (apply chain (list-map make-binder parsers)) reverse))
+          (pmap parser (lambda (value) (cons value reversed-values)))))
+      (pmap (apply chain (map make-binder parsers)) reverse))
 
     (define (optional parser)
-      (choice parser (return '())))
-
-    ;
-    ; Expression parsers
-    ;
-
-    (define (file)
-      (map (tuple (repeat (expr)) (whitespace) (eof)) first))
-
-    (define (expr)
-      (chain
-        (lambda (_) (whitespace))
-        (lambda (_)
-          (choice
-            (list-expr)
-            (char-expr)
-            (string-expr)
-            (boolean-expr)
-            (number-expr)
-            (identifier-expr)
-            (quote-expr)))))
-
-    (define (list-expr)
-      (chain
-        (lambda (_)
-          (tuple
-            (location)
-            (left-fender)
-            (repeat (expr))
-            (improper-tail)
-            (whitespace)
-            (right-fender)))
-        (lambda (t)
-          (let
-            ((loc (first t))
-              (elements (third t))
-              (opt-tail (fourth t)))
-            (if (and (null? elements) (not (null? opt-tail)))
-              (fail)
-              (return (make-list-syntax elements opt-tail loc)))))))
-
-    (define (char-expr)
-      (map
-        (tuple
-          (location)
-          (choice
-            ; Standard special characters
-            (tag-val "#\\alarm" #\alarm)
-            (tag-val "#\\backspace" #\backspace)
-            (tag-val "#\\delete" #\delete)
-            (tag-val "#\\escape" #\escape)
-            (tag-val "#\\newline" #\newline)
-            (tag-val "#\\null" #\null)
-            (tag-val "#\\return" #\return)
-            (tag-val "#\\space" #\space)
-            (tag-val "#\\tab" #\tab)
-
-            ; #\xHHHH...
-            (chain
-              (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
-              (lambda (t) (unicode-character (second t))))
-
-            ; Otherwise, consume the first character after #\
-            (map (tuple (tag "#\\") (char-if (lambda (_) #t))) second))
-          (token-end))
-        (lambda (t)
-          (let
-            ((loc (first t))
-              (chr (second t)))
-            (make-atom-syntax chr loc)))))
-
-    (define (string-expr)
-      (map
-        (tuple
-          (location)
-          (discard (char #\"))
-          (repeat (string-expr-element))
-          (discard (char #\")))
-        (lambda (t)
-          (let
-            ((loc (first t))
-              (elements (third t)))
-            (make-atom-syntax (list->string elements) loc)))))
-
-    (define (string-expr-element)
-      (choice
-        (tag-val "\\a" #\alarm)
-        (tag-val "\\b" #\backspace)
-        (tag-val "\\t" #\tab)
-        (tag-val "\\n" #\newline)
-        (tag-val "\\r" #\return)
-        (tag-val "\\\"" #\")
-        (tag-val "\\\\" #\\)
-        ; TODO: support `\` as a line delimiter
-
-        ; #\x{HHHH...};
-        ; note the trailing semicolon
-        (chain
-          (lambda (_) (tuple (tag "\\x") (hexadecimal-integer) (tag ";")))
-          (lambda (t) (unicode-character (second t))))
-
-        ; A backslash must introduce a supported escape.
-        (char-if (lambda (c) (not (memv c '(#\" #\\)))))))
-
-    (define (unicode-character codepoint)
-      (if (and (<= 0 codepoint #x10ffff)
-           (not (<= #xd800 codepoint #xdfff)))
-        (return (integer->char codepoint))
-        (fail)))
-
-    ; Identifiers, numbers, characters and dot must end at a delimiter or EOF.
-    (define (delimiter? c)
-      (memv c '(#\space #\tab #\newline #\return #\| #\( #\) #\" #\;)))
-
-    (define (token-end)
-      (lambda (input-stream)
-        (if (or (input-stream-eof? input-stream)
-             (delimiter? (peek-input-stream input-stream)))
-          (parse-result-ok '() input-stream)
-          (parse-result-err input-stream))))
-
-    (define (token)
-      (map (repeat-at-least-once (char-if (lambda (c) (not (delimiter? c))))) list->string))
-
-    (define (boolean-expr)
-      (chain
-        (lambda (_) (tuple (location) (token)))
-        (lambda (t)
-          (let ((text (string-downcase (second t))) (loc (first t)))
-            (cond
-              ((member text '("#t" "#true")) (return (make-atom-syntax #t loc)))
-              ((member text '("#f" "#false")) (return (make-atom-syntax #f loc)))
-              (else (fail)))))))
-
-    (define (number-expr)
-      ; Convert a whole token so malformed numbers cannot split into smaller atoms.
-      ; Numeric forms and precision follow the host's string->number implementation.
-      (chain
-        (lambda (_) (tuple (location) (token)))
-        (lambda (t)
-          (let ((number (string->number (second t))))
-            (if number
-              (return (make-atom-syntax number (first t)))
-              (fail))))))
-
-    (define (identifier-expr)
-      ; TODO: parse `|`...`|` identifiers
-      (chain
-        (lambda (_)
-          (tuple (location) (repeat-at-least-once (char-if identifier-char?)) (token-end)))
-        (lambda (t)
-          (let* ((chars (second t)) (name (list->string chars)))
-            (if (and (identifier-start? chars) (not (string->number name)))
-              (return (make-atom-syntax (string->symbol name) (first t)))
-              (fail))))))
-
-    (define (identifier-initial? c)
-      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~))))
-
-    (define (identifier-char? c)
-      (or (identifier-initial? c) (char<=? #\0 c #\9) (memv c '(#\+ #\- #\. #\@))))
-
-    (define (sign-subsequent? c)
-      (or (identifier-initial? c) (memv c '(#\+ #\- #\@))))
-
-    (define (dot-subsequent? c)
-      (or (sign-subsequent? c) (eqv? c #\.)))
-
-    (define (identifier-start? chars)
-      (let ((head (car chars)) (tail (cdr chars)))
-        (cond
-          ((identifier-initial? head) #t)
-          ((memv head '(#\+ #\-))
-            (or (null? tail)
-              (sign-subsequent? (car tail))
-              (and (eqv? (car tail) #\.)
-                (pair? (cdr tail))
-                (dot-subsequent? (cadr tail)))))
-          ((eqv? head #\.)
-            (and (pair? tail) (dot-subsequent? (car tail))))
-          (else #f))))
-
-    (define (quote-expr)
-      (map
-        (tuple
-          (location)
-          (choice (tag-val "'" 'quote)
-            (tag-val "`" 'quasiquote)
-            (tag-val ",@" 'unquote-splicing)
-            (tag-val "," 'unquote))
-          (expr))
-        (lambda (t)
-          (let ((loc (first t)))
-            (make-list-syntax
-              (list (make-atom-syntax (second t) loc) (third t))
-              '()
-              loc)))))
-
-    (define (left-fender)
-      (discard (char #\()))
-
-    (define (right-fender)
-      (discard (char #\))))
-
-    (define (improper-tail)
-      (optional
-        (chain
-          (lambda (_) (tuple (whitespace) (char #\.) (token-end)))
-          (lambda (_) (expr)))))
-
-    (define (hexadecimal-integer)
-      (map (repeat-at-least-once (hexadecimal-digit))
-        (lambda (digits) (string->number (list->string digits) 16))))
-
-    (define (hexadecimal-digit)
-      (char-if
-        (lambda (c) (member c (string->list "0123456789abcdefABCDEF")))))
-
-    (define (decimal-integer)
-      (map (repeat-at-least-once (decimal-digit))
-        (lambda (digits) (string->number (list->string digits) 10))))
-
-    (define (decimal-digit)
-      (char-if
-        (lambda (c) (member c (string->list "0123456789")))))
-
-    ;
-    ; Public API
-    ;
-
-    (define (parse-file filename content)
-      (let*
-        ((input-stream (make-input-stream filename (string->list content) 1 1))
-          (parse-result ((file) input-stream)))
-        (if (parse-result-ok? parse-result)
-          (parse-result-value parse-result)
-          (error "parse failed" filename parse-result)))))
-
-  (include "parser-tests.scm"))
+      (choice parser (return '())))))

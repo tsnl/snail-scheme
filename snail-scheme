@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$project_dir/src" -rmain "$project_dir/src/snail-scheme/main.scm" "$@"

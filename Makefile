@@ -1,14 +1,17 @@
 .DEFAULT_GOAL := check
-.PHONY: format check
+.PHONY: format check test
 
+CHIBI ?= chibi-scheme
 SCHEMAT ?= schemat
 NIXFMT ?= nixfmt
-SCHEME_FILES := 'src/**/*.scm' 'src/**/*.sld' 'tests/**/*.scm'
+
+test:
+	"$(CHIBI)" -I src -I tests tests/snail-scheme/test.scm
 
 format:
-	$(SCHEMAT) $(SCHEME_FILES)
+	find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec $(SCHEMAT) {} +
 	$(NIXFMT) shell.nix
 
 check:
-	$(SCHEMAT) --check $(SCHEME_FILES)
+	find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec $(SCHEMAT) --check {} +
 	$(NIXFMT) --check shell.nix

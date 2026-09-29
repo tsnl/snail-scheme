@@ -1,0 +1,108 @@
+(define-library (snail-scheme test-parser)
+  (export
+    test-parser)
+
+  (import
+    (scheme base)
+    (scheme char)
+    (snail-scheme reader)
+    (snail-scheme parser)
+    (snail-scheme test-utils))
+
+  (begin
+    (define (test-return-and-fail)
+      (check-ok (return #f) "a" #f "a")
+      (check-ok (return '()) "" '())
+      (check-fail (fail) "a"))
+
+    (define (test->>=)
+      (check-ok (>>= (char #\a) (lambda (value) (return (string value)))) "ab" "a" "b")
+      (check-ok (>>= (char #\a) (lambda (value) (char value))) "aa" #\a)
+      (check-fail (>>= (fail) (lambda (_) (error "binder must not run"))) "a")
+      (check-fail (>>= (char #\a) (lambda (_) (fail))) "ab" "b"))
+
+    (define (test-chain)
+      (check-ok (chain) "a" '() "a")
+      (check-ok (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ab" #\b)
+      (check-fail (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ac" "c"))
+
+    (define (test-pmap)
+      (check-ok (pmap (char #\a) string) "ab" "a" "b")
+      (check-ok (pmap (return #f) not) "a" #t "a")
+      (check-ok (pmap (tuple (char #\a) (char #\b)) list->string) "ab" "ab")
+      (check-fail (pmap (tag "ab") (lambda (_) (error "transform must not run"))) "ac" "c"))
+
+    (define (test-char-if)
+      (check-ok (char-if char-alphabetic?) "ab" #\a "b")
+      (check-fail (char-if char-alphabetic?) "1")
+      (check-fail (char-if (lambda (_) (error "predicate must not run at EOF"))) "")
+      (check-ok (char-from '(#\a #\b)) "b" #\b)
+      (check-fail (char-from '()) "a"))
+
+    (define (test-repeat)
+      (check-ok (repeat (char #\a)) "aaab" '(#\a #\a #\a) "b")
+      (check-ok (repeat (char #\a)) "b" '() "b")
+      (check-ok (repeat (char #\a)) "" '())
+      (check-ok (repeat (tag "ab")) "abac" '("ab") "ac")
+      (for-each
+        (lambda (parser)
+          (expect
+            (guard (ex ((error-object? ex) (error-object-message ex)))
+              ((repeat parser) (string->reader "")))
+            "repeat: parser succeeded without consuming input"))
+        (list (return '()) (optional (char #\a)) (eof))))
+
+    (define (test-repeat-at-least-once)
+      (check-ok (repeat-at-least-once (char #\a)) "a" '(#\a))
+      (check-ok (repeat-at-least-once (char #\a)) "aab" '(#\a #\a) "b")
+      (check-ok (repeat-at-least-once (discard (char #\a))) "aa" '(() ()))
+      (check-fail (repeat-at-least-once (char #\a)) "b")
+      (check-fail (repeat-at-least-once (char #\a)) ""))
+
+    (define (test-choice)
+      (check-ok (choice (tag "ab") (tag "ac")) "ac" "ac")
+      (check-ok (choice (tag "a") (tag "ab")) "ab" "a" "b")
+      (check-fail (choice (tag "ab") (tag "ac")) "ad")
+      (check-fail (choice) "a"))
+
+    (define (test-discard)
+      (check-ok (discard (char #\a)) "ab" '() "b")
+      (check-fail (discard (char #\a)) "b"))
+
+    (define (test-tuple)
+      (check-ok (tuple) "a" '() "a")
+      (check-ok (tuple (char #\a) (char #\b) (char #\c)) "abc" '(#\a #\b #\c))
+      (check-fail (tuple (char #\a) (char #\b)) "ac" "c"))
+
+    (define (test-optional)
+      (check-ok (optional (char #\a)) "ab" #\a "b")
+      (check-ok (optional (tag "ab")) "ac" '() "ac")
+      (check-ok (optional (char #\a)) "" '()))
+
+    (define (test-tag)
+      (check-ok (tag "ab") "abc" "ab" "c")
+      (check-ok (tag "") "a" "" "a")
+      (check-ok (tag-val "a" #f) "a" #f)
+      (check-fail (tag "ab") "ac" "c")
+      (check-fail (tag "a") ""))
+
+    (define (test-eof-and-location)
+      (check-ok (eof) "" '())
+      (check-fail (eof) "a")
+      (check-ok (location) "a" (at 1 1) "a")
+      (check-ok (chain (lambda (_) (tag "a\n")) (lambda (_) (location))) "a\nb" (at 2 1) "b"))
+
+    (define (test-parser)
+      (run-test test-return-and-fail)
+      (run-test test->>=)
+      (run-test test-chain)
+      (run-test test-pmap)
+      (run-test test-char-if)
+      (run-test test-repeat)
+      (run-test test-repeat-at-least-once)
+      (run-test test-choice)
+      (run-test test-discard)
+      (run-test test-tuple)
+      (run-test test-optional)
+      (run-test test-tag)
+      (run-test test-eof-and-location))))
