@@ -5,6 +5,7 @@
   (import
    (scheme base)
    (snail-scheme source)
+   (snail-scheme reader)
    (only (snail-scheme parser) pmap)
    (snail-scheme syntax)
    (rename (snail-scheme test-utils) (check-ok check-parser-ok)))
@@ -194,8 +195,9 @@
        '("12abc" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" ".")))
 
     (define (test-parse-file)
+      (expect (parse-file (string->reader "empty.scm" "")) '())
       (expect
-       (syntax-value (parse-file "example.scm" "\n'x "))
+       (syntax-value (parse-file (string->reader "example.scm" "\n'x ")))
        (syntax-value
         (list (make-list-syntax
                (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
@@ -205,7 +207,7 @@
       (expect
        (guard (ex ((and (error-object? ex) (equal? (error-object-message ex) "parse failed"))
                    (car (error-object-irritants ex))))
-         (parse-file "broken.scm" "("))
+         (parse-file (string->reader "broken.scm" "(")))
        "broken.scm"))
 
     (define (test-syntax)

@@ -48,7 +48,7 @@
        (lambda (parser)
          (expect
           (guard (ex ((error-object? ex) (error-object-message ex)))
-            ((repeat parser) (string->reader "")))
+            ((repeat parser) (string->reader "<test-repeat>" "")))
           "repeat: parser succeeded without consuming input"))
        (list (return '()) (optional (char #\a)) (eof))))
 

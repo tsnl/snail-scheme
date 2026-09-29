@@ -57,14 +57,14 @@
     ;; Success defaults to consuming all input; failure defaults to consuming none.
     ;; Supply a remainder to check prefix parsers and failures after partial progress.
     (define (check-ok parser text value . remainder)
-      (let ((result (parser (string->reader text))))
+      (let ((result (parser (string->reader "<anonymous-reader>" text))))
         (expect
          (list text (parse-result-ok? result) (test-value (parse-result-value result))
                (list->string (reader-chars (parse-result-input result))))
          (list text #t (test-value value) (if (null? remainder) "" (car remainder))))))
 
     (define (check-fail parser text . remainder)
-      (let ((result (parser (string->reader text))))
+      (let ((result (parser (string->reader "<anonymous-reader>" text))))
         (expect
          (list text (parse-result-err? result) (parse-result-value result)
                (list->string (reader-chars (parse-result-input result))))

@@ -8,9 +8,12 @@
    repeat-string
    stringify
    assert
-   todo)
+   todo
+   call-with-input-file
+   file->string)
   (import
    (scheme base)
+   (scheme file)
    (scheme write))
 
   (begin
@@ -73,4 +76,17 @@
     ;;
 
     (define (todo what)
-      (error (string-append "todo: not implemented" what)))))
+      (error (string-append "todo: not implemented" what)))
+
+    ;;
+    ;; file->string (call-with-input-file is re-exported from scheme file)
+    ;;
+
+    (define (file->string filepath)
+      (call-with-input-file filepath
+        (lambda (port)
+          (let recur ((reversed-accumulator '()))
+            (let ((chr (read-char port)))
+              (if (eof-object? chr)
+                  (list->string (reverse reversed-accumulator))
+                  (recur (cons chr reversed-accumulator))))))))))

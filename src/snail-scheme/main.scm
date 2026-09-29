@@ -1,11 +1,16 @@
 (import
  (scheme base)
- (snail-scheme common)
- (snail-scheme cli))
+ (scheme write)
+ (snail-scheme cli)
+ (snail-scheme reader)
+ (snail-scheme syntax))
 
 (define (main argv)
-  (let* ((args (parse-cli-args (car argv) (cdr argv))))
-    (begin
-      (display-error args)
-      (display-error "\n")
-      (display-error "Hello, world\n"))))
+  (let* ((args (parse-cli-args (car argv) (cdr argv)))
+         (entry-point-path (cli-args-input-path args)))
+    (if (null? entry-point-path)
+        (error "expected an input file"))
+    (let* ((reader (file->reader entry-point-path))
+           (entry-point-syntax (parse-file reader)))
+      (display entry-point-syntax)
+      (newline))))

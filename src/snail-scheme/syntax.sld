@@ -351,9 +351,8 @@
     ;; Public API
     ;;
 
-    (define (parse-file filename content)
-      (let* ((reader (make-reader filename (string->list content) 1 1))
-             (parse-result ((file) reader)))
+    (define (parse-file reader)
+      (let ((parse-result ((file) reader)))
         (if (parse-result-ok? parse-result)
             (parse-result-value parse-result)
-            (error "parse failed" filename parse-result))))))
+            (error "parse failed" (reader-filename reader) parse-result))))))

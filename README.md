@@ -34,6 +34,11 @@ the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 and syntax records and parsing (`syntax.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
 
+`string->reader` and `list->reader` take a filename followed by their contents;
+`file->reader` loads a file by path. Pass the resulting reader to `parse-file`.
+Source locations and parse errors retain the reader's filename. The launcher
+currently parses its input file and prints the syntax records.
+
 `make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
 parser, and syntax test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.

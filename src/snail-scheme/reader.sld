@@ -7,6 +7,7 @@
    reader-chars
    reader-line
    reader-column
+   file->reader
    string->reader
    list->reader
    reader-eof?
@@ -16,6 +17,7 @@
 
   (import
    (scheme base)
+   (only (snail-scheme common) file->string)
    (snail-scheme source))
 
   (begin
@@ -35,12 +37,15 @@
       (line reader-line)
       (column reader-column))
 
-    (define (string->reader str)
-      (let ((chars (string->list str)))
-        (list->reader chars)))
+    (define (file->reader filename)
+      (string->reader filename (file->string filename)))
 
-    (define (list->reader chars)
-      (make-reader "<anonymous-reader>" chars 1 1))
+    (define (string->reader filename str)
+      (let ((chars (string->list str)))
+        (list->reader filename chars)))
+
+    (define (list->reader filename chars)
+      (make-reader filename chars 1 1))
 
     (define (reader-eof? reader)
       (null? (peek-reader reader)))
