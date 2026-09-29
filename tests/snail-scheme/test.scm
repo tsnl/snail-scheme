@@ -1,10 +1,10 @@
 (import
-  (scheme base)
-  (snail-scheme common)
-  (snail-scheme test-cli)
-  (snail-scheme test-reader)
-  (snail-scheme test-parser)
-  (snail-scheme test-syntax))
+ (scheme base)
+ (snail-scheme common)
+ (snail-scheme test-cli)
+ (snail-scheme test-reader)
+ (snail-scheme test-parser)
+ (snail-scheme test-syntax))
 
 (test-cli)
 (test-reader)

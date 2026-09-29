@@ -12,9 +12,17 @@ make test
 ```
 
 Use `nix-shell` (or direnv) to load the development tools. Run `make format`
-to format the Scheme sources and tests with Schemat and `shell.nix` with nixfmt.
+to indent the Scheme sources and tests with Emacs's `scheme-mode` and format
+`shell.nix` with nixfmt.
 Run `make check` to verify formatting without changing files; it exits with a
 nonzero status when formatting is needed. Plain `make` also runs this check.
+
+Scheme indentation uses spaces and preserves existing line breaks. Use `;;` for
+comments on their own lines and `;` for trailing comments, following Emacs's Lisp
+indentation conventions. `scripts/format-scheme` runs Emacs in batch mode without
+loading personal configuration; set `EMACS` to use another executable. With no
+arguments it reads stdin and writes stdout, as used by the project's Zed settings.
+Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 
 `./snail-scheme` is a Bash launcher for `src/snail-scheme/main.scm`. It locates
 the source directory relative to the launcher and preserves the caller's working

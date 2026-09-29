@@ -9,6 +9,6 @@ pkgs.mkShell {
     direnv
     gnumake
     nixfmt
-    schemat
+    emacs-nox
   ];
 }

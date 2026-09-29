@@ -7,7 +7,7 @@
     "Scheme": {
       "formatter": {
         "external": {
-          "command": "schemat",
+          "command": "./scripts/format-scheme",
           "arguments": []
         }
       },

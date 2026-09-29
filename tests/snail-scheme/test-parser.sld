@@ -1,13 +1,13 @@
 (define-library (snail-scheme test-parser)
   (export
-    test-parser)
+   test-parser)
 
   (import
-    (scheme base)
-    (scheme char)
-    (snail-scheme reader)
-    (snail-scheme parser)
-    (snail-scheme test-utils))
+   (scheme base)
+   (scheme char)
+   (snail-scheme reader)
+   (snail-scheme parser)
+   (snail-scheme test-utils))
 
   (begin
     (define (test-return-and-fail)
@@ -45,12 +45,12 @@
       (check-ok (repeat (char #\a)) "" '())
       (check-ok (repeat (tag "ab")) "abac" '("ab") "ac")
       (for-each
-        (lambda (parser)
-          (expect
-            (guard (ex ((error-object? ex) (error-object-message ex)))
-              ((repeat parser) (string->reader "")))
-            "repeat: parser succeeded without consuming input"))
-        (list (return '()) (optional (char #\a)) (eof))))
+       (lambda (parser)
+         (expect
+          (guard (ex ((error-object? ex) (error-object-message ex)))
+            ((repeat parser) (string->reader "")))
+          "repeat: parser succeeded without consuming input"))
+       (list (return '()) (optional (char #\a)) (eof))))
 
     (define (test-repeat-at-least-once)
       (check-ok (repeat-at-least-once (char #\a)) "a" '(#\a))

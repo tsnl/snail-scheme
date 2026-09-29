@@ -1,29 +1,29 @@
 (define-library (snail-scheme test-syntax)
   (export
-    test-syntax)
+   test-syntax)
 
   (import
-    (scheme base)
-    (snail-scheme source)
-    (only (snail-scheme parser) pmap)
-    (snail-scheme syntax)
-    (rename (snail-scheme test-utils) (check-ok check-parser-ok)))
+   (scheme base)
+   (snail-scheme source)
+   (only (snail-scheme parser) pmap)
+   (snail-scheme syntax)
+   (rename (snail-scheme test-utils) (check-ok check-parser-ok)))
 
   (begin
-    ; Compare syntax structurally, including source locations at every node.
+    ;; Compare syntax structurally, including source locations at every node.
     (define (syntax-value value)
       (cond
-        ((atom-syntax? value)
-          (list 'atom (atom-syntax-value value) (syntax-value (syntax-loc value))))
-        ((list-syntax? value)
-          (list 'list
-            (syntax-value (list-syntax-elements value))
-            (syntax-value (list-syntax-improper-tail value))
-            (syntax-value (syntax-loc value))))
-        ((loc? value)
-          (list (loc-filename value) (loc-line value) (loc-column value)))
-        ((pair? value) (cons (syntax-value (car value)) (syntax-value (cdr value))))
-        (else value)))
+       ((atom-syntax? value)
+        (list 'atom (atom-syntax-value value) (syntax-value (syntax-loc value))))
+       ((list-syntax? value)
+        (list 'list
+              (syntax-value (list-syntax-elements value))
+              (syntax-value (list-syntax-improper-tail value))
+              (syntax-value (syntax-loc value))))
+       ((loc? value)
+        (list (loc-filename value) (loc-line value) (loc-column value)))
+       ((pair? value) (cons (syntax-value (car value)) (syntax-value (cdr value))))
+       (else value)))
 
     (define (atom value line column)
       (make-atom-syntax value (at line column)))
@@ -50,7 +50,7 @@
       (check-ok (file) "; line\n#| block |# #; ignored " '())
       (check-ok (file) "; line\n#;#t x" (list (atom 'x 2 6)))
       (check-ok (list-expr) "(;line\n a #;b . #|tail|# c )"
-        (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1)))
+                (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1)))
       (check-fail (file) "#| unfinished")
       (check-fail (file) "#;"))
 
@@ -81,16 +81,16 @@
 
     (define (test-number-expr)
       (for-each
-        (lambda (case) (check-ok (number-expr) (car case) (atom (cadr case) 1 1)))
-        '(("0" 0) ("123" 123) ("-12" -12) ("#xFF" 255)
-          ("#b101" 5)
-          ("#o17" 15)
-          ("#d12" 12)
-          ("3/4" 3/4)
-          ("1.25" 1.25)
-          ("2e3" 2000.0)
-          ("#e1.25" 5/4)
-          ("1+2i" 1+2i)))
+       (lambda (case) (check-ok (number-expr) (car case) (atom (cadr case) 1 1)))
+       '(("0" 0) ("123" 123) ("-12" -12) ("#xFF" 255)
+         ("#b101" 5)
+         ("#o17" 15)
+         ("#d12" 12)
+         ("3/4" 3/4)
+         ("1.25" 1.25)
+         ("2e3" 2000.0)
+         ("#e1.25" 5/4)
+         ("1+2i" 1+2i)))
       (check-ok (number-expr) "12)" (atom 12 1 1) ")")
       (check-fail (number-expr) "12abc" "")
       (check-fail (number-expr) "#x" "")
@@ -98,8 +98,8 @@
 
     (define (test-identifier-expr)
       (for-each
-        (lambda (name) (check-ok (identifier-expr) name (atom (string->symbol name) 1 1)))
-        '("hello?" "a.b" "+" "-" "..." "+.x" ".x"))
+       (lambda (name) (check-ok (identifier-expr) name (atom (string->symbol name) 1 1)))
+       '("hello?" "a.b" "+" "-" "..." "+.x" ".x"))
       (check-ok (identifier-expr) "abc\t" (atom 'abc 1 1) "\t")
       (check-ok (identifier-expr) "abc\n" (atom 'abc 1 1) "\n")
       (check-fail (identifier-expr) "12abc" "")
@@ -109,17 +109,17 @@
 
     (define (test-char-expr)
       (for-each
-        (lambda (case) (check-ok (char-expr) (car case) (atom (cadr case) 1 1)))
-        '(("#\\a" #\a) ("#\\x" #\x) ("#\\x41" #\A)
-          ("#\\alarm" #\alarm)
-          ("#\\backspace" #\backspace)
-          ("#\\delete" #\delete)
-          ("#\\escape" #\escape)
-          ("#\\newline" #\newline)
-          ("#\\null" #\null)
-          ("#\\return" #\return)
-          ("#\\space" #\space)
-          ("#\\tab" #\tab)))
+       (lambda (case) (check-ok (char-expr) (car case) (atom (cadr case) 1 1)))
+       '(("#\\a" #\a) ("#\\x" #\x) ("#\\x41" #\A)
+         ("#\\alarm" #\alarm)
+         ("#\\backspace" #\backspace)
+         ("#\\delete" #\delete)
+         ("#\\escape" #\escape)
+         ("#\\newline" #\newline)
+         ("#\\null" #\null)
+         ("#\\return" #\return)
+         ("#\\space" #\space)
+         ("#\\tab" #\tab)))
       (check-ok (char-expr) "#\\))" (atom #\) 1 1) ")")
       (check-fail (char-expr) "#\\")
       (check-fail (char-expr) "#\\spacebar" "bar")
@@ -130,7 +130,7 @@
       (check-ok (string-expr) "\"\"" (atom "" 1 1))
       (check-ok (string-expr) "\"hello \" " (atom "hello " 1 1) " ")
       (check-ok (string-expr) "\"\\a\\b\\t\\n\\r\\\"\\\\\""
-        (atom (string #\alarm #\backspace #\tab #\newline #\return #\" #\\) 1 1))
+                (atom (string #\alarm #\backspace #\tab #\newline #\return #\" #\\) 1 1))
       (check-ok (string-expr) "\"\\x41;\"" (atom "A" 1 1))
       (check-ok (string-expr-element) "\\x41;z" #\A "z")
       (check-fail (string-expr-element) "\\q")
@@ -143,13 +143,13 @@
       (check-ok (list-expr) "()" (make-list-syntax '() '() (at 1 1)))
       (check-ok (list-expr) "( \n)" (make-list-syntax '() '() (at 1 1)))
       (check-ok (list-expr) "(a 12 )"
-        (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1)))
+                (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1)))
       (check-ok (list-expr) "(a . b )"
-        (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
+                (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
       (check-ok (list-expr) "(())"
-        (make-list-syntax (list (make-list-syntax '() '() (at 1 2))) '() (at 1 1)))
+                (make-list-syntax (list (make-list-syntax '() '() (at 1 2))) '() (at 1 1)))
       (check-ok (list-expr) "(a . ())"
-        (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6)) (at 1 1)))
+                (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6)) (at 1 1)))
       (check-fail (list-expr) "(. a)" "")
       (check-fail (list-expr) "(a .)" ".)")
       (check-fail (list-expr) "(a . b c)" "c)")
@@ -166,21 +166,21 @@
 
     (define (test-quote-expr)
       (for-each
-        (lambda (case)
-          (let ((prefix (car case)) (name (cadr case)))
-            (check-ok (quote-expr) (string-append prefix "x")
-              (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
-                '()
-                (at 1 1)))))
-        '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
+       (lambda (case)
+         (let ((prefix (car case)) (name (cadr case)))
+           (check-ok (quote-expr) (string-append prefix "x")
+                     (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
+                                       '()
+                                       (at 1 1)))))
+       '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
       (check-ok (quote-expr) "'\nx"
-        (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
+                (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
       (check-ok (quote-expr) "''x"
-        (make-list-syntax
-          (list (atom 'quote 1 1)
-            (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
-          '()
-          (at 1 1)))
+                (make-list-syntax
+                 (list (atom 'quote 1 1)
+                       (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
+                 '()
+                 (at 1 1)))
       (check-fail (quote-expr) "'" "")
       (check-fail (quote-expr) ",@)" ")"))
 
@@ -190,23 +190,23 @@
       (check-ok (file) " \n\t" '())
       (check-ok (file) "abc 12\n" (list (atom 'abc 1 1) (atom 12 1 5)))
       (for-each
-        (lambda (text) (check-fail (file) text))
-        '("12abc" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" ".")))
+       (lambda (text) (check-fail (file) text))
+       '("12abc" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" ".")))
 
     (define (test-parse-file)
       (expect
-        (syntax-value (parse-file "example.scm" "\n'x "))
-        (syntax-value
-          (list (make-list-syntax
-                 (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
-                   (make-atom-syntax 'x (make-loc "example.scm" 2 2)))
-                 '()
-                 (make-loc "example.scm" 2 1)))))
+       (syntax-value (parse-file "example.scm" "\n'x "))
+       (syntax-value
+        (list (make-list-syntax
+               (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
+                     (make-atom-syntax 'x (make-loc "example.scm" 2 2)))
+               '()
+               (make-loc "example.scm" 2 1)))))
       (expect
-        (guard (ex ((and (error-object? ex) (equal? (error-object-message ex) "parse failed"))
-                    (car (error-object-irritants ex))))
-          (parse-file "broken.scm" "("))
-        "broken.scm"))
+       (guard (ex ((and (error-object? ex) (equal? (error-object-message ex) "parse failed"))
+                   (car (error-object-irritants ex))))
+         (parse-file "broken.scm" "("))
+       "broken.scm"))
 
     (define (test-syntax)
       (run-test test-whitespace)
