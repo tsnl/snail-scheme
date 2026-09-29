@@ -27,10 +27,10 @@
 
     (define-record-type <input-stream>
       (make-input-stream
-        filename    ; filename to include in syntax `<loc>`
-        chars       ; list of chars
-        line        ; the 1-indexed line of the first cluster in the list
-        column)     ; the 1-indexed column of the first cluster in the list
+        filename ; filename to include in syntax `<loc>`
+        chars ; list of chars
+        line ; the 1-indexed line of the first cluster in the list
+        column) ; the 1-indexed column of the first cluster in the list
       input-stream?
       (filename input-stream-filename)
       (chars input-stream-chars)
@@ -39,7 +39,7 @@
 
     (define (string->input-stream str)
       (let
-        ( (chars (string->list str)) )
+        ((chars (string->list str)))
         (list->input-stream chars)))
 
     (define (list->input-stream chars)
@@ -50,19 +50,19 @@
 
     (define (peek-input-stream input-stream)
       (let
-        ( (chars (input-stream-chars input-stream)) )
+        ((chars (input-stream-chars input-stream)))
         (if (null? chars) '() (car chars))))
 
     (define (next-input-stream input-stream)
       (let*
-        ( (filename (input-stream-filename input-stream))
+        ((filename (input-stream-filename input-stream))
           (old-chars (input-stream-chars input-stream))
           (old-line (input-stream-line input-stream))
           (old-column (input-stream-column input-stream))
           (car-char (car old-chars))
           (next-chars (cdr old-chars))
           (next-line (next-input-stream-line car-char old-line))
-          (next-column (next-input-stream-column car-char old-column)) )
+          (next-column (next-input-stream-column car-char old-column)))
         (make-input-stream filename next-chars next-line next-column)))
 
     (define (next-input-stream-line advanced-char line)
@@ -79,7 +79,7 @@
 
     (define (test-input-stream)
       (let*
-        ( (is (list->input-stream '(#\a #\newline #\b)))
+        ((is (list->input-stream '(#\a #\newline #\b)))
           (fn (input-stream-filename is))
           (_ (expect is (make-input-stream fn '(#\a #\newline #\b) 1 1)))
           (_ (expect (peek-input-stream is) #\a))
@@ -91,7 +91,7 @@
           (_ (expect (peek-input-stream is) #\b))
           (is (next-input-stream is))
           (_ (expect is (make-input-stream fn '() 2 2)))
-          (_ (expect (peek-input-stream is) '())) )
+          (_ (expect (peek-input-stream is) '())))
         '()))
 
     ;
@@ -102,9 +102,9 @@
 
     (define-record-type <parse-result>
       (make-parse-result
-        success   ; whether the parse succeeded
-        value     ; value payload if success, null if failure
-        input)    ; input-stream post-parse
+        success ; whether the parse succeeded
+        value ; value payload if success, null if failure
+        input) ; input-stream post-parse
       parse-result?
       (success parse-result-success)
       (value parse-result-value)
@@ -142,8 +142,8 @@
     (define chain
       (lambda binder-list
         (let recur
-          ( (binder-list binder-list)
-            (parser (return '())) )
+          ((binder-list binder-list)
+            (parser (return '())))
           (if (null? binder-list)
             parser
             (recur
@@ -167,13 +167,13 @@
     (define (>>= parser binder)
       (lambda (input-stream)
         (let
-          ( (parse-result (parser input-stream)) )
+          ((parse-result (parser input-stream)))
           (if (parse-result-err? parse-result)
             parse-result
             (let*
-              ( (value (parse-result-value parse-result))
+              ((value (parse-result-value parse-result))
                 (input (parse-result-input parse-result))
-                (parser (binder value)) )
+                (parser (binder value)))
               (parser input))))))
 
     ;
@@ -183,7 +183,7 @@
     (define (char-if predicate)
       (lambda (input-stream)
         (let
-          ( (peek (peek-input-stream input-stream)) )
+          ((peek (peek-input-stream input-stream)))
           (if (and (not (null? peek)) (predicate peek))
             (parse-result-ok peek (next-input-stream input-stream))
             (parse-result-err input-stream)))))
@@ -191,10 +191,10 @@
     (define (repeat parser)
       (lambda (input-stream)
         (let recur
-          ( (input-stream input-stream)
-            (acc '()) )
+          ((input-stream input-stream)
+            (acc '()))
           (let
-            ( (parse-result (parser input-stream)) )
+            ((parse-result (parser input-stream)))
             (if (parse-result-ok? parse-result)
               (recur
                 (parse-result-input parse-result)
@@ -204,12 +204,12 @@
     (define (choice . parsers)
       (lambda (input-stream)
         (let recur
-          ( (input-stream input-stream)
-            (parsers parsers) )
+          ((input-stream input-stream)
+            (parsers parsers))
           (if (null? parsers)
             (parse-result-err input-stream)
             (let
-              ( (parse-result ((car parsers) input-stream)) )
+              ((parse-result ((car parsers) input-stream)))
               (if (parse-result-ok? parse-result)
                 parse-result
                 (recur input-stream (cdr parsers))))))))
@@ -237,9 +237,9 @@
 
     (define (tag-val str val)
       (let*
-        ( (char-list (string->list str))
+        ((char-list (string->list str))
           (char-parser-list (map char char-list))
-          (tuple-parser (apply tuple char-parser-list)) )
+          (tuple-parser (apply tuple char-parser-list)))
         (chain
           (lambda (_) tuple-parser)
           (lambda (t) (return val)))))
@@ -284,7 +284,7 @@
           (tuple-parser
             (chain
               (lambda (_) reversed-tuple-parser)
-              (lambda (reversed-accumulator-list) (return (reverse reversed-accumulator-list))))) )
+              (lambda (reversed-accumulator-list) (return (reverse reversed-accumulator-list))))))
         tuple-parser))
 
     (define (optional parser)
@@ -296,7 +296,7 @@
 
     (define (test->>=)
       (let*
-        ( (input-stream (string->input-stream "a"))
+        ((input-stream (string->input-stream "a"))
 
           (a (char #\a))
           (parse-result (a input-stream))
@@ -306,12 +306,12 @@
           (y (>>= a (lambda (v) (return (string v)))))
           (parse-result (y input-stream))
           (_ (assert (parse-result-ok? parse-result)))
-          (_ (expect "a" (parse-result-value parse-result))) )
+          (_ (expect "a" (parse-result-value parse-result))))
         '()))
 
     (define (test-chain)
       (let*
-        ( (input-stream (string->input-stream "abc"))
+        ((input-stream (string->input-stream "abc"))
 
           (abc
             (chain
@@ -320,7 +320,7 @@
               (lambda (_) (char #\c))))
 
           (parse-result (abc input-stream))
-          (_ (assert (parse-result-ok? parse-result))) )
+          (_ (assert (parse-result-ok? parse-result))))
         '()))
 
     (define (test-char-if)
@@ -349,7 +349,7 @@
 
           ; expect input stream input-stream at EOF
           (input-stream (parse-result-input pr))
-          (_ (expect (peek-input-stream input-stream) '())) )
+          (_ (expect (peek-input-stream input-stream) '())))
         '()))
 
     (define (test-repeat)
@@ -378,18 +378,18 @@
           (input-stream (parse-result-input parse-result))
           (parse-result ((repeat (char #\b)) input-stream))
           (_ (assert (parse-result-ok? parse-result)))
-          (_ (expect '(#\b) (parse-result-value parse-result))) )
+          (_ (expect '(#\b) (parse-result-value parse-result))))
         '()))
 
     (define (test-discard)
       (let*
-        ( (input-stream (string->input-stream "a"))
+        ((input-stream (string->input-stream "a"))
 
           ; the parser `a := (char #\a)` should return value `#\a`
           (a (char #\a))
           (parse-result (a input-stream))
           (_ (assert (parse-result-ok? parse-result)))
-          (_ (expect  #\a (parse-result-value parse-result)))
+          (_ (expect #\a (parse-result-value parse-result)))
           (_ (assert (input-stream-eof? (parse-result-input parse-result))))
 
           ; the parser `d := (discard a)` should return value `'()`
@@ -398,40 +398,40 @@
           (parse-result (d input-stream))
           (_ (assert (parse-result-ok? parse-result)))
           (_ (assert (null? (parse-result-value parse-result))))
-          (_ (assert (input-stream-eof? (parse-result-input parse-result)))) )
+          (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
         '()))
 
     (define (test-tuple)
       (let*
-        ( (input-stream (string->input-stream "abcd"))
+        ((input-stream (string->input-stream "abcd"))
 
           (abcd (tuple (char #\a) (char #\b) (char #\c) (char #\d)))
           (parse-result (abcd input-stream))
           (_ (assert (parse-result-ok? parse-result)))
           (_ (expect '(#\a #\b #\c #\d) (parse-result-value parse-result)))
-          (_ (assert (input-stream-eof? (parse-result-input parse-result)))) )
+          (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
         '()))
 
     (define (test-optional)
       (let*
-        ( (input-stream (string->input-stream "a"))
+        ((input-stream (string->input-stream "a"))
 
           (aa (tuple (char #\a) (optional (char #\a))))
           (parse-result (aa input-stream))
           (_ (assert (parse-result-ok? parse-result)))
           (_ (expect '(#\a ()) (parse-result-value parse-result)))
-          (_ (assert (input-stream-eof? (parse-result-input parse-result)))) )
+          (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
         '()))
 
     (define (test-tag)
       (let*
-        ( (input-stream (string->input-stream "abc"))
+        ((input-stream (string->input-stream "abc"))
 
           (abc (tag "abc"))
           (parse-result (abc input-stream))
           (_ (assert (parse-result-ok? parse-result)))
           (_ (expect "abc" (parse-result-value parse-result)))
-          (_ (assert (input-stream-eof? (parse-result-input parse-result)))) )
+          (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
         '()))
 
     ;
@@ -474,9 +474,9 @@
             (right-fender)))
         (lambda (t)
           (let
-            ( (loc (first t))
+            ((loc (first t))
               (elements (third t))
-              (opt-tail (fourth t)) )
+              (opt-tail (fourth t)))
             (return (make-list-syntax elements opt-tail loc))))))
 
     (define (char-expr)
@@ -507,8 +507,8 @@
                 (lambda (t) (return (second t)))))))
         (lambda (t)
           (let
-            ( (loc (first t))
-              (chr (second t)) )
+            ((loc (first t))
+              (chr (second t)))
             (return
               (make-atom-syntax chr loc))))))
 
@@ -523,8 +523,8 @@
             (discard (char #\"))))
         (lambda (t)
           (let
-            ( (loc (first t))
-              (elements (third t)) )
+            ((loc (first t))
+              (elements (third t)))
             (return
               (make-atom-syntax (list->string elements) loc))))))
 
@@ -605,10 +605,8 @@
 
     (define (parse-file filename content)
       (let*
-        ( (input-stream (make-input-stream filename (string->list content) 1 1))
-          (parse-result ((file) input-stream)) )
+        ((input-stream (make-input-stream filename (string->list content) 1 1))
+          (parse-result ((file) input-stream)))
         (if (parse-result-ok? parse-result)
           (parse-result-value parse-result)
-          (error "parse failed" filename parse-result))))
-
-    ))
+          (error "parse failed" filename parse-result))))))

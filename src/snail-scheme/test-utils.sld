@@ -9,12 +9,12 @@
 
     (define-syntax run-test
       (syntax-rules ()
-        ( (_ function-name)
+        ((_ function-name)
           (begin
             (display-error "running test: ")
             (display-error `(,function-name))
             (display-error "\n")
-            (function-name)) )))
+            (function-name)))))
 
     (define (expect lhs rhs)
       (if (equal? lhs rhs)
@@ -29,5 +29,4 @@
           (display-error rhs)
           (display-error "\n")
           (display-error (string-append (repeat-string "-" 80) "\n"))
-          (error "expect failed" lhs rhs))))
-    ))
+          (error "expect failed" lhs rhs))))))

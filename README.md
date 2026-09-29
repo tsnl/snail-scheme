@@ -1,6 +1,6 @@
 # `snail-scheme`
 
-> 🚧 Rewrite WIP, for latest mature implementation see 
+> 🚧 Rewrite WIP, for latest mature implementation see
 > branch [`v3`](https://github.com/tsnl/snail-scheme/tree/v3).
 
 A small, portable, easy to understand Scheme implementation.

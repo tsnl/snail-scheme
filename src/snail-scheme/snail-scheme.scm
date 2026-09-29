@@ -12,9 +12,9 @@
 
 (define-record-type <cli-args>
   (make-cli-args
-    self-path     ; string
-    input-path    ; string or null
-    output-path)  ; string or null
+    self-path ; string
+    input-path ; string or null
+    output-path) ; string or null
   cli-args?
   (self-path cli-args-self-path)
   (input-path cli-args-input-path)
@@ -34,34 +34,33 @@
 
 (define (parse-cli-args self argv)
   (let loop
-    ( (argv argv)
-      (wip-args (make-cli-args self '() '())) )
+    ((argv argv)
+      (wip-args (make-cli-args self '() '())))
     (cond
-      ( (null? argv)
-        wip-args )
+      ((null? argv)
+        wip-args)
 
-      ( (and
+      ((and
           (>= (length argv) 2)
           (equal? (first argv) "-o"))
         (loop
           (cddr argv)
-          (cli-args-with-output-path wip-args (second argv))) )
+          (cli-args-with-output-path wip-args (second argv))))
 
-      ( (and
+      ((and
           (>= (length argv) 1)
           (string? (first argv)))
         (loop
           (cdr argv)
-          (cli-args-with-input-path wip-args (first argv))) )
+          (cli-args-with-input-path wip-args (first argv))))
 
-      ( else
+      (else
         (begin
           (display-error
             (string-append
               "Unrecognized args suffix: "
               (list->string argv)))
-          (exit #f)) ))
-    ))
+          (exit #f))))))
 
 (define (test-parse-cli-args)
   (expect
@@ -79,8 +78,7 @@
 
 (define (main argv)
   (let*
-    ( (args (parse-cli-args (car argv) (cdr argv)))
-      )
+    ((args (parse-cli-args (car argv) (cdr argv))))
     (begin
       (display-error args)
       (display-error "\n")

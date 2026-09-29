@@ -1,7 +1,10 @@
 (define-library (snail-scheme common)
   (export
     display-error
-    first second third fourth
+    first
+    second
+    third
+    fourth
     repeat-string
     stringify
     assert
@@ -32,8 +35,8 @@
 
     (define (repeat-string s n)
       (let loop
-        ( (i 0)
-          (a '()) )
+        ((i 0)
+          (a '()))
         (if (< i n)
           (loop (+ i 1) (cons s a))
           (apply string-append a))))
@@ -50,11 +53,11 @@
 
     (define-syntax stringify
       (syntax-rules ()
-        ( (_ expr)
+        ((_ expr)
           (let*
-            ( (datum 'expr)
-              (str-val (with-output-to-string (lambda () (write datum)))) )
-            str-val) )))
+            ((datum 'expr)
+              (str-val (with-output-to-string (lambda () (write datum)))))
+            str-val))))
 
     ;
     ; assert
@@ -62,16 +65,14 @@
 
     (define-syntax assert
       (syntax-rules ()
-        ( (_ x)
+        ((_ x)
           (if x
             '()
-            (error "assertion failed" (stringify x))) )))
+            (error "assertion failed" (stringify x))))))
 
     ;
     ; todo
     ;
 
     (define (todo what)
-      (error (string-append "todo: not implemented" what)))
-
-    ))
+      (error (string-append "todo: not implemented" what)))))

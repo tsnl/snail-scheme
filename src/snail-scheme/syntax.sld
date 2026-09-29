@@ -38,9 +38,9 @@
 
     (define-record-type <loc>
       (make-loc
-        filename  ; string
-        line      ; int, 1-indexed
-        column)   ; int, 1-indexed
+        filename ; string
+        line ; int, 1-indexed
+        column) ; int, 1-indexed
       loc?
       (filename loc-filename)
       (line loc-line)
@@ -57,18 +57,18 @@
 
     (define (syntax-loc stx)
       (cond
-        ( (list-syntax? stx)
-          (list-syntax-loc stx) )
-        ( (atom-syntax? stx)
-          (atom-syntax-loc stx) )
-        ( else
-          (error "syntax-loc expected syntax object" stx) )))
+        ((list-syntax? stx)
+          (list-syntax-loc stx))
+        ((atom-syntax? stx)
+          (atom-syntax-loc stx))
+        (else
+          (error "syntax-loc expected syntax object" stx))))
 
     (define-record-type <list-syntax>
       (make-list-syntax
-        elements        ; list of syntax objects
-        improper-tail   ; null or a syntax object representing the improper tail
-        loc)            ; loc indicating the start of this list syntax object
+        elements ; list of syntax objects
+        improper-tail ; null or a syntax object representing the improper tail
+        loc) ; loc indicating the start of this list syntax object
       list-syntax?
       (elements list-syntax-elements)
       (improper-tail list-syntax-improper-tail)
@@ -76,8 +76,8 @@
 
     (define-record-type <atom-syntax>
       (make-atom-syntax
-        value   ; value of this atom: number? or char? or string? or symbol?
-        loc)    ; loc indicating the start of this syntax object
+        value ; value of this atom: number? or char? or string? or symbol?
+        loc) ; loc indicating the start of this syntax object
       atom-syntax?
       (value atom-syntax-value)
       (loc atom-syntax-loc))))
