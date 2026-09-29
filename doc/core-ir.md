@@ -25,7 +25,8 @@ supplied explicit arguments. By convention, write the implicit group in square
 brackets; bracket style has no semantic meaning. A parameter never switches
 between implicit and explicit at a call site. Both forms require `→` followed
 by an explicit result type after the binders; `λ` then adds `=` followed by a
-body expression.
+body expression. Every `λ` starts with a mandatory `#:captures (...)` clause
+naming its captured outer bindings, including `#:captures ()` when there are none.
 
 A small interpreter executes checked terms, including compile-time programs.
 A compiler specializes the same language and eventually emits C. The first
@@ -72,7 +73,7 @@ family, a function, or an ordinary value follows from its expression.
   (union i64 boolean))
 
 (def id
-  (λ [(Element-Type type)] ((x Element-Type))
+  (λ #:captures () [(Element-Type type)] ((x Element-Type))
     → Element-Type
     = x))
 
@@ -81,7 +82,7 @@ family, a function, or an ordinary value follows from its expression.
     → Element-Type))
 
 (def increment
-  (λ ((x i64))
+  (λ #:captures () ((x i64))
     → i64
     = (i64-add x 1)))
 ```
@@ -92,15 +93,20 @@ binder grade or type-separator token. The forms are:
 ```text
 (Π [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type)
 (Π (Explicit-Binder ...) → Result-Type)
-(λ [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
-(λ (Explicit-Binder ...) → Result-Type = Body)
+(λ #:captures (Capture-Name ...) [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
+(λ #:captures (Capture-Name ...) (Explicit-Binder ...) → Result-Type = Body)
 ```
 
 Each `Implicit-Binder` or `Explicit-Binder` stands for `(Name Type-Expression)`.
-With two binder groups before `→`, the first is implicit and the second is
+With two parameter groups before `→`, the first is implicit and the second is
 explicit. With one group, it is explicit and the implicit group is empty.
 The explicit group is always present, even as `()` for no explicit parameters.
 An empty implicit group `[]` is equivalent to omitting it.
+
+The capture clause is separate from the parameter groups and never appears on
+`Π`. Capture names resolve in the enclosing scope; their types are known from
+those bindings. Captured bindings are in scope in the parameter annotations,
+result type, and body. The ownership and completeness rules are in section 6.
 
 The reader accepts matching `(...)`, `[...]`, and `{...}` interchangeably as
 list delimiters and rejects mismatched pairs. Square brackets for the implicit
@@ -191,7 +197,7 @@ array also preserves its element type and length:
 
 ```scheme
 (def keep-array
-  (λ [(Element-Type type) (N i64)] ((xs (array Element-Type N)))
+  (λ #:captures () [(Element-Type type) (N i64)] ((xs (array Element-Type N)))
     → (array Element-Type N)
     = xs))
 ```
@@ -257,12 +263,12 @@ whereas its value constructor `make-pair` infers them:
 
 ```scheme
 (def pair
-  (λ ((first-type type) (second-type type))
+  (λ #:captures () ((first-type type) (second-type type))
     → type
     = (struct ((first first-type) (second second-type)))))
 
 (def make-pair
-  (λ [(A type) (B type)] ((x A) (y B))
+  (λ #:captures () [(A type) (B type)] ((x A) (y B))
     → (pair A B)
     = (new (pair A B) ((first x) (second y)))))
 
@@ -302,27 +308,27 @@ A type family is an ordinary function returning a type:
   (struct ()))
 
 (def some
-  (λ ((value-type type))
+  (λ #:captures () ((value-type type))
     → type
     = (struct ((value value-type)))))
 
 (def option
-  (λ ((value-type type))
+  (λ #:captures () ((value-type type))
     → type
     = (union none (some value-type))))
 
 (def ok
-  (λ ((value-type type))
+  (λ #:captures () ((value-type type))
     → type
     = (struct ((value value-type)))))
 
 (def err
-  (λ ((error-type type))
+  (λ #:captures () ((error-type type))
     → type
     = (struct ((error error-type)))))
 
 (def result
-  (λ ((value-type type) (error-type type))
+  (λ #:captures () ((value-type type) (error-type type))
     → type
     = (union (ok value-type) (err error-type))))
 ```
@@ -390,12 +396,12 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 
 ```scheme
 (def maybe
-  (λ ((value-type type))
+  (λ #:captures () ((value-type type))
     → type
     = (union (singleton #f) value-type)))
 
 (def scalar-to-integer
-  (λ ((x scalar))
+  (λ #:captures () ((x scalar))
     → i64
     = (if (is-i64 x)
         x
@@ -549,13 +555,13 @@ unused owners on scope exit and abandoned control paths.
 
 ```scheme
 (def bad-copy
-  (λ ((value ticket))
+  (λ #:captures () ((value ticket))
     → (pair ticket ticket)
     = (make-pair value value)))
 ; Rejected: two ownership transfers from one ticket.
 
 (def copy-integer
-  (λ ((n i64))
+  (λ #:captures () ((n i64))
     → (pair i64 i64)
     = (make-pair n n)))
 ; Accepted: grade-of(i64) = omega.
@@ -632,18 +638,68 @@ implementing and exercising the immutable core.
 
 ## 6. Functions, inference, and specialization
 
-A closure is a compiler-generated struct containing captures and a code
-reference. Its concrete grade follows its fields: a captured `ticket` or
-continuation makes it affine; an unrestricted environment permits reuse.
-There is no user-written closure-grade annotation.
+### Explicit consuming captures
+
+Every lambda declares its captures with `#:captures (Name ...)`. The clause
+contains distinct names of enclosing bindings, not arbitrary expressions.
+Resolve these names before introducing the lambda's parameters. Reject duplicate
+capture identities and capture/parameter name collisions.
+
+```scheme
+(def make-adder
+  (λ #:captures () ((offset i64))
+    → (Π ((x i64)) → i64)
+    = (λ #:captures (offset) ((x i64))
+        → i64
+        = (i64-add x offset))))
+
+(def retain-ticket
+  (λ #:captures () ((value ticket))
+    → (Π () → ticket)
+    = (λ #:captures (value) ()
+        → ticket
+        = value)))
+```
+
+Constructing a closure acquires its listed captures in order. Each affine
+capture moves into the closure immediately, making the outer binding unavailable
+even if the closure is never called. An unrestricted capture may be copied, so
+the outer binding remains usable. The body owns the captured fields when the
+closure is invoked; capturing a value does not relax its usage rules.
+
+The capture list covers free enclosing bindings throughout the lambda: parameter
+annotations, the result type, the body, and nested lambdas' capture clauses.
+It also covers local dependencies in captured values' types. For example, a
+captured `xs` of type `(array i64 n)` requires the enclosing `n` to be listed
+as well. Type-only dependencies obey the phase rules and can be erased; they
+cannot silently supply a hidden runtime value or consume an affine owner during
+checking. Initial type dependencies remain limited to immutable unrestricted
+indices and static type parameters.
+
+Primitive bindings and verified closed static top-level definitions can be
+referenced directly without occupying the capture environment. Every other
+outer value, including a runtime top-level value, must be listed. A local
+binding requires explicit capture even if optimization can compute its value.
+A recursive function's self reference is a special body-only binding, not a
+capture or a header dependency. Initially recursive environments must be
+unrestricted; recursive calls cannot recreate affine captured owners.
+
+A closure is a compiler-generated struct containing its captured runtime values
+and a code reference. Its concrete grade follows those fields: a captured
+`ticket` or continuation makes it affine; an unrestricted environment permits
+reuse. An empty runtime environment has grade `omega`. Eliminating a field during
+optimization must preserve established ownership restrictions and required
+cleanup. There is no user-written closure-grade annotation.
+
+### Call signatures and specialization
 
 A `Π` describes a call signature, including implicit and explicit parameters and
 result dependencies. It does not reveal a hidden closure environment's grade.
 Initially treat an environment-erased callable with a given `Π` signature as
 affine, since its possible runtime environments have grades `1` or `omega`.
 A concrete top-level function item can remain reusable because its empty
-environment is known. References to affine top-level values count as captures
-or ownership uses; a top-level definition is not automatically unrestricted.
+environment is known. Runtime top-level values require explicit captures,
+including unrestricted ones; a top-level lambda is not automatically capture-free.
 Interfaces must preserve that distinction rather than
 silently asserting that every function with the same `Π` can be duplicated.
 A later generic callable constraint can retain the concrete environment type
@@ -693,7 +749,7 @@ ordinary Scheme `call/cc`:
 (def answer
   (i64-add 1
     (capture-1
-      (λ ((k (cont-1 i64)))
+      (λ #:captures () ((k (cont-1 i64)))
         → nothing
         = (invoke-1 k 41)))))
 ; Produces 42.
@@ -833,8 +889,8 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
 
 1. **Parsing, elaboration, and dependent checking.** Implement `def`, the
    optional implicit and required explicit binder groups with telescope
-   scoping, mandatory result types with `→`, λ bodies introduced by `=`, `Π`,
-   universes, and pure type normalization.
+   scoping, explicit `#:captures` clauses, mandatory result types with `→`,
+   λ bodies introduced by `=`, `Π`, universes, and pure type normalization.
    Accept matching list delimiters interchangeably; determine parameter roles
    by the number of binder groups.
    Exercise identity and dependent array signatures, including rejected calls

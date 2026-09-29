@@ -25,7 +25,7 @@ and patterns are reader syntax until their enclosing construct interprets them.
 Matching `()`, `[]`, and `{}` all produce the same list structure; mismatched
 fenders are errors. Square brackets around implicit parameters are a convention.
 Preserve locations, but delimiter kind need not affect elaboration. Recognize
-`λ`, `Π`, `→`, `=`, and `#:grade` as complete tokens. Binder casing follows the
+`λ`, `Π`, `→`, `=`, `#:captures`, and `#:grade` as complete tokens. Binder casing follows the
 core design; the reader must also preserve arbitrary Scheme identifier spelling
 in syntax data instead of applying the core naming convention to it.
 
@@ -50,7 +50,7 @@ Definition    ::= (def Name Expr)
 Expr          ::= Name
                 | Literal
                 | (Π Groups → Type-Expr)
-                | (λ Groups → Type-Expr = Expr)
+                | (λ #:captures (Name*) Groups → Type-Expr = Expr)
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
                 | (let (Binding*) Expr)
@@ -93,7 +93,7 @@ Special forms take precedence over the application production when the head
 resolves to their built-in syntax binding. Their names are not first-class
 runtime functions. Ordinary lexical bindings may shadow syntax bindings; the
 resolver, rather than a parser keyed only by spelling, selects the form.
-The structural markers `→`, `=`, and `#:grade` are recognized in their designated
+The structural markers `→`, `=`, `#:captures`, and `#:grade` are recognized in their designated
 positions. Empty `()` is not an expression; `(f)` is a zero-argument call.
 
 There are no separate declaration forms for types or functions. There is no
@@ -119,6 +119,20 @@ after its annotation; all function parameters are in scope in the result type
 and body. A single function group is explicit; with two, the first is implicit.
 Implicit parameters are solved only from explicit arguments, not expected call
 results. Duplicate binders and forward references are rejected.
+
+Every `λ` has a mandatory `#:captures (Name*)` clause before its parameter groups;
+the empty clause explicitly captures nothing. Capture names resolve to distinct
+enclosing bindings before parameter scope begins, and cannot collide with a
+parameter name. `Π` has no capture clause. Listed captures are in scope throughout
+the lambda's annotations and body. The capture list must cover free outer values
+in those positions, nested capture clauses, and dependencies in captured types.
+
+Closure construction moves listed affine values immediately and may copy listed
+unrestricted values. Primitive bindings and verified closed static top-level
+definitions need no capture field; other outer values, including runtime globals,
+must be listed. The closure grade follows its captured runtime fields. Type-only
+dependencies follow the separate phase rules. These are the [capture rules](core-ir.md#explicit-consuming-captures)
+for both source lambdas and lambdas produced by later macros.
 
 `let` has simultaneous binding scope: all initializers see the outer environment,
 and the body sees every new binder. Evaluate initializers left to right. For a
@@ -147,7 +161,7 @@ unused ones. Pattern binders are in scope only in their branch body.
 
 ```scheme
 (def package-length
-  (λ ((value sized-array))
+  (λ #:captures () ((value sized-array))
     → i64
     = (match value
         ((new sized-array ((length n) (items _))) n))))
@@ -177,8 +191,9 @@ elaborated RHS is a `λ`, first check its header, then make its own binding
 available in its body. The header cannot depend on the function being defined.
 This supports directly recursive helpers without a `fix` or `letrec` form.
 Mutual recursion and arbitrary recursive value/type definitions are deferred.
-References to earlier affine top-level values count as captures or ownership
-uses; putting a function at top level does not make those values duplicable.
+Runtime top-level values require explicit captures; putting a function at top
+level does not exempt it from that rule. The function's own recursive reference
+is available only in its body and is not a capture.
 Recursive calls must respect the same ownership accounting and cannot recapture
 an affine environment on each call. Initially require recursive functions to
 have unrestricted runtime environments; owned arguments can still be threaded
@@ -561,7 +576,7 @@ during expansion/elaboration, rather than generating them during evaluation.
 
 The current `syntax.sld` already separates atoms and located lists with optional
 dotted tails. It is still a reader, not this core-form parser. It currently accepts
-only parenthesis fenders; matching square/curly fenders, `→`, and `#:grade` need
+only parenthesis fenders; matching square/curly fenders, `→`, `#:captures`, and `#:grade` need
 lexical work. Vectors and binding scopes also remain unimplemented. This proposal
 does not claim that the examples already run.
 
@@ -586,6 +601,7 @@ that happen to expand successfully:
 | A macro shadows an outer value; a local value shadows that macro | Dispatch follows the binding in scope |
 | A macro discards a syntactically non-core operand | Discarded operand is not parsed as `Expr` |
 | A macro repeats an affine argument in its output | The core checker rejects the duplicate ownership use |
+| A generated lambda omits an outer value from `#:captures` | Capture checking rejects the expansion |
 | Template introduces `temp` beside a use-site `temp` | No accidental capture |
 | Template uses `if` beneath a use-site binding named `if` | Definition-site syntax binding is preserved |
 | Literal identifier has the same spelling but a different binding | Literal match fails |
