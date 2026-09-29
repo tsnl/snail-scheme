@@ -2,7 +2,7 @@
   (export parse-file test-parser)
 
   (import
-    (scheme base)
+    (rename (scheme base) (map list-map))
     (scheme char)
     (snail-scheme common)
     (snail-scheme test-utils)
@@ -146,6 +146,11 @@
                 (parser (binder value)))
               (parser input))))))
 
+    ; Transform a parser's value without changing consumption or failure.
+    ; Like Nom: (map parser transform). Use list-map for Scheme's list operation.
+    (define (map parser transform)
+      (>>= parser (lambda (value) (return (transform value)))))
+
     ;
     ; Primitive parsers: written manually, not by composition
     ;
@@ -209,26 +214,18 @@
       (tag-val str str))
 
     (define (tag-val str val)
-      (let*
-        ((char-list (string->list str))
-          (char-parser-list (map char char-list))
-          (tuple-parser (apply tuple char-parser-list)))
-        (chain
-          (lambda (_) tuple-parser)
-          (lambda (t) (return val)))))
+      (map (apply tuple (list-map char (string->list str)))
+        (lambda (_) val)))
 
     (define (char-from lst)
       (char-if (lambda (c) (member c lst))))
 
     (define (repeat-at-least-once parser)
-      (chain
-        (lambda (_) (repeat parser))
+      (>>= (repeat parser)
         (lambda (v) (if (null? v) (fail) (return v)))))
 
     (define (discard parser)
-      (chain
-        (lambda (_) parser)
-        (lambda (_) (return '()))))
+      (map parser (lambda (_) '())))
 
     (define (whitespace)
       (discard (repeat (whitespace-char))))
@@ -237,28 +234,10 @@
       (discard (char-from '(#\newline #\return #\space #\tab))))
 
     (define (tuple . parsers)
-      (let*
-        ( ; `(make-binder parser)` emits a bind function suitable for `(chain binders...)`.
-          ; The binder function takes in an 'accumulator' list and extends it with the parser's parsed value.
-          (make-binder
-            (lambda (parser)
-              (lambda (reversed-accumulator-list)
-                (chain
-                  (lambda (_) parser)
-                  (lambda (v) (return (cons v reversed-accumulator-list)))))))
-
-          ; map `make-binder` over all the parsers to get a list of binders
-          (binders (map make-binder parsers))
-
-          ; apply `chain` on the binders to obtain a parser that returns the reversed list of binders
-          (reversed-tuple-parser (apply chain binders))
-
-          ; reverse the reversed-tuple-parser's value to obtain the final result
-          (tuple-parser
-            (chain
-              (lambda (_) reversed-tuple-parser)
-              (lambda (reversed-accumulator-list) (return (reverse reversed-accumulator-list))))))
-        tuple-parser))
+      (define (make-binder parser)
+        (lambda (reversed-values)
+          (map parser (lambda (value) (cons value reversed-values)))))
+      (map (apply chain (list-map make-binder parsers)) reverse))
 
     (define (optional parser)
       (choice parser (return '())))
@@ -268,14 +247,7 @@
     ;
 
     (define (file)
-      (chain
-        (lambda (_)
-          (tuple
-            (repeat (expr))
-            (whitespace)
-            (eof)))
-        (lambda (t)
-          (return (first t)))))
+      (map (tuple (repeat (expr)) (whitespace) (eof)) first))
 
     (define (expr)
       (chain
@@ -309,53 +281,47 @@
               (return (make-list-syntax elements opt-tail loc)))))))
 
     (define (char-expr)
-      (chain
-        (lambda (_)
-          (tuple
-            (location)
-            (choice
-              ; Standard special characters
-              (tag-val "#\\alarm" #\alarm)
-              (tag-val "#\\backspace" #\backspace)
-              (tag-val "#\\delete" #\delete)
-              (tag-val "#\\escape" #\escape)
-              (tag-val "#\\newline" #\newline)
-              (tag-val "#\\null" #\null)
-              (tag-val "#\\return" #\return)
-              (tag-val "#\\space" #\space)
-              (tag-val "#\\tab" #\tab)
+      (map
+        (tuple
+          (location)
+          (choice
+            ; Standard special characters
+            (tag-val "#\\alarm" #\alarm)
+            (tag-val "#\\backspace" #\backspace)
+            (tag-val "#\\delete" #\delete)
+            (tag-val "#\\escape" #\escape)
+            (tag-val "#\\newline" #\newline)
+            (tag-val "#\\null" #\null)
+            (tag-val "#\\return" #\return)
+            (tag-val "#\\space" #\space)
+            (tag-val "#\\tab" #\tab)
 
-              ; #\xHHHH...
-              (chain
-                (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
-                (lambda (t) (unicode-character (second t))))
+            ; #\xHHHH...
+            (chain
+              (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
+              (lambda (t) (unicode-character (second t))))
 
-              ; Otherwise, consume the first character after #\
-              (chain
-                (lambda (_) (tuple (tag "#\\") (char-if (lambda (_) #t))))
-                (lambda (t) (return (second t)))))
-            (token-end)))
+            ; Otherwise, consume the first character after #\
+            (map (tuple (tag "#\\") (char-if (lambda (_) #t))) second))
+          (token-end))
         (lambda (t)
           (let
             ((loc (first t))
               (chr (second t)))
-            (return
-              (make-atom-syntax chr loc))))))
+            (make-atom-syntax chr loc)))))
 
     (define (string-expr)
-      (chain
-        (lambda (_)
-          (tuple
-            (location)
-            (discard (char #\"))
-            (repeat (string-expr-element))
-            (discard (char #\"))))
+      (map
+        (tuple
+          (location)
+          (discard (char #\"))
+          (repeat (string-expr-element))
+          (discard (char #\")))
         (lambda (t)
           (let
             ((loc (first t))
               (elements (third t)))
-            (return
-              (make-atom-syntax (list->string elements) loc))))))
+            (make-atom-syntax (list->string elements) loc)))))
 
     (define (string-expr-element)
       (choice
@@ -446,21 +412,20 @@
           (else #f))))
 
     (define (quote-expr)
-      (chain
-        (lambda (_)
-          (tuple
-            (location)
-            (choice (tag-val "'" 'quote)
-              (tag-val "`" 'quasiquote)
-              (tag-val ",@" 'unquote-splicing)
-              (tag-val "," 'unquote))
-            (expr)))
+      (map
+        (tuple
+          (location)
+          (choice (tag-val "'" 'quote)
+            (tag-val "`" 'quasiquote)
+            (tag-val ",@" 'unquote-splicing)
+            (tag-val "," 'unquote))
+          (expr))
         (lambda (t)
           (let ((loc (first t)))
-            (return (make-list-syntax
-                     (list (make-atom-syntax (second t) loc) (third t))
-                     '()
-                     loc))))))
+            (make-list-syntax
+              (list (make-atom-syntax (second t) loc) (third t))
+              '()
+              loc)))))
 
     (define (left-fender)
       (discard (char #\()))
@@ -475,18 +440,16 @@
           (lambda (_) (expr)))))
 
     (define (hexadecimal-integer)
-      (chain
-        (lambda (_) (repeat-at-least-once (hexadecimal-digit)))
-        (lambda (digits) (return (string->number (list->string digits) 16)))))
+      (map (repeat-at-least-once (hexadecimal-digit))
+        (lambda (digits) (string->number (list->string digits) 16))))
 
     (define (hexadecimal-digit)
       (char-if
         (lambda (c) (member c (string->list "0123456789abcdefABCDEF")))))
 
     (define (decimal-integer)
-      (chain
-        (lambda (_) (repeat-at-least-once (decimal-digit)))
-        (lambda (digits) (return (string->number (list->string digits) 10)))))
+      (map (repeat-at-least-once (decimal-digit))
+        (lambda (digits) (string->number (list->string digits) 10))))
 
     (define (decimal-digit)
       (char-if
