@@ -55,7 +55,6 @@ Expr          ::= Name
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
                 | (let (Binding*) Expr)
-                | (if Expr Expr Expr)
                 | (struct Telescope Grade-Option)
                 | (union Type-Expr*)
                 | (new Type-Expr (Field-Value*))
@@ -148,8 +147,14 @@ dependencies while keeping every body a single expression.
 Evaluate a runtime call's operator and explicit arguments left to right. Static
 arguments are elaborated and erased where appropriate, without evaluating
 runtime effects during checking. Calls have exactly the explicit arity declared
-by their signatures. `if` requires a `boolean` test and evaluates only its chosen
-branch. Ownership uses accumulate sequentially and are checked per branch.
+by their signatures. `match` evaluates only its selected branch. Ownership uses
+accumulate sequentially and are checked per branch.
+
+Branching is expressed with `match`. A higher-level Boolean conditional
+`(if Test Yes No)` lowers to `(match (ann Test boolean) (#t Yes) (#f No))`:
+evaluate the test once, require its Boolean type, check both branch bodies, and
+execute only the selected body. Scheme's broader truthiness can instead lower
+to a `#f` clause followed by a named catch-all clause for the true branch.
 
 For `new`, require every field exactly once, in declaration order. Check and
 evaluate fields in that order, substituting earlier values into later types.
@@ -256,7 +261,9 @@ The working proposal keeps the expansion phase explicit while retaining `def`:
   (macro
     (syntax-rules ()
       ((_ test yes no)
-       (if test yes no)))))
+       (match (ann test boolean)
+         (#t yes)
+         (#f no))))))
 
 (def answer
   (choose #t 41 42))
@@ -539,9 +546,10 @@ For a candidate expression:
 4. Otherwise elaborate an ordinary application, including a computed operator,
    or an atomic expression. Check the resulting core types and ownership.
 
-For `choose`, the second definition above expands to `(def answer (if #t 41 42))`.
+For `choose`, the second definition above expands to
+`(def answer (match (ann #t boolean) (#t 41) (#f 42)))`.
 An unused macro operand may disappear without ever being checked as an expression.
-By contrast, both branches of the resulting core `if` must typecheck even though
+By contrast, both branches of the resulting core `match` must typecheck even though
 only one executes. A transformer cannot manufacture a checked node or bypass
 the affine-use checker by duplicating input syntax.
 
@@ -602,13 +610,13 @@ that happen to expand successfully:
 
 | Case | Required observation |
 | --- | --- |
-| `choose` above | Expands to core `if`, then checks as `i64` |
+| `choose` above | Expands to core `match`, then checks as `i64` |
 | A macro shadows an outer value; a local value shadows that macro | Dispatch follows the binding in scope |
 | A macro discards a syntactically non-core operand | Discarded operand is not parsed as `Expr` |
 | A macro repeats an affine argument in its output | The core checker rejects the duplicate ownership use |
 | A generated lambda omits an outer value from `#:captures` | Capture checking rejects the expansion |
 | Template introduces `temp` beside a use-site `temp` | No accidental capture |
-| Template uses `if` beneath a use-site binding named `if` | Definition-site syntax binding is preserved |
+| Template uses `match` beneath a use-site binding named `match` | Definition-site syntax binding is preserved |
 | Literal identifier has the same spelling but a different binding | Literal match fails |
 | Pattern `(_ head middle ... last)` | Fixed suffix survives zero or several repetitions |
 | Pattern `(_ ((x ...) ...))` with input `(m (() (a b) ()))` | Outer extent is three; inner extents are zero, two, zero |

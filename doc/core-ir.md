@@ -429,9 +429,10 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 (def scalar-to-integer
   (λ #:captures () [] ((x scalar))
     → i64
-    = (if (is-i64 x)
-        x
-        (if x (ann 1 i64) (ann 0 i64)))))
+    = (match x
+        ((is i64 integer) integer)
+        (#t (ann 1 i64))
+        (#f (ann 0 i64)))))
 ```
 
 `#f` is a Boolean value; `(singleton #f)` is the type value containing only
@@ -440,27 +441,33 @@ instead of contextually changing the meaning of its arguments. `(maybe boolean)`
 cannot distinguish absence from a present `#f`; `option` supplies distinct
 nominal variants when that distinction matters.
 
-The successful `is-i64` branch sees `x` as `i64` ; the other branch sees it as
-`boolean`. Members are subtypes of their union. Flatten nested unions, ignore
+The `is` pattern binds the selected integer as `integer`; the other clauses
+handle the two Boolean values. Members are subtypes of their union. Flatten nested unions, ignore
 member order, remove duplicates, and remove members already covered by another
 member. These remain the intended union semantics, following
 [Typed Racket's discussion of unions and subtyping](https://docs.racket-lang.org/ts-guide/types.html)
 .
 
-Overlapping members denote shared sets of values. A predicate's false branch
-excludes the values it accepts, rather than blindly removing one syntactic
-member. Start with built-in predicates and recognized nominal-struct tests.
-User-defined refinement propositions can come later, following the direction
+Overlapping members denote shared sets of values. Clauses are tried in order;
+after a failed pattern test, later clauses exclude the values it would accept,
+rather than blindly removing one syntactic member. Start with primitive tags,
+supported singletons, and nominal-struct patterns. User-defined refinement
+propositions can come later, following the direction
 of
 [occurrence typing](https://docs.racket-lang.org/ts-guide/occurrence-typing.html)
 .
 
-Refinement never creates a second owner. A compiler-recognized tag test can
-inspect an immutable local value without moving it, exposing no reference and
-retaining nothing. An arbitrary function call still transfers ownership as
-required by its argument's type. For affine fields, use consuming `match` to
-take the struct apart; do not extract an affine field while leaving a usable
-original owner. Initially refine stable bindings, not mutable paths.
+Refinement never creates a second owner. `match` evaluates its scrutinee once
+and uses safe tag observations to select a clause before moving the selected
+value or fields into that branch. These tests expose no reference and retain
+nothing. An arbitrary function call still transfers ownership as required by
+its argument's type. Consuming an affine scrutinee makes its original owner
+unavailable; only the chosen pattern's bindings own the selected payload.
+
+`match` is the core branching form. A higher-level Boolean conditional
+`(if Test Yes No)` lowers to `(match (ann Test boolean) (#t Yes) (#f No))`.
+Both branch bodies must typecheck, and only the selected body executes. The
+ascription preserves the Boolean-test requirement without another core form.
 
 ## 4. Grades are properties of types
 
@@ -923,7 +930,7 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
    with undetermined implicits.
 2. **Type-forming values.** Implement `struct` field telescopes, stable family
    identities, dependent construction and consuming matching, unions, and
-   known-predicate refinement. Exercise length-and-array packages, including
+   pattern refinement. Exercise length-and-array packages, including
    rejected forward references and mismatched field dependencies.
 3. **Type grades.** Compute struct and union grades, reject upward grade
    annotations, and check moves, captures, branches, and cleanup.
@@ -941,5 +948,5 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
 
 The first examples should connect the abstractions: an implicit identity,
 a type family with explicit parameters, a dependent array operation, a union
-refined by predicates, and an affine wrapper. Add continuation transfers when
+refined by matching, and an affine wrapper. Add continuation transfers when
 the control stage is implemented.
