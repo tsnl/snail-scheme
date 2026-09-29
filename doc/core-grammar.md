@@ -68,18 +68,16 @@ Grade         ::= 1 | omega
 Field-Value   ::= (Field Expr)
 Clause        ::= (Pattern Expr)
 
-Pattern       ::= _
-                | Name
+Pattern       ::= Name
                 | Literal
-                | (is Type-Expr Name-Or-Wildcard)
+                | (is Type-Expr Name)
                 | (new Type-Expr (Field-Binding*))
-Field-Binding ::= (Field Name-Or-Wildcard)
-Name-Or-Wildcard ::= Name | _
+Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
 
-The spelling `empty` means absence, not a source token. `_` is the distinguished
-discard pattern, rather than a variable binder. Duplicate names within a binder
+The spelling `empty` means absence, not a source token. Every core pattern name
+is an ordinary binder, including `_` if used. Duplicate names within a binder
 group, simultaneous `let`, or match pattern are errors; telescope binders are
 also distinct across the implicit and explicit groups. Field labels are unique
 within a struct.
@@ -164,17 +162,19 @@ The type expression itself must meet the existing type-formation restrictions.
 ### Elimination and dependent scope
 
 `match` evaluates its scrutinee once. Initially patterns are shallow: nested
-destructuring is another `match`. A name binds the entire selected value; `_`
-discards it with any required cleanup. `new` patterns open a known nominal
-struct's fields in declaration order and must list all fields, using `_` for
-unused ones. Pattern binders are in scope only in their branch body.
+destructuring is another `match`. A name binds the entire selected value.
+`new` patterns open a known nominal struct's fields in declaration order and
+must bind every field, including unused ones. Pattern binders are in scope only
+in their branch body. Unused affine bindings receive ordinary cleanup at scope
+exit. A higher-level wildcard lowers to a fresh unused binder for each occurrence;
+the core gives `_` normal binding, reference, and duplicate-name semantics.
 
 ```scheme
 (def package-length
   (λ #:captures () [] ((value sized-array))
     → i64
     = (match value
-        ((new sized-array ((length n) (items _))) n))))
+        ((new sized-array ((length n) (items unused-items))) n))))
 ```
 
 Variant tests do not duplicate ownership. Select a branch using safe observations
@@ -311,6 +311,7 @@ the engine before any user macro has been installed.
 ### Pattern and template grammar
 
 Use the R7RS-small pattern language, keeping its grammar separate from `Expr`.
+Its wildcard rules belong to macro matching; core `match` uses ordinary binders.
 Here `Ellipsis` is the selected identifier in its active role. `Pattern-Id`
 includes captures, literal identifiers, and the wildcard after classification;
 `Template-Id` includes substitutions and introduced identifiers. `Constant`

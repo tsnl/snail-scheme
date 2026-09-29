@@ -49,6 +49,8 @@ this syntactic role; it does not change grades, erasure, or evaluation phase.
 The symbolic forms `λ` and `Π`, markers `→` and `=`, and operator `+` are
 separate from the identifier-casing convention. Use these Unicode spellings
 for the function forms and arrow throughout the language sketch.
+The identifier `_`, if used, follows ordinary binding and reference rules; it
+does not discard a value or bypass duplicate-name checks.
 Use word-based names for ordinary predicates and conversions, such as `is-i64`
 and `scalar-to-integer`. References to existing Scheme or other languages keep
 those languages' own spelling.
@@ -463,6 +465,11 @@ value or fields into that branch. These tests expose no reference and retain
 nothing. An arbitrary function call still transfers ownership as required by
 its argument's type. Consuming an affine scrutinee makes its original owner
 unavailable; only the chosen pattern's bindings own the selected payload.
+
+Every name in a core pattern is an ordinary binder, including names for unused
+fields. A name alone is a catch-all pattern binding the whole selected value.
+Unused affine bindings receive cleanup at branch scope exit. A higher-level
+wildcard can lower to a fresh unused name for each occurrence.
 
 `match` is the core branching form. A higher-level Boolean conditional
 `(if Test Yes No)` lowers to `(match (ann Test boolean) (#t Yes) (#f No))`.
