@@ -8,6 +8,10 @@ tree-walking interpreter for the immutable subset. Shared mutation and cyclic
 storage are **WIP** and outside that initial subset. C generation and full
 Scheme lowering remain later goals.
 
+The [minimal grammar and macro expansion proposal](core-grammar.md) scopes the
+parser-facing forms, their binding rules, and a later `syntax-rules` engine
+implemented with immutable core data and functions.
+
 The proposal is a strict dependently typed language with unions, owned values,
 and specialization. Types are values, and `def` is the only top-level
 binding form. `struct` and `Π` construct type values; `λ` constructs
@@ -110,9 +114,9 @@ groups, result type, and body.
 
 The result type is mandatory on every λ, including anonymous functions
 and functions that return types. All parameters are in scope in that type
-and in the body. Use a single body expression, such as `begin` or `let` when
-sequencing is needed. A nondependent function type is just a `Π` whose result
-does not mention its arguments.
+and in the body. Use a single body expression, nesting `let` when sequencing
+is needed; `begin` can be derived later. A nondependent function type is just a
+`Π` whose result does not mention its arguments.
 
 The checker derives `id`'s call signature as `id-type` directly from the λ
 header. It verifies that the declared result expression denotes a type, then
@@ -380,6 +384,8 @@ is itself defined as a record.
 
 Keep the set-like unions and branch refinement that motivated the Typed Racket
 starting point. Union formation itself is an expression producing a type value.
+The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-arity
+`Π` does not make it an ordinary first-class variadic function.
 
 ```scheme
 (def maybe
@@ -631,7 +637,9 @@ result dependencies. It does not reveal a hidden closure environment's grade.
 Initially treat an environment-erased callable with a given `Π` signature as
 affine, since its possible runtime environments have grades `1` or `omega`.
 A concrete top-level function item can remain reusable because its empty
-environment is known. Interfaces must preserve that distinction rather than
+environment is known. References to affine top-level values count as captures
+or ownership uses; a top-level definition is not automatically unrestricted.
+Interfaces must preserve that distinction rather than
 silently asserting that every function with the same `Π` can be duplicated.
 A later generic callable constraint can retain the concrete environment type
 when reuse matters.
@@ -770,6 +778,14 @@ They cannot forge checked terms. Resolve a form, invoke its already-checked
 transformer if needed, elaborate the result, and validate types, ownership,
 and effects. Require phase-correct dependencies. Later elaborator extensions
 can request expected types through a checked API.
+
+For the first `syntax-rules` implementation, represent each reusable transformer
+as unrestricted immutable rule data, interpreted by a known reusable helper.
+The `transformer-type` above specifies a call, not permission to reuse an
+environment-erased closure. Keep the affine expansion context out of stored
+descriptors and speculative pattern matching. The [grammar proposal](core-grammar.md#5-a-small-separate-macro-definition-grammar)
+defines the phase adapter, raw-syntax application protocol, and bootstrap data
+model; none is required by the first macro-free interpreter.
 
 ## 10. Checked core, C output, and Scheme
 
