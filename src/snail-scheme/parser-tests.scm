@@ -1,175 +1,312 @@
-(define (test-input-stream)
-  (let*
-    ((is (list->input-stream '(#\a #\newline #\b)))
-      (fn (input-stream-filename is))
-      (_ (expect is (make-input-stream fn '(#\a #\newline #\b) 1 1)))
-      (_ (expect (peek-input-stream is) #\a))
-      (is (next-input-stream is))
-      (_ (expect is (make-input-stream fn '(#\newline #\b) 1 2)))
-      (_ (expect (peek-input-stream is) #\newline))
-      (is (next-input-stream is))
-      (_ (expect is (make-input-stream fn '(#\b) 2 1)))
-      (_ (expect (peek-input-stream is) #\b))
-      (is (next-input-stream is))
-      (_ (expect is (make-input-stream fn '() 2 2)))
-      (_ (expect (peek-input-stream is) '())))
-    '()))
+; Helpers stay in the parser library so tests can exercise private parsers.
+; Compare record fields explicitly: R7RS does not require structural equal?
+; for records. Syntax comparisons include every node's source location.
+
+(define (test-value value)
+  (cond
+    ((atom-syntax? value)
+      (list 'atom (atom-syntax-value value) (test-value (syntax-loc value))))
+    ((list-syntax? value)
+      (list 'list
+        (test-value (list-syntax-elements value))
+        (test-value (list-syntax-improper-tail value))
+        (test-value (syntax-loc value))))
+    ((loc? value)
+      (list (loc-filename value) (loc-line value) (loc-column value)))
+    ((pair? value) (cons (test-value (car value)) (test-value (cdr value))))
+    (else value)))
+
+(define (at line column)
+  (make-loc "<anonymous-input-stream>" line column))
+
+(define (atom value line column)
+  (make-atom-syntax value (at line column)))
+
+; Success defaults to consuming all input; failure defaults to consuming none.
+; Supply a remainder to check prefix parsers and failures after partial progress.
+(define (check-ok parser text value . remainder)
+  (let ((result (parser (string->input-stream text))))
+    (expect
+      (list text (parse-result-ok? result) (test-value (parse-result-value result))
+        (list->string (input-stream-chars (parse-result-input result))))
+      (list text #t (test-value value) (if (null? remainder) "" (car remainder))))))
+
+(define (check-fail parser text . remainder)
+  (let ((result (parser (string->input-stream text))))
+    (expect
+      (list text (parse-result-err? result) (parse-result-value result)
+        (list->string (input-stream-chars (parse-result-input result))))
+      (list text #t '() (if (null? remainder) text (car remainder))))))
 
 ;
-; Parser combinator tests
+; Input stream and parser combinators
 ;
+
+(define (test-input-stream)
+  (let* ((a (string->input-stream "a\nb"))
+         (newline (next-input-stream a))
+         (b (next-input-stream newline))
+         (end (next-input-stream b)))
+    (expect (map peek-input-stream (list a newline b end)) '(#\a #\newline #\b ()))
+    (expect (map (lambda (input) (test-value (input-stream-loc input)))
+             (list a newline b end))
+      (test-value (list (at 1 1) (at 1 2) (at 2 1) (at 2 2))))
+    (expect (input-stream-eof? a) #f)
+    (expect (input-stream-eof? end) #t))
+  (for-each
+    (lambda (text)
+      (check-ok (chain (lambda (_) (whitespace)) (lambda (_) (location)))
+        text
+        (at 2 1)))
+    '("\n" "\r" "\r\n")))
+
+(define (test-return-and-fail)
+  (check-ok (return #f) "a" #f "a")
+  (check-ok (return '()) "" '())
+  (check-fail (fail) "a"))
 
 (define (test->>=)
-  (let*
-    ((input-stream (string->input-stream "a"))
-
-      (a (char #\a))
-      (parse-result (a input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect #\a (parse-result-value parse-result)))
-
-      (y (>>= a (lambda (v) (return (string v)))))
-      (parse-result (y input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect "a" (parse-result-value parse-result))))
-    '()))
+  (check-ok (>>= (char #\a) (lambda (value) (return (string value)))) "ab" "a" "b")
+  (check-ok (>>= (char #\a) (lambda (value) (char value))) "aa" #\a)
+  (check-fail (>>= (fail) (lambda (_) (error "binder must not run"))) "a")
+  (check-fail (>>= (char #\a) (lambda (_) (fail))) "ab" "b"))
 
 (define (test-chain)
-  (let*
-    ((input-stream (string->input-stream "abc"))
-
-      (abc
-        (chain
-          (lambda (_) (char #\a))
-          (lambda (_) (char #\b))
-          (lambda (_) (char #\c))))
-
-      (parse-result (abc input-stream))
-      (_ (assert (parse-result-ok? parse-result))))
-    '()))
+  (check-ok (chain) "a" '() "a")
+  (check-ok (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ab" #\b)
+  (check-fail (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ac" "c"))
 
 (define (test-char-if)
-  (let*
-    ( ; init input stream to "ab"
-      (input-stream (string->input-stream "ab"))
-
-      ; parse "a"
-      (pc (char-if (lambda (v) (eqv? v #\a))))
-      (pr (pc input-stream))
-      (_ (assert (parse-result-success pr)))
-      (_ (expect #\a (parse-result-value pr)))
-
-      ; try parsing "a" again, will fail
-      (input-stream (parse-result-input pr))
-      (pr (pc input-stream))
-      (_ (assert (not (parse-result-success pr))))
-      (_ (expect '() (parse-result-value pr)))
-
-      ; try parsing "b" now, with the input stream from the failed result.
-      (input-stream (parse-result-input pr))
-      (pc (char-if (lambda (v) (eqv? v #\b))))
-      (pr (pc input-stream))
-      (_ (assert (parse-result-success pr)))
-      (_ (expect #\b (parse-result-value pr)))
-
-      ; expect input stream input-stream at EOF
-      (input-stream (parse-result-input pr))
-      (_ (expect (peek-input-stream input-stream) '())))
-    '()))
+  (check-ok (char-if char-alphabetic?) "ab" #\a "b")
+  (check-fail (char-if char-alphabetic?) "1")
+  (check-fail (char-if (lambda (_) (error "predicate must not run at EOF"))) "")
+  (check-ok (char-from '(#\a #\b)) "b" #\b)
+  (check-fail (char-from '()) "a"))
 
 (define (test-repeat)
-  (let*
-    ( ; init input stream to "aaab"
-      ; define pc as a single character parser
-      (input-stream (string->input-stream "aaab"))
+  (check-ok (repeat (char #\a)) "aaab" '(#\a #\a #\a) "b")
+  (check-ok (repeat (char #\a)) "b" '() "b")
+  (check-ok (repeat (char #\a)) "" '())
+  (check-ok (repeat (tag "ab")) "abac" '("ab") "ac")
+  (for-each
+    (lambda (parser)
+      (expect
+        (guard (ex ((error-object? ex) (error-object-message ex)))
+          ((repeat parser) (string->input-stream "")))
+        "repeat: parser succeeded without consuming input"))
+    (list (return '()) (optional (char #\a)) (eof))))
 
-      ; parse "a" repeatedly with repeat
-      (a (repeat (char #\a)))
-      (parse-result (a input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect '(#\a #\a #\a) (parse-result-value parse-result)))
+(define (test-repeat-at-least-once)
+  (check-ok (repeat-at-least-once (char #\a)) "a" '(#\a))
+  (check-ok (repeat-at-least-once (char #\a)) "aab" '(#\a #\a) "b")
+  (check-ok (repeat-at-least-once (discard (char #\a))) "aa" '(() ()))
+  (check-fail (repeat-at-least-once (char #\a)) "b")
+  (check-fail (repeat-at-least-once (char #\a)) ""))
 
-      ; parse "a" again should succeed with length 0
-      (input-stream (parse-result-input parse-result))
-      (parse-result (a input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect '() (parse-result-value parse-result)))
-
-      ; parse "a" again with repeat-at-least-once should fail
-      (parse-result ((repeat-at-least-once (char #\a)) input-stream))
-      (_ (assert (parse-result-err? parse-result)))
-
-      ; parse "b" with repeat should succeed with length 1
-      (input-stream (parse-result-input parse-result))
-      (parse-result ((repeat (char #\b)) input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect '(#\b) (parse-result-value parse-result))))
-    '()))
+(define (test-choice)
+  (check-ok (choice (tag "ab") (tag "ac")) "ac" "ac")
+  (check-ok (choice (tag "a") (tag "ab")) "ab" "a" "b")
+  (check-fail (choice (tag "ab") (tag "ac")) "ad")
+  (check-fail (choice) "a"))
 
 (define (test-discard)
-  (let*
-    ((input-stream (string->input-stream "a"))
-
-      ; the parser `a := (char #\a)` should return value `#\a`
-      (a (char #\a))
-      (parse-result (a input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect #\a (parse-result-value parse-result)))
-      (_ (assert (input-stream-eof? (parse-result-input parse-result))))
-
-      ; the parser `d := (discard a)` should return value `'()`
-      ; even though the post-input-stream should be empty
-      (d (discard a))
-      (parse-result (d input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (assert (null? (parse-result-value parse-result))))
-      (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
-    '()))
+  (check-ok (discard (char #\a)) "ab" '() "b")
+  (check-fail (discard (char #\a)) "b"))
 
 (define (test-tuple)
-  (let*
-    ((input-stream (string->input-stream "abcd"))
-
-      (abcd (tuple (char #\a) (char #\b) (char #\c) (char #\d)))
-      (parse-result (abcd input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect '(#\a #\b #\c #\d) (parse-result-value parse-result)))
-      (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
-    '()))
+  (check-ok (tuple) "a" '() "a")
+  (check-ok (tuple (char #\a) (char #\b) (char #\c)) "abc" '(#\a #\b #\c))
+  (check-fail (tuple (char #\a) (char #\b)) "ac" "c"))
 
 (define (test-optional)
-  (let*
-    ((input-stream (string->input-stream "a"))
-
-      (aa (tuple (char #\a) (optional (char #\a))))
-      (parse-result (aa input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect '(#\a ()) (parse-result-value parse-result)))
-      (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
-    '()))
+  (check-ok (optional (char #\a)) "ab" #\a "b")
+  (check-ok (optional (tag "ab")) "ac" '() "ac")
+  (check-ok (optional (char #\a)) "" '()))
 
 (define (test-tag)
-  (let*
-    ((input-stream (string->input-stream "abc"))
+  (check-ok (tag "ab") "abc" "ab" "c")
+  (check-ok (tag "") "a" "" "a")
+  (check-ok (tag-val "a" #f) "a" #f)
+  (check-fail (tag "ab") "ac" "c")
+  (check-fail (tag "a") ""))
 
-      (abc (tag "abc"))
-      (parse-result (abc input-stream))
-      (_ (assert (parse-result-ok? parse-result)))
-      (_ (expect "abc" (parse-result-value parse-result)))
-      (_ (assert (input-stream-eof? (parse-result-input parse-result)))))
-    '()))
+(define (test-eof-and-location)
+  (check-ok (eof) "" '())
+  (check-fail (eof) "a")
+  (check-ok (location) "a" (at 1 1) "a")
+  (check-ok (chain (lambda (_) (tag "a\n")) (lambda (_) (location))) "a\nb" (at 2 1) "b"))
 
-; Language parser tests
+;
+; Language parsers
+;
 
-; TODO
+(define (test-whitespace)
+  (check-ok (whitespace) "" '())
+  (check-ok (whitespace) " \t\n\ra" '() "a")
+  (check-ok (whitespace) "a" '() "a")
+  (check-fail (whitespace-char) "a"))
+
+(define (test-integers)
+  (check-ok (decimal-digit) "9a" #\9 "a")
+  (check-fail (decimal-digit) "a")
+  (check-ok (hexadecimal-digit) "Fz" #\F "z")
+  (check-fail (hexadecimal-digit) "g")
+  (check-ok (decimal-integer) "123a" 123 "a")
+  (check-ok (hexadecimal-integer) "aFz" 175 "z")
+  (check-fail (decimal-integer) "")
+  (check-fail (hexadecimal-integer) "g"))
+
+(define (test-number-expr)
+  (for-each
+    (lambda (case) (check-ok (number-expr) (car case) (atom (cadr case) 1 1)))
+    '(("0" 0) ("123" 123) ("-12" -12) ("#xFF" 255)
+      ("#b101" 5)
+      ("#o17" 15)
+      ("#d12" 12)
+      ("3/4" 3/4)
+      ("1.25" 1.25)
+      ("2e3" 2000.0)
+      ("#e1.25" 5/4)
+      ("1+2i" 1+2i)))
+  (check-ok (number-expr) "12)" (atom 12 1 1) ")")
+  (check-fail (number-expr) "12abc" "")
+  (check-fail (number-expr) "#x" "")
+  (check-fail (number-expr) ""))
+
+(define (test-identifier-expr)
+  (for-each
+    (lambda (name) (check-ok (identifier-expr) name (atom (string->symbol name) 1 1)))
+    '("hello?" "a.b" "+" "-" "..." "+.x" ".x"))
+  (check-ok (identifier-expr) "abc\t" (atom 'abc 1 1) "\t")
+  (check-ok (identifier-expr) "abc\n" (atom 'abc 1 1) "\n")
+  (check-fail (identifier-expr) "12abc" "")
+  (check-fail (identifier-expr) "+i" "")
+  (check-fail (identifier-expr) "." "")
+  (check-fail (identifier-expr) "\"unterminated"))
+
+(define (test-char-expr)
+  (for-each
+    (lambda (case) (check-ok (char-expr) (car case) (atom (cadr case) 1 1)))
+    '(("#\\a" #\a) ("#\\x" #\x) ("#\\x41" #\A)
+      ("#\\alarm" #\alarm)
+      ("#\\backspace" #\backspace)
+      ("#\\delete" #\delete)
+      ("#\\escape" #\escape)
+      ("#\\newline" #\newline)
+      ("#\\null" #\null)
+      ("#\\return" #\return)
+      ("#\\space" #\space)
+      ("#\\tab" #\tab)))
+  (check-ok (char-expr) "#\\))" (atom #\) 1 1) ")")
+  (check-fail (char-expr) "#\\")
+  (check-fail (char-expr) "#\\spacebar" "bar")
+  (check-fail (char-expr) "#\\x110000" "110000")
+  (check-fail (char-expr) "#\\xd800" "d800"))
+
+(define (test-string-expr)
+  (check-ok (string-expr) "\"\"" (atom "" 1 1))
+  (check-ok (string-expr) "\"hello \" " (atom "hello " 1 1) " ")
+  (check-ok (string-expr) "\"\\a\\b\\t\\n\\r\\\"\\\\\""
+    (atom (string #\alarm #\backspace #\tab #\newline #\return #\" #\\) 1 1))
+  (check-ok (string-expr) "\"\\x41;\"" (atom "A" 1 1))
+  (check-ok (string-expr-element) "\\x41;z" #\A "z")
+  (check-fail (string-expr-element) "\\q")
+  (check-fail (string-expr) "\"abc" "")
+  (check-fail (string-expr) "\"\\q\"" "\\q\"")
+  (check-fail (string-expr) "\"\\x41\"" "\\x41\"")
+  (check-fail (string-expr) "\"\\xd800;\"" "\\xd800;\""))
+
+(define (test-list-expr)
+  (check-ok (list-expr) "()" (make-list-syntax '() '() (at 1 1)))
+  (check-ok (list-expr) "( \n)" (make-list-syntax '() '() (at 1 1)))
+  (check-ok (list-expr) "(a 12 )"
+    (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1)))
+  (check-ok (list-expr) "(a . b )"
+    (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
+  (check-ok (list-expr) "(())"
+    (make-list-syntax (list (make-list-syntax '() '() (at 1 2))) '() (at 1 1)))
+  (check-ok (list-expr) "(a . ())"
+    (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6)) (at 1 1)))
+  (check-fail (list-expr) "(. a)" "")
+  (check-fail (list-expr) "(a .)" ".)")
+  (check-fail (list-expr) "(a . b c)" "c)")
+  (check-fail (list-expr) "(a" ""))
+
+(define (test-fenders-and-tail)
+  (check-ok (left-fender) "(a" '() "a")
+  (check-ok (right-fender) ")a" '() "a")
+  (check-fail (left-fender) ")")
+  (check-fail (right-fender) "")
+  (check-ok (improper-tail) " . a" (atom 'a 1 4))
+  (check-ok (improper-tail) " .a" '() " .a")
+  (check-ok (improper-tail) " .)" '() " .)"))
+
+(define (test-quote-expr)
+  (for-each
+    (lambda (case)
+      (let ((prefix (car case)) (name (cadr case)))
+        (check-ok (quote-expr) (string-append prefix "x")
+          (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
+            '()
+            (at 1 1)))))
+    '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
+  (check-ok (quote-expr) "'\nx"
+    (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
+  (check-ok (quote-expr) "''x"
+    (make-list-syntax
+      (list (atom 'quote 1 1)
+        (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
+      '()
+      (at 1 1)))
+  (check-fail (quote-expr) "'" "")
+  (check-fail (quote-expr) ",@)" ")"))
+
+(define (test-expr-and-file)
+  (check-ok (expr) " \n12 " (atom 12 2 1) " ")
+  (check-ok (file) "" '())
+  (check-ok (file) " \n\t" '())
+  (check-ok (file) "abc 12\n" (list (atom 'abc 1 1) (atom 12 1 5)))
+  (for-each
+    (lambda (text) (check-fail (file) text))
+    '("12abc" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" ".")))
+
+(define (test-parse-file)
+  (expect
+    (test-value (parse-file "example.scm" "\n'x "))
+    (test-value
+      (list (make-list-syntax
+             (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
+               (make-atom-syntax 'x (make-loc "example.scm" 2 2)))
+             '()
+             (make-loc "example.scm" 2 1)))))
+  (expect
+    (guard (ex ((and (error-object? ex) (equal? (error-object-message ex) "parse failed"))
+                (car (error-object-irritants ex))))
+      (parse-file "broken.scm" "("))
+    "broken.scm"))
 
 (define (test-parser)
   (run-test test-input-stream)
+  (run-test test-return-and-fail)
   (run-test test->>=)
   (run-test test-chain)
   (run-test test-char-if)
   (run-test test-repeat)
+  (run-test test-repeat-at-least-once)
+  (run-test test-choice)
   (run-test test-discard)
   (run-test test-tuple)
   (run-test test-optional)
-  (run-test test-tag))
+  (run-test test-tag)
+  (run-test test-eof-and-location)
+  (run-test test-whitespace)
+  (run-test test-integers)
+  (run-test test-number-expr)
+  (run-test test-identifier-expr)
+  (run-test test-char-expr)
+  (run-test test-string-expr)
+  (run-test test-list-expr)
+  (run-test test-fenders-and-tail)
+  (run-test test-quote-expr)
+  (run-test test-expr-and-file)
+  (run-test test-parse-file))

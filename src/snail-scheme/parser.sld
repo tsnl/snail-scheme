@@ -3,8 +3,7 @@
 
   (import
     (scheme base)
-    (scheme read)
-    (scheme write)
+    (scheme char)
     (snail-scheme common)
     (snail-scheme test-utils)
     (snail-scheme syntax))
@@ -18,8 +17,8 @@
       (make-input-stream
         filename ; filename to include in syntax `<loc>`
         chars ; list of chars
-        line ; the 1-indexed line of the first cluster in the list
-        column) ; the 1-indexed column of the first cluster in the list
+        line ; the 1-indexed line of the first character
+        column) ; the 1-indexed column of the first character
       input-stream?
       (filename input-stream-filename)
       (chars input-stream-chars)
@@ -50,15 +49,14 @@
           (old-column (input-stream-column input-stream))
           (car-char (car old-chars))
           (next-chars (cdr old-chars))
-          (next-line (next-input-stream-line car-char old-line))
-          (next-column (next-input-stream-column car-char old-column)))
+          ; Count CRLF as one line ending, and also accept a standalone CR.
+          (newline? (or (eqv? car-char #\newline)
+                     (and (eqv? car-char #\return)
+                       (not (and (pair? next-chars)
+                             (eqv? (car next-chars) #\newline))))))
+          (next-line (if newline? (+ 1 old-line) old-line))
+          (next-column (if newline? 1 (+ 1 old-column))))
         (make-input-stream filename next-chars next-line next-column)))
-
-    (define (next-input-stream-line advanced-char line)
-      (if (eqv? advanced-char #\newline) (+ 1 line) line))
-
-    (define (next-input-stream-column advanced-char column)
-      (if (eqv? advanced-char #\newline) 1 (+ 1 column)))
 
     (define (input-stream-loc input-stream)
       (make-loc
@@ -100,7 +98,7 @@
     ; IMPORTANT: the monadic type is (Parser T), NOT (ParseResult T).
     ;
 
-    ;;; `chain` produces behavior like a Haskell `chain` block.
+    ;;; `chain` sequences binders, starting with the value '().
     ;;;
     ;;; It is a parser combinator (i.e. its application returns a parser function) that chains
     ;;; multiple parsers together.
@@ -168,9 +166,12 @@
           (let
             ((parse-result (parser input-stream)))
             (if (parse-result-ok? parse-result)
-              (recur
-                (parse-result-input parse-result)
-                (cons (parse-result-value parse-result) acc))
+              (let ((next-input (parse-result-input parse-result)))
+                ; A nullable parser here is a programming error, not a parse failure.
+                (if (and (= (input-stream-line input-stream) (input-stream-line next-input))
+                     (= (input-stream-column input-stream) (input-stream-column next-input)))
+                  (error "repeat: parser succeeded without consuming input")
+                  (recur next-input (cons (parse-result-value parse-result) acc))))
               (parse-result-ok (reverse acc) input-stream))))))
 
     (define (choice . parsers)
@@ -221,7 +222,7 @@
 
     (define (repeat-at-least-once parser)
       (chain
-        (lambda (_) parser)
+        (lambda (_) (repeat parser))
         (lambda (v) (if (null? v) (fail) (return v)))))
 
     (define (discard parser)
@@ -233,7 +234,7 @@
       (discard (repeat (whitespace-char))))
 
     (define (whitespace-char)
-      (discard (char-from '(#\newline #\space #\tab))))
+      (discard (char-from '(#\newline #\return #\space #\tab))))
 
     (define (tuple . parsers)
       (let*
@@ -271,13 +272,14 @@
         (lambda (_)
           (tuple
             (repeat (expr))
+            (whitespace)
             (eof)))
         (lambda (t)
           (return (first t)))))
 
     (define (expr)
       (chain
-        (lambda (_) (discard (whitespace)))
+        (lambda (_) (whitespace))
         (lambda (_)
           (choice
             (list-expr)
@@ -285,11 +287,7 @@
             (string-expr)
             (number-expr)
             (identifier-expr)
-
-            ; TODO: support quote, quasiquote
-            ; quote-expr
-
-            ))))
+            (quote-expr)))))
 
     (define (list-expr)
       (chain
@@ -297,15 +295,18 @@
           (tuple
             (location)
             (left-fender)
-            (repeat-at-least-once (expr))
+            (repeat (expr))
             (improper-tail)
+            (whitespace)
             (right-fender)))
         (lambda (t)
           (let
             ((loc (first t))
               (elements (third t))
               (opt-tail (fourth t)))
-            (return (make-list-syntax elements opt-tail loc))))))
+            (if (and (null? elements) (not (null? opt-tail)))
+              (fail)
+              (return (make-list-syntax elements opt-tail loc)))))))
 
     (define (char-expr)
       (chain
@@ -327,12 +328,13 @@
               ; #\xHHHH...
               (chain
                 (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
-                (lambda (t) (return (second t))))
+                (lambda (t) (unicode-character (second t))))
 
               ; Otherwise, consume the first character after #\
               (chain
                 (lambda (_) (tuple (tag "#\\") (char-if (lambda (_) #t))))
-                (lambda (t) (return (second t)))))))
+                (lambda (t) (return (second t)))))
+            (token-end)))
         (lambda (t)
           (let
             ((loc (first t))
@@ -347,7 +349,6 @@
             (location)
             (discard (char #\"))
             (repeat (string-expr-element))
-            (optional (whitespace))
             (discard (char #\"))))
         (lambda (t)
           (let
@@ -371,25 +372,95 @@
         ; note the trailing semicolon
         (chain
           (lambda (_) (tuple (tag "\\x") (hexadecimal-integer) (tag ";")))
-          (lambda (t) (return (integer->char (second t)))))
+          (lambda (t) (unicode-character (second t))))
 
-        ; else, any character that isn't `"`
-        (char-if (lambda (c) (not (eqv? c #\"))))))
+        ; A backslash must introduce a supported escape.
+        (char-if (lambda (c) (not (memv c '(#\" #\\)))))))
+
+    (define (unicode-character codepoint)
+      (if (and (<= 0 codepoint #x10ffff)
+           (not (<= #xd800 codepoint #xdfff)))
+        (return (integer->char codepoint))
+        (fail)))
+
+    ; Identifiers, numbers, characters and dot must end at a delimiter or EOF.
+    (define (delimiter? c)
+      (memv c '(#\space #\tab #\newline #\return #\| #\( #\) #\" #\;)))
+
+    (define (token-end)
+      (lambda (input-stream)
+        (if (or (input-stream-eof? input-stream)
+             (delimiter? (peek-input-stream input-stream)))
+          (parse-result-ok '() input-stream)
+          (parse-result-err input-stream))))
 
     (define (number-expr)
-      ; TODO: flesh out numbers, required to parse identifier correctly too
-      (choice
-        (decimal-integer)
-        (chain
-          (lambda (_) (tuple (tag "#x") (hexadecimal-integer)))
-          (lambda (t) (return (second t))))))
+      ; Convert a whole token so malformed numbers cannot split into smaller atoms.
+      ; Numeric forms and precision follow the host's string->number implementation.
+      (chain
+        (lambda (_)
+          (tuple
+            (location)
+            (repeat-at-least-once (char-if (lambda (c) (not (delimiter? c)))))))
+        (lambda (t)
+          (let ((number (string->number (list->string (second t)))))
+            (if number
+              (return (make-atom-syntax number (first t)))
+              (fail))))))
 
     (define (identifier-expr)
       ; TODO: parse `|`...`|` identifiers
-      (repeat-at-least-once (char-if identifier-char?)))
+      (chain
+        (lambda (_)
+          (tuple (location) (repeat-at-least-once (char-if identifier-char?)) (token-end)))
+        (lambda (t)
+          (let* ((chars (second t)) (name (list->string chars)))
+            (if (and (identifier-start? chars) (not (string->number name)))
+              (return (make-atom-syntax (string->symbol name) (first t)))
+              (fail))))))
+
+    (define (identifier-initial? c)
+      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~))))
 
     (define (identifier-char? c)
-      (not (member c '(#\space #\. #\( #\) #\;))))
+      (or (identifier-initial? c) (char<=? #\0 c #\9) (memv c '(#\+ #\- #\. #\@))))
+
+    (define (sign-subsequent? c)
+      (or (identifier-initial? c) (memv c '(#\+ #\- #\@))))
+
+    (define (dot-subsequent? c)
+      (or (sign-subsequent? c) (eqv? c #\.)))
+
+    (define (identifier-start? chars)
+      (let ((head (car chars)) (tail (cdr chars)))
+        (cond
+          ((identifier-initial? head) #t)
+          ((memv head '(#\+ #\-))
+            (or (null? tail)
+              (sign-subsequent? (car tail))
+              (and (eqv? (car tail) #\.)
+                (pair? (cdr tail))
+                (dot-subsequent? (cadr tail)))))
+          ((eqv? head #\.)
+            (and (pair? tail) (dot-subsequent? (car tail))))
+          (else #f))))
+
+    (define (quote-expr)
+      (chain
+        (lambda (_)
+          (tuple
+            (location)
+            (choice (tag-val "'" 'quote)
+              (tag-val "`" 'quasiquote)
+              (tag-val ",@" 'unquote-splicing)
+              (tag-val "," 'unquote))
+            (expr)))
+        (lambda (t)
+          (let ((loc (first t)))
+            (return (make-list-syntax
+                     (list (make-atom-syntax (second t) loc) (third t))
+                     '()
+                     loc))))))
 
     (define (left-fender)
       (discard (char #\()))
@@ -400,7 +471,7 @@
     (define (improper-tail)
       (optional
         (chain
-          (lambda (_) (tuple (whitespace) (char #\.)))
+          (lambda (_) (tuple (whitespace) (char #\.) (token-end)))
           (lambda (_) (expr)))))
 
     (define (hexadecimal-integer)
