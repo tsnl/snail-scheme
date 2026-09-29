@@ -2,5 +2,16 @@
   "tab_size": 2,
   "file_types": {
     "Scheme": ["sld", "scm"]
+  },
+  "languages": {
+    "Scheme": {
+      "formatter": {
+        "external": {
+          "command": "schemat",
+          "arguments": []
+        }
+      },
+      "format_on_save": "on"
+    }
   }
 }

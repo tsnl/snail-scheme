@@ -8,6 +8,7 @@ pkgs.mkShell {
     chibi
     direnv
     gnumake
+    nixfmt
     schemat
   ];
 }
