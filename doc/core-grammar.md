@@ -140,6 +140,11 @@ sequential dependency, nest another `let`; do not silently give `let` the scope
 of Scheme's `let*`. Local bindings infer a monotype initially; polymorphism is
 expressed by a `λ` over type parameters.
 
+A `let` returns its body's value, and the body retains tail position. An unused
+affine binding is cleaned up at scope exit, not implicitly before the body.
+The [nested-let example](core-ir.md#local-bindings-and-sequencing) shows sequential
+dependencies while keeping every body a single expression.
+
 Evaluate a runtime call's operator and explicit arguments left to right. Static
 arguments are elaborated and erased where appropriate, without evaluating
 runtime effects during checking. Calls have exactly the explicit arity declared

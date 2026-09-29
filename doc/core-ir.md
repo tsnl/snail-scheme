@@ -139,6 +139,34 @@ available where needed. For recursive definitions, the complete λ header
 supplies the call signature before checking recursive calls; a separate
 top-level declaration is unnecessary.
 
+### Local bindings and sequencing
+
+`(let ((Name Initializer) ...) Body)` evaluates its initializers from left to
+right in the outer scope, then evaluates its single body expression with all
+new bindings in scope. Initializers in the same `let` cannot refer to one
+another's new bindings. Each binding infers its type from its initializer.
+
+Nest `let` expressions when a later computation depends on an earlier result:
+
+```scheme
+(def increment-twice
+  (λ #:captures () ((x i64))
+    → i64
+    = (let ((first-step (i64-add x 1)))
+        (let ((second-step (i64-add first-step 1)))
+          second-step))))
+```
+
+The outer initializer runs first. Its `first-step` binding is available to the
+inner initializer, and the inner body's value is the result of the whole
+expression. A body's final expression retains tail position.
+
+An initializer may be evaluated even when its binding is unused. Unused affine
+owners receive the usual cleanup at scope exit; a `let` does not imply that its
+bound value is discarded before evaluating the body. Explicit consumption can
+end ownership earlier. Lambda and `let` bodies each contain exactly one
+expression, with nesting expressing sequential work.
+
 ### Telescopes and scope
 
 Parameter lists and struct field lists are **telescopes**: ordered sequences
