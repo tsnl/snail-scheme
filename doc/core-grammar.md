@@ -66,7 +66,7 @@ Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
 Binding       ::= (Name Expr)
 Grade-Option  ::= empty | #:grade Grade
-Grade         ::= 0 | 1 | omega
+Grade         ::= 1 | omega
 Field-Value   ::= (Field Expr)
 Clause        ::= (Pattern Expr)
 
@@ -85,6 +85,9 @@ discard pattern, rather than a variable binder. Duplicate names within a binder
 group, simultaneous `let`, or match pattern are errors; telescope binders are
 also distinct across the implicit and explicit groups. Field labels are unique
 within a struct.
+
+Grades describe affine or unrestricted ownership. Phase availability and
+erasure use separate rules for the same types.
 
 Special forms take precedence over the application production when the head
 resolves to their built-in syntax binding. Their names are not first-class

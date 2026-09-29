@@ -15,8 +15,9 @@ implemented with immutable core data and functions.
 The proposal is a strict dependently typed language with unions, owned values,
 and specialization. Types are values, and `def` is the only top-level
 binding form. `struct` and `Π` construct type values; `λ` constructs
-functions. Grades belong to types. A user can specify a grade only in a
-`struct` expression, restricting the grade inferred from its fields.
+functions. Ownership grades are `1` and `omega` and belong to types. A user
+can specify a grade only in a `struct` expression, restricting the grade
+inferred from its fields.
 
 `Π` and `λ` each have a required explicit binder group, optionally preceded
 by an implicit binder group. Implicit-only parameters are inferred from the
@@ -436,14 +437,17 @@ inhabiting type `Element-Type` :
 
 | Grade | Meaning |
 | --- | --- |
-| `0` | Erased/static: unavailable to ordinary runtime computation |
 | `1` | Affine ownership: may be moved or consumed at most once |
 | `omega` | Unrestricted: may be duplicated and discarded safely |
 
-The permission order is `0 < 1 < omega`, not an automatic subtyping rule.
+The permission order is `1 < omega`, not an automatic subtyping rule.
 Changing a name or annotation cannot grant a value greater permissions.
 Grade `1` permits abandonment and cleanup; it does not enforce exactly-once
 protocols. Safe tag observations do not count as ownership transfers.
+
+Ownership describes duplication permissions; phase availability and erasure
+are separate concerns. The same type can describe a runtime value, a value used
+during compilation, or a value whose representation is erased.
 
 ### Structs can only restrict their fields' grade
 
@@ -479,9 +483,6 @@ The only user-written grade annotation occurs in a `struct` expression:
 
 (def empty-token
   (struct () #:grade 1))
-
-(def static-evidence
-  (struct () #:grade 0))
 ```
 
 `ticket` restricts a shareable payload to an affine wrapper. Consuming the
@@ -498,12 +499,13 @@ grade-of(union A B)  = min(grade-of(A), grade-of(B))
 grade-of(option A)   = grade-of(A)
 ```
 
-An explicit struct grade must be valid for every admitted instantiation. For
-example, declaring grade `1` around an unconstrained `A` needs the premise
-`grade-of(A) >= 1` ; `A` might otherwise be grade `0`. Declaring `omega`
-requires all fields to be unrestricted. Do not silently add those premises to
-the type of a supposedly unconstrained family. The syntax for such constraints
-remains an open part of the dependent interface design.
+An explicit struct grade must be valid for every admitted instantiation.
+Restricting a generic wrapper to grade `1` is always permitted by the ownership
+order: every field grade is `1` or `omega`. Declaring `omega` requires all fields
+to be unrestricted. Do not silently add that premise to the type of a
+supposedly unconstrained family. The syntax for such constraints remains an
+open part of the dependent interface design. Runtime representation eligibility
+is checked separately from ownership.
 
 A union cannot be duplicated if any possible variant is affine. After a sound
 refinement establishes that a live `(union ticket i64)` is specifically an
@@ -514,9 +516,8 @@ For recursive data, solve grade equations together from `omega`, propagating
 restrictions to their greatest fixed point and checking declared grades.
 Normalization must preserve nominal wrapper restrictions. Define `nothing`
 as the empty union; its grade can be `omega` vacuously because it has no values.
-It is distinct from grade `0`, whose static values may exist.
 
-### Type values, grade zero, and phases
+### Type values, erasure, and phases
 
 Distinguish the type value `ticket` from a value inhabiting it.
 `grade-of(ticket) = 1` restricts `ticket` instances, not the number of times
@@ -529,12 +530,16 @@ Treat `type` as a universe and maintain levels internally: `type` must not be
 its own type. Whether an expression denotes a type is determined by checking
 its type against the appropriate universe.
 
-A grade-`0` struct can lower the grade of its fields, but its construction and
-elimination belong to the erased/static fragment. This cannot erase the
-evaluation or cleanup of a live runtime resource. Under the minimum rule, a
-struct or union with an actual grade-`0` component is itself grade `0`.
-Type parameters and phantom indices are not stored fields and do not impose
-that restriction on a runtime container.
+Erasure does not require every erased value to be known during compilation:
+the checker may reason about an index symbolically without retaining an
+additional runtime argument for it. Conversely, an inferred argument may be
+needed at runtime. Implicitness alone grants no permission to erase it.
+
+Erasure must preserve required evaluation and cleanup of live resources.
+Ordinary ownership rules still apply when values execute at either phase.
+Type parameters and phantom indices are not automatically stored fields;
+their presence in an annotation does not lower a container's ownership grade.
+Explicit relevance annotations remain a separate future design.
 
 ## 5. Ownership, containers, and sharing
 
