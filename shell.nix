@@ -6,5 +6,6 @@ pkgs.mkShell {
     chibi
     direnv
     gnumake
+    schemat
   ];
 }
