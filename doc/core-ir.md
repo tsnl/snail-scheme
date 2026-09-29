@@ -15,9 +15,9 @@ implemented with immutable core data and functions.
 The proposal is a strict dependently typed language with unions, owned values,
 and specialization. Types are values, and `def` is the only top-level
 binding form. `struct` and `Π` construct type values; `λ` constructs
-functions. Ownership grades are `1` and `omega` and belong to types. A user
-can specify a grade only in a `struct` expression, restricting the grade
-inferred from its fields.
+functions. Ownership grades are `1` and `omega` and belong to types. Every
+`struct` expression supplies a grade explicitly; the checker verifies that it
+does not exceed the bound computed from its fields.
 
 `Π` and `λ` each require an implicit binder group followed by an explicit
 binder group, even when either is empty. Implicit-only parameters are inferred
@@ -69,7 +69,7 @@ family, a function, or an ordinary value follows from its expression.
 
 ```scheme
 (def point
-  (struct ((x i64) (y i64))))
+  (struct ((x i64) (y i64)) omega))
 
 (def scalar
   (union i64 boolean))
@@ -293,7 +293,7 @@ whereas its value constructor `make-pair` infers them:
 (def pair
   (λ #:captures () [] ((first-type type) (second-type type))
     → type
-    = (struct ((first first-type) (second second-type)))))
+    = (struct ((first first-type) (second second-type)) 1)))
 
 (def make-pair
   (λ #:captures () [(A type) (B type)] ((x A) (y B))
@@ -329,16 +329,21 @@ a constructor, predicate, or field accessor in the surrounding scope. Such
 operations can be ordinary explicitly defined values, or generic primitives
 like `new` and consuming pattern matching.
 
+The form is `(struct Telescope Grade)`, where `Grade` is the mandatory literal
+`1` or `omega`. The field telescope and grade are both present, including for
+an empty struct. The checker validates the declared grade against the fields;
+a higher-level language can synthesize this argument before emitting core.
+
 A type family is an ordinary function returning a type:
 
 ```scheme
 (def none
-  (struct ()))
+  (struct () omega))
 
 (def some
   (λ #:captures () [] ((value-type type))
     → type
-    = (struct ((value value-type)))))
+    = (struct ((value value-type)) 1)))
 
 (def option
   (λ #:captures () [] ((value-type type))
@@ -348,12 +353,12 @@ A type family is an ordinary function returning a type:
 (def ok
   (λ #:captures () [] ((value-type type))
     → type
-    = (struct ((value value-type)))))
+    = (struct ((value value-type)) 1)))
 
 (def err
   (λ #:captures () [] ((error-type type))
     → type
-    = (struct ((error error-type)))))
+    = (struct ((error error-type)) 1)))
 
 (def result
   (λ #:captures () [] ((value-type type) (error-type type))
@@ -387,7 +392,7 @@ Struct fields use the same telescope scoping rule as function parameters:
 ```scheme
 (def sized-array
   (struct ((length i64)
-           (items (array i64 length)))))
+           (items (array i64 length))) 1))
 ```
 
 Here `length` is a field value in scope in the type of `items`. A value of
@@ -501,48 +506,50 @@ during compilation, or a value whose representation is erased.
 Field-Grade = min(grade-of(Field-Type-1), ..., grade-of(Field-Type-N))
 min of no fields = omega
 
-no annotation:  grade-of(Struct-Type) = Field-Grade
-#:grade Grade:  require Grade <= Field-Grade; grade-of(Struct-Type) = Grade
+require Grade <= Field-Grade
+grade-of(Struct-Type) = Grade
 ```
 
 For dependent fields, check this bound in the context of the field telescope.
-At a fixed type-family application, the inferred grade must be safe for every
+At a fixed type-family application, the declared grade must be safe for every
 admitted value of the preceding fields. If a dependent payload can be affine,
 the package cannot be unrestricted. Retain formulas or constraints involving
 static family arguments; do not choose the package's grade by assuming a
-favorable runtime index. An explicit grade restriction must meet the same
-bound for all admitted field values.
+favorable runtime index. The declared grade must meet the bound for all
+admitted field values; there is no omitted-grade case in the core.
 
-The only user-written grade annotation occurs in a `struct` expression:
+The only user-written grade argument occurs in a `struct` expression:
 
 ```scheme
 (def ticket
-  (struct ((number i64)) #:grade 1))
+  (struct ((number i64)) 1))
 
 (def envelope
-  (struct ((ticket ticket) (label i64))))
+  (struct ((ticket ticket) (label i64)) 1))
 ; grade-of(envelope) = 1.
 
 (def bad-envelope
-  (struct ((ticket ticket)) #:grade omega))
+  (struct ((ticket ticket)) omega))
 ; Rejected: omega exceeds the field grade of 1.
 
 (def empty-token
-  (struct () #:grade 1))
+  (struct () 1))
 ```
 
 `ticket` restricts a shareable payload to an affine wrapper. Consuming the
 wrapper can recover an unrestricted integer, but cannot leave a second `ticket`.
-`point`, defined earlier, has grade `omega` from its integer fields.
+`point`, defined earlier, declares `omega`, justified by its integer fields.
 
-Retain grade formulas for parameterized types:
+The generic wrappers above declare `1`, which is valid for unrestricted and
+affine payloads alike. Their grade stays `1` even when instantiated with only
+unrestricted fields. Union grades continue to follow their variants:
 
 ```text
-grade-of(some A)     = grade-of(A)
-grade-of(pair A B)   = min(grade-of(A), grade-of(B))
-grade-of(result A E) = min(grade-of(A), grade-of(E))
+grade-of(some A)     = 1
+grade-of(pair A B)   = 1
+grade-of(result A E) = 1
 grade-of(union A B)  = min(grade-of(A), grade-of(B))
-grade-of(option A)   = grade-of(A)
+grade-of(option A)   = 1
 ```
 
 An explicit struct grade must be valid for every admitted instantiation.
@@ -939,8 +946,8 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
    identities, dependent construction and consuming matching, unions, and
    pattern refinement. Exercise length-and-array packages, including
    rejected forward references and mismatched field dependencies.
-3. **Type grades.** Compute struct and union grades, reject upward grade
-   annotations, and check moves, captures, branches, and cleanup.
+3. **Type grades.** Validate explicit struct grades against field bounds,
+   compute union grades, and check moves, captures, branches, and cleanup.
 4. **Immutable interpretation.** Run checked programs with explicit frames and
    a trampoline; retain symbolic indices during type checking. Exercise the
    immutable subset through the full pipeline, including cleanup and proper

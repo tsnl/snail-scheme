@@ -25,7 +25,7 @@ and patterns are reader syntax until their enclosing construct interprets them.
 Matching `()`, `[]`, and `{}` all produce the same list structure; mismatched
 fenders are errors. Square brackets around implicit parameters are a convention.
 Preserve locations, but delimiter kind need not affect elaboration. Recognize
-`λ`, `Π`, `→`, `=`, `#:captures`, and `#:grade` as complete tokens. Binder casing follows the
+`λ`, `Π`, `→`, `=`, and `#:captures` as complete tokens. Binder casing follows the
 core design; the reader must also preserve arbitrary Scheme identifier spelling
 in syntax data instead of applying the core naming convention to it.
 
@@ -55,7 +55,7 @@ Expr          ::= Name
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
                 | (let (Binding*) Expr)
-                | (struct Telescope Grade-Option)
+                | (struct Telescope Grade)
                 | (union Type-Expr*)
                 | (new Type-Expr (Field-Value*))
                 | (match Expr Clause+)
@@ -63,7 +63,6 @@ Expr          ::= Name
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
 Binding       ::= (Name Expr)
-Grade-Option  ::= empty | #:grade Grade
 Grade         ::= 1 | omega
 Field-Value   ::= (Field Expr)
 Clause        ::= (Pattern Expr)
@@ -76,20 +75,23 @@ Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
 
-The spelling `empty` means absence, not a source token. Every core pattern name
-is an ordinary binder, including `_` if used. Duplicate names within a binder
-group, simultaneous `let`, or match pattern are errors; telescope binders are
-also distinct across the implicit and explicit groups. Field labels are unique
-within a struct.
+Every core pattern name is an ordinary binder, including `_` if used.
+Duplicate names within a binder group, simultaneous `let`, or match pattern
+are errors; telescope binders are also distinct across the implicit and
+explicit groups. Field labels are unique within a struct.
 
 Grades describe affine or unrestricted ownership. Phase availability and
-erasure use separate rules for the same types.
+erasure use separate rules for the same types. Every struct supplies a literal
+grade as its final argument. The checker computes its field-grade bound and
+rejects a declared grade above it; higher-level syntax can synthesize the
+argument. Generic structs must justify their declared grade for every admitted
+instantiation. An unconstrained generic wrapper can declare `1`.
 
 Special forms take precedence over the application production when the head
 resolves to their built-in syntax binding. Their names are not first-class
 runtime functions. Ordinary lexical bindings may shadow syntax bindings; the
 resolver, rather than a parser keyed only by spelling, selects the form.
-The structural markers `→`, `=`, `#:captures`, and `#:grade` are recognized in their designated
+The structural markers `→`, `=`, and `#:captures` are recognized in their designated
 positions. Empty `()` is not an expression; `(f)` is a zero-argument call.
 
 There are no separate declaration forms for types or functions. There is no
@@ -386,42 +388,42 @@ use flat metadata tables rather than introducing recursive pattern datatypes:
 (def variable-plan
   (struct ((slot i64)
            (identifier syntax)
-           (repetition-sites (list-of i64)))))
+           (repetition-sites (list-of i64))) omega))
 
 (def repetition-plan
   (struct ((site i64)
            (pattern-path (list-of i64))
-           (parent-sites (list-of i64)))))
+           (parent-sites (list-of i64))) omega))
 
 (def rule-plan
   (struct ((pattern syntax)
            (template syntax)
            (variables (list-of variable-plan))
-           (repetitions (list-of repetition-plan)))))
+           (repetitions (list-of repetition-plan))) omega))
 
 (def rules-transformer
   (struct ((definition-view binding-view)
            (ellipsis syntax)
            (literals (list-of syntax))
-           (rules (list-of rule-plan)))))
+           (rules (list-of rule-plan))) omega))
 
 (def capture-entry
   (struct ((slot i64)
            (indices (list-of i64))
-           (form syntax))))
+           (form syntax)) omega))
 
 (def repetition-extent
   (struct ((site i64)
            (parent-indices (list-of i64))
-           (count i64))))
+           (count i64)) omega))
 
 (def captures
   (struct ((entries (list-of capture-entry))
-           (extents (list-of repetition-extent)))))
+           (extents (list-of repetition-extent))) omega))
 
 (def selected-rule
   (struct ((rule rule-plan)
-           (captures captures))))
+           (captures captures)) omega))
 ```
 
 Assign stable per-rule slots and repetition-site IDs while validating a pattern.
@@ -590,7 +592,7 @@ during expansion/elaboration, rather than generating them during evaluation.
 
 The current `syntax.sld` already separates atoms and located lists with optional
 dotted tails. It is still a reader, not this core-form parser. It currently accepts
-only parenthesis fenders; matching square/curly fenders, `→`, `#:captures`, and `#:grade` need
+only parenthesis fenders; matching square/curly fenders, `→`, and `#:captures` need
 lexical work. Vectors and binding scopes also remain unimplemented. This proposal
 does not claim that the examples already run.
 
