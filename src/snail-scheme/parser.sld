@@ -228,10 +228,40 @@
       (map parser (lambda (_) '())))
 
     (define (whitespace)
-      (discard (repeat (whitespace-char))))
+      ; Intertoken space includes line, nested block and datum comments.
+      (discard (repeat (choice (whitespace-char) (line-comment) (block-comment) (datum-comment)))))
 
     (define (whitespace-char)
       (discard (char-from '(#\newline #\return #\space #\tab))))
+
+    (define (line-comment)
+      (discard
+        (tuple (char #\;)
+          (repeat (char-if (lambda (c) (not (memv c '(#\newline #\return)))))))))
+
+    (define (block-comment)
+      (chain
+        (lambda (_) (tag "#|"))
+        (lambda (_)
+          (lambda (input)
+            (let loop ((input input) (depth 1))
+              (let ((open ((tag "#|") input))
+                    (close ((tag "|#") input)))
+                (cond
+                  ((parse-result-ok? open)
+                    (loop (parse-result-input open) (+ depth 1)))
+                  ((parse-result-ok? close)
+                    (if (= depth 1)
+                      (parse-result-ok '() (parse-result-input close))
+                      (loop (parse-result-input close) (- depth 1))))
+                  ((input-stream-eof? input) (parse-result-err input))
+                  (else (loop (next-input-stream input) depth)))))))))
+
+    (define (datum-comment)
+      (discard
+        (chain
+          (lambda (_) (tag "#;"))
+          (lambda (_) (expr)))))
 
     (define (tuple . parsers)
       (define (make-binder parser)
@@ -257,6 +287,7 @@
             (list-expr)
             (char-expr)
             (string-expr)
+            (boolean-expr)
             (number-expr)
             (identifier-expr)
             (quote-expr)))))
@@ -360,16 +391,26 @@
           (parse-result-ok '() input-stream)
           (parse-result-err input-stream))))
 
+    (define (token)
+      (map (repeat-at-least-once (char-if (lambda (c) (not (delimiter? c))))) list->string))
+
+    (define (boolean-expr)
+      (chain
+        (lambda (_) (tuple (location) (token)))
+        (lambda (t)
+          (let ((text (string-downcase (second t))) (loc (first t)))
+            (cond
+              ((member text '("#t" "#true")) (return (make-atom-syntax #t loc)))
+              ((member text '("#f" "#false")) (return (make-atom-syntax #f loc)))
+              (else (fail)))))))
+
     (define (number-expr)
       ; Convert a whole token so malformed numbers cannot split into smaller atoms.
       ; Numeric forms and precision follow the host's string->number implementation.
       (chain
-        (lambda (_)
-          (tuple
-            (location)
-            (repeat-at-least-once (char-if (lambda (c) (not (delimiter? c)))))))
+        (lambda (_) (tuple (location) (token)))
         (lambda (t)
-          (let ((number (string->number (list->string (second t)))))
+          (let ((number (string->number (second t))))
             (if number
               (return (make-atom-syntax number (first t)))
               (fail))))))
