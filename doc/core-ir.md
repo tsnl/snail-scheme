@@ -8,11 +8,8 @@ output remain future work.
 
 ## 1. Grammar
 
-`*`, `+`, and `|` below are metanotation. The right-hand `◰` marker identifies
-forms eliminated during expansion/loading. It is documentation notation, not
-source syntax or part of an identifier. Expanded bodies or library metadata may survive, but
-the marked form does not appear in the final core AST. This is one language
-reference, with no separate Core+ language.
+`*`, `+`, and `|` below are grammar metanotation. This is one language reference;
+the expanded AST contains the forms that survive macro expansion.
 
 `Name` and `Field` are identifiers. `Type-Expr` is an expression checked to denote
 a type during elaboration. Special forms are selected by resolved syntax bindings,
@@ -27,13 +24,19 @@ outer declaration grammar before imports; this is the bootstrap boundary, not
 an implicit import of expression syntax. Ordinary type/value identifiers and
 the structural markers `→` and `=` retain their spellings.
 
+**Legend: `◰` = eliminated by macro expansion.** It is a documentation marker,
+not a source token. Unmarked forms remain available in the expanded AST.
+In particular, `define-library`, `import`, `export`, and library-body `begin`
+are retained. Their later lowering into metadata or instruction sequences is
+outside the meaning of this marker.
+
 ```text
 Program       ::= Import-Decl* Item*
 Library       ::= (define-library Library-Name Library-Decl*)
 Library-Decl  ::= Import-Decl
-                | (export Export-Spec*)                                   ◰
-                | (begin Item*)                                           ◰
-Import-Decl   ::= (import Import-Set*)                                    ◰
+                | (export Export-Spec*)
+                | (begin Item*)
+Import-Decl   ::= (import Import-Set*)
 Import-Set    ::= Library-Name
                 | (only Import-Set Name*)
                 | (except Import-Set Name*)
@@ -91,12 +94,12 @@ or build an ordinary `Apply` node. Only the last case requires a proper list
 of operator/operand expressions. There is no separate macro-use production or
 AST node, and macro operands are not prematurely parsed as expressions.
 
-`define-library` remains a container in the expanded AST. Its declaration
-wrappers are processed into a resolved interface, dependencies, and ordered
-expanded body items; imports/exports survive as metadata. Library-body `begin`
-wrappers flatten into that body, while `#%-begin` retains its nested scope.
-An item-position application may expand to a definition. The macro
-pattern/template grammar is in section 5.
+`define-library` and its `import`, `export`, and body `begin` declarations remain
+in the expanded AST, annotated with resolved bindings and dependencies. Expand
+items inside each library-body `begin` in the shared library scope; it does not
+create the nested scope of `#%-begin`. Later lowering may extract interface
+metadata and flatten body sequences. An item-position application may expand to
+a definition. The macro pattern/template grammar is in section 5.
 
 The first function telescope is implicit, the second explicit. Both are
 mandatory; `#%-λ` also requires its leading capture list. Empty lists are valid.
@@ -451,7 +454,7 @@ and report checked failures. Arithmetic is defined as wrapping or checked.
 | --- | --- |
 | Syntax objects | Atoms, lists/improper tails, source locations, and lexical context; later vectors |
 | Library records | Cached interfaces, binding identities, transformer descriptors, and dependencies |
-| Core AST | Retained `define-library` containers, expanded core forms, ordinary applications, and resolved value references; no `◰` forms |
+| Core AST | Libraries with retained import/export/body declarations, expanded core forms, ordinary applications, and resolved references; no `◰` forms |
 | Checked IR | Inferred arguments, types, union conversions, captures, ownership operations, and recursive groups |
 
 The existing syntax records already provide structure and locations. Add lexical
@@ -467,8 +470,9 @@ this lexical context when installing a transformer, not by a preceding textual
 rewrite or a runtime test.
 
 The final core AST is still unchecked: type, grade, and initialization analysis
-follow. A library node retains its name, resolved interface, dependencies, and
-ordered body. Its metadata need not execute as expression nodes.
+follow. A library node retains its declarations and ordered bodies, annotated
+with a resolved interface and dependencies. Retention does not make import/export
+declarations executable expressions; later lowering can extract their metadata.
 
 The reader accepts data outside the core expression grammar. An expander must
 resolve heads before parsing macro operands as expressions. Locations alone do
@@ -506,10 +510,11 @@ not yet full R7RS support.
 
 Map library names to source locations and cache loaded library records per
 compilation. Preserve each library as a distinct AST container through expansion.
-Resolve imports before body expansion; concatenate library-body
-`begin` declarations in source order into one library scope. These declarations
-do not create the nested scope of `#%-begin`. Reject cyclic library dependencies
-initially; this does not prohibit mutually recursive functions within a library.
+Resolve imports before body expansion; process library-body `begin` declarations
+in source order in one library scope, retaining their wrappers in the expanded
+AST. They do not create the nested scope of `#%-begin`. Reject cyclic library
+dependencies initially; this does not prohibit mutually recursive functions
+within a library.
 
 Imports and re-exports preserve binding identities through filtering, prefixing,
 and renaming. Diagnose missing libraries, nonexistent requested names, unresolved
