@@ -464,6 +464,51 @@ The exact identity keys need formalization before implementing macros and
 cross-module serialization. Allocating a fresh nominal identity on every
 normalization step would make type equality unstable and is not the proposal.
 
+### Structural tuples
+
+`(tuple-of Type-Expression ...)` constructs a structural product type, and
+`(tuple Expression ...)` constructs a value with those ordered element types.
+Tuple elements evaluate left to right. A tuple can be passed, returned, stored,
+or consumed as one ordinary value.
+
+```scheme
+(tuple-of i64 boolean)
+(tuple 20 #t)
+
+(match (tuple 20 22)
+  ((tuple left right) (i64-add left right)))
+```
+
+Tuple types are equal when their arities and corresponding element types are
+equal; they have no nominal occurrence identity. `tuple-of` and `tuple` have
+intrinsic n-ary rules, like `union`, so they do not require ordinary variadic
+function types. `(tuple-of)` is the unit type with the single value `(tuple)`.
+The one-element type `(tuple-of i64)` is distinct from `i64`; there is no implicit
+packing, unpacking, or flattening of nested tuples.
+
+A tuple's grade is computed from its elements:
+
+```text
+grade-of(tuple-of A-1 ... A-N) = min(grade-of(A-1), ..., grade-of(A-N))
+grade-of(tuple-of) = omega
+```
+
+A consuming tuple pattern moves every element into its own binding and leaves
+no second owner of an affine aggregate. Unused elements follow the ordinary
+scope-exit cleanup rules. No projection may duplicate an affine element while
+retaining a usable owner of the tuple. Only `struct` accepts a user-written
+grade restriction; a nominal wrapper can restrict a tuple's computed grade.
+
+These initial tuple types have no element binders: their types may refer to
+the surrounding context, but a later element type cannot bind or refer to an
+earlier tuple element. Use a struct telescope to package dependent fields.
+The library `pair` above remains a nominal struct family with its declared
+grade; it is a different type from a structural two-element tuple.
+
+Tuple semantics do not require a heap object or observable allocation identity.
+A C backend may return a fixed-layout aggregate, use a suitable calling
+convention, or eliminate the aggregate when it is immediately consumed.
+
 ### Dependent fields and dependent pairs
 
 Struct fields use the same telescope scoping rule as function parameters:

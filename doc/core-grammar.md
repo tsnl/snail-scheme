@@ -57,6 +57,8 @@ Expr          ::= Name
                 | (ann Expr Type-Expr)
                 | (begin Item* Expr)
                 | (struct Telescope Grade)
+                | (tuple-of Type-Expr*)
+                | (tuple Expr*)
                 | (union Type-Expr*)
                 | (new Type-Expr (Field-Value*))
                 | (match Expr Clause+)
@@ -72,6 +74,7 @@ Pattern       ::= Name
                 | Literal
                 | (is Type-Expr Name)
                 | (new Type-Expr (Field-Binding*))
+                | (tuple Name*)
 Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
@@ -110,6 +113,13 @@ driver may select a defined entry function after initialization.
 It remains an expression producing a type value. `(union)` denotes `nothing`.
 `singleton` can be a unary intrinsic, initially restricted to supported pure
 scalar values. Neither adds a top-level introduction form.
+
+`tuple-of` and `tuple` are intrinsic n-ary forms for a structural product type
+and a value of that type. Their arities are fixed by the source operands; they
+are not first-class variadic functions. `(tuple-of)` is the unit type, inhabited
+by `(tuple)`. A one-element tuple is distinct from its element, and nested tuples
+are not flattened. Tuple types compare their ordered element types, without
+nominal occurrence identities. See [structural tuples](core-ir.md#structural-tuples).
 
 ## 3. Rules needed alongside the grammar
 
@@ -168,6 +178,12 @@ evaluate fields in that order, substituting earlier values into later types.
 This avoids giving field-label reordering an implicit effect on evaluation.
 The type expression itself must meet the existing type-formation restrictions.
 
+Evaluate `tuple` elements left to right and transfer their values into the
+resulting tuple. The checker infers its element types, or checks each element
+against the corresponding expected tuple type. A tuple's grade is the minimum
+of its element grades, with grade `omega` for the empty tuple; there is no grade
+argument. The ordinary cleanup rules apply if construction is abandoned.
+
 ### Elimination and dependent scope
 
 `match` evaluates its scrutinee once. Initially patterns are shallow: nested
@@ -177,6 +193,12 @@ must bind every field, including unused ones. Pattern binders are in scope only
 in their branch body. Unused affine bindings receive ordinary cleanup at scope
 exit. A higher-level wildcard lowers to a fresh unused binder for each occurrence;
 the core gives `_` normal binding, reference, and duplicate-name semantics.
+
+A `(tuple Name*)` pattern consumes a tuple with a statically known `tuple-of`
+type and binds every element in order. The number of names must match the
+tuple's arity. The pattern is irrefutable for that type and does not add dynamic
+dependent type tests to `is`. Patterns remain shallow; use another match to
+destructure a nested element.
 
 ```scheme
 (def
