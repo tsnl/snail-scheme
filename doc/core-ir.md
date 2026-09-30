@@ -13,9 +13,9 @@ parser-facing forms, their binding rules, and a later `syntax-rules` engine
 implemented with immutable core data and functions.
 
 The proposal is a strict dependently typed language with unions, owned values,
-and specialization. Types are values, and `def` is the only top-level
-binding form. `struct` and `Π` construct type values; `λ` constructs
-functions. Ownership grades are `1` and `omega` and belong to types. Every
+and specialization. Types are values, and `def` introduces binding groups at
+top level or inside a scoped `begin`. `struct` and `Π` construct type values;
+`λ` constructs functions. Ownership grades are `1` and `omega` and belong to types. Every
 `struct` expression supplies a grade explicitly; the checker verifies that it
 does not exceed the bound computed from its fields.
 
@@ -57,36 +57,43 @@ those languages' own spelling.
 
 ## 1. One binding form, type values, and dependent functions
 
-Every top-level binding has the same shape:
+Every binding statement introduces one or more ordered definitions:
 
 ```text
-(def Name Expression)
+(def (Name Expression) ...)
 ```
 
 There is no separate type declaration, universal-quantification declaration, or
 standalone top-level type-specifier form. Whether `name` denotes a type, a type
 family, a function, or an ordinary value follows from its expression.
+Each entry has its own initializer. A `def` adds its bindings to the containing
+scope; it is a statement, rather than a value-producing expression.
 
 ```scheme
-(def point
-  (struct ((x i64) (y i64)) omega))
+(def
+  (point
+    (struct ((x i64) (y i64)) omega)))
 
-(def scalar
-  (union i64 boolean))
+(def
+  (scalar
+    (union i64 boolean)))
 
-(def id
-  (λ () [(Element-Type star)] ((x Element-Type))
-    → Element-Type
-    = x))
+(def
+  (id
+    (λ () [(Element-Type star)] ((x Element-Type))
+      → Element-Type
+      = x)))
 
-(def id-type
-  (Π [(Element-Type star)] ((x Element-Type))
-    → Element-Type))
+(def
+  (id-type
+    (Π [(Element-Type star)] ((x Element-Type))
+      → Element-Type)))
 
-(def increment
-  (λ () [] ((x i64))
-    → i64
-    = (i64-add x 1)))
+(def
+  (increment
+    (λ () [] ((x i64))
+      → i64
+      = (i64-add x 1))))
 ```
 
 A binder is `(Name Type-Expression)`, in both `Π` and `λ`. There is no
@@ -121,9 +128,9 @@ groups, result type, and body.
 
 The result type is mandatory on every λ, including anonymous functions
 and functions that return types. All parameters are in scope in that type
-and in the body. Use a single body expression, nesting `let` when sequencing
-is needed; `begin` can be derived later. A nondependent function type is just a
-`Π` whose result does not mention its arguments.
+and in the body. Use a single body expression, with `begin` for local definitions
+and sequencing. A nondependent function type is just a `Π` whose result does
+not mention its arguments.
 
 The checker derives `id`'s call signature as `id-type` directly from the λ
 header. It verifies that the declared result expression denotes a type, then
@@ -133,39 +140,97 @@ type checking, rather than executing arbitrary effects or consuming owners.
 At a call, substitute the inferred and supplied arguments into the result
 type, preserving symbolic dependencies when values are not statically known.
 
-Local `let` bindings and implicit call arguments can still infer their types
+Local `def` bindings and implicit call arguments can still infer their types
 and values. An expression ascription such as `(ann e Element-Type)` remains
-available where needed. For recursive definitions, the complete λ header
-supplies the call signature before checking recursive calls; a separate
+available where needed. For recursive function groups, the complete λ headers
+supply call signatures before checking recursive calls; a separate
 top-level declaration is unnecessary.
 
 ### Local bindings and sequencing
 
-`(let ((Name Initializer) ...) Body)` evaluates its initializers from left to
-right in the outer scope, then evaluates its single body expression with all
-new bindings in scope. Initializers in the same `let` cannot refer to one
-another's new bindings. Each binding infers its type from its initializer.
+`(begin Item ... Result)` always introduces a fresh lexical scope. An item is
+either a `def` statement or an expression. Process items in source order;
+evaluate expressions where they occur and discard nonfinal results with any
+required cleanup. The final expression supplies the block's value and is in
+tail position. A block requires a final expression, so an empty block or a
+block ending in `def` is not admitted by the initial grammar.
 
-Nest `let` expressions when a later computation depends on an earlier result:
+Each `def` contains one or more `(Name Initializer)` entries, evaluated from
+left to right. An ordinary initializer may use bindings from earlier entries
+and earlier statements. Local bindings infer their types from their initializers.
+Separate `def` statements share the surrounding block scope; nested `begin`
+creates another scope whose definitions do not escape into its parent.
 
 ```scheme
-(def increment-twice
-  (λ () [] ((x i64))
-    → i64
-    = (let ((first-step (i64-add x 1)))
-        (let ((second-step (i64-add first-step 1)))
+(def
+  (increment-twice
+    (λ () [] ((x i64))
+      → i64
+      = (begin
+          (def (first-step (i64-add x 1))
+               (second-step (i64-add first-step 1)))
           second-step))))
 ```
 
-The outer initializer runs first. Its `first-step` binding is available to the
-inner initializer, and the inner body's value is the result of the whole
-expression. A body's final expression retains tail position.
+The `first-step` initializer runs before `second-step`; both names belong to
+this `begin` scope. A binding remains initialized even when later unused, and
+unused affine owners receive cleanup at scope exit. In contrast, an unbound
+nonfinal expression result is discarded before the next item executes. Required
+cleanup on returns and abandoned paths follows the ownership rules.
 
-An initializer may be evaluated even when its binding is unused. Unused affine
-owners receive the usual cleanup at scope exit; a `let` does not imply that its
-bound value is discarded before evaluating the body. Explicit consumption can
-end ownership earlier. Lambda and `let` bodies each contain exactly one
-expression, with nesting expressing sequential work.
+A source file is a sequence of the same items in a file scope; it can end with
+a definition and has no implicit result value. Top-level expressions execute
+in order and their results are discarded. At either level, a macro in item
+position can expand to one `def` containing several entries. It does not need
+to splice forms or export bindings from a nested `begin`.
+
+Nonrecursive `let` can be supplied by higher-level syntax. Lower simultaneous
+initializers to fresh temporary definitions before introducing the user names,
+so a later initializer does not accidentally see an earlier new binder. An
+immediately invoked lambda can also express local binding where its explicit
+result type is representable; lowering must preserve initializer evaluation
+order and the timing of consuming captures. Checked terms may retain block
+bindings directly instead of allocating a closure for each local definition.
+
+### Recursive function groups
+
+Mutually recursive functions belong to the same `def`. Check their complete
+lambda headers before checking their bodies, making the group functions
+available as recursive references in those bodies. Separate `def` statements
+are sequential: an earlier one cannot refer forward to a later definition.
+
+```scheme
+(begin
+  (def
+    (even
+      (λ () [] ((n i64))
+        → boolean
+        = (match n
+            (0 #t)
+            (remaining (odd (i64-sub remaining 1))))))
+    (odd
+      (λ () [] ((n i64))
+        → boolean
+        = (match n
+            (0 #f)
+            (remaining (even (i64-sub remaining 1)))))))
+  (even 10))
+```
+
+Initially, a group with recursive or forward function references must consist
+entirely of lambdas with unrestricted external captures. Check the headers and
+capture lists in the environment preceding the group; group function names
+are body-only recursive references, not captured outer values. Construct the
+environments in entry order and expose callable functions only once the whole
+group is ready. No body runs during construction. Reject recursive value or
+type initializers and reads of uninitialized bindings. Nonrecursive definitions
+retain the ordinary affine-capture rules.
+
+The interpreter can use shared immutable external environments and references
+to the group's code, without storing closures in a cyclic value graph. The
+compiler can find strongly connected components and lower them as recursive
+function groups. This recursion executes in programs or transformer evaluation;
+it does not become unrestricted reduction during type normalization.
 
 ### Telescopes and scope
 
@@ -191,9 +256,10 @@ the phase and ownership restrictions below still apply.
 Dependent result types can refer to explicit arguments:
 
 ```scheme
-(def array-result-type
-  (Π [(Element-Type star)] ((x i64) (y i64) (seed Element-Type))
-    → (result (array Element-Type (+ x y)) array-error)))
+(def
+  (array-result-type
+    (Π [(Element-Type star)] ((x i64) (y i64) (seed Element-Type))
+      → (result (array Element-Type (+ x y)) array-error))))
 ```
 
 The lengths use the ordinary `i64` type. With `(x Element-Type)` and
@@ -209,10 +275,11 @@ into an array.
 A more useful dependent interface is concatenation:
 
 ```scheme
-(def array-append-type
-  (Π [(Element-Type star) (M i64) (N i64)]
-      ((xs (array Element-Type M)) (ys (array Element-Type N)))
-    → (result (array Element-Type (+ M N)) array-error)))
+(def
+  (array-append-type
+    (Π [(Element-Type star) (M i64) (N i64)]
+        ((xs (array Element-Type M)) (ys (array Element-Type N)))
+      → (result (array Element-Type (+ M N)) array-error))))
 ```
 
 Here explicit arrays determine `Element-Type`, `M`, and `N`. The successful
@@ -224,10 +291,11 @@ A λ uses the same dependent result syntax. For example, preserving an
 array also preserves its element type and length:
 
 ```scheme
-(def keep-array
-  (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
-    → (array Element-Type N)
-    = xs))
+(def
+  (keep-array
+    (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
+      → (array Element-Type N)
+      = xs)))
 ```
 
 The declared result is a type expression in the arguments' scope. More complex
@@ -272,11 +340,13 @@ The implicit group is never an alternative calling convention. For `id`,
 form supplying the implicit group.
 
 ```scheme
-(def example-integer
-  (id (ann 42 i64)))
+(def
+  (example-integer
+    (id (ann 42 i64))))
 
-(def example-boolean
-  (id #t))
+(def
+  (example-boolean
+    (id #t)))
 ```
 
 The annotation on `42` checks an explicit argument. It does not supply
@@ -290,18 +360,21 @@ For example, the type family `pair` below takes its type arguments explicitly,
 whereas its value constructor `make-pair` infers them:
 
 ```scheme
-(def pair
-  (λ () [] ((first-type star) (second-type star))
-    → star
-    = (struct ((first first-type) (second second-type)) 1)))
+(def
+  (pair
+    (λ () [] ((first-type star) (second-type star))
+      → star
+      = (struct ((first first-type) (second second-type)) 1))))
 
-(def make-pair
-  (λ () [(A star) (B star)] ((x A) (y B))
-    → (pair A B)
-    = (new (pair A B) ((first x) (second y)))))
+(def
+  (make-pair
+    (λ () [(A star) (B star)] ((x A) (y B))
+      → (pair A B)
+      = (new (pair A B) ((first x) (second y))))))
 
-(def example-pair
-  (make-pair (id (ann 42 i64)) (id #t)))
+(def
+  (example-pair
+    (make-pair (id (ann 42 i64)) (id #t))))
 ```
 
 `new` is proposed expression syntax for constructing a value of a struct type.
@@ -337,33 +410,39 @@ a higher-level language can synthesize this argument before emitting core.
 A type family is an ordinary function returning a type:
 
 ```scheme
-(def none
-  (struct () omega))
+(def
+  (none
+    (struct () omega)))
 
-(def some
-  (λ () [] ((value-type star))
-    → star
-    = (struct ((value value-type)) 1)))
+(def
+  (some
+    (λ () [] ((value-type star))
+      → star
+      = (struct ((value value-type)) 1))))
 
-(def option
-  (λ () [] ((value-type star))
-    → star
-    = (union none (some value-type))))
+(def
+  (option
+    (λ () [] ((value-type star))
+      → star
+      = (union none (some value-type)))))
 
-(def ok
-  (λ () [] ((value-type star))
-    → star
-    = (struct ((value value-type)) 1)))
+(def
+  (ok
+    (λ () [] ((value-type star))
+      → star
+      = (struct ((value value-type)) 1))))
 
-(def err
-  (λ () [] ((error-type star))
-    → star
-    = (struct ((error error-type)) 1)))
+(def
+  (err
+    (λ () [] ((error-type star))
+      → star
+      = (struct ((error error-type)) 1))))
 
-(def result
-  (λ () [] ((value-type star) (error-type star))
-    → star
-    = (union (ok value-type) (err error-type))))
+(def
+  (result
+    (λ () [] ((value-type star) (error-type star))
+      → star
+      = (union (ok value-type) (err error-type)))))
 ```
 
 The type-forming functions use explicit-only parameters so `(option i64)` and
@@ -390,9 +469,10 @@ normalization step would make type equality unstable and is not the proposal.
 Struct fields use the same telescope scoping rule as function parameters:
 
 ```scheme
-(def sized-array
-  (struct ((length i64)
-           (items (array i64 length))) 1))
+(def
+  (sized-array
+    (struct ((length i64)
+             (items (array i64 length))) 1)))
 ```
 
 Here `length` is a field value in scope in the type of `items`. A value of
@@ -428,18 +508,20 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 `Π` does not make it an ordinary first-class variadic function.
 
 ```scheme
-(def maybe
-  (λ () [] ((value-type star))
-    → star
-    = (union (singleton #f) value-type)))
+(def
+  (maybe
+    (λ () [] ((value-type star))
+      → star
+      = (union (singleton #f) value-type))))
 
-(def scalar-to-integer
-  (λ () [] ((x scalar))
-    → i64
-    = (match x
-        ((is i64 integer) integer)
-        (#t (ann 1 i64))
-        (#f (ann 0 i64)))))
+(def
+  (scalar-to-integer
+    (λ () [] ((x scalar))
+      → i64
+      = (match x
+          ((is i64 integer) integer)
+          (#t (ann 1 i64))
+          (#f (ann 0 i64))))))
 ```
 
 `#f` is a Boolean value; `(singleton #f)` is the type value containing only
@@ -521,19 +603,23 @@ admitted field values; there is no omitted-grade case in the core.
 The only user-written grade argument occurs in a `struct` expression:
 
 ```scheme
-(def ticket
-  (struct ((number i64)) 1))
+(def
+  (ticket
+    (struct ((number i64)) 1)))
 
-(def envelope
-  (struct ((ticket ticket) (label i64)) 1))
+(def
+  (envelope
+    (struct ((ticket ticket) (label i64)) 1)))
 ; grade-of(envelope) = 1.
 
-(def bad-envelope
-  (struct ((ticket ticket)) omega))
+(def
+  (bad-envelope
+    (struct ((ticket ticket)) omega)))
 ; Rejected: omega exceeds the field grade of 1.
 
-(def empty-token
-  (struct () 1))
+(def
+  (empty-token
+    (struct () 1)))
 ```
 
 `ticket` restricts a shareable payload to an affine wrapper. Consuming the
@@ -605,16 +691,18 @@ exclusive branches are checked per path; sequential uses accumulate. Clean up
 unused owners on scope exit and abandoned control paths.
 
 ```scheme
-(def bad-copy
-  (λ () [] ((value ticket))
-    → (pair ticket ticket)
-    = (make-pair value value)))
+(def
+  (bad-copy
+    (λ () [] ((value ticket))
+      → (pair ticket ticket)
+      = (make-pair value value))))
 ; Rejected: two ownership transfers from one ticket.
 
-(def copy-integer
-  (λ () [] ((n i64))
-    → (pair i64 i64)
-    = (make-pair n n)))
+(def
+  (copy-integer
+    (λ () [] ((n i64))
+      → (pair i64 i64)
+      = (make-pair n n))))
 ; Accepted: grade-of(i64) = omega.
 ```
 
@@ -638,13 +726,15 @@ raise the grade of an inline field.
 The primitive call signatures can be described by ordinary type values:
 
 ```scheme
-(def arc-new-type
-  (Π [(A star)] ((value A))
-    → (arc A)))
+(def
+  (arc-new-type
+    (Π [(A star)] ((value A))
+      → (arc A))))
 
-(def arc-try-unwrap-type
-  (Π [(A star)] ((handle (arc A)))
-    → (result A (arc A))))
+(def
+  (arc-try-unwrap-type
+    (Π [(A star)] ((handle (arc A)))
+      → (result A (arc A)))))
 ```
 
 These runtime interfaces require runtime-eligible payloads; formalizing their
@@ -697,19 +787,21 @@ Resolve these names before introducing the lambda's parameters. Reject duplicate
 capture identities and capture/parameter name collisions.
 
 ```scheme
-(def make-adder
-  (λ () [] ((offset i64))
-    → (Π [] ((x i64)) → i64)
-    = (λ (offset) [] ((x i64))
-        → i64
-        = (i64-add x offset))))
+(def
+  (make-adder
+    (λ () [] ((offset i64))
+      → (Π [] ((x i64)) → i64)
+      = (λ (offset) [] ((x i64))
+          → i64
+          = (i64-add x offset)))))
 
-(def retain-ticket
-  (λ () [] ((value ticket))
-    → (Π [] () → ticket)
-    = (λ (value) [] ()
-        → ticket
-        = value)))
+(def
+  (retain-ticket
+    (λ () [] ((value ticket))
+      → (Π [] () → ticket)
+      = (λ (value) [] ()
+          → ticket
+          = value))))
 ```
 
 Constructing a closure acquires its listed captures in order. Each affine
@@ -731,8 +823,9 @@ Primitive bindings and verified closed static top-level definitions can be
 referenced directly without occupying the capture environment. Every other
 outer value, including a runtime top-level value, must be listed. A local
 binding requires explicit capture even if optimization can compute its value.
-A recursive function's self reference is a special body-only binding, not a
-capture or a header dependency. Initially recursive environments must be
+Self and peer references in a recursive function group are special body-only
+bindings, not captures or header dependencies. They refer to code with the
+group's established environment. Initially recursive environments must be
 unrestricted; recursive calls cannot recreate affine captured owners.
 
 A closure is a compiler-generated struct containing its captured runtime values
@@ -788,21 +881,24 @@ a binder was written. Start with ownership-transferring capture rather than
 ordinary Scheme `call/cc`:
 
 ```scheme
-(def capture-1-type
-  (Π [(A star)]
-      ((body (Π [] ((k (cont-1 A))) → nothing)))
-    → A))
+(def
+  (capture-1-type
+    (Π [(A star)]
+        ((body (Π [] ((k (cont-1 A))) → nothing)))
+      → A)))
 
-(def invoke-1-type
-  (Π [(A star)] ((k (cont-1 A)) (value A))
-    → nothing))
+(def
+  (invoke-1-type
+    (Π [(A star)] ((k (cont-1 A)) (value A))
+      → nothing)))
 
-(def answer
-  (i64-add 1
-    (capture-1
-      (λ () [] ((k (cont-1 i64)))
-        → nothing
-        = (invoke-1 k 41)))))
+(def
+  (answer
+    (i64-add 1
+      (capture-1
+        (λ () [] ((k (cont-1 i64)))
+          → nothing
+          = (invoke-1 k 41))))))
 ; Produces 42.
 ```
 
@@ -874,9 +970,10 @@ locations alone do not establish binding identity.
 Expose immutable syntax and an affine compiler context through abstract types:
 
 ```scheme
-(def transformer-type
-  (Π [] ((context expand-context) (form syntax))
-    → (result (pair expand-context syntax) diagnostic)))
+(def
+  (transformer-type
+    (Π [] ((context expand-context) (form syntax))
+      → (result (pair expand-context syntax) diagnostic))))
 ```
 
 A stateless concrete transformer can be unrestricted while each invocation
@@ -938,7 +1035,8 @@ The initial milestone is an end-to-end immutable subset through the parser,
 elaborator, typechecker, and interpreter. The later stages extend that working
 pipeline with control, compilation, transformers, and Scheme runtime support.
 
-1. **Parsing, elaboration, and dependent checking.** Implement `def`, the
+1. **Parsing, elaboration, and dependent checking.** Implement grouped `def`,
+   scoped `begin`, ordered initialization, recursive function groups, and the
    required implicit and explicit binder groups with telescope
    scoping, explicit capture lists, mandatory result types with `→`,
    λ bodies introduced by `=`, `Π`, universes, and pure type normalization.

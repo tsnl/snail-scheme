@@ -37,7 +37,7 @@ There is no implicit conversion from quoted Scheme data to a core value.
 
 ## 2. Macro-free surface grammar
 
-In this grammar, `*`, `+`, `?`, and `|` are metanotation. Parentheses are literal
+In this grammar, `*`, `+`, and `|` are metanotation. Parentheses are literal
 list delimiters. `Name` and `Field` are identifiers, and `Literal` is an admitted
 core literal. `Type-Expr` is the same grammatical category as `Expr`, checked to
 denote a type. In both function forms, the first telescope is implicit and the
@@ -45,8 +45,9 @@ second explicit. Both are required, including when empty; delimiter shape is
 irrelevant.
 
 ```text
-Program       ::= Definition*
-Definition    ::= (def Name Expr)
+Program       ::= Item*
+Item          ::= Definition | Expr
+Definition    ::= (def Binding+)
 
 Expr          ::= Name
                 | Literal
@@ -54,7 +55,7 @@ Expr          ::= Name
                 | (λ (Name*) Telescope Telescope → Type-Expr = Expr)
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
-                | (let (Binding*) Expr)
+                | (begin Item* Expr)
                 | (struct Telescope Grade)
                 | (union Type-Expr*)
                 | (new Type-Expr (Field-Value*))
@@ -76,9 +77,10 @@ Type-Expr     ::= Expr
 ```
 
 Every core pattern name is an ordinary binder, including `_` if used.
-Duplicate names within a binder group, simultaneous `let`, or match pattern
-are errors; telescope binders are also distinct across the implicit and
-explicit groups. Field labels are unique within a struct.
+Duplicate names within a binder group, definition group, or match pattern
+are errors; separate definitions in the same block or file scope also cannot
+redefine a name. Telescope binders are distinct across the implicit and explicit
+groups. Field labels are unique within a struct.
 
 Grades describe affine or unrestricted ownership. Phase availability and
 erasure use separate rules for the same types. Every struct supplies a literal
@@ -95,12 +97,13 @@ The structural markers `→` and `=` are recognized in their designated
 positions. Empty `()` is not an expression; `(f)` is a zero-argument call.
 
 There are no separate declaration forms for types or functions. There is no
-general `quote`, `begin`, `letrec`, local `def`, rest parameter, `set!`, or
-user-defined recursive datatype form in this initial grammar. Use nested `let`
-for sequencing. Ordinary applications cover arithmetic, array operations,
-`singleton`, and the immutable data primitives described below. An expression
-can be checked or run through the interpreter API; a source file contains
-definitions, with an entry function selected by the driver.
+general `quote`, `let`, `letrec`, `fix`, rest parameter, `set!`, or user-defined
+recursive datatype form in this initial grammar. `begin` provides scoped local
+definitions and sequencing. Ordinary applications cover arithmetic, array
+operations, `singleton`, and the immutable data primitives described below. An expression
+can be checked or run through the interpreter API. A source file processes its
+items in a file scope; top-level expression results are discarded, and the
+driver may select a defined entry function after initialization.
 
 `union` has an intrinsic n-ary typing rule and a checked union node. A fixed-arity
 `Π` cannot describe that arity, so it is not initially a first-class callable.
@@ -117,7 +120,7 @@ after its annotation; all function parameters are in scope in the result type
 and body. Both function groups are mandatory: the first is implicit and the
 second explicit. Every lambda also requires its capture list, which may be empty.
 Implicit parameters are solved only from explicit arguments, not expected call
-results. Duplicate binders and forward references are rejected.
+results. Duplicate binders and forward references within telescopes are rejected.
 
 Every `λ` has a mandatory capture list `(Name*)` before its parameter groups;
 the empty list explicitly captures nothing. Capture names resolve to distinct
@@ -133,16 +136,20 @@ must be listed. The closure grade follows its captured runtime fields. Type-only
 dependencies follow the separate phase rules. These are the [capture rules](core-ir.md#explicit-consuming-captures)
 for both source lambdas and lambdas produced by later macros.
 
-`let` has simultaneous binding scope: all initializers see the outer environment,
-and the body sees every new binder. Evaluate initializers left to right. For a
-sequential dependency, nest another `let`; do not silently give `let` the scope
-of Scheme's `let*`. Local bindings infer a monotype initially; polymorphism is
-expressed by a `λ` over type parameters.
+Every `begin` creates a fresh lexical scope. Its items execute in source order;
+each `def` initializes its entries left to right and adds their names to that
+scope. Ordinary initializers see earlier entries and earlier statements.
+Separate `def` statements do not create nested scopes or admit forward references.
+Local bindings infer a monotype initially; polymorphism is expressed by a `λ`
+over type parameters. Recursive function groups have the rules below.
 
-A `let` returns its body's value, and the body retains tail position. An unused
-affine binding is cleaned up at scope exit, not implicitly before the body.
-The [nested-let example](core-ir.md#local-bindings-and-sequencing) shows sequential
-dependencies while keeping every body a single expression.
+A block requires a final expression and returns its value in tail position.
+Nonfinal expression results are discarded before the next item. Unused affine
+bindings are cleaned up at scope exit. The [block example](core-ir.md#local-bindings-and-sequencing)
+shows sequential dependencies while keeping a lambda body a single expression.
+Reject a block result type that exposes an unavailable local index; substitute
+admitted pure definitions or package the index with its payload in a dependent
+record. File scope admits any item sequence without requiring a final expression.
 
 Evaluate a runtime call's operator and explicit arguments left to right. Static
 arguments are elaborated and erased where appropriate, without evaluating
@@ -172,11 +179,12 @@ exit. A higher-level wildcard lowers to a fresh unused binder for each occurrenc
 the core gives `_` normal binding, reference, and duplicate-name semantics.
 
 ```scheme
-(def package-length
-  (λ () [] ((value sized-array))
-    → i64
-    = (match value
-        ((new sized-array ((length n) (items unused-items))) n))))
+(def
+  (package-length
+    (λ () [] ((value sized-array))
+      → i64
+      = (match value
+          ((new sized-array ((length n) (items unused-items))) n)))))
 ```
 
 Variant tests do not duplicate ownership. Select a branch using safe observations
@@ -197,19 +205,29 @@ dependent elimination motives.
 
 ### Definitions, recursion, and phases
 
-Process definitions in source order and reject duplicate definitions in one
-scope. Earlier definitions are available to later ones. For a definition whose
-elaborated RHS is a `λ`, first check its header, then make its own binding
-available in its body. The header cannot depend on the function being defined.
-This supports directly recursive helpers without a `fix` or `letrec` form.
-Mutual recursion and arbitrary recursive value/type definitions are deferred.
-Runtime top-level values require explicit captures; putting a function at top
-level does not exempt it from that rule. The function's own recursive reference
-is available only in its body and is not a capture.
-Recursive calls must respect the same ownership accounting and cannot recapture
-an affine environment on each call. Initially require recursive functions to
-have unrestricted runtime environments; owned arguments can still be threaded
-through recursive calls.
+One `def` is an ordered group of `(Name Expr)` entries, each with its own
+initializer. It can bind several names without a multiple-value return protocol.
+Process separate groups in source order. Reject recursive value/type initializers
+and forward reads of values; lexical name availability does not initialize storage.
+
+For a group containing recursive or forward function references, initially
+require every initializer to elaborate directly to a lambda with unrestricted
+external captures. Check every header and capture list in the environment
+preceding the group, then check bodies with all group functions available as
+recursive code references. The group functions are available only in the bodies,
+not in headers or capture lists. Construct environments in source order and make
+the group callable only after it is complete; no body executes while initializing
+the group. A group mixing this recursion with ordinary value initializers is
+rejected. Use preceding `def` statements for prerequisite values.
+
+Self and peer references within that group do not create captured copies of the
+functions. Each reference uses the established group environment. All other
+runtime outer bindings require explicit captures, including runtime globals.
+Nonrecursive definitions can capture affine values under the ordinary rules;
+recursive calls cannot recapture an affine environment on each call. Owned
+arguments can still be threaded through recursive calls. The interpreter can
+store code references and a shared immutable external environment instead of a
+cyclic graph of closures. No user-visible `fix` form is needed for these groups.
 
 Normalizing types may reduce trusted pure operations and admitted nonrecursive
 pure definitions. Initially, recursive helpers can execute as programs or
@@ -217,8 +235,8 @@ compile-time transformer code, but are not admitted into type normalization.
 Being immutable does not imply termination. Arbitrary higher-order calls need
 an established normalization contract before conversion can execute them.
 
-The checked representation retains `let` and ownership-aware `match`; it need
-not encode everything as lambda application. Elaboration makes inferred
+The checked representation retains blocks, ordered bindings, recursive function
+groups, and ownership-aware `match`. Elaboration makes inferred
 arguments, union injections/refinements, and static information explicit. The
 interpreter receives checked terms and uses explicit control frames with a
 trampoline; a later C backend can consume the same checked representation.
@@ -242,7 +260,7 @@ optional improper tails, and later vectors. Identifier inspection must preserve
 lexical information; a string spelling is not a binding identity. Syntax views
 and reconstruction expose no mutable reference.
 
-The rule interpreter can use named, directly recursive functions and immutable
+The rule interpreter can use named recursive function groups and immutable
 association lists. It does not need a mutable dictionary, user-defined recursive
 types, or higher-order iteration. In particular, repeatedly invoking a callback
 stored with an erased `Π` type would conflict with the current conservative
@@ -259,23 +277,26 @@ records without installing any macro binding.
 The working proposal keeps the expansion phase explicit while retaining `def`:
 
 ```scheme
-(def choose
-  (macro
-    (syntax-rules ()
-      ((_ test yes no)
-       (match (ann test boolean)
-         (#t yes)
-         (#f no))))))
+(def
+  (choose
+    (macro
+      (syntax-rules ()
+        ((_ test yes no)
+         (match (ann test boolean)
+           (#t yes)
+           (#f no)))))))
 
-(def answer
-  (choose #t 41 42))
+(def
+  (answer
+    (choose #t 41 42)))
 ```
 
 `macro` is an expansion-only marker in a definition's RHS. For the first macro
 extension, restrict its operand to a `syntax-rules` specification:
 
 ```text
-Macro-Definition ::= (def Name (macro Rules-Spec))
+Expansion-Definition ::= (def Expansion-Binding+)
+Expansion-Binding    ::= (Name Expr) | (Name (macro Rules-Spec))
 Rules-Spec       ::= (syntax-rules (Identifier*) Rule*)
                    | (syntax-rules Identifier (Identifier*) Rule*)
 Rule             ::= (Macro-Pattern Template)
@@ -285,8 +306,8 @@ Macro-Use        ::= (Identifier Reader-Syntax*)
 
 `Reader-Syntax` is a whole reader node, without an expression constraint.
 `Macro-Use` applies only when the head resolves to an installed macro. At each
-expression or top-level position, expand such uses before applying the core
-`Expr` or `Definition` productions. The same list shape may otherwise denote
+expression or item position, expand such uses before applying the core
+`Expr` or `Item` productions. The same list shape may otherwise denote
 an ordinary application; a dotted ordinary application is rejected.
 
 The second `Rules-Spec` form supplies a custom ellipsis identifier. Rule bodies
@@ -295,6 +316,26 @@ before falling back to the macro-free `Definition` grammar, using the resolved
 built-in bindings of `macro` and `syntax-rules`, not their spellings alone.
 It does not add a runtime `macro` operation or classify ordinary runtime results
 as macros.
+
+A macro can introduce several bindings with one definition group:
+
+```scheme
+(def
+  (define-two
+    (macro
+      (syntax-rules ()
+        ((_ first-name first-init second-name second-init)
+         (def (first-name first-init)
+              (second-name second-init)))))))
+
+(begin
+  (define-two left 20 right 22)
+  (i64-add left right))
+```
+
+The invocation occupies an item position and expands to one `def`. Its
+use-site names `left` and `right` become available to following items in this
+block. A macro returning `begin` would instead introduce a nested scope.
 
 The bootstrap handler passes the specification as a syntax value, together with
 its definition environment, to an already-checked core function. This requires
@@ -385,45 +426,53 @@ A compact representation can keep patterns/templates as abstract syntax and
 use flat metadata tables rather than introducing recursive pattern datatypes:
 
 ```scheme
-(def variable-plan
-  (struct ((slot i64)
-           (identifier syntax)
-           (repetition-sites (list-of i64))) omega))
+(def
+  (variable-plan
+    (struct ((slot i64)
+             (identifier syntax)
+             (repetition-sites (list-of i64))) omega)))
 
-(def repetition-plan
-  (struct ((site i64)
-           (pattern-path (list-of i64))
-           (parent-sites (list-of i64))) omega))
+(def
+  (repetition-plan
+    (struct ((site i64)
+             (pattern-path (list-of i64))
+             (parent-sites (list-of i64))) omega)))
 
-(def rule-plan
-  (struct ((pattern syntax)
-           (template syntax)
-           (variables (list-of variable-plan))
-           (repetitions (list-of repetition-plan))) omega))
+(def
+  (rule-plan
+    (struct ((pattern syntax)
+             (template syntax)
+             (variables (list-of variable-plan))
+             (repetitions (list-of repetition-plan))) omega)))
 
-(def rules-transformer
-  (struct ((definition-view binding-view)
-           (ellipsis syntax)
-           (literals (list-of syntax))
-           (rules (list-of rule-plan))) omega))
+(def
+  (rules-transformer
+    (struct ((definition-view binding-view)
+             (ellipsis syntax)
+             (literals (list-of syntax))
+             (rules (list-of rule-plan))) omega)))
 
-(def capture-entry
-  (struct ((slot i64)
-           (indices (list-of i64))
-           (form syntax)) omega))
+(def
+  (capture-entry
+    (struct ((slot i64)
+             (indices (list-of i64))
+             (form syntax)) omega)))
 
-(def repetition-extent
-  (struct ((site i64)
-           (parent-indices (list-of i64))
-           (count i64)) omega))
+(def
+  (repetition-extent
+    (struct ((site i64)
+             (parent-indices (list-of i64))
+             (count i64)) omega)))
 
-(def captures
-  (struct ((entries (list-of capture-entry))
-           (extents (list-of repetition-extent))) omega))
+(def
+  (captures
+    (struct ((entries (list-of capture-entry))
+             (extents (list-of repetition-extent))) omega)))
 
-(def selected-rule
-  (struct ((rule rule-plan)
-           (captures captures)) omega))
+(def
+  (selected-rule
+    (struct ((rule rule-plan)
+             (captures captures)) omega)))
 ```
 
 Assign stable per-rule slots and repetition-site IDs while validating a pattern.
@@ -441,22 +490,25 @@ This interface sketch uses ordinary dependent function types. The routines
 themselves are to be implemented; these definitions describe their signatures:
 
 ```scheme
-(def compile-syntax-rules-type
-  (Π [] ((definition-view binding-view) (spec syntax))
-    → (result rules-transformer diagnostic)))
+(def
+  (compile-syntax-rules-type
+    (Π [] ((definition-view binding-view) (spec syntax))
+      → (result rules-transformer diagnostic))))
 
-(def match-rule-type
-  (Π [] ((definition-view binding-view)
-      (use-view binding-view)
-      (rule rule-plan)
-      (form syntax))
-    → (option captures)))
+(def
+  (match-rule-type
+    (Π [] ((definition-view binding-view)
+        (use-view binding-view)
+        (rule rule-plan)
+        (form syntax))
+      → (option captures))))
 
-(def instantiate-template-type
-  (Π [] ((introduction introduction-context)
-      (rule rule-plan)
-      (matched captures))
-    → (result syntax diagnostic)))
+(def
+  (instantiate-template-type
+    (Π [] ((introduction introduction-context)
+        (rule rule-plan)
+        (matched captures))
+      → (result syntax diagnostic))))
 ```
 
 `binding-view` and `introduction-context` are opaque expansion-library types.
@@ -492,10 +544,9 @@ The engine can execute these steps with immutable accumulators:
    the introduction context for template-origin identifiers and provenance.
    Construct the output before asking the elaborator to interpret it.
 
-Use a directly recursive driver with an explicit work list if a straightforward
-tree walk would otherwise need mutually recursive functions. Its task records,
-capture tables, and work list are all ordinary immutable data. The initial
-grammar is therefore sufficient without adding local recursion or mutable cells.
+Use recursive helper groups or a driver with an explicit work list for the tree
+walk. Its task records, capture tables, and work list are ordinary immutable
+data. The macro engine needs no shared mutable cells.
 
 The affine `expand-context` stays with the expansion driver. Matching only reads
 immutable binding views. After a match succeeds, obtain the fresh introduction
@@ -516,17 +567,20 @@ A bare macro identifier is not an ordinary runtime value. A local value binder
 can shadow a macro, so the same printed head may denote an ordinary call in a
 different scope. Macro dispatch never depends on a runtime type test.
 
-For a macro definition, reserve its binding identity before capturing the
-definition environment. Invoke the already-checked rule compiler at expansion
-phase and install the resulting descriptor on success. A template can then
-refer to its own macro. Attempting to invoke it while its descriptor is still
-being constructed is an error. Initially definitions remain source-ordered;
-mutually recursive macro groups and local macro-binding constructs are later
-front-end features.
+For each definition group, reserve binding identities before processing its
+entries. This establishes lexical identity, not availability for evaluation.
+Expand entries in source order. For a macro entry, capture its definition
+environment, invoke the already-checked rule compiler at expansion phase, and
+install the resulting descriptor on success. Its binding is usable by later
+entries and later items in the scope. A template may refer to its own binding
+or another binding in the group, but invoking an uninstalled descriptor is an
+expansion error. Ordinary runtime definitions still follow the initialization
+and recursive-function restrictions in section 3.
 
 The immutable definition view retains binding identities, including the reserved
-self identity. Descriptor availability lives separately in the driver's current
-phase registry, which associates an installed descriptor with that identity.
+self and peer identities. Descriptor availability lives separately in the
+driver's current phase registry, which associates an installed descriptor with
+its identity.
 The captured view must not freeze the self descriptor in its unfinished state.
 The driver can thread successive immutable registries through its affine context.
 
@@ -536,7 +590,7 @@ Only phase-available dependencies may execute: no reading program runtime locals
 sharing runtime continuations across phases, or running runtime initializers
 speculatively. Expansion limits yield diagnostics, never proofs of type equality.
 
-For a candidate expression:
+At an item or expression position:
 
 1. If its head resolves to a macro, give the descriptor and the **entire original
    syntax form** to the runner. Do not evaluate, typecheck, or recursively expand
@@ -546,24 +600,27 @@ For a candidate expression:
 3. If the head resolves to a core form, interpret only that form's designated
    expression positions, introducing scopes before processing their bodies.
    Field labels, binders, and macro specifications are not ordinary operands.
+   Enter a new scope for every `begin` and expand its items in order. A `def`
+   adds its bindings to the current item scope without introducing another one.
 4. Otherwise elaborate an ordinary application, including a computed operator,
    or an atomic expression. Check the resulting core types and ownership.
 
 For `choose`, the second definition above expands to
-`(def answer (match (ann #t boolean) (#t 41) (#f 42)))`.
+`(def (answer (match (ann #t boolean) (#t 41) (#f 42))))`.
 An unused macro operand may disappear without ever being checked as an expression.
 By contrast, both branches of the resulting core `match` must typecheck even though
 only one executes. A transformer cannot manufacture a checked node or bypass
 the affine-use checker by duplicating input syntax.
 
-Initially allow macro uses in expression positions and at top level. A top-level
-use must produce exactly one definition, ordinary or macro; an expression use
-must produce exactly one expression. Supporting a definition splice, a sequence
-of forms, or Scheme internal definitions needs an explicit contextual protocol.
-It is not implicit in the `syntax-rules` pattern language. The eventual Scheme
-front end also needs `define-syntax`, `let-syntax`, `letrec-syntax`, and
-`syntax-error`; these are separate bindings/adapters, not additions to the
-macro-free evaluator.
+An item-position invocation, at top level or inside `begin`, produces one item:
+an expression or a definition group containing one or more bindings. An
+expression-position invocation must produce one expression; a bare `def` is
+invalid there, while `begin` can provide local bindings and a result. The final
+item of a `begin` must expand to an expression. The protocol does not splice
+sequences or erase a `begin` scope. Multiple returned values are not needed to
+introduce several definitions. The eventual Scheme front end also needs
+`define-syntax`, `let-syntax`, `letrec-syntax`, and `syntax-error`; those bindings
+can lower to this phase protocol without adding runtime evaluator forms.
 
 ## 8. Hygiene and nominal identity
 
@@ -599,8 +656,9 @@ does not claim that the examples already run.
 Implement and exercise the layers in this order:
 
 1. Reader/token additions, then the macro-free grammar and binding rules.
-2. Elaboration, checking, and immutable interpretation, including lists and
-   consuming matches. Exercise self-recursion independently of normalization.
+2. Elaboration, checking, and immutable interpretation, including scoped blocks,
+   ordered definition groups, lists, and consuming matches. Exercise mutual
+   recursion and reject uninitialized reads independently of normalization.
 3. Abstract syntax inspection and binding-aware hygiene infrastructure.
 4. Compile, match, and instantiate rule descriptors as core functions. Test
    these by calling them directly with supplied syntax values before registering
@@ -614,6 +672,9 @@ that happen to expand successfully:
 | Case | Required observation |
 | --- | --- |
 | `choose` above | Expands to core `match`, then checks as `i64` |
+| `define-two` in a block | Both names are available to following items in that block |
+| A macro returns `begin` containing definitions | Bindings remain inside the new scope |
+| A macro returns `def` in an expression position | Expansion is rejected in that context |
 | A macro shadows an outer value; a local value shadows that macro | Dispatch follows the binding in scope |
 | A macro discards a syntactically non-core operand | Discarded operand is not parsed as `Expr` |
 | A macro repeats an affine argument in its output | The core checker rejects the duplicate ownership use |
