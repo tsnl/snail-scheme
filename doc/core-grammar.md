@@ -47,7 +47,8 @@ irrelevant.
 ```text
 Program       ::= Item*
 Item          ::= Definition | Expr
-Definition    ::= (def Binding+)
+Definition    ::= (def Name Expr)
+                | (def (Name*) Expr)
 
 Expr          ::= Name
                 | Literal
@@ -65,7 +66,6 @@ Expr          ::= Name
 
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
-Binding       ::= (Name Expr)
 Grade         ::= 1 | omega
 Field-Value   ::= (Field Expr)
 Clause        ::= (Pattern Expr)
@@ -146,12 +146,21 @@ must be listed. The closure grade follows its captured runtime fields. Type-only
 dependencies follow the separate phase rules. These are the [capture rules](core-ir.md#explicit-consuming-captures)
 for both source lambdas and lambdas produced by later macros.
 
-Every `begin` creates a fresh lexical scope. Its items execute in source order;
-each `def` initializes its entries left to right and adds their names to that
-scope. Ordinary initializers see earlier entries and earlier statements.
+Every `begin` creates a fresh lexical scope. Its items execute in source order.
+Each `def` evaluates one initializer in the preceding scope, then introduces
+its bindings together. A single name binds the whole result. A name list
+consumes a result with a statically known `tuple-of` type and binds its elements
+in order; its length must equal the tuple's arity. Bound types follow the whole
+result or the corresponding tuple element. Names do not scope over ordinary
+initializer computation, including other elements of a literal tuple.
 Separate `def` statements do not create nested scopes or admit forward references.
 Local bindings infer a monotype initially; polymorphism is expressed by a `λ`
 over type parameters. Recursive function groups have the rules below.
+
+An empty name list requires `(tuple-of)`. A one-name list requires a one-element
+tuple; it does not accept a scalar implicitly. Binding an entire tuple to a
+single name keeps that tuple intact. Destructuring an affine tuple transfers
+each component's ownership and leaves no usable second owner of the aggregate.
 
 A block requires a final expression and returns its value in tail position.
 Nonfinal expression results are discarded before the next item. Unused affine
@@ -201,12 +210,11 @@ dependent type tests to `is`. Patterns remain shallow; use another match to
 destructure a nested element.
 
 ```scheme
-(def
-  (package-length
-    (λ () [] ((value sized-array))
-      → i64
-      = (match value
-          ((new sized-array ((length n) (items unused-items))) n)))))
+(def package-length
+  (λ () [] ((value sized-array))
+    → i64
+    = (match value
+        ((new sized-array ((length n) (items unused-items))) n))))
 ```
 
 Variant tests do not duplicate ownership. Select a branch using safe observations
@@ -227,20 +235,28 @@ dependent elimination motives.
 
 ### Definitions, recursion, and phases
 
-One `def` is an ordered group of `(Name Expr)` entries, each with its own
-initializer. It can bind several names without a multiple-value return protocol.
-Process separate groups in source order. Reject recursive value/type initializers
-and forward reads of values; lexical name availability does not initialize storage.
+One `def` has one initializer, whether it binds one result or several tuple
+components. Process separate definitions in source order. Reject recursive
+value/type initializers and forward reads of values; lexical name availability
+does not initialize storage.
 
-For a group containing recursive or forward function references, initially
-require every initializer to elaborate directly to a lambda with unrestricted
-external captures. Check every header and capture list in the environment
-preceding the group, then check bodies with all group functions available as
-recursive code references. The group functions are available only in the bodies,
-not in headers or capture lists. Construct environments in source order and make
-the group callable only after it is complete; no body executes while initializing
-the group. A group mixing this recursion with ordinary value initializers is
-rejected. Use preceding `def` statements for prerequisite values.
+Initially allow recursive references only for `(def Name Lambda)` or
+`(def (Name+) (tuple Lambda+))`, where the elaborated result is a direct lambda
+or a direct tuple of lambdas with matching arity. Require unrestricted external
+captures. Check every header and capture list in the preceding environment,
+then check bodies with the corresponding functions available as recursive code
+references. Group names are available only in those bodies, not in the headers
+or capture lists. Construct environments in element order and bind the names
+only after the initializer completes; no body executes during construction.
+Retain concrete function identities and their known environment grades through
+the tuple. This rule does not make arbitrary environment-erased callables reusable.
+
+An arbitrary expression, including a call or `begin`, may produce a tuple of
+functions, but it cannot refer recursively to the names being defined. A tuple
+mixing recursive functions with ordinary computed values is also rejected by
+this initial recursion rule. Use earlier definitions for prerequisites, or
+compute them inside an initializer's `begin` before defining a local recursive
+group and returning its functions.
 
 Self and peer references within that group do not create captured copies of the
 functions. Each reference uses the established group environment. All other
@@ -299,26 +315,24 @@ records without installing any macro binding.
 The working proposal keeps the expansion phase explicit while retaining `def`:
 
 ```scheme
-(def
-  (choose
-    (macro
-      (syntax-rules ()
-        ((_ test yes no)
-         (match (ann test boolean)
-           (#t yes)
-           (#f no)))))))
+(def choose
+  (macro
+    (syntax-rules ()
+      ((_ test yes no)
+       (match (ann test boolean)
+         (#t yes)
+         (#f no))))))
 
-(def
-  (answer
-    (choose #t 41 42)))
+(def answer
+  (choose #t 41 42))
 ```
 
-`macro` is an expansion-only marker in a definition's RHS. For the first macro
-extension, restrict its operand to a `syntax-rules` specification:
+`macro` is an expansion-only marker in a definition's RHS. The bootstrap marker
+binds one transformer by name; its output may introduce several ordinary bindings.
+For the first macro extension, restrict its operand to a `syntax-rules` specification:
 
 ```text
-Expansion-Definition ::= (def Expansion-Binding+)
-Expansion-Binding    ::= (Name Expr) | (Name (macro Rules-Spec))
+Macro-Definition ::= (def Name (macro Rules-Spec))
 Rules-Spec       ::= (syntax-rules (Identifier*) Rule*)
                    | (syntax-rules Identifier (Identifier*) Rule*)
 Rule             ::= (Macro-Pattern Template)
@@ -339,25 +353,25 @@ built-in bindings of `macro` and `syntax-rules`, not their spellings alone.
 It does not add a runtime `macro` operation or classify ordinary runtime results
 as macros.
 
-A macro can introduce several bindings with one definition group:
+A macro can introduce several bindings from one initializer:
 
 ```scheme
-(def
-  (define-two
-    (macro
-      (syntax-rules ()
-        ((_ first-name first-init second-name second-init)
-         (def (first-name first-init)
-              (second-name second-init)))))))
+(def define-two
+  (macro
+    (syntax-rules ()
+      ((_ (first-name second-name) initializer)
+       (def (first-name second-name) initializer)))))
 
 (begin
-  (define-two left 20 right 22)
+  (define-two (left right) (tuple 20 22))
   (i64-add left right))
 ```
 
 The invocation occupies an item position and expands to one `def`. Its
 use-site names `left` and `right` become available to following items in this
-block. A macro returning `begin` would instead introduce a nested scope.
+block. The template emits the initializer once, so a call or block producing
+the tuple can share work. A macro returning `begin` would instead introduce a
+nested scope.
 
 The bootstrap handler passes the specification as a syntax value, together with
 its definition environment, to an already-checked core function. This requires
@@ -448,53 +462,45 @@ A compact representation can keep patterns/templates as abstract syntax and
 use flat metadata tables rather than introducing recursive pattern datatypes:
 
 ```scheme
-(def
-  (variable-plan
-    (struct ((slot i64)
-             (identifier syntax)
-             (repetition-sites (list-of i64))) omega)))
+(def variable-plan
+  (struct ((slot i64)
+           (identifier syntax)
+           (repetition-sites (list-of i64))) omega))
 
-(def
-  (repetition-plan
-    (struct ((site i64)
-             (pattern-path (list-of i64))
-             (parent-sites (list-of i64))) omega)))
+(def repetition-plan
+  (struct ((site i64)
+           (pattern-path (list-of i64))
+           (parent-sites (list-of i64))) omega))
 
-(def
-  (rule-plan
-    (struct ((pattern syntax)
-             (template syntax)
-             (variables (list-of variable-plan))
-             (repetitions (list-of repetition-plan))) omega)))
+(def rule-plan
+  (struct ((pattern syntax)
+           (template syntax)
+           (variables (list-of variable-plan))
+           (repetitions (list-of repetition-plan))) omega))
 
-(def
-  (rules-transformer
-    (struct ((definition-view binding-view)
-             (ellipsis syntax)
-             (literals (list-of syntax))
-             (rules (list-of rule-plan))) omega)))
+(def rules-transformer
+  (struct ((definition-view binding-view)
+           (ellipsis syntax)
+           (literals (list-of syntax))
+           (rules (list-of rule-plan))) omega))
 
-(def
-  (capture-entry
-    (struct ((slot i64)
-             (indices (list-of i64))
-             (form syntax)) omega)))
+(def capture-entry
+  (struct ((slot i64)
+           (indices (list-of i64))
+           (form syntax)) omega))
 
-(def
-  (repetition-extent
-    (struct ((site i64)
-             (parent-indices (list-of i64))
-             (count i64)) omega)))
+(def repetition-extent
+  (struct ((site i64)
+           (parent-indices (list-of i64))
+           (count i64)) omega))
 
-(def
-  (captures
-    (struct ((entries (list-of capture-entry))
-             (extents (list-of repetition-extent))) omega)))
+(def captures
+  (struct ((entries (list-of capture-entry))
+           (extents (list-of repetition-extent))) omega))
 
-(def
-  (selected-rule
-    (struct ((rule rule-plan)
-             (captures captures)) omega)))
+(def selected-rule
+  (struct ((rule rule-plan)
+           (captures captures)) omega))
 ```
 
 Assign stable per-rule slots and repetition-site IDs while validating a pattern.
@@ -512,25 +518,22 @@ This interface sketch uses ordinary dependent function types. The routines
 themselves are to be implemented; these definitions describe their signatures:
 
 ```scheme
-(def
-  (compile-syntax-rules-type
-    (Π [] ((definition-view binding-view) (spec syntax))
-      → (result rules-transformer diagnostic))))
+(def compile-syntax-rules-type
+  (Π [] ((definition-view binding-view) (spec syntax))
+    → (result rules-transformer diagnostic)))
 
-(def
-  (match-rule-type
-    (Π [] ((definition-view binding-view)
-        (use-view binding-view)
-        (rule rule-plan)
-        (form syntax))
-      → (option captures))))
+(def match-rule-type
+  (Π [] ((definition-view binding-view)
+      (use-view binding-view)
+      (rule rule-plan)
+      (form syntax))
+    → (option captures)))
 
-(def
-  (instantiate-template-type
-    (Π [] ((introduction introduction-context)
-        (rule rule-plan)
-        (matched captures))
-      → (result syntax diagnostic))))
+(def instantiate-template-type
+  (Π [] ((introduction introduction-context)
+      (rule rule-plan)
+      (matched captures))
+    → (result syntax diagnostic)))
 ```
 
 `binding-view` and `introduction-context` are opaque expansion-library types.
@@ -589,18 +592,17 @@ A bare macro identifier is not an ordinary runtime value. A local value binder
 can shadow a macro, so the same printed head may denote an ordinary call in a
 different scope. Macro dispatch never depends on a runtime type test.
 
-For each definition group, reserve binding identities before processing its
-entries. This establishes lexical identity, not availability for evaluation.
-Expand entries in source order. For a macro entry, capture its definition
-environment, invoke the already-checked rule compiler at expansion phase, and
-install the resulting descriptor on success. Its binding is usable by later
-entries and later items in the scope. A template may refer to its own binding
-or another binding in the group, but invoking an uninstalled descriptor is an
-expansion error. Ordinary runtime definitions still follow the initialization
-and recursive-function restrictions in section 3.
+Process definitions in source order. For a macro definition, reserve its binding
+identity before capturing the definition environment. Invoke the already-checked
+rule compiler at expansion phase and install the descriptor on success. The
+binding is usable by subsequent items in the scope. A template may refer to its
+own binding, but invoking an uninstalled descriptor is an expansion error.
+Ordinary definitions expand and check one initializer, with binding visibility
+and the recursive-function exception described in section 3. An initializer's
+own nested `begin` scope does not export its local names with the tuple result.
 
 The immutable definition view retains binding identities, including the reserved
-self and peer identities. Descriptor availability lives separately in the
+self identity. Descriptor availability lives separately in the
 driver's current phase registry, which associates an installed descriptor with
 its identity.
 The captured view must not freeze the self descriptor in its unfinished state.
@@ -628,19 +630,19 @@ At an item or expression position:
    or an atomic expression. Check the resulting core types and ownership.
 
 For `choose`, the second definition above expands to
-`(def (answer (match (ann #t boolean) (#t 41) (#f 42))))`.
+`(def answer (match (ann #t boolean) (#t 41) (#f 42)))`.
 An unused macro operand may disappear without ever being checked as an expression.
 By contrast, both branches of the resulting core `match` must typecheck even though
 only one executes. A transformer cannot manufacture a checked node or bypass
 the affine-use checker by duplicating input syntax.
 
 An item-position invocation, at top level or inside `begin`, produces one item:
-an expression or a definition group containing one or more bindings. An
+an expression or a definition binding its result whole or unpacking a tuple. An
 expression-position invocation must produce one expression; a bare `def` is
 invalid there, while `begin` can provide local bindings and a result. The final
 item of a `begin` must expand to an expression. The protocol does not splice
-sequences or erase a `begin` scope. Multiple returned values are not needed to
-introduce several definitions. The eventual Scheme front end also needs
+sequences or erase a `begin` scope. Tuple binding evaluates one ordinary core
+value and distributes its components to names. The eventual Scheme front end also needs
 `define-syntax`, `let-syntax`, `letrec-syntax`, and `syntax-error`; those bindings
 can lower to this phase protocol without adding runtime evaluator forms.
 
@@ -679,8 +681,8 @@ Implement and exercise the layers in this order:
 
 1. Reader/token additions, then the macro-free grammar and binding rules.
 2. Elaboration, checking, and immutable interpretation, including scoped blocks,
-   ordered definition groups, lists, and consuming matches. Exercise mutual
-   recursion and reject uninitialized reads independently of normalization.
+   single-initializer definitions, tuples, lists, and consuming matches. Exercise
+   mutual recursion and reject uninitialized reads independently of normalization.
 3. Abstract syntax inspection and binding-aware hygiene infrastructure.
 4. Compile, match, and instantiate rule descriptors as core functions. Test
    these by calling them directly with supplied syntax values before registering
@@ -695,6 +697,9 @@ that happen to expand successfully:
 | --- | --- |
 | `choose` above | Expands to core `match`, then checks as `i64` |
 | `define-two` in a block | Both names are available to following items in that block |
+| A tuple initializer performs shared work | It executes once before any of its output names become available |
+| Tuple binding has the wrong number of names | Static arity error |
+| Tuple binding consumes an affine tuple | Components receive ownership; the old aggregate cannot be reused |
 | A macro returns `begin` containing definitions | Bindings remain inside the new scope |
 | A macro returns `def` in an expression position | Expansion is rejected in that context |
 | A macro shadows an outer value; a local value shadows that macro | Dispatch follows the binding in scope |
