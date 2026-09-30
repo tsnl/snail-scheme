@@ -47,8 +47,8 @@ Library-Name  ::= (Library-Part+)
 Library-Part  ::= Name | Nonnegative-Integer
 
 Item          ::= Definition | Expr
-Definition    ::= (#%-def Pattern Expr)
-                | (#%-def Name (#%-macro Rules-Spec))                     ◰
+Definition    ::= (#%-def-value Pattern Expr)
+                | (#%-def-macro Name Rules-Spec)                          ◰
 
 Expr          ::= Name
                 | Literal
@@ -106,10 +106,10 @@ mandatory; `#%-λ` also requires its leading capture list. Empty lists are valid
 By convention, write implicit parameters in square brackets:
 
 ```scheme
-(#%-def id
+(#%-def-value id
   (#%-λ () [(Element-Type star)] ((x Element-Type)) → Element-Type = x))
 
-(#%-def id-type
+(#%-def-value id-type
   (#%-Π [(Element-Type star)] ((x Element-Type)) → Element-Type))
 ```
 
@@ -128,10 +128,11 @@ and reject out-of-range values. Other reader datums are not automatically core
 expressions. Empty `()` is not an expression; `(f)` calls `f` with no explicit
 arguments.
 
-`#%-def` is the only definition statement for values and named macros. Local
-syntax-binding forms are eliminated during expansion. There are no separate type
-declarations, binder-grade annotations, `quote`, `if`, `let`, `letrec`, `fix`, rest parameters,
-`set!`, or user-defined recursive datatype forms in the initial grammar.
+`#%-def-value` binds values using a pattern; `#%-def-macro` binds one macro name
+and is eliminated during expansion. Local syntax-binding forms are also eliminated.
+There are no separate type declarations, binder-grade annotations, `quote`, `if`,
+`let`, `letrec`, `fix`, rest parameters, `set!`, or user-defined recursive datatype
+forms in the initial grammar.
 Arithmetic, arrays, `singleton`, and list operations use ordinary applications.
 `#%-union`, `#%-tuple-of`, and `#%-tuple` have intrinsic n-ary rules, not first-class
 variadic function signatures.
@@ -151,9 +152,9 @@ variadic function signatures.
   its mandatory final expression in tail position. Nonfinal expression results
   are discarded immediately; unused bound owners are cleaned up at scope exit.
   File scope accepts any item sequence and discards expression results.
-- Each ordinary `#%-def` evaluates its initializer once and initializes its bindings
+- Each `#%-def-value` evaluates its initializer once and initializes its bindings
   together. Its pattern must be provably irrefutable for the result's type and
-  refinements. Otherwise use `#%-match`; `#%-def` has no runtime failure branch.
+  refinements. Otherwise use `#%-match`; `#%-def-value` has no runtime failure branch.
 - Collect bindings across the completed scope before checking function bodies.
   Lexical visibility does not imply initialization. Nested scopes do not export
   their definitions.
@@ -194,7 +195,7 @@ Known unrestricted function items may be reused. A later callable constraint
 may preserve more information about an environment.
 
 ```scheme
-(#%-def make-adder
+(#%-def-value make-adder
   (#%-λ () [] ((offset i64))
     → (#%-Π [] ((x i64)) → i64)
     = (#%-λ (offset) [] ((x i64)) → i64 = (i64-add x offset))))
@@ -202,7 +203,7 @@ may preserve more information about an environment.
 
 ### Recursion and initialization
 
-Discover recursive functions from `(#%-def Name Lambda)` and direct tuples of
+Discover recursive functions from `(#%-def-value Name Lambda)` and direct tuples of
 lambdas bound by tuple patterns. Collect complete headers before checking
 bodies; compute strongly connected components (SCCs) from resolved references
 across the entire scope. Separate definitions and macro invocations do not
@@ -224,12 +225,12 @@ Conservatively reject unknown readiness; never reorder initializers to fix it.
 
 ```scheme
 (#%-begin
-  (#%-def even
+  (#%-def-value even
     (#%-λ () [] ((n i64)) → boolean
       = (#%-match n
           (0 #t)
           (remaining (odd (i64-sub remaining 1))))))
-  (#%-def odd
+  (#%-def-value odd
     (#%-λ () [] ((n i64)) → boolean
       = (#%-match n
           (0 #f)
@@ -331,14 +332,14 @@ distinct occurrences remain distinct even with identical layouts. Aliases retain
 identity. Exact keys for modules and serialization remain to be formalized.
 
 ```scheme
-(#%-def point (#%-struct ((x i64) (y i64)) omega))
-(#%-def ticket (#%-struct ((number i64)) 1))
+(#%-def-value point (#%-struct ((x i64) (y i64)) omega))
+(#%-def-value ticket (#%-struct ((number i64)) 1))
 
-(#%-def pair
+(#%-def-value pair
   (#%-λ () [] ((first-type star) (second-type star)) → star
     = (#%-struct ((first first-type) (second second-type)) 1)))
 
-(#%-def make-pair
+(#%-def-value make-pair
   (#%-λ () [(A star) (B star)] ((x A) (y B)) → (pair A B)
     = (#%-new (pair A B) ((first x) (second y)))))
 ```
@@ -356,15 +357,15 @@ allocate heap objects.
 
 ```scheme
 (#%-begin
-  (#%-def (#%-tuple left right)
+  (#%-def-value (#%-tuple left right)
     (#%-begin
-      (#%-def shared (i64-add 19 1))
+      (#%-def-value shared (i64-add 19 1))
       (#%-tuple shared (i64-add shared 2))))
   (i64-add left right))
 ```
 
 The initializer runs once; unpacking moves components without retaining another
-aggregate owner. `(#%-def x (#%-tuple 1))` binds a tuple; `(#%-def (#%-tuple x) (#%-tuple 1))`
+aggregate owner. `(#%-def-value x (#%-tuple 1))` binds a tuple; `(#%-def-value (#%-tuple x) (#%-tuple 1))`
 binds its element. Higher-level `let` can lower to a fresh scope and tuple
 binding with hygienically distinct names, or to an immediately invoked lambda
 when its result type is expressible. Preserve initialization and capture order.
@@ -372,20 +373,20 @@ when its result type is expressible. Preserve initialization and capture order.
 ### Dependent records and arrays
 
 ```scheme
-(#%-def sized-array
+(#%-def-value sized-array
   (#%-struct ((length i64) (items (array i64 length))) 1))
 
-(#%-def package-length
+(#%-def-value package-length
   (#%-λ () [] ((value sized-array)) → i64
     = (#%-begin
-        (#%-def (#%-new sized-array ((length n) (items unused-items))) value)
+        (#%-def-value (#%-new sized-array ((length n) (items unused-items))) value)
         n)))
 
-(#%-def keep-array
+(#%-def-value keep-array
   (#%-λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
     → (array Element-Type N) = xs))
 
-(#%-def array-append-type
+(#%-def-value array-append-type
   (#%-Π [(Element-Type star) (M i64) (N i64)]
       ((xs (array Element-Type M)) (ys (array Element-Type N)))
     → (result (array Element-Type (+ M N)) array-error)))
@@ -417,19 +418,19 @@ These are the set-like unions and refinements of
 [Typed Racket](https://docs.racket-lang.org/ts-guide/types.html).
 
 ```scheme
-(#%-def scalar (#%-union i64 boolean))
-(#%-def scalar-to-integer
+(#%-def-value scalar (#%-union i64 boolean))
+(#%-def-value scalar-to-integer
   (#%-λ () [] ((x scalar)) → i64
     = (#%-match x
         ((#%-is i64 integer) integer)
         (#t 1)
         (#f 0))))
 
-(#%-def none (#%-struct () omega))
-(#%-def some
+(#%-def-value none (#%-struct () omega))
+(#%-def-value some
   (#%-λ () [] ((value-type star)) → star
     = (#%-struct ((value value-type)) 1)))
-(#%-def option
+(#%-def-value option
   (#%-λ () [] ((value-type star)) → star
     = (#%-union none (some value-type))))
 ```
@@ -465,9 +466,9 @@ arbitrary macro operands remain syntax until the macro interprets them.
 Lexical resolution and expansion proceed together: binders and imports establish
 identities needed for dispatch, and expansion can introduce more bindings. An
 unresolved application retains its original syntax until dispatch; a completed
-`Apply` contains an expanded operator and operands. `#%-macro` is recognized in
-this lexical context when installing a transformer, not by a preceding textual
-rewrite or a runtime test.
+`Apply` contains an expanded operator and operands. Resolve `#%-def-macro` in
+this lexical context to install a transformer; dispatch is not a runtime value
+test.
 
 The final core AST is still unchecked: type, grade, and initialization analysis
 follow. A library node retains its declarations and ordered bodies, annotated
@@ -536,30 +537,33 @@ definition patterns, and match branches without checking their types.
 
 ### Macro definitions and local syntax bindings
 
-`#%-macro` ◰ accepts a `#%-syntax-rules` ◰ specification in a named
-`#%-def`; that entire definition is eliminated after installing its descriptor.
-Ordinary `#%-def` statements remain in the core AST. The second rules form
-selects a custom ellipsis identifier. Bare macro identifiers are not runtime
-values, and ordinary dotted applications remain invalid.
+`#%-def-macro` ◰ binds one name directly to a `#%-syntax-rules` ◰ specification.
+Install its descriptor and eliminate the macro definition. `#%-def-value`
+statements remain in the core AST; their runtime results are never classified
+as macro transformers. The second rules form selects a custom ellipsis identifier.
+Bare macro identifiers are not runtime values, and ordinary dotted applications
+remain invalid.
 
 ```scheme
-(#%-def choose
-  (#%-macro
-    (#%-syntax-rules ()
-      ((_ test yes no)
-       (#%-match (#%-ann test boolean) (#t yes) (#f no))))))
-(#%-def answer (choose #t 41 42))
+(#%-def-macro choose
+  (#%-syntax-rules (otherwise)
+    ((_ test yes otherwise no)
+     (#%-match (#%-ann test boolean) (#t yes) (#f no)))))
+(#%-def-value answer (choose #t 41 otherwise 42))
 
-(#%-def define-two
-  (#%-macro
-    (#%-syntax-rules ()
-      ((_ (first-name second-name) initializer)
-       (#%-def (#%-tuple first-name second-name) initializer)))))
+(#%-def-macro define-two
+  (#%-syntax-rules ()
+    ((_ (first-name second-name) initializer)
+     (#%-def-value (#%-tuple first-name second-name) initializer))))
 
 (#%-begin
   (define-two (left right) (#%-tuple 20 22))
   (i64-add left right))
 ```
+
+In `choose`, `otherwise` is a pattern literal, not a capture. This example matches
+when `otherwise` is unbound at both definition and use sites; shadowing it with
+a distinct binding prevents the match.
 
 Bootstrap the matcher, rule compiler, template interpreter, and expansion driver
 in host Scheme. The adapter passes syntax and a definition binding view to that
@@ -577,12 +581,12 @@ without eagerly expanding templates. Reject duplicate keywords. These follow
 
 Both forms introduce local scope and leave an expanded `#%-begin` body when
 runtime definitions or sequencing require it. They require a final expression;
-macro bindings do not escape. Imported surface `define-syntax` can expand to
-`#%-def` plus `#%-macro`; surface `let-syntax` and `letrec-syntax` name the
-corresponding expansion handlers.
+macro bindings do not escape. Imported surface `define-syntax` expands to
+`#%-def-macro`; surface `let-syntax` and `letrec-syntax` name the corresponding
+expansion handlers.
 
 An item-position macro produces one item; an expression-position macro must
-produce an expression. A `#%-def` can bind several names from one initializer.
+produce an expression. A `#%-def-value` can bind several names from one initializer.
 Returning `#%-begin` creates a nested scope; expansion never splices it away.
 The final item of a block must expand to an expression.
 
@@ -614,6 +618,11 @@ Template       ::= Template-Id | Constant
                  | #(Element*)
 Element        ::= Template | Template Ellipsis
 ```
+
+The literal-identifier list is mandatory, possibly empty. Its entries match
+identifiers by binding instead of capturing syntax. It does not exempt identifiers
+from hygiene: template free identifiers retain definition-site bindings, and
+introduced binders avoid accidental capture. There is no hygiene-exemption list.
 
 - Ignore the pattern's leading macro identifier. Pattern variables are unique.
   `_` is a wildcard unless declared literal. Literal entries also override the
@@ -668,14 +677,14 @@ repetitions. Parent paths preserve ragged nesting; validate driver lengths at
 each parent path before zipping them.
 
 ```scheme
-(#%-def compile-syntax-rules-type
+(#%-def-value compile-syntax-rules-type
   (#%-Π [] ((definition-view binding-view) (spec syntax))
     → (result rules-transformer diagnostic)))
-(#%-def match-rule-type
+(#%-def-value match-rule-type
   (#%-Π [] ((definition-view binding-view) (use-view binding-view)
          (rule rule-plan) (form syntax))
     → (option captures)))
-(#%-def instantiate-template-type
+(#%-def-value instantiate-template-type
   (#%-Π [] ((introduction introduction-context)
          (rule rule-plan) (matched captures))
     → (result syntax diagnostic)))
@@ -720,8 +729,8 @@ a previous result. Bound runaway expansion with a located diagnostic.
    ownership, SCCs, and initialization readiness. Transformers cannot bypass
    those checks or forge checked nodes.
 
-Install macro definitions in source order. Reserve the binding identity before
-capturing the definition view; compile and register the descriptor on success.
+Process `#%-def-macro` definitions in source order. Reserve the binding identity
+before capturing the definition view; compile and register the descriptor on success.
 A template may refer to its own binding, but invoking an uninstalled descriptor
 is an error. Keep immutable identity views separate from the phase registry so
 a view does not freeze an unfinished descriptor.
@@ -803,16 +812,16 @@ ownership transfer, abandonment cleanup, and growth before multi-shot control.
 The initial control proposal uses affine `cont-1 A`:
 
 ```scheme
-(#%-def capture-1-type
+(#%-def-value capture-1-type
   (#%-Π [(A star)]
       ((body (#%-Π [] ((k (cont-1 A))) → nothing)))
     → A))
 
-(#%-def invoke-1-type
+(#%-def-value invoke-1-type
   (#%-Π [(A star)] ((k (cont-1 A)) (value A))
     → nothing))
 
-(#%-def answer
+(#%-def-value answer
   (i64-add 1
     (capture-1
       (#%-λ () [] ((k (cont-1 i64)))
@@ -897,7 +906,9 @@ Implementation checks should cover:
 | Initialization | Cross-definition recursion; eager cycles; acyclic forward reads; premature calls/escapes; nested scopes |
 | Ownership | Duplicate affine uses; missing captures; grade escalation; dependent field transfer; cleanup |
 | Data | Tuple arity/unit; one-time initialization; irrefutable definitions; union overlap/coverage; stable nominal identity |
-| Macro dispatch | One application form; binding-directed dispatch and shadowing; discarded non-core operands; improper macro input; nested expansion; `#%-def` rejected in expression position; block scope retained |
+| Macro dispatch | One application form; binding-directed dispatch and shadowing; discarded non-core operands; improper macro input; nested expansion; both definition forms rejected in expression position; block scope retained |
+| Definition forms | Value patterns survive expansion; named macro definitions install descriptors and disappear; value results never register macros |
+| Pattern literals | Same binding matches; distinct shadowed binding fails; equal unbound names match; template hygiene remains intact |
 | Macro ownership | Repeated affine input and omitted captures rejected after expansion |
 | Hygiene | Use-site `temp`; definition-site `#%-match`; same spelling with distinct bindings; copied struct occurrences |
 | Repetition | Fixed suffixes; zero and ragged inner extents; variable-free repeats; incompatible drivers; custom/literal/escaped markers |
