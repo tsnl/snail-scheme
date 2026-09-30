@@ -29,7 +29,7 @@ the structural markers `→` and `=` retain their spellings.
 
 ```text
 Program       ::= Import-Decl* Item*
-Library       ::= (define-library Library-Name Library-Decl*)             ◰
+Library       ::= (define-library Library-Name Library-Decl*)
 Library-Decl  ::= Import-Decl
                 | (export Export-Spec*)                                   ◰
                 | (begin Item*)                                           ◰
@@ -62,14 +62,11 @@ Expr          ::= Name
                 | (#%-match Expr Clause+)
                 | (#%-let-syntax (Syntax-Binding*) Item* Expr)            ◰
                 | (#%-letrec-syntax (Syntax-Binding*) Item* Expr)         ◰
-                | Macro-Use                                               ◰
 
 Syntax-Binding ::= (Name Rules-Spec)
 Rules-Spec    ::= (#%-syntax-rules (Name*) Rule*)                         ◰
                 | (#%-syntax-rules Name (Name*) Rule*)                    ◰
 Rule          ::= (Macro-Pattern Template)
-Macro-Use     ::= (Name Reader-Syntax*)
-                | (Name Reader-Syntax* . Reader-Syntax)
 
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
@@ -86,11 +83,20 @@ Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
 
-`Reader-Syntax` is an arbitrary reader node; the macro pattern/template grammar
-is in section 5. Resolve macro heads before parsing their operands as `Expr`.
-A macro use in item position may produce a definition; the final core AST
-contains only expanded definitions and expressions. Import-set modifiers and
-export specifications are metadata syntax inside eliminated declarations.
+Application has one grammatical form, `(Expr Expr*)`. Before resolving its head,
+keep application-shaped input as syntax: operands may be arbitrary reader nodes,
+including binders or pattern data, and a macro may accept an improper tail.
+Resolution decides whether to invoke a transformer, dispatch a built-in form,
+or build an ordinary `Apply` node. Only the last case requires a proper list
+of operator/operand expressions. There is no separate macro-use production or
+AST node, and macro operands are not prematurely parsed as expressions.
+
+`define-library` remains a container in the expanded AST. Its declaration
+wrappers are processed into a resolved interface, dependencies, and ordered
+expanded body items; imports/exports survive as metadata. Library-body `begin`
+wrappers flatten into that body, while `#%-begin` retains its nested scope.
+An item-position application may expand to a definition. The macro
+pattern/template grammar is in section 5.
 
 The first function telescope is implicit, the second explicit. Both are
 mandatory; `#%-λ` also requires its leading capture list. Empty lists are valid.
@@ -444,8 +450,8 @@ and report checked failures. Arithmetic is defined as wrapping or checked.
 | Representation | Contents |
 | --- | --- |
 | Syntax objects | Atoms, lists/improper tails, source locations, and lexical context; later vectors |
-| Library records | Import/export maps, binding identities, transformer descriptors, dependencies, and expanded bodies |
-| Core AST | Expanded core forms and resolved value references; no `◰` forms or macro applications |
+| Library records | Cached interfaces, binding identities, transformer descriptors, and dependencies |
+| Core AST | Retained `define-library` containers, expanded core forms, ordinary applications, and resolved value references; no `◰` forms |
 | Checked IR | Inferred arguments, types, union conversions, captures, ownership operations, and recursive groups |
 
 The existing syntax records already provide structure and locations. Add lexical
@@ -453,8 +459,16 @@ context and expansion provenance directly or through a wrapper. The reusable
 syntax-pattern matcher extracts captures for both AST builders and macro template
 instantiation. AST construction may accompany expansion of recognized forms;
 arbitrary macro operands remain syntax until the macro interprets them.
-The core AST is still unchecked: type, grade, and initialization analysis follow.
-Library metadata is retained alongside it, not as executable expression nodes.
+Lexical resolution and expansion proceed together: binders and imports establish
+identities needed for dispatch, and expansion can introduce more bindings. An
+unresolved application retains its original syntax until dispatch; a completed
+`Apply` contains an expanded operator and operands. `#%-macro` is recognized in
+this lexical context when installing a transformer, not by a preceding textual
+rewrite or a runtime test.
+
+The final core AST is still unchecked: type, grade, and initialization analysis
+follow. A library node retains its name, resolved interface, dependencies, and
+ordered body. Its metadata need not execute as expression nodes.
 
 The reader accepts data outside the core expression grammar. An expander must
 resolve heads before parsing macro operands as expressions. Locations alone do
@@ -491,7 +505,8 @@ library declarations in section 1; defer `include`, `include-ci`,
 not yet full R7RS support.
 
 Map library names to source locations and cache loaded library records per
-compilation. Resolve imports before body expansion; concatenate library-body
+compilation. Preserve each library as a distinct AST container through expansion.
+Resolve imports before body expansion; concatenate library-body
 `begin` declarations in source order into one library scope. These declarations
 do not create the nested scope of `#%-begin`. Reject cyclic library dependencies
 initially; this does not prohibit mutually recursive functions within a library.
@@ -680,8 +695,10 @@ registration needs a separate reuse contract.
 ### Expansion, phases, and hygiene
 
 The driver distinguishes library declarations, body items, expressions, and
-transformer specifications. `macro-expand-1` performs one head expansion and
-otherwise returns the input unchanged. Full expansion repeats macro dispatch
+transformer specifications, maintaining their lexical environments while expanding.
+Application dispatch uses the resolved head binding; source spelling alone cannot
+classify a call as a macro invocation. `macro-expand-1` performs one head expansion
+and otherwise returns the input unchanged. Full expansion repeats macro dispatch
 on results, then traverses the designated positions of resolved forms. Completion
 means no remaining macro uses in those positions, not structural equality with
 a previous result. Bound runaway expansion with a located diagnostic.
@@ -693,9 +710,10 @@ a previous result. Bound runaway expansion with a located diagnostic.
 3. For a core form, process only designated expression positions. Binders,
    field labels, patterns, and macro specifications are not ordinary operands.
 4. Expand ordinary applications in operator/operand order. Collect the completed
-   scope's definitions, resolve references, and produce the final core AST.
-   Later elaboration checks signatures, bodies, ownership, SCCs, and initialization
-   readiness. Transformers cannot bypass those checks or forge checked nodes.
+   scope's definitions, resolve references, and produce the final core AST,
+   retaining library containers. Later elaboration checks signatures, bodies,
+   ownership, SCCs, and initialization readiness. Transformers cannot bypass
+   those checks or forge checked nodes.
 
 Install macro definitions in source order. Reserve the binding identity before
 capturing the definition view; compile and register the descriptor on success.
@@ -868,13 +886,13 @@ Implementation checks should cover:
 
 | Concern | Cases |
 | --- | --- |
-| Libraries | Missing/cyclic dependencies; filtered/renamed imports; conflicts; re-exports; exported macros using private helpers |
+| Libraries | Retained library containers; missing/cyclic dependencies; filtered/renamed imports; conflicts; re-exports; exported macros using private helpers |
 | Expansion scopes | `let-syntax` versus `letrec-syntax`; macro availability; shadowed heads; generated definitions; no eliminated forms in final AST |
 | Binding and inference | Mandatory lists/results; telescope scope; ambiguous implicits; local index escape |
 | Initialization | Cross-definition recursion; eager cycles; acyclic forward reads; premature calls/escapes; nested scopes |
 | Ownership | Duplicate affine uses; missing captures; grade escalation; dependent field transfer; cleanup |
 | Data | Tuple arity/unit; one-time initialization; irrefutable definitions; union overlap/coverage; stable nominal identity |
-| Macro dispatch | Shadowing; discarded non-core operands; nested expansion; `#%-def` rejected in expression position; block scope retained |
+| Macro dispatch | One application form; binding-directed dispatch and shadowing; discarded non-core operands; improper macro input; nested expansion; `#%-def` rejected in expression position; block scope retained |
 | Macro ownership | Repeated affine input and omitted captures rejected after expansion |
 | Hygiene | Use-site `temp`; definition-site `#%-match`; same spelling with distinct bindings; copied struct occurrences |
 | Repetition | Fixed suffixes; zero and ragged inner extents; variable-free repeats; incompatible drivers; custom/literal/escaped markers |
