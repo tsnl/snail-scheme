@@ -25,8 +25,8 @@ from the supplied explicit arguments. By convention, write the implicit group in
 brackets; bracket style has no semantic meaning. A parameter never switches
 between implicit and explicit at a call site. Both forms require `→` followed
 by an explicit result type after the binders; `λ` then adds `=` followed by a
-body expression. Every `λ` starts with a mandatory `#:captures (...)` clause
-naming its captured outer bindings, including `#:captures ()` when there are none.
+body expression. Every `λ` starts with a mandatory capture list `(...)`
+naming its captured outer bindings, including `()` when there are none.
 
 A small interpreter executes checked terms, including compile-time programs.
 A compiler specializes the same language and eventually emits C. The first
@@ -75,7 +75,7 @@ family, a function, or an ordinary value follows from its expression.
   (union i64 boolean))
 
 (def id
-  (λ #:captures () [(Element-Type type)] ((x Element-Type))
+  (λ () [(Element-Type type)] ((x Element-Type))
     → Element-Type
     = x))
 
@@ -84,7 +84,7 @@ family, a function, or an ordinary value follows from its expression.
     → Element-Type))
 
 (def increment
-  (λ #:captures () [] ((x i64))
+  (λ () [] ((x i64))
     → i64
     = (i64-add x 1)))
 ```
@@ -94,16 +94,16 @@ binder grade or type-separator token. The forms are:
 
 ```text
 (Π [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type)
-(λ #:captures (Capture-Name ...) [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
+(λ (Capture-Name ...) [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
 ```
 
 Each `Implicit-Binder` or `Explicit-Binder` stands for `(Name Type-Expression)`.
 Both parameter groups are mandatory: the first is implicit and the second is
 explicit. Write `[]` when there are no implicit parameters and `()` when there
 are no explicit parameters. A lambda with no captures and no parameters has
-the header `(λ #:captures () [] () → Result-Type = Body)`.
+the header `(λ () [] () → Result-Type = Body)`.
 
-The capture clause is separate from the parameter groups and never appears on
+The capture list is separate from the parameter groups and never appears on
 `Π`. Capture names resolve in the enclosing scope; their types are known from
 those bindings. Captured bindings are in scope in the parameter annotations,
 result type, and body. The ownership and completeness rules are in section 6.
@@ -150,7 +150,7 @@ Nest `let` expressions when a later computation depends on an earlier result:
 
 ```scheme
 (def increment-twice
-  (λ #:captures () [] ((x i64))
+  (λ () [] ((x i64))
     → i64
     = (let ((first-step (i64-add x 1)))
         (let ((second-step (i64-add first-step 1)))
@@ -225,7 +225,7 @@ array also preserves its element type and length:
 
 ```scheme
 (def keep-array
-  (λ #:captures () [(Element-Type type) (N i64)] ((xs (array Element-Type N)))
+  (λ () [(Element-Type type) (N i64)] ((xs (array Element-Type N)))
     → (array Element-Type N)
     = xs))
 ```
@@ -291,12 +291,12 @@ whereas its value constructor `make-pair` infers them:
 
 ```scheme
 (def pair
-  (λ #:captures () [] ((first-type type) (second-type type))
+  (λ () [] ((first-type type) (second-type type))
     → type
     = (struct ((first first-type) (second second-type)) 1)))
 
 (def make-pair
-  (λ #:captures () [(A type) (B type)] ((x A) (y B))
+  (λ () [(A type) (B type)] ((x A) (y B))
     → (pair A B)
     = (new (pair A B) ((first x) (second y)))))
 
@@ -341,27 +341,27 @@ A type family is an ordinary function returning a type:
   (struct () omega))
 
 (def some
-  (λ #:captures () [] ((value-type type))
+  (λ () [] ((value-type type))
     → type
     = (struct ((value value-type)) 1)))
 
 (def option
-  (λ #:captures () [] ((value-type type))
+  (λ () [] ((value-type type))
     → type
     = (union none (some value-type))))
 
 (def ok
-  (λ #:captures () [] ((value-type type))
+  (λ () [] ((value-type type))
     → type
     = (struct ((value value-type)) 1)))
 
 (def err
-  (λ #:captures () [] ((error-type type))
+  (λ () [] ((error-type type))
     → type
     = (struct ((error error-type)) 1)))
 
 (def result
-  (λ #:captures () [] ((value-type type) (error-type type))
+  (λ () [] ((value-type type) (error-type type))
     → type
     = (union (ok value-type) (err error-type))))
 ```
@@ -429,12 +429,12 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 
 ```scheme
 (def maybe
-  (λ #:captures () [] ((value-type type))
+  (λ () [] ((value-type type))
     → type
     = (union (singleton #f) value-type)))
 
 (def scalar-to-integer
-  (λ #:captures () [] ((x scalar))
+  (λ () [] ((x scalar))
     → i64
     = (match x
         ((is i64 integer) integer)
@@ -602,13 +602,13 @@ unused owners on scope exit and abandoned control paths.
 
 ```scheme
 (def bad-copy
-  (λ #:captures () [] ((value ticket))
+  (λ () [] ((value ticket))
     → (pair ticket ticket)
     = (make-pair value value)))
 ; Rejected: two ownership transfers from one ticket.
 
 (def copy-integer
-  (λ #:captures () [] ((n i64))
+  (λ () [] ((n i64))
     → (pair i64 i64)
     = (make-pair n n)))
 ; Accepted: grade-of(i64) = omega.
@@ -687,23 +687,23 @@ implementing and exercising the immutable core.
 
 ### Explicit consuming captures
 
-Every lambda declares its captures with `#:captures (Name ...)`. The clause
+Every lambda declares its captures with the first list `(Name ...)`. This list
 contains distinct names of enclosing bindings, not arbitrary expressions.
 Resolve these names before introducing the lambda's parameters. Reject duplicate
 capture identities and capture/parameter name collisions.
 
 ```scheme
 (def make-adder
-  (λ #:captures () [] ((offset i64))
+  (λ () [] ((offset i64))
     → (Π [] ((x i64)) → i64)
-    = (λ #:captures (offset) [] ((x i64))
+    = (λ (offset) [] ((x i64))
         → i64
         = (i64-add x offset))))
 
 (def retain-ticket
-  (λ #:captures () [] ((value ticket))
+  (λ () [] ((value ticket))
     → (Π [] () → ticket)
-    = (λ #:captures (value) [] ()
+    = (λ (value) [] ()
         → ticket
         = value)))
 ```
@@ -715,7 +715,7 @@ the outer binding remains usable. The body owns the captured fields when the
 closure is invoked; capturing a value does not relax its usage rules.
 
 The capture list covers free enclosing bindings throughout the lambda: parameter
-annotations, the result type, the body, and nested lambdas' capture clauses.
+annotations, the result type, the body, and nested lambdas' capture lists.
 It also covers local dependencies in captured values' types. For example, a
 captured `xs` of type `(array i64 n)` requires the enclosing `n` to be listed
 as well. Type-only dependencies obey the phase rules and can be erased; they
@@ -796,7 +796,7 @@ ordinary Scheme `call/cc`:
 (def answer
   (i64-add 1
     (capture-1
-      (λ #:captures () [] ((k (cont-1 i64)))
+      (λ () [] ((k (cont-1 i64)))
         → nothing
         = (invoke-1 k 41)))))
 ; Produces 42.
@@ -936,7 +936,7 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
 
 1. **Parsing, elaboration, and dependent checking.** Implement `def`, the
    required implicit and explicit binder groups with telescope
-   scoping, explicit `#:captures` clauses, mandatory result types with `→`,
+   scoping, explicit capture lists, mandatory result types with `→`,
    λ bodies introduced by `=`, `Π`, universes, and pure type normalization.
    Accept matching list delimiters interchangeably; determine parameter roles
    by their fixed positions.

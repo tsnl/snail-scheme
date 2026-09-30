@@ -25,7 +25,7 @@ and patterns are reader syntax until their enclosing construct interprets them.
 Matching `()`, `[]`, and `{}` all produce the same list structure; mismatched
 fenders are errors. Square brackets around implicit parameters are a convention.
 Preserve locations, but delimiter kind need not affect elaboration. Recognize
-`λ`, `Π`, `→`, `=`, and `#:captures` as complete tokens. Binder casing follows the
+`λ`, `Π`, `→`, and `=` as complete tokens. Binder casing follows the
 core design; the reader must also preserve arbitrary Scheme identifier spelling
 in syntax data instead of applying the core naming convention to it.
 
@@ -51,7 +51,7 @@ Definition    ::= (def Name Expr)
 Expr          ::= Name
                 | Literal
                 | (Π Telescope Telescope → Type-Expr)
-                | (λ #:captures (Name*) Telescope Telescope → Type-Expr = Expr)
+                | (λ (Name*) Telescope Telescope → Type-Expr = Expr)
                 | (Expr Expr*)
                 | (ann Expr Type-Expr)
                 | (let (Binding*) Expr)
@@ -91,7 +91,7 @@ Special forms take precedence over the application production when the head
 resolves to their built-in syntax binding. Their names are not first-class
 runtime functions. Ordinary lexical bindings may shadow syntax bindings; the
 resolver, rather than a parser keyed only by spelling, selects the form.
-The structural markers `→`, `=`, and `#:captures` are recognized in their designated
+The structural markers `→` and `=` are recognized in their designated
 positions. Empty `()` is not an expression; `(f)` is a zero-argument call.
 
 There are no separate declaration forms for types or functions. There is no
@@ -119,12 +119,12 @@ second explicit. Every lambda also requires its capture list, which may be empty
 Implicit parameters are solved only from explicit arguments, not expected call
 results. Duplicate binders and forward references are rejected.
 
-Every `λ` has a mandatory `#:captures (Name*)` clause before its parameter groups;
-the empty clause explicitly captures nothing. Capture names resolve to distinct
+Every `λ` has a mandatory capture list `(Name*)` before its parameter groups;
+the empty list explicitly captures nothing. Capture names resolve to distinct
 enclosing bindings before parameter scope begins, and cannot collide with a
-parameter name. `Π` has no capture clause. Listed captures are in scope throughout
+parameter name. `Π` has no capture list. Listed captures are in scope throughout
 the lambda's annotations and body. The capture list must cover free outer values
-in those positions, nested capture clauses, and dependencies in captured types.
+in those positions, nested capture lists, and dependencies in captured types.
 
 Closure construction moves listed affine values immediately and may copy listed
 unrestricted values. Primitive bindings and verified closed static top-level
@@ -173,7 +173,7 @@ the core gives `_` normal binding, reference, and duplicate-name semantics.
 
 ```scheme
 (def package-length
-  (λ #:captures () [] ((value sized-array))
+  (λ () [] ((value sized-array))
     → i64
     = (match value
         ((new sized-array ((length n) (items unused-items))) n))))
@@ -592,7 +592,7 @@ during expansion/elaboration, rather than generating them during evaluation.
 
 The current `syntax.sld` already separates atoms and located lists with optional
 dotted tails. It is still a reader, not this core-form parser. It currently accepts
-only parenthesis fenders; matching square/curly fenders, `→`, and `#:captures` need
+only parenthesis fenders; matching square/curly fenders and `→` need
 lexical work. Vectors and binding scopes also remain unimplemented. This proposal
 does not claim that the examples already run.
 
@@ -617,7 +617,7 @@ that happen to expand successfully:
 | A macro shadows an outer value; a local value shadows that macro | Dispatch follows the binding in scope |
 | A macro discards a syntactically non-core operand | Discarded operand is not parsed as `Expr` |
 | A macro repeats an affine argument in its output | The core checker rejects the duplicate ownership use |
-| A generated lambda omits an outer value from `#:captures` | Capture checking rejects the expansion |
+| A generated lambda omits an outer value from its capture list | Capture checking rejects the expansion |
 | Template introduces `temp` beside a use-site `temp` | No accidental capture |
 | Template uses `match` beneath a use-site binding named `match` | Definition-site syntax binding is preserved |
 | Literal identifier has the same spelling but a different binding | Literal match fails |
