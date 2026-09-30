@@ -1,28 +1,51 @@
 # Snail-Scheme core language
 
-Design proposal. Implement the immutable, macro-free parser, elaborator,
-typechecker, and interpreter first. Macros, memory management, continuations,
-and C output are later stages. The language is strict and dependently typed;
-ownership grades belong to types.
+Design proposal for Esker, Snail-Scheme's strict, dependently typed core.
+Ownership grades belong to types. Start with syntax matching, libraries, lexical
+scoping, and hygienic expansion into the final core AST; elaboration, checking,
+and immutable interpretation follow. Memory management, continuations, and C
+output remain future work.
 
 ## 1. Grammar
 
-`*`, `+`, and `|` below are metanotation. `Name` and `Field` are identifiers;
-`Type-Expr` is an expression checked to denote a type. Special forms are selected
-by resolved syntax bindings, which ordinary lexical bindings may shadow.
+`*`, `+`, and `|` below are metanotation. The right-hand `◰` marker identifies
+forms eliminated during expansion/loading. It is documentation notation, not
+source syntax or part of an identifier. Expanded bodies or library metadata may survive, but
+the marked form does not appear in the final core AST. This is one language
+reference, with no separate Core+ language.
+
+`Name` and `Field` are identifiers. `Type-Expr` is an expression checked to denote
+a type during elaboration. Special forms are selected by resolved syntax bindings,
+which ordinary lexical bindings may shadow.
 
 Built-in syntax IDs use the `#%-` prefix and enter scope only through an explicit
 language import; `esker` is the provisional name of the core language. Examples
 assume those imports. Surface languages may expose shorter names and expand to
 these bindings. The prefix is a naming convention, not a substitute for lexical
-identity or an escape from shadowing. Import syntax is outside this grammar.
-Ordinary type/value identifiers and the structural markers `→` and `=` retain
-their spellings.
+identity or an escape from shadowing. The file/library driver recognizes the
+outer declaration grammar before imports; this is the bootstrap boundary, not
+an implicit import of expression syntax. Ordinary type/value identifiers and
+the structural markers `→` and `=` retain their spellings.
 
 ```text
-Program       ::= Item*
+Program       ::= Import-Decl* Item*
+Library       ::= (define-library Library-Name Library-Decl*)             ◰
+Library-Decl  ::= Import-Decl
+                | (export Export-Spec*)                                   ◰
+                | (begin Item*)                                           ◰
+Import-Decl   ::= (import Import-Set*)                                    ◰
+Import-Set    ::= Library-Name
+                | (only Import-Set Name*)
+                | (except Import-Set Name*)
+                | (prefix Import-Set Name)
+                | (rename Import-Set (Name Name)*)
+Export-Spec   ::= Name | (rename Name Name)
+Library-Name  ::= (Library-Part+)
+Library-Part  ::= Name | Nonnegative-Integer
+
 Item          ::= Definition | Expr
 Definition    ::= (#%-def Pattern Expr)
+                | (#%-def Name (#%-macro Rules-Spec))                     ◰
 
 Expr          ::= Name
                 | Literal
@@ -37,6 +60,16 @@ Expr          ::= Name
                 | (#%-union Type-Expr*)
                 | (#%-new Type-Expr (Field-Value*))
                 | (#%-match Expr Clause+)
+                | (#%-let-syntax (Syntax-Binding*) Item* Expr)            ◰
+                | (#%-letrec-syntax (Syntax-Binding*) Item* Expr)         ◰
+                | Macro-Use                                               ◰
+
+Syntax-Binding ::= (Name Rules-Spec)
+Rules-Spec    ::= (#%-syntax-rules (Name*) Rule*)                         ◰
+                | (#%-syntax-rules Name (Name*) Rule*)                    ◰
+Rule          ::= (Macro-Pattern Template)
+Macro-Use     ::= (Name Reader-Syntax*)
+                | (Name Reader-Syntax* . Reader-Syntax)
 
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
@@ -52,6 +85,12 @@ Pattern       ::= Name
 Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
+
+`Reader-Syntax` is an arbitrary reader node; the macro pattern/template grammar
+is in section 5. Resolve macro heads before parsing their operands as `Expr`.
+A macro use in item position may produce a definition; the final core AST
+contains only expanded definitions and expressions. Import-set modifiers and
+export specifications are metadata syntax inside eliminated declarations.
 
 The first function telescope is implicit, the second explicit. Both are
 mandatory; `#%-λ` also requires its leading capture list. Empty lists are valid.
@@ -80,8 +119,9 @@ and reject out-of-range values. Other reader datums are not automatically core
 expressions. Empty `()` is not an expression; `(f)` calls `f` with no explicit
 arguments.
 
-`#%-def` is the only binding statement. There are no separate type declarations,
-binder-grade annotations, `quote`, `if`, `let`, `letrec`, `fix`, rest parameters,
+`#%-def` is the only definition statement for values and named macros. Local
+syntax-binding forms are eliminated during expansion. There are no separate type
+declarations, binder-grade annotations, `quote`, `if`, `let`, `letrec`, `fix`, rest parameters,
 `set!`, or user-defined recursive datatype forms in the initial grammar.
 Arithmetic, arrays, `singleton`, and list operations use ordinary applications.
 `#%-union`, `#%-tuple-of`, and `#%-tuple` have intrinsic n-ary rules, not first-class
@@ -102,7 +142,7 @@ variadic function signatures.
   its mandatory final expression in tail position. Nonfinal expression results
   are discarded immediately; unused bound owners are cleaned up at scope exit.
   File scope accepts any item sequence and discards expression results.
-- Each `#%-def` evaluates its initializer once and initializes all pattern bindings
+- Each ordinary `#%-def` evaluates its initializer once and initializes its bindings
   together. Its pattern must be provably irrefutable for the result's type and
   refinements. Otherwise use `#%-match`; `#%-def` has no runtime failure branch.
 - Collect bindings across the completed scope before checking function bodies.
@@ -403,9 +443,18 @@ and report checked failures. Arithmetic is defined as wrapping or checked.
 
 | Representation | Contents |
 | --- | --- |
-| Reader syntax | Atoms, located lists and improper tails; later vectors and lexical context |
-| Source terms | The grammar above, with binders and designated expression positions |
-| Checked terms | Binding identities, explicit inferred arguments, types, union conversions, captures, ownership operations, blocks, and recursive groups |
+| Syntax objects | Atoms, lists/improper tails, source locations, and lexical context; later vectors |
+| Library records | Import/export maps, binding identities, transformer descriptors, dependencies, and expanded bodies |
+| Core AST | Expanded core forms and resolved value references; no `◰` forms or macro applications |
+| Checked IR | Inferred arguments, types, union conversions, captures, ownership operations, and recursive groups |
+
+The existing syntax records already provide structure and locations. Add lexical
+context and expansion provenance directly or through a wrapper. The reusable
+syntax-pattern matcher extracts captures for both AST builders and macro template
+instantiation. AST construction may accompany expansion of recognized forms;
+arbitrary macro operands remain syntax until the macro interprets them.
+The core AST is still unchecked: type, grade, and initialization analysis follow.
+Library metadata is retained alongside it, not as executable expression nodes.
 
 The reader accepts data outside the core expression grammar. An expander must
 resolve heads before parsing macro operands as expressions. Locations alone do
@@ -431,26 +480,47 @@ proper tail recursion and cleanup. Function interfaces will need latent effects;
 plain `#%-Π` currently specifies only arguments and results. Effect syntax,
 generic grade constraints, and more general dependent elimination remain open.
 
-## 5. Macro expansion — later layer
+## 5. Libraries, lexical scoping, and expansion
 
-### Definition and application grammar
+### Library loading and binding identity
 
-Keep macros outside the initial evaluator grammar. Add this expansion-only
-adapter, selected by resolved built-in bindings:
+The driver reads a program or library declaration, resolves its imports, then
+expands body forms under the imported language bindings. Initially support the
+library declarations in section 1; defer `include`, `include-ci`,
+`include-library-declarations`, and `cond-expand`. This is a library subset,
+not yet full R7RS support.
 
-```text
-Macro-Definition ::= (#%-def Name (#%-macro Rules-Spec))
-Rules-Spec       ::= (#%-syntax-rules (Identifier*) Rule*)
-                   | (#%-syntax-rules Identifier (Identifier*) Rule*)
-Rule             ::= (Macro-Pattern Template)
-Macro-Use        ::= (Identifier Reader-Syntax*)
-                   | (Identifier Reader-Syntax* . Reader-Syntax)
-```
+Map library names to source locations and cache loaded library records per
+compilation. Resolve imports before body expansion; concatenate library-body
+`begin` declarations in source order into one library scope. These declarations
+do not create the nested scope of `#%-begin`. Reject cyclic library dependencies
+initially; this does not prohibit mutually recursive functions within a library.
 
-`Reader-Syntax` is an arbitrary reader node. `#%-macro` accepts a `#%-syntax-rules`
-specification and binds one descriptor; it is not a runtime operation. The second
-specification form selects a custom ellipsis identifier. An ordinary dotted
-application remains invalid.
+Imports and re-exports preserve binding identities through filtering, prefixing,
+and renaming. Diagnose missing libraries, nonexistent requested names, unresolved
+exports, and conflicting imported bindings. Importing one identity repeatedly
+is allowed; replacing an imported binding by a local definition is not. Nested
+lexical scopes may shadow it. Validate exports after discovering expanded local
+bindings. These are the intended [R7RS import/export rules](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-7.html).
+
+A binding entry records its identity, scope/phase, and kind: value, built-in
+syntax handler, or transformer descriptor. Exported macros retain definition
+context, including private helpers. Generated references retain those identities
+without requiring callers to import private names. Track resulting library
+dependencies as well as explicit imports.
+
+Expansion loads descriptors, not runtime values. Preserve ordered runtime bodies
+and dependency metadata for later initialization; do not execute them to expand
+imports. Structural scope processing handles lambda binders, captures, telescopes,
+definition patterns, and match branches without checking their types.
+
+### Macro definitions and local syntax bindings
+
+`#%-macro` ◰ accepts a `#%-syntax-rules` ◰ specification in a named
+`#%-def`; that entire definition is eliminated after installing its descriptor.
+Ordinary `#%-def` statements remain in the core AST. The second rules form
+selects a custom ellipsis identifier. Bare macro identifiers are not runtime
+values, and ordinary dotted applications remain invalid.
 
 ```scheme
 (#%-def choose
@@ -471,10 +541,25 @@ application remains invalid.
   (i64-add left right))
 ```
 
-The adapter passes syntax constants and a definition binding view to an
-already-checked core rule compiler. It does not implement pattern matching or
-execute unchecked source. No general quotation form is needed. Procedural
-transformers and `quote-syntax` can come later.
+Bootstrap the matcher, rule compiler, template interpreter, and expansion driver
+in host Scheme. The adapter passes syntax and a definition binding view to that
+engine; it never evaluates arbitrary transformer expressions. No Esker interpreter
+or general quotation form is needed. The immutable engine design below supports
+a later implementation in Esker. Procedural transformers and `quote-syntax` are
+deferred.
+
+`#%-let-syntax` ◰ compiles transformer specifications in the enclosing syntax
+environment, then expands its body with the new macro bindings.
+`#%-letrec-syntax` ◰ reserves every binding identity first; each specification
+and the body see the whole group. Install the descriptors before expanding uses,
+without eagerly expanding templates. Reject duplicate keywords. These follow
+[R7RS syntax-binding scopes](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-6.html#TAG:__tex2page_sec_4.3.1).
+
+Both forms introduce local scope and leave an expanded `#%-begin` body when
+runtime definitions or sequencing require it. They require a final expression;
+macro bindings do not escape. Imported surface `define-syntax` can expand to
+`#%-def` plus `#%-macro`; surface `let-syntax` and `letrec-syntax` name the
+corresponding expansion handlers.
 
 An item-position macro produces one item; an expression-position macro must
 produce an expression. A `#%-def` can bind several names from one initializer.
@@ -536,8 +621,8 @@ A matcher lacking vectors or other datum forms must identify itself as a subset.
 
 ### Immutable engine representation
 
-Use unrestricted syntax and immutable metadata, interpreted by known reusable
-helper functions. Store rule descriptors rather than environment-erased callable
+For the eventual Esker implementation, use unrestricted syntax and immutable
+metadata interpreted by known reusable helper functions. Store rule descriptors rather than environment-erased callable
 closures. The engine needs lists, records, association lists, and recursive
 helpers; it needs neither shared mutation nor user-defined recursive datatypes.
 
@@ -594,15 +679,23 @@ registration needs a separate reuse contract.
 
 ### Expansion, phases, and hygiene
 
+The driver distinguishes library declarations, body items, expressions, and
+transformer specifications. `macro-expand-1` performs one head expansion and
+otherwise returns the input unchanged. Full expansion repeats macro dispatch
+on results, then traverses the designated positions of resolved forms. Completion
+means no remaining macro uses in those positions, not structural equality with
+a previous result. Bound runaway expansion with a located diagnostic.
+
 1. Resolve a head by lexical binding and phase. Give an installed macro the
    **whole original form** without evaluating, checking, or expanding operands.
 2. Expand its output again in the same syntactic context. Discarded operands
    need never be parsed as core expressions.
 3. For a core form, process only designated expression positions. Binders,
    field labels, patterns, and macro specifications are not ordinary operands.
-4. Collect the completed scope's definitions, then check signatures, bodies,
-   ownership, SCCs, and initialization readiness. Every generated term passes
-   through the same checker; transformers cannot forge checked nodes.
+4. Expand ordinary applications in operator/operand order. Collect the completed
+   scope's definitions, resolve references, and produce the final core AST.
+   Later elaboration checks signatures, bodies, ownership, SCCs, and initialization
+   readiness. Transformers cannot bypass those checks or forge checked nodes.
 
 Install macro definitions in source order. Reserve the binding identity before
 capturing the definition view; compile and register the descriptor on success.
@@ -632,8 +725,10 @@ of one captured struct in an output, have distinct keys. Rechecking the same
 expanded occurrence preserves its key. The driver establishes lexical scopes;
 helpers cannot mint arbitrary scopes or checked terms.
 
-The Scheme front end will additionally need `define-syntax`, `let-syntax`,
-`letrec-syntax`, and `syntax-error` adapters to this phase protocol.
+Keep the declaration grammar separate from expression dispatch: macros cannot
+manufacture imports or exports in arbitrary expression/item positions. Scheme's
+body-splicing `begin` and `syntax-error` still need surface-language adapters;
+neither changes the nested-scope semantics of `#%-begin`.
 
 ## 6. Runtime and compilation — future work
 
@@ -747,25 +842,34 @@ arity; Scheme multiple values need a result-count protocol, not just tuples.
 
 ## 7. Implementation milestones
 
-1. **Immutable core:** reader support, the grammar and binding rules, dependent
-   checking, grade checking, and a frame-based interpreter. Exercise the entire
-   pipeline before adding macro or runtime extensions.
-2. **Expansion:** syntax inspection and hygiene; implement and test the immutable
-   rule compiler/matcher/instantiator as core programs; then install the macro
-   adapter. Recheck all expanded terms through the core.
-3. **Runtime and compilation:** storage/rooting protocols, vector-backed one-shot
-   control, specialization, and C. Compare interpreter and compiled behavior.
-4. **Scheme:** dynamic lowering and libraries after the required mutation,
-   cyclic-storage, multiple-value, and control semantics are specified.
+Track the working checklist in [TODO.md](../TODO.md).
 
-The existing `syntax.sld` is a reader, not this core parser. Square/curly
-delimiters, `→`, vectors, and binding scopes require implementation work in the
-reader/expander. Examples here specify intended behavior; they do not yet run.
+1. **Syntax and binding:** extend the existing reader for `#%-` identifiers,
+   matching delimiters and required datums; implement syntax matching, binding
+   identities, library imports/exports, and lexical scope handling. Define the
+   final core AST and its builders alongside this work.
+2. **Expansion:** implement hygienic `syntax-rules` in host Scheme, named and
+   local macro bindings, one-step expansion, and full contextual expansion.
+   Produce library metadata and a resolved core AST without requiring execution.
+3. **Elaboration and immutable execution:** infer arguments, check dependent
+   types, grades, and initialization, then interpret checked terms. Later port
+   the transformer engine to Esker if useful.
+4. **Runtime and compilation:** storage/rooting protocols, vector-backed one-shot
+   control, specialization, and C. Compare interpreter and compiled behavior.
+5. **Scheme:** complete dynamic lowering and libraries after mutation, cyclic
+   storage, multiple values, and full control semantics are specified.
+
+The existing `syntax.sld` supplies located atoms and lists, not hygienic context
+or this core AST. `#%-` identifiers, square/curly delimiters, `→`, vectors, and
+binding scopes still need reader/expander work. Examples specify intended behavior;
+they do not yet run.
 
 Implementation checks should cover:
 
 | Concern | Cases |
 | --- | --- |
+| Libraries | Missing/cyclic dependencies; filtered/renamed imports; conflicts; re-exports; exported macros using private helpers |
+| Expansion scopes | `let-syntax` versus `letrec-syntax`; macro availability; shadowed heads; generated definitions; no eliminated forms in final AST |
 | Binding and inference | Mandatory lists/results; telescope scope; ambiguous implicits; local index escape |
 | Initialization | Cross-definition recursion; eager cycles; acyclic forward reads; premature calls/escapes; nested scopes |
 | Ownership | Duplicate affine uses; missing captures; grade escalation; dependent field transfer; cleanup |
