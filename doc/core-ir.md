@@ -11,24 +11,32 @@ ownership grades belong to types.
 `Type-Expr` is an expression checked to denote a type. Special forms are selected
 by resolved syntax bindings, which ordinary lexical bindings may shadow.
 
+Built-in syntax IDs use the `#%-` prefix and enter scope only through an explicit
+language import; `esker` is the provisional name of the core language. Examples
+assume those imports. Surface languages may expose shorter names and expand to
+these bindings. The prefix is a naming convention, not a substitute for lexical
+identity or an escape from shadowing. Import syntax is outside this grammar.
+Ordinary type/value identifiers and the structural markers `→` and `=` retain
+their spellings.
+
 ```text
 Program       ::= Item*
 Item          ::= Definition | Expr
-Definition    ::= (def Pattern Expr)
+Definition    ::= (#%-def Pattern Expr)
 
 Expr          ::= Name
                 | Literal
-                | (Π Telescope Telescope → Type-Expr)
-                | (λ (Name*) Telescope Telescope → Type-Expr = Expr)
+                | (#%-Π Telescope Telescope → Type-Expr)
+                | (#%-λ (Name*) Telescope Telescope → Type-Expr = Expr)
                 | (Expr Expr*)
-                | (ann Expr Type-Expr)
-                | (begin Item* Expr)
-                | (struct Telescope Grade)
-                | (tuple-of Type-Expr*)
-                | (tuple Expr*)
-                | (union Type-Expr*)
-                | (new Type-Expr (Field-Value*))
-                | (match Expr Clause+)
+                | (#%-ann Expr Type-Expr)
+                | (#%-begin Item* Expr)
+                | (#%-struct Telescope Grade)
+                | (#%-tuple-of Type-Expr*)
+                | (#%-tuple Expr*)
+                | (#%-union Type-Expr*)
+                | (#%-new Type-Expr (Field-Value*))
+                | (#%-match Expr Clause+)
 
 Telescope     ::= (Binder*)
 Binder        ::= (Name Type-Expr)
@@ -38,27 +46,27 @@ Clause        ::= (Pattern Expr)
 
 Pattern       ::= Name
                 | Literal
-                | (is Type-Expr Name)
-                | (new Type-Expr (Field-Binding*))
-                | (tuple Name*)
+                | (#%-is Type-Expr Name)
+                | (#%-new Type-Expr (Field-Binding*))
+                | (#%-tuple Name*)
 Field-Binding ::= (Field Name)
 Type-Expr     ::= Expr
 ```
 
 The first function telescope is implicit, the second explicit. Both are
-mandatory; `λ` also requires its leading capture list. Empty lists are valid.
+mandatory; `#%-λ` also requires its leading capture list. Empty lists are valid.
 By convention, write implicit parameters in square brackets:
 
 ```scheme
-(def id
-  (λ () [(Element-Type star)] ((x Element-Type)) → Element-Type = x))
+(#%-def id
+  (#%-λ () [(Element-Type star)] ((x Element-Type)) → Element-Type = x))
 
-(def id-type
-  (Π [(Element-Type star)] ((x Element-Type)) → Element-Type))
+(#%-def id-type
+  (#%-Π [(Element-Type star)] ((x Element-Type)) → Element-Type))
 ```
 
 Matching `()`, `[]`, and `{}` produce identical lists; mismatched delimiters
-are errors. Recognize `λ`, `Π`, `→`, and `=` as tokens. The arrow and equals
+are errors. Recognize `#%-λ`, `#%-Π`, `→`, and `=` as tokens. The arrow and equals
 sign are structural markers in their designated positions.
 
 Use `lower-kebab-case` for ordinary identifiers, including types and explicit
@@ -72,11 +80,11 @@ and reject out-of-range values. Other reader datums are not automatically core
 expressions. Empty `()` is not an expression; `(f)` calls `f` with no explicit
 arguments.
 
-`def` is the only binding statement. There are no separate type declarations,
+`#%-def` is the only binding statement. There are no separate type declarations,
 binder-grade annotations, `quote`, `if`, `let`, `letrec`, `fix`, rest parameters,
 `set!`, or user-defined recursive datatype forms in the initial grammar.
 Arithmetic, arrays, `singleton`, and list operations use ordinary applications.
-`union`, `tuple-of`, and `tuple` have intrinsic n-ary rules, not first-class
+`#%-union`, `#%-tuple-of`, and `#%-tuple` have intrinsic n-ary rules, not first-class
 variadic function signatures.
 
 ## 2. Semantic rules
@@ -90,25 +98,25 @@ variadic function signatures.
 - Names are distinct within parameter groups, across both function groups,
   within patterns, and among definitions in one scope. Field labels are unique.
   `_` is an ordinary core binder; higher-level wildcards need fresh names.
-- Every `begin` creates a scope, executes items in source order, and returns
+- Every `#%-begin` creates a scope, executes items in source order, and returns
   its mandatory final expression in tail position. Nonfinal expression results
   are discarded immediately; unused bound owners are cleaned up at scope exit.
   File scope accepts any item sequence and discards expression results.
-- Each `def` evaluates its initializer once and initializes all pattern bindings
+- Each `#%-def` evaluates its initializer once and initializes all pattern bindings
   together. Its pattern must be provably irrefutable for the result's type and
-  refinements. Otherwise use `match`; `def` has no runtime failure branch.
+  refinements. Otherwise use `#%-match`; `#%-def` has no runtime failure branch.
 - Collect bindings across the completed scope before checking function bodies.
   Lexical visibility does not imply initialization. Nested scopes do not export
   their definitions.
 - Runtime calls evaluate the operator, then explicit arguments, left to right.
-  Calls have exactly their signature's explicit arity. `new` checks and evaluates
-  every field once, in declaration order; `tuple` evaluates elements left to
-  right. `match` evaluates its scrutinee once and only its selected branch.
+  Calls have exactly their signature's explicit arity. `#%-new` checks and evaluates
+  every field once, in declaration order; `#%-tuple` evaluates elements left to
+  right. `#%-match` evaluates its scrutinee once and only its selected branch.
 
 ### Functions, inference, and captures
 
 Every lambda declares parameter types and a result type. Derive its signature
-from that header, then check the body against the declared result. `(ann e t)`
+from that header, then check the body against the declared result. `(#%-ann e t)`
 checks `e` against `t`; local definitions initially infer monotypes.
 
 Implicit parameters are solved **only from explicit arguments**, including their
@@ -131,21 +139,21 @@ closed static top-level definitions need no capture; other outer values,
 including runtime globals, must be listed. Optimization does not waive this rule.
 
 A concrete closure's grade follows its captured runtime fields; an empty
-environment has grade `omega`. A `Π` exposes a call signature, not a hidden
+environment has grade `omega`. A `#%-Π` exposes a call signature, not a hidden
 environment's grade, so an environment-erased callable is initially affine.
 Known unrestricted function items may be reused. A later callable constraint
 may preserve more information about an environment.
 
 ```scheme
-(def make-adder
-  (λ () [] ((offset i64))
-    → (Π [] ((x i64)) → i64)
-    = (λ (offset) [] ((x i64)) → i64 = (i64-add x offset))))
+(#%-def make-adder
+  (#%-λ () [] ((offset i64))
+    → (#%-Π [] ((x i64)) → i64)
+    = (#%-λ (offset) [] ((x i64)) → i64 = (i64-add x offset))))
 ```
 
 ### Recursion and initialization
 
-Discover recursive functions from `(def Name Lambda)` and direct tuples of
+Discover recursive functions from `(#%-def Name Lambda)` and direct tuples of
 lambdas bound by tuple patterns. Collect complete headers before checking
 bodies; compute strongly connected components (SCCs) from resolved references
 across the entire scope. Separate definitions and macro invocations do not
@@ -166,15 +174,15 @@ require its environment and transitive function dependencies to be ready.
 Conservatively reject unknown readiness; never reorder initializers to fix it.
 
 ```scheme
-(begin
-  (def even
-    (λ () [] ((n i64)) → boolean
-      = (match n
+(#%-begin
+  (#%-def even
+    (#%-λ () [] ((n i64)) → boolean
+      = (#%-match n
           (0 #t)
           (remaining (odd (i64-sub remaining 1))))))
-  (def odd
-    (λ () [] ((n i64)) → boolean
-      = (match n
+  (#%-def odd
+    (#%-λ () [] ((n i64)) → boolean
+      = (#%-match n
           (0 #f)
           (remaining (even (i64-sub remaining 1))))))
   (even 10))
@@ -200,12 +208,12 @@ partial constructions. Safe tag observations do not transfer ownership.
 field-bound = min(grade-of(field-type) for each field)
 require declared-struct-grade <= field-bound
 grade-of(struct-type) = declared-struct-grade
-grade-of(tuple-of A ...) = min(grade-of(A), ...)
-grade-of(union A ...) = min(grade-of(A), ...)
+grade-of(#%-tuple-of A ...) = min(grade-of(A), ...)
+grade-of(#%-union A ...) = min(grade-of(A), ...)
 min of no members = omega
 ```
 
-Only `struct` accepts a user-written grade. Check its literal grade for every
+Only `#%-struct` accepts a user-written grade. Check its literal grade for every
 admitted generic instantiation and preceding dependent field value. A generic
 wrapper declared `1` remains affine even with unrestricted payloads. Declaring
 `omega` requires all fields to be unrestricted; do not silently add that premise
@@ -224,12 +232,12 @@ element with exact arity; struct patterns bind every field in declaration order.
 Dependent field relationships remain in scope after unpacking. A definition's
 bindings belong to its containing scope; match bindings belong to their branch.
 
-`match` selects clauses in order using safe observations, then transfers the
+`#%-match` selects clauses in order using safe observations, then transfers the
 selected payload to the pattern bindings. An affine scrutinee becomes unavailable.
 Unused fields still receive ordinary cleanup. Failed tests refine the remaining
 set of possible values, not merely the list of written union members.
 
-`is` supports known runtime discriminators: primitive tags, supported singletons,
+`#%-is` supports known runtime discriminators: primitive tags, supported singletons,
 and nominal structs. It cannot test arbitrary dependent type equality. Check
 coverage and require a catch-all when necessary; unsupported discrimination or
 unproved coverage is a static error.
@@ -240,7 +248,7 @@ local index: substitute an admitted pure definition or package the index and
 payload in a dependent record. General dependent elimination motives remain
 unspecified.
 
-A Boolean conditional lowers to `(match (ann Test boolean) (#t Yes) (#f No))`.
+A Boolean conditional lowers to `(#%-match (#%-ann Test boolean) (#t Yes) (#f No))`.
 Scheme truthiness uses a `#f` clause followed by a named catch-all. Both branches
 are checked, although only one executes.
 
@@ -267,23 +275,23 @@ annotations and dependency on resource-bearing values need later rules.
 
 ### Nominal structs and structural tuples
 
-`struct` produces a nominal type value without defining constructors or accessors.
+`#%-struct` produces a nominal type value without defining constructors or accessors.
 Assign a stable key to each elaborated occurrence, parameterized by its enclosing
 type-family arguments. Rechecking the same application preserves identity;
 distinct occurrences remain distinct even with identical layouts. Aliases retain
 identity. Exact keys for modules and serialization remain to be formalized.
 
 ```scheme
-(def point (struct ((x i64) (y i64)) omega))
-(def ticket (struct ((number i64)) 1))
+(#%-def point (#%-struct ((x i64) (y i64)) omega))
+(#%-def ticket (#%-struct ((number i64)) 1))
 
-(def pair
-  (λ () [] ((first-type star) (second-type star)) → star
-    = (struct ((first first-type) (second second-type)) 1)))
+(#%-def pair
+  (#%-λ () [] ((first-type star) (second-type star)) → star
+    = (#%-struct ((first first-type) (second second-type)) 1)))
 
-(def make-pair
-  (λ () [(A star) (B star)] ((x A) (y B)) → (pair A B)
-    = (new (pair A B) ((first x) (second y)))))
+(#%-def make-pair
+  (#%-λ () [(A star) (B star)] ((x A) (y B)) → (pair A B)
+    = (#%-new (pair A B) ((first x) (second y)))))
 ```
 
 `pair` takes explicit type arguments; `make-pair` infers them from its values.
@@ -291,23 +299,23 @@ An empty-container constructor likewise needs an explicit type argument if
 nothing else determines it. Declaring an `omega` wrapper containing `ticket`
 is rejected. `(pair i64 i64)` is still affine because its declaration says `1`.
 
-`tuple-of` compares ordered element types structurally. `(tuple-of)` is unit,
-inhabited by `(tuple)`; unary tuples remain distinct from their elements, and
+`#%-tuple-of` compares ordered element types structurally. `(#%-tuple-of)` is unit,
+inhabited by `(#%-tuple)`; unary tuples remain distinct from their elements, and
 nested tuples never flatten implicitly. Tuple types have no element binders;
 use a struct telescope for dependencies between components. Tuples need not
 allocate heap objects.
 
 ```scheme
-(begin
-  (def (tuple left right)
-    (begin
-      (def shared (i64-add 19 1))
-      (tuple shared (i64-add shared 2))))
+(#%-begin
+  (#%-def (#%-tuple left right)
+    (#%-begin
+      (#%-def shared (i64-add 19 1))
+      (#%-tuple shared (i64-add shared 2))))
   (i64-add left right))
 ```
 
 The initializer runs once; unpacking moves components without retaining another
-aggregate owner. `(def x (tuple 1))` binds a tuple; `(def (tuple x) (tuple 1))`
+aggregate owner. `(#%-def x (#%-tuple 1))` binds a tuple; `(#%-def (#%-tuple x) (#%-tuple 1))`
 binds its element. Higher-level `let` can lower to a fresh scope and tuple
 binding with hygienically distinct names, or to an immediately invoked lambda
 when its result type is expressible. Preserve initialization and capture order.
@@ -315,26 +323,26 @@ when its result type is expressible. Preserve initialization and capture order.
 ### Dependent records and arrays
 
 ```scheme
-(def sized-array
-  (struct ((length i64) (items (array i64 length))) 1))
+(#%-def sized-array
+  (#%-struct ((length i64) (items (array i64 length))) 1))
 
-(def package-length
-  (λ () [] ((value sized-array)) → i64
-    = (begin
-        (def (new sized-array ((length n) (items unused-items))) value)
+(#%-def package-length
+  (#%-λ () [] ((value sized-array)) → i64
+    = (#%-begin
+        (#%-def (#%-new sized-array ((length n) (items unused-items))) value)
         n)))
 
-(def keep-array
-  (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
+(#%-def keep-array
+  (#%-λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
     → (array Element-Type N) = xs))
 
-(def array-append-type
-  (Π [(Element-Type star) (M i64) (N i64)]
+(#%-def array-append-type
+  (#%-Π [(Element-Type star) (M i64) (N i64)]
       ((xs (array Element-Type M)) (ys (array Element-Type N)))
     → (result (array Element-Type (+ M N)) array-error)))
 ```
 
-`new` substitutes earlier field values into later field types; consuming a
+`#%-new` substitutes earlier field values into later field types; consuming a
 record opens the same telescope. A dependent pair can be a two-field struct
 family; no primitive `Σ` is needed.
 
@@ -354,33 +362,33 @@ allocates nor proves construction succeeds.
 
 Unions denote sets of values. Members are subtypes; normalize by flattening,
 ignoring order, removing duplicates, and removing covered members. Overlap does
-not introduce separate variants. `(union)` is `nothing`. `singleton` initially
+not introduce separate variants. `(#%-union)` is `nothing`. `singleton` initially
 accepts supported pure scalars; `(singleton #f)` is a type, whereas `#f` is a value.
 These are the set-like unions and refinements of
 [Typed Racket](https://docs.racket-lang.org/ts-guide/types.html).
 
 ```scheme
-(def scalar (union i64 boolean))
-(def scalar-to-integer
-  (λ () [] ((x scalar)) → i64
-    = (match x
-        ((is i64 integer) integer)
+(#%-def scalar (#%-union i64 boolean))
+(#%-def scalar-to-integer
+  (#%-λ () [] ((x scalar)) → i64
+    = (#%-match x
+        ((#%-is i64 integer) integer)
         (#t 1)
         (#f 0))))
 
-(def none (struct () omega))
-(def some
-  (λ () [] ((value-type star)) → star
-    = (struct ((value value-type)) 1)))
-(def option
-  (λ () [] ((value-type star)) → star
-    = (union none (some value-type))))
+(#%-def none (#%-struct () omega))
+(#%-def some
+  (#%-λ () [] ((value-type star)) → star
+    = (#%-struct ((value value-type)) 1)))
+(#%-def option
+  (#%-λ () [] ((value-type star)) → star
+    = (#%-union none (some value-type))))
 ```
 
 Similarly, `result A E` is the union of nominal `ok A` and `err E` wrappers,
 each declared grade `1`, with one field named `value` or `error`. These families
 are ordinary type-valued functions. Distinct wrappers distinguish absence from
-present `#f`, unlike `(union (singleton #f) boolean)`.
+present `#f`, unlike `(#%-union (singleton #f) boolean)`.
 
 ### Immutable primitives
 
@@ -420,7 +428,7 @@ equality. Do not read runtime locals or consume owners during checking.
 
 Interpret checked terms with explicit frames and a trampoline, preserving
 proper tail recursion and cleanup. Function interfaces will need latent effects;
-plain `Π` currently specifies only arguments and results. Effect syntax,
+plain `#%-Π` currently specifies only arguments and results. Effect syntax,
 generic grade constraints, and more general dependent elimination remain open.
 
 ## 5. Macro expansion — later layer
@@ -431,35 +439,35 @@ Keep macros outside the initial evaluator grammar. Add this expansion-only
 adapter, selected by resolved built-in bindings:
 
 ```text
-Macro-Definition ::= (def Name (macro Rules-Spec))
-Rules-Spec       ::= (syntax-rules (Identifier*) Rule*)
-                   | (syntax-rules Identifier (Identifier*) Rule*)
+Macro-Definition ::= (#%-def Name (#%-macro Rules-Spec))
+Rules-Spec       ::= (#%-syntax-rules (Identifier*) Rule*)
+                   | (#%-syntax-rules Identifier (Identifier*) Rule*)
 Rule             ::= (Macro-Pattern Template)
 Macro-Use        ::= (Identifier Reader-Syntax*)
                    | (Identifier Reader-Syntax* . Reader-Syntax)
 ```
 
-`Reader-Syntax` is an arbitrary reader node. `macro` accepts a `syntax-rules`
+`Reader-Syntax` is an arbitrary reader node. `#%-macro` accepts a `#%-syntax-rules`
 specification and binds one descriptor; it is not a runtime operation. The second
 specification form selects a custom ellipsis identifier. An ordinary dotted
 application remains invalid.
 
 ```scheme
-(def choose
-  (macro
-    (syntax-rules ()
+(#%-def choose
+  (#%-macro
+    (#%-syntax-rules ()
       ((_ test yes no)
-       (match (ann test boolean) (#t yes) (#f no))))))
-(def answer (choose #t 41 42))
+       (#%-match (#%-ann test boolean) (#t yes) (#f no))))))
+(#%-def answer (choose #t 41 42))
 
-(def define-two
-  (macro
-    (syntax-rules ()
+(#%-def define-two
+  (#%-macro
+    (#%-syntax-rules ()
       ((_ (first-name second-name) initializer)
-       (def (tuple first-name second-name) initializer)))))
+       (#%-def (#%-tuple first-name second-name) initializer)))))
 
-(begin
-  (define-two (left right) (tuple 20 22))
+(#%-begin
+  (define-two (left right) (#%-tuple 20 22))
   (i64-add left right))
 ```
 
@@ -469,8 +477,8 @@ execute unchecked source. No general quotation form is needed. Procedural
 transformers and `quote-syntax` can come later.
 
 An item-position macro produces one item; an expression-position macro must
-produce an expression. A `def` can bind several names from one initializer.
-Returning `begin` creates a nested scope; expansion never splices it away.
+produce an expression. A `#%-def` can bind several names from one initializer.
+Returning `#%-begin` creates a nested scope; expansion never splices it away.
 The final item of a block must expand to an expression.
 
 ### Pattern and template rules
@@ -555,15 +563,15 @@ repetitions. Parent paths preserve ragged nesting; validate driver lengths at
 each parent path before zipping them.
 
 ```scheme
-(def compile-syntax-rules-type
-  (Π [] ((definition-view binding-view) (spec syntax))
+(#%-def compile-syntax-rules-type
+  (#%-Π [] ((definition-view binding-view) (spec syntax))
     → (result rules-transformer diagnostic)))
-(def match-rule-type
-  (Π [] ((definition-view binding-view) (use-view binding-view)
+(#%-def match-rule-type
+  (#%-Π [] ((definition-view binding-view) (use-view binding-view)
          (rule rule-plan) (form syntax))
     → (option captures)))
-(def instantiate-template-type
-  (Π [] ((introduction introduction-context)
+(#%-def instantiate-template-type
+  (#%-Π [] ((introduction introduction-context)
          (rule rule-plan) (matched captures))
     → (result syntax diagnostic)))
 ```
@@ -677,19 +685,19 @@ ownership transfer, abandonment cleanup, and growth before multi-shot control.
 The initial control proposal uses affine `cont-1 A`:
 
 ```scheme
-(def capture-1-type
-  (Π [(A star)]
-      ((body (Π [] ((k (cont-1 A))) → nothing)))
+(#%-def capture-1-type
+  (#%-Π [(A star)]
+      ((body (#%-Π [] ((k (cont-1 A))) → nothing)))
     → A))
 
-(def invoke-1-type
-  (Π [(A star)] ((k (cont-1 A)) (value A))
+(#%-def invoke-1-type
+  (#%-Π [(A star)] ((k (cont-1 A)) (value A))
     → nothing))
 
-(def answer
+(#%-def answer
   (i64-add 1
     (capture-1
-      (λ () [] ((k (cont-1 i64)))
+      (#%-λ () [] ((k (cont-1 i64)))
         → nothing
         = (invoke-1 k 41)))))
 ; Produces 42.
@@ -762,9 +770,9 @@ Implementation checks should cover:
 | Initialization | Cross-definition recursion; eager cycles; acyclic forward reads; premature calls/escapes; nested scopes |
 | Ownership | Duplicate affine uses; missing captures; grade escalation; dependent field transfer; cleanup |
 | Data | Tuple arity/unit; one-time initialization; irrefutable definitions; union overlap/coverage; stable nominal identity |
-| Macro dispatch | Shadowing; discarded non-core operands; nested expansion; `def` rejected in expression position; block scope retained |
+| Macro dispatch | Shadowing; discarded non-core operands; nested expansion; `#%-def` rejected in expression position; block scope retained |
 | Macro ownership | Repeated affine input and omitted captures rejected after expansion |
-| Hygiene | Use-site `temp`; definition-site `match`; same spelling with distinct bindings; copied struct occurrences |
+| Hygiene | Use-site `temp`; definition-site `#%-match`; same spelling with distinct bindings; copied struct occurrences |
 | Repetition | Fixed suffixes; zero and ragged inner extents; variable-free repeats; incompatible drivers; custom/literal/escaped markers |
 | Diagnostics | Unsupported datums; improper lists and vectors; no matching rule; invalid template; runaway expansion |
 
