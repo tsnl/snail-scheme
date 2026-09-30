@@ -694,6 +694,12 @@ during expansion/elaboration, rather than generating them during evaluation.
 
 ## 9. Implementation checkpoints
 
+Memory management and continuations are subsequent runtime work, after the
+existing grammar and immutable pipeline. The [runtime roadmap](core-ir.md#future-work-memory-management-and-continuation-storage)
+uses growable contiguous vectors for continuation stacks and leaves storage,
+root tracing, and collection protocols to that later stage. No new grammar
+forms are required for those proposals in this milestone.
+
 The current `syntax.sld` already separates atoms and located lists with optional
 dotted tails. It is still a reader, not this core-form parser. It currently accepts
 only parenthesis fenders; matching square/curly fenders and `→` need

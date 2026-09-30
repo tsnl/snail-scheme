@@ -948,6 +948,10 @@ logical type correctness.
 
 ## 7. One-shot continuations own their future
 
+This section describes future work after the existing grammar, elaborator,
+typechecker, and immutable interpreter are working. Control primitives do not
+extend the initial grammar milestone.
+
 `cont-1 A` is an affine primitive type. Its ownership rules do not depend on how
 a binder was written. Start with ownership-transferring capture rather than
 ordinary Scheme `call/cc`:
@@ -1129,8 +1133,10 @@ pipeline with control, compilation, transformers, and Scheme runtime support.
    a trampoline; retain symbolic indices during type checking. Exercise the
    immutable subset through the full pipeline, including cleanup and proper
    tail recursion.
-5. **One-shot control, specialization, and C.** Add capture and invocation,
-   specialize layouts, and compare compiled behavior with the interpreter.
+5. **Memory management, one-shot control, specialization, and C.** Develop the
+   storage and root-tracing interfaces below, use growable contiguous vectors
+   for continuation stacks, and add capture and invocation. Specialize layouts
+   and compare compiled behavior with the interpreter.
 6. **Compile-time language use.** Write hygienic transformers and `syntax-rules`
    using the same language and checked compiler capabilities.
 7. **Scheme support.** Add the remaining runtime mechanisms and standard
@@ -1141,3 +1147,49 @@ The first examples should connect the abstractions: an implicit identity,
 a type family with explicit parameters, a dependent array operation, a union
 refined by matching, and an affine wrapper. Add continuation transfers when
 the control stage is implemented.
+
+### Future work: memory management and continuation storage
+
+Implement the existing grammar and immutable pipeline first. The next runtime
+design work concerns memory management and continuations; it does not require
+additional surface forms now.
+
+Use growable contiguous vectors for execution frames and captured continuation
+storage, rather than segmented stacks. Represent frame locations with offsets
+or handles that remain valid when a vector grows, and preserve proper tail
+calls. One-shot capture must transfer ownership of saved frames; it must not
+duplicate affine values. Specify frame transfer, abandonment cleanup, and
+growth before adding multi-shot control.
+
+Build the Scheme heap and collector as library code where possible, over a small
+trusted interface for owned allocation, safe access and updates, and reclamation.
+Initially thread heap state explicitly through lowered code. Dynamic parameters
+and allocation effect handlers are deferred. Start with one thread and a
+nonmoving managed heap; cross-thread sharing and collection coordination remain
+future work.
+
+The candidate collection policy combines reference counting with tracing for
+cycles, triggered at allocation when a heap budget is reached. Reserve enough
+working storage to collect without allocating from an exhausted managed heap.
+Specify how cycle reclamation cooperates with reference counts and cleanup;
+ordinary reference-count decrements alone cannot reclaim strong cycles.
+
+Share frame-tracing information between continuations and root enumeration.
+A restricted tracing operation should enumerate managed references without
+extracting or duplicating arbitrary affine frame values. Native stack reflection
+is not required, and continuation capture alone does not supply this interface.
+Account for live temporaries, globals, external roots, and reachable saved
+continuations. Suspension and tracing must not depend on allocation from the
+heap being collected. The exact rooting and suspension protocol remains WIP.
+
+Library interfaces such as `drop` and `trace` can initially be explicit records
+of operations; type-class syntax and instance search are not prerequisites.
+Compiler-inserted cleanup still needs a defined protocol. Before implementing
+`box` and `arc` in library code, settle their trusted storage boundary and handle
+duplication rules: the unrestricted `arc` interface above requires retain
+bookkeeping on duplication; an affine handle with explicit cloning is an
+alternative under consideration. No change to the core grades is implied.
+
+Shared Scheme mutation, full `call/cc`, `dynamic-wind`, and multithreaded runtime
+semantics remain later extensions. These questions do not block the immutable
+parser, elaborator, typechecker, and interpreter.
