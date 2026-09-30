@@ -36,14 +36,14 @@ programs should exercise this language directly; `(scheme base)` comes later.
 
 Use `lower-kebab-case` for ordinary identifiers, including word-based forms, type
 values, type families, functions, fields, and explicitly supplied parameters:
-`def`, `type`, `i64`, `array`, `make-pair`, and `value-type` follow the
+`def`, `star`, `i64`, `array`, `make-pair`, and `value-type` follow the
 same rule. A type value does not get a capitalized name merely because it is a
 type.
 
 Reserve `Upper-Kebab-Case` for metavariables: the implicit-only parameters
 solved from explicit arguments, and schematic variables in the typing rules.
 Examples include `Element-Type`, `M`, and `N`. An explicitly supplied parameter
-of type `type` is still an ordinary lower-case name. Capitalization identifies
+of type `star` is still an ordinary lower-case name. Capitalization identifies
 this syntactic role; it does not change grades, erasure, or evaluation phase.
 
 The symbolic forms `λ` and `Π`, markers `→` and `=`, and operator `+` are
@@ -75,12 +75,12 @@ family, a function, or an ordinary value follows from its expression.
   (union i64 boolean))
 
 (def id
-  (λ () [(Element-Type type)] ((x Element-Type))
+  (λ () [(Element-Type star)] ((x Element-Type))
     → Element-Type
     = x))
 
 (def id-type
-  (Π [(Element-Type type)] ((x Element-Type))
+  (Π [(Element-Type star)] ((x Element-Type))
     → Element-Type))
 
 (def increment
@@ -110,8 +110,8 @@ result type, and body. The ownership and completeness rules are in section 6.
 
 The reader accepts matching `(...)`, `[...]`, and `{...}` interchangeably as
 list delimiters and rejects mismatched pairs. Square brackets for the implicit
-group are a writing convention only. For example, `[(T type)]` and
-`((T type))` mean the same thing in that position. Position, rather than
+group are a writing convention only. For example, `[(T star)]` and
+`((T star))` mean the same thing in that position. Position, rather than
 delimiter shape, determines parameter roles. Calls still supply only explicit
 arguments; this convention does not introduce an implicit-argument call form.
 
@@ -192,7 +192,7 @@ Dependent result types can refer to explicit arguments:
 
 ```scheme
 (def array-result-type
-  (Π [(Element-Type type)] ((x i64) (y i64) (seed Element-Type))
+  (Π [(Element-Type star)] ((x i64) (y i64) (seed Element-Type))
     → (result (array Element-Type (+ x y)) array-error)))
 ```
 
@@ -210,7 +210,7 @@ A more useful dependent interface is concatenation:
 
 ```scheme
 (def array-append-type
-  (Π [(Element-Type type) (M i64) (N i64)]
+  (Π [(Element-Type star) (M i64) (N i64)]
       ((xs (array Element-Type M)) (ys (array Element-Type N)))
     → (result (array Element-Type (+ M N)) array-error)))
 ```
@@ -225,7 +225,7 @@ array also preserves its element type and length:
 
 ```scheme
 (def keep-array
-  (λ () [(Element-Type type) (N i64)] ((xs (array Element-Type N)))
+  (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
     → (array Element-Type N)
     = xs))
 ```
@@ -291,12 +291,12 @@ whereas its value constructor `make-pair` infers them:
 
 ```scheme
 (def pair
-  (λ () [] ((first-type type) (second-type type))
-    → type
+  (λ () [] ((first-type star) (second-type star))
+    → star
     = (struct ((first first-type) (second second-type)) 1)))
 
 (def make-pair
-  (λ () [(A type) (B type)] ((x A) (y B))
+  (λ () [(A star) (B star)] ((x A) (y B))
     → (pair A B)
     = (new (pair A B) ((first x) (second y)))))
 
@@ -341,28 +341,28 @@ A type family is an ordinary function returning a type:
   (struct () omega))
 
 (def some
-  (λ () [] ((value-type type))
-    → type
+  (λ () [] ((value-type star))
+    → star
     = (struct ((value value-type)) 1)))
 
 (def option
-  (λ () [] ((value-type type))
-    → type
+  (λ () [] ((value-type star))
+    → star
     = (union none (some value-type))))
 
 (def ok
-  (λ () [] ((value-type type))
-    → type
+  (λ () [] ((value-type star))
+    → star
     = (struct ((value value-type)) 1)))
 
 (def err
-  (λ () [] ((error-type type))
-    → type
+  (λ () [] ((error-type star))
+    → star
     = (struct ((error error-type)) 1)))
 
 (def result
-  (λ () [] ((value-type type) (error-type type))
-    → type
+  (λ () [] ((value-type star) (error-type star))
+    → star
     = (union (ok value-type) (err error-type))))
 ```
 
@@ -429,8 +429,8 @@ The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-ari
 
 ```scheme
 (def maybe
-  (λ () [] ((value-type type))
-    → type
+  (λ () [] ((value-type star))
+    → star
     = (union (singleton #f) value-type)))
 
 (def scalar-to-integer
@@ -579,9 +579,13 @@ while forming other types.
 
 For the initial staged implementation, type values are erased from the target
 program unless explicitly reified by a future runtime-descriptor facility.
-Treat `type` as a universe and maintain levels internally: `type` must not be
-its own type. Whether an expression denotes a type is determined by checking
-its type against the appropriate universe.
+`star` names a universe: types such as `i64` and `boolean` inhabit the base
+universe, which in turn inhabits a higher universe. Source occurrences of
+`star` leave levels implicit; the checker tracks and validates their level
+constraints internally. A universe cannot inhabit itself. Whether an expression
+denotes a type is determined by checking it against the appropriate universe.
+The [universe hierarchy](https://agda.readthedocs.io/en/stable/language/universe-levels.html)
+keeps type-valued parameters and type-forming functions well stratified.
 
 Erasure does not require every erased value to be known during compilation:
 the checker may reason about an index symbolically without retaining an
@@ -635,11 +639,11 @@ The primitive call signatures can be described by ordinary type values:
 
 ```scheme
 (def arc-new-type
-  (Π [(A type)] ((value A))
+  (Π [(A star)] ((value A))
     → (arc A)))
 
 (def arc-try-unwrap-type
-  (Π [(A type)] ((handle (arc A)))
+  (Π [(A star)] ((handle (arc A)))
     → (result A (arc A))))
 ```
 
@@ -785,12 +789,12 @@ ordinary Scheme `call/cc`:
 
 ```scheme
 (def capture-1-type
-  (Π [(A type)]
+  (Π [(A star)]
       ((body (Π [] ((k (cont-1 A))) → nothing)))
     → A))
 
 (def invoke-1-type
-  (Π [(A type)] ((k (cont-1 A)) (value A))
+  (Π [(A star)] ((k (cont-1 A)) (value A))
     → nothing))
 
 (def answer
