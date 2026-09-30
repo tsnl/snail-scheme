@@ -146,11 +146,14 @@ dependencies follow the separate phase rules. These are the [capture rules](core
 for both source lambdas and lambdas produced by later macros.
 
 Every `begin` creates a fresh lexical scope. Its items execute in source order.
-Each `def` evaluates one initializer in the preceding scope, then introduces
-its bindings together using the same `Pattern` grammar as `match`. A name binds
-the whole result; tuple and struct patterns consume and unpack it. Pattern
+Collect definition bindings throughout the expanded scope before checking
+function bodies. Each `def` evaluates one initializer in source order, then
+initializes its bindings together using the same `Pattern` grammar as `match`.
+A name binds the whole result; tuple and struct patterns consume and unpack it. Pattern
 checking derives the bound types, including dependent field relationships.
-Separate `def` statements do not create nested scopes or admit forward references.
+Separate `def` statements do not create nested scopes. Forward references in
+function bodies follow the recursion and initialization rules below; lexical
+visibility alone never permits reading an uninitialized value.
 Local bindings infer a monotype initially; polymorphism is expressed by a `λ`
 over type parameters. Recursive function groups have the rules below.
 
@@ -240,37 +243,44 @@ dependent elimination motives.
 
 ### Definitions, recursion, and phases
 
-One `def` has one initializer, whether it binds one result or several tuple
-components. Process separate definitions in source order. Reject recursive
-value/type initializers and forward reads of values; lexical name availability
-does not initialize storage.
+One `def` has one initializer and an irrefutable pattern. After macro expansion
+exposes a scope's definitions, collect their hygienic binding identities and
+function signatures before checking function bodies. Analyze all definitions
+in that scope together, including separate macro-generated definitions. Reject
+duplicate bindings in one scope; nested `begin` creates a separate scope and
+may shadow outer bindings.
 
-Initially allow recursive references only for `(def Name Lambda)` or
-`(def (tuple Name+) (tuple Lambda+))`, where the elaborated result is a direct lambda
-or a direct tuple of lambdas with matching arity. Require unrestricted external
-captures. Check every header and capture list in the preceding environment,
-then check bodies with the corresponding functions available as recursive code
-references. Group names are available only in those bodies, not in the headers
-or capture lists. Construct environments in element order and bind the names
-only after the initializer completes; no body executes during construction.
-Retain concrete function identities and their known environment grades through
-the tuple. This rule does not make arbitrary environment-erased callables reusable.
+Initially discover recursive functions in `(def Name Lambda)` and
+`(def (tuple Name+) (tuple Lambda+))` with matching arity. Compute strongly
+connected components using resolved function references, independently of `def`
+and macro boundaries. All headers must be checkable before recursive bodies;
+cyclic type dependencies and phase-invalid header computations are rejected.
+An arbitrary expression returning functions does not make those functions a
+discoverable recursive group. It may define a recursive group in its own block.
 
-An arbitrary expression, including a call or `begin`, may produce a tuple of
-functions, but it cannot refer recursively to the names being defined. A tuple
-mixing recursive functions with ordinary computed values is also rejected by
-this initial recursion rule. Use earlier definitions for prerequisites, or
-compute them inside an initializer's `begin` before defining a local recursive
-group and returning its functions.
+Self and peer references within a component are body-only code references using
+the group's environments; they do not create captured copies of functions.
+External runtime bindings still require explicit captures, including runtime
+globals. Initially require unrestricted external environments for recursive
+components. Nonrecursive closures may capture affine values under the ordinary
+rules, and owned arguments can be threaded through recursive calls. Retain
+concrete function identities and known environment grades; this permission does
+not extend to arbitrary environment-erased callables.
 
-Self and peer references within that group do not create captured copies of the
-functions. Each reference uses the established group environment. All other
-runtime outer bindings require explicit captures, including runtime globals.
-Nonrecursive definitions can capture affine values under the ordinary rules;
-recursive calls cannot recapture an affine environment on each call. Owned
-arguments can still be threaded through recursive calls. The interpreter can
-store code references and a shared immutable external environment instead of a
-cyclic graph of closures. No user-visible `fix` form is needed for these groups.
+Execute initializers and expressions strictly in source order. Acquire captures
+at their definition statement, and initialize all names in a pattern together
+when its initializer completes. Distinguish eager initialization dependencies
+from delayed function-body references. Reject eager cycles and any read before
+initialization, even when the dependency graph is acyclic. Before a call or an
+escape to unknown code, require the function's environment and its transitive
+function dependencies to be initialized; reject uses when readiness cannot be
+established. In particular, a call between two mutually recursive definitions
+is rejected, while a call after both is allowed. No body executes merely to
+construct its closure, and analysis must not reorder effectful initializers.
+
+The interpreter may use code references and immutable external environments,
+with internal initialization bookkeeping. No user-visible `fix` form is needed.
+Lexical visibility is separate from runtime readiness and phase availability.
 
 Normalizing types may reduce trusted pure operations and admitted nonrecursive
 pure definitions. Initially, recursive helpers can execute as programs or
@@ -602,9 +612,15 @@ identity before capturing the definition environment. Invoke the already-checked
 rule compiler at expansion phase and install the descriptor on success. The
 binding is usable by subsequent items in the scope. A template may refer to its
 own binding, but invoking an uninstalled descriptor is an expansion error.
-Ordinary definitions expand and check one initializer, with binding visibility
-and the recursive-function exception described in section 3. An initializer's
-own nested `begin` scope does not export its local names with the tuple result.
+Ordinary definitions contribute their patterns and initializers to the scope
+being expanded. Defer recursive-body checking and SCC/readiness analysis until
+the scope's generated definitions are collected, as described in section 3.
+Defer lambda-body resolution and expansion as needed to recognize later
+same-scope function bindings, retaining the macro environment available at the
+body's source position. Do not prematurely dispatch an outer macro where a
+same-scope value binding shadows it. Scope-wide runtime binding collection does
+not make a later macro descriptor available earlier. An initializer's nested
+`begin` does not export its local bindings.
 
 The immutable definition view retains binding identities, including the reserved
 self identity. Descriptor availability lives separately in the
@@ -632,7 +648,9 @@ At an item or expression position:
    Enter a new scope for every `begin` and expand its items in order. A `def`
    adds its bindings to the current item scope without introducing another one.
 4. Otherwise elaborate an ordinary application, including a computed operator,
-   or an atomic expression. Check the resulting core types and ownership.
+   or an atomic expression. After collecting the expanded scope, check signatures,
+   bodies, ownership, recursive components, and initialization readiness. Do not
+   reject mutual recursion merely because an expansion prefix is incomplete.
 
 For `choose`, the second definition above expands to
 `(def answer (match (ann #t boolean) (#t 41) (#f 42)))`.
@@ -687,7 +705,9 @@ Implement and exercise the layers in this order:
 1. Reader/token additions, then the macro-free grammar and binding rules.
 2. Elaboration, checking, and immutable interpretation, including scoped blocks,
    single-initializer definitions, tuples, lists, and consuming matches. Exercise
-   mutual recursion and reject uninitialized reads independently of normalization.
+   mutual recursion across separate definitions, and reject uninitialized reads
+   independently of normalization. Repeat these checks for macro-generated
+   definitions once expansion is available.
 3. Abstract syntax inspection and binding-aware hygiene infrastructure.
 4. Compile, match, and instantiate rule descriptors as core functions. Test
    these by calling them directly with supplied syntax values before registering
@@ -728,3 +748,14 @@ that happen to expand successfully:
 The initial interpreter remains usable without this expansion layer. The macro
 engine adds checked programs over syntax data and a small compiler protocol;
 it does not make user macro execution part of runtime application semantics.
+
+Scope and definition checks must also cover:
+
+| Case | Required result |
+| --- | --- |
+| Tuple or dependent struct pattern in `def` | Consume once and bind the extracted components |
+| Definition pattern whose coverage cannot be proved | Reject; use `match` to handle alternatives |
+| Separate macro-generated definitions that call each other | Form one recursive component after scope expansion |
+| Call or escape before a required peer environment is initialized | Reject |
+| Eager initialization cycle or acyclic forward read | Reject without reordering initializers |
+| Definitions inside a nested `begin` | Keep their bindings in that nested scope |

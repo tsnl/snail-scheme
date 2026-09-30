@@ -154,13 +154,14 @@ required cleanup. The final expression supplies the block's value and is in
 tail position. A block requires a final expression, so an empty block or a
 block ending in `def` is not admitted by the initial grammar.
 
-Each `def` evaluates its initializer exactly once, using the preceding scope.
-The new names become available together after the initializer completes; they
-are not available to ordinary computation inside that initializer. Recursive
-function bodies have the restricted exception below. Local bindings infer
-their types from the result or its tuple elements.
-Separate `def` statements share the surrounding block scope; nested `begin`
-creates another scope whose definitions do not escape into its parent.
+After expanding a scope, collect all of its definition bindings before checking
+function bodies. Separate `def` statements share that lexical scope, including
+when produced by separate macro invocations. Lexical visibility does not imply
+that a value is initialized: each initializer executes exactly once in source
+order, and its pattern's bindings become initialized together on completion.
+Infer their types by checking the pattern against the result. Reject reads of
+bindings that are not yet initialized. Nested `begin` creates another scope
+whose definitions do not escape into its parent.
 
 ```scheme
 (def increment-twice
@@ -228,57 +229,62 @@ need to splice forms or export bindings from a nested `begin`.
 
 Nonrecursive `let` can be supplied by higher-level syntax. A simultaneous binding
 list can lower to a tuple-producing initializer followed by tuple binding inside
-a fresh `begin`; none of the new names is visible to any initializer. An
-immediately invoked lambda can also express local binding where its explicit
+a fresh `begin`; fresh binding identities keep the new names out of the source
+initializers. An immediately invoked lambda can also express local binding where its explicit
 result type is representable; lowering must preserve initializer evaluation
 order and the timing of consuming captures. Checked terms may retain block
 bindings directly instead of allocating a closure for each local definition.
 
 ### Recursive function groups
 
-Mutually recursive functions are components of a tuple-producing `def`.
-Check their complete lambda headers before checking their bodies, making the
-group functions available as recursive references in those bodies. Separate `def` statements
-are sequential: an earlier one cannot refer forward to a later definition.
+Mutually recursive functions may be defined by separate `def` statements in the
+same expanded scope. Collect their complete lambda headers before checking
+bodies, then compute strongly connected components from resolved function
+references. Definition boundaries and macro-expansion boundaries do not limit
+these groups; a nested `begin` remains a distinct lexical scope.
 
 ```scheme
 (begin
-  (def (tuple even odd)
-    (tuple
-      (λ () [] ((n i64))
-        → boolean
-        = (match n
-            (0 #t)
-            (remaining (odd (i64-sub remaining 1)))))
-      (λ () [] ((n i64))
-        → boolean
-        = (match n
-            (0 #f)
-            (remaining (even (i64-sub remaining 1)))))))
+  (def even
+    (λ () [] ((n i64))
+      → boolean
+      = (match n
+          (0 #t)
+          (remaining (odd (i64-sub remaining 1))))))
+  (def odd
+    (λ () [] ((n i64))
+      → boolean
+      = (match n
+          (0 #f)
+          (remaining (even (i64-sub remaining 1))))))
   (even 10))
 ```
 
-Initially, recursive references are admitted for a directly bound lambda or a
-direct `tuple` of lambdas matched by a tuple pattern. All external captures must be
-unrestricted. Check the headers and capture lists in the environment preceding
-the definition; group function names are body-only recursive references, not
-captured outer values. Construct environments in tuple-element order and bind
-the names only when the initializer completes. No body runs during construction.
-Preserve the concrete function identities and their known environment grades
-through this direct construction; an arbitrary tuple of environment-erased
-callables does not acquire permission for reuse.
+Initially discover recursive functions from directly bound lambdas and direct
+`tuple` values of lambdas bound by tuple patterns. An arbitrary computation
+returning functions does not establish such a group. Self and peer references
+inside a component are body-only code references, not captured copies of its
+functions. External runtime bindings still require explicit captures; recursive
+environments must initially be unrestricted. Nonrecursive closures retain the
+ordinary affine-capture rules. Preserve concrete function identities and known
+environment grades rather than treating arbitrary callables as reusable.
 
-An arbitrary initializer can return functions, but cannot refer recursively to
-the names being defined. It can introduce a separate recursive group inside its
-own `begin` after computing shared prerequisites. Reject recursive value or type
-initializers and reads of uninitialized bindings. Nonrecursive definitions retain
-the ordinary affine-capture rules.
+Environment construction occurs at each definition's source position; no body
+runs during construction. Check initialization dependencies separately from
+references delayed inside lambda bodies. Do not reorder initializers or other
+expressions to satisfy dependencies. Calling or exposing a function to unknown
+code requires its environment and all transitively required function
+environments to be ready. Inserting `(even 10)` between the definitions above
+is therefore rejected. Reject eager initialization cycles and acyclic reads
+before initialization; cycle detection alone is not sufficient. Conservatively
+reject uses whose readiness cannot be established.
 
-The interpreter can use shared immutable external environments and references
-to the group's code, without storing closures in a cyclic value graph. The
-compiler can find strongly connected components and lower them as recursive
-function groups. This recursion executes in programs or transformer evaluation;
-it does not become unrestricted reduction during type normalization.
+Headers and type dependencies must themselves be well-founded and phase-correct;
+collecting a binding does not permit evaluating an uninitialized runtime value
+during checking. The interpreter can use references to group code and immutable
+external environments once initialized; initialization bookkeeping is internal.
+Recursive computation can execute in programs or transformer evaluation, but
+does not become unrestricted reduction during type normalization.
 
 ### Telescopes and scope
 
@@ -889,8 +895,8 @@ Primitive bindings and verified closed static top-level definitions can be
 referenced directly without occupying the capture environment. Every other
 outer value, including a runtime top-level value, must be listed. A local
 binding requires explicit capture even if optimization can compute its value.
-Self and peer references in a recursive function group are special body-only
-bindings, not captures or header dependencies. They refer to code with the
+Self and peer references in a scope-derived recursive component are special
+body-only bindings, not captures or header dependencies. They refer to code with the
 group's established environment. Initially recursive environments must be
 unrestricted; recursive calls cannot recreate affine captured owners.
 
