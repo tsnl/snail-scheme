@@ -60,17 +60,18 @@ those languages' own spelling.
 Every binding statement evaluates one initializer:
 
 ```text
-(def Name Expression)
-(def (Name ...) Expression)
+(def Pattern Expression)
 ```
 
 There is no separate type declaration, universal-quantification declaration, or
 standalone top-level type-specifier form. Whether `name` denotes a type, a type
 family, a function, or an ordinary value follows from its expression.
-A name binds the whole result; a list of names consumes a tuple result and
-binds its elements in order. The list length must equal the tuple's static
-arity. A `def` adds its bindings to the containing scope; it is a statement,
-rather than a value-producing expression.
+A definition uses the same pattern grammar as `match`. A name binds the whole
+result; `(tuple Name ...)` unpacks a tuple, and a `new` pattern unpacks a struct.
+The checker must establish that the pattern covers the initializer's type and
+refinements. Literal and `is` patterns are permitted when that proof succeeds;
+otherwise, use `match` with an alternative branch. A `def` adds its bindings to
+the containing scope and is a statement rather than a value-producing expression.
 
 ```scheme
 (def point
@@ -187,7 +188,7 @@ One initializer can share computation and return several components directly:
         (def shared (i64-add input 1))
         (tuple shared (i64-add shared 1)))))
 
-(def (first-value second-value)
+(def (tuple first-value second-value)
   (neighboring-values 40))
 ```
 
@@ -198,10 +199,26 @@ pattern: it transfers each component's ownership and leaves no second owner
 of an affine aggregate. Sharing a calculation does not permit duplicating an
 affine result; the ordinary usage rules still apply to every tuple element.
 
-A name list always destructures a tuple: `(def (x) (tuple 1))` binds `x` to `1`,
-while `(def x (tuple 1))` binds `x` to a one-element tuple. `(def (x) 1)` is a
-type error. An empty name list requires the unit tuple. An arity mismatch is a
+A tuple pattern always destructures a tuple: `(def (tuple x) (tuple 1))` binds `x` to `1`,
+while `(def x (tuple 1))` binds `x` to a one-element tuple. `(def (tuple x) 1)` is a
+type error. The empty pattern `(tuple)` requires the unit tuple. An arity mismatch is a
 static error, not implicit truncation or tuple flattening.
+
+Struct patterns open their field telescope in the containing scope:
+
+```scheme
+(def unpack-length
+  (λ () [] ((value sized-array))
+    → i64
+    = (begin
+        (def (new sized-array ((length n) (items unused-items))) value)
+        n)))
+```
+
+Here `sized-array` is the dependent record defined below. The extracted items
+retain their dependency on `n`; unused affine fields receive ordinary cleanup.
+Patterns stay shallow, and `_` is an ordinary binder. Definitions have no
+implicit failure branch or unchecked destructuring operation.
 
 A source file is a sequence of the same items in a file scope; it can end with
 a definition and has no implicit result value. Top-level expressions execute
@@ -226,7 +243,7 @@ are sequential: an earlier one cannot refer forward to a later definition.
 
 ```scheme
 (begin
-  (def (even odd)
+  (def (tuple even odd)
     (tuple
       (λ () [] ((n i64))
         → boolean
@@ -242,7 +259,7 @@ are sequential: an earlier one cannot refer forward to a later definition.
 ```
 
 Initially, recursive references are admitted for a directly bound lambda or a
-direct `tuple` of lambdas matched by a name list. All external captures must be
+direct `tuple` of lambdas matched by a tuple pattern. All external captures must be
 unrestricted. Check the headers and capture lists in the environment preceding
 the definition; group function names are body-only recursive references, not
 captured outer values. Construct environments in tuple-element order and bind
@@ -1086,7 +1103,7 @@ elaborator, typechecker, and interpreter. The later stages extend that working
 pipeline with control, compilation, transformers, and Scheme runtime support.
 
 1. **Parsing, elaboration, and dependent checking.** Implement single-initializer
-   `def` with whole-value or tuple binding, scoped `begin`, ordered statements,
+   `def` with consuming patterns, scoped `begin`, ordered statements,
    recursive function groups, and the required implicit and explicit binder
    groups with telescope
    scoping, explicit capture lists, mandatory result types with `→`,

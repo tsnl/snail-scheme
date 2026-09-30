@@ -47,8 +47,7 @@ irrelevant.
 ```text
 Program       ::= Item*
 Item          ::= Definition | Expr
-Definition    ::= (def Name Expr)
-                | (def (Name*) Expr)
+Definition    ::= (def Pattern Expr)
 
 Expr          ::= Name
                 | Literal
@@ -148,19 +147,24 @@ for both source lambdas and lambdas produced by later macros.
 
 Every `begin` creates a fresh lexical scope. Its items execute in source order.
 Each `def` evaluates one initializer in the preceding scope, then introduces
-its bindings together. A single name binds the whole result. A name list
-consumes a result with a statically known `tuple-of` type and binds its elements
-in order; its length must equal the tuple's arity. Bound types follow the whole
-result or the corresponding tuple element. Names do not scope over ordinary
-initializer computation, including other elements of a literal tuple.
+its bindings together using the same `Pattern` grammar as `match`. A name binds
+the whole result; tuple and struct patterns consume and unpack it. Pattern
+checking derives the bound types, including dependent field relationships.
 Separate `def` statements do not create nested scopes or admit forward references.
 Local bindings infer a monotype initially; polymorphism is expressed by a `λ`
 over type parameters. Recursive function groups have the rules below.
 
-An empty name list requires `(tuple-of)`. A one-name list requires a one-element
-tuple; it does not accept a scalar implicitly. Binding an entire tuple to a
-single name keeps that tuple intact. Destructuring an affine tuple transfers
-each component's ownership and leaves no usable second owner of the aggregate.
+Require a definition's pattern to be irrefutable for the initializer's checked
+type and refinements. All pattern forms are available, including literals and
+`is`, but reject a definition when coverage cannot be proved. Use `match` for
+cases requiring an alternative branch. No runtime pattern-failure effect is
+introduced by `def`. Evaluate the initializer once and transfer ownership using
+the same consuming elimination as `match`.
+
+The empty tuple pattern `(tuple)` requires `(tuple-of)`. `(tuple x)` requires a
+one-element tuple, while the pattern `x` binds the whole result. Struct patterns
+must name all fields in declaration order. Patterns remain shallow, names must
+be distinct, and `_` has ordinary binding semantics in definitions too.
 
 A block requires a final expression and returns its value in tail position.
 Nonfinal expression results are discarded before the next item. Unused affine
@@ -198,8 +202,9 @@ argument. The ordinary cleanup rules apply if construction is abandoned.
 `match` evaluates its scrutinee once. Initially patterns are shallow: nested
 destructuring is another `match`. A name binds the entire selected value.
 `new` patterns open a known nominal struct's fields in declaration order and
-must bind every field, including unused ones. Pattern binders are in scope only
-in their branch body. Unused affine bindings receive ordinary cleanup at scope
+must bind every field, including unused ones. In `match`, pattern binders are
+in scope only in their branch body; in `def`, they belong to the containing
+scope. Unused affine bindings receive ordinary cleanup at scope
 exit. A higher-level wildcard lowers to a fresh unused binder for each occurrence;
 the core gives `_` normal binding, reference, and duplicate-name semantics.
 
@@ -241,7 +246,7 @@ value/type initializers and forward reads of values; lexical name availability
 does not initialize storage.
 
 Initially allow recursive references only for `(def Name Lambda)` or
-`(def (Name+) (tuple Lambda+))`, where the elaborated result is a direct lambda
+`(def (tuple Name+) (tuple Lambda+))`, where the elaborated result is a direct lambda
 or a direct tuple of lambdas with matching arity. Require unrestricted external
 captures. Check every header and capture list in the preceding environment,
 then check bodies with the corresponding functions available as recursive code
@@ -360,7 +365,7 @@ A macro can introduce several bindings from one initializer:
   (macro
     (syntax-rules ()
       ((_ (first-name second-name) initializer)
-       (def (first-name second-name) initializer)))))
+       (def (tuple first-name second-name) initializer)))))
 
 (begin
   (define-two (left right) (tuple 20 22))
@@ -637,7 +642,7 @@ only one executes. A transformer cannot manufacture a checked node or bypass
 the affine-use checker by duplicating input syntax.
 
 An item-position invocation, at top level or inside `begin`, produces one item:
-an expression or a definition binding its result whole or unpacking a tuple. An
+an expression or a definition consuming its result with an irrefutable pattern. An
 expression-position invocation must produce one expression; a bare `def` is
 invalid there, while `begin` can provide local bindings and a result. The final
 item of a `begin` must expand to an expression. The protocol does not splice
