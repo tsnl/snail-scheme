@@ -1,960 +1,680 @@
-# A typed, graded core for Snail-Scheme
+# Snail-Scheme core language
 
-Status: design sketch, not an implemented language or a complete calculus.
-The earlier Esker drafts were not available when writing this document.
+Design proposal. Implement the immutable, macro-free parser, elaborator,
+typechecker, and interpreter first. Macros, memory management, continuations,
+and C output are later stages. The language is strict and dependently typed;
+ownership grades belong to types.
 
-The first implementation targets a parser, elaborator, typechecker, and
-tree-walking interpreter for the immutable subset. Shared mutation and cyclic
-storage are **WIP** and outside that initial subset. C generation and full
-Scheme lowering remain later goals.
+## 1. Grammar
 
-The [minimal grammar and macro expansion proposal](core-grammar.md) scopes the
-parser-facing forms, their binding rules, and a later `syntax-rules` engine
-implemented with immutable core data and functions.
-
-The proposal is a strict dependently typed language with unions, owned values,
-and specialization. Types are values, and `def` binds an initializer's result
-at top level or inside a scoped `begin`. `struct` and `Π` construct type values;
-`λ` constructs functions. Ownership grades are `1` and `omega` and belong to types. Every
-`struct` expression supplies a grade explicitly; the checker verifies that it
-does not exceed the bound computed from its fields.
-
-`Π` and `λ` each require an implicit binder group followed by an explicit
-binder group, even when either is empty. Implicit-only parameters are inferred
-from the supplied explicit arguments. By convention, write the implicit group in square
-brackets; bracket style has no semantic meaning. A parameter never switches
-between implicit and explicit at a call site. Both forms require `→` followed
-by an explicit result type after the binders; `λ` then adds `=` followed by a
-body expression. Every `λ` starts with a mandatory capture list `(...)`
-naming its captured outer bindings, including `()` when there are none.
-
-A small interpreter executes checked terms, including compile-time programs.
-A compiler specializes the same language and eventually emits C. The first
-programs should exercise this language directly; `(scheme base)` comes later.
-
-### Identifier spelling
-
-Use `lower-kebab-case` for ordinary identifiers, including word-based forms, type
-values, type families, functions, fields, and explicitly supplied parameters:
-`def`, `star`, `i64`, `array`, `make-pair`, and `value-type` follow the
-same rule. A type value does not get a capitalized name merely because it is a
-type.
-
-Reserve `Upper-Kebab-Case` for metavariables: the implicit-only parameters
-solved from explicit arguments, and schematic variables in the typing rules.
-Examples include `Element-Type`, `M`, and `N`. An explicitly supplied parameter
-of type `star` is still an ordinary lower-case name. Capitalization identifies
-this syntactic role; it does not change grades, erasure, or evaluation phase.
-
-The symbolic forms `λ` and `Π`, markers `→` and `=`, and operator `+` are
-separate from the identifier-casing convention. Use these Unicode spellings
-for the function forms and arrow throughout the language sketch.
-The identifier `_`, if used, follows ordinary binding and reference rules; it
-does not discard a value or bypass duplicate-name checks.
-Use word-based names for ordinary predicates and conversions, such as `is-i64`
-and `scalar-to-integer`. References to existing Scheme or other languages keep
-those languages' own spelling.
-
-## 1. One binding form, type values, and dependent functions
-
-Every binding statement evaluates one initializer:
+`*`, `+`, and `|` below are metanotation. `Name` and `Field` are identifiers;
+`Type-Expr` is an expression checked to denote a type. Special forms are selected
+by resolved syntax bindings, which ordinary lexical bindings may shadow.
 
 ```text
-(def Pattern Expression)
+Program       ::= Item*
+Item          ::= Definition | Expr
+Definition    ::= (def Pattern Expr)
+
+Expr          ::= Name
+                | Literal
+                | (Π Telescope Telescope → Type-Expr)
+                | (λ (Name*) Telescope Telescope → Type-Expr = Expr)
+                | (Expr Expr*)
+                | (ann Expr Type-Expr)
+                | (begin Item* Expr)
+                | (struct Telescope Grade)
+                | (tuple-of Type-Expr*)
+                | (tuple Expr*)
+                | (union Type-Expr*)
+                | (new Type-Expr (Field-Value*))
+                | (match Expr Clause+)
+
+Telescope     ::= (Binder*)
+Binder        ::= (Name Type-Expr)
+Grade         ::= 1 | omega
+Field-Value   ::= (Field Expr)
+Clause        ::= (Pattern Expr)
+
+Pattern       ::= Name
+                | Literal
+                | (is Type-Expr Name)
+                | (new Type-Expr (Field-Binding*))
+                | (tuple Name*)
+Field-Binding ::= (Field Name)
+Type-Expr     ::= Expr
 ```
 
-There is no separate type declaration, universal-quantification declaration, or
-standalone top-level type-specifier form. Whether `name` denotes a type, a type
-family, a function, or an ordinary value follows from its expression.
-A definition uses the same pattern grammar as `match`. A name binds the whole
-result; `(tuple Name ...)` unpacks a tuple, and a `new` pattern unpacks a struct.
-The checker must establish that the pattern covers the initializer's type and
-refinements. Literal and `is` patterns are permitted when that proof succeeds;
-otherwise, use `match` with an alternative branch. A `def` adds its bindings to
-the containing scope and is a statement rather than a value-producing expression.
+The first function telescope is implicit, the second explicit. Both are
+mandatory; `λ` also requires its leading capture list. Empty lists are valid.
+By convention, write implicit parameters in square brackets:
 
 ```scheme
-(def point
-  (struct ((x i64) (y i64)) omega))
-
-(def scalar
-  (union i64 boolean))
-
 (def id
-  (λ () [(Element-Type star)] ((x Element-Type))
-    → Element-Type
-    = x))
+  (λ () [(Element-Type star)] ((x Element-Type)) → Element-Type = x))
 
 (def id-type
-  (Π [(Element-Type star)] ((x Element-Type))
-    → Element-Type))
-
-(def increment
-  (λ () [] ((x i64))
-    → i64
-    = (i64-add x 1)))
+  (Π [(Element-Type star)] ((x Element-Type)) → Element-Type))
 ```
 
-A binder is `(Name Type-Expression)`, in both `Π` and `λ`. There is no
-binder grade or type-separator token. The forms are:
+Matching `()`, `[]`, and `{}` produce identical lists; mismatched delimiters
+are errors. Recognize `λ`, `Π`, `→`, and `=` as tokens. The arrow and equals
+sign are structural markers in their designated positions.
 
-```text
-(Π [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type)
-(λ (Capture-Name ...) [Implicit-Binder ...] (Explicit-Binder ...) → Result-Type = Body)
-```
+Use `lower-kebab-case` for ordinary identifiers, including types and explicit
+parameters. Reserve `Upper-Kebab-Case` for inferred implicit parameters and
+metavariables in rules. Symbolic operators are exempt. Preserve arbitrary
+Scheme identifier spelling in macro syntax data.
 
-Each `Implicit-Binder` or `Explicit-Binder` stands for `(Name Type-Expression)`.
-Both parameter groups are mandatory: the first is implicit and the second is
-explicit. Write `[]` when there are no implicit parameters and `()` when there
-are no explicit parameters. A lambda with no captures and no parameters has
-the header `(λ () [] () → Result-Type = Body)`.
+Core literals are booleans, signed integers, characters, and immutable strings.
+Integer literals check against `i32` or `i64`, default to `i64` when synthesized,
+and reject out-of-range values. Other reader datums are not automatically core
+expressions. Empty `()` is not an expression; `(f)` calls `f` with no explicit
+arguments.
 
-The capture list is separate from the parameter groups and never appears on
-`Π`. Capture names resolve in the enclosing scope; their types are known from
-those bindings. Captured bindings are in scope in the parameter annotations,
-result type, and body. The ownership and completeness rules are in section 6.
+`def` is the only binding statement. There are no separate type declarations,
+binder-grade annotations, `quote`, `if`, `let`, `letrec`, `fix`, rest parameters,
+`set!`, or user-defined recursive datatype forms in the initial grammar.
+Arithmetic, arrays, `singleton`, and list operations use ordinary applications.
+`union`, `tuple-of`, and `tuple` have intrinsic n-ary rules, not first-class
+variadic function signatures.
 
-The reader accepts matching `(...)`, `[...]`, and `{...}` interchangeably as
-list delimiters and rejects mismatched pairs. Square brackets for the implicit
-group are a writing convention only. For example, `[(T star)]` and
-`((T star))` mean the same thing in that position. Position, rather than
-delimiter shape, determines parameter roles. Calls still supply only explicit
-arguments; this convention does not introduce an implicit-argument call form.
+## 2. Semantic rules
 
-Both forms require the `→` marker; a `λ` also requires `=`. These are syntax
-markers, not expressions to evaluate. They visually separate the parameter
-groups, result type, and body.
+### Bindings, scopes, and evaluation
 
-The result type is mandatory on every λ, including anonymous functions
-and functions that return types. All parameters are in scope in that type
-and in the body. Use a single body expression, with `begin` for local definitions
-and sequencing. A nondependent function type is just a `Π` whose result does
-not mention its arguments.
+- A **telescope** is an ordered sequence of typed binders. Each binder enters
+  scope after its annotation. The implicit and explicit function groups form
+  one telescope; all parameters scope over the result type and body. Struct
+  fields follow the same rule. No forward references within telescopes.
+- Names are distinct within parameter groups, across both function groups,
+  within patterns, and among definitions in one scope. Field labels are unique.
+  `_` is an ordinary core binder; higher-level wildcards need fresh names.
+- Every `begin` creates a scope, executes items in source order, and returns
+  its mandatory final expression in tail position. Nonfinal expression results
+  are discarded immediately; unused bound owners are cleaned up at scope exit.
+  File scope accepts any item sequence and discards expression results.
+- Each `def` evaluates its initializer once and initializes all pattern bindings
+  together. Its pattern must be provably irrefutable for the result's type and
+  refinements. Otherwise use `match`; `def` has no runtime failure branch.
+- Collect bindings across the completed scope before checking function bodies.
+  Lexical visibility does not imply initialization. Nested scopes do not export
+  their definitions.
+- Runtime calls evaluate the operator, then explicit arguments, left to right.
+  Calls have exactly their signature's explicit arity. `new` checks and evaluates
+  every field once, in declaration order; `tuple` evaluates elements left to
+  right. `match` evaluates its scrutinee once and only its selected branch.
 
-The checker derives `id`'s call signature as `id-type` directly from the λ
-header. It verifies that the declared result expression denotes a type, then
-checks the body against that type; it does not infer a missing return type.
-The type expression follows the pure normalization rules used elsewhere in
-type checking, rather than executing arbitrary effects or consuming owners.
-At a call, substitute the inferred and supplied arguments into the result
-type, preserving symbolic dependencies when values are not statically known.
+### Functions, inference, and captures
 
-Local `def` bindings and implicit call arguments can still infer their types
-and values. An expression ascription such as `(ann e Element-Type)` remains
-available where needed. For recursive function groups, the complete λ headers
-supply call signatures before checking recursive calls; a separate
-top-level declaration is unnecessary.
+Every lambda declares parameter types and a result type. Derive its signature
+from that header, then check the body against the declared result. `(ann e t)`
+checks `e` against `t`; local definitions initially infer monotypes.
 
-### Local bindings and sequencing
+Implicit parameters are solved **only from explicit arguments**, including their
+dependent types. Expected call results cannot fill unresolved implicits. There
+is no implicit-argument override syntax. Later arguments may solve earlier
+constraints; reject remaining ambiguity. Start with first-order and dependent
+pattern unification plus normalization, not arbitrary equation solving.
+Polymorphism is abstraction over type values; local generalization, if added,
+must elaborate to that representation without duplicating captured owners.
 
-`(begin Item ... Result)` always introduces a fresh lexical scope. An item is
-either a `def` statement or an expression. Process items in source order;
-evaluate expressions where they occur and discard nonfinal results with any
-required cleanup. The final expression supplies the block's value and is in
-tail position. A block requires a final expression, so an empty block or a
-block ending in `def` is not admitted by the initial grammar.
+Capture names resolve in the enclosing scope before parameters. Reject duplicate
+capture identities and capture/parameter collisions. The list covers free outer
+values in annotations, the result, the body, nested capture lists, and captured
+types. Capturing `xs` of type `(array i64 n)` also requires capturing local `n`.
+Type-only dependencies follow phase and erasure rules.
 
-After expanding a scope, collect all of its definition bindings before checking
-function bodies. Separate `def` statements share that lexical scope, including
-when produced by separate macro invocations. Lexical visibility does not imply
-that a value is initialized: each initializer executes exactly once in source
-order, and its pattern's bindings become initialized together on completion.
-Infer their types by checking the pattern against the result. Reject reads of
-bindings that are not yet initialized. Nested `begin` creates another scope
-whose definitions do not escape into its parent.
+Closure construction acquires captures in list order: affine values move
+immediately, unrestricted values may be copied. Primitive bindings and verified
+closed static top-level definitions need no capture; other outer values,
+including runtime globals, must be listed. Optimization does not waive this rule.
+
+A concrete closure's grade follows its captured runtime fields; an empty
+environment has grade `omega`. A `Π` exposes a call signature, not a hidden
+environment's grade, so an environment-erased callable is initially affine.
+Known unrestricted function items may be reused. A later callable constraint
+may preserve more information about an environment.
 
 ```scheme
-(def increment-twice
-  (λ () [] ((x i64))
-    → i64
-    = (begin
-        (def first-step (i64-add x 1))
-        (def second-step (i64-add first-step 1))
-        second-step)))
+(def make-adder
+  (λ () [] ((offset i64))
+    → (Π [] ((x i64)) → i64)
+    = (λ (offset) [] ((x i64)) → i64 = (i64-add x offset))))
 ```
 
-The `first-step` initializer runs before `second-step`; both names belong to
-this `begin` scope. A binding remains initialized even when later unused, and
-unused affine owners receive cleanup at scope exit. In contrast, an unbound
-nonfinal expression result is discarded before the next item executes. Required
-cleanup on returns and abandoned paths follows the ownership rules.
+### Recursion and initialization
 
-One initializer can share computation and return several components directly:
+Discover recursive functions from `(def Name Lambda)` and direct tuples of
+lambdas bound by tuple patterns. Collect complete headers before checking
+bodies; compute strongly connected components (SCCs) from resolved references
+across the entire scope. Separate definitions and macro invocations do not
+limit a component. Arbitrary computations returning functions do not establish
+such groups; they can define groups in their own blocks.
 
-```scheme
-(def neighboring-values
-  (λ () [] ((input i64))
-    → (tuple-of i64 i64)
-    = (begin
-        (def shared (i64-add input 1))
-        (tuple shared (i64-add shared 1)))))
+Self and peer references in a component are body-only code references, not
+captured function copies or header dependencies. Recursive environments must
+initially be unrestricted. Other runtime dependencies remain explicit captures;
+nonrecursive closures retain the ordinary affine rules.
 
-(def (tuple first-value second-value)
-  (neighboring-values 40))
-```
-
-The call executes once and binds `41` and `42`, with no intermediate aggregate
-binding at the call site. The shared local value stays inside the initializer's
-computation. Destructuring uses the same consuming elimination as a tuple
-pattern: it transfers each component's ownership and leaves no second owner
-of an affine aggregate. Sharing a calculation does not permit duplicating an
-affine result; the ordinary usage rules still apply to every tuple element.
-
-A tuple pattern always destructures a tuple: `(def (tuple x) (tuple 1))` binds `x` to `1`,
-while `(def x (tuple 1))` binds `x` to a one-element tuple. `(def (tuple x) 1)` is a
-type error. The empty pattern `(tuple)` requires the unit tuple. An arity mismatch is a
-static error, not implicit truncation or tuple flattening.
-
-Struct patterns open their field telescope in the containing scope:
-
-```scheme
-(def unpack-length
-  (λ () [] ((value sized-array))
-    → i64
-    = (begin
-        (def (new sized-array ((length n) (items unused-items))) value)
-        n)))
-```
-
-Here `sized-array` is the dependent record defined below. The extracted items
-retain their dependency on `n`; unused affine fields receive ordinary cleanup.
-Patterns stay shallow, and `_` is an ordinary binder. Definitions have no
-implicit failure branch or unchecked destructuring operation.
-
-A source file is a sequence of the same items in a file scope; it can end with
-a definition and has no implicit result value. Top-level expressions execute
-in order and their results are discarded. At either level, a macro in item
-position can expand to one `def` binding several tuple components. It does not
-need to splice forms or export bindings from a nested `begin`.
-
-Nonrecursive `let` can be supplied by higher-level syntax. A simultaneous binding
-list can lower to a tuple-producing initializer followed by tuple binding inside
-a fresh `begin`; fresh binding identities keep the new names out of the source
-initializers. An immediately invoked lambda can also express local binding where its explicit
-result type is representable; lowering must preserve initializer evaluation
-order and the timing of consuming captures. Checked terms may retain block
-bindings directly instead of allocating a closure for each local definition.
-
-### Recursive function groups
-
-Mutually recursive functions may be defined by separate `def` statements in the
-same expanded scope. Collect their complete lambda headers before checking
-bodies, then compute strongly connected components from resolved function
-references. Definition boundaries and macro-expansion boundaries do not limit
-these groups; a nested `begin` remains a distinct lexical scope.
+Headers and type dependencies must be well-founded and phase-correct. Construct
+each closure's environment at its definition's source position without running
+its body. Check eager initialization dependencies separately from delayed body
+references. Reject eager cycles and reads before initialization, including
+acyclic forward reads. Before calling a function or exposing it to unknown code,
+require its environment and transitive function dependencies to be ready.
+Conservatively reject unknown readiness; never reorder initializers to fix it.
 
 ```scheme
 (begin
   (def even
-    (λ () [] ((n i64))
-      → boolean
+    (λ () [] ((n i64)) → boolean
       = (match n
           (0 #t)
           (remaining (odd (i64-sub remaining 1))))))
   (def odd
-    (λ () [] ((n i64))
-      → boolean
+    (λ () [] ((n i64)) → boolean
       = (match n
           (0 #f)
           (remaining (even (i64-sub remaining 1))))))
   (even 10))
 ```
 
-Initially discover recursive functions from directly bound lambdas and direct
-`tuple` values of lambdas bound by tuple patterns. An arbitrary computation
-returning functions does not establish such a group. Self and peer references
-inside a component are body-only code references, not captured copies of its
-functions. External runtime bindings still require explicit captures; recursive
-environments must initially be unrestricted. Nonrecursive closures retain the
-ordinary affine-capture rules. Preserve concrete function identities and known
-environment grades rather than treating arbitrary callables as reusable.
+Calling `even` between these definitions is rejected. The interpreter may use
+code references and immutable external environments with internal readiness
+bookkeeping; no source `fix` is required.
 
-Environment construction occurs at each definition's source position; no body
-runs during construction. Check initialization dependencies separately from
-references delayed inside lambda bodies. Do not reorder initializers or other
-expressions to satisfy dependencies. Calling or exposing a function to unknown
-code requires its environment and all transitively required function
-environments to be ready. Inserting `(even 10)` between the definitions above
-is therefore rejected. Reject eager initialization cycles and acyclic reads
-before initialization; cycle detection alone is not sufficient. Conservatively
-reject uses whose readiness cannot be established.
+### Ownership grades
 
-Headers and type dependencies must themselves be well-founded and phase-correct;
-collecting a binding does not permit evaluating an uninitialized runtime value
-during checking. The interpreter can use references to group code and immutable
-external environments once initialized; initialization bookkeeping is internal.
-Recursive computation can execute in programs or transformer evaluation, but
-does not become unrestricted reduction during type normalization.
+| Grade | Permission |
+| --- | --- |
+| `1` | Affine: move or consume at most once; abandonment requires cleanup |
+| `omega` | Unrestricted: safe duplication and discard |
 
-### Telescopes and scope
+The permission order `1 < omega` is not a subtyping rule. Passing, returning,
+or storing an affine value transfers ownership. Sequential uses accumulate;
+exclusive branches are checked per path. Clean up unused owners and abandoned
+partial constructions. Safe tag observations do not transfer ownership.
 
-Parameter lists and struct field lists are **telescopes**: ordered sequences
-of typed binders in which later types may refer to earlier values. This follows
-the usual [telescope terminology](https://agda.readthedocs.io/en/stable/language/telescopes.html).
-A new binder enters scope after its own type annotation, and remains in scope
-through the rest of the telescope. There are no forward references to later
-binders.
-
-For `Π` and `λ`, read the implicit group followed by the explicit group as
-one telescope. Earlier implicit parameters can appear in later implicit or
-explicit parameter types; earlier explicit parameters can appear in later
-explicit parameter types. All parameters are in scope in the result type and,
-for `λ`, the body. Either group may be empty under the syntax rules above.
-
-This scope order does not restrict the direction of inference: a later
-explicit argument may determine an earlier implicit parameter. The parameter's
-declaration still cannot refer forward to that argument's binder. Dependency
-also does not imply erasure or permission to consume an owner during checking;
-the phase and ownership restrictions below still apply.
-
-Dependent result types can refer to explicit arguments:
-
-```scheme
-(def array-result-type
-  (Π [(Element-Type star)] ((x i64) (y i64) (seed Element-Type))
-    → (result (array Element-Type (+ x y)) array-error)))
+```text
+field-bound = min(grade-of(field-type) for each field)
+require declared-struct-grade <= field-bound
+grade-of(struct-type) = declared-struct-grade
+grade-of(tuple-of A ...) = min(grade-of(A), ...)
+grade-of(union A ...) = min(grade-of(A), ...)
+min of no members = omega
 ```
 
-The lengths use the ordinary `i64` type. With `(x Element-Type)` and
-`(y Element-Type)` for arbitrary `Element-Type`, addition is not established.
-Signed integers also require validity and overflow checks before they can
-describe an allocated array; the `result` exposes that failure path.
-`array-error` represents the array library's size and allocation errors, and
-`result` is the union family defined below. The extra `seed` parameter lets a
-call infer the otherwise unconstrained `Element-Type` ; this is only an
-interface example, not an implementation that duplicates an arbitrary seed
-into an array.
+Only `struct` accepts a user-written grade. Check its literal grade for every
+admitted generic instantiation and preceding dependent field value. A generic
+wrapper declared `1` remains affine even with unrestricted payloads. Declaring
+`omega` requires all fields to be unrestricted; do not silently add that premise
+to an unconstrained family. Grade-constraint syntax remains open.
 
-A more useful dependent interface is concatenation:
+Refinement can reveal an unrestricted payload but cannot recover a consumed
+owner or duplicate its affine wrapper. `share A` means `grade-of(A) = omega`;
+it is a constraint, not an overridable instance. For recursive data supported
+by trusted constructors or later extensions, solve grade equations from `omega`
+to their greatest fixed point. Preserve nominal restrictions under normalization.
+
+### Patterns, unions, and refinement
+
+Patterns are shallow. A name binds the whole value; tuple patterns bind every
+element with exact arity; struct patterns bind every field in declaration order.
+Dependent field relationships remain in scope after unpacking. A definition's
+bindings belong to its containing scope; match bindings belong to their branch.
+
+`match` selects clauses in order using safe observations, then transfers the
+selected payload to the pattern bindings. An affine scrutinee becomes unavailable.
+Unused fields still receive ordinary cleanup. Failed tests refine the remaining
+set of possible values, not merely the list of written union members.
+
+`is` supports known runtime discriminators: primitive tags, supported singletons,
+and nominal structs. It cannot test arbitrary dependent type equality. Check
+coverage and require a catch-all when necessary; unsupported discrimination or
+unproved coverage is a static error.
+
+Check branches against an expected type, or synthesize a common type using a
+supported union join. A branch or block result type cannot expose an unavailable
+local index: substitute an admitted pure definition or package the index and
+payload in a dependent record. General dependent elimination motives remain
+unspecified.
+
+A Boolean conditional lowers to `(match (ann Test boolean) (#t Yes) (#f No))`.
+Scheme truthiness uses a `#f` clause followed by a named catch-all. Both branches
+are checked, although only one executes.
+
+## 3. Types and data
+
+### Universes, dependencies, and erasure
+
+`star` denotes a universe with implicit, internally checked levels. Types such
+as `i64` inhabit a universe, which inhabits a higher universe; no universe
+inhabits itself. Type descriptions are reusable even when their inhabitants
+are affine.
+
+Initially allow dependencies on static type parameters and immutable,
+unrestricted indices. Checking types cannot consume affine owners or execute
+runtime effects. Implicitness, ownership, phase availability, and erasure are
+independent: an implicit length may be needed at runtime, while an explicit
+type argument may be erased.
+
+The initial target erases type values unless a later runtime-descriptor facility
+reifies them. Symbolic indices need not be known during compilation. Erasure
+must preserve required evaluation and cleanup; phantom indices and annotations
+are not automatically stored fields or grade restrictions. Explicit relevance
+annotations and dependency on resource-bearing values need later rules.
+
+### Nominal structs and structural tuples
+
+`struct` produces a nominal type value without defining constructors or accessors.
+Assign a stable key to each elaborated occurrence, parameterized by its enclosing
+type-family arguments. Rechecking the same application preserves identity;
+distinct occurrences remain distinct even with identical layouts. Aliases retain
+identity. Exact keys for modules and serialization remain to be formalized.
 
 ```scheme
+(def point (struct ((x i64) (y i64)) omega))
+(def ticket (struct ((number i64)) 1))
+
+(def pair
+  (λ () [] ((first-type star) (second-type star)) → star
+    = (struct ((first first-type) (second second-type)) 1)))
+
+(def make-pair
+  (λ () [(A star) (B star)] ((x A) (y B)) → (pair A B)
+    = (new (pair A B) ((first x) (second y)))))
+```
+
+`pair` takes explicit type arguments; `make-pair` infers them from its values.
+An empty-container constructor likewise needs an explicit type argument if
+nothing else determines it. Declaring an `omega` wrapper containing `ticket`
+is rejected. `(pair i64 i64)` is still affine because its declaration says `1`.
+
+`tuple-of` compares ordered element types structurally. `(tuple-of)` is unit,
+inhabited by `(tuple)`; unary tuples remain distinct from their elements, and
+nested tuples never flatten implicitly. Tuple types have no element binders;
+use a struct telescope for dependencies between components. Tuples need not
+allocate heap objects.
+
+```scheme
+(begin
+  (def (tuple left right)
+    (begin
+      (def shared (i64-add 19 1))
+      (tuple shared (i64-add shared 2))))
+  (i64-add left right))
+```
+
+The initializer runs once; unpacking moves components without retaining another
+aggregate owner. `(def x (tuple 1))` binds a tuple; `(def (tuple x) (tuple 1))`
+binds its element. Higher-level `let` can lower to a fresh scope and tuple
+binding with hygienically distinct names, or to an immediately invoked lambda
+when its result type is expressible. Preserve initialization and capture order.
+
+### Dependent records and arrays
+
+```scheme
+(def sized-array
+  (struct ((length i64) (items (array i64 length))) 1))
+
+(def package-length
+  (λ () [] ((value sized-array)) → i64
+    = (begin
+        (def (new sized-array ((length n) (items unused-items))) value)
+        n)))
+
+(def keep-array
+  (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
+    → (array Element-Type N) = xs))
+
 (def array-append-type
   (Π [(Element-Type star) (M i64) (N i64)]
       ((xs (array Element-Type M)) (ys (array Element-Type N)))
     → (result (array Element-Type (+ M N)) array-error)))
 ```
 
-Here explicit arrays determine `Element-Type`, `M`, and `N`. The successful
-result type records the sum without requiring either input array to be
-evaluated during type checking. Concatenation checks that the sum and
-allocation size are representable before constructing that result.
+`new` substitutes earlier field values into later field types; consuming a
+record opens the same telescope. A dependent pair can be a two-field struct
+family; no primitive `Σ` is needed.
 
-A λ uses the same dependent result syntax. For example, preserving an
-array also preserves its element type and length:
+Use unrestricted fixed-width `i32` and `i64`, with no separate natural-number
+type. Array length indices use `i64`. Type-level arithmetic has runtime semantics:
+`+` on `i64`, like `i64-add`, wraps at that width. Constant folding uses the same
+signed interpretation; there is no hidden unbounded index arithmetic.
 
-```scheme
-(def keep-array
-  (λ () [(Element-Type star) (N i64)] ((xs (array Element-Type N)))
-    → (array Element-Type N)
-    = xs))
-```
+`(array A N)` is well formed for every `i64` index, but invalid lengths have no
+inhabitants. Constructors check nonnegativity, arithmetic overflow, byte size,
+backend address limits, and allocation failure. Concatenation checks the sum
+before allocating; on success it agrees with the wrapping type expression.
+`array-error` describes these failures. Merely forming an array type neither
+allocates nor proves construction succeeds.
 
-The declared result is a type expression in the arguments' scope. More complex
-expressions such as `(array Element-Type (+ M N))` are equally valid when the
-checker can establish that the body returns a value of that type. This does
-not enable inferring implicit parameters from an expected result at a call
-site.
+### Unions and library variants
 
-### Integer types and array lengths
-
-Use fixed-width integer types such as `i32` and `i64`; there is no separate
-natural-number type in the core. Both are unrestricted. Use `i64` for the
-array family's logical length index, with explicit conversion when crossing
-to a different integer representation. A backend must also check its own
-address-space and allocation limits.
-
-Type-level integer arithmetic has exactly the same semantics as runtime
-arithmetic. In these examples, `+` on `i64` denotes wrapping addition, as does
-`i64-add`; constant folding uses the same width and signed interpretation.
-There is no hidden unbounded arithmetic for type indices. In particular,
-adding one does not always increase an index.
-
-Array construction checks nonnegativity, representation limits, and allocation
-size. Treat `(array Element-Type N)` as a well-formed indexed type for any
-`i64` index, but give invalid lengths no array inhabitants. A failing checked
-constructor returns an error, whether the bad length is constant or discovered
-at runtime. An existing array therefore witnesses that its own length is
-valid; simply forming a type expression does not perform an allocation or
-prove its success.
-
-Concatenation must check addition for overflow before accepting a new length;
-it cannot use a wrapped sum to allocate an undersized buffer. On success, the
-checked mathematical sum fits `i64` and agrees with the wrapping expression
-`(+ M N)` in the result type. Checked byte-size multiplication and allocation
-may still fail, so the interface returns `result`.
-
-### Implicit-only and explicit-only parameters
-
-The implicit group is never an alternative calling convention. For `id`,
-`(id v)` is the invocation form: the checker determines `Element-Type` from
-`v`'s type. There is no `(inst id i64)`, named implicit override, or call
-form supplying the implicit group.
+Unions denote sets of values. Members are subtypes; normalize by flattening,
+ignoring order, removing duplicates, and removing covered members. Overlap does
+not introduce separate variants. `(union)` is `nothing`. `singleton` initially
+accepts supported pure scalars; `(singleton #f)` is a type, whereas `#f` is a value.
+These are the set-like unions and refinements of
+[Typed Racket](https://docs.racket-lang.org/ts-guide/types.html).
 
 ```scheme
-(def example-integer
-  (id (ann 42 i64)))
-
-(def example-boolean
-  (id #t))
-```
-
-The annotation on `42` checks an explicit argument. It does not supply
-`Element-Type` directly. An expected result type may check the completed
-application, but it must not fill in an implicit that the explicit arguments
-did not determine. For a type family or constructor with no suitable arguments
-to infer from, put the relevant type parameter in the explicit group when
-defining it.
-
-For example, the type family `pair` below takes its type arguments explicitly,
-whereas its value constructor `make-pair` infers them:
-
-```scheme
-(def pair
-  (λ () [] ((first-type star) (second-type star))
-    → star
-    = (struct ((first first-type) (second second-type)) 1)))
-
-(def make-pair
-  (λ () [(A star) (B star)] ((x A) (y B))
-    → (pair A B)
-    = (new (pair A B) ((first x) (second y)))))
-
-(def example-pair
-  (make-pair (id (ann 42 i64)) (id #t)))
-```
-
-`new` is proposed expression syntax for constructing a value of a struct type.
-It checks fields against that type; it introduces no top-level names. `pair`
-is called as `(pair i64 boolean)` because both of its parameters are
-explicitly supplied. The type arguments of `make-pair` cannot be supplied that
-way, because its parameter roles are fixed differently.
-
-During checking, replace implicit parameters with metavariables and solve them
-from explicit arguments and their dependent parameter types. Later explicit
-arguments may solve constraints left by earlier ones. Begin with first-order
-and dependent-pattern unification plus normalization, not arbitrary equation
-solving. If inference leaves a parameter ambiguous, reject the invocation.
-Making that parameter explicit is a change to the definition's interface.
-
-Implicitness is independent of erasure and compile-time availability. An
-explicit parameter can be a type value; an inferred integer parameter
-might still be used at runtime. The parameter groups specify how arguments are
-provided, not an additional grade system.
-
-## 2. Structs are type-forming expressions
-
-Evaluating a `struct` expression produces a type value. It does not also bind
-a constructor, predicate, or field accessor in the surrounding scope. Such
-operations can be ordinary explicitly defined values, or generic primitives
-like `new` and consuming pattern matching.
-
-The form is `(struct Telescope Grade)`, where `Grade` is the mandatory literal
-`1` or `omega`. The field telescope and grade are both present, including for
-an empty struct. The checker validates the declared grade against the fields;
-a higher-level language can synthesize this argument before emitting core.
-
-A type family is an ordinary function returning a type:
-
-```scheme
-(def none
-  (struct () omega))
-
-(def some
-  (λ () [] ((value-type star))
-    → star
-    = (struct ((value value-type)) 1)))
-
-(def option
-  (λ () [] ((value-type star))
-    → star
-    = (union none (some value-type))))
-
-(def ok
-  (λ () [] ((value-type star))
-    → star
-    = (struct ((value value-type)) 1)))
-
-(def err
-  (λ () [] ((error-type star))
-    → star
-    = (struct ((error error-type)) 1)))
-
-(def result
-  (λ () [] ((value-type star) (error-type star))
-    → star
-    = (union (ok value-type) (err error-type))))
-```
-
-The type-forming functions use explicit-only parameters so `(option i64)` and
-`(result i64 error)` are ordinary applications. A value-construction helper
-can instead infer a type parameter from the value it receives, just as
-`make-pair` does. A constructor for an empty container cannot infer an element
-type from no arguments: its interface needs an explicit type argument or
-another explicit argument carrying that information.
-
-Preserve nominal identity without making type normalization generative.
-Propose a stable identity for each `struct` expression, parameterized by its
-surrounding type-family arguments. Re-evaluating the same application yields
-the same type; evaluating two distinct struct expressions can yield distinct
-types even if their field layouts agree. Thus `(some i64)` is reproducible,
-while an independently defined wrapper is a different type. Binding an alias
-to an existing type value preserves its identity.
-
-The exact identity keys need formalization before implementing macros and
-cross-module serialization. Allocating a fresh nominal identity on every
-normalization step would make type equality unstable and is not the proposal.
-
-### Structural tuples
-
-`(tuple-of Type-Expression ...)` constructs a structural product type, and
-`(tuple Expression ...)` constructs a value with those ordered element types.
-Tuple elements evaluate left to right. A tuple can be passed, returned, stored,
-or consumed as one ordinary value.
-
-```scheme
-(tuple-of i64 boolean)
-(tuple 20 #t)
-
-(match (tuple 20 22)
-  ((tuple left right) (i64-add left right)))
-```
-
-Tuple types are equal when their arities and corresponding element types are
-equal; they have no nominal occurrence identity. `tuple-of` and `tuple` have
-intrinsic n-ary rules, like `union`, so they do not require ordinary variadic
-function types. `(tuple-of)` is the unit type with the single value `(tuple)`.
-The one-element type `(tuple-of i64)` is distinct from `i64`; there is no implicit
-packing, unpacking, or flattening of nested tuples.
-
-A tuple's grade is computed from its elements:
-
-```text
-grade-of(tuple-of A-1 ... A-N) = min(grade-of(A-1), ..., grade-of(A-N))
-grade-of(tuple-of) = omega
-```
-
-A consuming tuple pattern moves every element into its own binding and leaves
-no second owner of an affine aggregate. Unused elements follow the ordinary
-scope-exit cleanup rules. No projection may duplicate an affine element while
-retaining a usable owner of the tuple. Only `struct` accepts a user-written
-grade restriction; a nominal wrapper can restrict a tuple's computed grade.
-
-These initial tuple types have no element binders: their types may refer to
-the surrounding context, but a later element type cannot bind or refer to an
-earlier tuple element. Use a struct telescope to package dependent fields.
-The library `pair` above remains a nominal struct family with its declared
-grade; it is a different type from a structural two-element tuple.
-
-Tuple semantics do not require a heap object or observable allocation identity.
-A C backend may return a fixed-layout aggregate, use a suitable calling
-convention, or eliminate the aggregate when it is immediately consumed.
-
-### Dependent fields and dependent pairs
-
-Struct fields use the same telescope scoping rule as function parameters:
-
-```scheme
-(def sized-array
-  (struct ((length i64)
-           (items (array i64 length))) 1))
-```
-
-Here `length` is a field value in scope in the type of `items`. A value of
-`sized-array` packages a length together with an array of that length; the
-length need not be known at compile time. `new` checks fields in declaration
-order, substituting earlier checked field values into later field types and
-retaining symbolic dependencies where necessary. An inconsistent length and
-array are rejected; forming the record type does not allocate an array.
-
-Consuming pattern matching opens the field telescope in the same order, so
-the extracted array keeps its dependency on the extracted length. It transfers
-ownership of the fields without retaining a second owner of the record.
-Initially permit dependencies on immutable, unrestricted runtime indices such
-as `i64`, alongside the existing static type parameters. Type checking must
-not consume an earlier affine field or run its effects to determine a later
-field's type. More general dependencies need additional rules.
-
-Keep `struct` as the nominal type former and the site of user-written grade
-restrictions. Telescopes add dependency without making distinct struct
-definitions interchangeable. Dependent pairs, or Σ-types, can be expressed as
-an ordinary library family using a two-field telescope whose second field's
-type depends on the first. Such a family must satisfy the same dependency and
-grade constraints as other structs. It needs no separate primitive type former;
-`Σ` notation can be added later. As a precedent,
-[Agda's built-in Σ](https://github.com/agda/agda/blob/master/src/data/lib/prim/Agda/Builtin/Sigma.agda)
-is itself defined as a record.
-
-## 3. Unions and refinement
-
-Keep the set-like unions and branch refinement that motivated the Typed Racket
-starting point. Union formation itself is an expression producing a type value.
-The minimal grammar gives `union` an intrinsic n-ary form; the initial fixed-arity
-`Π` does not make it an ordinary first-class variadic function.
-
-```scheme
-(def maybe
-  (λ () [] ((value-type star))
-    → star
-    = (union (singleton #f) value-type)))
-
+(def scalar (union i64 boolean))
 (def scalar-to-integer
-  (λ () [] ((x scalar))
-    → i64
+  (λ () [] ((x scalar)) → i64
     = (match x
         ((is i64 integer) integer)
-        (#t (ann 1 i64))
-        (#f (ann 0 i64)))))
+        (#t 1)
+        (#f 0))))
+
+(def none (struct () omega))
+(def some
+  (λ () [] ((value-type star)) → star
+    = (struct ((value value-type)) 1)))
+(def option
+  (λ () [] ((value-type star)) → star
+    = (union none (some value-type))))
 ```
 
-`#f` is a Boolean value; `(singleton #f)` is the type value containing only
-that Boolean. This explicit formation keeps `union` an operation on type values
-instead of contextually changing the meaning of its arguments. `(maybe boolean)`
-cannot distinguish absence from a present `#f`; `option` supplies distinct
-nominal variants when that distinction matters.
+Similarly, `result A E` is the union of nominal `ok A` and `err E` wrappers,
+each declared grade `1`, with one field named `value` or `error`. These families
+are ordinary type-valued functions. Distinct wrappers distinguish absence from
+present `#f`, unlike `(union (singleton #f) boolean)`.
 
-The `is` pattern binds the selected integer as `integer`; the other clauses
-handle the two Boolean values. Members are subtypes of their union. Flatten nested unions, ignore
-member order, remove duplicates, and remove members already covered by another
-member. These remain the intended union semantics, following
-[Typed Racket's discussion of unions and subtyping](https://docs.racket-lang.org/ts-guide/types.html)
-.
+### Immutable primitives
 
-Overlapping members denote shared sets of values. Clauses are tried in order;
-after a failed pattern test, later clauses exclude the values it would accept,
-rather than blindly removing one syntactic member. Start with primitive tags,
-supported singletons, and nominal-struct patterns. User-defined refinement
-propositions can come later, following the direction
-of
-[occurrence typing](https://docs.racket-lang.org/ts-guide/occurrence-typing.html)
-.
+Provide trusted `list-of`, primitive strings, scalar comparison, and diagnostics
+without adding recursive datatype syntax. `list-empty` takes an explicit element
+type; `list-cons` infers it; consuming `list-view` returns
+`(option (pair A (list-of A)))`. Lists inherit the element grade and may share
+storage when unrestricted. Inspection, indexing, and conversion preserve ownership
+and report checked failures. Arithmetic is defined as wrapping or checked.
 
-Refinement never creates a second owner. `match` evaluates its scrutinee once
-and uses safe tag observations to select a clause before moving the selected
-value or fields into that branch. These tests expose no reference and retain
-nothing. An arbitrary function call still transfers ownership as required by
-its argument's type. Consuming an affine scrutinee makes its original owner
-unavailable; only the chosen pattern's bindings own the selected payload.
+## 4. Elaboration and execution
 
-Every name in a core pattern is an ordinary binder, including names for unused
-fields. A name alone is a catch-all pattern binding the whole selected value.
-Unused affine bindings receive cleanup at branch scope exit. A higher-level
-wildcard can lower to a fresh unused name for each occurrence.
-
-`match` is the core branching form. A higher-level Boolean conditional
-`(if Test Yes No)` lowers to `(match (ann Test boolean) (#t Yes) (#f No))`.
-Both branch bodies must typecheck, and only the selected body executes. The
-ascription preserves the Boolean-test requirement without another core form.
-
-## 4. Grades are properties of types
-
-Write `grade-of(Element-Type)` for the effective grade of the values
-inhabiting type `Element-Type` :
-
-| Grade | Meaning |
+| Representation | Contents |
 | --- | --- |
-| `1` | Affine ownership: may be moved or consumed at most once |
-| `omega` | Unrestricted: may be duplicated and discarded safely |
+| Reader syntax | Atoms, located lists and improper tails; later vectors and lexical context |
+| Source terms | The grammar above, with binders and designated expression positions |
+| Checked terms | Binding identities, explicit inferred arguments, types, union conversions, captures, ownership operations, blocks, and recursive groups |
 
-The permission order is `1 < omega`, not an automatic subtyping rule.
-Changing a name or annotation cannot grant a value greater permissions.
-Grade `1` permits abandonment and cleanup; it does not enforce exactly-once
-protocols. Safe tag observations do not count as ownership transfers.
+The reader accepts data outside the core expression grammar. An expander must
+resolve heads before parsing macro operands as expressions. Locations alone do
+not supply lexical identity.
 
-Ownership describes duplication permissions; phase availability and erasure
-are separate concerns. The same type can describe a runtime value, a value used
-during compilation, or a value whose representation is erased.
+Use checking and synthesis, dependent conversion, union subtyping, and refinement.
+The shared evaluator infrastructure has distinct execution contracts:
 
-### Structs can only restrict their fields' grade
+| Use | Contract |
+| --- | --- |
+| Program interpretation | Checked runtime operations and recursion |
+| Transformer execution | Phase-local data and compiler capabilities |
+| Type normalization | Pure terminating reduction, retaining neutral terms |
 
-```text
-Field-Grade = min(grade-of(Field-Type-1), ..., grade-of(Field-Type-N))
-min of no fields = omega
+Normalization may reduce structs, admitted pure nonrecursive type families,
+and trusted index operations. Retain neutral variables and applications for
+unknown indices. Runtime recursion and recursive transformer helpers are not
+initially admitted to conversion. A timeout is a diagnostic, never evidence of
+equality. Do not read runtime locals or consume owners during checking.
 
-require Grade <= Field-Grade
-grade-of(Struct-Type) = Grade
-```
+Interpret checked terms with explicit frames and a trampoline, preserving
+proper tail recursion and cleanup. Function interfaces will need latent effects;
+plain `Π` currently specifies only arguments and results. Effect syntax,
+generic grade constraints, and more general dependent elimination remain open.
 
-For dependent fields, check this bound in the context of the field telescope.
-At a fixed type-family application, the declared grade must be safe for every
-admitted value of the preceding fields. If a dependent payload can be affine,
-the package cannot be unrestricted. Retain formulas or constraints involving
-static family arguments; do not choose the package's grade by assuming a
-favorable runtime index. The declared grade must meet the bound for all
-admitted field values; there is no omitted-grade case in the core.
+## 5. Macro expansion — later layer
 
-The only user-written grade argument occurs in a `struct` expression:
+### Definition and application grammar
 
-```scheme
-(def ticket
-  (struct ((number i64)) 1))
-
-(def envelope
-  (struct ((ticket ticket) (label i64)) 1))
-; grade-of(envelope) = 1.
-
-(def bad-envelope
-  (struct ((ticket ticket)) omega))
-; Rejected: omega exceeds the field grade of 1.
-
-(def empty-token
-  (struct () 1))
-```
-
-`ticket` restricts a shareable payload to an affine wrapper. Consuming the
-wrapper can recover an unrestricted integer, but cannot leave a second `ticket`.
-`point`, defined earlier, declares `omega`, justified by its integer fields.
-
-The generic wrappers above declare `1`, which is valid for unrestricted and
-affine payloads alike. Their grade stays `1` even when instantiated with only
-unrestricted fields. Union grades continue to follow their variants:
+Keep macros outside the initial evaluator grammar. Add this expansion-only
+adapter, selected by resolved built-in bindings:
 
 ```text
-grade-of(some A)     = 1
-grade-of(pair A B)   = 1
-grade-of(result A E) = 1
-grade-of(union A B)  = min(grade-of(A), grade-of(B))
-grade-of(option A)   = 1
+Macro-Definition ::= (def Name (macro Rules-Spec))
+Rules-Spec       ::= (syntax-rules (Identifier*) Rule*)
+                   | (syntax-rules Identifier (Identifier*) Rule*)
+Rule             ::= (Macro-Pattern Template)
+Macro-Use        ::= (Identifier Reader-Syntax*)
+                   | (Identifier Reader-Syntax* . Reader-Syntax)
 ```
 
-An explicit struct grade must be valid for every admitted instantiation.
-Restricting a generic wrapper to grade `1` is always permitted by the ownership
-order: every field grade is `1` or `omega`. Declaring `omega` requires all fields
-to be unrestricted. Do not silently add that premise to the type of a
-supposedly unconstrained family. The syntax for such constraints remains an
-open part of the dependent interface design. Runtime representation eligibility
-is checked separately from ownership.
-
-A union cannot be duplicated if any possible variant is affine. After a sound
-refinement establishes that a live `(union ticket i64)` is specifically an
-integer, that branch can duplicate it. The `ticket` branch still owns one
-`ticket`. Consumed values cannot be recovered by subsequent refinement.
-
-For recursive data, solve grade equations together from `omega`, propagating
-restrictions to their greatest fixed point and checking declared grades.
-Normalization must preserve nominal wrapper restrictions. Define `nothing`
-as the empty union; its grade can be `omega` vacuously because it has no values.
-
-### Type values, erasure, and phases
-
-Distinguish the type value `ticket` from a value inhabiting it.
-`grade-of(ticket) = 1` restricts `ticket` instances, not the number of times
-the checker can mention that type. The checker can reuse type descriptions
-while forming other types.
-
-For the initial staged implementation, type values are erased from the target
-program unless explicitly reified by a future runtime-descriptor facility.
-`star` names a universe: types such as `i64` and `boolean` inhabit the base
-universe, which in turn inhabits a higher universe. Source occurrences of
-`star` leave levels implicit; the checker tracks and validates their level
-constraints internally. A universe cannot inhabit itself. Whether an expression
-denotes a type is determined by checking it against the appropriate universe.
-The [universe hierarchy](https://agda.readthedocs.io/en/stable/language/universe-levels.html)
-keeps type-valued parameters and type-forming functions well stratified.
-
-Erasure does not require every erased value to be known during compilation:
-the checker may reason about an index symbolically without retaining an
-additional runtime argument for it. Conversely, an inferred argument may be
-needed at runtime. Implicitness alone grants no permission to erase it.
-
-Erasure must preserve required evaluation and cleanup of live resources.
-Ordinary ownership rules still apply when values execute at either phase.
-Type parameters and phantom indices are not automatically stored fields;
-their presence in an annotation does not lower a container's ownership grade.
-Explicit relevance annotations remain a separate future design.
-
-## 5. Ownership, containers, and sharing
-
-Passing, returning, or storing an affine value transfers ownership. Uses on
-exclusive branches are checked per path; sequential uses accumulate. Clean up
-unused owners on scope exit and abandoned control paths.
+`Reader-Syntax` is an arbitrary reader node. `macro` accepts a `syntax-rules`
+specification and binds one descriptor; it is not a runtime operation. The second
+specification form selects a custom ellipsis identifier. An ordinary dotted
+application remains invalid.
 
 ```scheme
-(def bad-copy
-  (λ () [] ((value ticket))
-    → (pair ticket ticket)
-    = (make-pair value value)))
-; Rejected: two ownership transfers from one ticket.
+(def choose
+  (macro
+    (syntax-rules ()
+      ((_ test yes no)
+       (match (ann test boolean) (#t yes) (#f no))))))
+(def answer (choose #t 41 42))
 
-(def copy-integer
-  (λ () [] ((n i64))
-    → (pair i64 i64)
-    = (make-pair n n)))
-; Accepted: grade-of(i64) = omega.
+(def define-two
+  (macro
+    (syntax-rules ()
+      ((_ (first-name second-name) initializer)
+       (def (tuple first-name second-name) initializer)))))
+
+(begin
+  (define-two (left right) (tuple 20 22))
+  (i64-add left right))
 ```
 
-`share Element-Type` means `grade-of(Element-Type) = omega`. It is a
-constraint, not a customizable instance that can override a struct's grade. A
-generic duplication function needs that premise; accepting an unconstrained
-type parameter `Element-Type` does not establish it.
+The adapter passes syntax constants and a definition binding view to an
+already-checked core rule compiler. It does not implement pattern matching or
+execute unchecked source. No general quotation form is needed. Procedural
+transformers and `quote-syntax` can come later.
 
-The proposed owned `vec A` is affine for runtime elements, with exclusive
-updates that return the resulting owner deferred beyond the immutable subset.
-An immutable `list-of A` can inherit `grade-of(A)`, with shared storage when
-that grade is `omega`. Indexing and
-conversions have checked failures. Arithmetic has defined wrapping or checked
-behavior instead of inheriting C undefined behavior.
+An item-position macro produces one item; an expression-position macro must
+produce an expression. A `def` can bind several names from one initializer.
+Returning `begin` creates a nested scope; expansion never splices it away.
+The final item of a block must expand to an expression.
 
-`arc A` is a trusted shared-handle constructor, unrestricted for runtime
-payloads even when `A` is affine. Duplicating a handle does not duplicate its
-payload. This is a runtime abstraction, not permission for a user struct to
-raise the grade of an inline field.
+### Pattern and template rules
 
-The primitive call signatures can be described by ordinary type values:
+These nonterminals describe reader syntax, not core patterns. `Pattern-Id`
+classifies captures, literals, and wildcards; `Template-Id` classifies substitutions
+and introduced identifiers. `Constant` is a supported non-identifier datum.
+`Ellipsis` is the selected identifier in its active role; `#(...)` is a vector.
+
+```text
+Macro-Pattern  ::= (Identifier Syntax-Pattern*)
+                 | (Identifier Syntax-Pattern* . Syntax-Pattern)
+                 | (Identifier Syntax-Pattern* Syntax-Pattern Ellipsis Syntax-Pattern*)
+                 | (Identifier Syntax-Pattern* Syntax-Pattern Ellipsis Syntax-Pattern* . Syntax-Pattern)
+
+Syntax-Pattern ::= Pattern-Id | Constant
+                 | (Syntax-Pattern*)
+                 | (Syntax-Pattern+ . Syntax-Pattern)
+                 | (Syntax-Pattern* Syntax-Pattern Ellipsis Syntax-Pattern*)
+                 | (Syntax-Pattern* Syntax-Pattern Ellipsis Syntax-Pattern* . Syntax-Pattern)
+                 | #(Syntax-Pattern*)
+                 | #(Syntax-Pattern* Syntax-Pattern Ellipsis Syntax-Pattern*)
+
+Template       ::= Template-Id | Constant
+                 | (Element*)
+                 | (Element+ . Template)
+                 | (Ellipsis Template)
+                 | #(Element*)
+Element        ::= Template | Template Ellipsis
+```
+
+- Ignore the pattern's leading macro identifier. Pattern variables are unique.
+  `_` is a wildcard unless declared literal. Literal entries also override the
+  ellipsis marker. Compare literal identifiers by binding, with equal unbound
+  names matching; compare constants by datum equality.
+- Allow one repeated segment per list/vector pattern level, with nesting.
+  Select the first matching rule. No match is an expansion error; a selected
+  rule's template error does not retry subsequent rules.
+- Preserve use-site context on substitutions and definition context on template
+  identifiers. `(Ellipsis Template)` disables ellipsis interpretation inside its
+  operand while still substituting variables. An active ellipsis is not an
+  ordinary pattern/template identifier; an escaped one is.
+- Validate repetition depths before installation. Positive-depth variables must
+  be substituted at the same depth; depth-zero variables may broadcast inside
+  a repetition driven by another variable. Every repetition needs a driver;
+  simultaneous drivers must have equal lengths. Reject mismatches, never truncate.
+- Consecutive template ellipses and extra depths for positive-rank variables are
+  outside this baseline. Quote abbreviations are reader notation and do not
+  stop pattern/template traversal. Reject unsupported datum forms explicitly.
+
+The target is [R7RS §4.3.2](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-6.html#TAG:__tex2page_sec_4.3.2)
+and its [grammar](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-9.html#TAG:__tex2page_sec_7.1.5),
+not the additional repetition rules of [SRFI 149](https://srfi.schemers.org/srfi-149/srfi-149.html).
+A matcher lacking vectors or other datum forms must identify itself as a subset.
+
+### Immutable engine representation
+
+Use unrestricted syntax and immutable metadata, interpreted by known reusable
+helper functions. Store rule descriptors rather than environment-erased callable
+closures. The engine needs lists, records, association lists, and recursive
+helpers; it needs neither shared mutation nor user-defined recursive datatypes.
+
+An abstract syntax view distinguishes identifiers, literal atoms, lists with
+optional improper tails, and vectors. Inspection and reconstruction preserve
+lexical context without exposing mutable references.
+
+| Record | Fields |
+| --- | --- |
+| `variable-plan` | Slot ID, identifier syntax, outer-to-inner repetition-site IDs |
+| `repetition-plan` | Site ID, pattern occurrence path, parent-site IDs |
+| `rule-plan` | Pattern syntax, template syntax, variable plans, repetition plans |
+| `rules-transformer` | Definition binding view, ellipsis identifier, literal identifiers, ordered rule plans |
+| `capture-entry` | Variable slot, repetition index path, captured syntax |
+| `repetition-extent` | Site ID, parent index path, repetition count |
+| `captures` | Entries and extents |
+
+These records can all declare `omega`. Use `i64` IDs/counts and immutable lists.
+Assign stable per-rule variable and repetition IDs during validation, including
+variable-free repetitions. Record every repetition instance, even zero-length
+ones. Capture entries alone cannot distinguish missing matches from empty inner
+repetitions. Parent paths preserve ragged nesting; validate driver lengths at
+each parent path before zipping them.
 
 ```scheme
-(def arc-new-type
-  (Π [(A star)] ((value A))
-    → (arc A)))
-
-(def arc-try-unwrap-type
-  (Π [(A star)] ((handle (arc A)))
-    → (result A (arc A))))
+(def compile-syntax-rules-type
+  (Π [] ((definition-view binding-view) (spec syntax))
+    → (result rules-transformer diagnostic)))
+(def match-rule-type
+  (Π [] ((definition-view binding-view) (use-view binding-view)
+         (rule rule-plan) (form syntax))
+    → (option captures)))
+(def instantiate-template-type
+  (Π [] ((introduction introduction-context)
+         (rule rule-plan) (matched captures))
+    → (result syntax diagnostic)))
 ```
 
-These runtime interfaces require runtime-eligible payloads; formalizing their
-constraints is part of the grade-checking work. Reading out a copy additionally
-requires `share A`. Unique extraction can return an affine payload only when
-no other handle remains, returning the handle on failure. In particular,
-sharing `arc ticket` or `arc (cont-1 A)` cannot create duplicate payload owners.
+Compile without expanding templates or resolving their identifiers as runtime
+expressions. Match with immutable accumulators; failed candidates discard their
+captures without consuming the affine expansion context. Account for fixed
+prefixes/suffixes around repetition. Dotted matching uses pair/tail structure:
+`(_ x ... . tail)` captures all proper-list elements in `x` and an empty `tail`,
+or the improper tail when present. Do not backtrack to assign an arbitrary proper
+suffix to `tail`; an explicit dot followed by a proper list is still a proper list.
 
-This adopts handle sharing and unique extraction from
-[Rust's Arc](https://doc.rust-lang.org/std/sync/struct.Arc.html) without
-exposing borrowed references. Initially exclude user-constructible reference
-cycles and shared mutation. General cyclic Scheme objects need a later
-collection strategy.
+Instantiate only after selecting a rule. `binding-view` and
+`introduction-context` are opaque unrestricted data. The affine driver allocates
+one fresh invocation identity/introduction scope, then pure helpers reuse it
+with distinct output-position paths. The driver retains `expand-context`;
+recoverable failures must return its successor, while fatal errors may abort.
+A general transformer signature describes one call, not closure reuse; procedural
+registration needs a separate reuse contract.
 
-### WIP: shared mutation and cyclic storage
+### Expansion, phases, and hygiene
 
-Shared mutation is a future extension, not part of the initial implementation
-target. Keep ordinary bindings and struct fields immutable. A candidate
-extension is a managed `(cell A)` handle with explicit allocation, read, and
-write operations; their interfaces and effect rules remain to be specified.
+1. Resolve a head by lexical binding and phase. Give an installed macro the
+   **whole original form** without evaluating, checking, or expanding operands.
+2. Expand its output again in the same syntactic context. Discarded operands
+   need never be parsed as core expressions.
+3. For a core form, process only designated expression positions. Binders,
+   field labels, patterns, and macro specifications are not ordinary operands.
+4. Collect the completed scope's definitions, then check signatures, bodies,
+   ownership, SCCs, and initialization readiness. Every generated term passes
+   through the same checker; transformers cannot forge checked nodes.
 
-For a first cell design, require `grade-of(A) = omega` and give the handle
-grade `omega`. Duplicating a handle would share the same location. Reading
-would return a value of `A`; writing would replace the stored value while
-preserving its type. Neither operation would expose a borrowed reference.
-This would be a trusted runtime abstraction, with no new user-written grade
-annotation site.
+Install macro definitions in source order. Reserve the binding identity before
+capturing the definition view; compile and register the descriptor on success.
+A template may refer to its own binding, but invoking an uninstalled descriptor
+is an error. Keep immutable identity views separate from the phase registry so
+a view does not freeze an unfinished descriptor.
 
-Types and refinements could depend on stable immutable snapshots, but could
-not assume that a cell retains its contents across reads. Cell operations
-would be effects excluded from type normalization. A cell containing a
-dependent record would replace the whole record so its field dependencies
-remain valid.
+Defer lambda-body resolution/expansion as needed to recognize later same-scope
+function bindings, retaining the source-position macro environment. Do not
+prematurely dispatch an outer macro shadowed by such a binding. Scope-wide value
+collection does not make future macro definitions available earlier. Macros can
+produce independent definitions whose mutual recursion is analyzed afterward.
 
-Scheme lowering could use cells containing an unrestricted `scheme-value`
-representation. That representation must preserve ownership when exposing
-core resources; it cannot make an affine payload freely duplicable. Shared
-mutation also permits cyclic object graphs. Plain reference counting does
-not reclaim strong cycles, so cyclic storage needs a collection strategy.
-The cell API, effect rules, and collection strategy are WIP; they do not block
-implementing and exercising the immutable core.
+Transformers execute only phase-available dependencies; never run program
+initializers speculatively or share runtime continuations across phases.
+Expansion limits produce diagnostics, not type-equality proofs.
 
-## 6. Functions, inference, and specialization
+Use a complete binding-aware hygiene algorithm, such as
+[binding as sets of scopes](https://users.cs.utah.edu/plt/scope-sets/).
+Substitutions retain use-site context; template free identifiers retain definition
+context; introduced binders and references share fresh introduction information.
+Locations, string equality, and fresh names alone are insufficient.
 
-### Explicit consuming captures
+Assign nominal struct occurrence keys during expansion/elaboration, including
+invocation and output-position provenance. Separate invocations, or two copies
+of one captured struct in an output, have distinct keys. Rechecking the same
+expanded occurrence preserves its key. The driver establishes lexical scopes;
+helpers cannot mint arbitrary scopes or checked terms.
 
-Every lambda declares its captures with the first list `(Name ...)`. This list
-contains distinct names of enclosing bindings, not arbitrary expressions.
-Resolve these names before introducing the lambda's parameters. Reject duplicate
-capture identities and capture/parameter name collisions.
+The Scheme front end will additionally need `define-syntax`, `let-syntax`,
+`letrec-syntax`, and `syntax-error` adapters to this phase protocol.
 
-```scheme
-(def make-adder
-  (λ () [] ((offset i64))
-    → (Π [] ((x i64)) → i64)
-    = (λ (offset) [] ((x i64))
-        → i64
-        = (i64-add x offset))))
+## 6. Runtime and compilation — future work
 
-(def retain-ticket
-  (λ () [] ((value ticket))
-    → (Π [] () → ticket)
-    = (λ (value) [] ()
-        → ticket
-        = value)))
-```
+### Memory management
 
-Constructing a closure acquires its listed captures in order. Each affine
-capture moves into the closure immediately, making the outer binding unavailable
-even if the closure is never called. An unrestricted capture may be copied, so
-the outer binding remains usable. The body owns the captured fields when the
-closure is invoked; capturing a value does not relax its usage rules.
+Build the Scheme heap and collector in library code over trusted owned
+allocation, safe access/update, and reclamation primitives. Initially thread
+heap state explicitly; defer dynamic parameters and allocation effect handlers.
+Start with one thread and a nonmoving heap.
 
-The capture list covers free enclosing bindings throughout the lambda: parameter
-annotations, the result type, the body, and nested lambdas' capture lists.
-It also covers local dependencies in captured values' types. For example, a
-captured `xs` of type `(array i64 n)` requires the enclosing `n` to be listed
-as well. Type-only dependencies obey the phase rules and can be erased; they
-cannot silently supply a hidden runtime value or consume an affine owner during
-checking. Initial type dependencies remain limited to immutable unrestricted
-indices and static type parameters.
+Candidate policy: reference counting plus tracing for cycles, triggered by
+allocation at a heap budget. Reserve collection workspace outside the exhausted
+managed heap. Specify how tracing, cycle reclamation, counts, and cleanup interact.
+Reference counts alone do not reclaim strong cycles.
 
-Primitive bindings and verified closed static top-level definitions can be
-referenced directly without occupying the capture environment. Every other
-outer value, including a runtime top-level value, must be listed. A local
-binding requires explicit capture even if optimization can compute its value.
-Self and peer references in a scope-derived recursive component are special
-body-only bindings, not captures or header dependencies. They refer to code with the
-group's established environment. Initially recursive environments must be
-unrestricted; recursive calls cannot recreate affine captured owners.
+Root enumeration must include live temporaries, globals, external roots, and
+reachable saved continuations. Share frame-tracing metadata with continuations;
+a restricted visitor exposes managed references without extracting or duplicating
+affine frame values. General native stack reflection is unnecessary. Suspension
+and tracing cannot depend on allocation from the heap being collected.
 
-A closure is a compiler-generated struct containing its captured runtime values
-and a code reference. Its concrete grade follows those fields: a captured
-`ticket` or continuation makes it affine; an unrestricted environment permits
-reuse. An empty runtime environment has grade `omega`. Eliminating a field during
-optimization must preserve established ownership restrictions and required
-cleanup. There is no user-written closure-grade annotation.
+`drop` and `trace` can be explicit records of operations; type-class syntax and
+instance search are not prerequisites. Compiler-inserted cleanup still needs a
+protocol. Cleanup must not execute arbitrary user control effects; finalizers
+and fallible close operations need separate rules.
 
-### Call signatures and specialization
+An owned `vec A` is affine, with exclusive updates returning its owner. `box`
+and `arc` need a trusted storage boundary. The proposed unrestricted `arc A`
+shares handles, including to affine payloads, without duplicating those payloads.
+Duplication requires retain bookkeeping; an affine handle with explicit cloning
+remains an alternative. Copying a payload requires `share A`; unique extraction
+returns `A` only when no other handle remains, or returns the handle on failure.
+Payloads must be runtime-eligible, independently of their ownership grades.
+These policies are WIP and do not let ordinary structs raise field grades.
 
-A `Π` describes a call signature, including implicit and explicit parameters and
-result dependencies. It does not reveal a hidden closure environment's grade.
-Initially treat an environment-erased callable with a given `Π` signature as
-affine, since its possible runtime environments have grades `1` or `omega`.
-A concrete top-level function item can remain reusable because its empty
-environment is known. Runtime top-level values require explicit captures,
-including unrestricted ones; a top-level lambda is not automatically capture-free.
-Interfaces must preserve that distinction rather than
-silently asserting that every function with the same `Π` can be duplicated.
-A later generic callable constraint can retain the concrete environment type
-when reuse matters.
+Shared mutation is also deferred. A candidate `cell A` requires unrestricted
+`A` and shares a stable location through unrestricted handles. Reads/writes
+preserve its type and are excluded from normalization. Refinements may depend
+on immutable snapshots, not assumed future cell contents. Replace dependent
+records as a whole to preserve field relationships. Cycles, cross-thread
+sharing, and collection coordination need explicit protocols.
 
-Polymorphism is ordinary abstraction over type values, without a separate
-universal-quantification form. The implicit group on `id` expresses its
-polymorphism; the explicit group on `pair` expresses a type-forming function's
-arguments. A convenience elaborator can infer suitable local polymorphism, but
-it must translate to this same explicit representation and respect parameter
-roles. Never re-create one captured affine environment for each instantiation.
+### Continuations and vector stacks
 
-Infer local types with checking and synthesis; solve omitted implicit values
-from explicit arguments. Dependent conversion compares normalized type terms.
-Union-aware checking also requires subtyping and refinement; it is not plain
-Hindley-Milner unification. Inferable interfaces need not admit complete
-inference for arbitrary type-level computation.
+Use growable contiguous vectors for execution frames and saved continuations,
+with offsets or handles valid across growth. Preserve proper tail calls. Specify
+ownership transfer, abandonment cleanup, and growth before multi-shot control.
 
-Specialize reachable code at known representation-relevant type arguments,
-cache instances, and diagnose unbounded specialization growth. An implicit
-argument is not automatically a specialization key: a symbolic length index
-may use uniform array storage, while a concrete element type selects layout.
-Likewise, an explicit type argument can be fully static and erased.
-
-First-class type formation does not guarantee that every runtime-computed type
-has a statically known C layout. The backend must either have a uniform
-representation for a checked term or diagnose that its current representation
-strategy cannot compile it. That restriction should be distinguished from
-logical type correctness.
-
-## 7. One-shot continuations own their future
-
-This section describes future work after the existing grammar, elaborator,
-typechecker, and immutable interpreter are working. Control primitives do not
-extend the initial grammar milestone.
-
-`cont-1 A` is an affine primitive type. Its ownership rules do not depend on how
-a binder was written. Start with ownership-transferring capture rather than
-ordinary Scheme `call/cc`:
+The initial control proposal uses affine `cont-1 A`:
 
 ```scheme
 (def capture-1-type
@@ -975,221 +695,80 @@ ordinary Scheme `call/cc`:
 ; Produces 42.
 ```
 
-The explicit callback annotation determines `capture-1`'s implicit `A`.
-`nothing` means the callback cannot return normally. Both primitives have a
-control effect, and capture propagates the callback's effects; these examples
-show call signatures, not a claim of purity.
+`capture-1` transfers the current continuation to its callback, without retaining
+it as the callback's normal return path. `invoke-1` consumes the handle, cleans
+up abandoned invoking frames, and resumes the saved computation. Partition
+ownership between callback and saved frames. `nothing` prevents normal callback
+return; these signatures describe control effects, not pure functions.
 
-Capture moves the current continuation into a fresh handle and runs the
-callback without that continuation as its normal return path. Invocation
-consumes the handle, releases abandoned invoking frames, and resumes the
-saved future. The callback and saved future cannot both own the same resource.
-Check this partition when making continuations explicit.
+Capture initially targets one program execution root; handles cannot cross
+interpreter runs or compilation/runtime phases. Full Scheme `call/cc` also
+enters its continuation on normal callback return. Multi-shot control requires
+duplicable captured frames and control-flow checks across calls. Demotion to
+one-shot capture requires at most one total entry across all aliases and paths,
+including normal return; one syntactic invocation is insufficient.
+See [one-shot continuations](https://www.cs.tufts.edu/comp/150FP/archive/kent-dybvig/one-shot-continuations.pdf)
+and [linearity under control effects](https://arxiv.org/abs/2307.09383).
 
-Initially capture to one program execution root. Continuations cannot move
-between interpreter runs or from compilation into the generated program.
-Normal return from an ordinary `call/cc` callback also enters its saved
-future, as discussed in
-[Representing Control in the Presence of One-Shot Continuations](https://www.cs.tufts.edu/comp/150FP/archive/kent-dybvig/one-shot-continuations.pdf)
-. Thus `capture-1` is a first primitive, not full Scheme `call/cc`.
+Capture alone does not provide root traversal. The exact frame-tracing and
+suspension interfaces remain future work alongside memory management.
 
-A future multi-shot continuation needs duplicable captured frames. Type-based
-ownership still needs control-flow information across calls to prevent hidden
-duplication of affine owners; see
-[Soundly Handling Linearity](https://arxiv.org/abs/2307.09383). Demote
-multi-shot capture only after proving at most one total entry across all
-aliases and paths, including normal return. One syntactic invocation inside a
-reusable function is not such a proof.
+### Specialization, C, and Scheme lowering
 
-## 8. Interpretation and dependent checking
+Specialize reachable code at representation-relevant type arguments, cache
+instances, and diagnose unbounded specialization growth. A symbolic array length
+need not be a specialization key; an explicit type argument may be static and
+erased. Never recreate a captured affine environment per instantiation.
 
-Use one term language and related evaluator infrastructure, with explicit
-boundaries between execution purposes:
+Lower checked terms through specialization, erasure, closure/control conversion,
+and ownership validation to C. Unions may need tags, representation conversions,
+and variant-specific cleanup; subtyping does not imply a free C cast. A term
+needs either a known layout or a supported uniform representation; inability
+to compile its representation is distinct from a type error.
 
-| Operation | Boundary |
+Emit defined arithmetic, checked operations, moves, retains, and releases.
+Use a trampoline or equivalent: C does not guarantee proper tail calls, and
+`setjmp`/`longjmp` cannot restore a returned frame. C output still needs runtime
+allocation, sharing, closures, cleanup, and control support.
+
+Scheme lowering makes dynamic values, numeric dispatch, type/arity checks,
+and dynamic application explicit. Full R7RS-Small additionally needs mutation,
+cyclic storage, exceptions, `dynamic-wind`, and multi-shot continuations. Dynamic
+boundaries cannot raise core grades. Core tuples are single values of static
+arity; Scheme multiple values need a result-count protocol, not just tuples.
+
+## 7. Implementation milestones
+
+1. **Immutable core:** reader support, the grammar and binding rules, dependent
+   checking, grade checking, and a frame-based interpreter. Exercise the entire
+   pipeline before adding macro or runtime extensions.
+2. **Expansion:** syntax inspection and hygiene; implement and test the immutable
+   rule compiler/matcher/instantiator as core programs; then install the macro
+   adapter. Recheck all expanded terms through the core.
+3. **Runtime and compilation:** storage/rooting protocols, vector-backed one-shot
+   control, specialization, and C. Compare interpreter and compiled behavior.
+4. **Scheme:** dynamic lowering and libraries after the required mutation,
+   cyclic-storage, multiple-value, and control semantics are specified.
+
+The existing `syntax.sld` is a reader, not this core parser. Square/curly
+delimiters, `→`, vectors, and binding scopes require implementation work in the
+reader/expander. Examples here specify intended behavior; they do not yet run.
+
+Implementation checks should cover:
+
+| Concern | Cases |
 | --- | --- |
-| Run a program | Permit its runtime effects and recursion |
-| Run a transformer | Use phase-local data and compiler capabilities |
-| Normalize types | Reduce a pure, terminating fragment; retain neutral terms |
+| Binding and inference | Mandatory lists/results; telescope scope; ambiguous implicits; local index escape |
+| Initialization | Cross-definition recursion; eager cycles; acyclic forward reads; premature calls/escapes; nested scopes |
+| Ownership | Duplicate affine uses; missing captures; grade escalation; dependent field transfer; cleanup |
+| Data | Tuple arity/unit; one-time initialization; irrefutable definitions; union overlap/coverage; stable nominal identity |
+| Macro dispatch | Shadowing; discarded non-core operands; nested expansion; `def` rejected in expression position; block scope retained |
+| Macro ownership | Repeated affine input and omitted captures rejected after expansion |
+| Hygiene | Use-site `temp`; definition-site `match`; same spelling with distinct bindings; copied struct occurrences |
+| Repetition | Fixed suffixes; zero and ragged inner extents; variable-free repeats; incompatible drivers; custom/literal/escaped markers |
+| Diagnostics | Unsupported datums; improper lists and vectors; no matching rule; invalid template; runaway expansion |
 
-Struct formation, pure type-family application, and computation on indices
-participate in normalization. Start with dependency on immutable, unrestricted
-indices such as `i64`. Checking a type must not consume a runtime affine owner
-or execute I/O, mutation, or a captured continuation. More general dependency
-on resource-bearing values requires additional rules.
-
-The array example is meaningful even when `x` and `y` are not known during
-compilation: `(+ x y)` can remain a symbolic type index. The interpreter used
-for conversion needs environments, neutral variables and applications, and
-conversion rules rather than simply running every term to a concrete result.
-Failure to normalize within a resource limit cannot count as proof of equality.
-
-Dependent types simplify the language's binding and abstraction vocabulary;
-they still require universe checking, conversion, inference constraints, and
-restrictions on reduction. General recursion in programs must not silently
-become unrestricted evaluation by the type checker.
-
-Function interfaces also need latent effects. The exact surface spelling is
-still open; a plain `Π` in this sketch specifies arguments and results, not a
-complete effect contract. Grades, implicitness, effects, and normalization
-eligibility describe different facts.
-
-## 9. Syntax transformers and hygiene
-
-Even `syntax-rules` requires lexical context and binding-sensitive identifier
-comparison. The reader's located syntax records supply source locations, but
-locations alone do not establish binding identity.
-
-Expose immutable syntax and an affine compiler context through abstract types:
-
-```scheme
-(def transformer-type
-  (Π [] ((context expand-context) (form syntax))
-    → (result (pair expand-context syntax) diagnostic)))
-```
-
-A stateless concrete transformer can be unrestricted while each invocation
-moves its context. Syntax operations create scopes, preserve binding identity,
-and construct syntax without concatenating identifier strings.
-[Binding as Sets of Scopes](https://users.cs.utah.edu/plt/scope-sets/) is a
-concrete starting model.
-
-Initially transformers return syntax, which is elaborated and checked again.
-They cannot forge checked terms. Resolve a form, invoke its already-checked
-transformer if needed, elaborate the result, and validate types, ownership,
-and effects. Require phase-correct dependencies. Later elaborator extensions
-can request expected types through a checked API.
-
-For the first `syntax-rules` implementation, represent each reusable transformer
-as unrestricted immutable rule data, interpreted by a known reusable helper.
-The `transformer-type` above specifies a call, not permission to reuse an
-environment-erased closure. Keep the affine expansion context out of stored
-descriptors and speculative pattern matching. The [grammar proposal](core-grammar.md#5-a-small-separate-macro-definition-grammar)
-defines the phase adapter, raw-syntax application protocol, and bootstrap data
-model; none is required by the first macro-free interpreter.
-
-## 10. Checked core, C output, and Scheme
-
-The checked IR makes bindings, implicit arguments, type values, union
-conversions, closure environments, and ownership operations explicit.
-
-```mermaid
-flowchart TD
-  S[Dependent source language] --> E[Expansion and elaboration]
-  E --> K[Checked core with type grades]
-  K --> I[Interpreter with explicit control frames]
-  I -->|transformer output and type normalization| E
-  K --> M[Specialization and erasure]
-  M --> C[Closure conversion and explicit continuations]
-  C --> V[Ownership and control validation]
-  V --> O[C emission]
-```
-
-Unions may need tags, representation conversions, and variant-specific cleanup.
-A subtype relation does not automatically become a free C cast. Emit defined
-arithmetic, checked primitives, moves, retains, and releases. Use a trampoline
-or equivalent tail-transfer mechanism: C does not guarantee proper tail calls,
-and `setjmp`/`longjmp` alone cannot restore an already-returned stack frame.
-
-C output still requires allocation, sharing, cleanup, closures, and control
-support. Keep the first runtime small. Cleanup must not run arbitrary user
-control effects; finalizers and fallible close operations need later rules.
-
-Scheme lowering introduces dynamic values, numeric dispatch, type checks,
-argument-count checks, and dynamic application explicitly. Full R7RS-Small
-also needs cyclic storage, shared mutation, multiple values, exceptions,
-`dynamic-wind`, and unrestricted continuations. Dynamic boundaries cannot
-raise the grade of a core resource or make an affine continuation duplicable.
-
-Core tuples have statically known arity and are ordinary single values. Scheme
-multiple-value returns still need a lowering protocol that preserves result
-counts and distinguishes a returned collection from several returned values;
-tuple construction alone does not supply Scheme's dynamic result-count checks.
-
-## 11. Implementation sequence
-
-The initial milestone is an end-to-end immutable subset through the parser,
-elaborator, typechecker, and interpreter. The later stages extend that working
-pipeline with control, compilation, transformers, and Scheme runtime support.
-
-1. **Parsing, elaboration, and dependent checking.** Implement single-initializer
-   `def` with consuming patterns, scoped `begin`, ordered statements,
-   recursive function groups, and the required implicit and explicit binder
-   groups with telescope
-   scoping, explicit capture lists, mandatory result types with `→`,
-   λ bodies introduced by `=`, `Π`, universes, and pure type normalization.
-   Accept matching list delimiters interchangeably; determine parameter roles
-   by their fixed positions.
-   Exercise identity and dependent array signatures, including rejected calls
-   with undetermined implicits.
-2. **Type-forming values.** Implement structural tuples, `struct` field telescopes,
-   stable family identities, dependent construction and consuming matching,
-   unions and
-   pattern refinement. Exercise length-and-array packages, including
-   rejected forward references and mismatched field dependencies.
-3. **Type grades.** Validate explicit struct grades against field bounds,
-   compute union grades, and check moves, captures, branches, and cleanup.
-4. **Immutable interpretation.** Run checked programs with explicit frames and
-   a trampoline; retain symbolic indices during type checking. Exercise the
-   immutable subset through the full pipeline, including cleanup and proper
-   tail recursion.
-5. **Memory management, one-shot control, specialization, and C.** Develop the
-   storage and root-tracing interfaces below, use growable contiguous vectors
-   for continuation stacks, and add capture and invocation. Specialize layouts
-   and compare compiled behavior with the interpreter.
-6. **Compile-time language use.** Write hygienic transformers and `syntax-rules`
-   using the same language and checked compiler capabilities.
-7. **Scheme support.** Add the remaining runtime mechanisms and standard
-   libraries, including sound multi-shot control. Resolve the WIP shared
-   mutation and cyclic-storage design before supporting those Scheme features.
-
-The first examples should connect the abstractions: an implicit identity,
-a type family with explicit parameters, a dependent array operation, a union
-refined by matching, and an affine wrapper. Add continuation transfers when
-the control stage is implemented.
-
-### Future work: memory management and continuation storage
-
-Implement the existing grammar and immutable pipeline first. The next runtime
-design work concerns memory management and continuations; it does not require
-additional surface forms now.
-
-Use growable contiguous vectors for execution frames and captured continuation
-storage, rather than segmented stacks. Represent frame locations with offsets
-or handles that remain valid when a vector grows, and preserve proper tail
-calls. One-shot capture must transfer ownership of saved frames; it must not
-duplicate affine values. Specify frame transfer, abandonment cleanup, and
-growth before adding multi-shot control.
-
-Build the Scheme heap and collector as library code where possible, over a small
-trusted interface for owned allocation, safe access and updates, and reclamation.
-Initially thread heap state explicitly through lowered code. Dynamic parameters
-and allocation effect handlers are deferred. Start with one thread and a
-nonmoving managed heap; cross-thread sharing and collection coordination remain
-future work.
-
-The candidate collection policy combines reference counting with tracing for
-cycles, triggered at allocation when a heap budget is reached. Reserve enough
-working storage to collect without allocating from an exhausted managed heap.
-Specify how cycle reclamation cooperates with reference counts and cleanup;
-ordinary reference-count decrements alone cannot reclaim strong cycles.
-
-Share frame-tracing information between continuations and root enumeration.
-A restricted tracing operation should enumerate managed references without
-extracting or duplicating arbitrary affine frame values. Native stack reflection
-is not required, and continuation capture alone does not supply this interface.
-Account for live temporaries, globals, external roots, and reachable saved
-continuations. Suspension and tracing must not depend on allocation from the
-heap being collected. The exact rooting and suspension protocol remains WIP.
-
-Library interfaces such as `drop` and `trace` can initially be explicit records
-of operations; type-class syntax and instance search are not prerequisites.
-Compiler-inserted cleanup still needs a defined protocol. Before implementing
-`box` and `arc` in library code, settle their trusted storage boundary and handle
-duplication rules: the unrestricted `arc` interface above requires retain
-bookkeeping on duplication; an affine handle with explicit cloning is an
-alternative under consideration. No change to the core grades is implied.
-
-Shared Scheme mutation, full `call/cc`, `dynamic-wind`, and multithreaded runtime
-semantics remain later extensions. These questions do not block the immutable
-parser, elaborator, typechecker, and interpreter.
+For repetition tests, `(_ head middle ... last)` must preserve its suffix at
+zero repetitions; `(_ ((x ...) ...))` on `(m (() (a b) ()))` records inner extents
+zero, two, zero. Repeated wildcards also record zero extents. Escaped `(... ...)`
+emits one ellipsis, and `(... (x ...))` still substitutes depth-zero `x`.
