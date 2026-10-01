@@ -9,11 +9,7 @@
    list-syntax-elements
    list-syntax-improper-tail
    list-syntax-loc
-   <vector-syntax>
-   make-vector-syntax
-   vector-syntax?
-   vector-syntax-elements
-   vector-syntax-loc
+   list-syntax-prefix
    <atom-syntax>
    make-atom-syntax
    atom-syntax?
@@ -61,15 +57,12 @@
     (define (syntax? obj)
       (or
        (list-syntax? obj)
-       (vector-syntax? obj)
        (atom-syntax? obj)))
 
     (define (syntax-loc stx)
       (cond
        ((list-syntax? stx)
         (list-syntax-loc stx))
-       ((vector-syntax? stx)
-        (vector-syntax-loc stx))
        ((atom-syntax? stx)
         (atom-syntax-loc stx))
        (else
@@ -79,19 +72,13 @@
       (make-list-syntax
        elements ; list of syntax objects
        improper-tail ; null or a syntax object representing the improper tail
-       loc) ; loc indicating the start of this list syntax object
+       loc ; location of the prefix or opening fence
+       prefix) ; () for lists, "#" for vectors, or "#u8" for bytevectors
       list-syntax?
       (elements list-syntax-elements)
       (improper-tail list-syntax-improper-tail)
-      (loc list-syntax-loc))
-
-    (define-record-type <vector-syntax>
-      (make-vector-syntax
-       elements ; list of syntax objects
-       loc) ; location of the prefix
-      vector-syntax?
-      (elements vector-syntax-elements)
-      (loc vector-syntax-loc))
+      (loc list-syntax-loc)
+      (prefix list-syntax-prefix))
 
     (define-record-type <atom-syntax>
       (make-atom-syntax
@@ -161,7 +148,8 @@
     ;; Proper sequences are the common case. Only unprefixed lists have tails.
     (define (s-sequence)
       (choice
-       (proper-sequence (optional (choice (tag-ci "#u8") (tag "#"))))
+       (proper-sequence
+        (optional (choice (pmap (tag-ci "#u8") (lambda (_) "#u8")) (tag "#"))))
        (improper-list)))
 
     (define (proper-sequence prefix)
@@ -173,12 +161,9 @@
                         (fenced-elements #\{ #\}))))
        (lambda (t)
          (let ((loc (first t)) (prefix (second t)) (elements (third t)))
-           (cond
-            ((null? prefix) (return (make-list-syntax elements '() loc)))
-            ((equal? prefix "#") (return (make-vector-syntax elements loc)))
-            ((every? byte-syntax? elements)
-             (return (make-atom-syntax (apply bytevector (map atom-syntax-value elements)) loc)))
-            (else (fail)))))))
+           (if (or (null? prefix) (equal? prefix "#") (every? byte-syntax? elements))
+               (return (make-list-syntax elements '() loc prefix))
+               (fail))))))
 
     (define (fenced-elements open close)
       (pmap (tuple (char open) (repeat (expr)) (intertoken-space) (char close)) second))
@@ -191,7 +176,7 @@
     (define (fenced-improper-list open close)
       (pmap (tuple (location) (char open) (repeat-at-least-once (expr))
                    (improper-tail) (intertoken-space) (char close))
-            (lambda (t) (make-list-syntax (third t) (fourth t) (first t)))))
+            (lambda (t) (make-list-syntax (third t) (fourth t) (first t) '()))))
 
     (define (improper-tail)
       (chain
@@ -288,7 +273,7 @@
               (expr))
        (lambda (t)
          (make-list-syntax
-          (list (make-atom-syntax (second t) (first t)) (third t)) '() (first t)))))
+          (list (make-atom-syntax (second t) (first t)) (third t)) '() (first t) '()))))
 
     ;; Literal predicates run on complete strings, not on the enclosing reader.
     ;; EOF here is the end of that isolated spelling, never a token-boundary peek.

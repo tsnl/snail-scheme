@@ -53,7 +53,10 @@ or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifier
 (including `|...|`), and line, nested block, and datum comments. `s-sequence` parses
 proper sequences first: no prefix gives a list, `#` a vector, and `#u8` a bytevector.
 A separate arm parses improper lists with at least one element and a required
-dotted tail. Vector elements retain their syntax objects and source locations.
+dotted tail. All three forms use `(make-list-syntax elements improper-tail loc prefix)`;
+`list-syntax-prefix` returns `()` for lists, `"#"` for vectors, or `"#u8"` for
+bytevectors. Prefixes are normalized to lowercase. Elements retain their syntax
+objects and source locations, including in bytevectors.
 `s-terminal` parses individual literals and symbols; `expr` handles leading
 intertoken space. `number-literal?` and `char-literal?`
 validate complete strings. Numeric rules recognize radix and exactness prefixes,
