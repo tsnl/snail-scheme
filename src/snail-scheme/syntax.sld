@@ -9,6 +9,11 @@
    list-syntax-elements
    list-syntax-improper-tail
    list-syntax-loc
+   <vector-syntax>
+   make-vector-syntax
+   vector-syntax?
+   vector-syntax-elements
+   vector-syntax-loc
    <atom-syntax>
    make-atom-syntax
    atom-syntax?
@@ -19,14 +24,13 @@
    parse-file
    file
    expr
-   s-list
+   s-sequence
    s-terminal
    symbol-or-number
    boolean-expr
    char-expr
    s-pipe-symbol-terminal
    s-string-terminal
-   s-bytevector
    s-quote
    number-literal?
    char-literal?
@@ -57,12 +61,15 @@
     (define (syntax? obj)
       (or
        (list-syntax? obj)
+       (vector-syntax? obj)
        (atom-syntax? obj)))
 
     (define (syntax-loc stx)
       (cond
        ((list-syntax? stx)
         (list-syntax-loc stx))
+       ((vector-syntax? stx)
+        (vector-syntax-loc stx))
        ((atom-syntax? stx)
         (atom-syntax-loc stx))
        (else
@@ -77,6 +84,14 @@
       (elements list-syntax-elements)
       (improper-tail list-syntax-improper-tail)
       (loc list-syntax-loc))
+
+    (define-record-type <vector-syntax>
+      (make-vector-syntax
+       elements ; list of syntax objects
+       loc) ; location of the prefix
+      vector-syntax?
+      (elements vector-syntax-elements)
+      (loc vector-syntax-loc))
 
     (define-record-type <atom-syntax>
       (make-atom-syntax
@@ -141,30 +156,58 @@
     (define (expr)
       (chain
        (lambda (_) (intertoken-space))
-       (lambda (_) (choice (s-list) (s-quote) (s-terminal)))))
+       (lambda (_) (choice (s-sequence) (s-quote) (s-terminal)))))
 
-    (define (s-list)
-      (choice (fenced-list #\( #\)) (fenced-list #\[ #\]) (fenced-list #\{ #\})))
+    ;; Proper sequences are the common case. Only unprefixed lists have tails.
+    (define (s-sequence)
+      (choice
+       (proper-sequence (optional (choice (tag-ci "#u8") (tag "#"))))
+       (improper-list)))
 
-    (define (fenced-list open close)
+    (define (proper-sequence prefix)
       (chain
        (lambda (_)
-         (tuple (location) (char open) (repeat (expr))
-                (improper-tail) (intertoken-space) (char close)))
+         (tuple (location) prefix
+                (choice (fenced-elements #\( #\))
+                        (fenced-elements #\[ #\])
+                        (fenced-elements #\{ #\}))))
        (lambda (t)
-         (if (and (null? (third t)) (not (null? (fourth t))))
-             (fail)
-             (return (make-list-syntax (third t) (fourth t) (first t)))))))
+         (let ((loc (first t)) (prefix (second t)) (elements (third t)))
+           (cond
+            ((null? prefix) (return (make-list-syntax elements '() loc)))
+            ((equal? prefix "#") (return (make-vector-syntax elements loc)))
+            ((every? byte-syntax? elements)
+             (return (make-atom-syntax (apply bytevector (map atom-syntax-value elements)) loc)))
+            (else (fail)))))))
+
+    (define (fenced-elements open close)
+      (pmap (tuple (char open) (repeat (expr)) (intertoken-space) (char close)) second))
+
+    (define (improper-list)
+      (choice (fenced-improper-list #\( #\))
+              (fenced-improper-list #\[ #\])
+              (fenced-improper-list #\{ #\})))
+
+    (define (fenced-improper-list open close)
+      (pmap (tuple (location) (char open) (repeat-at-least-once (expr))
+                   (improper-tail) (intertoken-space) (char close))
+            (lambda (t) (make-list-syntax (third t) (fourth t) (first t)))))
 
     (define (improper-tail)
-      (optional
-       (chain
-        (lambda (_) (intertoken-space))
-        (lambda (_) (bare-spelling))
-        (lambda (text) (if (equal? text ".") (expr) (fail))))))
+      (chain
+       (lambda (_) (tuple (intertoken-space) (char #\.)))
+       (lambda (_)
+         ;; Consume a delimiter as part of the tail: whitespace or a line
+         ;; comment before any expression, or an opening fence, double quote, or pipe.
+         (choice
+          (pmap (tuple (choice (whitespace-char) (line-comment)) (expr)) second)
+          (proper-sequence (return '()))
+          (improper-list)
+          (s-string-terminal)
+          (s-pipe-symbol-terminal)))))
 
     (define (s-terminal)
-      (choice (s-bytevector) (s-pipe-symbol-terminal) (s-string-terminal)
+      (choice (s-pipe-symbol-terminal) (s-string-terminal)
               (char-expr) (boolean-expr) (symbol-or-number)))
 
     ;; Read the whole spelling before selecting its meaning. No surrounding
@@ -231,19 +274,6 @@
        (chain
         (lambda (_) (tuple (tag "\\x") (hexadecimal-integer) (char #\;)))
         (lambda (t) (unicode-character (second t))))))
-
-    (define (s-bytevector)
-      (chain
-       (lambda (_) (tuple (location) (tag-ci "#u8")))
-       (lambda (t)
-         (chain
-          (lambda (_) (fenced-list #\( #\)))
-          (lambda (body)
-            (let ((elements (list-syntax-elements body)))
-              (if (and (null? (list-syntax-improper-tail body))
-                       (every? byte-syntax? elements))
-                  (return (make-atom-syntax (apply bytevector (map atom-syntax-value elements)) (first t)))
-                  (fail))))))))
 
     (define (byte-syntax? stx)
       (and (atom-syntax? stx)

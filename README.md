@@ -48,15 +48,18 @@ currently parses its input file and prints the syntax records.
 parser, and syntax test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.
 
-The syntax parser handles proper and dotted lists with matched `()`, `[]`, or `{}`,
-quote abbreviations, booleans, characters, strings, numbers, identifiers (including
-`|...|`), bytevector literals, and line, nested block, and datum comments. `s-list`
-and `s-terminal` produce syntax records containing decoded values and locations;
-`expr` handles leading intertoken space. `number-literal?` and `char-literal?`
+The syntax parser handles lists, vectors, and bytevectors with matched `()`, `[]`,
+or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifiers
+(including `|...|`), and line, nested block, and datum comments. `s-sequence` parses
+proper sequences first: no prefix gives a list, `#` a vector, and `#u8` a bytevector.
+A separate arm parses improper lists with at least one element and a required
+dotted tail. Vector elements retain their syntax objects and source locations.
+`s-terminal` parses individual literals and symbols; `expr` handles leading
+intertoken space. `number-literal?` and `char-literal?`
 validate complete strings. Numeric rules recognize radix and exactness prefixes,
 integers, ratios, decimals, exponents, and complex numbers before `string->number`
 constructs the value; representation and precision still follow the host Scheme.
 Bytevector literals use `#u8(...)` with exact integer elements from 0 through 255;
-`(bytevector ...)` is an ordinary application. String line continuations, general
-vectors, datum labels, and case directives are still pending. The input stream
+`(bytevector ...)` is an ordinary application. String line continuations,
+datum labels, and case directives are still pending. The input stream
 remains backed by a character list.
