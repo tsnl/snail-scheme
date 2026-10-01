@@ -36,7 +36,15 @@
       (check-ok (whitespace) "" '())
       (check-ok (whitespace) " \t\n\ra" '() "a")
       (check-ok (whitespace) "a" '() "a")
+      (check-ok (whitespace) " ; comment" '() "; comment")
+      (check-ok (whitespace) "#| comment |#" '() "#| comment |#")
       (check-fail (whitespace-char) "a"))
+
+    (define (test-intertoken-space)
+      (check-ok (intertoken-space) "" '())
+      (check-ok (intertoken-space) "x" '() "x")
+      (check-ok (intertoken-space) " \t\n\rx" '() "x")
+      (check-ok (intertoken-space) " ; line\n#| block |# #; ignored \tx" '() "x"))
 
     (define (test-comments)
       (check-ok (line-comment) "; comment\nx" '() "\nx")
@@ -219,6 +227,7 @@
 
     (define (test-syntax)
       (run-test test-whitespace)
+      (run-test test-intertoken-space)
       (run-test test-comments)
       (run-test test-token-end)
       (run-test test-boolean-expr)

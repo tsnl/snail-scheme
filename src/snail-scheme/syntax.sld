@@ -36,6 +36,7 @@
    decimal-digit
    whitespace
    whitespace-char
+   intertoken-space
    line-comment
    block-comment
    datum-comment
@@ -89,11 +90,20 @@
     ;;
 
     (define (whitespace)
-      ;; Intertoken space includes line, nested block and datum comments.
-      (discard (repeat (choice (whitespace-char) (line-comment) (block-comment) (datum-comment)))))
+      (discard (repeat (whitespace-char))))
 
     (define (whitespace-char)
       (discard (char-if char-intertoken-space?)))
+
+    (define (intertoken-space)
+      (discard
+       (repeat
+        (choice
+         ;; Require progress before repeating the nullable whitespace rule.
+         (tuple (whitespace-char) (whitespace))
+         (line-comment)
+         (block-comment)
+         (datum-comment)))))
 
     (define (line-comment)
       (discard
@@ -125,11 +135,11 @@
     ;;
 
     (define (file)
-      (pmap (tuple (repeat (expr)) (whitespace) (eof)) first))
+      (pmap (tuple (repeat (expr)) (intertoken-space) (eof)) first))
 
     (define (expr)
       (chain
-       (lambda (_) (whitespace))
+       (lambda (_) (intertoken-space))
        (lambda (_)
          (choice
           (list-expr)
@@ -148,7 +158,7 @@
           (left-fender)
           (repeat (expr))
           (improper-tail)
-          (whitespace)
+          (intertoken-space)
           (right-fender)))
        (lambda (t)
          (let ((loc (first t))
@@ -375,7 +385,7 @@
     (define (improper-tail)
       (optional
        (chain
-        (lambda (_) (tuple (whitespace) (char #\.) (token-end)))
+        (lambda (_) (tuple (intertoken-space) (char #\.) (token-end)))
         (lambda (_) (expr)))))
 
     (define (hexadecimal-integer)
