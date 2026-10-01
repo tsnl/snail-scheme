@@ -10,13 +10,75 @@
    assert
    todo
    call-with-input-file
-   file->string)
+   file->string
+
+   ;; Character predicates
+   char-alphabetic?
+   char-numeric?
+   char-whitespace?
+   char-ci=?
+   char-intertoken-space?
+   char-delimiter?
+   char-line-comment?
+   char-string-literal?
+   char-binary-digit?
+   char-octal-digit?
+   char-decimal-digit?
+   char-hexadecimal-digit?
+   char-identifier-initial?
+   char-identifier-subsequent?
+   char-sign?
+   char-sign-subsequent?
+   char-dot-subsequent?)
   (import
    (scheme base)
+   (only (scheme char) char-alphabetic? char-numeric? char-whitespace? char-ci=?)
    (scheme file)
    (scheme write))
 
   (begin
+    ;; Character classes for the lexical grammar. Numeric digits are ASCII;
+    ;; the host's Unicode alphabetic predicate also permits letters in identifiers.
+
+    (define (char-intertoken-space? c)
+      (memv c '(#\space #\tab #\newline #\return)))
+
+    (define (char-delimiter? c)
+      (or (char-intertoken-space? c) (memv c '(#\| #\( #\) #\" #\;))))
+
+    (define (char-line-comment? c)
+      (not (memv c '(#\newline #\return))))
+
+    (define (char-string-literal? c)
+      (not (memv c '(#\" #\\))))
+
+    (define (char-binary-digit? c)
+      (char<=? #\0 c #\1))
+
+    (define (char-octal-digit? c)
+      (char<=? #\0 c #\7))
+
+    (define (char-decimal-digit? c)
+      (char<=? #\0 c #\9))
+
+    (define (char-hexadecimal-digit? c)
+      (or (char-decimal-digit? c) (char<=? #\a c #\f) (char<=? #\A c #\F)))
+
+    (define (char-identifier-initial? c)
+      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~))))
+
+    (define (char-identifier-subsequent? c)
+      (or (char-identifier-initial? c) (char-decimal-digit? c) (memv c '(#\+ #\- #\. #\@))))
+
+    (define (char-sign? c)
+      (memv c '(#\+ #\-)))
+
+    (define (char-sign-subsequent? c)
+      (or (char-identifier-initial? c) (char-sign? c) (eqv? c #\@)))
+
+    (define (char-dot-subsequent? c)
+      (or (char-sign-subsequent? c) (eqv? c #\.)))
+
     ;; display-error
     ;;
 

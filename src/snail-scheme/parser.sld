@@ -19,9 +19,13 @@
    chain
    pmap
    char-if
+   lookahead
+   not-followed-by
+   capture
    char
    char-from
    tag
+   tag-ci
    tag-val
    choice
    repeat
@@ -133,6 +137,34 @@
               (parse-result-ok peek (next-reader reader))
               (parse-result-err reader)))))
 
+    ;; PEG &p: preserve the value, but never consume input, even on failure.
+    (define (lookahead parser)
+      (lambda (reader)
+        (let ((result (parser reader)))
+          (if (parse-result-ok? result)
+              (parse-result-ok (parse-result-value result) reader)
+              (parse-result-err reader)))))
+
+    ;; PEG !p: succeed exactly when p fails, without consuming input.
+    (define (not-followed-by parser)
+      (lambda (reader)
+        (if (parse-result-err? (parser reader))
+            (parse-result-ok '() reader)
+            (parse-result-err reader))))
+
+    ;; Return the text consumed by a grammar rule, preserving its failure.
+    (define (capture parser)
+      (lambda (reader)
+        (let ((result (parser reader)))
+          (if (parse-result-err? result)
+              result
+              (let* ((input (parse-result-input result))
+                     (end (reader-chars input)))
+                (let loop ((chars (reader-chars reader)) (acc '()))
+                  (if (eq? chars end)
+                      (parse-result-ok (list->string (reverse acc)) input)
+                      (loop (cdr chars) (cons (car chars) acc)))))))))
+
     (define (repeat parser)
       (lambda (reader)
         (let recur ((reader reader)
@@ -178,6 +210,12 @@
 
     (define (tag str)
       (tag-val str str))
+
+    (define (tag-ci str)
+      (pmap (apply tuple
+                   (map (lambda (chr) (char-if (lambda (c) (char-ci=? c chr))))
+                        (string->list str)))
+            list->string))
 
     (define (tag-val str val)
       (pmap (apply tuple (map char (string->list str)))

@@ -39,12 +39,10 @@
    line-comment
    block-comment
    datum-comment
-   token
    token-end)
 
   (import
    (scheme base)
-   (scheme char)
    (snail-scheme common)
    (snail-scheme reader)
    (snail-scheme parser))
@@ -95,30 +93,26 @@
       (discard (repeat (choice (whitespace-char) (line-comment) (block-comment) (datum-comment)))))
 
     (define (whitespace-char)
-      (discard (char-from '(#\newline #\return #\space #\tab))))
+      (discard (char-if char-intertoken-space?)))
 
     (define (line-comment)
       (discard
        (tuple (char #\;)
-              (repeat (char-if (lambda (c) (not (memv c '(#\newline #\return)))))))))
+              (repeat (char-if char-line-comment?)))))
 
+    ;; block-comment <- "#|" (block-comment / !("#|" / "|#") .)* "|#"
     (define (block-comment)
-      (chain
-       (lambda (_) (tag "#|"))
-       (lambda (_)
-         (lambda (input)
-           (let loop ((input input) (depth 1))
-             (let ((open ((tag "#|") input))
-                   (close ((tag "|#") input)))
-               (cond
-                ((parse-result-ok? open)
-                 (loop (parse-result-input open) (+ depth 1)))
-                ((parse-result-ok? close)
-                 (if (= depth 1)
-                     (parse-result-ok '() (parse-result-input close))
-                     (loop (parse-result-input close) (- depth 1))))
-                ((reader-eof? input) (parse-result-err input))
-                (else (loop (next-reader input) depth)))))))))
+      (discard
+       (chain
+        (lambda (_) (tag "#|"))
+        (lambda (_)
+          (tuple (repeat (block-comment-element)) (tag "|#"))))))
+
+    (define (block-comment-element)
+      (choice
+       (block-comment)
+       (tuple (not-followed-by (choice (tag "#|") (tag "|#")))
+              (char-if char?))))
 
     (define (datum-comment)
       (discard
@@ -186,7 +180,7 @@
           (lambda (t) (unicode-character (second t))))
 
          ;; Otherwise, consume the first character after #\
-         (pmap (tuple (tag "#\\") (char-if (lambda (_) #t))) second))
+         (pmap (tuple (tag "#\\") (char-if char?)) second))
         (token-end))
        (lambda (t)
          (let ((loc (first t))
@@ -223,7 +217,7 @@
         (lambda (t) (unicode-character (second t))))
 
        ;; A backslash must introduce a supported escape.
-       (char-if (lambda (c) (not (memv c '(#\" #\\)))))))
+       (char-if char-string-literal?)))
 
     (define (unicode-character codepoint)
       (if (and (<= 0 codepoint #x10ffff)
@@ -231,77 +225,130 @@
           (return (integer->char codepoint))
           (fail)))
 
-    ;; Identifiers, numbers, characters and dot must end at a delimiter or EOF.
-    (define (delimiter? c)
-      (memv c '(#\space #\tab #\newline #\return #\| #\( #\) #\" #\;)))
-
+    ;; Non-self-delimiting tokens end only at a delimiter or EOF.
+    ;; This is an assertion in the grammar; it leaves the delimiter untouched.
     (define (token-end)
-      (lambda (reader)
-        (if (or (reader-eof? reader)
-                (delimiter? (peek-reader reader)))
-            (parse-result-ok '() reader)
-            (parse-result-err reader))))
-
-    (define (token)
-      (pmap (repeat-at-least-once (char-if (lambda (c) (not (delimiter? c))))) list->string))
+      (discard (lookahead (choice (eof) (char-if char-delimiter?)))))
 
     (define (boolean-expr)
-      (chain
-       (lambda (_) (tuple (location) (token)))
-       (lambda (t)
-         (let ((text (string-downcase (second t))) (loc (first t)))
-           (cond
-            ((member text '("#t" "#true")) (return (make-atom-syntax #t loc)))
-            ((member text '("#f" "#false")) (return (make-atom-syntax #f loc)))
-            (else (fail)))))))
+      (pmap
+       (tuple (location)
+              (choice
+               (pmap (choice (tag-ci "#true") (tag-ci "#t")) (lambda (_) #t))
+               (pmap (choice (tag-ci "#false") (tag-ci "#f")) (lambda (_) #f)))
+              (token-end))
+       (lambda (t) (make-atom-syntax (second t) (first t)))))
 
+    ;; The numeric grammar recognizes the spelling before conversion. The host
+    ;; supplies numeric representation/precision, not the accepted lexical syntax.
     (define (number-expr)
-      ;; Convert a whole token so malformed numbers cannot split into smaller atoms.
-      ;; Numeric forms and precision follow the host's string->number implementation.
       (chain
-       (lambda (_) (tuple (location) (token)))
+       (lambda (_) (tuple (location) (number-literal)))
        (lambda (t)
          (let ((number (string->number (second t))))
+           ;; A grammatical number may be unrepresentable (for example #e1/0).
            (if number
                (return (make-atom-syntax number (first t)))
                (fail))))))
 
+    (define (number-literal)
+      (pmap
+       (tuple
+        (capture
+         (choice
+          (radix-number "#b" char-binary-digit? #f)
+          (radix-number "#o" char-octal-digit? #f)
+          (radix-number "#x" char-hexadecimal-digit? #f)
+          (radix-number "#d" char-decimal-digit? #t)))
+        (token-end))
+       first))
+
+    (define (radix-number radix digit? decimal?)
+      (tuple (if decimal? (optional (number-prefix radix)) (number-prefix radix))
+             (complex-number digit? decimal?)))
+
+    ;; prefix <- radix exactness? / exactness radix?
+    ;; Only decimal may omit the radix marker.
+    (define (number-prefix radix)
+      (choice
+       (tuple (tag-ci radix) (optional (exactness)))
+       (tuple (exactness)
+              (if (equal? radix "#d") (optional (tag-ci radix)) (tag-ci radix)))))
+
+    (define (exactness)
+      (choice (tag-ci "#e") (tag-ci "#i")))
+
+    ;; Longer alternatives precede their real-number prefixes in PEG choice.
+    (define (complex-number digit? decimal?)
+      (choice
+       (tuple (real-number digit? decimal?) (char #\@) (real-number digit? decimal?))
+       (tuple (real-number digit? decimal?) (imaginary-number digit? decimal?))
+       (imaginary-number digit? decimal?)
+       (real-number digit? decimal?)))
+
+    (define (imaginary-number digit? decimal?)
+      (tuple (char-if char-sign?)
+             (optional (choice (unsigned-special-real) (unsigned-real digit? decimal?)))
+             (tag-ci "i")))
+
+    (define (real-number digit? decimal?)
+      (choice
+       (tuple (char-if char-sign?) (unsigned-special-real))
+       (tuple (optional (char-if char-sign?)) (unsigned-real digit? decimal?))))
+
+    (define (unsigned-special-real)
+      (choice (tag-ci "inf.0") (tag-ci "nan.0")))
+
+    (define (unsigned-real digit? decimal?)
+      (choice
+       (tuple (repeat-at-least-once (char-if digit?))
+              (char #\/)
+              (repeat-at-least-once (char-if digit?)))
+       (if decimal?
+           (decimal-number)
+           (repeat-at-least-once (char-if digit?)))))
+
+    ;; decimal <- (digit+ "." digit* / "." digit+ / digit+) exponent?
+    (define (decimal-number)
+      (tuple
+       (choice
+        (tuple (repeat-at-least-once (decimal-digit)) (char #\.) (repeat (decimal-digit)))
+        (tuple (char #\.) (repeat-at-least-once (decimal-digit)))
+        (repeat-at-least-once (decimal-digit)))
+       (optional (exponent))))
+
+    (define (exponent)
+      (tuple (tag-ci "e")
+             (optional (char-if char-sign?))
+             (repeat-at-least-once (decimal-digit))))
+
     (define (identifier-expr)
-      ;; TODO: parse `|`...`|` identifiers
-      (chain
-       (lambda (_)
-         (tuple (location) (repeat-at-least-once (char-if identifier-char?)) (token-end)))
-       (lambda (t)
-         (let* ((chars (second t)) (name (list->string chars)))
-           (if (and (identifier-start? chars) (not (string->number name)))
-               (return (make-atom-syntax (string->symbol name) (first t)))
-               (fail))))))
+      ;; TODO: parse `|`...`|` identifiers.
+      (pmap
+       (tuple (location)
+              ;; Numeric spellings such as +i and +inf.0 are not identifiers.
+              (not-followed-by (number-literal))
+              (capture (identifier))
+              (token-end))
+       (lambda (t) (make-atom-syntax (string->symbol (third t)) (first t)))))
 
-    (define (identifier-initial? c)
-      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~))))
+    ;; identifier <- initial subsequent* / peculiar-identifier
+    (define (identifier)
+      (choice
+       (tuple (char-if char-identifier-initial?) (repeat (char-if char-identifier-subsequent?)))
+       (peculiar-identifier)))
 
-    (define (identifier-char? c)
-      (or (identifier-initial? c) (char<=? #\0 c #\9) (memv c '(#\+ #\- #\. #\@))))
-
-    (define (sign-subsequent? c)
-      (or (identifier-initial? c) (memv c '(#\+ #\- #\@))))
-
-    (define (dot-subsequent? c)
-      (or (sign-subsequent? c) (eqv? c #\.)))
-
-    (define (identifier-start? chars)
-      (let ((head (car chars)) (tail (cdr chars)))
-        (cond
-         ((identifier-initial? head) #t)
-         ((memv head '(#\+ #\-))
-          (or (null? tail)
-              (sign-subsequent? (car tail))
-              (and (eqv? (car tail) #\.)
-                   (pair? (cdr tail))
-                   (dot-subsequent? (cadr tail)))))
-         ((eqv? head #\.)
-          (and (pair? tail) (dot-subsequent? (car tail))))
-         (else #f))))
+    (define (peculiar-identifier)
+      (choice
+       (tuple (char-if char-sign?)
+              (char-if char-sign-subsequent?)
+              (repeat (char-if char-identifier-subsequent?)))
+       (tuple (char-if char-sign?) (char #\.)
+              (char-if char-dot-subsequent?)
+              (repeat (char-if char-identifier-subsequent?)))
+       (tuple (char #\.) (char-if char-dot-subsequent?)
+              (repeat (char-if char-identifier-subsequent?)))
+       (char-if char-sign?)))
 
     (define (quote-expr)
       (pmap
@@ -336,16 +383,14 @@
             (lambda (digits) (string->number (list->string digits) 16))))
 
     (define (hexadecimal-digit)
-      (char-if
-       (lambda (c) (member c (string->list "0123456789abcdefABCDEF")))))
+      (char-if char-hexadecimal-digit?))
 
     (define (decimal-integer)
       (pmap (repeat-at-least-once (decimal-digit))
             (lambda (digits) (string->number (list->string digits) 10))))
 
     (define (decimal-digit)
-      (char-if
-       (lambda (c) (member c (string->list "0123456789")))))
+      (char-if char-decimal-digit?))
 
     ;;
     ;; Public API

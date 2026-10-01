@@ -33,6 +33,9 @@ The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 and syntax records and parsing (`syntax.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
+Character predicates live in `common.sld`. Syntax rules compose parsers directly:
+`lookahead` and `not-followed-by` express PEG assertions, and `capture` returns
+the text consumed by a rule. Direct reader access stays in the parser primitives.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
 `file->reader` loads a file by path. Pass the resulting reader to `parse-file`.
@@ -45,7 +48,9 @@ live there; production libraries do not load test code.
 
 The syntax parser handles proper and dotted lists, quote abbreviations, booleans,
 characters, strings, numbers, identifiers, and line, nested block, and datum
-comments. Number forms and precision follow the host Scheme's `string->number`.
+comments. Explicit numeric rules recognize radix and exactness prefixes, integers,
+ratios, decimals, exponents, and complex numbers before `string->number` constructs
+the value; numeric representation and precision still follow the host Scheme.
 Quoted identifiers (`|...|`), string line continuations, vectors, bytevectors,
 datum labels, and case directives are still pending. The input stream remains
 backed by a character list.
