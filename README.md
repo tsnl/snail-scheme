@@ -33,9 +33,11 @@ The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 and syntax records and parsing (`syntax.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
-Character predicates live in `common.sld`. Syntax rules compose parsers directly:
-`lookahead` and `not-followed-by` express PEG assertions, and `capture` returns
-the text consumed by a rule. Direct reader access stays in the parser primitives.
+Character predicates live in `common.sld`. Syntax rules compose parsers directly,
+with `capture` returning the text consumed by a rule. Direct reader access stays
+in the parser primitives. `symbol-or-number` reads a complete bare spelling and
+classifies it with literal predicates, so `12abc` and `hello#t` are rejected as
+whole spellings. No token-boundary lookahead is needed.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
 `file->reader` loads a file by path. Pass the resulting reader to `parse-file`.
@@ -46,11 +48,15 @@ currently parses its input file and prints the syntax records.
 parser, and syntax test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.
 
-The syntax parser handles proper and dotted lists, quote abbreviations, booleans,
-characters, strings, numbers, identifiers, and line, nested block, and datum
-comments. Explicit numeric rules recognize radix and exactness prefixes, integers,
-ratios, decimals, exponents, and complex numbers before `string->number` constructs
-the value; numeric representation and precision still follow the host Scheme.
-Quoted identifiers (`|...|`), string line continuations, vectors, bytevectors,
-datum labels, and case directives are still pending. The input stream remains
-backed by a character list.
+The syntax parser handles proper and dotted lists with matched `()`, `[]`, or `{}`,
+quote abbreviations, booleans, characters, strings, numbers, identifiers (including
+`|...|`), bytevector literals, and line, nested block, and datum comments. `s-list`
+and `s-terminal` produce syntax records containing decoded values and locations;
+`expr` handles leading intertoken space. `number-literal?` and `char-literal?`
+validate complete strings. Numeric rules recognize radix and exactness prefixes,
+integers, ratios, decimals, exponents, and complex numbers before `string->number`
+constructs the value; representation and precision still follow the host Scheme.
+Bytevector literals use `#u8(...)` with exact integer elements from 0 through 255;
+`(bytevector ...)` is an ordinary application. String line continuations, general
+vectors, datum labels, and case directives are still pending. The input stream
+remains backed by a character list.

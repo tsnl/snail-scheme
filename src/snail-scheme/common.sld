@@ -5,6 +5,7 @@
    second
    third
    fourth
+   every?
    repeat-string
    stringify
    assert
@@ -19,6 +20,9 @@
    char-ci=?
    char-intertoken-space?
    char-delimiter?
+   char-bare-atom?
+   char-bare-atom-initial?
+   char-quoted-identifier?
    char-line-comment?
    char-string-literal?
    char-binary-digit?
@@ -44,7 +48,18 @@
       (memv c '(#\space #\tab #\newline #\return)))
 
     (define (char-delimiter? c)
-      (or (char-intertoken-space? c) (memv c '(#\| #\( #\) #\" #\;))))
+      (or (char-intertoken-space? c) (memv c '(#\| #\( #\) #\[ #\] #\{ #\} #\" #\;))))
+
+    (define (char-bare-atom? c)
+      (not (char-delimiter? c)))
+
+    ;; Quote abbreviations introduce expressions only at the start of an atom.
+    ;; Inside a bare atom, retain them for later identifier validation.
+    (define (char-bare-atom-initial? c)
+      (and (char-bare-atom? c) (not (memv c '(#\' #\` #\,)))))
+
+    (define (char-quoted-identifier? c)
+      (not (memv c '(#\| #\\))))
 
     (define (char-line-comment? c)
       (not (memv c '(#\newline #\return))))
@@ -93,6 +108,9 @@
     (define (second it) (list-ref it 1))
     (define (third it) (list-ref it 2))
     (define (fourth it) (list-ref it 3))
+
+    (define (every? predicate items)
+      (or (null? items) (and (predicate (car items)) (every? predicate (cdr items)))))
 
     ;;
     ;; string utils

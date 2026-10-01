@@ -58,23 +58,18 @@
       (check-fail (datum-comment) "#;" "")
       (check-ok (file) "; line\n#| block |# #; ignored " '())
       (check-ok (file) "; line\n#;#t x" (list (atom 'x 2 6)))
-      (check-ok (list-expr) "(;line\n a #;b . #|tail|# c )"
+      (check-ok (s-list) "(;line\n a #;b . #|tail|# c )"
                 (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1)))
       (check-fail (file) "#| unfinished")
       (check-fail (file) "#;")
       (check-fail (file) "#| outer #| unfinished |#")
       (check-ok (block-comment) "#| # #| nested |# | |#x" '() "x"))
 
-    (define (test-token-end)
-      (check-ok (token-end) ";" '() ";")
-      (check-ok (token-end) "" '())
-      (check-fail (token-end) "a"))
-
     (define (test-boolean-expr)
       (check-ok (boolean-expr) "#t" (atom #t 1 1))
       (check-ok (boolean-expr) "#FALSE" (atom #f 1 1))
       (check-ok (boolean-expr) "#True)" (atom #t 1 1) ")")
-      (check-fail (boolean-expr) "#trueish" "ish")
+      (check-fail (boolean-expr) "#trueish" "")
       (check-fail (boolean-expr) ""))
 
     (define (test-integers)
@@ -87,9 +82,9 @@
       (check-fail (decimal-integer) "")
       (check-fail (hexadecimal-integer) "g"))
 
-    (define (test-number-expr)
+    (define (test-symbol-or-number)
       (for-each
-       (lambda (case) (check-ok (number-expr) (car case) (atom (cadr case) 1 1)))
+       (lambda (case) (check-ok (symbol-or-number) (car case) (atom (cadr case) 1 1)))
        '(("0" 0) ("123" 123) ("-12" -12) ("#xFF" 255)
          ("#b101" 5)
          ("#o17" 15)
@@ -105,23 +100,36 @@
          ("+i" +i) ("-i" -i) ("+2i" +2i) ("2-i" 2-i)
          ("1/2+3/4i" 1/2+3/4i) ("1e2-5e-1i" 100.0-0.5i)
          ("+inf.0" +inf.0) ("-inf.0" -inf.0) ("2@0" 2)))
-      (check-ok (number-expr) "12)" (atom 12 1 1) ")")
-      (check-fail (number-expr) "12abc" "abc")
-      (check-fail (number-expr) "#x")
-      (check-fail (number-expr) "#e1/0" "")
-      (check-fail (number-expr) ""))
+      (check-ok (symbol-or-number) "12)" (atom 12 1 1) ")")
+      (check-fail (symbol-or-number) "12abc" "")
+      (check-fail (symbol-or-number) "#x" "")
+      (check-fail (symbol-or-number) "#e1/0" "")
+      (check-fail (symbol-or-number) ""))
 
-    (define (test-identifier-expr)
+    (define (test-symbols)
       (for-each
-       (lambda (name) (check-ok (identifier-expr) name (atom (string->symbol name) 1 1)))
+       (lambda (name) (check-ok (symbol-or-number) name (atom (string->symbol name) 1 1)))
        '("hello?" "a.b" "+" "-" "..." "+.x" ".x" "+item" "-inf.0x" "+@x" "-.." "λ"))
-      (check-ok (identifier-expr) "abc\t" (atom 'abc 1 1) "\t")
-      (check-ok (identifier-expr) "abc\n" (atom 'abc 1 1) "\n")
-      (check-fail (identifier-expr) "12abc")
-      (check-fail (identifier-expr) "+i")
-      (check-fail (identifier-expr) "abc#t" "#t")
-      (check-fail (identifier-expr) ".")
-      (check-fail (identifier-expr) "\"unterminated"))
+      (check-ok (symbol-or-number) "abc\t" (atom 'abc 1 1) "\t")
+      (check-ok (symbol-or-number) "abc\n" (atom 'abc 1 1) "\n")
+      (check-fail (symbol-or-number) "12abc" "")
+      (check-fail (symbol-or-number) "abc#t" "")
+      (check-fail (symbol-or-number) "." "")
+      (check-fail (symbol-or-number) "\"unterminated"))
+
+    (define (test-literal-predicates)
+      (for-each
+       (lambda (text) (expect (number-literal? text) #t))
+       '("12" "+i" "#e#x10" "3/4" "1e2-5e-1i" "+nan.0"))
+      (for-each
+       (lambda (text) (expect (number-literal? text) #f))
+       '("" " 12" "12 " "12abc" "12)" "+item" "-inf.0x" "3i" "#e#i1" "#x#b1" "#b102"))
+      (for-each
+       (lambda (text) (expect (char-literal? text) #t))
+       '("#\\a" "#\\x" "#\\x41" "#\\space" "#\\)" "#\\ "))
+      (for-each
+       (lambda (text) (expect (char-literal? text) #f))
+       '("" "a" " #\\a" "#\\a " "#\\" "#\\spacebar" "#\\x110000" "#\\xd800")))
 
     (define (test-char-expr)
       (for-each
@@ -137,77 +145,105 @@
          ("#\\space" #\space)
          ("#\\tab" #\tab)))
       (check-ok (char-expr) "#\\))" (atom #\) 1 1) ")")
-      (check-fail (char-expr) "#\\")
-      (check-fail (char-expr) "#\\spacebar" "bar")
-      (check-fail (char-expr) "#\\x110000" "110000")
-      (check-fail (char-expr) "#\\xd800" "d800"))
+      (check-fail (char-expr) "#\\" "")
+      (check-fail (char-expr) "#\\spacebar" "")
+      (check-fail (char-expr) "#\\x110000" "")
+      (check-fail (char-expr) "#\\xd800" ""))
 
-    (define (test-string-expr)
-      (check-ok (string-expr) "\"\"" (atom "" 1 1))
-      (check-ok (string-expr) "\"hello \" " (atom "hello " 1 1) " ")
-      (check-ok (string-expr) "\"\\a\\b\\t\\n\\r\\\"\\\\\""
+    (define (test-s-string-terminal)
+      (check-ok (s-string-terminal) "\"\"" (atom "" 1 1))
+      (check-ok (s-string-terminal) "\"hello \" " (atom "hello " 1 1) " ")
+      (check-ok (s-string-terminal) "\"\\a\\b\\t\\n\\r\\\"\\\\\""
                 (atom (string #\alarm #\backspace #\tab #\newline #\return #\" #\\) 1 1))
-      (check-ok (string-expr) "\"\\x41;\"" (atom "A" 1 1))
-      (check-ok (string-expr-element) "\\x41;z" #\A "z")
-      (check-fail (string-expr-element) "\\q")
-      (check-fail (string-expr) "\"abc" "")
-      (check-fail (string-expr) "\"\\q\"" "\\q\"")
-      (check-fail (string-expr) "\"\\x41\"" "\\x41\"")
-      (check-fail (string-expr) "\"\\xd800;\"" "\\xd800;\""))
+      (check-ok (s-string-terminal) "\"\\x41;\"" (atom "A" 1 1))
+      (check-fail (s-string-terminal) "\"abc" "")
+      (check-fail (s-string-terminal) "\"\\q\"" "\\q\"")
+      (check-fail (s-string-terminal) "\"\\x41\"" "\\x41\"")
+      (check-fail (s-string-terminal) "\"\\xd800;\"" "\\xd800;\""))
 
-    (define (test-list-expr)
-      (check-ok (list-expr) "()" (make-list-syntax '() '() (at 1 1)))
-      (check-ok (list-expr) "( \n)" (make-list-syntax '() '() (at 1 1)))
-      (check-ok (list-expr) "(a 12 )"
+    (define (test-s-pipe-symbol-terminal)
+      (for-each
+       (lambda (case)
+         (check-ok (s-pipe-symbol-terminal) (car case) (atom (string->symbol (cadr case)) 1 1)))
+       '(("||" "") ("|hello world|" "hello world") ("|12|" "12")
+         ("|#t|" "#t") ("|.|" ".") ("|a\\|b|" "a|b") ("|\\x3bb;|" "λ")
+         ("|a\\nb|" "a\nb") ("|a\\\\b|" "a\\b")))
+      (check-ok (s-pipe-symbol-terminal) "|x|)" (atom 'x 1 1) ")")
+      (for-each
+       (lambda (text) (check-fail (file) text))
+       '("|unterminated" "|\\q|" "|\\x41|" "|\\xd800;|")))
+
+    (define (test-s-bytevector)
+      (check-ok (s-bytevector) "#u8()" (atom (bytevector) 1 1))
+      (check-ok (s-bytevector) "#U8(0 127 255)" (atom (bytevector 0 127 255) 1 1))
+      (check-ok (s-bytevector) "#u8(#xFF #e1.0 #b10)" (atom (bytevector 255 1 2) 1 1))
+      (check-ok (s-bytevector) "#u8(#;999 1 ; comment\n #| block |# 2))"
+                (atom (bytevector 1 2) 1 1) ")")
+      (for-each
+       (lambda (text) (check-fail (file) text))
+       '("#u8(256)" "#u8(-1)" "#u8(1.0)" "#u8(1/2)" "#u8(#t)" "#u8(x)"
+         "#u8((1))" "#u8(1 . 2)" "#u8(1 . ())" "#u8(1" "#u8 (1)")))
+
+    (define (test-s-list)
+      (check-ok (s-list) "()" (make-list-syntax '() '() (at 1 1)))
+      (check-ok (s-list) "( \n)" (make-list-syntax '() '() (at 1 1)))
+      (check-ok (s-list) "(a 12 )"
                 (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1)))
-      (check-ok (list-expr) "(a . b )"
+      (check-ok (s-list) "(a . b )"
                 (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
-      (check-ok (list-expr) "(())"
+      (check-ok (s-list) "(())"
                 (make-list-syntax (list (make-list-syntax '() '() (at 1 2))) '() (at 1 1)))
-      (check-ok (list-expr) "(a . ())"
+      (check-ok (s-list) "(a . ())"
                 (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6)) (at 1 1)))
-      (check-fail (list-expr) "(. a)" "")
-      (check-fail (list-expr) "(a .)" ".)")
-      (check-fail (list-expr) "(a . b c)" "c)")
-      (check-fail (list-expr) "(a" ""))
+      (check-ok (s-list) "[a {12}]"
+                (make-list-syntax
+                 (list (atom 'a 1 2) (make-list-syntax (list (atom 12 1 5)) '() (at 1 4)))
+                 '() (at 1 1)))
+      (check-ok (s-list) "(.x ... |.| \".\")"
+                (make-list-syntax
+                 (list (atom '.x 1 2) (atom '... 1 5) (atom (string->symbol ".") 1 9)
+                       (atom "." 1 13))
+                 '() (at 1 1)))
+      (check-fail (s-list) "(. a)")
+      (check-fail (s-list) "(a .)")
+      (check-fail (s-list) "(a . b c)")
+      (check-fail (s-list) "(a"))
 
-    (define (test-fenders-and-tail)
-      (check-ok (left-fender) "(a" '() "a")
-      (check-ok (right-fender) ")a" '() "a")
-      (check-fail (left-fender) ")")
-      (check-fail (right-fender) "")
+    (define (test-improper-tail)
       (check-ok (improper-tail) " . a" (atom 'a 1 4))
       (check-ok (improper-tail) " .a" '() " .a")
       (check-ok (improper-tail) " .)" '() " .)"))
 
-    (define (test-quote-expr)
+    (define (test-s-quote)
       (for-each
        (lambda (case)
          (let ((prefix (car case)) (name (cadr case)))
-           (check-ok (quote-expr) (string-append prefix "x")
+           (check-ok (s-quote) (string-append prefix "x")
                      (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
                                        '()
                                        (at 1 1)))))
        '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
-      (check-ok (quote-expr) "'\nx"
+      (check-ok (s-quote) "'\nx"
                 (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
-      (check-ok (quote-expr) "''x"
+      (check-ok (s-quote) "''x"
                 (make-list-syntax
                  (list (atom 'quote 1 1)
                        (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
                  '()
                  (at 1 1)))
-      (check-fail (quote-expr) "'" "")
-      (check-fail (quote-expr) ",@)" ")"))
+      (check-fail (s-quote) "'" "")
+      (check-fail (s-quote) ",@)" ")"))
 
     (define (test-expr-and-file)
       (check-ok (expr) " \n12 " (atom 12 2 1) " ")
+      (check-ok (s-terminal) "12 " (atom 12 1 1) " ")
+      (check-fail (s-terminal) " 12")
       (check-ok (file) "" '())
       (check-ok (file) " \n\t" '())
       (check-ok (file) "abc 12\n" (list (atom 'abc 1 1) (atom 12 1 5)))
       (for-each
        (lambda (text) (check-fail (file) text))
-       '("12abc" "#b102" "#o8" "#xg" "#x1.2" "1e" "1e+" "1/" "1/2/3" "3i" "#e#i1" "#x#b1" "#trueish" "abc#t" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" ".")))
+       '("12abc" "#b102" "#o8" "#xg" "#x1.2" "1e" "1e+" "1/" "1/2/3" "3i" "#e#i1" "#x#b1" "#trueish" "abc#t" "hello#t" "hello'world" "#\\spacebar" "\"\\q\"" "\"unterminated" "(a" ")" "." "[a)" "{a]" "(a . b . c)")))
 
     (define (test-parse-file)
       (expect (parse-file (string->reader "empty.scm" "")) '())
@@ -229,15 +265,17 @@
       (run-test test-whitespace)
       (run-test test-intertoken-space)
       (run-test test-comments)
-      (run-test test-token-end)
       (run-test test-boolean-expr)
       (run-test test-integers)
-      (run-test test-number-expr)
-      (run-test test-identifier-expr)
+      (run-test test-symbol-or-number)
+      (run-test test-symbols)
+      (run-test test-literal-predicates)
       (run-test test-char-expr)
-      (run-test test-string-expr)
-      (run-test test-list-expr)
-      (run-test test-fenders-and-tail)
-      (run-test test-quote-expr)
+      (run-test test-s-string-terminal)
+      (run-test test-s-pipe-symbol-terminal)
+      (run-test test-s-bytevector)
+      (run-test test-s-list)
+      (run-test test-improper-tail)
+      (run-test test-s-quote)
       (run-test test-expr-and-file)
       (run-test test-parse-file))))

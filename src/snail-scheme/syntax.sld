@@ -15,20 +15,21 @@
    atom-syntax-value
    atom-syntax-loc
 
-   ;; Language parsers
+   ;; Syntax grammar
    parse-file
    file
    expr
-   list-expr
-   char-expr
-   string-expr
-   string-expr-element
+   s-list
+   s-terminal
+   symbol-or-number
    boolean-expr
-   number-expr
-   identifier-expr
-   quote-expr
-   left-fender
-   right-fender
+   char-expr
+   s-pipe-symbol-terminal
+   s-string-terminal
+   s-bytevector
+   s-quote
+   number-literal?
+   char-literal?
    improper-tail
    hexadecimal-integer
    hexadecimal-digit
@@ -39,11 +40,11 @@
    intertoken-space
    line-comment
    block-comment
-   datum-comment
-   token-end)
+   datum-comment)
 
   (import
    (scheme base)
+   (only (scheme char) string-ci=?)
    (snail-scheme common)
    (snail-scheme reader)
    (snail-scheme parser))
@@ -79,7 +80,7 @@
 
     (define-record-type <atom-syntax>
       (make-atom-syntax
-       value ; value of this atom: number? or char? or string? or symbol?
+       value ; decoded terminal value
        loc) ; loc indicating the start of this syntax object
       atom-syntax?
       (value atom-syntax-value)
@@ -140,138 +141,178 @@
     (define (expr)
       (chain
        (lambda (_) (intertoken-space))
-       (lambda (_)
-         (choice
-          (list-expr)
-          (char-expr)
-          (string-expr)
-          (boolean-expr)
-          (number-expr)
-          (identifier-expr)
-          (quote-expr)))))
+       (lambda (_) (choice (s-list) (s-quote) (s-terminal)))))
 
-    (define (list-expr)
+    (define (s-list)
+      (choice (fenced-list #\( #\)) (fenced-list #\[ #\]) (fenced-list #\{ #\})))
+
+    (define (fenced-list open close)
       (chain
        (lambda (_)
-         (tuple
-          (location)
-          (left-fender)
-          (repeat (expr))
-          (improper-tail)
-          (intertoken-space)
-          (right-fender)))
+         (tuple (location) (char open) (repeat (expr))
+                (improper-tail) (intertoken-space) (char close)))
        (lambda (t)
-         (let ((loc (first t))
-               (elements (third t))
-               (opt-tail (fourth t)))
-           (if (and (null? elements) (not (null? opt-tail)))
-               (fail)
-               (return (make-list-syntax elements opt-tail loc)))))))
+         (if (and (null? (third t)) (not (null? (fourth t))))
+             (fail)
+             (return (make-list-syntax (third t) (fourth t) (first t)))))))
 
-    (define (char-expr)
-      (pmap
-       (tuple
-        (location)
-        (choice
-         ;; Standard special characters
-         (tag-val "#\\alarm" #\alarm)
-         (tag-val "#\\backspace" #\backspace)
-         (tag-val "#\\delete" #\delete)
-         (tag-val "#\\escape" #\escape)
-         (tag-val "#\\newline" #\newline)
-         (tag-val "#\\null" #\null)
-         (tag-val "#\\return" #\return)
-         (tag-val "#\\space" #\space)
-         (tag-val "#\\tab" #\tab)
-
-         ;; #\xHHHH...
-         (chain
-          (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
-          (lambda (t) (unicode-character (second t))))
-
-         ;; Otherwise, consume the first character after #\
-         (pmap (tuple (tag "#\\") (char-if char?)) second))
-        (token-end))
-       (lambda (t)
-         (let ((loc (first t))
-               (chr (second t)))
-           (make-atom-syntax chr loc)))))
-
-    (define (string-expr)
-      (pmap
-       (tuple
-        (location)
-        (discard (char #\"))
-        (repeat (string-expr-element))
-        (discard (char #\")))
-       (lambda (t)
-         (let ((loc (first t))
-               (elements (third t)))
-           (make-atom-syntax (list->string elements) loc)))))
-
-    (define (string-expr-element)
-      (choice
-       (tag-val "\\a" #\alarm)
-       (tag-val "\\b" #\backspace)
-       (tag-val "\\t" #\tab)
-       (tag-val "\\n" #\newline)
-       (tag-val "\\r" #\return)
-       (tag-val "\\\"" #\")
-       (tag-val "\\\\" #\\)
-       ;; TODO: support `\` as a line delimiter
-
-       ;; #\x{HHHH...};
-       ;; note the trailing semicolon
+    (define (improper-tail)
+      (optional
        (chain
-        (lambda (_) (tuple (tag "\\x") (hexadecimal-integer) (tag ";")))
-        (lambda (t) (unicode-character (second t))))
+        (lambda (_) (intertoken-space))
+        (lambda (_) (bare-spelling))
+        (lambda (text) (if (equal? text ".") (expr) (fail))))))
 
-       ;; A backslash must introduce a supported escape.
-       (char-if char-string-literal?)))
+    (define (s-terminal)
+      (choice (s-bytevector) (s-pipe-symbol-terminal) (s-string-terminal)
+              (char-expr) (boolean-expr) (symbol-or-number)))
 
-    (define (unicode-character codepoint)
-      (if (and (<= 0 codepoint #x10ffff)
-               (not (<= #xd800 codepoint #xdfff)))
-          (return (integer->char codepoint))
-          (fail)))
+    ;; Read the whole spelling before selecting its meaning. No surrounding
+    ;; whitespace is consumed: hello#t and 12abc cannot split into smaller atoms.
+    (define (symbol-or-number)
+      (chain
+       (lambda (_) (tuple (location) (bare-spelling)))
+       (lambda (t)
+         (let ((text (second t)) (loc (first t)))
+           (cond
+            ((number-literal? text)
+             (let ((number (string->number text)))
+               (if number (return (make-atom-syntax number loc)) (fail))))
+            ((symbol-literal? text) (return (make-atom-syntax (string->symbol text) loc)))
+            (else (fail)))))))
 
-    ;; Non-self-delimiting tokens end only at a delimiter or EOF.
-    ;; This is an assertion in the grammar; it leaves the delimiter untouched.
-    (define (token-end)
-      (discard (lookahead (choice (eof) (char-if char-delimiter?)))))
+    (define (bare-spelling)
+      (capture
+       (tuple (char-if char-bare-atom-initial?) (repeat (char-if char-bare-atom?)))))
 
     (define (boolean-expr)
+      (chain
+       (lambda (_) (tuple (location) (bare-spelling)))
+       (lambda (t)
+         (let ((text (second t)) (loc (first t)))
+           (cond
+            ((or (string-ci=? text "#t") (string-ci=? text "#true"))
+             (return (make-atom-syntax #t loc)))
+            ((or (string-ci=? text "#f") (string-ci=? text "#false"))
+             (return (make-atom-syntax #f loc)))
+            (else (fail)))))))
+
+    (define (char-expr)
+      (chain
+       (lambda (_)
+         (tuple (location)
+                ;; The first character after #\ may itself be a delimiter.
+                (capture (tuple (tag "#\\") (char-if char?)
+                                (repeat (char-if char-bare-atom?))))))
+       (lambda (t)
+         (if (char-literal? (second t))
+             (return (make-atom-syntax (literal-value (character-literal) (second t)) (first t)))
+             (fail)))))
+
+    (define (s-pipe-symbol-terminal)
+      (pmap (tuple (location) (delimited-text #\| char-quoted-identifier?))
+            (lambda (t) (make-atom-syntax (string->symbol (second t)) (first t)))))
+
+    (define (s-string-terminal)
+      (pmap (tuple (location) (delimited-text #\" char-string-literal?))
+            (lambda (t) (make-atom-syntax (second t) (first t)))))
+
+    (define (delimited-text delimiter ordinary?)
+      (pmap (tuple (char delimiter)
+                   (repeat (choice (escaped-character) (char-if ordinary?)))
+                   (char delimiter))
+            (lambda (t) (list->string (second t)))))
+
+    (define (escaped-character)
+      (choice
+       (tag-val "\\a" #\alarm) (tag-val "\\b" #\backspace)
+       (tag-val "\\t" #\tab) (tag-val "\\n" #\newline) (tag-val "\\r" #\return)
+       (tag-val "\\\"" #\") (tag-val "\\\\" #\\) (tag-val "\\|" #\|)
+       (chain
+        (lambda (_) (tuple (tag "\\x") (hexadecimal-integer) (char #\;)))
+        (lambda (t) (unicode-character (second t))))))
+
+    (define (s-bytevector)
+      (chain
+       (lambda (_) (tuple (location) (tag-ci "#u8")))
+       (lambda (t)
+         (chain
+          (lambda (_) (fenced-list #\( #\)))
+          (lambda (body)
+            (let ((elements (list-syntax-elements body)))
+              (if (and (null? (list-syntax-improper-tail body))
+                       (every? byte-syntax? elements))
+                  (return (make-atom-syntax (apply bytevector (map atom-syntax-value elements)) (first t)))
+                  (fail))))))))
+
+    (define (byte-syntax? stx)
+      (and (atom-syntax? stx)
+           (let ((value (atom-syntax-value stx)))
+             (and (integer? value) (exact? value) (<= 0 value 255)))))
+
+    (define (s-quote)
       (pmap
        (tuple (location)
-              (choice
-               (pmap (choice (tag-ci "#true") (tag-ci "#t")) (lambda (_) #t))
-               (pmap (choice (tag-ci "#false") (tag-ci "#f")) (lambda (_) #f)))
-              (token-end))
-       (lambda (t) (make-atom-syntax (second t) (first t)))))
-
-    ;; The numeric grammar recognizes the spelling before conversion. The host
-    ;; supplies numeric representation/precision, not the accepted lexical syntax.
-    (define (number-expr)
-      (chain
-       (lambda (_) (tuple (location) (number-literal)))
+              (choice (tag-val "'" 'quote) (tag-val "`" 'quasiquote)
+                      (tag-val ",@" 'unquote-splicing) (tag-val "," 'unquote))
+              (expr))
        (lambda (t)
-         (let ((number (string->number (second t))))
-           ;; A grammatical number may be unrepresentable (for example #e1/0).
-           (if number
-               (return (make-atom-syntax number (first t)))
-               (fail))))))
+         (make-list-syntax
+          (list (make-atom-syntax (second t) (first t)) (third t)) '() (first t)))))
 
-    (define (number-literal)
-      (pmap
-       (tuple
-        (capture
-         (choice
-          (radix-number "#b" char-binary-digit? #f)
-          (radix-number "#o" char-octal-digit? #f)
-          (radix-number "#x" char-hexadecimal-digit? #f)
-          (radix-number "#d" char-decimal-digit? #t)))
-        (token-end))
-       first))
+    ;; Literal predicates run on complete strings, not on the enclosing reader.
+    ;; EOF here is the end of that isolated spelling, never a token-boundary peek.
+    (define (literal-result parser text)
+      ((pmap (tuple parser (eof)) first) (string->reader "<literal>" text)))
+
+    (define (literal-value parser text)
+      (parse-result-value (literal-result parser text)))
+
+    (define (number-literal? text)
+      (and (string? text) (parse-result-ok? (literal-result (numeric-spelling) text))))
+
+    (define (char-literal? text)
+      (and (string? text) (parse-result-ok? (literal-result (character-literal) text))))
+
+    (define (symbol-literal? text)
+      (and (string? text) (parse-result-ok? (literal-result (identifier) text))))
+
+    (define (numeric-spelling)
+      (choice
+       (radix-number "#b" char-binary-digit? #f)
+       (radix-number "#o" char-octal-digit? #f)
+       (radix-number "#x" char-hexadecimal-digit? #f)
+       (radix-number "#d" char-decimal-digit? #t)))
+
+    (define (character-literal)
+      (choice
+       (tag-val "#\\alarm" #\alarm) (tag-val "#\\backspace" #\backspace)
+       (tag-val "#\\delete" #\delete) (tag-val "#\\escape" #\escape)
+       (tag-val "#\\newline" #\newline) (tag-val "#\\null" #\null)
+       (tag-val "#\\return" #\return) (tag-val "#\\space" #\space) (tag-val "#\\tab" #\tab)
+       (chain
+        (lambda (_) (tuple (tag "#\\x") (hexadecimal-integer)))
+        (lambda (t) (unicode-character (second t))))
+       (pmap (tuple (tag "#\\") (char-if char?)) second)))
+
+    (define (hexadecimal-integer)
+      (pmap (repeat-at-least-once (hexadecimal-digit))
+            (lambda (digits) (string->number (list->string digits) 16))))
+
+    (define (hexadecimal-digit)
+      (char-if char-hexadecimal-digit?))
+
+    (define (decimal-integer)
+      (pmap (repeat-at-least-once (decimal-digit))
+            (lambda (digits) (string->number (list->string digits) 10))))
+
+    (define (decimal-digit)
+      (char-if char-decimal-digit?))
+
+    (define (unicode-character codepoint)
+      (if (and (<= 0 codepoint #x10ffff) (not (<= #xd800 codepoint #xdfff)))
+          (return (integer->char codepoint))
+          (fail)))
 
     (define (radix-number radix digit? decimal?)
       (tuple (if decimal? (optional (number-prefix radix)) (number-prefix radix))
@@ -332,16 +373,6 @@
              (optional (char-if char-sign?))
              (repeat-at-least-once (decimal-digit))))
 
-    (define (identifier-expr)
-      ;; TODO: parse `|`...`|` identifiers.
-      (pmap
-       (tuple (location)
-              ;; Numeric spellings such as +i and +inf.0 are not identifiers.
-              (not-followed-by (number-literal))
-              (capture (identifier))
-              (token-end))
-       (lambda (t) (make-atom-syntax (string->symbol (third t)) (first t)))))
-
     ;; identifier <- initial subsequent* / peculiar-identifier
     (define (identifier)
       (choice
@@ -359,48 +390,6 @@
        (tuple (char #\.) (char-if char-dot-subsequent?)
               (repeat (char-if char-identifier-subsequent?)))
        (char-if char-sign?)))
-
-    (define (quote-expr)
-      (pmap
-       (tuple
-        (location)
-        (choice (tag-val "'" 'quote)
-                (tag-val "`" 'quasiquote)
-                (tag-val ",@" 'unquote-splicing)
-                (tag-val "," 'unquote))
-        (expr))
-       (lambda (t)
-         (let ((loc (first t)))
-           (make-list-syntax
-            (list (make-atom-syntax (second t) loc) (third t))
-            '()
-            loc)))))
-
-    (define (left-fender)
-      (discard (char #\()))
-
-    (define (right-fender)
-      (discard (char #\))))
-
-    (define (improper-tail)
-      (optional
-       (chain
-        (lambda (_) (tuple (intertoken-space) (char #\.) (token-end)))
-        (lambda (_) (expr)))))
-
-    (define (hexadecimal-integer)
-      (pmap (repeat-at-least-once (hexadecimal-digit))
-            (lambda (digits) (string->number (list->string digits) 16))))
-
-    (define (hexadecimal-digit)
-      (char-if char-hexadecimal-digit?))
-
-    (define (decimal-integer)
-      (pmap (repeat-at-least-once (decimal-digit))
-            (lambda (digits) (string->number (list->string digits) 10))))
-
-    (define (decimal-digit)
-      (char-if char-decimal-digit?))
 
     ;;
     ;; Public API
