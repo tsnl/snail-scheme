@@ -246,6 +246,8 @@
       (check-ok (improper-tail) ".\"x\"" (atom "x" 1 2))
       (check-ok (improper-tail) ".|x|" (atom 'x 1 2))
       (check-fail (improper-tail) "")
+      (check-fail (improper-tail) "." "")
+      (check-fail (improper-tail) ".5" "5")
       (check-fail (improper-tail) " .a" "a")
       (check-fail (improper-tail) " .)" ")")
       (for-each

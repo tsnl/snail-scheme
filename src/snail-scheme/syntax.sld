@@ -180,16 +180,12 @@
 
     (define (improper-tail)
       (chain
-       (lambda (_) (tuple (intertoken-space) (char #\.)))
        (lambda (_)
-         ;; Consume a delimiter as part of the tail: whitespace or a line
-         ;; comment before any expression, or an opening fence, double quote, or pipe.
-         (choice
-          (pmap (tuple (choice (whitespace-char) (line-comment)) (expr)) second)
-          (proper-sequence (return '()))
-          (improper-list)
-          (s-string-terminal)
-          (s-pipe-symbol-terminal)))))
+         (tuple (intertoken-space)
+                (char #\.)
+                ;; A standalone dot ends at a delimiter or EOF.
+                (not-followed-by (char-if char-bare-atom?))))
+       (lambda (_) (expr))))
 
     (define (s-terminal)
       (choice (s-pipe-symbol-terminal) (s-string-terminal)

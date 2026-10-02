@@ -37,7 +37,8 @@ Character predicates live in `common.sld`. Syntax rules compose parsers directly
 with `capture` returning the text consumed by a rule. Direct reader access stays
 in the parser primitives. `symbol-or-number` reads a complete bare spelling and
 classifies it with literal predicates, so `12abc` and `hello#t` are rejected as
-whole spellings. No token-boundary lookahead is needed.
+whole spellings. The dotted-tail rule uses a local boundary assertion after `.`
+to require a delimiter or EOF, then delegates the tail to `expr`.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
 `file->reader` loads a file by path. Pass the resulting reader to `parse-file`.
