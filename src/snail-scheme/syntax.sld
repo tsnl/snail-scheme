@@ -145,22 +145,25 @@
        (lambda (_) (intertoken-space))
        (lambda (_) (choice (s-sequence) (s-quote) (s-terminal)))))
 
-    ;; Proper sequences are the common case. Only unprefixed lists have tails.
     (define (s-sequence)
       (choice
-       (proper-sequence
-        (optional (choice (pmap (tag-ci "#u8") (lambda (_) "#u8")) (tag "#"))))
+       (proper-sequence (pmap (tag-ci "#u8") (lambda (_) "#u8")))
+       (proper-sequence (tag "#"))
+       (proper-sequence (return '()))
        (improper-list)))
 
     (define (proper-sequence prefix)
       (chain
        (lambda (_)
-         (tuple (location) prefix
+         (tuple (location)
+		prefix
                 (choice (fenced-elements #\( #\))
                         (fenced-elements #\[ #\])
                         (fenced-elements #\{ #\}))))
        (lambda (t)
-         (let ((loc (first t)) (prefix (second t)) (elements (third t)))
+         (let ((loc (first t))
+	       (prefix (second t))
+	       (elements (third t)))
            (if (or (null? prefix) (equal? prefix "#") (every? byte-syntax? elements))
                (return (make-list-syntax elements '() loc prefix))
                (fail))))))
@@ -258,8 +261,11 @@
 
     (define (byte-syntax? stx)
       (and (atom-syntax? stx)
-           (let ((value (atom-syntax-value stx)))
-             (and (integer? value) (exact? value) (<= 0 value 255)))))
+           (let
+	       ((value (atom-syntax-value stx)))
+             (and
+	      (exact-integer? value)
+	      (<= 0 value 255)))))
 
     (define (s-quote)
       (pmap
