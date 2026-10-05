@@ -4,10 +4,12 @@
  (snail-scheme test-cli)
  (snail-scheme test-reader)
  (snail-scheme test-parser)
- (snail-scheme test-syntax))
+ (snail-scheme test-syntax)
+ (snail-scheme test-syntax-match))
 
 (test-cli)
 (test-reader)
 (test-parser)
 (test-syntax)
+(test-syntax-match)
 (display-error "All tests ok\n")

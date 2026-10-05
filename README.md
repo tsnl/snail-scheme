@@ -49,6 +49,34 @@ currently parses its input file and prints the syntax records.
 parser, and syntax test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.
 
+`syntax-pattern` builds an ordered dispatcher from host Scheme patterns and
+callbacks. It matches the whole input form; list literal identifiers explicitly
+to dispatch on a head, or use `_` to ignore it:
+
+```scheme
+(define dispatch
+  (syntax-pattern '... '(define)
+    (list
+      (cons '(define name value)
+        (lambda (matched)
+          (map match-group-data (match-result-groups matched)))))))
+
+(dispatch (car (parse-file (string->reader "example.scm" "(define x 42)"))))
+```
+
+The result has separate success and callback-return fields, so returning `#f`
+still selects an arm. No match returns failure with an empty return field.
+Callbacks receive one `match-result`; groups appear in pattern traversal order.
+A singleton group's data is the original syntax object. Repeated groups contain
+lists nested once per ellipsis, preserving empty and ragged repetitions.
+Synthesized list tails reuse the containing list's location and original children.
+`pattern?` validates a datum, optionally taking an ellipsis symbol and literal list;
+`match-syntax-pattern-arm` exposes matching without dispatch. Patterns support
+unique variables, wildcards, constants, dotted lists, vectors, custom ellipses,
+and one repeated segment per sequence level. Bytevectors match as constants.
+Literal identifiers currently compare by spelling; binding-aware comparison,
+hygiene, and template expansion belong to subsequent passes.
+
 The syntax parser handles lists, vectors, and bytevectors with matched `()`, `[]`,
 or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifiers
 (including `|...|`), and line, nested block, and datum comments. `s-sequence` parses

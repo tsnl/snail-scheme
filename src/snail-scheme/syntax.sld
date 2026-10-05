@@ -40,7 +40,28 @@
    intertoken-space
    line-comment
    block-comment
-   datum-comment)
+   datum-comment
+
+   ;; Syntax matching and dispatch
+   pattern?
+   syntax-pattern
+   match-syntax-pattern-arm
+   <match-result>
+   make-match-result
+   match-result?
+   match-result-success?
+   match-result-groups
+   <match-group>
+   make-match-group
+   match-group?
+   match-group-singleton?
+   match-group-name
+   match-group-data
+   <syntax-pattern-dispatch-result>
+   make-syntax-pattern-dispatch-result
+   syntax-pattern-dispatch-result?
+   syntax-pattern-dispatch-result-success?
+   syntax-pattern-dispatch-result-returned)
 
   (import
    (scheme base)
@@ -429,13 +450,13 @@
        groups)      ; list of match group objects, always `null` if not `success?`.
       match-result?
       (success? match-result-success?)
-      (match-groups match-result-groups))
+      (groups match-result-groups))
     
     (define-record-type <match-group>
       (make-match-group
        singleton?   ; boolean indicating whether the match is a singleton or an ellipsis match.
        name         ; the name of the pattern variable used to match this group
-       data)        ; the matched value if a singleton, a list of matched values otherwise.
+       data)        ; syntax if singleton; otherwise lists nested once per ellipsis
       match-group?
       (singleton? match-group-singleton?)
       (name match-group-name)
@@ -449,68 +470,191 @@
       (success? syntax-pattern-dispatch-result-success?)
       (returned syntax-pattern-dispatch-result-returned))
 
-    ;; Check that a datum is a syntax pattern according to the R7RS spec.
-    ;;  pattern
-    ;;    : <identifier>
-    ;;    | <constant>
-    ;;    | (<pattern> ...)
-    ;;    | (<pattern> <pattern> ... . <pattern>)
-    ;;    | (<pattern> ... <pattern> <ellipsis> <pattern> ...)
-    ;;    | (<pattern> ... <pattern> <ellipsis> <pattern> ... . <pattern>)
-    ;;    | #(<pattern> ...)
-    ;;    | #(<pattern> ... <pattern> <ellipsis> <pattern> ...)
-    ;; Where
-    ;;  ... => match preceding pattern 0 or more times
-    (define (pattern? it)
-      (let ((non-symbol-literal?
-	     (lambda (it) (or (number? it) (char? it) (string? it)))))
-      (or
-       (symbol? it)
-       (non-symbol-literal? it)
-       (and
-	(list? it)
-	(or
-	 (every? pattern? it)
-	 ; TODO: pick up from here
-	 )))))
-    
-    ;; syntax-pattern takes a list of (pattern . callback) datums and
-    ;; returns a closure that matches syntax and dispatches the
-    ;; appropriate callback with the `<match-result>`.
-    ;;
-    ;; Returns a syntax-pattern-dispatch-result
-    ;;
-    ;; Each argument passed to the lambda is a `<match-group>` instance.
-    ;;
-    ;; `pattern` is anything that would be provided to `syntax-rules`.
-    ;;
-    ;; Like syntax-rules, we also take in
-    ;; - `ellipsis`: a token to use in lieu of the `...` literal
-    ;; - `literals`: a list of symbols to match literally instead of as pattern variables
+    ;; Patterns are host datums; inputs and captures are located syntax objects.
+    ;; Optional arguments to pattern? are the ellipsis symbol and literal list.
+    ;; One repeated segment is allowed per list/vector level, with nesting.
+    (define (pattern? it . options)
+      (let ((ellipsis (if (pair? options) (car options) '...))
+            (literals (if (and (pair? options) (pair? (cdr options))) (cadr options) '())))
+        (and (<= (length options) 2)
+             (symbol? ellipsis)
+             (list? literals)
+             (every? symbol? literals)
+             (if (pattern-variables ellipsis literals it) #t #f))))
+
+    (define (ellipsis? it ellipsis literals)
+      (and (eq? it ellipsis) (not (memq it literals))))
+
+    (define (repeated-pattern? pattern ellipsis literals)
+      (and (pair? pattern) (pair? (cdr pattern))
+           (ellipsis? (cadr pattern) ellipsis literals)))
+
+    ;; Return variable names in traversal order, or #f for an invalid pattern.
+    ;; The empty list is a valid result for a pattern without captures.
+    (define (pattern-variables ellipsis literals pattern)
+      (cond
+       ((symbol? pattern)
+        (cond ((memq pattern literals) '())
+              ((ellipsis? pattern ellipsis literals) #f)
+              ((eq? pattern '_) '())
+              (else (list pattern))))
+       ((pair? pattern) (sequence-pattern-variables ellipsis literals pattern #f))
+       ((vector? pattern) (sequence-pattern-variables ellipsis literals (vector->list pattern) #f))
+       ((or (null? pattern) (boolean? pattern) (number? pattern) (char? pattern)
+            (string? pattern) (bytevector? pattern)) '())
+       (else #f)))
+
+    (define (sequence-pattern-variables ellipsis literals pattern repeated?)
+      (cond
+       ((not (pair? pattern)) (pattern-variables ellipsis literals pattern))
+       ((repeated-pattern? pattern ellipsis literals)
+        (and (not repeated?)
+             (merge-pattern-variables
+              (pattern-variables ellipsis literals (car pattern))
+              (sequence-pattern-variables ellipsis literals (cddr pattern) #t))))
+       (else
+        (merge-pattern-variables
+         (pattern-variables ellipsis literals (car pattern))
+         (sequence-pattern-variables ellipsis literals (cdr pattern) repeated?)))))
+
+    (define (merge-pattern-variables left right)
+      (and left right
+           (every? (lambda (name) (not (memq name right))) left)
+           (append left right)))
+
+    ;; Validate arms when constructing the dispatcher. The first matching arm
+    ;; receives one match-result; even a callback returning #f is successful.
+    ;; Match the head normally: use a literal head for forms, or _ to ignore it.
     (define (syntax-pattern ellipsis literals pattern-callback-pairs)
+      (assert (symbol? ellipsis))
+      (assert (and (list? literals) (every? symbol? literals)))
+      (assert (list? pattern-callback-pairs))
+      (for-each
+       (lambda (arm)
+         (assert (and (pair? arm) (procedure? (cdr arm))))
+         (assert (pattern? (car arm) ellipsis literals)))
+       pattern-callback-pairs)
       (lambda (scrutinee)
-	(let recur ((pattern-callback-pairs pattern-callback-pairs))
-	  (if (null? pattern-callback-pairs)
-	      (make-syntax-pattern-dispatch-result #f '())  ; no pattern matched
-	  (let*
-	      ((head-pattern-callback-pair (car pattern-callback-pairs))
-	       (pattern (car head-pattern-callback-pair))
-	       (callback (cdr head-pattern-callback-pair)))
-	    (begin
-	      (assert (procedure? callback))
-	      (assert (pattern? pattern))
-	      (dispatch-result (try-dispatch-syntax-pattern-arm ellipsis literals pattern callback scrutinee))
-	  )
-      ))
+        (assert (syntax? scrutinee))
+        (dispatch-syntax-pattern ellipsis literals pattern-callback-pairs scrutinee)))
+
+    (define (dispatch-syntax-pattern ellipsis literals arms scrutinee)
+      (if (null? arms)
+          (make-syntax-pattern-dispatch-result #f '())
+          (let ((result (try-dispatch-syntax-pattern-arm
+                         ellipsis literals (caar arms) (cdar arms) scrutinee)))
+            (if (syntax-pattern-dispatch-result-success? result)
+                result
+                (dispatch-syntax-pattern ellipsis literals (cdr arms) scrutinee)))))
 
     (define (try-dispatch-syntax-pattern-arm ellipsis literals pattern callback scrutinee)
-      (let ((match-result (match-syntax-pattern-arm ellipsis literals pattern scrutinee)))
-	(if (match-result-success? match-result)
-	    (make-syntax-pattern-dispatch-result #t (callback match-result))
-	    (make-syntax-pattern-dispatch-result #f '()))))
+      (let ((result (match-syntax-pattern ellipsis literals pattern scrutinee)))
+        (if (match-result-success? result)
+            (make-syntax-pattern-dispatch-result #t (callback result))
+            (make-syntax-pattern-dispatch-result #f '()))))
 
-    ;; `match-syntax-pattern-arm` returns a <match-result> if the 
     (define (match-syntax-pattern-arm ellipsis literals pattern scrutinee)
-      ())
-    
+      (assert (pattern? pattern ellipsis literals))
+      (assert (syntax? scrutinee))
+      (match-syntax-pattern ellipsis literals pattern scrutinee))
+
+    ;; View unprefixed syntax lists as pairs, including explicit dotted lists
+    ;; such as (a . (b c)). Synthesized cdrs retain the containing list's location.
+    (define (syntax-pair? stx)
+      (and (list-syntax? stx) (null? (list-syntax-prefix stx))
+           (pair? (list-syntax-elements stx))))
+
+    (define (syntax-null? stx)
+      (and (list-syntax? stx) (null? (list-syntax-prefix stx))
+           (null? (list-syntax-elements stx)) (null? (list-syntax-improper-tail stx))))
+
+    (define (syntax-cdr stx)
+      (let ((rest (cdr (list-syntax-elements stx)))
+            (tail (list-syntax-improper-tail stx)))
+        (if (and (null? rest) (syntax? tail))
+            tail
+            (make-list-syntax rest tail (syntax-loc stx) '()))))
+
+    (define (syntax-pair-count stx)
+      (let loop ((stx stx) (count 0))
+        (if (syntax-pair? stx)
+            (loop (syntax-cdr stx) (+ count 1))
+            count)))
+
+    (define (pattern-pair-count pattern)
+      (if (pair? pattern) (+ 1 (pattern-pair-count (cdr pattern))) 0))
+
+    (define (match-syntax-pattern ellipsis literals pattern scrutinee)
+      (let ((groups (match-pattern-groups ellipsis literals pattern scrutinee)))
+        (make-match-result (if groups #t #f) (or groups '()))))
+
+    ;; Internal matches return groups on success (possibly empty), or #f.
+    (define (match-pattern-groups ellipsis literals pattern input)
+      (cond
+       ((symbol? pattern) (match-symbol-pattern literals pattern input))
+       ((null? pattern) (and (syntax-null? input) '()))
+       ((pair? pattern)
+        (and (or (syntax-pair? input) (syntax-null? input))
+             (match-sequence-pattern ellipsis literals pattern input)))
+       ((vector? pattern) (match-vector-pattern ellipsis literals pattern input))
+       ((bytevector? pattern) (match-bytevector-pattern pattern input))
+       (else (and (atom-syntax? input) (equal? pattern (atom-syntax-value input)) '()))))
+
+    (define (match-symbol-pattern literals pattern input)
+      (cond
+       ;; Binding-aware literal comparison belongs to the later scope pass.
+       ((memq pattern literals)
+        (and (atom-syntax? input) (eq? pattern (atom-syntax-value input)) '()))
+       ((eq? pattern '_) '())
+       (else (list (make-match-group #t pattern input)))))
+
+    (define (match-sequence-pattern ellipsis literals pattern input)
+      (cond
+       ((not (pair? pattern)) (match-pattern-groups ellipsis literals pattern input))
+       ((repeated-pattern? pattern ellipsis literals)
+        (match-repeated-pattern ellipsis literals (car pattern) (cddr pattern) input))
+       (else
+        (and (syntax-pair? input)
+             (combine-match-groups
+              (match-pattern-groups ellipsis literals (car pattern) (car (list-syntax-elements input)))
+              (match-sequence-pattern ellipsis literals (cdr pattern) (syntax-cdr input)))))))
+
+    (define (match-repeated-pattern ellipsis literals item suffix input)
+      (let ((count (- (syntax-pair-count input) (pattern-pair-count suffix)))
+            (names (pattern-variables ellipsis literals item)))
+        (and (>= count 0)
+             (let loop ((remaining count) (input input) (iterations '()))
+               (if (= remaining 0)
+                   (combine-match-groups
+                    (collect-repeated-match-groups names (reverse iterations))
+                    (match-pattern-groups ellipsis literals suffix input))
+                   (let ((groups (match-pattern-groups ellipsis literals item (car (list-syntax-elements input)))))
+                     (and groups
+                          (loop (- remaining 1) (syntax-cdr input) (cons groups iterations)))))))))
+
+    (define (match-vector-pattern ellipsis literals pattern input)
+      (and (list-syntax? input) (equal? (list-syntax-prefix input) "#")
+           (null? (list-syntax-improper-tail input))
+           (match-pattern-groups
+            ellipsis literals (vector->list pattern)
+            (make-list-syntax (list-syntax-elements input) '() (syntax-loc input) '()))))
+
+    (define (match-bytevector-pattern pattern input)
+      (and (list-syntax? input) (equal? (list-syntax-prefix input) "#u8")
+           (null? (list-syntax-improper-tail input))
+           (every? byte-syntax? (list-syntax-elements input))
+           (equal? pattern (apply bytevector (map atom-syntax-value (list-syntax-elements input))))
+           '()))
+
+    (define (combine-match-groups left right)
+      (and left right (append left right)))
+
+    ;; Each repetition adds a list layer, preserving empty and ragged groups.
+    (define (collect-repeated-match-groups names iterations)
+      (if (null? names)
+          '()
+          (cons
+           (make-match-group #f (car names)
+                             (map (lambda (groups) (match-group-data (car groups))) iterations))
+           (collect-repeated-match-groups (cdr names) (map cdr iterations)))))
     ))

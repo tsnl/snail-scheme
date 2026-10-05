@@ -7,7 +7,7 @@
   - [ ] Syntax parser
     - [x] Parse most of Scheme
     - [ ] Parse `#%-*` identifiers
-  - [ ] Syntax pattern matcher
+  - [x] Syntax pattern matcher
 - [ ] AST
   - [ ] AST build from syntax pattern matcher
   - [ ] Imports, exports, and lexical scoping
