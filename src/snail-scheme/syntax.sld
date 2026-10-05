@@ -50,9 +50,9 @@
    (snail-scheme parser))
 
   (begin
-    ;;
-    ;; syntax
-    ;;
+    ;;;
+    ;;; Syntax types
+    ;;;
 
     (define (syntax? obj)
       (or
@@ -88,10 +88,13 @@
       (value atom-syntax-value)
       (loc atom-syntax-loc))
 
-    ;;
-    ;; Whitespace and comments
-    ;;
+    ;;;
+    ;;; Parser
+    ;;;
 
+    ;; Whitespace parsers
+    ;;
+    
     (define (whitespace)
       (discard (repeat (whitespace-char))))
 
@@ -133,7 +136,6 @@
         (lambda (_) (tag "#;"))
         (lambda (_) (expr)))))
 
-    ;;
     ;; Expression parsers
     ;;
 
@@ -408,7 +410,6 @@
               (repeat (char-if char-identifier-subsequent?)))
        (char-if char-sign?)))
 
-    ;;
     ;; Public API
     ;;
 
@@ -416,4 +417,100 @@
       (let ((parse-result ((file) reader)))
         (if (parse-result-ok? parse-result)
             (parse-result-value parse-result)
-            (error "parse failed" (reader-filename reader) parse-result))))))
+            (error "parse failed" (reader-filename reader) parse-result))))
+
+    ;;;
+    ;;; Syntax pattern, match, and rules
+    ;;;
+
+    (define-record-type <match-result>
+      (make-match-result
+       success?     ; boolean indicating whether the match succeeded
+       groups)      ; list of match group objects, always `null` if not `success?`.
+      match-result?
+      (success? match-result-success?)
+      (match-groups match-result-groups))
+    
+    (define-record-type <match-group>
+      (make-match-group
+       singleton?   ; boolean indicating whether the match is a singleton or an ellipsis match.
+       name         ; the name of the pattern variable used to match this group
+       data)        ; the matched value if a singleton, a list of matched values otherwise.
+      match-group?
+      (singleton? match-group-singleton?)
+      (name match-group-name)
+      (data match-group-data))
+
+    (define-record-type <syntax-pattern-dispatch-result>
+      (make-syntax-pattern-dispatch-result
+       success?     ; boolean indicating whether the dispatch was successful on any of the patterns provided
+       returned)    ; the callback return value if success?, otherwise null
+      syntax-pattern-dispatch-result?
+      (success? syntax-pattern-dispatch-result-success?)
+      (returned syntax-pattern-dispatch-result-returned))
+
+    ;; Check that a datum is a syntax pattern according to the R7RS spec.
+    ;;  pattern
+    ;;    : <identifier>
+    ;;    | <constant>
+    ;;    | (<pattern> ...)
+    ;;    | (<pattern> <pattern> ... . <pattern>)
+    ;;    | (<pattern> ... <pattern> <ellipsis> <pattern> ...)
+    ;;    | (<pattern> ... <pattern> <ellipsis> <pattern> ... . <pattern>)
+    ;;    | #(<pattern> ...)
+    ;;    | #(<pattern> ... <pattern> <ellipsis> <pattern> ...)
+    ;; Where
+    ;;  ... => match preceding pattern 0 or more times
+    (define (pattern? it)
+      (let ((non-symbol-literal?
+	     (lambda (it) (or (number? it) (char? it) (string? it)))))
+      (or
+       (symbol? it)
+       (non-symbol-literal? it)
+       (and
+	(list? it)
+	(or
+	 (every? pattern? it)
+	 ; TODO: pick up from here
+	 )))))
+    
+    ;; syntax-pattern takes a list of (pattern . callback) datums and
+    ;; returns a closure that matches syntax and dispatches the
+    ;; appropriate callback with the `<match-result>`.
+    ;;
+    ;; Returns a syntax-pattern-dispatch-result
+    ;;
+    ;; Each argument passed to the lambda is a `<match-group>` instance.
+    ;;
+    ;; `pattern` is anything that would be provided to `syntax-rules`.
+    ;;
+    ;; Like syntax-rules, we also take in
+    ;; - `ellipsis`: a token to use in lieu of the `...` literal
+    ;; - `literals`: a list of symbols to match literally instead of as pattern variables
+    (define (syntax-pattern ellipsis literals pattern-callback-pairs)
+      (lambda (scrutinee)
+	(let recur ((pattern-callback-pairs pattern-callback-pairs))
+	  (if (null? pattern-callback-pairs)
+	      (make-syntax-pattern-dispatch-result #f '())  ; no pattern matched
+	  (let*
+	      ((head-pattern-callback-pair (car pattern-callback-pairs))
+	       (pattern (car head-pattern-callback-pair))
+	       (callback (cdr head-pattern-callback-pair)))
+	    (begin
+	      (assert (procedure? callback))
+	      (assert (pattern? pattern))
+	      (dispatch-result (try-dispatch-syntax-pattern-arm ellipsis literals pattern callback scrutinee))
+	  )
+      ))
+
+    (define (try-dispatch-syntax-pattern-arm ellipsis literals pattern callback scrutinee)
+      (let ((match-result (match-syntax-pattern-arm ellipsis literals pattern scrutinee)))
+	(if (match-result-success? match-result)
+	    (make-syntax-pattern-dispatch-result #t (callback match-result))
+	    (make-syntax-pattern-dispatch-result #f '()))))
+
+    ;; `match-syntax-pattern-arm` returns a <match-result> if the 
+    (define (match-syntax-pattern-arm ellipsis literals pattern scrutinee)
+      ())
+    
+    ))
