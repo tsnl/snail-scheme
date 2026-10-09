@@ -11,9 +11,8 @@
    (scheme base))
 
   (begin
-    ;;
-    ;; loc
-    ;;
+
+    ;; ---- Source locations ----
 
     (define-record-type <loc>
       (make-loc

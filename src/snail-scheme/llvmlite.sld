@@ -14,7 +14,8 @@
    declare define-function module write-module write-definition)
   (import (scheme base) (scheme cxr) (scheme write))
   (begin
-    ;; ---- Types and typed operands ----------------------------------------
+
+    ;; ---- Types and typed operands ----
 
     (define-record-type <type>
       (make-type kind data) type? (kind type-kind) (data type-data))
@@ -75,7 +76,8 @@
                "inttoptr constant requires an integer constant")
       (make-value ptr 'inttoptr value #f))
 
-    ;; ---- Function and block references -----------------------------------
+    ;; ---- Function and block references ----
+
     ;; Parameters are (type . name) specifications. References carry their
     ;; function scope; no mutable name registry or module-global counter exists.
 
@@ -118,7 +120,8 @@
                "expected a nonempty name")
       name)
 
-    ;; ---- Instructions ----------------------------------------------------
+    ;; ---- Instructions ----
+
     ;; Results are previously created local objects. Void instructions have #f
     ;; as their result. Operands hold objects, never snippets of LLVM text.
 
@@ -207,7 +210,8 @@
                            "switch requires integer constants and blocks")) cases)
       (instruction #f 'switch (list value default cases)))
 
-    ;; ---- Immutable definitions ------------------------------------------
+    ;; ---- Immutable definitions ----
+
     ;; Local references are checked by scope in linear time. Names identify
     ;; locals within that scope; LLVM checks duplicate/absent definitions, phi
     ;; predecessor agreement, and dominance when the emitted module is verified.
@@ -299,7 +303,8 @@
     (define-record-type <module>
       (module definitions) module? (definitions module-definitions))
 
-    ;; ---- Serialization ---------------------------------------------------
+    ;; ---- Serialization ----
+
     ;; Only this section spells LLVM syntax. Output goes directly to a port;
     ;; no complete-module string concatenation or mutable naming state is used.
 
@@ -464,4 +469,80 @@
                    (+ 128 (modulo code 64))))
             (else
              (list (+ 240 (quotient code 262144)) (+ 128 (modulo (quotient code 4096) 64))
-                   (+ 128 (modulo (quotient code 64) 64)) (+ 128 (modulo code 64))))))))
+                   (+ 128 (modulo (quotient code 64) 64)) (+ 128 (modulo code 64)))))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-llvmlite)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (raises? thunk)
+        (guard (exception ((error-object? exception) #t)) (thunk) #f))
+
+      (define (module-text module)
+        (let ((port (open-output-string))) (write-module module port) (get-output-string port)))
+
+      (define (word value) (integer i32 value))
+
+      (define (test-module)
+        (let* ((function (function "answer" i32 '())) (entry (block function "entry")))
+          (module (list (global-bytes "bytes" '(0 255))
+                        (define-function function 'external '()
+                          (list (block-body entry '() (ret (word 42)))))))))
+
+      (define (test-immutable-construction)
+        (let* ((module (test-module)) (first (module-text module)))
+          (expect (module-text (test-module)) first)
+          (expect (module-text module) first))
+        (expect (type=? (array-type (int-type 8) 4) (array-type i8 4)) #t)
+        (expect (type=? i32 i64) #f)
+        (expect (utf8-bytes "λ😀") '(206 187 240 159 152 128)))
+
+      (define (test-global-bytes)
+        (expect (module-text (module (list (global-bytes "bytes" '(0 34 92 255)))))
+                "@bytes = private constant [4 x i8] c\"\\00\\22\\5C\\FF\", align 1\n")
+        (expect (module-text (module (list (global-bytes "empty" '()))))
+                "@empty = private constant [0 x i8] c\"\", align 1\n"))
+
+      (define (test-indexed-names)
+        (let ((name (indexed-name "g" 12)))
+          (expect (module-text (module (list (global-bytes name '(42)))))
+                  (module-text (module (list (global-bytes "g12" '(42)))))))
+        (for-each (lambda (arguments)
+                    (expect (raises? (lambda () (apply indexed-name arguments))) #t))
+                  '(("" 1) ("1b" 2) ("bad name" 0) ("b" -1) ("b" 1.0))))
+
+      (define (test-invalid-instructions)
+        (let* ((function (function "f" i32 '())) (entry (block function "entry"))
+               (value (local function i32 "value")) (condition (local function i1 "test"))
+               (call-instruction (call value function '())) (phi-instruction (phi value (list (cons (word 0) entry)))))
+          (for-each (lambda (thunk) (expect (raises? thunk) #t))
+                    (list (lambda () (cbr value entry entry))
+                          (lambda () (call value function (list (word 1))))
+                          (lambda () (icmp condition 'eq (word 1) null-pointer))
+                          (lambda () (block-body entry (list call-instruction phi-instruction) (ret value)))
+                          (lambda () (block-body entry (list (ret value)) (ret value)))
+                          (lambda () (block-body entry '() call-instruction))
+                          (lambda () (block-body entry '() (ret #f)))
+                          (lambda () (global-bytes "bytes" '(256)))
+                          (lambda () (global-bytes "" '(1)))))))
+
+      (define (test-reference-scopes)
+        (let* ((first (function "f" i32 '())) (second (function "g" i32 '()))
+               (entry (block first "entry")) (foreign (block second "entry"))
+               (value (local second i32 "value")))
+          (expect (raises? (lambda () (block-body entry '() (br foreign)))) #t)
+          (expect (raises? (lambda () (block-body entry '() (ret value)))) #t)
+          (expect (raises? (lambda ()
+                             (define-function second 'external '()
+                               (list (block-body entry '() (ret (word 1))))))) #t)))
+
+      (define (test-llvmlite)
+        (run-test test-immutable-construction)
+        (run-test test-global-bytes)
+        (run-test test-indexed-names)
+        (run-test test-invalid-instructions)
+        (run-test test-reference-scopes))
+      ))))

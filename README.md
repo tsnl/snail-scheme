@@ -82,9 +82,11 @@ Compiling this definition-only file produces no output when run. The actual
 compiler entry is `src/snail-scheme/compile.scm`, which invokes `compiler-main`
 at top level; see [compiling the compiler](doc/backend.md#compiling-the-compiler).
 
-`make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
-parser, syntax, and pattern test libraries from the same directory. Test helpers also
-live there; production libraries do not load test code.
+`make test` enables Chibi's `snail-tests` feature and runs
+`tests/snail-scheme/test.scm`. Each tested implementation module keeps its unit
+tests in a final `Tests` section and exports one `test-<module>` entry point.
+Individual cases and helpers stay private. Normal imports omit the test code
+and its dependencies. Integration fixtures and shared assertions remain in `tests/`.
 
 `pattern-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
 callbacks. It matches the whole input form; list literal identifiers explicitly
@@ -168,7 +170,7 @@ each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
 The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,
 including bytevectors, and symbols; `s-expr` also handles compound forms and leading
-intertoken space. Other rules remain temporarily exported for the external tests.
+intertoken space. Other grammar rules are private; their unit tests live in the module.
 The standalone literal predicates assert a string argument and recognize complete
 spellings; the syntax rules do not call them. Numeric rules recognize radix and exactness prefixes,
 integers, ratios, decimals, exponents, and complex numbers before `string->number`

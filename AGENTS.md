@@ -6,6 +6,15 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
+- Write section headers as `;; ---- Title ----` in Scheme,
+  `// ---- Title ----` in Rust, and `# ---- Title ----` in Python, with sentence
+  case and a blank line on each side.
+  Keep unit tests in a final `Tests` section of their implementation module.
+  Each tested Scheme module exports one `test-<module>` entry point under the
+  `snail-tests` feature; test cases and helpers stay private. Keep integration
+  fixtures, runners, and shared assertion support in `tests/`.
+  Inactive test sections must still be readable by the bootstrap parser; decode
+  unsupported numeric expectations from strings only when the host tests run.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
