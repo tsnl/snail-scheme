@@ -198,6 +198,38 @@
       (check-ok (optional (tag "ab")) "ac" '() "ac")
       (check-ok (optional (char #\a)) "" '()))
 
+    (define (test-named-tuple-evaluation)
+      (let* ((reader (string->reader "fields.scm" "ab"))
+             (failure (parse-result-err (next-reader reader)))
+             (calls '())
+             (parser (named-tuple
+                      (cons '_ (lambda (input) (set! calls (cons 'first calls))
+                                       ((char #\a) input)))
+                      (cons 'failed (lambda (_) (set! calls (cons 'second calls)) failure))
+                      (cons '_ (lambda (_) (error "must stop at the first failure"))))))
+        (expect (eq? (parser reader) failure) #t)
+        (expect calls '(second first)))
+      (let* ((field (cons 'before (char #\a))) (parser (named-tuple field)))
+        ;; Construction captures the procedure, but names are read on success.
+        (set-cdr! field (fail))
+        (set-car! field 'after)
+        (check-ok parser "a" '((after . #\a)))
+        (set-car! field '_)
+        (check-ok parser "a" '())))
+
+    (define (test-named-tuple-reentrancy)
+      (letrec ((parser
+                (named-tuple
+                 (cons 'first
+                       (lambda (reader)
+                         (if (eqv? (peek-reader reader) #\a)
+                             (check-ok parser "bc!" '((first . #\b) (second . #\c)) "!"))
+                         ((char-if char-alphabetic?) reader)))
+                 (cons '_ (ε))
+                 (cons '_ (ε))
+                 (cons 'second (char #\c)))))
+        (check-ok parser "ac?" '((first . #\a) (second . #\c)) "?")))
+
     (define (test-tag)
       (check-ok (tag "ab") "abc" "ab" "c")
       (check-ok (tag "") "a" "" "a")
@@ -231,6 +263,8 @@
       (run-test test-tuple)
       (run-test test-tuple-reentrancy)
       (run-test test-named-tuple)
+      (run-test test-named-tuple-evaluation)
+      (run-test test-named-tuple-reentrancy)
       (run-test test-optional)
       (run-test test-tag)
       (run-test test-eof-and-location))))
