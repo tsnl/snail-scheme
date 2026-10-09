@@ -453,8 +453,9 @@ inference changes representation or removes checks.
 [The backend notes](doc/backend.md) describe build commands and current limits.
 [The HIR notes](doc/hir.md) explain binding and macro contracts. The highlighted
 [Dybvig thesis](doc/three-imp.pdf) provides the stack-machine starting point;
-[the R7RS report](doc/r7rs-small.pdf) is the language reference. [TODO.md](TODO.md)
-tracks the next work. The repository's pinned `simplify` skill describes the
+[the R7RS report](doc/r7rs-small.pdf) is the language reference.
+[The TODO tracking issue](https://github.com/tsnl/snail-scheme/issues/11) tracks
+the next work. The repository's pinned `simplify` skill describes the
 independent explanation and review process used when changing these modules.
 [The Rust interop design](doc/rust-interop.md) separates today's executable
 linking from the scoped native calls and reusable embedding API planned next.
