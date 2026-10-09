@@ -86,7 +86,10 @@ rejects a parser that succeeds without advancing, preventing an infinite loop.
 `tuple` and `named-tuple` gather the parts of a grammar rule.
 
 [`syntax-parser.sld`](src/snail-scheme/syntax-parser.sld) is the grammar built
-from those combinators. `s-file` accepts a complete sequence of forms; `s-expr`
+from those combinators. Named rules are parser values, constructed once in
+dependency order; recursive references stay inside parsing callbacks. Use
+`(s-file reader)` to run a parser and `(choice s-number s-symbol)` to compose
+them. `s-file` accepts a complete sequence of forms; `s-expr`
 chooses lists, vectors, quote abbreviations, and atoms. The remaining sections
 handle delimiters, escapes, Unicode characters, identifier and numeric
 spellings, and whitespace and comments. Numeric spelling recognition is wider
