@@ -6,6 +6,7 @@ pkgs.mkShell {
   packages = with pkgs; [
     git
     chibi
+    chez
     direnv
     gnumake
     nixfmt

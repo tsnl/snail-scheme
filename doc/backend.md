@@ -291,6 +291,11 @@ machine; the IO comparison deliberately includes warm-cache host work that
 Scheme type inference cannot remove. The runner records executable hashes and
 measurement context, avoiding claims that an old artifact came from the current
 checkout.
+By default the runner also compiles the same workload with Chez Scheme and
+reports the ratio of median Snail time to median Chez time. Both targets compare
+with native Chez, using equal repetition counts and alternating execution order.
+Raw samples are retained in JSON; values above one mean Snail took longer.
+The benchmark guide documents the IO adapters and differing collector statistics.
 
 ## Baseline limits and next steps
 

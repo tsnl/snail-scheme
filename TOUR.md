@@ -376,6 +376,21 @@ optionally writes JSON samples. Each Scheme program validates an answer and
 measures a fixed amount of work; changing repetitions changes the recorded work
 count rather than silently calibrating it to a time limit.
 
+`chez_runtime` selects the native Chez reference. `measure_pair` alternates
+execution order while holding work and repetition counts equal;
+`comparison_summary` divides Snail's median elapsed time by Chez's. Raw samples,
+artifact hashes, and pairing order remain in JSON. `record_artifact` records
+input hashes around successful builds; `verify_artifact` checks saved files
+before `--no-build` reuses them. WASI Snail also compares with native Chez.
+
+[`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
+shared. `copy-program` replaces their imports with the required compatibility
+definitions; `compile-benchmark` calls Chez's native `compile-program` at safe
+optimization level 2 before any timing begins. The adapters translate records,
+clocks, bulk input, substring search, and collector statistics. Their IO
+algorithms and GC accounting differ from Rust's and are documented beside the
+comparison methodology. `--snail-only` deliberately omits the Chez reference.
+
 The four benchmark modules each expose their measured operation directly:
 
 - [`cpu.scm`](benchmarks/cpu.scm): `fibonacci` makes deliberately redundant calls;
@@ -399,7 +414,7 @@ not regenerate it. See [the benchmark notes](benchmarks/README.md) for workload
 sizes, expected answers, and measurement commands.
 
 [`Makefile`](Makefile) runs the hosted Scheme tests and formatting checks.
-[`shell.nix`](shell.nix) supplies Chibi and development utilities; Rust, LLVM,
+[`shell.nix`](shell.nix) supplies Chibi, Chez, and development utilities; Rust, LLVM,
 and a WASI runner are additional tools. The formatter scripts share Scheme
 indentation rules between writing and checking files. `Cargo.lock` records the
 Rust workspace resolution, and generated LLVM, objects, executables, and timing
