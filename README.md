@@ -155,9 +155,11 @@ remains backed by a character list.
 
 ## Agent skills
 
-The `skills/` submodule references [tsnl/skills](https://github.com/tsnl/skills).
-Run `git submodule update --init skills` after cloning, then see the
+The `.agents/skills/` submodule references [tsnl/skills](https://github.com/tsnl/skills).
+Run `git submodule update --init .agents/skills` after cloning. Codex discovers
+the skill folders there; `.claude/skills` symlinks to the same checkout for
+Claude Code. See the
 [skills README](https://github.com/tsnl/skills#use-with-codex-and-claude-code)
-for Codex and Claude Code setup.
-The [explain-and-refactor skill](https://github.com/tsnl/skills/blob/main/skills/explain-and-refactor/SKILL.md)
+for setup and update instructions.
+The [explain-and-refactor skill](https://github.com/tsnl/skills/blob/main/explain-and-refactor/SKILL.md)
 guides explanation-driven simplification and review.
