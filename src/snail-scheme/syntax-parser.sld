@@ -46,6 +46,33 @@
    (snail-scheme syntax))
 
   (begin
+    ;;; Literal predicates
+
+    ;; These string APIs reuse the grammar; syntax rules never call them.
+    (define (number-literal? text)
+      (assert (string? text))
+      (parse-result-ok?
+       ((tuple
+         numeric-spelling
+         (eof))
+        (string->reader "<number-literal>" text))))
+
+    (define (char-literal? text)
+      (assert (string? text))
+      (parse-result-ok?
+       ((tuple
+         character-literal
+         (eof))
+        (string->reader "<char-literal>" text))))
+
+    (define (symbol-literal? text)
+      (assert (string? text))
+      (parse-result-ok?
+       ((tuple
+         identifier
+         (eof))
+        (string->reader "<symbol-literal>" text))))
+
     ;;; Numeric spellings
 
     ;; Join the character/string results nested by tuple and repeat.
@@ -511,31 +538,4 @@
         `(_ . ,(optional intertoken-space))
         `(_ . ,(eof)))
        (lambda (fields) (cdr (assq 'forms fields)))))
-
-    ;;; Literal predicates
-
-    ;; These string APIs reuse the grammar; syntax rules never call them.
-    (define (number-literal? text)
-      (assert (string? text))
-      (parse-result-ok?
-       ((tuple
-         numeric-spelling
-         (eof))
-        (string->reader "<number-literal>" text))))
-
-    (define (char-literal? text)
-      (assert (string? text))
-      (parse-result-ok?
-       ((tuple
-         character-literal
-         (eof))
-        (string->reader "<char-literal>" text))))
-
-    (define (symbol-literal? text)
-      (assert (string? text))
-      (parse-result-ok?
-       ((tuple
-         identifier
-         (eof))
-        (string->reader "<symbol-literal>" text))))
     ))
