@@ -243,6 +243,10 @@ provided. No Emscripten services are used.
 
 ## Compiling the compiler
 
+The Scheme compiler entry is `src/snail-scheme/compile.scm`, which invokes
+`compiler-main` at top level. The historical `main.scm` only defines a parser
+inspection procedure; it is not this entry point and does not invoke itself.
+
 Run these commands through the existing Scheme host:
 
 ```sh
@@ -255,6 +259,16 @@ cp target/wasm32-wasip1/release/snail-runner.wasm build/snail-compiler.wasm
 
 The resulting compiler accepts `ROOT INPUT OUTPUT [VM-DUMP] [--timing]` after its executable
 name. It can emit LLVM text; LLVM/Cargo still perform final code generation.
+For example, this writes a file rather than running Fibonacci or printing its
+answer:
+
+```sh
+./build/snail-compiler "$PWD" examples/fibonacci.scm build/fibonacci.ll --timing
+SNAIL_LLVM_IR=build/fibonacci.ll cargo run --release -p snail-runner
+```
+
+The high-level driver can also build the native compiler directly:
+`./snail-scheme src/snail-scheme/compile.scm -o build/snail-compiler`.
 The normal build deliberately continues to use `snail-compile` and Chibi.
 A subsequent self-hosting milestone should compare artifacts from consecutive
 compiler generations before changing that default.
@@ -263,9 +277,11 @@ Capability validation compiled the current entry point for both native and WASI.
 Both executables compiled a small core-library program to LLVM byte-identical
 to Chibi's output. The native compiler also compiled Fibonacci with standard
 library imports; its identical output ran on both targets. Import-heavy
-compilation is still slow: that native compiler run took about 490 seconds,
-including 323 seconds in GC. These are single-host observations of the baseline,
-not benchmark promises. The normal build continues to use Chibi.
+compilation is still slow: the finalized runtime took about 215 seconds,
+including 125 seconds in GC and 423 million managed allocations. These are
+single-host observations, not benchmark promises. The
+[validation record](../benchmarks/results/2026-10-09-compiler-capability.json)
+identifies the artifacts and exact scope. The normal build continues to use Chibi.
 
 ## Measurements
 
