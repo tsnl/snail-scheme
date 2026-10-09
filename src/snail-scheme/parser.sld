@@ -19,6 +19,7 @@
    >>=
    chain
    pmap
+   where
    char-if
    lookahead
    not-followed-by
@@ -117,6 +118,15 @@
     (define (pmap parser transform)
       (chain parser (lambda (value) (return (transform value)))))
 
+    ;; Keep a successful value only when the boolean predicate returns #t.
+    ;; Rejection fails at the reader position after parsing that value.
+    (define (where parser predicate)
+      (chain parser
+             (lambda (value)
+               (let ((accepted? (predicate value)))
+                 (assert (boolean? accepted?))
+                 (if accepted? (return value) (fail))))))
+
     ;;
     ;; Primitive parsers: written manually, not by composition
     ;;
@@ -203,8 +213,7 @@
       (char-if (lambda (c) (member c lst))))
 
     (define (repeat-at-least-once parser)
-      (>>= (repeat parser)
-           (lambda (v) (if (null? v) (fail) (return v)))))
+      (where (repeat parser) pair?))
 
     (define (discard parser)
       (pmap parser (lambda (_) '())))
@@ -236,5 +245,7 @@
        keep-named))
 
     (define (optional parser)
-      (choice parser (ε)))
+      (choice
+       parser
+       (ε)))
     ))

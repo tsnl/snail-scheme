@@ -37,6 +37,33 @@
       (check-ok (pmap (tuple (char #\a) (char #\b)) list->string) "ab" "ab")
       (check-fail (pmap (tag "ab") (lambda (_) (error "transform must not run"))) "ac" "c"))
 
+    (define (test-where)
+      (check-ok (where (char #\a) char-alphabetic?) "ab" #\a "b")
+      (check-ok (where (return #f) boolean?) "a" #f "a")
+      (check-fail (where (char #\a) (lambda (_) #f)) "ab" "b")
+      (check-fail (where (tag "ab") (lambda (_) (error "predicate must not run"))) "ac" "c")
+      (check-ok
+       (choice
+        (where (char #\a) (lambda (_) #f))
+        (tag "ab"))
+       "abc" "ab" "c")
+      (let ((calls 0))
+        (check-ok
+         (where (char #\a)
+                (lambda (value)
+                  (set! calls (+ calls 1))
+                  (char? value)))
+         "ab" #\a "b")
+        (expect calls 1))
+      (for-each
+       (lambda (result)
+         (expect
+          (guard (ex ((error-object? ex) (error-object-message ex)))
+            ((where (char #\a) (lambda (_) result)) (string->reader "where.scm" "a"))
+            #f)
+          "assertion failed"))
+       (list (return #t) (fail) '() 1)))
+
     (define (test-char-if)
       (check-ok (char-if char-alphabetic?) "ab" #\a "b")
       (check-fail (char-if char-alphabetic?) "1")
@@ -82,9 +109,21 @@
       (check-fail (repeat-at-least-once (char #\a)) ""))
 
     (define (test-choice)
-      (check-ok (choice (tag "ab") (tag "ac")) "ac" "ac")
-      (check-ok (choice (tag "a") (tag "ab")) "ab" "a" "b")
-      (check-fail (choice (tag "ab") (tag "ac")) "ad")
+      (check-ok
+       (choice
+        (tag "ab")
+        (tag "ac"))
+       "ac" "ac")
+      (check-ok
+       (choice
+        (tag "a")
+        (tag "ab"))
+       "ab" "a" "b")
+      (check-fail
+       (choice
+        (tag "ab")
+        (tag "ac"))
+       "ad")
       (check-fail (choice) "a"))
 
     (define (test-discard)
@@ -154,6 +193,7 @@
       (run-test test->>=)
       (run-test test-chain)
       (run-test test-pmap)
+      (run-test test-where)
       (run-test test-char-if)
       (run-test test-lookahead)
       (run-test test-not-followed-by)

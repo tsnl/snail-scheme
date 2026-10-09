@@ -38,6 +38,7 @@
 
   (begin
     ;;; Public API
+    ;;;
 
     (define (s-file)
       (pmap
@@ -47,18 +48,28 @@
         `(_ . ,(eof)))
        (lambda (fields) (cdr (assq 'forms fields)))))
 
-    ;;; Nonterminals
-
-    ;; Expression dispatch
-
     (define (s-expr)
       (chain
        (optional (intertoken-space))
-       (lambda (_) (choice (s-list) (s-vector) (s-quote) (s-atom)))))
+       (lambda (_)
+         (choice
+          (s-list)
+          (s-vector)
+          (s-quote)
+          (s-atom)))))
 
     (define (s-atom)
-      (choice (s-pipe-symbol) (s-string) (s-bytevector)
-              (s-char) (s-boolean) (s-number) (s-symbol)))
+      (choice
+       (s-pipe-symbol)
+       (s-string)
+       (s-bytevector)
+       (s-char)
+       (s-boolean)
+       (s-number)
+       (s-symbol)))
+
+    ;;; Implementation
+    ;;;
 
     ;; Lists and vectors
 
@@ -67,9 +78,10 @@
        (pmap
         (named-tuple
          `(loc . ,(location))
-         `(elements . ,(choice (fenced-elements #\( #\) (s-expr))
-                               (fenced-elements #\[ #\] (s-expr))
-                               (fenced-elements #\{ #\} (s-expr)))))
+         `(elements . ,(choice
+                        (fenced-elements #\( #\) (s-expr))
+                        (fenced-elements #\[ #\] (s-expr))
+                        (fenced-elements #\{ #\} (s-expr)))))
         (lambda (fields)
           (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields)) '())))
        (improper-list)))
@@ -79,17 +91,19 @@
        (named-tuple
         `(loc . ,(location))
         `(prefix . ,(tag "#"))
-        `(elements . ,(choice (fenced-elements #\( #\) (s-expr))
-                              (fenced-elements #\[ #\] (s-expr))
-                              (fenced-elements #\{ #\} (s-expr)))))
+        `(elements . ,(choice
+                       (fenced-elements #\( #\) (s-expr))
+                       (fenced-elements #\[ #\] (s-expr))
+                       (fenced-elements #\{ #\} (s-expr)))))
        (lambda (fields)
          (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields))
                            (cdr (assq 'prefix fields))))))
 
     (define (improper-list)
-      (choice (fenced-improper-list #\( #\))
-              (fenced-improper-list #\[ #\])
-              (fenced-improper-list #\{ #\})))
+      (choice
+       (fenced-improper-list #\( #\))
+       (fenced-improper-list #\[ #\])
+       (fenced-improper-list #\{ #\})))
 
     (define (fenced-elements open close element)
       (pmap
@@ -127,8 +141,11 @@
       (pmap
        (named-tuple
         `(loc . ,(location))
-        `(name . ,(choice (tag-val "'" 'quote) (tag-val "`" 'quasiquote)
-                          (tag-val ",@" 'unquote-splicing) (tag-val "," 'unquote)))
+        `(name . ,(choice
+                   (tag-val "'" 'quote)
+                   (tag-val "`" 'quasiquote)
+                   (tag-val ",@" 'unquote-splicing)
+                   (tag-val "," 'unquote)))
         `(value . ,(s-expr)))
        (lambda (fields)
          (let ((loc (cdr (assq 'loc fields))))
@@ -144,7 +161,10 @@
        (named-tuple
         `(loc . ,(location))
         `(_ . ,(char #\|))
-        `(characters . ,(repeat (choice (escaped-character) (char-if char-quoted-identifier?))))
+        `(characters . ,(repeat
+                         (choice
+                          (escaped-character)
+                          (char-if char-quoted-identifier?))))
         `(_ . ,(char #\|)))
        (lambda (fields)
          (make-atom-syntax (string->symbol (list->string (cdr (assq 'characters fields))))
@@ -163,22 +183,22 @@
        (named-tuple
         `(loc . ,(location))
         `(_ . ,(tag-ci "#u8"))
-        `(bytes . ,(choice (fenced-elements #\( #\) (byte-element))
-                           (fenced-elements #\[ #\] (byte-element))
-                           (fenced-elements #\{ #\} (byte-element)))))
+        `(bytes . ,(choice
+                    (fenced-elements #\( #\) (byte-element))
+                    (fenced-elements #\[ #\] (byte-element))
+                    (fenced-elements #\{ #\} (byte-element)))))
        (lambda (fields)
          (make-atom-syntax (apply bytevector (cdr (assq 'bytes fields)))
                            (cdr (assq 'loc fields))))))
 
     (define (byte-element)
-      (chain
-       (optional (intertoken-space))
-       (lambda (_) (s-number))
-       (lambda (stx)
-         (let ((value (atom-syntax-value stx)))
-           (if (and (exact-integer? value) (<= 0 value 255))
-               (return value)
-               (fail))))))
+      (where
+       (pmap
+        (named-tuple
+         `(_ . ,(optional (intertoken-space)))
+         `(number . ,(s-number)))
+        (lambda (fields) (atom-syntax-value (cdr (assq 'number fields)))))
+       (lambda (value) (and (exact-integer? value) (<= 0 value 255)))))
 
     (define (s-char)
       (pmap
@@ -194,8 +214,16 @@
        (named-tuple
         `(loc . ,(location))
         `(value . ,(choice
-                    (pmap (choice (tag-ci "#true") (tag-ci "#t")) (lambda (_) #t))
-                    (pmap (choice (tag-ci "#false") (tag-ci "#f")) (lambda (_) #f))))
+                    (pmap
+                     (choice
+                      (tag-ci "#true")
+                      (tag-ci "#t"))
+                     (lambda (_) #t))
+                    (pmap
+                     (choice
+                      (tag-ci "#false")
+                      (tag-ci "#f"))
+                     (lambda (_) #f))))
         `(_ . ,(not-followed-by (char-if char-bare-atom?))))
        (lambda (fields)
          (make-atom-syntax (cdr (assq 'value fields)) (cdr (assq 'loc fields))))))
@@ -230,15 +258,23 @@
       (pmap
        (named-tuple
         `(_ . ,(char #\"))
-        `(characters . ,(repeat (choice (escaped-character) (char-if char-string-literal?))))
+        `(characters . ,(repeat
+                         (choice
+                          (escaped-character)
+                          (char-if char-string-literal?))))
         `(_ . ,(char #\")))
        (lambda (fields) (list->string (cdr (assq 'characters fields))))))
 
     (define (escaped-character)
       (choice
-       (tag-val "\\a" #\alarm) (tag-val "\\b" #\backspace)
-       (tag-val "\\t" #\tab) (tag-val "\\n" #\newline) (tag-val "\\r" #\return)
-       (tag-val "\\\"" #\") (tag-val "\\\\" #\\) (tag-val "\\|" #\|)
+       (tag-val "\\a" #\alarm)
+       (tag-val "\\b" #\backspace)
+       (tag-val "\\t" #\tab)
+       (tag-val "\\n" #\newline)
+       (tag-val "\\r" #\return)
+       (tag-val "\\\"" #\")
+       (tag-val "\\\\" #\\)
+       (tag-val "\\|" #\|)
        (chain
         (named-tuple
          `(_ . ,(tag "\\x"))
@@ -248,10 +284,15 @@
 
     (define (character-literal)
       (choice
-       (tag-val "#\\alarm" #\alarm) (tag-val "#\\backspace" #\backspace)
-       (tag-val "#\\delete" #\delete) (tag-val "#\\escape" #\escape)
-       (tag-val "#\\newline" #\newline) (tag-val "#\\null" #\null)
-       (tag-val "#\\return" #\return) (tag-val "#\\space" #\space) (tag-val "#\\tab" #\tab)
+       (tag-val "#\\alarm" #\alarm)
+       (tag-val "#\\backspace" #\backspace)
+       (tag-val "#\\delete" #\delete)
+       (tag-val "#\\escape" #\escape)
+       (tag-val "#\\newline" #\newline)
+       (tag-val "#\\null" #\null)
+       (tag-val "#\\return" #\return)
+       (tag-val "#\\space" #\space)
+       (tag-val "#\\tab" #\tab)
        (chain
         (named-tuple
          `(_ . ,(tag "#\\x"))
@@ -344,7 +385,10 @@
     (define (imaginary-number digit? decimal?)
       (tuple
        (char-if char-sign?)
-       (optional (choice (unsigned-special-real) (unsigned-real digit? decimal?)))
+       (optional
+        (choice
+         (unsigned-special-real)
+         (unsigned-real digit? decimal?)))
        (tag-ci "i")))
 
     (define (real-number digit? decimal?)
@@ -357,7 +401,9 @@
         (unsigned-real digit? decimal?))))
 
     (define (unsigned-special-real)
-      (choice (tag-ci "inf.0") (tag-ci "nan.0")))
+      (choice
+       (tag-ci "inf.0")
+       (tag-ci "nan.0")))
 
     (define (unsigned-real digit? decimal?)
       (choice
@@ -390,7 +436,9 @@
        (repeat-at-least-once (decimal-digit))))
 
     (define (exactness)
-      (choice (tag-ci "#e") (tag-ci "#i")))
+      (choice
+       (tag-ci "#e")
+       (tag-ci "#i")))
 
     (define (hexadecimal-integer)
       (pmap (repeat-at-least-once (hexadecimal-digit))
@@ -453,7 +501,10 @@
       (choice
        (block-comment)
        (tuple
-        (not-followed-by (choice (tag "#|") (tag "|#")))
+        (not-followed-by
+         (choice
+          (tag "#|")
+          (tag "|#")))
         (char-if char?))))
 
     (define (datum-comment)
