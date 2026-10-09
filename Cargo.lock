@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "snail-driver"
+version = "0.1.0"
+
+[[package]]
 name = "snail-runner"
 version = "0.1.0"
 dependencies = [

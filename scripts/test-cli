@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Exercise compiler modes, publication, argument boundaries, and native/WASI runs."""
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build" / "cli-tests"
+CARGO = BUILD / "cargo"
+DRIVER = CARGO / "debug" / "snail-scheme"
+ARGUMENTS = ["space in argument", "", "--help"]
+EXPECTED = '("space in argument" "" "--help")\n'
+SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
+          '(write (cdr (command-line)))\n(newline)\n')
+
+
+def invoke(command, cwd, environment=None):
+    return subprocess.run([str(arg) for arg in command], cwd=cwd, text=True,
+                          capture_output=True, timeout=180,
+                          env={**os.environ, **(environment or {})})
+
+
+def require(result, stdout=None, code=0, diagnostic=None):
+    if (result.returncode != code or (stdout is not None and result.stdout != stdout)
+            or (diagnostic is not None and diagnostic not in result.stderr)):
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\n"
+                           f"stderr={result.stderr!r}")
+    return result
+
+
+def cli(directory, *arguments, **environment):
+    return invoke([DRIVER, *arguments], directory, environment)
+
+
+def prepare():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    result = invoke(["cargo", "build", "--offline", "--quiet", "-p", "snail-driver",
+                     "--target-dir", CARGO], ROOT)
+    require(result, "")
+
+
+def check_modes(directory, source):
+    result = cli(directory, source, "--release", "--timing", "--runtime-stats",
+                 "--", *ARGUMENTS)
+    require(result, EXPECTED, diagnostic="runtime: elapsed_ns=")
+    if "compiler: cargo-build-and-run " not in result.stderr:
+        raise RuntimeError("run timing did not identify its execution interval")
+    output = directory / "native executable"
+    require(cli(directory, source, "-o", output), "")
+    require(invoke([output, *ARGUMENTS], directory), EXPECTED)
+
+
+def check_emission(directory, source):
+    dump = directory / "program.vm"
+    result = cli(directory, source, "--emit-llvm", "--dump-vm", dump,
+                 CARGO="/nonexistent/snail-test-cargo")
+    require(result)
+    if "alwaysinline" not in result.stdout or not dump.read_text():
+        raise RuntimeError("LLVM emission or VM dump missing")
+    require(cli(directory, source, "--emit-llvm", "-o", "--help"), "")
+    if (directory / "--help").read_text() != result.stdout:
+        raise RuntimeError("an option value was parsed as a help flag")
+    return result.stdout
+
+
+def check_wasi(directory, source):
+    require(cli(directory, source, "--target", "wasm32-wasip1", "--", *ARGUMENTS),
+            EXPECTED)
+    output = directory / "WASI executable.wasm"
+    require(cli(directory, source, "--target", "wasm32-wasip1", "-o", output), "")
+    node = os.environ.get("NODE", "node")
+    require(invoke([node, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output,
+                    *ARGUMENTS], directory), EXPECTED)
+
+
+def check_failures(directory, source):
+    require(cli(directory, source, "-o", source), "", 1, "must not replace")
+    require(cli(directory, source, "-o", "unused", "--", "arg"), "", 1,
+            "program arguments require run mode")
+    require(cli(directory, source, "--emit-llvm", "--runtime-stats"), "", 1,
+            "--runtime-stats requires run mode")
+    require(cli(directory, source, "--target", "unknown"), "", 1, "--target must be")
+    exiting = directory / "exit.scm"
+    exiting.write_text("(import (snail-scheme core)) (exit 7)\n")
+    require(cli(directory, exiting), "", 7)
+
+
+def check_preserved_outputs(directory):
+    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.vm"))
+    source.write_text("(\n")
+    output.write_text("existing executable")
+    dump.write_text("existing dump")
+    require(cli(directory, source, "-o", output, "--dump-vm", dump), "", 1)
+    if output.read_text() != "existing executable" or dump.read_text() != "existing dump":
+        raise RuntimeError("failed compilation replaced an existing artifact")
+
+
+def check_failed_build(directory, source):
+    output = directory / "build-failure-output"
+    output.write_text("previous successful build")
+    require(cli(directory, source, "-o", output, CARGO="/nonexistent/snail-test-cargo"),
+            "", 1)
+    if output.read_text() != "previous successful build":
+        raise RuntimeError("failed Cargo invocation replaced its destination")
+
+
+def check_kept_project(directory, source, code):
+    result = cli(directory, source, "--keep-build", "--emit-llvm", "-o", "kept.ll")
+    require(result, "", code)
+    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
+             if line.startswith("build project: ")]
+    if len(paths) != 1:
+        raise RuntimeError("retained project path was not reported")
+    project = Path(paths[0])
+    if not project.is_dir() or project.parent != ROOT / "build/cli":
+        raise RuntimeError(f"invalid retained project: {project}")
+    shutil.rmtree(project)
+
+
+def check_aliases(directory, source):
+    alias = directory / "source-link"
+    alias.symlink_to(source)
+    require(cli(directory, source, "-o", alias), "", 1, "must not replace")
+    output = directory / "aliased-output"
+    output.write_text("old output")
+    alias.unlink()
+    alias.symlink_to(output)
+    require(cli(directory, source, "-o", output, "--dump-vm", alias), "", 1,
+            "output and VM dump must differ")
+
+
+def check_abi(directory, llvm):
+    source = directory / "stale.ll"
+    source.write_text(llvm.replace("@snail_program_abi() { ret i32 1 }",
+                                   "@snail_program_abi() { ret i32 0 }"))
+    environment = {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)}
+    result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner"],
+                    ROOT, environment)
+    require(result, "", 1, "program ABI 0 does not match runtime ABI 1")
+
+
+def check_cleanup(before):
+    after = set((ROOT / "build/cli").glob("*"))
+    if before != after:
+        raise RuntimeError(f"invocations leaked build projects: {after - before}")
+
+
+def main():
+    prepare()
+    before = set((ROOT / "build/cli").glob("*"))
+    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
+        directory = Path(name)
+        source = directory / "quoted 'source.scm"
+        source.write_text(SOURCE)
+        check_modes(directory, source)
+        check_abi(directory, check_emission(directory, source))
+        check_wasi(directory, source)
+        check_failures(directory, source)
+        check_preserved_outputs(directory)
+        check_failed_build(directory, source)
+        check_kept_project(directory, source, 0)
+        check_kept_project(directory, directory / "broken.scm", 1)
+        check_aliases(directory, source)
+    check_cleanup(before)
+    print("CLI native/WASI and ABI checks passed")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"CLI test failed: {error}", file=sys.stderr)
+        sys.exit(1)

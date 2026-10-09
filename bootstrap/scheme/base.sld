@@ -17,7 +17,7 @@
    char->integer integer->char char=? char<? char<=? char>? char>=?
    bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
    values call-with-values apply error
-   close-port close-input-port close-output-port call-with-port read-char eof-object?
+   close-port close-input-port close-output-port call-with-port read-char read-string eof-object?
    open-output-string get-output-string newline
    current-input-port current-output-port current-error-port make-parameter)
   (import (snail-scheme core))

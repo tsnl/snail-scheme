@@ -5,9 +5,8 @@
 //! these services without changing the generated-code ABI.
 
 use crate::{
-    heap::Object,
+    object::*,
     primitives::{PrimitiveResult, arity, format_value},
-    value::Value,
     vm::Vm,
 };
 use std::{
@@ -63,6 +62,7 @@ pub(crate) fn primitive(
             | "open-output-file"
             | "close-port"
             | "read-char"
+            | "read-string"
             | "eof-object?"
             | "open-output-string"
             | "get-output-string"
@@ -91,16 +91,25 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
         "close-port" => {
             arity(name, args, 1, 1)?;
             close_port(port_mut(vm, args[0])?)?;
-            Value::Unspecified
+            Value::UNSPECIFIED
         }
         "read-char" => {
             arity(name, args, 0, 1)?;
             let handle = args.first().copied().unwrap_or(vm.host.input);
             read_char(port_mut(vm, handle)?)?
         }
+        "read-string" => {
+            arity(name, args, 1, 2)?;
+            let count = args[0].index(&vm.heap)?;
+            let handle = args.get(1).copied().unwrap_or(vm.host.input);
+            match read_string(port_mut(vm, handle)?, count)? {
+                Some(text) => vm.alloc(Text(text)),
+                None => Value::EOF,
+            }
+        }
         "eof-object?" => {
             arity(name, args, 1, 1)?;
-            Value::Bool(args[0] == Value::Eof)
+            Value::boolean(args[0] == Value::EOF)
         }
         "get-output-string" => {
             arity(name, args, 1, 1)?;
@@ -108,7 +117,7 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
                 return Err("get-output-string: expected a string output port".into());
             };
             let text = buffer.clone();
-            vm.alloc(Object::String(text))
+            vm.alloc(Text(text))
         }
         "display" | "write" | "newline" => output(vm, name, args)?,
         "%current-input-port" | "%current-output-port" | "%current-error-port" => {
@@ -121,25 +130,21 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
         }
         "%set-current-input-port!" | "%set-current-output-port!" | "%set-current-error-port!" => {
             set_current_port(vm, name, args)?;
-            Value::Unspecified
+            Value::UNSPECIFIED
         }
         "command-line" => {
             arity(name, args, 0, 0)?;
             let arguments = vm.argv.clone();
-            let strings: Vec<Value> = arguments
-                .into_iter()
-                .map(|s| vm.alloc(Object::String(s)))
-                .collect();
+            let strings: Vec<Value> = arguments.into_iter().map(|s| vm.alloc(Text(s))).collect();
             vm.list(&strings)
         }
         "exit" => {
             arity(name, args, 0, 1)?;
             let code = match args.first() {
-                None | Some(Value::Bool(true)) => 0,
-                Some(Value::Bool(false)) => 1,
-                Some(value) => {
-                    i32::try_from(value.integer()?).map_err(|_| "exit status out of range")?
-                }
+                None | Some(&Value::TRUE) => 0,
+                Some(&Value::FALSE) => 1,
+                Some(value) => i32::try_from(value.integer(&vm.heap)?)
+                    .map_err(|_| "exit status out of range")?,
             };
             return Ok(PrimitiveResult::Exit(code));
         }
@@ -147,11 +152,11 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
             arity(name, args, 0, 0)?;
             let ticks = i64::try_from(vm.host.started.elapsed().as_nanos())
                 .map_err(|_| "monotonic clock exceeds integer range")?;
-            Value::Integer(ticks)
+            vm.integer(ticks)
         }
         "jiffies-per-second" => {
             arity(name, args, 0, 0)?;
-            Value::Integer(1_000_000_000)
+            vm.integer(1_000_000_000)
         }
         _ => unreachable!(),
     };
@@ -159,10 +164,7 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
 }
 
 fn port_mut(vm: &mut Vm, value: Value) -> Result<&mut Port, String> {
-    match vm.heap.get_mut(value)? {
-        Object::Port(port) => Ok(port),
-        _ => Err("expected a port".into()),
-    }
+    vm.heap.get_mut::<Port>(value)
 }
 
 fn open_port(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
@@ -188,7 +190,7 @@ fn open_port(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
             Port::FileOutput(Some(file))
         }
     };
-    Ok(vm.alloc(Object::Port(port)))
+    Ok(vm.alloc(port))
 }
 
 fn close_port(port: &mut Port) -> Result<(), String> {
@@ -221,14 +223,53 @@ fn read_char(port: &mut Port) -> Result<Value, String> {
         Port::Input { chars, offset, .. } => {
             if let Some(&ch) = chars.get(*offset) {
                 *offset += 1;
-                Ok(Value::Char(ch))
+                Ok(Value::character(ch))
             } else {
-                Ok(Value::Eof)
+                Ok(Value::EOF)
             }
         }
         Port::Stdin => read_stdin_char(),
         _ => Err("read-char: expected an input port".into()),
     }
+}
+
+fn read_string(port: &mut Port, count: usize) -> Result<Option<String>, String> {
+    match port {
+        Port::Input {
+            chars,
+            offset,
+            closed: false,
+        } => {
+            let end = offset.saturating_add(count).min(chars.len());
+            if count > 0 && *offset == end {
+                return Ok(None);
+            }
+            let text = chars[*offset..end].iter().collect();
+            *offset = end;
+            Ok(Some(text))
+        }
+        Port::Stdin => read_stdin_string(count),
+        Port::Input { closed: true, .. } | Port::Closed => {
+            Err("read-string: port is closed".into())
+        }
+        _ => Err("read-string: expected an input port".into()),
+    }
+}
+
+fn read_stdin_string(count: usize) -> Result<Option<String>, String> {
+    let mut text = String::new();
+    for _ in 0..count {
+        let value = read_stdin_char()?;
+        if value == Value::EOF {
+            break;
+        }
+        text.push(value.as_character().unwrap());
+    }
+    Ok(if count > 0 && text.is_empty() {
+        None
+    } else {
+        Some(text)
+    })
 }
 
 /// Decode one UTF-8 scalar without buffering past it or waiting for stdin EOF.
@@ -237,7 +278,7 @@ fn read_stdin_char() -> Result<Value, String> {
     let mut bytes = [0_u8; 4];
     loop {
         match input.read(&mut bytes[..1]) {
-            Ok(0) => return Ok(Value::Eof),
+            Ok(0) => return Ok(Value::EOF),
             Ok(_) => break,
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(e) => return Err(format!("read-char: {e}")),
@@ -256,7 +297,7 @@ fn read_stdin_char() -> Result<Value, String> {
     let text = std::str::from_utf8(&bytes[..length]).map_err(|e| format!("read-char: {e}"))?;
     text.chars()
         .next()
-        .map(Value::Char)
+        .map(Value::character)
         .ok_or_else(|| "read-char: empty UTF-8 character".into())
 }
 
@@ -272,7 +313,7 @@ fn output(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         )
     };
     write_port(port_mut(vm, handle)?, &text)?;
-    Ok(Value::Unspecified)
+    Ok(Value::UNSPECIFIED)
 }
 
 fn write_port(port: &mut Port, text: &str) -> Result<(), String> {
@@ -335,16 +376,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bulk_reads_count_unicode_scalars_and_keep_eof_distinct_from_empty() {
+        let mut port = Port::Input {
+            chars: "aλ😀z".chars().collect(),
+            offset: 0,
+            closed: false,
+        };
+        assert_eq!(read_string(&mut port, 0).unwrap(), Some(String::new()));
+        assert_eq!(read_string(&mut port, 2).unwrap(), Some("aλ".into()));
+        assert_eq!(read_string(&mut port, 99).unwrap(), Some("😀z".into()));
+        assert_eq!(read_string(&mut port, 1).unwrap(), None);
+        assert_eq!(read_string(&mut port, 0).unwrap(), Some(String::new()));
+        close_port(&mut port).unwrap();
+        assert!(read_string(&mut port, 0).is_err());
+    }
+
+    #[test]
     fn input_ports_consume_characters_and_reject_reads_after_close() {
         let mut port = Port::Input {
             chars: vec!['λ', '😀'],
             offset: 0,
             closed: false,
         };
-        assert_eq!(read_char(&mut port).unwrap(), Value::Char('λ'));
-        assert_eq!(read_char(&mut port).unwrap(), Value::Char('😀'));
-        assert_eq!(read_char(&mut port).unwrap(), Value::Eof);
-        assert_eq!(read_char(&mut port).unwrap(), Value::Eof);
+        assert_eq!(read_char(&mut port).unwrap(), Value::character('λ'));
+        assert_eq!(read_char(&mut port).unwrap(), Value::character('😀'));
+        assert_eq!(read_char(&mut port).unwrap(), Value::EOF);
+        assert_eq!(read_char(&mut port).unwrap(), Value::EOF);
         close_port(&mut port).unwrap();
         assert!(read_char(&mut port).is_err());
     }
@@ -353,7 +410,7 @@ mod tests {
     fn string_ports_capture_output_and_reject_writes_after_close() {
         let mut vm = Vm::new(0, 0, Vec::new());
         let port = open_port(&mut vm, "open-output-string", &[]).unwrap();
-        let text = vm.alloc(Object::String("λ".into()));
+        let text = vm.alloc(Text("λ".into()));
         output(&mut vm, "display", &[text, port]).unwrap();
         output(&mut vm, "newline", &[port]).unwrap();
         let PrimitiveResult::Values(values) =

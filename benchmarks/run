@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Build release benchmarks, verify their answers, and retain timing samples."""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import re
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build" / "benchmarks"
+PROGRAMS = {
+    "cpu": ("CPU: recursive Fibonacci", 4204971, 1),
+    "memory": ("Memory: sieve and prime list", 454934628, 1),
+    "io": ("I/O: sequential frozen-corpus search", 207395, 4),
+    "gc": ("GC: retained cyclic trees", 5460492, 1),
+}
+TIMING = re.compile(r"elapsed: (\d+\.\d{3}) ms; repetitions: (\d+)"
+                    r"(?:; GC: (\d+) collections, (\d+\.\d{3}) ms)?")
+QUERIES = ("copper owl", "river lantern", "winter fern", "silent comet", "absent phrase")
+
+
+def positive_integer(text):
+    value = int(text)
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return value
+
+
+def options():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("programs", nargs="*", choices=tuple(PROGRAMS))
+    parser.add_argument("--target", choices=("native", "wasm", "both"), default="native")
+    parser.add_argument("--repeat", type=positive_integer, help="override fixed repetition count")
+    parser.add_argument("--samples", type=positive_integer, default=1)
+    parser.add_argument("--json", type=Path, help="write machine-readable measurements")
+    parser.add_argument("--no-build", action="store_true", help="run saved executables")
+    return parser.parse_args()
+
+
+def checked(command, **kwargs):
+    return subprocess.run(command, cwd=ROOT, check=True, **kwargs)
+
+
+def verify_corpus():
+    directory = ROOT / "benchmarks" / "corpus"
+    entries = [line.split() for line in (directory / "SHA256SUMS").read_text().splitlines()]
+    expected = {f"document-{number:03d}.txt" for number in range(64)} | {"checks.txt"}
+    if {name for _, name in entries} != expected or len(entries) != len(expected):
+        raise RuntimeError("corpus manifest must describe exactly the 65 frozen files")
+    for digest, name in entries:
+        if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError(f"frozen corpus changed: {name}")
+    verify_search_answer(directory)
+
+
+def occurrences(text, query):
+    start = count = 0
+    while (found := text.find(query, start)) >= 0:
+        count += 1
+        start = found + 1
+    return count
+
+
+def document_answer(directory, document):
+    text = (directory / f"document-{document:03d}.txt").read_text(encoding="ascii")
+    counts = [occurrences(text, query) for query in QUERIES]
+    checksum = sum((document + 1) * (query + 1) * count for query, count in enumerate(counts))
+    return sum(counts), checksum, len(text) * len(QUERIES)
+
+
+def verify_search_answer(directory):
+    answers = [document_answer(directory, document) for document in range(64)]
+    total = tuple(sum(column) for column in zip(*answers))
+    if total != (2534, 207395, 1609295):
+        raise RuntimeError(f"incorrect frozen-corpus reference answer: {total}")
+
+
+def executable_path(name, target):
+    extension = ".wasm" if target == "wasm" else ""
+    return BUILD / target / (name + extension)
+
+
+def compile_program(name):
+    llvm = BUILD / f"{name}.ll"
+    checked([str(ROOT / "snail-compile"), str(ROOT / "benchmarks" / f"{name}.scm"), str(llvm)])
+    return llvm
+
+
+def cargo_command(target):
+    command = ["cargo", "build", "--release", "--offline", "--quiet", "-p", "snail-runner"]
+    if target == "wasm":
+        command.extend(["--target", "wasm32-wasip1"])
+    return command
+
+
+def build_executable(name, llvm, target):
+    cargo = BUILD / "cargo"
+    environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm), "CARGO_TARGET_DIR": str(cargo)}
+    checked(cargo_command(target), env=environment)
+    artifact = "wasm32-wasip1/release/" if target == "wasm" else "release/"
+    artifact += "snail-runner.wasm" if target == "wasm" else "snail-runner"
+    executable = executable_path(name, target)
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(cargo / artifact, executable)
+    return executable
+
+
+def execution_command(executable, target):
+    if target == "native":
+        return [str(executable)]
+    return [os.environ.get("NODE", "node"), "--no-warnings",
+            str(ROOT / "scripts" / "run-wasi.mjs"), str(executable)]
+
+
+def check_output(name, count, stdout):
+    lines = stdout.splitlines()
+    title, checksum, _ = PROGRAMS[name]
+    if len(lines) != 3 or lines[0] != title or lines[1] != f"checksum: {checksum * count}":
+        raise RuntimeError(f"incorrect {name} benchmark result: {stdout!r}")
+    match = TIMING.fullmatch(lines[2])
+    if not match or int(match[2]) != count or bool(match[3]) != (name == "gc"):
+        raise RuntimeError(f"incorrect {name} timing report: {lines[2]!r}")
+    return match
+
+
+def measurement(name, target, count, timing, executable):
+    result = {"program": name, "target": target, "repetitions": count,
+              "elapsed_ms": float(timing[1]), "checksum": PROGRAMS[name][1] * count,
+              "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest()}
+    if timing[3]:
+        result.update(gc_collections=int(timing[3]), gc_ms=float(timing[4]))
+    return result
+
+
+def run_sample(name, target, executable, count, report=True):
+    command = execution_command(executable, target) + [str(count)]
+    result = checked(command, text=True, stdout=subprocess.PIPE, timeout=120)
+    timing = check_output(name, count, result.stdout)
+    if report:
+        print(result.stdout, end="", flush=True)
+    return measurement(name, target, count, timing, executable)
+
+
+def run_program(name, targets, arguments):
+    llvm = None if arguments.no_build else compile_program(name)
+    count = arguments.repeat if arguments.repeat is not None else PROGRAMS[name][2]
+    results = []
+    for target in targets:
+        executable = (executable_path(name, target) if llvm is None
+                      else build_executable(name, llvm, target))
+        results.extend(measure_executable(name, target, executable, count, arguments.samples))
+    return results
+
+
+def measure_executable(name, target, executable, count, samples):
+    print(f"benchmark: {target}/{name}", file=sys.stderr, flush=True)
+    run_sample(name, target, executable, count, report=False)
+    return [run_sample(name, target, executable, count) for _ in range(samples)]
+
+
+def execution_host(results):
+    host = {"platform": platform.platform()}
+    if any(result["target"] == "wasm" for result in results):
+        node = os.environ.get("NODE", "node")
+        version = checked([node, "--version"], text=True, stdout=subprocess.PIPE).stdout.strip()
+        host["wasm_runtime"] = {"command": node, "version": version}
+    return host
+
+
+def write_measurements(path, results):
+    command = ["git", "rev-parse", "HEAD"]
+    revision = checked(command, text=True, stdout=subprocess.PIPE).stdout.strip()
+    changes = checked(["git", "status", "--porcelain"], text=True, stdout=subprocess.PIPE).stdout
+    data = {"repository_at_measurement": {"revision": revision, "dirty": bool(changes)},
+            "host": execution_host(results), "warmup_runs": 1, "measurements": results}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def main():
+    arguments = options()
+    verify_corpus()
+    BUILD.mkdir(parents=True, exist_ok=True)
+    targets = ("native", "wasm") if arguments.target == "both" else (arguments.target,)
+    results = []
+    for name in arguments.programs or PROGRAMS:
+        results.extend(run_program(name, targets, arguments))
+    if arguments.json:
+        write_measurements(arguments.json, results)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+        print(f"benchmark failed: {error}", file=sys.stderr)
+        sys.exit(1)
