@@ -1,7 +1,7 @@
 //! Checked Scheme operations. Allocation here never triggers collection; the
 //! calling VM handler publishes its results before the next safepoint.
 
-use crate::{heap::Object, host, value::Value, vm::Vm};
+use crate::{host, object::*, vm::Vm};
 use std::{cmp::Ordering, collections::HashSet};
 
 pub(crate) enum PrimitiveResult {
@@ -9,9 +9,10 @@ pub(crate) enum PrimitiveResult {
     Invoke(Value, Vec<Value>),
     CallWithValues(Value, Value),
     Exit(i32),
+    Collect,
 }
 
-pub(crate) fn arity(name: &str, args: &[Value], min: usize, max: usize) -> Result<(), String> {
+pub(crate) fn arity<T>(name: &str, args: &[T], min: usize, max: usize) -> Result<(), String> {
     if (min..=max).contains(&args.len()) {
         Ok(())
     } else {
@@ -35,11 +36,13 @@ pub(crate) fn primitive(
         return result;
     }
     let value = match name {
-        "+" | "-" | "*" | "/" | "quotient" | "remainder" | "modulo" => arithmetic(name, args)?,
-        "=" | "<" | "<=" | ">" | ">=" => numeric_compare(name, args)?,
+        "+" | "-" | "*" | "/" | "quotient" | "remainder" | "modulo" => {
+            arithmetic_values(vm, name, args)?
+        }
+        "=" | "<" | "<=" | ">" | ">=" => numeric_compare(name, &numeric_arguments(vm, args)?)?,
         "eq?" | "eqv?" => {
             arity(name, args, 2, 2)?;
-            Value::Bool(args[0] == args[1])
+            Value::boolean(equivalent(vm, args[0], args[1]))
         }
         "boolean?" | "number?" | "real?" | "inexact?" | "integer?" | "exact-integer?" | "pair?"
         | "null?" | "symbol?" | "string?" | "char?" | "vector?" | "bytevector?" | "procedure?" => {
@@ -54,15 +57,22 @@ pub(crate) fn primitive(
             bytevector(vm, name, args)?
         }
         "string" | "string-ref" | "string-length" | "string-append" | "substring" | "string=?"
-        | "string->symbol" | "symbol->string" | "string->number" | "number->string" => {
-            string(vm, name, args)?
-        }
+        | "string->symbol" | "symbol->string" | "string->number" | "number->string"
+        | "string-contains" => string(vm, name, args)?,
         "char->integer" | "integer->char" | "char=?" | "char<?" | "char<=?" | "char>?"
         | "char>=?" | "char-ci=?" | "char-alphabetic?" | "char-numeric?" | "char-whitespace?" => {
-            character(name, args)?
+            character(vm, name, args)?
         }
         "%make-record-type" | "%make-record" | "%record?" | "%record-ref" | "%record-set!" => {
             record(vm, name, args)?
+        }
+        "collect-garbage" => {
+            arity(name, args, 0, 0)?;
+            return Ok(PrimitiveResult::Collect);
+        }
+        "gc-statistics" => {
+            arity(name, args, 0, 0)?;
+            gc_statistics(vm)?
         }
         "values" => return Ok(PrimitiveResult::Values(args.to_vec())),
         "call-with-values" => {
@@ -88,15 +98,26 @@ pub(crate) fn primitive(
     one(value)
 }
 
-fn number(value: Value) -> Result<f64, String> {
-    match value {
-        Value::Integer(n) => Ok(n as f64),
-        Value::Float(n) => Ok(n),
-        _ => Err("expected a number".into()),
+fn numeric_arguments(vm: &Vm, args: &[Value]) -> Result<Vec<Number>, String> {
+    args.iter().map(|v| vm.heap.number(*v)).collect()
+}
+
+fn arithmetic_values(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
+    let value = arithmetic(name, &numeric_arguments(vm, args)?)?;
+    Ok(match value {
+        Number::Integer(n) => vm.integer(n),
+        Number::Float(n) => vm.float(n),
+    })
+}
+
+fn equivalent(vm: &Vm, left: Value, right: Value) -> bool {
+    match (vm.heap.number(left), vm.heap.number(right)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => left == right,
     }
 }
 
-fn arithmetic(name: &str, args: &[Value]) -> Result<Value, String> {
+fn arithmetic(name: &str, args: &[Number]) -> Result<Number, String> {
     let minimum = if matches!(name, "+" | "*") { 0 } else { 1 };
     if matches!(name, "quotient" | "remainder" | "modulo") {
         arity(name, args, 2, 2)?;
@@ -108,7 +129,7 @@ fn arithmetic(name: &str, args: &[Value]) -> Result<Value, String> {
             a.checked_rem(b)
         }
         .ok_or_else(|| format!("{name}: division by zero or integer overflow"))?;
-        return Ok(Value::Integer(
+        return Ok(Number::Integer(
             if name == "modulo" && value != 0 && (value < 0) != (b < 0) {
                 value + b
             } else {
@@ -120,19 +141,18 @@ fn arithmetic(name: &str, args: &[Value]) -> Result<Value, String> {
     // Preserve exact integers until an inexact operand or a nonintegral division
     // requires a floating-point result. Bignums and exact rationals are future work.
     let (initial, rest) = if matches!(name, "+" | "*") {
-        (Value::Integer(if name == "+" { 0 } else { 1 }), args)
+        (Number::Integer(if name == "+" { 0 } else { 1 }), args)
     } else if args.len() == 1 {
-        (Value::Integer(if name == "-" { 0 } else { 1 }), args)
+        (Number::Integer(if name == "-" { 0 } else { 1 }), args)
     } else {
-        number(args[0])?;
         (args[0], &args[1..])
     };
     rest.iter()
         .try_fold(initial, |acc, &value| numeric_step(name, acc, value))
 }
 
-fn numeric_step(name: &str, left: Value, right: Value) -> Result<Value, String> {
-    if let (Value::Integer(a), Value::Integer(b)) = (left, right) {
+fn numeric_step(name: &str, left: Number, right: Number) -> Result<Number, String> {
+    if let (Number::Integer(a), Number::Integer(b)) = (left, right) {
         let exact = match name {
             "+" => a.checked_add(b),
             "-" => a.checked_sub(b),
@@ -146,18 +166,18 @@ fn numeric_step(name: &str, left: Value, right: Value) -> Result<Value, String> 
                 } else if a == i64::MIN && b == -1 {
                     None
                 } else {
-                    return Ok(Value::Float(a as f64 / b as f64));
+                    return Ok(Number::Float(a as f64 / b as f64));
                 }
             }
             _ => unreachable!(),
         };
         return exact
-            .map(Value::Integer)
+            .map(Number::Integer)
             .ok_or_else(|| format!("{name}: integer overflow"));
     }
-    let a = number(left)?;
-    let b = number(right)?;
-    Ok(Value::Float(match name {
+    let a = left.real();
+    let b = right.real();
+    Ok(Number::Float(match name {
         "+" => a + b,
         "-" => a - b,
         "*" => a * b,
@@ -189,20 +209,16 @@ fn compare_integer_float(integer: i64, float: f64) -> Option<Ordering> {
     }
 }
 
-fn numeric_compare(name: &str, args: &[Value]) -> Result<Value, String> {
+fn numeric_compare(name: &str, args: &[Number]) -> Result<Value, String> {
     arity(name, args, 2, usize::MAX)?;
-    for &value in args {
-        number(value)?;
-    }
     let matches = args.windows(2).all(|pair| {
         let comparison = match (pair[0], pair[1]) {
-            (Value::Integer(a), Value::Integer(b)) => Some(a.cmp(&b)),
-            (Value::Integer(a), Value::Float(b)) => compare_integer_float(a, b),
-            (Value::Float(a), Value::Integer(b)) => {
+            (Number::Integer(a), Number::Integer(b)) => Some(a.cmp(&b)),
+            (Number::Integer(a), Number::Float(b)) => compare_integer_float(a, b),
+            (Number::Float(a), Number::Integer(b)) => {
                 compare_integer_float(b, a).map(Ordering::reverse)
             }
-            (Value::Float(a), Value::Float(b)) => a.partial_cmp(&b),
-            _ => unreachable!(),
+            (Number::Float(a), Number::Float(b)) => a.partial_cmp(&b),
         };
         match name {
             "=" => comparison == Some(Ordering::Equal),
@@ -213,28 +229,30 @@ fn numeric_compare(name: &str, args: &[Value]) -> Result<Value, String> {
             _ => unreachable!(),
         }
     });
-    Ok(Value::Bool(matches))
+    Ok(Value::boolean(matches))
 }
 
 fn predicate(vm: &Vm, name: &str, value: Value) -> Value {
-    let object = vm.heap.get(value).ok();
-    Value::Bool(match name {
-        "boolean?" => matches!(value, Value::Bool(_)),
-        "number?" | "real?" => matches!(value, Value::Integer(_) | Value::Float(_)),
-        "inexact?" => matches!(value, Value::Float(_)),
-        "integer?" => {
-            matches!(value, Value::Integer(_))
-                || matches!(value, Value::Float(n) if n.is_finite() && n.fract() == 0.0)
+    Value::boolean(match name {
+        "boolean?" => value.is_boolean(),
+        "number?" | "real?" => vm.heap.number(value).is_ok(),
+        "inexact?" => vm.heap.find::<Float>(value).is_some(),
+        "integer?" => match vm.heap.number(value) {
+            Ok(Number::Integer(_)) => true,
+            Ok(Number::Float(n)) => n.is_finite() && n.fract() == 0.0,
+            Err(_) => false,
+        },
+        "exact-integer?" => value.as_integer(&vm.heap).is_some(),
+        "null?" => value == Value::NIL,
+        "char?" => value.as_character().is_some(),
+        "pair?" => vm.heap.find::<Pair>(value).is_some(),
+        "symbol?" => vm.heap.find::<Symbol>(value).is_some(),
+        "string?" => vm.heap.find::<Text>(value).is_some(),
+        "vector?" => vm.heap.find::<Vector>(value).is_some(),
+        "bytevector?" => vm.heap.find::<Bytevector>(value).is_some(),
+        "procedure?" => {
+            vm.heap.find::<Closure>(value).is_some() || vm.heap.find::<Primitive>(value).is_some()
         }
-        "exact-integer?" => matches!(value, Value::Integer(_)),
-        "null?" => value == Value::Nil,
-        "char?" => matches!(value, Value::Char(_)),
-        "pair?" => matches!(object, Some(Object::Pair(..))),
-        "symbol?" => matches!(object, Some(Object::Symbol(_))),
-        "string?" => matches!(object, Some(Object::String(_))),
-        "vector?" => matches!(object, Some(Object::Vector(_))),
-        "bytevector?" => matches!(object, Some(Object::Bytevector(_))),
-        "procedure?" => matches!(object, Some(Object::Closure(_) | Object::Primitive(_))),
         _ => unreachable!(),
     })
 }
@@ -243,21 +261,19 @@ fn pair(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
     let count = if matches!(name, "car" | "cdr") { 1 } else { 2 };
     arity(name, args, count, count)?;
     if name == "cons" {
-        return Ok(vm.alloc(Object::Pair(args[0], args[1])));
+        return Ok(vm.alloc(Pair(args[0], args[1])));
     }
-    let Object::Pair(car, cdr) = vm.heap.get_mut(args[0])? else {
-        return Err(format!("{name}: expected a pair"));
-    };
+    let Pair(car, cdr) = vm.heap.get_mut(args[0])?;
     match name {
         "car" => Ok(*car),
         "cdr" => Ok(*cdr),
         "set-car!" => {
             *car = args[1];
-            Ok(Value::Unspecified)
+            Ok(Value::UNSPECIFIED)
         }
         "set-cdr!" => {
             *cdr = args[1];
-            Ok(Value::Unspecified)
+            Ok(Value::UNSPECIFIED)
         }
         _ => unreachable!(),
     }
@@ -265,18 +281,18 @@ fn pair(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
 
 fn vector(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
     if name == "vector" {
-        return Ok(vm.alloc(Object::Vector(args.to_vec())));
+        return Ok(vm.alloc(Vector(args.to_vec())));
     }
     if name == "make-vector" {
         arity(name, args, 1, 2)?;
-        let length = args[0].index()?;
-        let fill = args.get(1).copied().unwrap_or(Value::Unspecified);
+        let length = args[0].index(&vm.heap)?;
+        let fill = args.get(1).copied().unwrap_or(Value::UNSPECIFIED);
         let mut elements = Vec::new();
         elements
             .try_reserve_exact(length)
             .map_err(|_| "make-vector: allocation too large")?;
         elements.resize(length, fill);
-        return Ok(vm.alloc(Object::Vector(elements)));
+        return Ok(vm.alloc(Vector(elements)));
     }
     let count = match name {
         "vector-length" => 1,
@@ -284,34 +300,32 @@ fn vector(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         _ => 3,
     };
     arity(name, args, count, count)?;
-    let Object::Vector(elements) = vm.heap.get_mut(args[0])? else {
-        return Err(format!("{name}: expected a vector"));
-    };
+    let length = vm.heap.get::<Vector>(args[0])?.0.len();
     if name == "vector-length" {
-        return length_value(elements.len());
+        return length_value(vm, length);
     }
-    let element = elements
-        .get_mut(args[1].index()?)
-        .ok_or("vector index out of range")?;
+    let index = args[1].index(&vm.heap)?;
+    let Vector(elements) = vm.heap.get_mut::<Vector>(args[0])?;
+    let element = elements.get_mut(index).ok_or("vector index out of range")?;
     if name == "vector-ref" {
         Ok(*element)
     } else {
         *element = args[2];
-        Ok(Value::Unspecified)
+        Ok(Value::UNSPECIFIED)
     }
 }
 
-fn byte(value: Value) -> Result<u8, String> {
-    u8::try_from(value.integer()?).map_err(|_| "expected a byte between 0 and 255".into())
+fn byte(vm: &Vm, value: Value) -> Result<u8, String> {
+    u8::try_from(value.integer(&vm.heap)?).map_err(|_| "expected a byte between 0 and 255".into())
 }
 
 fn bytevector(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
     if name == "bytevector" {
         let bytes = args
             .iter()
-            .map(|&v| byte(v))
+            .map(|&v| byte(vm, v))
             .collect::<Result<Vec<_>, _>>()?;
-        return Ok(vm.alloc(Object::Bytevector(bytes)));
+        return Ok(vm.alloc(Bytevector(bytes)));
     }
     let count = match name {
         "bytevector-length" => 1,
@@ -319,34 +333,38 @@ fn bytevector(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> 
         _ => 3,
     };
     arity(name, args, count, count)?;
-    let Object::Bytevector(bytes) = vm.heap.get_mut(args[0])? else {
-        return Err(format!("{name}: expected a bytevector"));
-    };
+    let length = vm.heap.get::<Bytevector>(args[0])?.0.len();
     if name == "bytevector-length" {
-        return length_value(bytes.len());
+        return length_value(vm, length);
     }
+    let index = args[1].index(&vm.heap)?;
+    let new_byte = if name == "bytevector-u8-set!" {
+        byte(vm, args[2])?
+    } else {
+        0
+    };
+    let Bytevector(bytes) = vm.heap.get_mut::<Bytevector>(args[0])?;
     let element = bytes
-        .get_mut(args[1].index()?)
+        .get_mut(index)
         .ok_or("bytevector index out of range")?;
     if name == "bytevector-u8-ref" {
-        Ok(Value::Integer(i64::from(*element)))
+        Ok(Value::fixnum(i64::from(*element)).unwrap())
     } else {
-        *element = byte(args[2])?;
-        Ok(Value::Unspecified)
+        *element = new_byte;
+        Ok(Value::UNSPECIFIED)
     }
 }
 
-fn length_value(length: usize) -> Result<Value, String> {
+fn length_value(vm: &mut Vm, length: usize) -> Result<Value, String> {
     i64::try_from(length)
-        .map(Value::Integer)
+        .map(|n| vm.integer(n))
         .map_err(|_| "length exceeds integer range".into())
 }
 
 fn char_value(value: Value) -> Result<char, String> {
-    match value {
-        Value::Char(c) => Ok(c),
-        _ => Err("expected a character".into()),
-    }
+    value
+        .as_character()
+        .ok_or_else(|| "expected a character".into())
 }
 
 fn string(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
@@ -356,14 +374,14 @@ fn string(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
                 .iter()
                 .map(|&v| char_value(v))
                 .collect::<Result<String, _>>()?;
-            Ok(vm.alloc(Object::String(text)))
+            Ok(vm.alloc(Text(text)))
         }
         "string-append" => {
             let parts = args
                 .iter()
                 .map(|&v| vm.string(v))
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(vm.alloc(Object::String(parts.concat())))
+            Ok(vm.alloc(Text(parts.concat())))
         }
         "string=?" => {
             arity(name, args, 2, usize::MAX)?;
@@ -371,51 +389,97 @@ fn string(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
                 .iter()
                 .map(|&v| vm.string(v))
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(Value::Bool(texts.windows(2).all(|pair| pair[0] == pair[1])))
+            Ok(Value::boolean(
+                texts.windows(2).all(|pair| pair[0] == pair[1]),
+            ))
         }
         "string->number" | "number->string" => convert_number(vm, name, args),
+        "string-contains" => string_contains(vm, args),
         "string->symbol" => {
             arity(name, args, 1, 1)?;
             Ok(vm.intern(&vm.string(args[0])?))
         }
         "symbol->string" => {
             arity(name, args, 1, 1)?;
-            let Object::Symbol(symbol) = vm.heap.get(args[0])? else {
-                return Err("symbol->string: expected a symbol".into());
-            };
+            let Symbol(symbol) = vm.heap.get(args[0])?;
             let text = symbol.clone();
-            Ok(vm.alloc(Object::String(text)))
+            Ok(vm.alloc(Text(text)))
         }
         "string-length" => {
             arity(name, args, 1, 1)?;
-            length_value(vm.string(args[0])?.chars().count())
+            length_value(vm, vm.string(args[0])?.chars().count())
         }
         "string-ref" => {
             arity(name, args, 2, 2)?;
             vm.string(args[0])?
                 .chars()
-                .nth(args[1].index()?)
-                .map(Value::Char)
+                .nth(args[1].index(&vm.heap)?)
+                .map(Value::character)
                 .ok_or_else(|| "string index out of range".into())
         }
         "substring" => {
             arity(name, args, 3, 3)?;
             let text: Vec<char> = vm.string(args[0])?.chars().collect();
-            let start = args[1].index()?;
-            let end = args[2].index()?;
+            let start = args[1].index(&vm.heap)?;
+            let end = args[2].index(&vm.heap)?;
             let part = text
                 .get(start..end)
                 .ok_or("substring indices out of range")?;
-            Ok(vm.alloc(Object::String(part.iter().collect())))
+            Ok(vm.alloc(Text(part.iter().collect())))
         }
         _ => unreachable!(),
     }
 }
 
+fn string_contains(vm: &mut Vm, args: &[Value]) -> Result<Value, String> {
+    arity("string-contains", args, 2, 3)?;
+    let text = &vm.heap.get::<Text>(args[0])?.0;
+    let pattern = &vm.heap.get::<Text>(args[1])?.0;
+    let start = match args.get(2) {
+        Some(n) => n.index(&vm.heap)?,
+        None => 0,
+    };
+    let byte_start = text
+        .char_indices()
+        .map(|(index, _)| index)
+        .chain([text.len()])
+        .nth(start)
+        .ok_or("string-contains: start index out of range")?;
+    let found = text[byte_start..]
+        .find(pattern)
+        .map(|index| start + text[byte_start..byte_start + index].chars().count());
+    match found {
+        Some(index) => length_value(vm, index),
+        None => Ok(Value::FALSE),
+    }
+}
+
+fn gc_statistics(vm: &mut Vm) -> Result<Value, String> {
+    let stats = vm.gc_statistics();
+    let counts = [
+        stats.collections,
+        stats.total_nanoseconds,
+        stats.max_nanoseconds,
+        stats.allocated,
+        stats.reclaimed,
+        stats.live as u64,
+        stats.peak as u64,
+    ];
+    let values = counts
+        .into_iter()
+        .map(|n| {
+            i64::try_from(n)
+                .map(|n| vm.integer(n))
+                .map_err(|_| "GC statistic exceeds i64 range")
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(vm.alloc(Vector(values)))
+}
+
 fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
     arity(name, args, 1, 2)?;
     let radix = match args.get(1) {
-        Some(v) => v.integer()?,
+        Some(v) => v.integer(&vm.heap)?,
         None => 10,
     };
     if !matches!(radix, 2 | 8 | 10 | 16) {
@@ -424,7 +488,7 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
     if name == "string->number" {
         let text = vm.string(args[0])?;
         match i64::from_str_radix(&text, radix as u32) {
-            Ok(n) => return Ok(Value::Integer(n)),
+            Ok(n) => return Ok(vm.integer(n)),
             Err(error)
                 if matches!(
                     error.kind(),
@@ -438,13 +502,13 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
         if radix == 10 {
             let float = parse_float(&text);
             if let Some(n) = float {
-                return Ok(Value::Float(n));
+                return Ok(vm.float(n));
             }
         }
-        return Ok(Value::Bool(false));
+        return Ok(Value::boolean(false));
     }
-    let text = match args[0] {
-        Value::Integer(n) => {
+    let text = match vm.heap.number(args[0])? {
+        Number::Integer(n) => {
             let magnitude = n.unsigned_abs();
             let digits = match radix {
                 2 => format!("{magnitude:b}"),
@@ -454,11 +518,10 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
             };
             if n < 0 { format!("-{digits}") } else { digits }
         }
-        Value::Float(n) if radix == 10 => float_text(n),
-        Value::Float(_) => return Err("inexact number requires decimal radix".into()),
-        _ => return Err("number->string: expected a number".into()),
+        Number::Float(n) if radix == 10 => float_text(n),
+        Number::Float(_) => return Err("inexact number requires decimal radix".into()),
     };
-    Ok(vm.alloc(Object::String(text)))
+    Ok(vm.alloc(Text(text)))
 }
 
 pub(crate) fn parse_float(text: &str) -> Option<f64> {
@@ -483,7 +546,7 @@ fn float_text(number: f64) -> String {
     }
 }
 
-fn character(name: &str, args: &[Value]) -> Result<Value, String> {
+fn character(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
     let comparison = matches!(
         name,
         "char=?" | "char<?" | "char<=?" | "char>?" | "char>=?" | "char-ci=?"
@@ -495,10 +558,10 @@ fn character(name: &str, args: &[Value]) -> Result<Value, String> {
         if comparison { usize::MAX } else { 1 },
     )?;
     if name == "integer->char" {
-        return u32::try_from(args[0].integer()?)
+        return u32::try_from(args[0].integer(&vm.heap)?)
             .ok()
             .and_then(char::from_u32)
-            .map(Value::Char)
+            .map(Value::character)
             .ok_or_else(|| "integer->char: invalid Unicode scalar value".into());
     }
     let chars = args
@@ -506,11 +569,11 @@ fn character(name: &str, args: &[Value]) -> Result<Value, String> {
         .map(|&v| char_value(v))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(match name {
-        "char->integer" => Value::Integer(i64::from(chars[0] as u32)),
-        "char-alphabetic?" => Value::Bool(chars[0].is_alphabetic()),
-        "char-numeric?" => Value::Bool(chars[0].is_numeric()),
-        "char-whitespace?" => Value::Bool(chars[0].is_whitespace()),
-        _ => Value::Bool(chars.windows(2).all(|p| match name {
+        "char->integer" => vm.integer(i64::from(chars[0] as u32)),
+        "char-alphabetic?" => Value::boolean(chars[0].is_alphabetic()),
+        "char-numeric?" => Value::boolean(chars[0].is_numeric()),
+        "char-whitespace?" => Value::boolean(chars[0].is_whitespace()),
+        _ => Value::boolean(chars.windows(2).all(|p| match name {
             "char=?" => p[0] == p[1],
             "char<?" => p[0] < p[1],
             "char<=?" => p[0] <= p[1],
@@ -524,10 +587,7 @@ fn character(name: &str, args: &[Value]) -> Result<Value, String> {
 }
 
 fn symbol_name(vm: &Vm, value: Value) -> Result<String, String> {
-    match vm.heap.get(value)? {
-        Object::Symbol(name) => Ok(name.clone()),
-        _ => Err("expected a symbol".into()),
-    }
+    Ok(vm.heap.get::<Symbol>(value)?.0.clone())
 }
 
 fn symbol_list(vm: &Vm, value: Value) -> Result<Vec<String>, String> {
@@ -550,24 +610,21 @@ fn record(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         if fields.iter().collect::<HashSet<_>>().len() != fields.len() {
             return Err("duplicate record field".into());
         }
-        return Ok(vm.alloc(Object::RecordType { name, fields }));
+        return Ok(vm.alloc(RecordType { name, fields }));
     }
-    let Object::RecordType {
+    let RecordType {
         fields: field_names,
         ..
-    } = vm.heap.get(args[0])?
-    else {
-        return Err("expected a record type descriptor".into());
-    };
+    } = vm.heap.get::<RecordType>(args[0])?;
     if name == "%record?" {
-        return Ok(Value::Bool(matches!(vm.heap.get(args[1]),
-            Ok(Object::Record { descriptor, .. }) if *descriptor == args[0])));
+        return Ok(Value::boolean(matches!(vm.heap.get::<Record>(args[1]),
+            Ok(Record { descriptor, .. }) if *descriptor == args[0])));
     }
     if name == "%make-record" {
         let names = symbol_list(vm, args[1])?;
         let values = vm.list_values(args[2])?;
         let fields = constructor_fields(field_names, &names, values)?;
-        return Ok(vm.alloc(Object::Record {
+        return Ok(vm.alloc(Record {
             descriptor: args[0],
             fields,
         }));
@@ -577,9 +634,7 @@ fn record(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         .iter()
         .position(|name| name == &field)
         .ok_or("unknown record field")?;
-    let Object::Record { descriptor, fields } = vm.heap.get_mut(args[2])? else {
-        return Err("expected a record instance".into());
-    };
+    let Record { descriptor, fields } = vm.heap.get_mut(args[2])?;
     if *descriptor != args[0] {
         return Err("record belongs to a different record type".into());
     }
@@ -587,7 +642,7 @@ fn record(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         Ok(fields[index])
     } else {
         fields[index] = args[3];
-        Ok(Value::Unspecified)
+        Ok(Value::UNSPECIFIED)
     }
 }
 
@@ -601,7 +656,7 @@ fn constructor_fields(
     if names.len() != values.len() {
         return Err("record constructor arity mismatch".into());
     }
-    let mut fields = vec![Value::Unspecified; field_names.len()];
+    let mut fields = vec![Value::UNSPECIFIED; field_names.len()];
     let mut seen = HashSet::new();
     for (name, value) in names.iter().zip(values) {
         let index = field_names
@@ -635,12 +690,10 @@ pub(crate) fn format_value(vm: &Vm, value: Value, display: bool) -> Result<Strin
             PrintTask::Leave(index) => {
                 active.remove(&index);
             }
-            PrintTask::Tail(Value::Nil) => {}
+            PrintTask::Tail(Value::NIL) => {}
             PrintTask::Tail(value) => {
-                if let Ok(Object::Pair(car, cdr)) = vm.heap.get(value) {
-                    let Value::Heap(index) = value else {
-                        unreachable!()
-                    };
+                if let Ok(Pair(car, cdr)) = vm.heap.get(value) {
+                    let index = value.address().unwrap();
                     if active.insert(index) {
                         output.push(' ');
                         pending.push(PrintTask::Leave(index));
@@ -670,83 +723,122 @@ fn print_atom_or_container(
     pending: &mut Vec<PrintTask>,
     active: &mut HashSet<usize>,
 ) -> Result<(), String> {
+    if let Some(text) = immediate_text(value) {
+        output.push_str(text);
+    } else if let Ok(number) = vm.heap.number(value) {
+        output.push_str(&match number {
+            Number::Integer(n) => n.to_string(),
+            Number::Float(n) => float_text(n),
+        });
+    } else if let Some(ch) = value.as_character() {
+        print_character(output, ch, display);
+    } else {
+        print_object(vm, value, display, output, pending, active)?;
+    }
+    Ok(())
+}
+
+fn immediate_text(value: Value) -> Option<&'static str> {
     match value {
-        Value::Nil => output.push_str("()"),
-        Value::Bool(b) => output.push_str(if b { "#t" } else { "#f" }),
-        Value::Integer(n) => output.push_str(&n.to_string()),
-        Value::Float(n) => output.push_str(&float_text(n)),
-        Value::Char(c) => {
-            if display {
-                output.push(c);
-            } else {
-                output.push_str("#\\");
-                match c {
-                    ' ' => output.push_str("space"),
-                    '\n' => output.push_str("newline"),
-                    '\t' => output.push_str("tab"),
-                    '\r' => output.push_str("return"),
-                    _ => output.push(c),
-                }
-            }
+        Value::NIL => Some("()"),
+        Value::TRUE => Some("#t"),
+        Value::FALSE => Some("#f"),
+        Value::EOF => Some("#<eof>"),
+        Value::UNSPECIFIED => Some("#<unspecified>"),
+        Value::UNINITIALIZED => Some("#<uninitialized>"),
+        _ => None,
+    }
+}
+
+fn print_character(output: &mut String, ch: char, display: bool) {
+    if display {
+        output.push(ch);
+        return;
+    }
+    output.push_str("#\\");
+    match ch {
+        ' ' => output.push_str("space"),
+        '\n' => output.push_str("newline"),
+        '\t' => output.push_str("tab"),
+        '\r' => output.push_str("return"),
+        _ => output.push(ch),
+    }
+}
+
+fn print_object(
+    vm: &Vm,
+    value: Value,
+    display: bool,
+    output: &mut String,
+    pending: &mut Vec<PrintTask>,
+    active: &mut HashSet<usize>,
+) -> Result<(), String> {
+    let address = value.address().ok_or("invalid tagged value")?;
+    if !active.insert(address) {
+        output.push_str("#<cycle>");
+        return Ok(());
+    }
+    pending.push(PrintTask::Leave(address));
+    if let Some(Text(text)) = vm.heap.find::<Text>(value) {
+        if display {
+            output.push_str(text);
+        } else {
+            quoted_string(output, text);
         }
-        Value::Eof => output.push_str("#<eof>"),
-        Value::Unspecified => output.push_str("#<unspecified>"),
-        Value::Uninitialized => output.push_str("#<uninitialized>"),
-        Value::Heap(index) => {
-            if !active.insert(index) {
-                output.push_str("#<cycle>");
-                return Ok(());
-            }
-            pending.push(PrintTask::Leave(index));
-            match vm.heap.get(value)? {
-                Object::String(text) => {
-                    if display {
-                        output.push_str(text);
-                    } else {
-                        quoted_string(output, text);
-                    }
-                }
-                Object::Symbol(text) => output.push_str(text),
-                Object::Pair(car, cdr) => {
-                    output.push('(');
-                    pending.push(PrintTask::Text(")".into()));
-                    pending.push(PrintTask::Tail(*cdr));
-                    pending.push(PrintTask::Value(*car));
-                }
-                Object::Vector(values) => {
-                    output.push_str("#(");
-                    pending.push(PrintTask::Text(")".into()));
-                    for (position, &value) in values.iter().enumerate().rev() {
-                        pending.push(PrintTask::Value(value));
-                        if position > 0 {
-                            pending.push(PrintTask::Text(" ".into()));
-                        }
-                    }
-                }
-                Object::Bytevector(values) => {
-                    output.push_str("#u8(");
-                    for (position, byte) in values.iter().enumerate() {
-                        if position > 0 {
-                            output.push(' ');
-                        }
-                        output.push_str(&byte.to_string());
-                    }
-                    output.push(')');
-                }
-                Object::RecordType { name, .. } => {
-                    output.push_str(&format!("#<record-type {name}>"))
-                }
-                Object::Record { descriptor, .. } => {
-                    if let Object::RecordType { name, .. } = vm.heap.get(*descriptor)? {
-                        output.push_str(&format!("#<record {name}>"));
-                    }
-                }
-                Object::Primitive(name) => output.push_str(&format!("#<procedure {name}>")),
-                Object::Closure(_) => output.push_str("#<procedure>"),
-                Object::Cell(_) => output.push_str("#<cell>"),
-                Object::Port(_) => output.push_str("#<port>"),
-            }
+    } else if let Some(Symbol(text)) = vm.heap.find::<Symbol>(value) {
+        output.push_str(text);
+    } else if let Some(Pair(car, cdr)) = vm.heap.find::<Pair>(value) {
+        output.push('(');
+        pending.push(PrintTask::Text(")".into()));
+        pending.push(PrintTask::Tail(*cdr));
+        pending.push(PrintTask::Value(*car));
+    } else if let Some(Vector(values)) = vm.heap.find::<Vector>(value) {
+        print_vector(output, pending, values);
+    } else if let Some(Bytevector(bytes)) = vm.heap.find::<Bytevector>(value) {
+        output.push_str("#u8(");
+        output.push_str(
+            &bytes
+                .iter()
+                .map(u8::to_string)
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+        output.push(')');
+    } else {
+        print_opaque(vm, value, output)?;
+    }
+    Ok(())
+}
+
+fn print_vector(output: &mut String, pending: &mut Vec<PrintTask>, values: &[Value]) {
+    output.push_str("#(");
+    pending.push(PrintTask::Text(")".into()));
+    for (position, &value) in values.iter().enumerate().rev() {
+        pending.push(PrintTask::Value(value));
+        if position > 0 {
+            pending.push(PrintTask::Text(" ".into()));
         }
+    }
+}
+
+fn print_opaque(vm: &Vm, value: Value, output: &mut String) -> Result<(), String> {
+    if let Some(RecordType { name, .. }) = vm.heap.find::<RecordType>(value) {
+        output.push_str(&format!("#<record-type {name}>"));
+    } else if let Some(Record { descriptor, .. }) = vm.heap.find::<Record>(value) {
+        output.push_str(&format!(
+            "#<record {}>",
+            vm.heap.get::<RecordType>(*descriptor)?.name
+        ));
+    } else if let Some(Primitive(name)) = vm.heap.find::<Primitive>(value) {
+        output.push_str(&format!("#<procedure {name}>"));
+    } else if vm.heap.find::<Closure>(value).is_some() {
+        output.push_str("#<procedure>");
+    } else if vm.heap.find::<Cell>(value).is_some() {
+        output.push_str("#<cell>");
+    } else if vm.heap.find::<host::Port>(value).is_some() {
+        output.push_str("#<port>");
+    } else {
+        return Err("invalid heap reference".into());
     }
     Ok(())
 }
@@ -771,86 +863,111 @@ fn quoted_string(output: &mut String, text: &str) {
 mod tests {
     use super::*;
 
+    fn integer(value: i64) -> Value {
+        Value::fixnum(value).unwrap()
+    }
+
     fn vm() -> Vm {
         Vm::new(0, 0, vec!["test".into()])
     }
 
-    fn initialized_float(text: &str) -> Value {
+    fn initialized_float(text: &str) -> f64 {
         let mut vm = Vm::new(0, 1, Vec::new());
         unsafe {
             crate::snail_const_atom(&mut vm, 0, 3, text.as_ptr(), text.len() as u32);
         }
         assert_eq!(vm.error(), None);
-        vm.constant(0).unwrap()
+        vm.heap.get::<Float>(vm.constant(0).unwrap()).unwrap().0
+    }
+
+    #[test]
+    fn substring_search_returns_character_indices_and_honors_start() {
+        let mut vm = vm();
+        let text = vm.alloc(Text("aλ😀λ".into()));
+        let pattern = vm.alloc(Text("λ".into()));
+        let empty = vm.alloc(Text(String::new()));
+        assert_eq!(
+            string_contains(&mut vm, &[text, pattern]).unwrap(),
+            integer(1)
+        );
+        assert_eq!(
+            string_contains(&mut vm, &[text, pattern, integer(2)]).unwrap(),
+            integer(3)
+        );
+        assert_eq!(
+            string_contains(&mut vm, &[text, pattern, integer(4)]).unwrap(),
+            Value::FALSE
+        );
+        assert_eq!(
+            string_contains(&mut vm, &[text, empty, integer(4)]).unwrap(),
+            integer(4)
+        );
+        assert!(string_contains(&mut vm, &[text, pattern, integer(5)]).is_err());
     }
 
     #[test]
     fn floating_constants_and_numeric_reader_agree() {
         for text in ["1.25", "+inf.0", "-inf.0", "+nan.0"] {
             let mut vm = vm();
-            let string = vm.alloc(Object::String(text.into()));
+            let string = vm.alloc(Text(text.into()));
             let read = convert_number(&mut vm, "string->number", &[string]).unwrap();
-            let Value::Float(literal) = initialized_float(text) else {
-                panic!("expected float")
-            };
-            let Value::Float(read) = read else {
-                panic!("expected float")
-            };
+            let literal = initialized_float(text);
+            let read = vm.heap.get::<Float>(read).unwrap().0;
             assert!(literal == read || (literal.is_nan() && read.is_nan()));
         }
     }
 
     #[test]
     fn integer_arithmetic_rejects_overflow_and_zero_division() {
-        assert!(arithmetic("+", &[Value::Integer(i64::MAX), Value::Integer(1)]).is_err());
-        assert!(arithmetic("-", &[Value::Integer(i64::MIN)]).is_err());
-        assert!(arithmetic("/", &[Value::Integer(i64::MIN), Value::Integer(-1)]).is_err());
-        assert!(arithmetic("quotient", &[Value::Integer(7), Value::Integer(0)]).is_err());
-        assert!(arithmetic("/", &[Value::Float(7.0), Value::Float(0.0)]).is_err());
+        assert!(arithmetic("+", &[Number::Integer(i64::MAX), Number::Integer(1)]).is_err());
+        assert!(arithmetic("-", &[Number::Integer(i64::MIN)]).is_err());
+        assert!(arithmetic("/", &[Number::Integer(i64::MIN), Number::Integer(-1)]).is_err());
+        assert!(arithmetic("quotient", &[Number::Integer(7), Number::Integer(0)]).is_err());
+        assert!(arithmetic("/", &[Number::Float(7.0), Number::Float(0.0)]).is_err());
         assert_eq!(
-            arithmetic("/", &[Value::Integer(9), Value::Integer(3)]).unwrap(),
-            Value::Integer(3)
+            arithmetic("/", &[Number::Integer(9), Number::Integer(3)]).unwrap(),
+            Number::Integer(3)
         );
         assert_eq!(
-            arithmetic("/", &[Value::Integer(9), Value::Integer(2)]).unwrap(),
-            Value::Float(4.5)
+            arithmetic("/", &[Number::Integer(9), Number::Integer(2)]).unwrap(),
+            Number::Float(4.5)
         );
         assert_eq!(
-            arithmetic("modulo", &[Value::Integer(-7), Value::Integer(3)]).unwrap(),
-            Value::Integer(2)
+            arithmetic("modulo", &[Number::Integer(-7), Number::Integer(3)]).unwrap(),
+            Number::Integer(2)
         );
         assert_eq!(
-            arithmetic("modulo", &[Value::Integer(7), Value::Integer(-3)]).unwrap(),
-            Value::Integer(-2)
+            arithmetic("modulo", &[Number::Integer(7), Number::Integer(-3)]).unwrap(),
+            Number::Integer(-2)
         );
     }
 
     #[test]
     fn mixed_comparisons_preserve_large_integer_precision() {
-        let exact = Value::Integer(9_007_199_254_740_993);
-        let rounded = Value::Float(9_007_199_254_740_992.0);
+        let exact = Number::Integer(9_007_199_254_740_993);
+        let rounded = Number::Float(9_007_199_254_740_992.0);
         assert_eq!(
             numeric_compare(">", &[exact, rounded]).unwrap(),
-            Value::Bool(true)
+            Value::boolean(true)
         );
         assert_eq!(
             numeric_compare("=", &[exact, rounded]).unwrap(),
-            Value::Bool(false)
+            Value::boolean(false)
         );
         assert_eq!(
             numeric_compare(
                 "<",
                 &[
-                    Value::Integer(i64::MAX),
-                    Value::Float(9223372036854775808.0)
+                    Number::Integer(i64::MAX),
+                    Number::Float(9223372036854775808.0)
                 ]
             )
             .unwrap(),
-            Value::Bool(true)
+            Value::boolean(true)
         );
         assert_eq!(
-            numeric_compare("=", &[Value::Float(f64::NAN), Value::Float(f64::NAN)]).unwrap(),
-            Value::Bool(false)
+            numeric_compare("=", &[Number::Float(f64::NAN), Number::Float(f64::NAN)]).unwrap(),
+            Value::boolean(false)
         );
     }
 
@@ -858,56 +975,42 @@ mod tests {
     fn numeric_reader_does_not_silently_make_overflowing_integers_inexact() {
         let mut vm = vm();
         for text in ["9223372036854775808", "-9223372036854775809"] {
-            let text = vm.alloc(Object::String(text.into()));
+            let text = vm.alloc(Text(text.into()));
             assert!(
                 convert_number(&mut vm, "string->number", &[text])
                     .unwrap_err()
                     .contains("overflow")
             );
         }
-        let text = vm.alloc(Object::String("8000000000000000".into()));
-        assert!(convert_number(&mut vm, "string->number", &[text, Value::Integer(16)]).is_err());
-        let text = vm.alloc(Object::String("9.5e2".into()));
+        let text = vm.alloc(Text("8000000000000000".into()));
+        assert!(convert_number(&mut vm, "string->number", &[text, integer(16)]).is_err());
+        let text = vm.alloc(Text("9.5e2".into()));
+        let value = convert_number(&mut vm, "string->number", &[text]).unwrap();
+        assert_eq!(vm.heap.get::<Float>(value).unwrap().0, 950.0);
+        let text = vm.alloc(Text("NaN".into()));
         assert_eq!(
             convert_number(&mut vm, "string->number", &[text]).unwrap(),
-            Value::Float(950.0)
-        );
-        let text = vm.alloc(Object::String("NaN".into()));
-        assert_eq!(
-            convert_number(&mut vm, "string->number", &[text]).unwrap(),
-            Value::Bool(false)
+            Value::boolean(false)
         );
     }
 
     #[test]
     fn string_indices_count_unicode_scalars_and_check_bounds() {
         let mut vm = vm();
-        let text = vm.alloc(Object::String("aλ😀z".into()));
+        let text = vm.alloc(Text("aλ😀z".into()));
         assert_eq!(
             string(&mut vm, "string-length", &[text]).unwrap(),
-            Value::Integer(4)
+            integer(4)
         );
         assert_eq!(
-            string(&mut vm, "string-ref", &[text, Value::Integer(2)]).unwrap(),
-            Value::Char('😀')
+            string(&mut vm, "string-ref", &[text, integer(2)]).unwrap(),
+            Value::character('😀')
         );
-        let part = string(
-            &mut vm,
-            "substring",
-            &[text, Value::Integer(1), Value::Integer(3)],
-        )
-        .unwrap();
+        let part = string(&mut vm, "substring", &[text, integer(1), integer(3)]).unwrap();
         assert_eq!(vm.string(part).unwrap(), "λ😀");
-        assert!(
-            string(
-                &mut vm,
-                "substring",
-                &[text, Value::Integer(3), Value::Integer(1)]
-            )
-            .is_err()
-        );
-        assert!(string(&mut vm, "string-ref", &[text, Value::Integer(4)]).is_err());
-        assert!(string(&mut vm, "string-ref", &[text, Value::Integer(-1)]).is_err());
+        assert!(string(&mut vm, "substring", &[text, integer(3), integer(1)]).is_err());
+        assert!(string(&mut vm, "string-ref", &[text, integer(4)]).is_err());
+        assert!(string(&mut vm, "string-ref", &[text, integer(-1)]).is_err());
     }
 
     #[test]
@@ -920,44 +1023,44 @@ mod tests {
         let descriptor = record(&mut vm, "%make-record-type", &[name, names]).unwrap();
         let other_descriptor = record(&mut vm, "%make-record-type", &[name, names]).unwrap();
         let constructors = vm.list(&[y, x]);
-        let values = vm.list(&[Value::Integer(20), Value::Integer(10)]);
+        let values = vm.list(&[integer(20), integer(10)]);
         let instance =
             record(&mut vm, "%make-record", &[descriptor, constructors, values]).unwrap();
         assert_eq!(
             record(&mut vm, "%record-ref", &[descriptor, x, instance]).unwrap(),
-            Value::Integer(10)
+            integer(10)
         );
         assert_eq!(
             record(&mut vm, "%record-ref", &[descriptor, y, instance]).unwrap(),
-            Value::Integer(20)
+            integer(20)
         );
         assert_eq!(
             record(&mut vm, "%record?", &[other_descriptor, instance]).unwrap(),
-            Value::Bool(false)
+            Value::boolean(false)
         );
         assert!(record(&mut vm, "%record-ref", &[other_descriptor, x, instance]).is_err());
         record(
             &mut vm,
             "%record-set!",
-            &[descriptor, x, instance, Value::Integer(42)],
+            &[descriptor, x, instance, integer(42)],
         )
         .unwrap();
         assert_eq!(
             record(&mut vm, "%record-ref", &[descriptor, x, instance]).unwrap(),
-            Value::Integer(42)
+            integer(42)
         );
     }
 
     #[test]
     fn printing_handles_cycles_and_shared_acyclic_objects() {
         let mut vm = vm();
-        let cycle = vm.alloc(Object::Pair(Value::Integer(1), Value::Nil));
+        let cycle = vm.alloc(Pair(integer(1), Value::NIL));
         pair(&mut vm, "set-cdr!", &[cycle, cycle]).unwrap();
         assert_eq!(format_value(&vm, cycle, false).unwrap(), "(1 . #<cycle>)");
-        let shared = vm.list(&[Value::Integer(2), Value::Integer(3)]);
-        let vector = vm.alloc(Object::Vector(vec![shared, shared]));
+        let shared = vm.list(&[integer(2), integer(3)]);
+        let vector = vm.alloc(Vector(vec![shared, shared]));
         assert_eq!(format_value(&vm, vector, false).unwrap(), "#((2 3) (2 3))");
-        let text = vm.alloc(Object::String("λ\n\"\\".into()));
+        let text = vm.alloc(Text("λ\n\"\\".into()));
         assert_eq!(format_value(&vm, text, true).unwrap(), "λ\n\"\\");
         assert_eq!(format_value(&vm, text, false).unwrap(), "\"λ\\n\\\"\\\\\"");
     }
@@ -965,9 +1068,9 @@ mod tests {
     #[test]
     fn deep_printing_does_not_consume_the_host_call_stack() {
         let mut vm = vm();
-        let mut value = Value::Integer(1);
+        let mut value = integer(1);
         for _ in 0..20_000 {
-            value = vm.alloc(Object::Pair(value, Value::Nil));
+            value = vm.alloc(Pair(value, Value::NIL));
         }
         assert_eq!(format_value(&vm, value, false).unwrap().len(), 40_001);
     }

@@ -1,6 +1,6 @@
 [workspace]
-members = ["runtime", "runner"]
-default-members = ["runtime"]
+members = ["runtime", "runner", "driver"]
+default-members = ["runtime", "driver"]
 resolver = "3"
 
 [profile.release]

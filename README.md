@@ -7,7 +7,9 @@ A small, portable, easy to understand Scheme implementation.
 
 ```bash
 nix-shell
-./snail-scheme INPUT -o OUTPUT
+./snail-scheme examples/fibonacci.scm --release
+./snail-scheme examples/fibonacci.scm -o build/fibonacci
+./snail-scheme examples/fibonacci.scm --target wasm32-wasip1
 make test
 ```
 
@@ -25,10 +27,20 @@ loading personal configuration; set `EMACS` to use another executable. With no
 arguments it reads stdin and writes stdout, as used by the project's Zed settings.
 Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 
-`./snail-scheme` is a Bash launcher for `src/snail-scheme/main.scm`. It locates
-the source directory relative to the launcher and preserves the caller's working
-directory and arguments. Set `CHIBI` to use a different Chibi executable with
-the launcher or `make test`.
+`./snail-scheme INPUT.scm` compiles and runs through Cargo; `-o PATH` builds an
+executable without running it. The Rust driver generates a temporary Cargo
+project linking Scheme-emitted LLVM with the Rust runtime. Add `--target
+wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-vm PATH` for
+the stack instructions. Program arguments follow `--`. `--timing` and
+`--runtime-stats` report diagnostics on stderr. See `--help` and
+[the backend guide](doc/backend.md) for tools, modes, and limitations.
+
+Cargo/rustc, LLVM `opt` and `llc`, and a WASI-capable Node are needed in addition
+to the Scheme development tools. Set `CHIBI` to select the hosted compiler's
+Scheme executable. The build still uses Chibi; compiling the compiler's sources
+is supported without switching the default to self-hosting. Start with
+[TOUR.md](TOUR.md) for the control flow and a guide to every module, or
+[the benchmark suite](benchmarks/README.md) for the performance baseline.
 
 The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
@@ -36,7 +48,8 @@ syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`
 pattern matching and dispatch (`pattern.sld`), macro expansion (`expand.sld`),
 and resolved HIR records (`hir.sld`).
 `pmap` transforms parser values;
-ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
+ordinary Scheme `map` operates on lists. The historical parser inspection CLI
+lives in `cli.sld` and `main.scm`; the compiler command lives in `driver/`.
 Character predicates live in `common.sld`. Syntax rules match the input directly,
 using `tuple`, `repeat`, and `pmap` to assemble spellings from character results.
 Direct reader access stays in the parser primitives. Separate `s-number` and
@@ -56,7 +69,8 @@ symbols, except `_`, whose parser runs but whose value is discarded.
 file, then check `parse-result-ok?` before extracting `parse-result-value`.
 The result contains a list of syntax objects; trailing intertoken space and EOF
 are handled by `s-file`. Source locations and the reader in a failed parse result
-retain the filename. The launcher reports parse failures or prints the syntax records.
+retain the filename. The historical `src/snail-scheme/main.scm` entry can still
+report parse failures or print syntax records when invoked directly with Chibi.
 
 `make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
 parser, syntax, and pattern test libraries from the same directory. Test helpers also
@@ -124,9 +138,10 @@ transient association lists passed through recursive descent.
 identity and definition location; a `name` refers to it and retains the reference
 location. A `value-binding` pairs that identity with an initializer. Library
 declarations and core expressions have separate records. HIR carries no types or
-closure capture lists; inference, synthesis, and lowering belong to later passes.
+closure capture lists; `lower.sld` computes storage and captures while translating
+to stack instructions. Type inference remains later work.
 This is an initial core and library implementation, not complete R7RS support.
-The command-line launcher still only parses and prints syntax records.
+The compiler command runs this expansion before lowering and LLVM emission.
 
 ## Reader
 

@@ -4,10 +4,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    heap::{Closure, Heap, Object},
     host::{Host, Port},
+    object::*,
     primitives::{self, PrimitiveResult},
-    value::Value,
 };
 
 pub const STOP: u32 = u32::MAX;
@@ -23,6 +22,22 @@ struct Activation {
 enum Frame {
     Return { activation: Activation, resume: u32 },
     Consume { consumer: Value },
+}
+
+impl Activation {
+    fn roots(&self, roots: &mut Vec<Value>) {
+        roots.extend_from_slice(&self.locals);
+        roots.extend(self.closure);
+    }
+}
+
+impl Frame {
+    fn roots(&self, roots: &mut Vec<Value>) {
+        match self {
+            Self::Return { activation, .. } => activation.roots(roots),
+            Self::Consume { consumer } => roots.push(*consumer),
+        }
+    }
 }
 
 enum Dispatch {
@@ -51,17 +66,17 @@ pub struct Vm {
 impl Vm {
     pub fn new(global_count: u32, constant_count: u32, argv: Vec<String>) -> Self {
         let mut heap = Heap::default();
-        let input = heap.allocate(Object::Port(Port::Stdin));
-        let output = heap.allocate(Object::Port(Port::Stdout));
-        let error = heap.allocate(Object::Port(Port::Stderr));
+        let input = heap.allocate(Port::Stdin);
+        let output = heap.allocate(Port::Stdout);
+        let error = heap.allocate(Port::Stderr);
         Self {
             heap,
             host: Host::new(input, output, error),
             argv,
-            globals: vec![Value::Uninitialized; global_count as usize],
-            constants: vec![Value::Uninitialized; constant_count as usize],
+            globals: vec![Value::UNINITIALIZED; global_count as usize],
+            constants: vec![Value::UNINITIALIZED; constant_count as usize],
             operands: Vec::new(),
-            results: vec![Value::Unspecified],
+            results: vec![Value::UNSPECIFIED],
             activation: Activation::default(),
             frames: Vec::new(),
             symbols: HashMap::new(),
@@ -111,32 +126,44 @@ impl Vm {
     }
 
     pub fn collect(&mut self) {
-        let mut roots = Vec::new();
-        roots.extend_from_slice(&self.globals);
-        roots.extend_from_slice(&self.constants);
-        roots.extend_from_slice(&self.operands);
-        roots.extend_from_slice(&self.results);
-        roots.extend_from_slice(&self.activation.locals);
-        roots.extend(self.activation.closure);
-        roots.extend([self.host.input, self.host.output, self.host.error]);
-        for frame in &self.frames {
-            match frame {
-                Frame::Return { activation, .. } => {
-                    roots.extend_from_slice(&activation.locals);
-                    roots.extend(activation.closure);
-                }
-                Frame::Consume { consumer } => roots.push(*consumer),
-            }
-        }
-        self.heap.collect(roots);
-        // Interning is weak: live symbols retain identity without keeping all
-        // symbols ever read by a long-running compiler alive forever.
-        self.symbols
-            .retain(|_, value| self.heap.get(*value).is_ok());
+        let started = std::time::Instant::now();
+        self.heap.collect(self.roots());
+        // Weak interned names disappear before any allocation can reuse addresses.
+        self.symbols.retain(|_, value| self.heap.contains(*value));
+        let nanoseconds = started.elapsed().as_nanos().min(u64::MAX as u128) as u64;
+        self.heap.record_collection_time(nanoseconds);
     }
 
-    /// Allocation is transitively GC-free until the current handler returns.
-    pub(crate) fn alloc(&mut self, object: Object) -> Value {
+    fn roots(&self) -> Vec<Value> {
+        let mut roots = Vec::new();
+        for values in [
+            &self.globals,
+            &self.constants,
+            &self.operands,
+            &self.results,
+        ] {
+            roots.extend_from_slice(values);
+        }
+        self.activation.roots(&mut roots);
+        roots.extend([self.host.input, self.host.output, self.host.error]);
+        for frame in &self.frames {
+            frame.roots(&mut roots);
+        }
+        roots
+    }
+
+    pub fn gc_statistics(&self) -> GcStatistics {
+        self.heap.statistics()
+    }
+    pub(crate) fn integer(&mut self, value: i64) -> Value {
+        self.heap.integer(value)
+    }
+    pub(crate) fn float(&mut self, value: f64) -> Value {
+        self.alloc(Float(value))
+    }
+
+    /// Allocation never collects; safepoints are explicit VM operations.
+    pub(crate) fn alloc(&mut self, object: impl SnailSchemeObject) -> Value {
         self.heap.allocate(object)
     }
 
@@ -144,42 +171,34 @@ impl Vm {
         if let Some(value) = self.symbols.get(name) {
             return *value;
         }
-        let value = self.alloc(Object::Symbol(name.to_owned()));
+        let value = self.alloc(Symbol(name.to_owned()));
         self.symbols.insert(name.to_owned(), value);
         value
     }
 
     pub(crate) fn list(&mut self, values: &[Value]) -> Value {
-        values.iter().rev().fold(Value::Nil, |tail, value| {
-            self.alloc(Object::Pair(*value, tail))
-        })
+        values
+            .iter()
+            .rev()
+            .fold(Value::NIL, |tail, value| self.alloc(Pair(*value, tail)))
     }
 
     pub(crate) fn list_values(&self, mut list: Value) -> Result<Vec<Value>, String> {
         let mut values = Vec::new();
         let mut seen = HashSet::new();
-        while list != Value::Nil {
-            if let Value::Heap(index) = list
-                && !seen.insert(index)
-            {
+        while list != Value::NIL {
+            if !seen.insert(list) {
                 return Err("expected a proper list, got a cycle".into());
             }
-            match self.heap.get(list)? {
-                Object::Pair(car, cdr) => {
-                    values.push(*car);
-                    list = *cdr;
-                }
-                _ => return Err("expected a proper list".into()),
-            }
+            let Pair(car, cdr) = self.heap.get::<Pair>(list)?;
+            values.push(*car);
+            list = *cdr;
         }
         Ok(values)
     }
 
     pub(crate) fn string(&self, value: Value) -> Result<String, String> {
-        match self.heap.get(value)? {
-            Object::String(text) => Ok(text.clone()),
-            _ => Err("expected a string".into()),
-        }
+        Ok(self.heap.get::<Text>(value)?.0.clone())
     }
 
     pub(crate) fn single(&self) -> Result<Value, String> {
@@ -192,10 +211,7 @@ impl Vm {
     fn cell(&self, index: u32, free: bool) -> Result<Value, String> {
         let cells = if free {
             let closure = self.activation.closure.ok_or("no active closure")?;
-            match self.heap.get(closure)? {
-                Object::Closure(closure) => &closure.captures,
-                _ => return Err("invalid active closure".into()),
-            }
+            &self.heap.get::<Closure>(closure)?.captures
         } else {
             &self.activation.locals
         };
@@ -205,49 +221,55 @@ impl Vm {
             .ok_or_else(|| "invalid lexical slot".into())
     }
 
-    pub(crate) fn refer(&mut self, index: u32, kind: u32) -> Result<(), String> {
-        let value = match kind {
-            0 | 1 => match self.heap.get(self.cell(index, kind == 1)?)? {
-                Object::Cell(value) => *value,
-                _ => return Err("invalid lexical cell".into()),
-            },
-            2 => *self
-                .globals
-                .get(index as usize)
-                .ok_or("invalid global slot")?,
-            _ => *self
-                .constants
-                .get(index as usize)
-                .ok_or("invalid constant slot")?,
-        };
-        if value == Value::Uninitialized {
-            return Err("read of an uninitialized binding".into());
-        }
-        self.results = vec![value];
-        Ok(())
-    }
-
-    pub(crate) fn assign(&mut self, index: u32, kind: u32) -> Result<(), String> {
-        let value = self.single()?;
-        if kind == 2 {
-            *self
+    /// Borrow only until the next VM operation. Generated code must load before
+    /// growing a vector, and publish any live word before the next safepoint.
+    pub(crate) fn slot(&mut self, index: u32, kind: u32) -> Result<*mut Value, String> {
+        match kind {
+            0 | 1 => {
+                let cell = self.cell(index, kind == 1)?;
+                Ok(&mut self.heap.get_mut::<Cell>(cell)?.0)
+            }
+            2 => self
                 .globals
                 .get_mut(index as usize)
-                .ok_or("invalid global slot")? = value;
-        } else {
-            let cell = self.cell(index, kind == 1)?;
-            match self.heap.get_mut(cell)? {
-                Object::Cell(contents) => *contents = value,
-                _ => return Err("invalid lexical cell".into()),
-            }
+                .map(|v| v as *mut Value)
+                .ok_or("invalid global slot".into()),
+            3 => self
+                .constants
+                .get_mut(index as usize)
+                .map(|v| v as *mut Value)
+                .ok_or("invalid constant slot".into()),
+            _ => Err("invalid slot kind".into()),
         }
-        self.results = vec![Value::Unspecified];
-        Ok(())
     }
 
-    pub(crate) fn capture(&mut self, index: u32, free: bool) -> Result<(), String> {
-        self.operands.push(self.cell(index, free)?);
-        Ok(())
+    pub(crate) fn capture_slot(&mut self, index: u32, free: bool) -> Result<*mut Value, String> {
+        let cells = if free {
+            let closure = self.activation.closure.ok_or("no active closure")?;
+            &mut self.heap.get_mut::<Closure>(closure)?.captures
+        } else {
+            &mut self.activation.locals
+        };
+        cells
+            .get_mut(index as usize)
+            .map(|v| v as *mut Value)
+            .ok_or("invalid lexical slot".into())
+    }
+
+    pub(crate) fn single_slot(&mut self) -> Result<*mut Value, String> {
+        self.single()?;
+        Ok(self.results.as_mut_ptr())
+    }
+
+    pub(crate) fn result_slot(&mut self) -> *mut Value {
+        self.results.clear();
+        self.results.push(Value::UNSPECIFIED);
+        self.results.as_mut_ptr()
+    }
+
+    pub(crate) fn push_slot(&mut self) -> *mut Value {
+        self.operands.push(Value::UNSPECIFIED);
+        self.operands.last_mut().unwrap()
     }
 
     pub(crate) fn close(
@@ -264,19 +286,14 @@ impl Vm {
             .checked_sub(captures as usize)
             .ok_or("not enough closure captures")?;
         let captures = self.operands.split_off(start);
-        let closure = self.alloc(Object::Closure(Closure {
+        let closure = self.alloc(Closure {
             entry,
             required: required as usize,
             has_rest,
             locals: locals as usize,
             captures,
-        }));
+        });
         self.results = vec![closure];
-        Ok(())
-    }
-
-    pub(crate) fn push(&mut self) -> Result<(), String> {
-        self.operands.push(self.single()?);
         Ok(())
     }
 
@@ -325,40 +342,45 @@ impl Vm {
                     }
                 }
             };
-            match self.heap.get(procedure)? {
-                Object::Closure(closure) => {
-                    let (entry, required, has_rest, locals) = (
-                        closure.entry,
-                        closure.required,
-                        closure.has_rest,
-                        closure.locals,
-                    );
-                    return self
-                        .enter_closure(procedure, &arguments, entry, required, has_rest, locals);
-                }
-                Object::Primitive(name) => {
-                    let name = name.clone();
-                    match primitives::primitive(self, &name, &arguments)? {
-                        PrimitiveResult::Values(values) => {
-                            self.results = values;
-                            action = Dispatch::Return;
-                        }
-                        PrimitiveResult::Invoke(next, args) => {
-                            action = Dispatch::Call(next, args);
-                        }
-                        PrimitiveResult::CallWithValues(producer, consumer) => {
-                            self.frames.push(Frame::Consume { consumer });
-                            self.max_frames = self.max_frames.max(self.frames.len());
-                            action = Dispatch::Call(producer, Vec::new());
-                        }
-                        PrimitiveResult::Exit(code) => {
-                            self.exit_code = code;
-                            self.halted = true;
-                            return Ok(STOP);
-                        }
+            if let Some(closure) = self.heap.find::<Closure>(procedure) {
+                let (entry, required, has_rest, locals) = (
+                    closure.entry,
+                    closure.required,
+                    closure.has_rest,
+                    closure.locals,
+                );
+                return self
+                    .enter_closure(procedure, &arguments, entry, required, has_rest, locals);
+            } else if let Some(Primitive(name)) = self.heap.find::<Primitive>(procedure) {
+                let name = name.clone();
+                match primitives::primitive(self, &name, &arguments)? {
+                    PrimitiveResult::Values(values) => {
+                        self.results = values;
+                        action = Dispatch::Return;
+                    }
+                    PrimitiveResult::Invoke(next, args) => {
+                        action = Dispatch::Call(next, args);
+                    }
+                    PrimitiveResult::CallWithValues(producer, consumer) => {
+                        self.frames.push(Frame::Consume { consumer });
+                        self.max_frames = self.max_frames.max(self.frames.len());
+                        action = Dispatch::Call(producer, Vec::new());
+                    }
+                    PrimitiveResult::Collect => {
+                        // All inputs are consumed. Publish the sole result before
+                        // this explicit safepoint; no consumed input is used afterward.
+                        self.results = vec![Value::UNSPECIFIED];
+                        self.collect();
+                        action = Dispatch::Return;
+                    }
+                    PrimitiveResult::Exit(code) => {
+                        self.exit_code = code;
+                        self.halted = true;
+                        return Ok(STOP);
                     }
                 }
-                _ => return Err("attempted to call a non-procedure".into()),
+            } else {
+                return Err("attempted to call a non-procedure".into());
             }
         }
     }
@@ -385,21 +407,21 @@ impl Vm {
         }
         let mut locals = Vec::with_capacity(local_count);
         for value in &arguments[..required] {
-            locals.push(self.alloc(Object::Cell(*value)));
+            locals.push(self.alloc(Cell(*value)));
         }
         if has_rest {
             let rest = self.list(&arguments[required..]);
-            locals.push(self.alloc(Object::Cell(rest)));
+            locals.push(self.alloc(Cell(rest)));
         }
         while locals.len() < local_count {
-            locals.push(self.alloc(Object::Cell(Value::Uninitialized)));
+            locals.push(self.alloc(Cell(Value::UNINITIALIZED)));
         }
         self.activation = Activation {
             closure: Some(procedure),
             locals,
             operand_base: self.operands.len(),
         };
-        self.results = vec![Value::Unspecified];
+        self.results = vec![Value::UNSPECIFIED];
         Ok(entry)
     }
 
@@ -427,7 +449,7 @@ impl Vm {
     }
 
     pub(crate) fn global_primitive(&mut self, index: u32, name: String) -> Result<(), String> {
-        let value = self.alloc(Object::Primitive(name));
+        let value = self.alloc(Primitive(name));
         *self
             .globals
             .get_mut(index as usize)
@@ -440,6 +462,14 @@ impl Vm {
 mod tests {
     use super::*;
 
+    fn integer(value: i64) -> Value {
+        Value::fixnum(value).unwrap()
+    }
+
+    fn slot_value(vm: &mut Vm, index: u32, kind: u32) -> Value {
+        unsafe { *vm.slot(index, kind).unwrap() }
+    }
+
     fn machine(globals: u32) -> Vm {
         let mut vm = Vm::new(globals, 0, vec!["test".into()]);
         vm.set_gc_stress(true);
@@ -447,13 +477,13 @@ mod tests {
     }
 
     fn closure(vm: &mut Vm, entry: u32, required: usize, rest: bool, locals: usize) -> Value {
-        vm.alloc(Object::Closure(Closure {
+        vm.alloc(Closure {
             entry,
             required,
             has_rest: rest,
             locals,
             captures: vec![],
-        }))
+        })
     }
 
     fn call(vm: &mut Vm, procedure: Value, args: &[Value], tail: bool) -> u32 {
@@ -464,21 +494,38 @@ mod tests {
     }
 
     #[test]
+    fn explicit_collection_keeps_caller_operands_and_records_statistics() {
+        let mut vm = machine(0);
+        vm.set_gc_stress(false);
+        let retained = vm.alloc(Text("pending caller argument".into()));
+        vm.operands.push(retained);
+        vm.alloc(Text("garbage".into()));
+        let collect = vm.alloc(Primitive("collect-garbage".into()));
+        assert_eq!(call(&mut vm, collect, &[], false), 900);
+        assert_eq!(
+            vm.string(vm.operands[0]).unwrap(),
+            "pending caller argument"
+        );
+        let stats = vm.gc_statistics();
+        assert_eq!(stats.collections, 1);
+        assert_eq!(stats.allocated - stats.reclaimed, stats.live as u64);
+        assert!(stats.reclaimed >= 2);
+        assert!(stats.max_nanoseconds <= stats.total_nanoseconds);
+        assert!(stats.live <= stats.peak);
+    }
+
+    #[test]
     fn repeated_tail_calls_reuse_the_caller_frame() {
         let mut vm = machine(1);
         let function = closure(&mut vm, 10, 1, false, 1);
         vm.globals[0] = function;
-        assert_eq!(call(&mut vm, function, &[Value::Integer(5000)], false), 10);
+        assert_eq!(call(&mut vm, function, &[integer(5000)], false), 10);
         for expected in (1..=5000).rev() {
             vm.safepoint();
-            vm.refer(0, 0).unwrap();
-            assert_eq!(vm.single().unwrap(), Value::Integer(expected));
-            assert_eq!(
-                call(&mut vm, function, &[Value::Integer(expected - 1)], true),
-                10
-            );
+            assert_eq!(slot_value(&mut vm, 0, 0), integer(expected));
+            assert_eq!(call(&mut vm, function, &[integer(expected - 1)], true), 10);
         }
-        vm.results = vec![Value::Integer(0)];
+        vm.results = vec![integer(0)];
         assert_eq!(vm.return_values().unwrap(), 900);
         assert_eq!(vm.max_frames(), 1);
         vm.collect();
@@ -489,58 +536,47 @@ mod tests {
     fn closure_captures_share_mutable_binding_cells() {
         let mut vm = machine(1);
         let outer = closure(&mut vm, 10, 1, false, 1);
-        call(&mut vm, outer, &[Value::Integer(1)], false);
-        vm.capture(0, false).unwrap();
+        call(&mut vm, outer, &[integer(1)], false);
+        vm.operands.push(vm.cell(0, false).unwrap());
         vm.close(20, 0, false, 0, 1).unwrap();
         let inner = vm.single().unwrap();
         vm.globals[0] = inner;
-        vm.results = vec![Value::Integer(37)];
-        vm.assign(0, 0).unwrap();
+        unsafe {
+            *vm.slot(0, 0).unwrap() = integer(37);
+        }
         assert_eq!(call(&mut vm, inner, &[], false), 20);
         vm.safepoint();
-        vm.refer(0, 1).unwrap();
-        assert_eq!(vm.single().unwrap(), Value::Integer(37));
-        vm.results = vec![Value::Integer(22)];
-        vm.assign(0, 1).unwrap();
+        assert_eq!(slot_value(&mut vm, 0, 1), integer(37));
+        unsafe {
+            *vm.slot(0, 1).unwrap() = integer(22);
+        }
         assert_eq!(vm.return_values().unwrap(), 900);
-        vm.refer(0, 0).unwrap();
-        assert_eq!(vm.single().unwrap(), Value::Integer(22));
+        assert_eq!(slot_value(&mut vm, 0, 0), integer(22));
     }
 
     #[test]
     fn primitive_calls_preserve_pending_outer_arguments() {
         let mut vm = machine(0);
-        let plus = vm.alloc(Object::Primitive("+".into()));
-        vm.operands.push(Value::Integer(99));
-        assert_eq!(
-            call(
-                &mut vm,
-                plus,
-                &[Value::Integer(2), Value::Integer(3)],
-                false
-            ),
-            900
-        );
-        assert_eq!(vm.operands, vec![Value::Integer(99)]);
-        assert_eq!(vm.results(), &[Value::Integer(5)]);
+        let plus = vm.alloc(Primitive("+".into()));
+        vm.operands.push(integer(99));
+        assert_eq!(call(&mut vm, plus, &[integer(2), integer(3)], false), 900);
+        assert_eq!(vm.operands, vec![integer(99)]);
+        assert_eq!(vm.results(), &[integer(5)]);
     }
 
     #[test]
     fn apply_builds_a_rest_list_without_host_calls() {
         let mut vm = machine(0);
         let function = closure(&mut vm, 10, 1, true, 2);
-        let apply = vm.alloc(Object::Primitive("apply".into()));
-        let rest = vm.list(&[Value::Integer(2), Value::Integer(3)]);
+        let apply = vm.alloc(Primitive("apply".into()));
+        let rest = vm.list(&[integer(2), integer(3)]);
         assert_eq!(
-            call(&mut vm, apply, &[function, Value::Integer(1), rest], false),
+            call(&mut vm, apply, &[function, integer(1), rest], false),
             10
         );
         vm.safepoint();
-        vm.refer(1, 0).unwrap();
-        assert_eq!(
-            vm.list_values(vm.single().unwrap()).unwrap(),
-            vec![Value::Integer(2), Value::Integer(3)]
-        );
+        let rest = slot_value(&mut vm, 1, 0);
+        assert_eq!(vm.list_values(rest).unwrap(), vec![integer(2), integer(3)]);
     }
 
     #[test]
@@ -548,33 +584,33 @@ mod tests {
         let mut vm = machine(0);
         let producer = closure(&mut vm, 10, 0, false, 0);
         let consumer = closure(&mut vm, 20, 2, false, 2);
-        let cwv = vm.alloc(Object::Primitive("call-with-values".into()));
+        let cwv = vm.alloc(Primitive("call-with-values".into()));
         assert_eq!(call(&mut vm, cwv, &[producer, consumer], false), 10);
-        let first = vm.alloc(Object::String("first".into()));
-        let second = vm.alloc(Object::String("second".into()));
+        let first = vm.alloc(Text("first".into()));
+        let second = vm.alloc(Text("second".into()));
         vm.results = vec![first, second];
         vm.safepoint();
         assert_eq!(vm.return_values().unwrap(), 20);
         vm.safepoint();
-        vm.refer(0, 0).unwrap();
-        assert_eq!(vm.string(vm.single().unwrap()).unwrap(), "first");
-        vm.refer(1, 0).unwrap();
-        assert_eq!(vm.string(vm.single().unwrap()).unwrap(), "second");
+        let first = slot_value(&mut vm, 0, 0);
+        let second = slot_value(&mut vm, 1, 0);
+        assert_eq!(vm.string(first).unwrap(), "first");
+        assert_eq!(vm.string(second).unwrap(), "second");
         assert_eq!(vm.return_values().unwrap(), 900);
     }
 
     #[test]
     fn collection_traces_live_cycles_and_reclaims_dead_cycles() {
         let mut vm = machine(0);
-        let live = vm.alloc(Object::Pair(Value::Integer(1), Value::Nil));
-        *vm.heap.get_mut(live).unwrap() = Object::Pair(Value::Integer(1), live);
-        let dead = vm.alloc(Object::Pair(Value::Integer(2), Value::Nil));
-        *vm.heap.get_mut(dead).unwrap() = Object::Pair(Value::Integer(2), dead);
+        let live = vm.alloc(Pair(integer(1), Value::NIL));
+        *vm.heap.get_mut::<Pair>(live).unwrap() = Pair(integer(1), live);
+        let dead = vm.alloc(Pair(integer(2), Value::NIL));
+        *vm.heap.get_mut::<Pair>(dead).unwrap() = Pair(integer(2), dead);
         vm.results = vec![live];
         vm.collect();
         assert_eq!(vm.heap.live_objects(), 4);
-        assert!(matches!(vm.heap.get(live), Ok(Object::Pair(_, tail)) if *tail == live));
-        assert!(vm.heap.get(dead).is_err());
+        assert!(matches!(vm.heap.get::<Pair>(live), Ok(Pair(_, tail)) if *tail == live));
+        assert!(!vm.heap.contains(dead));
     }
 
     #[test]
@@ -582,7 +618,7 @@ mod tests {
         let mut vm = machine(0);
         vm.set_gc_stress(false);
         for _ in 0..4096 {
-            vm.alloc(Object::Pair(Value::Integer(1), Value::Nil));
+            vm.alloc(Pair(integer(1), Value::NIL));
             vm.safepoint();
         }
         // Only the three ports survive each collection. The remaining objects
@@ -594,13 +630,13 @@ mod tests {
     fn uninitialized_bindings_fail_and_later_handlers_are_noops() {
         let mut vm = machine(1);
         unsafe {
-            crate::snail_refer_global(&mut vm, 0);
+            crate::snail_rt_uninitialized(&mut vm);
         }
         assert_eq!(vm.error(), Some("read of an uninitialized binding"));
         unsafe {
-            crate::snail_push(&mut vm);
+            assert!(crate::snail_rt_push(&mut vm).is_null());
         }
         assert!(vm.operands.is_empty());
-        assert_eq!(unsafe { crate::snail_call(&mut vm, 0, 1, 0) }, STOP);
+        assert_eq!(unsafe { crate::snail_rt_call(&mut vm, 0, 1, 0) }, STOP);
     }
 }
