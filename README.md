@@ -65,7 +65,7 @@ Use `(cdr (assq 'name fields))` to retrieve a named value. Keys must be unique
 symbols, except `_`, whose parser runs but whose value is discarded.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
-`file->reader` loads a file by path. Apply `((s-file) reader)` to parse a complete
+`file->reader` loads a file by path. Apply `(s-file reader)` to parse a complete
 file, then check `parse-result-ok?` before extracting `parse-result-value`.
 The result contains a list of syntax objects; trailing intertoken space and EOF
 are handled by `s-file`. Source locations and the reader in a failed parse result
