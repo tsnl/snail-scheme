@@ -106,15 +106,17 @@ byte-for-byte from `v3`. VM instructions here are a compilation representation,
 distinct from LLVM bitcode; a bytecode interpreter is not needed for this stage.
 
 Lowering assigns one global slot per defining binding and initializes each
-library once, after its dependencies. All local parameters and definitions get
-heap cells at activation entry. Closures capture cells rather than their current
-values, preserving mutation, recursion, and lifetime across tail calls. Globals
-use their indexed slots directly, including through imported aliases.
+library once, after its dependencies. Local parameters and definitions start as
+direct values in activation slots. The first closure capture promotes a local
+to a shared heap cell; subsequent local accesses and captures use that same
+cell. This preserves mutation, recursion, and lifetime across tail calls without
+allocating cells for uncaptured bindings. Globals use their indexed slots
+directly, including through imported aliases.
 
 Local collection stops at nested lambdas. Capture analysis enters them: a
 grandchild's free binding must be available when its parent constructs it.
 Every lambda's definitions are in scope before visiting their initializers.
-Reading an uninitialized cell or global is a runtime error.
+Reading an uninitialized local, captured cell, or global is a runtime error.
 
 Arguments evaluate left-to-right, followed by the operator. Pending arguments
 remain on the operand stack while nested calls run. A normal call saves the
@@ -296,6 +298,10 @@ reports the ratio of median Snail time to median Chez time. Both targets compare
 with native Chez, using equal repetition counts and alternating execution order.
 Raw samples are retained in JSON; values above one mean Snail took longer.
 The benchmark guide documents the IO adapters and differing collector statistics.
+The [performance diagnosis](performance-baseline.md) counts generated Fibonacci
+operations and records a native CPU profile. LLVM inlines the instruction
+handlers, but the separately compiled Rust services remain opaque; arithmetic
+and calls still pay for generic runtime dispatch.
 
 ## Baseline limits and next steps
 
@@ -310,9 +316,12 @@ Printing cyclic structures produces the diagnostic marker `#<cycle>`, not
 readable graph notation.
 
 Source locations survive in VM instruction metadata, but generated executables
-do not yet produce Scheme source backtraces. All locals are boxed, the full
-bootstrap library is retained, and dynamic calls share one dispatcher. These
-choices establish a measurable baseline before representation and flow analysis.
+do not yet produce Scheme source backtraces. Captured locals use shared cells,
+including immutable captures. Activations and call arguments still use Rust
+vectors; they are not yet packed into a reusable contiguous value stack. The
+full bootstrap library is retained, and dynamic calls share one dispatcher.
+These choices establish a measurable baseline before representation and flow
+analysis.
 
 The instruction functions are already inlined; Rust service calls remain
 ordinary ABI calls. This deliberately exposes a simple baseline for later
