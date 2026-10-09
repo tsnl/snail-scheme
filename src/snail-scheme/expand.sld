@@ -8,7 +8,7 @@
 ;; references, value bindings, and parameters without mutation.
 
 (define-library (snail-scheme expand)
-  (export expand-program expand-library macroexpand-1)
+  (export expand-program expand-library macroexpand-1 make-core-library)
   (import (scheme base)
           (scheme cxr)
           (snail-scheme common)
@@ -21,19 +21,21 @@
     ;;
 
     ;; The loader receives a library-name datum and returns define-library syntax
-    ;; or #f. (scheme base) is supplied internally. Each call starts a fresh library cache.
-    (define (expand-program forms library-loader)
+    ;; or #f. Without initial libraries, (scheme base) is supplied internally.
+    ;; Each call starts a fresh library cache.
+    (define (expand-program forms library-loader . initial-libraries)
       (assert (list? forms))
       (assert (procedure? library-loader))
       (let-values (((imports body) (split-program-imports forms)))
         (expand-program-body imports body library-loader
-                             (and (pair? forms) (syntax-loc (car forms))))))
+                             (and (pair? forms) (syntax-loc (car forms)))
+                             (expansion-library-cache initial-libraries))))
 
-    (define (expand-library form library-loader)
+    (define (expand-library form library-loader . initial-libraries)
       (assert (procedure? library-loader))
       (let-values (((library cache transformers)
                     (expand-library-form form (library-parts form) library-loader
-                                         (initial-library-cache) '() '())))
+                                         (expansion-library-cache initial-libraries) '() '())))
         library))
 
     ;; Perform one head transformation using the transient environment and
@@ -47,9 +49,9 @@
     ;; Program and library
     ;;
 
-    (define (expand-program-body imports body loader loc)
+    (define (expand-program-body imports body loader loc initial-cache)
       (let*-values (((parsed bindings dependencies cache transformers)
-                     (expand-import-declarations imports loader (initial-library-cache) '() '()))
+                     (expand-import-declarations imports loader initial-cache '() '()))
                     ((items environment transformers)
                      (expand-body body '() bindings transformers 1000)))
         (make-program (map cdr parsed) (runtime-items items) dependencies loc)))
@@ -117,6 +119,12 @@
 
     (define (initial-library-cache)
       (list (cons '(scheme base) (core-library))))
+
+    ;; A compiler can provide a separate primitive interface and load its Scheme
+    ;; libraries normally. Existing callers retain the small builtin base library.
+    (define (expansion-library-cache options)
+      (if (null? options) (initial-library-cache)
+          (map (lambda (library) (cons (library-name library) library)) (car options))))
 
     ;; The returned cache and transformer alist include all newly loaded libraries.
     ;; The loading path belongs to this descent only; siblings receive the old path.
@@ -1233,13 +1241,16 @@
       (apply error message (and (syntax? source) (syntax-loc source)) details))
 
     (define (core-library)
-      (make-library '(scheme base) '()
+      (make-core-library '(scheme base) core-primitive-names))
+
+    (define (make-core-library name primitives)
+      (make-library name '()
                     (append
                      (map (lambda (name)
                             (make-named-binding name (make-macro-definition name name #f)))
                           core-syntax-names)
                      (map (lambda (name) (make-named-binding name (make-value-definition name #f)))
-                          core-primitive-names))
+                          primitives))
                     '() #f))
 
     (define core-syntax-names

@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Compile each fixture once, verify its IR, and run native/WASI equivalents."""
+
+import argparse
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build" / "backend-tests"
+TARGET_DIR = ROOT / os.environ.get("CARGO_TARGET_DIR", str(BUILD / "cargo"))
+SUCCESSES = {
+    "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-semantics": "backend checks passed\n",
+}
+ERRORS = {
+    "arity": "procedure expected 1 arguments, received 0",
+    "uninitialized": "read of an uninitialized binding",
+    "values": "expected one value, received 2",
+    "overflow": "integer overflow",
+}
+
+
+def options():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", choices=("native", "wasm", "both"), default="both")
+    return parser.parse_args()
+
+
+def required_tool(variable, default):
+    executable = os.environ.get(variable, default)
+    if not shutil.which(executable):
+        raise RuntimeError(f"cannot find {executable}; set {variable} to its path")
+    return executable
+
+
+def checked(command, **kwargs):
+    subprocess.run(command, cwd=ROOT, check=True, **kwargs)
+
+
+def compile_fixture(name, opt):
+    source = ROOT / "tests" / "programs" / f"{name}.scm"
+    llvm = BUILD / f"{name}.ll"
+    print(f"compile and verify {name}", flush=True)
+    checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
+    checked([opt, "-passes=verify", "-disable-output", str(llvm)])
+    return llvm
+
+
+def cargo_arguments(target):
+    command = ["cargo", "build", "--offline", "--quiet", "-p", "snail-runner"]
+    if target == "wasm":
+        command.extend(["--target", "wasm32-wasip1"])
+    return command
+
+
+def link_fixture(llvm, target):
+    environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm),
+                   "CARGO_TARGET_DIR": str(TARGET_DIR)}
+    checked(cargo_arguments(target), env=environment)
+    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "debug/snail-runner"
+    return TARGET_DIR / suffix
+
+
+def execution_command(executable, target, node):
+    if target == "native":
+        return [str(executable)]
+    return [node, "--no-warnings", str(ROOT / "scripts" / "run-wasi.mjs"), str(executable)]
+
+
+def execute(command, arguments):
+    environment = {**os.environ, "SNAIL_GC_STRESS": "1"}
+    return subprocess.run(command + arguments, cwd=ROOT, env=environment,
+                          text=True, capture_output=True, timeout=120)
+
+
+def require_result(result, stdout, diagnostic):
+    status_matches = result.returncode != 0 if diagnostic else result.returncode == 0
+    message_matches = diagnostic in result.stderr if diagnostic else not result.stderr
+    if not status_matches or result.stdout != stdout or not message_matches:
+        raise RuntimeError(f"unexpected result: exit={result.returncode}\n"
+                           f"stdout={result.stdout!r}\nstderr={result.stderr!r}")
+
+
+def check_fixture(name, executable, target, node):
+    command = execution_command(executable, target, node)
+    if name in SUCCESSES:
+        require_result(execute(command, []), SUCCESSES[name], "")
+    else:
+        for argument, diagnostic in ERRORS.items():
+            require_result(execute(command, [argument]), "", diagnostic)
+    print(f"passed {target}: {name} (GC stress)", flush=True)
+
+
+def test_targets(names, targets, opt, node):
+    for name in names:
+        llvm = compile_fixture(name, opt)
+        for target in targets:
+            executable = link_fixture(llvm, target)
+            check_fixture(name, executable, target, node)
+
+
+def main():
+    target = options().target
+    targets = ("native", "wasm") if target == "both" else (target,)
+    node = required_tool("NODE", "node") if "wasm" in targets else None
+    opt = required_tool("LLVM_OPT", "opt")
+    BUILD.mkdir(parents=True, exist_ok=True)
+    test_targets([*SUCCESSES, "backend-errors"], targets, opt, node)
+    print("backend integration checks passed", flush=True)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, subprocess.SubprocessError) as error:
+        print(f"backend test failed: {error}", file=sys.stderr)
+        sys.exit(1)
