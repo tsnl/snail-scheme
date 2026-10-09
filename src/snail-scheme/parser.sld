@@ -116,7 +116,12 @@
     ;; Transform a parser's value without changing consumption or failure.
     ;; Parser value mapping: (pmap parser transform).
     (define (pmap parser transform)
-      (chain parser (lambda (value) (return (transform value)))))
+      (lambda (reader)
+        (let ((result (parser reader)))
+          (if (parse-result-err? result)
+              result
+              (parse-result-ok (transform (parse-result-value result))
+                               (parse-result-input result))))))
 
     ;; Keep a successful value only when the boolean predicate returns #t.
     ;; Rejection fails at the reader position after parsing that value.
@@ -219,10 +224,15 @@
       (pmap parser (lambda (_) '())))
 
     (define (tuple . parsers)
-      (define (make-binder parser)
-        (lambda (reversed-values)
-          (pmap parser (lambda (value) (cons value reversed-values)))))
-      (pmap (apply chain (ε) (map make-binder parsers)) reverse))
+      (lambda (reader)
+        (let loop ((parsers parsers) (reader reader) (reversed-values '()))
+          (if (null? parsers)
+              (parse-result-ok (reverse reversed-values) reader)
+              (let ((result ((car parsers) reader)))
+                (if (parse-result-err? result)
+                    result
+                    (loop (cdr parsers) (parse-result-input result)
+                          (cons (parse-result-value result) reversed-values))))))))
 
     ;; Fields are (symbol . parser) pairs. `_` runs its parser but omits its value.
     (define (named-tuple . fields)
