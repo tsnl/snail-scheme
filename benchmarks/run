@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Build release benchmarks, verify their answers, and retain timing samples."""
+"""Compare fixed-work Snail benchmarks with native Chez Scheme on the same host."""
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
 import re
 import shutil
+from statistics import median
 import subprocess
 import sys
 
@@ -25,6 +28,24 @@ TIMING = re.compile(r"elapsed: (\d+\.\d{3}) ms; repetitions: (\d+)"
 QUERIES = ("copper owl", "river lantern", "winter fern", "silent comet", "absent phrase")
 
 
+@dataclass(frozen=True)
+class Executable:
+    implementation: str
+    target: str
+    path: Path
+    command: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CompiledModule:
+    """Carry the inputs observed before lowering through Cargo's later link step."""
+
+    path: Path
+    inputs: dict
+
+
+# Command-line configuration and required runtimes.
+
 def positive_integer(text):
     value = int(text)
     if value <= 0:
@@ -37,15 +58,35 @@ def options():
     parser.add_argument("programs", nargs="*", choices=tuple(PROGRAMS))
     parser.add_argument("--target", choices=("native", "wasm", "both"), default="native")
     parser.add_argument("--repeat", type=positive_integer, help="override fixed repetition count")
-    parser.add_argument("--samples", type=positive_integer, default=1)
+    parser.add_argument("--samples", type=positive_integer, default=3)
     parser.add_argument("--json", type=Path, help="write machine-readable measurements")
     parser.add_argument("--no-build", action="store_true", help="run saved executables")
+    comparison_options(parser)
     return parser.parse_args()
+
+
+def comparison_options(parser):
+    parser.add_argument("--chez", default=os.environ.get("CHEZ", "scheme"),
+                        help="Chez executable (default: CHEZ or scheme)")
+    parser.add_argument("--snail-only", action="store_true", help="omit Chez comparisons")
 
 
 def checked(command, **kwargs):
     return subprocess.run(command, cwd=ROOT, check=True, **kwargs)
 
+
+def chez_runtime(arguments):
+    if arguments.snail_only:
+        return None
+    command = shutil.which(arguments.chez)
+    if not command:
+        raise RuntimeError("Chez is required; set --chez/CHEZ or explicitly use --snail-only")
+    version = checked([command, "--version"], text=True, capture_output=True)
+    return {"command": command, "version": (version.stdout + version.stderr).strip(),
+            "optimize_level": 2}
+
+
+# Frozen corpus identity and an independent, whole-file search oracle.
 
 def verify_corpus():
     directory = ROOT / "benchmarks" / "corpus"
@@ -81,15 +122,45 @@ def verify_search_answer(directory):
         raise RuntimeError(f"incorrect frozen-corpus reference answer: {total}")
 
 
+# Compilation carries input identity through the final native or WASI artifact.
+
 def executable_path(name, target):
     extension = ".wasm" if target == "wasm" else ""
     return BUILD / target / (name + extension)
 
 
+def fingerprint(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def input_metadata(name, chez=None):
+    metadata = {"source_sha256": fingerprint(ROOT / "benchmarks" / f"{name}.scm")}
+    if chez:
+        metadata.update(adapter_sha256=fingerprint(ROOT / "benchmarks" / "chez.scm"),
+                        chez_version=chez["version"], optimize_level=chez["optimize_level"])
+    return metadata
+
+
+def record_artifact(name, path, inputs, chez=None):
+    if inputs != input_metadata(name, chez):
+        raise RuntimeError(f"benchmark inputs changed during compilation: {name}; rebuild it")
+    metadata = {**inputs, "executable_sha256": fingerprint(path)}
+    destination = path.with_name(path.name + ".json")
+    destination.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+
+
+def verify_artifact(name, path, chez=None):
+    saved = path.with_name(path.name + ".json")
+    expected = {**input_metadata(name, chez), "executable_sha256": fingerprint(path)}
+    if not saved.is_file() or json.loads(saved.read_text()) != expected:
+        raise RuntimeError(f"saved artifact lacks matching source/build hashes: {path}; rebuild it")
+
+
 def compile_program(name):
-    llvm = BUILD / f"{name}.ll"
-    checked([str(ROOT / "snail-compile"), str(ROOT / "benchmarks" / f"{name}.scm"), str(llvm)])
-    return llvm
+    module = CompiledModule(BUILD / f"{name}.ll", input_metadata(name))
+    checked([str(ROOT / "snail-compile"), str(ROOT / "benchmarks" / f"{name}.scm"),
+             str(module.path)])
+    return module
 
 
 def cargo_command(target):
@@ -99,16 +170,21 @@ def cargo_command(target):
     return command
 
 
-def build_executable(name, llvm, target):
+def build_executable(name, module, target):
     cargo = BUILD / "cargo"
-    environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm), "CARGO_TARGET_DIR": str(cargo)}
+    environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path), "CARGO_TARGET_DIR": str(cargo)}
     checked(cargo_command(target), env=environment)
     artifact = "wasm32-wasip1/release/" if target == "wasm" else "release/"
     artifact += "snail-runner.wasm" if target == "wasm" else "snail-runner"
-    executable = executable_path(name, target)
-    executable.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(cargo / artifact, executable)
-    return executable
+    return save_executable(name, target, cargo / artifact, module.inputs)
+
+
+def save_executable(name, target, artifact, inputs):
+    path = executable_path(name, target)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(artifact, path)
+    record_artifact(name, path, inputs)
+    return path
 
 
 def execution_command(executable, target):
@@ -118,81 +194,153 @@ def execution_command(executable, target):
             str(ROOT / "scripts" / "run-wasi.mjs"), str(executable)]
 
 
+def snail_executable(name, target, llvm):
+    path = build_executable(name, llvm, target) if llvm else executable_path(name, target)
+    verify_artifact(name, path)
+    return Executable("snail", target, path, tuple(execution_command(path, target)))
+
+
+def chez_executable(name, chez, no_build):
+    path = BUILD / "chez" / f"{name}.so"
+    if not no_build:
+        inputs = input_metadata(name, chez)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        checked([chez["command"], "--script", str(ROOT / "benchmarks" / "chez.scm"),
+                 str(ROOT / "benchmarks" / f"{name}.scm"), str(path)])
+        record_artifact(name, path, inputs, chez)
+    verify_artifact(name, path, chez)
+    return Executable("chez", "native", path, (chez["command"], "--program", str(path)))
+
+
+# Validate every execution, then derive ratios from matched, alternating pairs.
+
 def check_output(name, count, stdout):
     lines = stdout.splitlines()
     title, checksum, _ = PROGRAMS[name]
     if len(lines) != 3 or lines[0] != title or lines[1] != f"checksum: {checksum * count}":
         raise RuntimeError(f"incorrect {name} benchmark result: {stdout!r}")
-    match = TIMING.fullmatch(lines[2])
+    return timing_fields(name, count, lines[2])
+
+
+def timing_fields(name, count, line):
+    match = TIMING.fullmatch(line)
     if not match or int(match[2]) != count or bool(match[3]) != (name == "gc"):
-        raise RuntimeError(f"incorrect {name} timing report: {lines[2]!r}")
+        raise RuntimeError(f"incorrect {name} timing report: {line!r}")
+    if not math.isfinite(float(match[1])) or (match[4] and not math.isfinite(float(match[4]))):
+        raise RuntimeError(f"nonfinite {name} timing report: {line!r}")
     return match
 
 
-def measurement(name, target, count, timing, executable):
-    result = {"program": name, "target": target, "repetitions": count,
-              "elapsed_ms": float(timing[1]), "checksum": PROGRAMS[name][1] * count,
-              "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest()}
+def measurement(name, count, timing, executable):
+    provenance = json.loads(executable.path.with_name(executable.path.name + ".json").read_text())
+    result = {**provenance, "program": name, "implementation": executable.implementation,
+              "target": executable.target, "repetitions": count,
+              "elapsed_ms": float(timing[1]), "checksum": PROGRAMS[name][1] * count}
     if timing[3]:
         result.update(gc_collections=int(timing[3]), gc_ms=float(timing[4]))
     return result
 
 
-def run_sample(name, target, executable, count, report=True):
-    command = execution_command(executable, target) + [str(count)]
+def run_sample(name, executable, count, report=True):
+    command = [*executable.command, str(count)]
     result = checked(command, text=True, stdout=subprocess.PIPE, timeout=120)
     timing = check_output(name, count, result.stdout)
     if report:
         print(result.stdout, end="", flush=True)
-    return measurement(name, target, count, timing, executable)
+    return measurement(name, count, timing, executable)
 
 
-def run_program(name, targets, arguments):
+def run_program(name, targets, arguments, chez):
     llvm = None if arguments.no_build else compile_program(name)
+    reference = chez_executable(name, chez, arguments.no_build) if chez else None
     count = arguments.repeat if arguments.repeat is not None else PROGRAMS[name][2]
-    results = []
-    for target in targets:
-        executable = (executable_path(name, target) if llvm is None
-                      else build_executable(name, llvm, target))
-        results.extend(measure_executable(name, target, executable, count, arguments.samples))
-    return results
+    return [measure_target(name, snail_executable(name, target, llvm), reference,
+                           count, arguments.samples) for target in targets]
 
 
-def measure_executable(name, target, executable, count, samples):
-    print(f"benchmark: {target}/{name}", file=sys.stderr, flush=True)
-    run_sample(name, target, executable, count, report=False)
-    return [run_sample(name, target, executable, count) for _ in range(samples)]
+def measure_target(name, executable, reference, count, samples):
+    print(f"benchmark: {executable.target}/{name}", file=sys.stderr, flush=True)
+    run_sample(name, executable, count, report=False)
+    if not reference:
+        return [run_sample(name, executable, count) for _ in range(samples)], []
+    run_sample(name, reference, count, report=False)
+    pairs = [measure_pair(name, executable, reference, count, index) for index in range(samples)]
+    summary = comparison_summary(name, executable.target, count, pairs)
+    report_comparison(summary)
+    return [sample for pair in pairs for sample in pair], [summary]
 
 
-def execution_host(results):
-    host = {"platform": platform.platform()}
+def measure_pair(name, snail, chez, count, index):
+    order = (chez, snail) if index % 2 == 0 else (snail, chez)
+    measured = {exe.implementation: run_sample(name, exe, count, exe.implementation == "snail")
+                for exe in order}
+    if measured["snail"]["source_sha256"] != measured["chez"]["source_sha256"]:
+        raise RuntimeError("comparison artifacts were compiled from different benchmark sources")
+    for position, result in enumerate(measured.values(), 1):
+        result.update(sample=index + 1, comparison_target=snail.target, position_in_pair=position)
+    return measured["snail"], measured["chez"]
+
+
+def comparison_summary(name, target, count, pairs):
+    snail = [sample[0]["elapsed_ms"] for sample in pairs]
+    chez = [sample[1]["elapsed_ms"] for sample in pairs]
+    if min(chez) <= 0 or min(snail) <= 0:
+        raise RuntimeError("timing rounded to zero; increase the matched --repeat count")
+    return {"program": name, "snail_target": target, "chez_target": "native",
+            "repetitions": count, "samples": len(pairs),
+            "snail_median_ms": median(snail), "chez_median_ms": median(chez),
+            "snail_over_chez": median(snail) / median(chez),
+            "paired_ratios": [a / b for a, b in zip(snail, chez)]}
+
+
+def report_comparison(summary):
+    print(f"ratio {summary['program']} Snail-{summary['snail_target']}/Chez-native: "
+          f"{summary['snail_over_chez']:.3f}x "
+          f"({summary['snail_median_ms']:.3f}/{summary['chez_median_ms']:.3f} ms medians)",
+          file=sys.stderr, flush=True)
+
+
+# Preserve raw samples and measurement context alongside derived summaries.
+
+def execution_host(results, chez):
+    host = {"platform": platform.platform(), "snail_gc_stress": "SNAIL_GC_STRESS" in os.environ}
     if any(result["target"] == "wasm" for result in results):
         node = os.environ.get("NODE", "node")
         version = checked([node, "--version"], text=True, stdout=subprocess.PIPE).stdout.strip()
         host["wasm_runtime"] = {"command": node, "version": version}
+    if chez:
+        host["chez_runtime"] = chez
     return host
 
 
-def write_measurements(path, results):
+def write_measurements(path, results, comparisons, chez):
     command = ["git", "rev-parse", "HEAD"]
     revision = checked(command, text=True, stdout=subprocess.PIPE).stdout.strip()
     changes = checked(["git", "status", "--porcelain"], text=True, stdout=subprocess.PIPE).stdout
-    data = {"repository_at_measurement": {"revision": revision, "dirty": bool(changes)},
-            "host": execution_host(results), "warmup_runs": 1, "measurements": results}
+    data = {"schema_version": 2,
+            "repository_at_measurement": {"revision": revision, "dirty": bool(changes)},
+            "host": execution_host(results, chez), "warmup_runs": 1,
+            "measurements": results, "comparisons": comparisons}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def run_benchmarks(arguments, chez):
+    targets = ("native", "wasm") if arguments.target == "both" else (arguments.target,)
+    groups = [group for name in arguments.programs or PROGRAMS
+              for group in run_program(name, targets, arguments, chez)]
+    return ([sample for samples, _ in groups for sample in samples],
+            [ratio for _, ratios in groups for ratio in ratios])
+
+
 def main():
     arguments = options()
+    chez = chez_runtime(arguments)
     verify_corpus()
     BUILD.mkdir(parents=True, exist_ok=True)
-    targets = ("native", "wasm") if arguments.target == "both" else (arguments.target,)
-    results = []
-    for name in arguments.programs or PROGRAMS:
-        results.extend(run_program(name, targets, arguments))
+    results, comparisons = run_benchmarks(arguments, chez)
     if arguments.json:
-        write_measurements(arguments.json, results)
+        write_measurements(arguments.json, results, comparisons, chez)
 
 
 if __name__ == "__main__":
