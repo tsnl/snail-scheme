@@ -87,6 +87,52 @@ The profiled executable has SHA-256
 Compiler/runtime source identities and individual-change measurements accompany
 the [benchmark results](../benchmarks/README.md).
 
+The compiled compiler exercises a different allocation-heavy workload. Compiling
+Fibonacci with its standard-library imports took 215 seconds on the finalized
+runtime, including 125 seconds in GC and 423 million managed allocations. Its
+LLVM matched Chibi's output byte for byte. This capability check is a single
+observation, not a controlled compiler-throughput comparison; the Fibonacci CPU
+profile should not be generalized to all compiler work.
+
+## Hosted compilation latency
+
+The normal CLI uses Chibi to run the compiler. A timed invocation of
+`./snail-scheme examples/fibonacci.scm --timing --runtime-stats` reported:
+
+| Reported phase | Seconds |
+|---|---:|
+| Entry-file parse | 0.511 |
+| Expansion, including imported-library reading/parsing | 18.687 |
+| Lowering | 0.003 |
+| LLVM text emission | 0.110 |
+| Cargo build and program execution | 1.598 |
+| Program runtime, included in the previous row | 0.779 |
+
+An independent Chibi run wrapped the library loader with timers around file
+reading, parser construction, and parser execution. Parsing the 16,801-byte
+`bootstrap/scheme/base.sld` took 14.696 seconds; `write.sld` and `time.sld` took
+0.099 and 0.101 seconds. Actual expansion after subtracting library loading and
+parsing took just 0.025 seconds. These separate observations vary in duration,
+but both locate the delay before lowering or machine-code generation.
+
+The `expand` timer currently includes `library-loader` calls to `read-source`.
+Libraries are cached within one expansion; every new compilation parses them
+again. The immediate bottleneck is therefore parsing imported source, not
+repeated macro expansion. `expand-head` already applies head transformers until
+none remains before processing the resulting core expression.
+
+`s-expr` constructs its alternative parser graphs inside a runtime binder for
+each datum, including the numeric grammar through `s-atom`. Construction and
+allocation are candidates for profiling, not a quantified explanation yet.
+The landed parser and expander are unchanged by this backend cleanup.
+
+Run mode uses a debug Rust runtime unless `--release` is supplied; that affects
+execution speed but does not remove the hosted parsing cost. Each invocation
+also creates a fresh Cargo target directory. In this run the entire build and
+launch overhead outside program runtime was about 0.82 seconds. To run a program
+repeatedly without compiling it each time, build it once with `-o` and invoke
+the resulting executable.
+
 ## Scope of the baseline cleanup
 
 Ordinary locals now hold direct tagged values. First capture promotes a binding

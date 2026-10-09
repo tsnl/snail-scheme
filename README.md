@@ -69,8 +69,17 @@ symbols, except `_`, whose parser runs but whose value is discarded.
 file, then check `parse-result-ok?` before extracting `parse-result-value`.
 The result contains a list of syntax objects; trailing intertoken space and EOF
 are handled by `s-file`. Source locations and the reader in a failed parse result
-retain the filename. The historical `src/snail-scheme/main.scm` entry can still
-report parse failures or print syntax records when invoked directly with Chibi.
+retain the filename. The historical `src/snail-scheme/main.scm` defines a parser
+inspection procedure named `main`; it does not call that procedure itself.
+Chibi's `-r` supplies the invocation:
+
+```sh
+chibi-scheme -I src -r src/snail-scheme/main.scm examples/fibonacci.scm
+```
+
+Compiling this definition-only file produces no output when run. The actual
+compiler entry is `src/snail-scheme/compile.scm`, which invokes `compiler-main`
+at top level; see [compiling the compiler](doc/backend.md#compiling-the-compiler).
 
 `make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
 parser, syntax, and pattern test libraries from the same directory. Test helpers also
