@@ -107,6 +107,58 @@ alongside the Node version for WASI runs and whether Snail's GC stress mode is
 enabled. The artifact sidecars establish source identity; checkout metadata still describes the
 measurement context rather than claiming a saved binary's build revision.
 
+## Runtime optimization ablations
+
+`ablate` saves compiled runtime variants before measuring them. Build both
+snapshots first, changing one runtime feature between them, then stop competing
+builds and tests before comparing:
+
+```sh
+benchmarks/ablate snapshot before
+# Apply one runtime change.
+benchmarks/ablate snapshot after --reuse-ir before
+benchmarks/ablate compare before after --json build/benchmarks/runtime-change.json
+```
+
+Snapshots live under `build/benchmarks/ablations/NAME/`. Existing names are
+refused. Each successful snapshot contains native and WASI executables, source
+and binary hash sidecars, reusable LLVM, compiler/runtime file hashes, and the
+source patch against the recorded Git revision. LLVM reuse verifies compiler
+source identity, benchmark source identity, and LLVM bytes before linking the
+changed Rust runtime. Failed snapshots may be incomplete and must be discarded.
+
+The comparison uses only saved executables. It checks all answers, warms both
+variants, then alternates their execution order for three sample pairs. CPU,
+memory, and GC perform 16 repetitions per sample; I/O performs four. JSON retains
+every elapsed time, checksum, repetition count, executable hash, source identity,
+and position in its pair. Speedup is the before median divided by the after
+median. These runs isolate successive runtime changes; the regular runner still
+provides the native Chez reference. Preserve the source patches alongside any
+checked-in ablation reports so each variant can be reconstructed.
+
+The [2026-10-09 local-storage comparison](results/2026-10-09-local-storage.json)
+starts from clean commit `10e9296`. The next comparisons add
+[borrowed strings](results/2026-10-09-string-borrow.json), then
+[singleton result reuse](results/2026-10-09-single-result.json). Each compares
+saved binaries in the same idle measurement window. Three-pair median speedups
+are shown as **native / WASI**; these are before/after improvements, not Chez ratios.
+
+| Added change | CPU | Memory | I/O | GC |
+| --- | ---: | ---: | ---: | ---: |
+| Direct uncaptured locals | 1.20 / 1.33 | 2.65 / 2.23 | 1.09 / 1.04 | 1.24 / 1.23 |
+| Borrow strings during inspection | 1.01 / 1.02 | 0.99 / 1.00 | 1.01 / 1.03 | 1.00 / 1.01 |
+| Reuse storage for singleton results | 1.03 / 1.07 | 1.05 / 1.07 | 0.99 / 1.06 | 1.02 / 1.06 |
+
+String borrowing removes needless copies but establishes no material speedup in
+these samples. Singleton reuse improves CPU and memory in every sample pair;
+its native I/O and GC differences remain inconclusive. Three samples describe
+this host and workload, not a universal performance guarantee. The cumulative
+patches against `10e9296` reconstruct [local-only](results/2026-10-09-local-only.patch),
+[local-borrow](results/2026-10-09-local-borrow.patch), and
+[local-borrow-single](results/2026-10-09-local-borrow-single.patch).
+
+## Workloads
+
 | Program | Fixed work per repetition | Checksum per repetition |
 | --- | --- | ---: |
 | `cpu.scm` | Naive recursive Fibonacci at 22, 23, 24, and 25 | 4204971 |

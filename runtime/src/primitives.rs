@@ -5,6 +5,7 @@ use crate::{host, object::*, vm::Vm};
 use std::{cmp::Ordering, collections::HashSet};
 
 pub(crate) enum PrimitiveResult {
+    Value(Value),
     Values(Vec<Value>),
     Invoke(Value, Vec<Value>),
     CallWithValues(Value, Value),
@@ -21,10 +22,6 @@ pub(crate) fn arity<T>(name: &str, args: &[T], min: usize, max: usize) -> Result
             args.len()
         ))
     }
-}
-
-fn one(value: Value) -> Result<PrimitiveResult, String> {
-    Ok(PrimitiveResult::Values(vec![value]))
 }
 
 pub(crate) fn primitive(
@@ -95,7 +92,7 @@ pub(crate) fn primitive(
         }
         _ => return Err(format!("unknown primitive: {name}")),
     };
-    one(value)
+    Ok(PrimitiveResult::Value(value))
 }
 
 fn numeric_arguments(vm: &Vm, args: &[Value]) -> Result<Vec<Number>, String> {
@@ -397,7 +394,8 @@ fn string(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         "string-contains" => string_contains(vm, args),
         "string->symbol" => {
             arity(name, args, 1, 1)?;
-            Ok(vm.intern(&vm.string(args[0])?))
+            let name = vm.string(args[0])?.to_owned();
+            Ok(vm.intern(&name))
         }
         "symbol->string" => {
             arity(name, args, 1, 1)?;
@@ -419,32 +417,37 @@ fn string(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         }
         "substring" => {
             arity(name, args, 3, 3)?;
-            let text: Vec<char> = vm.string(args[0])?.chars().collect();
-            let start = args[1].index(&vm.heap)?;
-            let end = args[2].index(&vm.heap)?;
+            let text = vm.string(args[0])?;
+            let start = string_byte_offset(text, args[1].index(&vm.heap)?)
+                .ok_or("substring indices out of range")?;
+            let end = string_byte_offset(text, args[2].index(&vm.heap)?)
+                .ok_or("substring indices out of range")?;
             let part = text
                 .get(start..end)
                 .ok_or("substring indices out of range")?;
-            Ok(vm.alloc(Text(part.iter().collect())))
+            Ok(vm.alloc(Text(part.to_owned())))
         }
         _ => unreachable!(),
     }
 }
 
+fn string_byte_offset(text: &str, index: usize) -> Option<usize> {
+    text.char_indices()
+        .map(|(offset, _)| offset)
+        .chain([text.len()])
+        .nth(index)
+}
+
 fn string_contains(vm: &mut Vm, args: &[Value]) -> Result<Value, String> {
     arity("string-contains", args, 2, 3)?;
-    let text = &vm.heap.get::<Text>(args[0])?.0;
-    let pattern = &vm.heap.get::<Text>(args[1])?.0;
+    let text = vm.string(args[0])?;
+    let pattern = vm.string(args[1])?;
     let start = match args.get(2) {
         Some(n) => n.index(&vm.heap)?,
         None => 0,
     };
-    let byte_start = text
-        .char_indices()
-        .map(|(index, _)| index)
-        .chain([text.len()])
-        .nth(start)
-        .ok_or("string-contains: start index out of range")?;
+    let byte_start =
+        string_byte_offset(text, start).ok_or("string-contains: start index out of range")?;
     let found = text[byte_start..]
         .find(pattern)
         .map(|index| start + text[byte_start..byte_start + index].chars().count());
@@ -487,7 +490,7 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
     }
     if name == "string->number" {
         let text = vm.string(args[0])?;
-        match i64::from_str_radix(&text, radix as u32) {
+        match i64::from_str_radix(text, radix as u32) {
             Ok(n) => return Ok(vm.integer(n)),
             Err(error)
                 if matches!(
@@ -500,7 +503,7 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
             Err(_) => {}
         }
         if radix == 10 {
-            let float = parse_float(&text);
+            let float = parse_float(text);
             if let Some(n) = float {
                 return Ok(vm.float(n));
             }
@@ -1008,9 +1011,43 @@ mod tests {
         );
         let part = string(&mut vm, "substring", &[text, integer(1), integer(3)]).unwrap();
         assert_eq!(vm.string(part).unwrap(), "λ😀");
-        assert!(string(&mut vm, "substring", &[text, integer(3), integer(1)]).is_err());
+        let empty = string(&mut vm, "substring", &[text, integer(4), integer(4)]).unwrap();
+        assert_eq!(vm.string(empty).unwrap(), "");
+        for (start, end) in [(3, 1), (0, 5), (5, 5), (-1, 0)] {
+            assert!(string(&mut vm, "substring", &[text, integer(start), integer(end)]).is_err());
+        }
         assert!(string(&mut vm, "string-ref", &[text, integer(4)]).is_err());
         assert!(string(&mut vm, "string-ref", &[text, integer(-1)]).is_err());
+        let combining = vm.alloc(Text("e\u{301}".into()));
+        let mark = string(&mut vm, "substring", &[combining, integer(1), integer(2)]).unwrap();
+        assert_eq!(vm.string(mark).unwrap(), "\u{301}");
+    }
+
+    #[test]
+    fn string_construction_and_interning_preserve_inputs() {
+        let mut vm = vm();
+        let first = vm.alloc(Text("aλ".into()));
+        let same = vm.alloc(Text("aλ".into()));
+        let second = vm.alloc(Text("😀z".into()));
+        let joined = string(&mut vm, "string-append", &[first, second]).unwrap();
+        assert_eq!(vm.string(joined).unwrap(), "aλ😀z");
+        let empty = string(&mut vm, "string-append", &[]).unwrap();
+        assert_eq!(vm.string(empty).unwrap(), "");
+        assert_eq!(
+            string(&mut vm, "string=?", &[first, same]).unwrap(),
+            Value::TRUE
+        );
+        assert_eq!(
+            string(&mut vm, "string=?", &[first, second]).unwrap(),
+            Value::FALSE
+        );
+        assert!(string(&mut vm, "string=?", &[first, second, integer(0)]).is_err());
+        let symbol = string(&mut vm, "string->symbol", &[first]).unwrap();
+        assert_eq!(string(&mut vm, "string->symbol", &[same]).unwrap(), symbol);
+        let restored = string(&mut vm, "symbol->string", &[symbol]).unwrap();
+        assert_eq!(vm.string(restored).unwrap(), "aλ");
+        assert_eq!(vm.string(first).unwrap(), "aλ");
+        assert_eq!(vm.string(second).unwrap(), "😀z");
     }
 
     #[test]

@@ -1,0 +1,40 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 8K of event 'cpu-clock:u'
+# Event count (approx.): 8105315729
+#
+# Overhead  Command  Shared Object  Symbol
+# ........  .......  .............  .............................................................................................
+#
+    17.13%  cpu      cpu            [.] snail_runtime::vm::Vm::dispatch
+    12.91%  cpu      libc.so.6      [.] cfree@GLIBC_2.2.5
+     8.98%  cpu      libc.so.6      [.] malloc
+     6.39%  cpu      cpu            [.] snail_rt_call
+     5.36%  cpu      cpu            [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+     5.16%  cpu      cpu            [.] core::hash::BuildHasher::hash_one
+     3.53%  cpu      cpu            [.] snail_runtime::primitives::primitive
+     3.46%  cpu      cpu            [.] snail_program
+     3.45%  cpu      cpu            [.] <core::iter::adapters::map::Map<I,F> as core::iter::traits::iterator::Iterator>::try_fold
+     3.40%  cpu      cpu            [.] snail_rt_enter
+     3.02%  cpu      cpu            [.] snail_runtime::vm::Vm::slot
+     2.78%  cpu      cpu            [.] core::iter::adapters::try_process
+     2.56%  cpu      cpu            [.] <core::hash::sip::Hasher<S> as core::hash::Hasher>::write
+     2.28%  cpu      cpu            [.] <T as core::any::Any>::type_id
+     2.20%  cpu      cpu            [.] snail_runtime::vm::Vm::call
+     1.99%  cpu      cpu            [.] snail_rt_slot
+     1.97%  cpu      cpu            [.] snail_runtime::primitives::numeric_compare
+     1.56%  cpu      cpu            [.] __rustc::__rust_dealloc
+     1.53%  cpu      cpu            [.] __rustc::__rust_no_alloc_shim_is_unstable_v2
+     1.39%  cpu      cpu            [.] snail_rt_result
+     1.27%  cpu      cpu            [.] snail_rt_return
+     1.23%  cpu      cpu            [.] snail_rt_push
+     1.23%  cpu      cpu            [.] snail_rt_single
+     1.14%  cpu      cpu            [.] __rustc::__rust_alloc
+
+
+#
+# (Tip: For memory address profiling, try: perf mem record / perf mem report)
+#
