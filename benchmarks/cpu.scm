@@ -6,7 +6,7 @@
 ;; The iterative implementation supplies an independent, untimed oracle.
 (import (scheme base) (scheme write) (scheme time) (scheme process-context))
 
-;; Inputs and the two algorithms.
+;; ---- Inputs and algorithms ----
 
 (define inputs '(22 23 24 25))
 

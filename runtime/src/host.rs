@@ -370,6 +370,8 @@ fn set_current_port(vm: &mut Vm, name: &str, args: &[Value]) -> Result<(), Strin
     Ok(())
 }
 
+// ---- Tests ----
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -874,6 +874,8 @@ fn quoted_string(output: &mut String, text: &str) {
     output.push('"');
 }
 
+// ---- Tests ----
+
 #[cfg(test)]
 mod tests {
     use super::*;

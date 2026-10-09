@@ -13,7 +13,8 @@
    call-with-input-file
    file->string
 
-   ;; Character predicates
+   ;; ---- Character predicates ----
+
    char-alphabetic?
    char-numeric?
    char-whitespace?
@@ -40,6 +41,9 @@
    (scheme write))
 
   (begin
+
+    ;; ---- Character predicates ----
+
     ;; Character classes for the lexical grammar. Numeric digits are ASCII;
     ;; the host's Unicode alphabetic predicate also permits letters in identifiers.
 
@@ -88,15 +92,12 @@
     (define (char-dot-subsequent? c)
       (or (char-sign-subsequent? c) (eqv? c #\.)))
 
-    ;; display-error
-    ;;
+    ;; ---- Diagnostics ----
 
     (define (display-error message)
       (display message (current-error-port)))
 
-    ;;
-    ;; first, second, third, fourth
-    ;;
+    ;; ---- List accessors ----
 
     (define (first it) (list-ref it 0))
     (define (second it) (list-ref it 1))
@@ -106,9 +107,7 @@
     (define (every? predicate items)
       (or (null? items) (and (predicate (car items)) (every? predicate (cdr items)))))
 
-    ;;
-    ;; string utils
-    ;;
+    ;; ---- String utilities ----
 
     (define (repeat-string s n)
       (let loop ((i 0)
@@ -123,9 +122,7 @@
           (thunk))
         (get-output-string port)))
 
-    ;;
-    ;; stringify
-    ;;
+    ;; ---- Expression spelling ----
 
     (define-syntax stringify
       (syntax-rules ()
@@ -134,9 +131,7 @@
                 (str-val (with-output-to-string (lambda () (write datum)))))
            str-val))))
 
-    ;;
-    ;; assert
-    ;;
+    ;; ---- Assertions ----
 
     (define-syntax assert
       (syntax-rules ()
@@ -145,17 +140,14 @@
              '()
              (error "assertion failed" (stringify x))))))
 
-    ;;
-    ;; todo
-    ;;
+    ;; ---- Unimplemented operations ----
 
     (define (todo what)
       (error (string-append "todo: not implemented" what)))
 
-    ;;
-    ;; file->string (call-with-input-file is re-exported from scheme file)
-    ;;
+    ;; ---- File input ----
 
+    ;; call-with-input-file is re-exported from (scheme file).
     (define (file->string filepath)
       (call-with-input-file filepath
         (lambda (port)

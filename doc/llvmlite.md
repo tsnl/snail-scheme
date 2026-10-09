@@ -121,9 +121,11 @@ as an alias of its existing simple `write` primitive.
 
 ## Verification
 
-`make test` covers deterministic reuse, type and scope errors, malformed blocks,
-and byte escaping. `scripts/test-backend` additionally assembles and executes a
-module built directly through this API on native and WASI. That fixture includes
+`make test` calls `test-llvmlite`, the sole test entry point exported by
+`llvmlite.sld` when `snail-tests` is enabled. Its private unit tests cover
+deterministic reuse, type and scope errors, malformed blocks, and byte escaping.
+`scripts/test-backend` additionally assembles and executes the standalone
+`tests/emit-llvmlite.scm` fixture through this API on native and WASI. It includes
 a loop with two phi backedges, arithmetic, a Unicode function name, an array
 load, and a switch whose default reports failure. The existing Scheme semantic
 fixtures exercise the migrated emitter with collection at every VM safepoint.

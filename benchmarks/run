@@ -44,7 +44,7 @@ class CompiledModule:
     inputs: dict
 
 
-# Command-line configuration and required runtimes.
+# ---- Command-line configuration and required runtimes ----
 
 def positive_integer(text):
     value = int(text)
@@ -86,7 +86,7 @@ def chez_runtime(arguments):
             "optimize_level": 2}
 
 
-# Frozen corpus identity and an independent, whole-file search oracle.
+# ---- Corpus identity and search oracle ----
 
 def verify_corpus():
     directory = ROOT / "benchmarks" / "corpus"
@@ -122,7 +122,7 @@ def verify_search_answer(directory):
         raise RuntimeError(f"incorrect frozen-corpus reference answer: {total}")
 
 
-# Compilation carries input identity through the final native or WASI artifact.
+# ---- Compilation and artifact identity ----
 
 def executable_path(name, target):
     extension = ".wasm" if target == "wasm" else ""
@@ -212,7 +212,7 @@ def chez_executable(name, chez, no_build):
     return Executable("chez", "native", path, (chez["command"], "--program", str(path)))
 
 
-# Validate every execution, then derive ratios from matched, alternating pairs.
+# ---- Execution and comparison ----
 
 def check_output(name, count, stdout):
     lines = stdout.splitlines()
@@ -300,7 +300,7 @@ def report_comparison(summary):
           file=sys.stderr, flush=True)
 
 
-# Preserve raw samples and measurement context alongside derived summaries.
+# ---- Samples and summaries ----
 
 def execution_host(results, chez):
     host = {"platform": platform.platform(), "snail_gc_stress": "SNAIL_GC_STRESS" in os.environ}

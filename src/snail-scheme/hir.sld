@@ -13,14 +13,17 @@
 
 (define-library (snail-scheme hir)
   (export
-   ;; Program and library
+
+   ;; ---- Program and library ----
+
    <program> make-program program? program-imports program-items
    program-dependencies program-loc
    <library> make-library library? library-name library-declarations
    library-exports library-dependencies library-loc
    <library-body> make-library-body library-body? library-body-items library-body-loc
 
-   ;; Import and export
+   ;; ---- Import and export ----
+
    <import-declaration> make-import-declaration import-declaration? import-declaration-sets
    import-declaration-bindings import-declaration-loc
    <export-declaration> make-export-declaration export-declaration? export-declaration-specs
@@ -40,11 +43,13 @@
    <import-rename> make-import-rename import-rename? import-rename-from import-rename-to
    import-rename-loc
 
-   ;; Value definition
+   ;; ---- Value definition ----
+
    <value-binding> make-value-binding value-binding? value-binding-definition
    value-binding-initializer value-binding-loc
 
-   ;; Expression
+   ;; ---- Expression ----
+
    <name> make-name name? name-definition name-loc
    <literal> make-literal literal? literal-value literal-loc
    <application> make-application application? application-operator application-operands
@@ -56,16 +61,16 @@
    conditional-opt-alternate conditional-loc
    <assignment> make-assignment assignment? assignment-target assignment-value assignment-loc
 
-   ;; Identity
+   ;; ---- Identity ----
+
    <value-definition> make-value-definition value-definition? value-definition-name
    value-definition-loc
    <named-binding> make-named-binding named-binding? named-binding-name named-binding-definition)
 
   (import (scheme base))
   (begin
-    ;;
-    ;; Program and library
-    ;;
+
+    ;; ---- Program and library ----
 
     (define-record-type <program>
       (make-program
@@ -101,9 +106,7 @@
       (items library-body-items)
       (loc library-body-loc))
 
-    ;;
-    ;; Import and export
-    ;;
+    ;; ---- Import and export ----
 
     (define-record-type <import-declaration>
       (make-import-declaration
@@ -195,9 +198,7 @@
       (to import-rename-to)
       (loc import-rename-loc))
 
-    ;;
-    ;; Value binding
-    ;;
+    ;; ---- Value binding ----
 
     ;; The initializer and references share an identity reserved during body discovery.
     (define-record-type <value-binding>
@@ -210,9 +211,7 @@
       (initializer value-binding-initializer)
       (loc value-binding-loc))
 
-    ;;
-    ;; Expression
-    ;;
+    ;; ---- Expression ----
 
     ;; A reference retains both the definition identity and its own source location.
     (define-record-type <name>
@@ -286,9 +285,7 @@
       (value assignment-value)
       (loc assignment-loc))
 
-    ;;
-    ;; Identity
-    ;;
+    ;; ---- Identity ----
 
     ;; Defining nodes and references share this object; neither stores a scope.
     (define-record-type <value-definition>

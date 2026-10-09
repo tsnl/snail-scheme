@@ -30,7 +30,7 @@ Run a Scheme program, or build an executable with -o.
 Program arguments after -- are passed literally and require run mode.
 CHIBI, NODE, LLVM_LLC and LLVM_OPT select tool executables.";
 
-// ---- Arguments and execution modes ---------------------------------------
+// ---- Arguments and execution modes ----
 
 #[derive(Default, Debug)]
 struct Options {
@@ -121,7 +121,7 @@ fn validate_options(options: &Options) -> Result<()> {
     Ok(())
 }
 
-// ---- Invocation-owned files ---------------------------------------------
+// ---- Invocation-owned files ----
 
 struct Project {
     directory: PathBuf,
@@ -212,7 +212,7 @@ fn prepare_outputs(options: &Options, input: &Path) -> Result<(Option<PathBuf>, 
     Ok((output, dump))
 }
 
-// ---- Scheme emission and Cargo project ----------------------------------
+// ---- Scheme emission and Cargo project ----
 
 fn compile(
     root: &Path,
@@ -364,7 +364,7 @@ fn emit(project: &Project, output: Option<&Path>) -> Result<i32> {
     Ok(0)
 }
 
-// ---- Entry point ---------------------------------------------------------
+// ---- Entry point ----
 
 fn execute(options: Options) -> Result<i32> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();

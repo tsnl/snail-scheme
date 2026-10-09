@@ -393,14 +393,28 @@ WASIp1 targets.
 
 ## Checks and benchmark measurements
 
-The tests follow the same boundaries. [`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm)
-runs the CLI, reader, combinator, syntax-parser, and pattern suites under Chibi.
-The Rust modules contain their representation, GC, primitive, port, and
-continuation tests. [`scripts/test-backend`](scripts/test-backend) compiles
+The tests follow the same boundaries. Each tested Scheme module ends with a
+`Tests` section containing private cases and one exported `test-<module>` entry
+point. `make test` enables Chibi's `snail-tests` feature;
+[`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm) calls the CLI, reader,
+combinator, syntax-parser, pattern, expander, LLVM emitter, and llvmlite entries.
+Shared assertions in `tests/` depend only on Scheme base and write, avoiding
+cycles with the implementation modules. Importing a module does not run tests,
+and normal builds omit their imports, exports, and definitions.
+
+The expander selects library-level `cond-expand` declarations before resolving
+imports or expanding bodies. It advertises `snail-scheme` independently of the
+host; compiled programs therefore omit the host-only `snail-tests` branches.
+Inactive branches are still read as syntax. This preserves the compiler's ability
+to compile its own source files without requiring host-only testing facilities.
+
+The Rust modules also end with their representation, GC, primitive, port, and
+continuation tests under `#[cfg(test)]`. [`scripts/test-backend`](scripts/test-backend) compiles
 bootstrap and semantic fixtures, verifies LLVM, links both targets, and executes
 them under GC stress. [`scripts/test-cli`](scripts/test-cli) exercises CLI modes,
 artifact publication, literal arguments, and native/WASI execution.
-The backend error fixture checks arity, undefined reads,
+The direct LLVM fixture in [`tests/emit-llvmlite.scm`](tests/emit-llvmlite.scm)
+builds a module through the public IR API. The backend error fixture checks arity, undefined reads,
 single-value contexts, and integer overflow.
 
 [`scripts/run-wasi.mjs`](scripts/run-wasi.mjs) supplies Node's WASIp1 imports,
