@@ -1,5 +1,8 @@
 # Baseline workloads
 
+For compiler latency, parser ablations, and the distinction between Chibi and
+the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
+
 These four standalone Scheme programs provide fixed work and checked answers
 before type inference or other compiler optimizations are added. Each prints
 exactly three lines: its title, a deterministic checksum, and elapsed milliseconds.
