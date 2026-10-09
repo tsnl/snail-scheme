@@ -152,3 +152,12 @@ Bytevector literals use `#u8(...)` with exact integer elements from 0 through 25
 `(bytevector ...)` is an ordinary application. String line continuations,
 datum labels, and case directives are still pending. The input stream
 remains backed by a character list.
+
+## Agent skills
+
+The `skills/` submodule references [tsnl/skills](https://github.com/tsnl/skills).
+Run `git submodule update --init skills` after cloning, then see the
+[skills README](https://github.com/tsnl/skills#use-with-codex-and-claude-code)
+for Codex and Claude Code setup.
+The [explain-and-refactor skill](https://github.com/tsnl/skills/blob/main/skills/explain-and-refactor/SKILL.md)
+guides explanation-driven simplification and review.
