@@ -293,7 +293,8 @@ does not move the threshold farther away. Statistics count objects, not bytes.
 ## Activations, continuations, and Rust services
 
 [`runtime/src/vm.rs`](runtime/src/vm.rs) holds the machine's roots and control
-state. An `Activation` owns local cells, its closure, and its operand-stack base.
+state. An `Activation` owns local slots, its closure, and its operand-stack base.
+Each local stores either a direct value or a shared cell created on first capture.
 A return frame saves an activation and resume label. A consumer frame saves the
 procedure that should receive a producer's multiple values.
 
@@ -301,13 +302,17 @@ procedure that should receive a producer's multiple values.
 arguments and operator, saves the caller for an ordinary call, or replaces the
 activation for a tail call. `dispatch` then advances explicit call and return
 actions until generated Scheme code needs to resume. `enter_closure` checks
-arity, allocates parameter and local cells, builds a rest list when needed, and
-returns the procedure entry label. `return_values` reuses the same dispatcher.
+arity, installs direct parameter and local values, builds a rest list when needed,
+and returns the procedure entry label. `return_values` reuses the same dispatcher.
 No Scheme call recursively enters generated code through the Rust call stack.
+Primitive outcomes distinguish one value, multiple values, and control requests.
+`set_result` reuses the VM's result vector for ordinary single-value publications.
 
 `slot`, `capture_slot`, `single_slot`, `result_slot`, and `push_slot` are the
-checked storage services used by LLVM instruction bodies. A capture selects the
-cell itself; a lexical reference selects its contents. Slot pointers are
+checked storage services used by LLVM instruction bodies. Capturing a direct
+local allocates and publishes its shared cell without collecting. Later captures
+reuse it. A capture selects the cell itself; a lexical reference selects either
+the direct value or the cell's contents. Slot pointers are
 short-lived: growing the underlying vector can invalidate them. These services
 do not collect, and generated code must finish its loads and stores before the
 next safepoint.
@@ -338,8 +343,11 @@ the VM's explicit error state.
 `numeric_arguments` decodes numbers before checked arithmetic;
 `compare_integer_float` avoids first rounding a large exact integer to `f64`.
 The pair, vector, bytevector, string, character, and record operations validate
-types and indices before use. Record descriptors are generative identities,
-and `constructor_fields` establishes field order by name. `apply` and
+types and indices before use. `Vm::string` borrows text for reads;
+`string_byte_offset` translates Unicode-scalar indices for substring and search.
+Constructors own their output before allocating it in the heap. Record descriptors
+are generative identities, and `constructor_fields` establishes field order by
+name. `apply` and
 `call-with-values` return dispatch requests instead of calling Scheme from Rust.
 `format_value` uses its own work stack for deep structures and detects cycles
 on the current print path, so shared acyclic values print normally.
@@ -382,6 +390,13 @@ execution order while holding work and repetition counts equal;
 artifact hashes, and pairing order remain in JSON. `record_artifact` records
 input hashes around successful builds; `verify_artifact` checks saved files
 before `--no-build` reuses them. WASI Snail also compares with native Chez.
+
+[`benchmarks/ablate`](benchmarks/ablate) saves runtime variants with `snapshot`,
+including native/WASI executables, reusable LLVM, source hashes, and source
+patches. `compare` checks that the compiler and toolchain stayed fixed, runs
+equal workloads in alternating pairs, and saves raw samples with median
+speedups. These comparisons isolate individual runtime changes before the
+next optimization milestone.
 
 [`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
 shared. `copy-program` replaces their imports with the required compatibility
@@ -426,7 +441,7 @@ A useful order for an optimization change is HIR identity, lowering's storage
 and tail-position decisions, VM operations, then the corresponding LLVM body
 and Rust service. HIR and VM dumps expose the boundaries before machine code;
 benchmarks and semantic fixtures provide separate performance and correctness
-checks. All locals currently use cells, values remain dynamically checked, and
+checks. Captured locals use cells, values remain dynamically checked, and
 library bodies are retained. Those choices make the costs visible before type
 inference changes representation or removes checks.
 

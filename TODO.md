@@ -52,6 +52,8 @@
   - [ ] Checked traced edges for custom Rust objects and an object-tracing derive macro
 - [ ] Type inference and optimization after the executable baseline
   - [ ] Design closed-world lattice analysis and function specialization
+  - [ ] Expose specialized arithmetic, known calls, and local value flow to LLVM;
+    preserve a checked dynamic fallback ([baseline diagnosis](doc/performance-baseline.md))
   - [ ] Add occurrence typing and strict annotations incrementally
   - [ ] Compare optimizations against the native/WASI benchmark baseline
 - [ ] Switch the compiler's build to self-hosting after capability validation

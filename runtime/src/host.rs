@@ -160,7 +160,7 @@ fn invoke(vm: &mut Vm, name: &str, args: &[Value]) -> Result<PrimitiveResult, St
         }
         _ => unreachable!(),
     };
-    Ok(PrimitiveResult::Values(vec![value]))
+    Ok(PrimitiveResult::Value(value))
 }
 
 fn port_mut(vm: &mut Vm, value: Value) -> Result<&mut Port, String> {
@@ -178,15 +178,14 @@ fn open_port(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, String> {
         arity(name, args, 1, 1)?;
         let path = vm.string(args[0])?;
         if name == "open-input-file" {
-            let text =
-                std::fs::read_to_string(&path).map_err(|e| format!("{name}: {path}: {e}"))?;
+            let text = std::fs::read_to_string(path).map_err(|e| format!("{name}: {path}: {e}"))?;
             Port::Input {
                 chars: text.chars().collect(),
                 offset: 0,
                 closed: false,
             }
         } else {
-            let file = File::create(&path).map_err(|e| format!("{name}: {path}: {e}"))?;
+            let file = File::create(path).map_err(|e| format!("{name}: {path}: {e}"))?;
             Port::FileOutput(Some(file))
         }
     };
@@ -413,12 +412,11 @@ mod tests {
         let text = vm.alloc(Text("λ".into()));
         output(&mut vm, "display", &[text, port]).unwrap();
         output(&mut vm, "newline", &[port]).unwrap();
-        let PrimitiveResult::Values(values) =
-            invoke(&mut vm, "get-output-string", &[port]).unwrap()
+        let PrimitiveResult::Value(value) = invoke(&mut vm, "get-output-string", &[port]).unwrap()
         else {
             panic!("get-output-string must return a value");
         };
-        assert_eq!(vm.string(values[0]).unwrap(), "λ\n");
+        assert_eq!(vm.string(value).unwrap(), "λ\n");
         close_port(port_mut(&mut vm, port).unwrap()).unwrap();
         assert!(output(&mut vm, "newline", &[port]).is_err());
     }
