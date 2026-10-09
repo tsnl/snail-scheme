@@ -14,6 +14,9 @@
   - [ ] Imports, exports, and lexical scoping
 - [ ] Macro expansion
   - [ ] `syntax-rules` pattern/template engine
+  - [ ] Design default errors for unbound `syntax-rules` literals and macros
+    imported without their bound auxiliary keywords; relax these checks in
+    strict R7RS mode
   - [ ] Macro expansion, `macro-expand-1`
   - [ ] Fully expand in context
     - [ ] Dispatch `#%-macro`, `#%-let-syntax`, and `#%-letrec-syntax`

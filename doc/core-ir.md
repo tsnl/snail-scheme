@@ -453,7 +453,7 @@ and report checked failures. Arithmetic is defined as wrapping or checked.
 
 | Representation | Contents |
 | --- | --- |
-| Syntax objects | Atoms, lists/improper tails, source locations, and lexical context; later vectors |
+| Syntax objects | Atoms, lists/improper tails, vectors, source locations, and lexical context |
 | Library records | Cached interfaces, binding identities, transformer descriptors, and dependencies |
 | Core AST | Libraries with retained import/export/body declarations, expanded core forms, ordinary applications, and resolved references; no `◰` forms |
 | Checked IR | Inferred arguments, types, union conversions, captures, ownership operations, and recursive groups |
@@ -647,6 +647,67 @@ The target is [R7RS §4.3.2](https://standards.scheme.org/corrected-r7rs/r7rs-Z-
 and its [grammar](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-9.html#TAG:__tex2page_sec_7.1.5),
 not the additional repetition rules of [SRFI 149](https://srfi.schemers.org/srfi-149/srfi-149.html).
 A matcher lacking vectors or other datum forms must identify itself as a subset.
+
+### Literal binding identity
+
+A `syntax-rules` literal imposes an identifier-matching condition; it does not
+capture input or evaluate the identifier's value. Match the binding visible at
+the macro definition with the binding visible at its invocation. Equal binding
+identities match, including renamed imports of the same binding. Different
+bindings do not match, even when their spellings and runtime values agree.
+If both identifiers are unbound, match equal symbol names; if only one is bound,
+they do not match. This is the rule in
+[R7RS §4.3.2](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-6.html#TAG:__tex2page_sec_4.3.2).
+
+This R7RS example was verified in Chibi Scheme 0.12.0:
+
+```scheme
+(define-syntax recognize
+  (syntax-rules (marker)
+    ((_ marker) 'literal)
+    ((_ anything) 'other)))
+
+(recognize marker)                 ; => literal
+(let ((marker 42))
+  (recognize marker))              ; => other
+```
+
+The definition-site `marker` is unbound. The first invocation also supplies an
+unbound `marker`; the second supplies the identifier bound by `let`, so it selects
+the fallback rule. Binding lookup establishes identity without evaluating `42`.
+If the macro were defined inside that `let`, its literal would refer to the same
+binding and would match. An inner `let` would introduce another identity.
+
+Libraries normally bind and export auxiliary keywords alongside their macros.
+Clients import the keywords and macro together, preserving shared identities
+through import renaming. Shadowing still introduces a distinct identity, and
+exporting a macro does not require exporting its private implementation helpers.
+See [SRFI 206: Auxiliary Syntax Keywords](https://srfi.schemers.org/srfi-206/srfi-206.html).
+
+The current public `syntax-dispatch` matches symbol spellings. Its private dispatcher builder
+takes explicit ellipsis, literal-list, and lookup arguments, separates raw patterns
+(host datums) and callbacks, and parses
+the patterns independently. `dispatch-syntax-against-pattern-list` walks the
+parallel parsed-pattern and callback lists. Parsing records literal symbols without
+resolving bindings. Matching constructs structured match results; a final pass
+flattens these into the callback capture alist.
+Callbacks can decline a structurally matching pattern by returning `#f`.
+Dispatch returns the first callback value other than `#f`, or `#f` if no callback
+accepts; an empty capture alist is a truthy result.
+The matcher takes a mandatory symbol-to-identity lookup function and
+the matcher compares identities with `eqv?`; the public wrapper passes `(lambda (x) x)`.
+The matcher applies lookup to both the literal symbol and the input identifier
+when comparing them. Unbound identifiers retain their symbols as identities; a shared
+"unbound" sentinel would incorrectly make different names match. Bound identities
+must remain distinct from unbound symbols.
+
+The current symbol-only lookup does not distinguish definition and use contexts.
+The eventual hygienic matcher must resolve literals in the definition environment
+and input identifiers in their own lexical contexts. Retain the definition
+environment separately from pattern parsing, and retain context per syntax
+occurrence, including mixed definition-site and use-site syntax produced by
+expansion. A single global symbol table cannot supply that information.
+Lexical scoping and `syntax-rules` expansion are not implemented yet.
 
 ### Immutable engine representation
 
@@ -891,8 +952,8 @@ Track the working checklist in [TODO.md](../TODO.md).
 5. **Scheme:** complete dynamic lowering and libraries after mutation, cyclic
    storage, multiple values, and full control semantics are specified.
 
-The existing `syntax.sld` supplies located atoms and lists, not hygienic context
-or this core AST. `#%-` identifiers, square/curly delimiters, `→`, vectors, and
+The existing `syntax.sld` supplies located atoms, lists, and vectors, not hygienic
+context or this core AST. `#%-` identifiers, square/curly delimiters, `→`, vectors, and
 binding scopes still need reader/expander work. Examples specify intended behavior;
 they do not yet run.
 

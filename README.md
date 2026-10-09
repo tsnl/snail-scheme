@@ -59,7 +59,7 @@ retain the filename. The launcher reports parse failures or prints the syntax re
 parser, and syntax test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.
 
-`syntax-pattern` builds an ordered dispatcher from host Scheme patterns and
+`syntax-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
 callbacks. It matches the whole input form; list literal identifiers explicitly
 to dispatch on a head, or use `_` to ignore it:
 
@@ -70,44 +70,48 @@ to dispatch on a head, or use `_` to ignore it:
         (snail-scheme syntax-pattern))
 
 (define dispatch
-  (syntax-pattern (make-syntax-pattern-context '... '(define))
+  (syntax-dispatch '... '(define)
     (list
       (cons '(define name value)
-        (lambda (matched)
-          (map match-group-data (match-result-groups matched)))))))
+        (lambda (captures)
+          (map cdr captures))))))
 
-(dispatch (car (parse-result-value ((s-file) (string->reader "example.scm" "(define x 42)")))))
+(define result
+  (dispatch (car (parse-result-value ((s-file) (string->reader "example.scm" "(define x 42)"))))))
+result                                      ; syntax objects for x and 42
 ```
 
-The result has separate success and callback-return fields, so returning `#f`
-still selects an arm. No match returns failure with an empty return field.
-Callbacks receive one `match-result`; groups appear in pattern traversal order.
-A singleton group's data is the original syntax object. Repeated groups contain
+Dispatch returns the first callback value other than `#f`. A callback returning
+`#f` declines its branch and dispatch tries the next pattern. If no callback
+accepts, dispatch returns `#f`. Only `#f` is false in Scheme: `'()`, `0`, and `""`
+all select their branch.
+Callbacks receive an association list of `(name . capture)` entries in pattern
+traversal order. Use `(cdr (assq 'name captures))` to retrieve a capture.
+A singleton capture is the original syntax object. Repeated captures contain
 lists nested once per ellipsis, preserving empty and ragged repetitions.
 Synthesized list tails reuse the containing list's location and original children.
-`make-syntax-pattern-context` takes an explicit ellipsis symbol and literal list,
-plus an optional literal comparator. The comparator receives a literal name and
-input identifier; its default compares spellings. Validation, matching, and
-dispatch share this context:
+`syntax-dispatch` takes an ellipsis symbol, a literal list, and pattern/callback
+pairs. Dispatch separates patterns and callbacks, parses the patterns independently,
+and walks the parallel lists with `dispatch-syntax-against-pattern-list`.
+Literal identifiers match by symbol spelling: the private dispatcher builder takes explicit
+ellipsis, literal-list, and lookup arguments. Lookup maps symbols to identities
+compared with `eqv?`, and the public wrapper supplies `(lambda (x) x)`.
+Parsing classifies literal symbols without calling lookup. Matching resolves
+literal and input symbols through lookup and constructs private match-result
+records. A final pass flattens successful results into the callback alist.
 
-```scheme
-(define context (make-syntax-pattern-context '... '()))
-(pattern? context '(x ...))                 ; => #t
-(pattern? context '(1 ...))                 ; => #t, no variables required
-(pattern-variables context '(1 ...))        ; => ()
-(pattern-variables context '(x x))          ; => (x x)
-(pattern? context '(x x))                   ; => #f, duplicate variables
-(match-syntax-pattern-arm context '(x ...) (car (parse-result-value ((s-file) (string->reader "example.scm" "(1 2)")))))
-```
-
-`pattern?` returns a boolean. `pattern-variables` only collects variable
-occurrences in traversal order, always returning a list; validation checks
-uniqueness separately. `match-syntax-pattern-arm` exposes matching without
-dispatch. Patterns support
-unique variables, wildcards, constants, dotted lists, vectors, custom ellipses,
-and one repeated segment per sequence level. Bytevectors match as constants.
-The context's comparator can supply binding-aware literal matching for a later
-scoping pass.
+Patterns support unique variables, wildcards, constants, dotted lists, vectors,
+custom ellipses, and one repeated segment per sequence level. Bytevectors match
+as constants. Invalid patterns, including duplicate variables, are rejected when
+constructing the dispatcher. Successful matches can have an empty capture list.
+List and vector patterns are parsed into a prefix, an optional repeated item, and
+a suffix; lists additionally carry an optional improper-tail pattern. Matching
+consumes the prefix, reserves and matches the suffix and tail, then matches the
+repeated item against the remaining elements. Flattening preserves pattern order,
+original syntax objects, and empty and ragged repetition captures.
+The intended binding-aware semantics for future `syntax-rules` expansion,
+including shadowed literals and exported auxiliary keywords, are documented in
+[the macro design](doc/core-ir.md#literal-binding-identity).
 
 Lexical scoping and macro expansion are pending. `make-atom-syntax` constructs
 atoms from a value and source location. Later passes will carry lexical scope in
@@ -120,9 +124,10 @@ or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifier
 (including `|...|`, `#%-` names, and `→`), and line, nested block, and datum comments.
 `s-list` tries proper lists first, then improper lists with at least one element
 and a required dotted tail. `s-vector` parses `#`-prefixed proper lists.
-Both use `(make-list-syntax elements improper-tail loc prefix)`;
-`list-syntax-prefix` returns `()` for lists and `"#"` for vectors. Their elements
-retain syntax objects and source locations. `s-bytevector` validates
+Lists use `(make-list-syntax elements improper-tail loc)`; vectors have their
+own record, `(make-vector-syntax elements loc)`, recognized by `vector-syntax?`.
+Both store lists of child syntax objects and preserve their source locations.
+Vector locations start at the `#` prefix; list locations start at the opening fence. `s-bytevector` validates
 each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
 The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,

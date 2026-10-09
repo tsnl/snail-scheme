@@ -22,8 +22,11 @@
         (list 'list
               (syntax-value (list-syntax-elements value))
               (syntax-value (list-syntax-improper-tail value))
-              (syntax-value (syntax-loc value))
-              (list-syntax-prefix value)))
+              (syntax-value (syntax-loc value))))
+       ((vector-syntax? value)
+        (list 'vector
+              (syntax-value (vector-syntax-elements value))
+              (syntax-value (syntax-loc value))))
        ((loc? value)
         (list (loc-filename value) (loc-line value) (loc-column value)))
        ((pair? value) (cons (syntax-value (car value)) (syntax-value (cdr value))))
@@ -64,7 +67,7 @@
       (check-ok (s-file) "; line\n#| block |# #; ignored " '())
       (check-ok (s-file) "; line\n#;#t x" (list (atom 'x 2 6)))
       (check-ok (s-list) "(;line\n a #;b . #|tail|# c )"
-                (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1) '()))
+                (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1)))
       (check-fail (s-file) "#| unfinished")
       (check-fail (s-file) "#;")
       (check-fail (s-file) "#| outer #| unfinished |#")
@@ -243,19 +246,19 @@
 
     (define (test-s-vector)
       (check-fail (s-vector) "(a b)")
-      (check-ok (s-vector) "#()" (make-list-syntax '() '() (at 1 1) "#"))
+      (check-ok (s-vector) "#()" (make-vector-syntax '() (at 1 1)))
       (check-ok (s-vector) "#(a 12)"
-                (make-list-syntax (list (atom 'a 1 3) (atom 12 1 5)) '() (at 1 1) "#"))
+                (make-vector-syntax (list (atom 'a 1 3) (atom 12 1 5)) (at 1 1)))
       (check-ok (s-vector) "#(#(x))"
-                (make-list-syntax
-                 (list (make-list-syntax (list (atom 'x 1 5)) '() (at 1 3) "#")) '() (at 1 1) "#"))
+                (make-vector-syntax
+                 (list (make-vector-syntax (list (atom 'x 1 5)) (at 1 3))) (at 1 1)))
       (check-ok (s-vector) "#[(a . b) #u8(1)]"
-                (make-list-syntax
-                 (list (make-list-syntax (list (atom 'a 1 4)) (atom 'b 1 8) (at 1 3) '())
-                       (atom #u8(1) 1 11)) '() (at 1 1) "#"))
+                (make-vector-syntax
+                 (list (make-list-syntax (list (atom 'a 1 4)) (atom 'b 1 8) (at 1 3))
+                       (atom #u8(1) 1 11)) (at 1 1)))
       (check-ok (s-file) " \n#(x)"
-                (list (make-list-syntax (list (atom 'x 2 3)) '() (at 2 1) "#")))
-      (expect (syntax? (make-list-syntax '() '() (at 1 1) "#")) #t)
+                (list (make-vector-syntax (list (atom 'x 2 3)) (at 2 1))))
+      (expect (syntax? (make-vector-syntax '() (at 1 1))) #t)
       (check-fail (s-atom) "#(1 2)")
       (for-each
        (lambda (text)
@@ -265,31 +268,37 @@
 
     (define (test-s-list)
       (check-fail (s-list) "#(a b)")
-      (check-ok (s-list) "()" (make-list-syntax '() '() (at 1 1) '()))
-      (check-ok (s-list) "( \n)" (make-list-syntax '() '() (at 1 1) '()))
+      (check-ok (s-list) "()" (make-list-syntax '() '() (at 1 1)))
+      (check-ok (s-list) "( \n)" (make-list-syntax '() '() (at 1 1)))
       (check-ok (s-list) "(a 12 )"
-                (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1) '()))
+                (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1)))
       (check-ok (s-list) "(a . b )"
-                (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1) '()))
+                (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
       (check-ok (s-list) "(a . b)"
-                (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1) '()))
+                (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1)))
       (check-ok (s-list) "(())"
-                (make-list-syntax (list (make-list-syntax '() '() (at 1 2) '())) '() (at 1 1) '()))
+                (make-list-syntax (list (make-list-syntax '() '() (at 1 2))) '() (at 1 1)))
       (check-ok (s-list) "(a . ())"
-                (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6) '()) (at 1 1) '()))
+                (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6)) (at 1 1)))
       (check-ok (s-list) "[a {12}]"
                 (make-list-syntax
-                 (list (atom 'a 1 2) (make-list-syntax (list (atom 12 1 5)) '() (at 1 4) '()))
-                 '() (at 1 1) '()))
+                 (list (atom 'a 1 2) (make-list-syntax (list (atom 12 1 5)) '() (at 1 4)))
+                 '() (at 1 1)))
       (check-ok (s-list) "(.x ... |.| \".\")"
                 (make-list-syntax
                  (list (atom '.x 1 2) (atom '... 1 5) (atom (string->symbol ".") 1 9)
                        (atom "." 1 13))
-                 '() (at 1 1) '()))
+                 '() (at 1 1)))
       (check-fail (s-list) "(. a)")
       (check-fail (s-list) "(a .)")
       (check-fail (s-list) "(a . b c)")
       (check-fail (s-list) "(a"))
+
+    (define (test-syntax->datum)
+      (let ((forms (pmap (s-file) (lambda (forms) (map syntax->datum forms)))))
+        (check-ok forms "'#(a (b . c) #() #u8(1))"
+                  '((quote #(a (b . c) #() #u8(1)))))
+        (check-ok forms "(a . #(b #()))" '((a . #(b #()))))))
 
     (define (test-improper-tail)
       (check-ok (improper-tail) " . a" (atom 'a 1 4))
@@ -297,9 +306,9 @@
       (check-ok (improper-tail) ".;comment\nx" (atom 'x 2 1))
       (check-ok (improper-tail) ". #;ignored #t" (atom #t 1 13))
       (check-ok (improper-tail) ".(x)"
-                (make-list-syntax (list (atom 'x 1 3)) '() (at 1 2) '()))
+                (make-list-syntax (list (atom 'x 1 3)) '() (at 1 2)))
       (check-ok (improper-tail) ".(x . y)"
-                (make-list-syntax (list (atom 'x 1 3)) (atom 'y 1 7) (at 1 2) '()))
+                (make-list-syntax (list (atom 'x 1 3)) (atom 'y 1 7) (at 1 2)))
       (check-ok (improper-tail) ".\"x\"" (atom "x" 1 2))
       (check-ok (improper-tail) ".|x|" (atom 'x 1 2))
       (check-fail (improper-tail) "")
@@ -318,16 +327,16 @@
            (check-ok (s-quote) (string-append prefix "x")
                      (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
                                        '()
-                                       (at 1 1) '()))))
+                                       (at 1 1)))))
        '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
       (check-ok (s-quote) "'\nx"
-                (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1) '()))
+                (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
       (check-ok (s-quote) "''x"
                 (make-list-syntax
                  (list (atom 'quote 1 1)
-                       (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2) '()))
+                       (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
                  '()
-                 (at 1 1) '()))
+                 (at 1 1)))
       (check-fail (s-quote) "'" "")
       (check-fail (s-quote) ",@)" ")"))
 
@@ -355,7 +364,7 @@
                  (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
                        (make-atom-syntax 'x (make-loc "example.scm" 2 2)))
                  '()
-                 (make-loc "example.scm" 2 1) '())))))
+                 (make-loc "example.scm" 2 1))))))
       (let ((result ((s-file) (string->reader "broken.scm" "("))))
         (expect (parse-result-err? result) #t)
         (expect (reader-filename (parse-result-input result)) "broken.scm")))
@@ -376,6 +385,7 @@
       (run-test test-s-bytevector)
       (run-test test-s-vector)
       (run-test test-s-list)
+      (run-test test-syntax->datum)
       (run-test test-improper-tail)
       (run-test test-s-quote)
       (run-test test-expr-and-file)

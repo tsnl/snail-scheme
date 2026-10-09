@@ -83,21 +83,20 @@
                         (fenced-elements #\[ #\] (s-expr))
                         (fenced-elements #\{ #\} (s-expr)))))
         (lambda (fields)
-          (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields)) '())))
+          (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields)))))
        (improper-list)))
 
     (define (s-vector)
       (pmap
        (named-tuple
         `(loc . ,(location))
-        `(prefix . ,(tag "#"))
+        `(_ . ,(tag "#"))
         `(elements . ,(choice
                        (fenced-elements #\( #\) (s-expr))
                        (fenced-elements #\[ #\] (s-expr))
                        (fenced-elements #\{ #\} (s-expr)))))
        (lambda (fields)
-         (make-list-syntax (cdr (assq 'elements fields)) '() (cdr (assq 'loc fields))
-                           (cdr (assq 'prefix fields))))))
+         (make-vector-syntax (cdr (assq 'elements fields)) (cdr (assq 'loc fields))))))
 
     (define (improper-list)
       (choice
@@ -125,7 +124,7 @@
         `(_ . ,(char close)))
        (lambda (fields)
          (make-list-syntax (cdr (assq 'elements fields)) (cdr (assq 'tail fields))
-                           (cdr (assq 'loc fields)) '()))))
+                           (cdr (assq 'loc fields))))))
 
     (define (improper-tail)
       (chain
@@ -152,7 +151,7 @@
            (make-list-syntax
             (list (make-atom-syntax (cdr (assq 'name fields)) loc)
                   (cdr (assq 'value fields)))
-            '() loc '())))))
+            '() loc)))))
 
     ;; Atomic literals
 
