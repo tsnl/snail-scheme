@@ -23,11 +23,12 @@ the compiler itself. A later Cargo invocation still has to turn its LLVM output
 into an executable. Generated LLVM receives O2 even when the Rust runtime is
 debug-built.
 
-The updated generated compiler was executed in native release, native debug,
-and WASI release builds. All emitted Fibonacci LLVM byte-identical to Chibi's
-output. Native release took 4.249 s, native debug 41.514 s, and WASI release
-6.494 s in these single validation runs. These demonstrate the build-mode
-distinction; they are not before/after optimization benchmarks.
+After the combinator change, the generated compiler was executed in native
+release, native debug, and WASI release builds. All emitted Fibonacci LLVM
+byte-identical to Chibi's output. Native release took 4.249 s, native debug
+41.514 s, and WASI release 6.494 s in these single validation runs. These
+demonstrate the build-mode distinction; they are not before/after optimization
+benchmarks.
 
 ## Combinator ablations under Chibi
 
@@ -67,30 +68,79 @@ workload: the detailed profiling harness even suggested an end-to-end regression
 that did not occur through the normal entry point. Diagnostic timings identify
 work to inspect; the uninstrumented entry point supplies latency comparisons.
 
+## Numeric-start guard under Chibi
+
+The next change adds one non-consuming check before the numeric grammar. Its
+possible first characters are ASCII decimal digits, `#`, `+`, `-`, and `.`.
+Candidates still run the original grammar; the guard preserves signed specials,
+complex numbers, radix/exactness prefixes, and number-versus-symbol boundaries.
+Both parsers remain immutable values constructed once during library loading.
+
+Individual alternatives already reject `hello` at its first character. The
+cost is retrying that character through nested choices: an instrumented count
+found **31 character checks and 72 parse-result constructions** in one call to
+the original numeric-spelling parser, without advancing its reader. The guard
+reduces this to **one check and two results**. An ordinary identifier attempts
+the numeric grammar twice, once as a possible number and again in the identifier
+rule's exclusion. Parsing `hello` as an atom therefore drops from 88 checks and
+200 results to 28 checks and 60 results. These counts come from separate
+diagnostic copies; timing runs contain no instrumentation.
+
+The baseline is `f1838c2`, with both combinator improvements already applied.
+Five alternating fresh-process pairs used the same `base.sld` as above. Three
+alternating pairs compiled a frozen copy of the baseline compiler sources with
+the normal Chibi entry point, excluding Cargo. All six LLVM outputs were
+byte-identical and the output passed LLVM verification.
+
+| Workload | Before, seconds | After, seconds | Reduction |
+| --- | ---: | ---: | ---: |
+| Parse `bootstrap/scheme/base.sld` | 1.396 | 0.513 | 63.3% |
+| Compile frozen compiler sources to LLVM | 16.949 | 10.265 | 39.4% |
+
+Stage medians for that full compilation were:
+
+| Chibi compiler stage | Before, seconds | After, seconds |
+| --- | ---: | ---: |
+| Entry parsing | 0.013 | 0.004 |
+| Expansion, including imported-source parsing | 11.422 | 4.690 |
+| Lowering | 0.084 | 0.076 |
+| LLVM emission | 5.053 | 5.009 |
+
+The generated native compiler with the release Rust runtime took **4.158 s
+before and 2.613 s after** to compile a frozen Fibonacci input to LLVM, a
+**37.2% reduction** across three alternating pairs. These times exclude building
+the compiler executable and exclude Cargo compilation of its LLVM output. The
+updated compiler also ran successfully on `wasm32-wasip1` (5.358 s in a single
+validation run, including Node startup). All native and WASI outputs matched
+Chibi's Fibonacci LLVM byte for byte.
+
+Regression tests cover rejection at a noninitial source position, unprefixed
+`inf.0`/`nan.0`/`i` as symbols, and existing numeric spellings and boundaries.
+A differential probe compared 8,039 inputs through `s-number`, `s-symbol`,
+`s-atom`, and the number/symbol literal predicates. Values, success/failure,
+remainders, source locations, and unchanged-reader identity all matched.
+The [raw report](../benchmarks/results/2026-10-09-numeric-start.json) records the
+samples, diagnostic methods, comparison corpus, and source hashes.
+
 ## Next candidates
 
-1. **Reject impossible numeric starts early.** An ordinary identifier tries the
-   numeric grammar once as a possible number and again inside the identifier
-   rule. A temporary, immutable first-character check reduced the same parse
-   from 1.459 s to 0.523 s in three paired samples after the combinator changes.
-   The existing syntax tests passed. This prototype is recorded, but is not part
-   of the combinator change.
-2. **Reduce repeated library parsing.** The `expand` timer includes loading and
-   parsing imported libraries. In a diagnostic compiler-source run, actual
-   expansion took 0.608 s versus 12.034 s for those reads and parses. A
-   versioned cache of located library syntax could avoid repeated work across
-   invocations, but needs source/version invalidation and preserved locations.
-3. **Profile LLVM emission for larger programs.** It accounts for about 4.45 s
-   when generating the compiler's LLVM. The large dispatcher and destination
+1. **Profile LLVM emission for larger programs.** It now accounts for about
+   5.01 s of the 10.27 s compiler-source run. The large dispatcher and destination
    list deserve attention; changing line breaks alone did not help in a probe.
    Lowering is currently too small to justify prioritizing it.
+2. **Reduce repeated library parsing.** The `expand` timer includes loading and
+   parsing imported libraries. In a diagnostic compiler-source run before the
+   numeric-start guard, actual expansion took 0.608 s versus 12.034 s for those
+   reads and parses. Reprofile after the guard before estimating further wins. A
+   versioned cache of located library syntax could avoid repeated work across
+   invocations, but needs source/version invalidation and preserved locations.
 
 Chibi GC is significant in the diagnostic run, but single probes with 16 MiB
 and 64 MiB initial heaps did not establish an overall speedup. Cargo currently
 uses a fresh target directory per CLI invocation. A native release build probe
 that changed only an LLVM comment took 0.801 s with fresh build directories and
 0.665 s with dependencies reused (three paired samples). On this host, that
-saving is much smaller than the remaining parser opportunity.
+saving is much smaller than the numeric-start improvement above.
 
 ## Reproduction
 

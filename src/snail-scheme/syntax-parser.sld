@@ -183,7 +183,7 @@
        (if decimal? (optional (number-prefix radix)) (number-prefix radix))
        (complex-number digit? decimal?)))
 
-    (define numeric-spelling
+    (define numeric-spelling-body
       (pmap
        (choice
         (radix-number "#b" char-binary-digit? #f)
@@ -191,6 +191,17 @@
         (radix-number "#x" char-hexadecimal-digit? #f)
         (radix-number "#d" char-decimal-digit? #t))
        spelling->string))
+
+    ;; Every number starts with a prefix marker, sign, dot, or decimal digit.
+    ;; Skip the nested alternatives for other starts; they would all retry the
+    ;; same character, both here and in the identifier's numeric exclusion.
+    (define numeric-spelling
+      (chain
+       (lookahead
+        (char-if (lambda (character)
+                   (or (char-decimal-digit? character)
+                       (memv character '(#\# #\+ #\- #\.))))))
+       (lambda (_) numeric-spelling-body)))
 
     ;;; Identifier spellings
 

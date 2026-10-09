@@ -128,6 +128,15 @@
       (check-fail s-number "#e1/0" "")
       (check-fail s-number ""))
 
+    (define (test-number-failure-position)
+      (for-each
+       (lambda (text)
+         (let* ((reader (make-reader "number.scm" (string->list text) 3 7))
+                (result (s-number reader)))
+           (expect (parse-result-err? result) #t)
+           (expect (eq? (parse-result-input result) reader) #t)))
+       '("" "hello" "f" "i" "inf.0" "nan.0" "λ" "١" " " "\n" "(")))
+
     (define (test-symbols)
       (for-each
        (lambda (name) (check-ok s-symbol name (atom (string->symbol name) 1 1)))
@@ -154,7 +163,7 @@
        (lambda (text)
          (check-ok s-atom text (atom (string->symbol text) 1 1))
          (expect (parse-result-err? (s-number (string->reader "symbol.scm" text))) #t))
-       '("+name" ".name" "+item" "+inf.0x" "+nan.0x"))
+       '("hello" "f" "i" "inf.0" "nan.0" "λ" "+name" ".name" "+item" "+inf.0x" "+nan.0x"))
       (for-each
        (lambda (text) (check-fail s-file text))
        '("+12abc" ".12abc" "hello#t" "#t1" "#falseish" "#e1/0"))
@@ -390,6 +399,7 @@
       (run-test test-s-boolean)
       (run-test test-integers)
       (run-test test-s-number)
+      (run-test test-number-failure-position)
       (run-test test-symbols)
       (run-test test-number-symbol-boundaries)
       (run-test test-literal-predicates)
