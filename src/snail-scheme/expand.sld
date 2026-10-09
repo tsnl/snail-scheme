@@ -16,9 +16,8 @@
           (snail-scheme pattern)
           (snail-scheme hir))
   (begin
-    ;;
-    ;; Public API
-    ;;
+
+    ;; ---- Public API ----
 
     ;; The loader receives a library-name datum and returns define-library syntax
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
@@ -45,9 +44,7 @@
       (let ((rules (head-transformer form environment transformers)))
         (if rules (apply-transformer rules form environment) form)))
 
-    ;;
-    ;; Program and library
-    ;;
+    ;; ---- Program and library ----
 
     (define (expand-program-body imports body loader loc initial-cache)
       (let*-values (((parsed bindings dependencies cache transformers)
@@ -86,7 +83,46 @@
     (define (library-parts form)
       (if (not (declaration? form 'define-library)) (fail form "expected define-library"))
       (let ((parts (fields form '(_ name declaration ...))))
-        (cons (library-name-datum (car parts)) (cadr parts))))
+        (cons (library-name-datum (car parts))
+              (select-library-declarations (cadr parts)))))
+
+    ;; Select before resolving imports or exports and before expanding bodies.
+    ;; In particular, inactive host tests may use libraries and forms that the
+    ;; bootstrap runtime does not implement. Their syntax is still read normally.
+    (define (select-library-declarations declarations)
+      (apply append
+             (map (lambda (declaration)
+                    (if (declaration? declaration 'cond-expand)
+                        (select-library-declarations
+                         (select-library-clause (car (fields declaration '(_ clause ...)))))
+                        (list declaration))) declarations)))
+
+    (define (select-library-clause clauses)
+      (if (null? clauses) '()
+          (let* ((clause (car clauses))
+                 (parts (fields clause '(requirement declaration ...)))
+                 (requirement (syntax->datum (car parts))))
+            (if (eq? requirement 'else)
+                (if (null? (cdr clauses)) (cadr parts) (fail clause "else must be last"))
+                (if (library-feature? requirement clause) (cadr parts)
+                    (select-library-clause (cdr clauses)))))))
+
+    ;; The bootstrap advertises only its implementation name, independently of
+    ;; the compiler host. Library-availability probes are not implemented yet.
+    (define (library-feature? requirement form)
+      (cond
+       ((symbol? requirement) (eq? requirement 'snail-scheme))
+       ((and (pair? requirement) (list? requirement))
+        (case (car requirement)
+          ((and) (every? (lambda (item) (library-feature? item form)) (cdr requirement)))
+          ((or) (let loop ((items (cdr requirement)))
+                  (and (pair? items)
+                       (or (library-feature? (car items) form) (loop (cdr items))))))
+          ((not) (if (= (length requirement) 2)
+                     (not (library-feature? (cadr requirement) form))
+                     (fail form "not requires one feature requirement")))
+          (else (fail form "unsupported library feature requirement" requirement))))
+       (else (fail form "malformed library feature requirement" requirement))))
 
     (define (library-body-forms declaration)
       (cond
@@ -143,9 +179,7 @@
                       (expand-library-form source parts loader cache transformers loading)))
           (values library (cons (cons name library) cache) transformers))))
 
-    ;;
-    ;; Import and export
-    ;;
+    ;; ---- Import and export ----
 
     (define (expand-import-declarations forms loader cache transformers loading)
       (let loop ((forms forms) (parsed '()) (bindings '()) (dependencies '())
@@ -270,9 +304,7 @@
                 (fail form "expected export name or rename"))
             (cdr parts))))
 
-    ;;
-    ;; Body discovery and expansion
-    ;;
+    ;; ---- Body discovery and expansion ----
 
     (define-record-type <pending-definition>
       (make-pending-definition binding initializer)
@@ -440,9 +472,7 @@
                            environment transformers (- fuel 1)))
             (values form fuel))))
 
-    ;;
-    ;; Expression
-    ;;
+    ;; ---- Expression ----
 
     (define (expand-expression input environment transformers fuel)
       (let-values (((form fuel) (expand-head input environment transformers fuel)))
@@ -572,9 +602,7 @@
         (check-distinct (map car bindings) source)
         bindings))
 
-    ;;
-    ;; Transformer
-    ;;
+    ;; ---- Transformer ----
 
     (define-record-type <macro-definition>
       (make-macro-definition name builtin loc)
@@ -665,9 +693,7 @@
        (else (append (pattern-variable-ranks (car remaining) ellipsis literals depth)
                      (pattern-element-ranks (cdr remaining) ellipsis literals depth)))))
 
-    ;;
-    ;; Template
-    ;;
+    ;; ---- Template ----
 
     (define-record-type <variable-template>
       (make-variable-template name rank source)
@@ -885,9 +911,7 @@
                 (loop (list-ref value (car path)) (cdr path))
                 (fail source "invalid repetition extent" name)))))
 
-    ;;
-    ;; Syntax matching adapter
-    ;;
+    ;; ---- Syntax matching adapter ----
 
     (define-record-type <syntax-constraint>
       (make-syntax-constraint name depth predicate)
@@ -1036,9 +1060,7 @@
          ((null? view) (values '() '()))
          (else (values syntax '())))))
 
-    ;;
-    ;; Identifier and syntax views
-    ;;
+    ;; ---- Identifier and syntax views ----
 
     ;; Keys distinguish introduced identifiers from substituted identifiers with
     ;; the same spelling. A fallback is a definition identity, never an environment.
@@ -1158,9 +1180,7 @@
         (if (not captures) (fail syntax "malformed form" raw-pattern))
         (map cdr captures)))
 
-    ;;
-    ;; Environment and diagnostics
-    ;;
+    ;; ---- Environment and diagnostics ----
 
     (define (runtime-expression? item)
       (not (or (value-binding? item) (eliminated-definition? item))))
@@ -1267,4 +1287,78 @@
           not eq? eqv? equal? boolean? number? symbol? string? vector?
           vector vector-ref vector-length values call-with-values apply))
 
-    ))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-expand)
+    (import (snail-scheme test-utils)
+            (only (snail-scheme reader) string->reader)
+            (only (snail-scheme syntax-parser) s-file)
+            (only (snail-scheme parser) parse-result-value))
+    (begin
+      (define (test-library text)
+        (expand-library
+         (car (parse-result-value (s-file (string->reader "conditional.sld" text))))
+         (lambda (name) (error "unexpected library load" name))))
+
+      (define (test-feature-requirements)
+        (expect
+         (map (lambda (requirement) (library-feature? requirement #f))
+              '(snail-scheme chibi snail-tests unknown
+                             (and) (or) (not chibi)
+                             (and snail-scheme (or chibi (not unknown)))
+                             (or unknown (and snail-scheme chibi))))
+         '(#t #f #f #f #t #f #t #t #f)))
+
+      (define (test-inactive-library-declarations)
+        (let ((library
+                  (test-library
+                   "(define-library (conditional)
+                   (cond-expand
+                    (snail-tests
+                     (import (unavailable test-library))
+                     (export missing)
+                     (begin (unsupported-form unbound)))
+                    (else (import (scheme base))))
+                   (export answer)
+                   (begin (define answer 42)))")))
+          (expect (map named-binding-name (library-exports library)) '(answer))))
+
+      (define (test-nested-library-declarations)
+        (let ((library
+                  (test-library
+                   "(define-library (conditional)
+                   (cond-expand (unknown (export absent)))
+                   (cond-expand
+                    ((and snail-scheme (not chibi))
+                     (cond-expand
+                      ((or) (export absent))
+                      ((and) (export answer))))
+                    (else (import (unavailable library))))
+                   (import (scheme base))
+                   (begin (define answer 42)))")))
+          (expect (map named-binding-name (library-exports library)) '(answer))))
+
+      (define (test-invalid-library-requirements)
+        (for-each
+         (lambda (case)
+           (expect
+            (guard (ex ((error-object? ex) (error-object-message ex)))
+              (test-library (string-append "(define-library (bad) " (car case) ")"))
+              #f)
+            (cadr case)))
+         '(("(cond-expand (else) (snail-scheme))" "else must be last")
+           ("(cond-expand ((not)))" "not requires one feature requirement")
+           ("(cond-expand ((not chibi snail-scheme)))" "not requires one feature requirement")
+           ("(cond-expand ((library (scheme base))))" "unsupported library feature requirement")
+           ("(cond-expand (42))" "malformed library feature requirement"))))
+
+      (define (test-expand)
+        (run-test test-feature-requirements)
+        (run-test test-inactive-library-declarations)
+        (run-test test-nested-library-declarations)
+        (run-test test-invalid-library-requirements))
+      ))))

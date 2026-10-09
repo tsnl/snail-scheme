@@ -61,6 +61,11 @@ nix-shell --run 'scripts/test-backend'
 nix-shell --run 'scripts/test-cli'
 ```
 
+Scheme unit tests live in their implementation modules' final `Tests` sections.
+`make test` enables `snail-tests` and calls each module's single test entry point;
+normal imports and compiled programs omit that code. Integration fixtures remain
+in `tests/` and use public interfaces.
+
 The integration suite verifies LLVM and runs bootstrap and VM semantics on
 both targets with collection at every handler boundary. It also checks arity,
 uninitialized-binding, single-value-context, and overflow errors. A direct

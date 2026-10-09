@@ -78,13 +78,16 @@ the reservation itself contains no environment.
 
 ## Grammar
 
-`*`, `+`, and `|` below are grammar notation. `Name` is an identifier; `Datum`
+`*`, `+`, `?`, and `|` below are grammar notation. `Name` is an identifier; `Datum`
 is reader data, including symbols, lists, vectors, and bytevectors.
 
 ```text
 Program        ::= Import-Decl* Item*
 Library        ::= (define-library Library-Name Library-Decl*)
 Library-Decl   ::= Import-Decl | (export Export-Spec*) | (begin Item*)
+                 | (cond-expand Feature-Clause* (else Library-Decl*)?)
+Feature-Clause ::= (Feature-Req Library-Decl*)
+Feature-Req    ::= Name | (and Feature-Req*) | (or Feature-Req*) | (not Feature-Req)
 Import-Decl    ::= (import Import-Set*)
 Import-Set     ::= Library-Name
                  | (only Import-Set Name*)
@@ -119,6 +122,14 @@ Rules-Spec     ::= (syntax-rules (Name*) Rule*)
                  | (syntax-rules Name (Name*) Rule*)
 Rule           ::= (Macro-Pattern Template)
 ```
+
+Library-level `cond-expand` selects the first matching clause and recursively
+splices its declarations before imports, exports, or bodies are expanded. Only
+`snail-scheme` is an available feature; host features such as `chibi` and
+`snail-tests` are deliberately absent. Empty `and` is true and empty `or` is false.
+An optional `else` clause must be last; no match contributes no declarations.
+Inactive clauses are read but never expanded or loaded. Library-availability
+requirements and expression-level `cond-expand` are not implemented.
 
 Self-evaluating input includes booleans, numbers, characters, strings, vectors,
 and bytevectors. Quotation preserves a datum rather than resolving its symbols

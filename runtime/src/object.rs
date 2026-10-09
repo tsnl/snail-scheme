@@ -12,7 +12,7 @@
 use crate::host::Port;
 use std::{any::Any, collections::HashMap};
 
-// ---- Tagged words ---------------------------------------------------------
+// ---- Tagged words ----
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[repr(transparent)]
@@ -108,7 +108,7 @@ impl Number {
     }
 }
 
-// ---- Boxed objects -------------------------------------------------------
+// ---- Boxed objects ----
 
 /// Report every strong Scheme edge, without allocating or invoking Scheme.
 /// Each concrete object has its own implementation and its own Rust layout.
@@ -187,7 +187,7 @@ pub struct Float(pub f64);
 object!(Float);
 object!(Port);
 
-// ---- Ownership and collection -------------------------------------------
+// ---- Ownership and collection ----
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GcStatistics {
@@ -325,8 +325,9 @@ fn expected_type<T>() -> String {
     )
 }
 
-// ---- Representation and collector invariants -----------------------------
+// ---- Tests ----
 
+// Representation and collector invariants.
 #[cfg(test)]
 mod tests {
     use super::*;

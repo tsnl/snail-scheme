@@ -6,7 +6,7 @@ EMACS ?= emacs
 NIXFMT ?= nixfmt
 
 test:
-	"$(CHIBI)" -I src -I tests tests/snail-scheme/test.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests tests/snail-scheme/test.scm
 
 format:
 	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --write {} +

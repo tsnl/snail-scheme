@@ -5,7 +5,8 @@
   (import (scheme base) (scheme cxr) (scheme write) (snail-scheme vm)
           (prefix (snail-scheme llvmlite) ir:))
   (begin
-    ;; ---- Runtime and instruction signatures ------------------------------
+
+    ;; ---- Runtime and instruction signatures ----
 
     (define (word number) (ir:integer ir:i32 number))
     (define (tag number) (ir:inttoptr (ir:integer ir:i64 number)))
@@ -62,7 +63,8 @@
       (let ((entry (assq operation vm-functions)))
         (if entry (cdr entry) (error "unknown VM instruction" operation))))
 
-    ;; ---- Inline instruction bodies ---------------------------------------
+    ;; ---- Inline instruction bodies ----
+
     ;; Each entry remains an automatic safepoint. After it, slot operations are
     ;; GC-free. Load a source BEFORE a call can resize its storage, then publish
     ;; the word before another instruction enters. Tagged ptr bits are never
@@ -209,7 +211,7 @@
       (for-each (lambda (operation) (ir:write-definition (transfer-handler operation) port))
                 '(close call return)))
 
-    ;; ---- Module and constant data ----------------------------------------
+    ;; ---- Module and constant data ----
 
     (define (write-llvm-program program port)
       (let ((constants (program-constant-data program)) (primitives (program-primitive-data program)))
@@ -276,7 +278,8 @@
         ((boolean) 5) ((nil) 6) ((bytevector) 7) ((unspecified) 8)
         (else (error "unknown constant kind" kind))))
 
-    ;; ---- Program control flow --------------------------------------------
+    ;; ---- Program control flow ----
+
     ;; Create references before bodies. Dense lowerer labels index this immutable
     ;; vector directly; sparse hand-built programs fall back to a linear lookup.
 
@@ -418,4 +421,60 @@
         (case (instruction-operation instruction)
           ((close) (car args))
           ((call) (if (= (caddr args) 0) (cadr args) #f))
-          (else #f))))))
+          (else #f)))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-llvm)
+    (import (snail-scheme test-utils))
+    (begin
+      ;; Two calls share a continuation, closures repeat both destinations, and
+      ;; the tail call's unused resume operand must not create a switch case.
+      (define (shared-destinations scale)
+        (make-vm-program 0 0
+                         (list (make-instruction 0 'return '() #f #f)
+                               (make-instruction scale 'call (list 0 (* 4 scale) 0) #f #f)
+                               (make-instruction (* 2 scale) 'call (list 0 (* 4 scale) 0) #f #f)
+                               (make-instruction (* 3 scale) 'close (list (* 4 scale) 0 0 0 0) 0 #f)
+                               (make-instruction (* 4 scale) 'return '() #f #f)
+                               (make-instruction (* 5 scale) 'close '(0 0 0 0 0) 0 #f)
+                               (make-instruction (* 6 scale) 'call (list 0 (* 2 scale) 1) #f #f))
+                         '() '() '()))
+
+      (define (llvm-lines program)
+        (let ((output (open-output-string)))
+          (write-llvm-program program output)
+          (let ((input (open-input-string (get-output-string output))))
+            (let loop ((lines '()))
+              (let ((line (read-line input)))
+                (if (eof-object? line) (reverse lines) (loop (cons line lines))))))))
+
+      (define (switch-cases lines)
+        (cond ((null? lines) '())
+              ((and (>= (string-length (car lines)) 8)
+                    (string=? (substring (car lines) 0 8) "    i32 "))
+               (cons (car lines) (switch-cases (cdr lines))))
+              (else (switch-cases (cdr lines)))))
+
+      (define (test-dispatch-destinations)
+        (for-each
+         (lambda (scale)
+           (let* ((program (shared-destinations scale))
+                  (lines (llvm-lines program)) (target (number->string (* 4 scale))))
+             (expect (switch-cases lines)
+                     (list "    i32 4294967295, label %done"
+                           "    i32 0, label %b0"
+                           (string-append "    i32 " target ", label %b" target)))
+             (expect (llvm-lines program) lines)))
+         '(1 1000000))
+        (expect (if (member (string-append "  %pc = phi i32 [ %start, %entry ], "
+                                           "[ %next0, %b0 ], [ %next1, %b1 ], [ %next2, %b2 ], "
+                                           "[ %next4, %b4 ], [ %next6, %b6 ]")
+                            (llvm-lines (shared-destinations 1))) #t #f)
+                #t))
+
+      (define (test-llvm)
+        (run-test test-dispatch-destinations))
+      ))))

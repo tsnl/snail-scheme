@@ -49,7 +49,7 @@ def compile_fixture(name, opt):
     if name == "llvmlite":
         with llvm.open("w") as output:
             checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"),
-                     "-I", str(ROOT / "tests"), str(ROOT / "tests/emit-llvmlite.scm")], stdout=output)
+                     str(ROOT / "tests/emit-llvmlite.scm")], stdout=output)
     else:
         checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
     checked([opt, "-passes=verify", "-disable-output", str(llvm)])

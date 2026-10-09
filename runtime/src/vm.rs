@@ -507,6 +507,8 @@ impl Vm {
     }
 }
 
+// ---- Tests ----
+
 #[cfg(test)]
 mod tests {
     use super::*;

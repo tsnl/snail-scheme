@@ -66,7 +66,8 @@ unsafe fn handler<T: Copy>(
     }
 }
 
-// ---- Slot and control services for Scheme-written LLVM instructions -------
+// ---- Slot and control services for Scheme-written LLVM instructions ----
+
 // Slot pointers last until the next operation that can relocate that storage.
 // These accessors never collect. LLVM loads a source before requesting a new
 // result/operand slot, and publishes the word before another instruction enters.
