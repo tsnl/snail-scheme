@@ -3,14 +3,15 @@
    parse-file
    file
    expr
-   s-sequence
+   s-list
+   s-vector
    s-terminal
    symbol-or-number
    boolean-expr
    char-expr
    s-pipe-symbol-terminal
    s-string-terminal
-   s-bytevector-terminal
+   s-bytevector
    s-quote
    number-literal?
    char-literal?
@@ -53,21 +54,21 @@
     (define (expr)
       (chain
        (lambda (_) (intertoken-space))
-       (lambda (_) (choice (s-sequence) (s-quote) (s-terminal)))))
+       (lambda (_) (choice (s-list) (s-vector) (s-quote) (s-terminal)))))
 
     (define (s-terminal)
-      (choice (s-pipe-symbol-terminal) (s-string-terminal) (s-bytevector-terminal)
+      (choice (s-pipe-symbol-terminal) (s-string-terminal) (s-bytevector)
               (char-expr) (boolean-expr) (symbol-or-number)))
 
     ;; Lists and vectors
 
-    (define (s-sequence)
-      (choice
-       (proper-sequence (tag "#"))
-       (proper-sequence (return '()))
-       (improper-list)))
+    (define (s-list)
+      (choice (prefixed-list (ε)) (improper-list)))
 
-    (define (proper-sequence prefix)
+    (define (s-vector)
+      (prefixed-list (tag "#")))
+
+    (define (prefixed-list prefix)
       (pmap
        (tuple (location) prefix
               (choice (fenced-elements #\( #\) (expr))
@@ -119,7 +120,7 @@
       (pmap (tuple (location) (delimited-text #\" char-string-literal?))
             (lambda (t) (make-atom-syntax (second t) (first t)))))
 
-    (define (s-bytevector-terminal)
+    (define (s-bytevector)
       (pmap
        (tuple (location) (tag-ci "#u8")
               (choice (fenced-elements #\( #\) (byte-element))
@@ -142,8 +143,13 @@
        (lambda (_)
          (tuple (location)
                 ;; The first character after #\ may itself be a delimiter.
-                (capture (tuple (tag "#\\") (char-if char?)
-                                (repeat (char-if char-bare-atom?))))))
+                (pmap
+                 (tuple (tag "#\\") (char-if char?)
+                        (repeat (char-if char-bare-atom?)))
+                 (lambda (parts)
+                   (string-append
+                    (first parts)
+                    (list->string (cons (second parts) (third parts))))))))
        (lambda (t)
          (if (char-literal? (second t))
              (return (make-atom-syntax (literal-value (character-literal) (second t)) (first t)))
@@ -232,8 +238,10 @@
     ;; Identifier spellings
 
     (define (bare-spelling)
-      (capture
-       (tuple (char-if char-bare-atom-initial?) (repeat (char-if char-bare-atom?)))))
+      (pmap
+       (tuple (char-if char-bare-atom-initial?) (repeat (char-if char-bare-atom?)))
+       (lambda (parts)
+         (list->string (cons (first parts) (second parts))))))
 
     ;; identifier <- initial subsequent* / peculiar-identifier
     (define (identifier)

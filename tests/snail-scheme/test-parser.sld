@@ -12,7 +12,8 @@
   (begin
     (define (test-return-and-fail)
       (check-ok (return #f) "a" #f "a")
-      (check-ok (return '()) "" '())
+      (check-ok (ε) "" '())
+      (check-ok (ε) "a" '() "a")
       (check-fail (fail) "a"))
 
     (define (test->>=)
@@ -55,14 +56,6 @@
       (check-fail (not-followed-by (eof)) "")
       (check-fail (not-followed-by (return #f)) "x"))
 
-    (define (test-capture)
-      (check-ok (capture (tag-val "ab" #f)) "abc" "ab" "c")
-      (check-ok (capture (return '())) "abc" "" "abc")
-      (check-ok (capture (choice (tag "ab") (tag "ac"))) "acd" "ac" "d")
-      (check-ok (capture (lookahead (tag "ab"))) "abc" "" "abc")
-      (check-ok (tuple (capture (tag "a\nb")) (location)) "a\nbc" (list "a\nb" (at 2 2)) "c")
-      (check-fail (capture (tag "ab")) "ac" "c"))
-
     (define (test-repeat)
       (check-ok (repeat (char #\a)) "aaab" '(#\a #\a #\a) "b")
       (check-ok (repeat (char #\a)) "b" '() "b")
@@ -74,7 +67,7 @@
           (guard (ex ((error-object? ex) (error-object-message ex)))
             ((repeat parser) (string->reader "<test-repeat>" "")))
           "repeat: parser succeeded without consuming input"))
-       (list (return '()) (optional (char #\a)) (eof)
+       (list (ε) (optional (char #\a)) (eof)
              (lookahead (eof)) (not-followed-by (char #\a)))))
 
     (define (test-repeat-at-least-once)
@@ -127,7 +120,6 @@
       (run-test test-char-if)
       (run-test test-lookahead)
       (run-test test-not-followed-by)
-      (run-test test-capture)
       (run-test test-repeat)
       (run-test test-repeat-at-least-once)
       (run-test test-choice)

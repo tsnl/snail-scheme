@@ -60,7 +60,7 @@
       (check-fail (datum-comment) "#;" "")
       (check-ok (file) "; line\n#| block |# #; ignored " '())
       (check-ok (file) "; line\n#;#t x" (list (atom 'x 2 6)))
-      (check-ok (s-sequence) "(;line\n a #;b . #|tail|# c )"
+      (check-ok (s-list) "(;line\n a #;b . #|tail|# c )"
                 (make-list-syntax (list (atom 'a 2 2)) (atom 'c 2 19) (at 1 1) '()))
       (check-fail (file) "#| unfinished")
       (check-fail (file) "#;")
@@ -178,35 +178,37 @@
        (lambda (text) (check-fail (file) text))
        '("|unterminated" "|\\q|" "|\\x41|" "|\\xd800;|")))
 
-    (define (test-s-bytevector-terminal)
-      (check-ok (s-bytevector-terminal) "#u8()" (atom #u8() 1 1))
-      (check-ok (s-bytevector-terminal) "#U8(0 127 255)" (atom #u8(0 127 255) 1 1))
-      (check-ok (s-bytevector-terminal) "#u8(#xFF #e1.0 #b10)" (atom #u8(255 1 2) 1 1))
-      (check-ok (s-bytevector-terminal) "#u8[1 2]" (atom #u8(1 2) 1 1))
-      (check-ok (s-bytevector-terminal) "#u8{1 2}" (atom #u8(1 2) 1 1))
+    (define (test-s-bytevector)
+      (check-ok (s-bytevector) "#u8()" (atom #u8() 1 1))
+      (check-ok (s-bytevector) "#U8(0 127 255)" (atom #u8(0 127 255) 1 1))
+      (check-ok (s-bytevector) "#u8(#xFF #e1.0 #b10)" (atom #u8(255 1 2) 1 1))
+      (check-ok (s-bytevector) "#u8[1 2]" (atom #u8(1 2) 1 1))
+      (check-ok (s-bytevector) "#u8{1 2}" (atom #u8(1 2) 1 1))
       (check-ok (s-terminal) "#u8(1 2) " (atom #u8(1 2) 1 1) " ")
-      (check-fail (s-sequence) "#u8(1 2)")
-      (check-ok (s-bytevector-terminal) "#u8(#;999 1 ; comment\n #| block |# 2))"
+      (check-fail (s-list) "#u8(1 2)")
+      (check-fail (s-vector) "#u8(1 2)" "u8(1 2)")
+      (check-ok (s-bytevector) "#u8(#;999 1 ; comment\n #| block |# 2))"
                 (atom #u8(1 2) 1 1) ")")
-      (check-ok (s-bytevector-terminal) "#u8(#;999)" (atom #u8() 1 1))
+      (check-ok (s-bytevector) "#u8(#;999)" (atom #u8() 1 1))
       (check-ok (expr) " \n #u8(1)" (atom #u8(1) 2 2))
       (expect (syntax->datum (atom #u8(1 2) 1 1)) #u8(1 2))
       (for-each
        (lambda (text)
-         (expect (parse-result-err? ((s-bytevector-terminal) (string->reader "bytevector.scm" text))) #t)
+         (expect (parse-result-err? ((s-bytevector) (string->reader "bytevector.scm" text))) #t)
          (check-fail (file) text))
        '("#u8(256)" "#u8(-1)" "#u8(1.0)" "#u8(1/2)" "#u8(#t)" "#u8(x)"
          "#u8((1))" "#u8(#u8(1))" "#u8(1 . 2)" "#u8(1 . ())" "#u8(. 1)"
          "#u8(1" "#u8 (1)" "#u8[1)")))
 
-    (define (test-vector-sequences)
-      (check-ok (s-sequence) "#()" (make-list-syntax '() '() (at 1 1) "#"))
-      (check-ok (s-sequence) "#(a 12)"
+    (define (test-s-vector)
+      (check-fail (s-vector) "(a b)")
+      (check-ok (s-vector) "#()" (make-list-syntax '() '() (at 1 1) "#"))
+      (check-ok (s-vector) "#(a 12)"
                 (make-list-syntax (list (atom 'a 1 3) (atom 12 1 5)) '() (at 1 1) "#"))
-      (check-ok (s-sequence) "#(#(x))"
+      (check-ok (s-vector) "#(#(x))"
                 (make-list-syntax
                  (list (make-list-syntax (list (atom 'x 1 5)) '() (at 1 3) "#")) '() (at 1 1) "#"))
-      (check-ok (s-sequence) "#[(a . b) #u8(1)]"
+      (check-ok (s-vector) "#[(a . b) #u8(1)]"
                 (make-list-syntax
                  (list (make-list-syntax (list (atom 'a 1 4)) (atom 'b 1 8) (at 1 3) '())
                        (atom #u8(1) 1 11)) '() (at 1 1) "#"))
@@ -215,33 +217,36 @@
       (expect (syntax? (make-list-syntax '() '() (at 1 1) "#")) #t)
       (check-fail (s-terminal) "#(1 2)")
       (for-each
-       (lambda (text) (check-fail (file) text))
+       (lambda (text)
+         (expect (parse-result-err? ((s-vector) (string->reader "vector.scm" text))) #t)
+         (check-fail (file) text))
        '("#(a . b)" "#(a . ())" "#(. a)" "#(a" "# (a)" "#[a)")))
 
-    (define (test-list-sequences)
-      (check-ok (s-sequence) "()" (make-list-syntax '() '() (at 1 1) '()))
-      (check-ok (s-sequence) "( \n)" (make-list-syntax '() '() (at 1 1) '()))
-      (check-ok (s-sequence) "(a 12 )"
+    (define (test-s-list)
+      (check-fail (s-list) "#(a b)")
+      (check-ok (s-list) "()" (make-list-syntax '() '() (at 1 1) '()))
+      (check-ok (s-list) "( \n)" (make-list-syntax '() '() (at 1 1) '()))
+      (check-ok (s-list) "(a 12 )"
                 (make-list-syntax (list (atom 'a 1 2) (atom 12 1 4)) '() (at 1 1) '()))
-      (check-ok (s-sequence) "(a . b )"
+      (check-ok (s-list) "(a . b )"
                 (make-list-syntax (list (atom 'a 1 2)) (atom 'b 1 6) (at 1 1) '()))
-      (check-ok (s-sequence) "(())"
+      (check-ok (s-list) "(())"
                 (make-list-syntax (list (make-list-syntax '() '() (at 1 2) '())) '() (at 1 1) '()))
-      (check-ok (s-sequence) "(a . ())"
+      (check-ok (s-list) "(a . ())"
                 (make-list-syntax (list (atom 'a 1 2)) (make-list-syntax '() '() (at 1 6) '()) (at 1 1) '()))
-      (check-ok (s-sequence) "[a {12}]"
+      (check-ok (s-list) "[a {12}]"
                 (make-list-syntax
                  (list (atom 'a 1 2) (make-list-syntax (list (atom 12 1 5)) '() (at 1 4) '()))
                  '() (at 1 1) '()))
-      (check-ok (s-sequence) "(.x ... |.| \".\")"
+      (check-ok (s-list) "(.x ... |.| \".\")"
                 (make-list-syntax
                  (list (atom '.x 1 2) (atom '... 1 5) (atom (string->symbol ".") 1 9)
                        (atom "." 1 13))
                  '() (at 1 1) '()))
-      (check-fail (s-sequence) "(. a)")
-      (check-fail (s-sequence) "(a .)")
-      (check-fail (s-sequence) "(a . b c)")
-      (check-fail (s-sequence) "(a"))
+      (check-fail (s-list) "(. a)")
+      (check-fail (s-list) "(a .)")
+      (check-fail (s-list) "(a . b c)")
+      (check-fail (s-list) "(a"))
 
     (define (test-improper-tail)
       (check-ok (improper-tail) " . a" (atom 'a 1 4))
@@ -322,9 +327,9 @@
       (run-test test-char-expr)
       (run-test test-s-string-terminal)
       (run-test test-s-pipe-symbol-terminal)
-      (run-test test-s-bytevector-terminal)
-      (run-test test-vector-sequences)
-      (run-test test-list-sequences)
+      (run-test test-s-bytevector)
+      (run-test test-s-vector)
+      (run-test test-s-list)
       (run-test test-improper-tail)
       (run-test test-s-quote)
       (run-test test-expr-and-file)

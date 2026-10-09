@@ -35,9 +35,9 @@ syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`
 and pattern matching and dispatch (`syntax-pattern.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
 Character predicates live in `common.sld`. Syntax rules compose parsers directly,
-with `capture` returning the text consumed by a rule. Direct reader access stays
-in the parser primitives. `symbol-or-number` reads a complete bare spelling and
-classifies it with literal predicates, so `12abc` and `hello#t` are rejected as
+using `tuple` and `pmap` to assemble spellings from character results. Direct reader
+access stays in the parser primitives. `symbol-or-number` reads a complete bare
+spelling and classifies it with literal predicates, so `12abc` and `hello#t` are rejected as
 whole spellings. The dotted-tail rule uses a local boundary assertion after `.`
 to require a delimiter or EOF, then delegates the tail to `expr`.
 
@@ -108,11 +108,11 @@ their traversal context.
 The syntax parser handles lists, vectors, and bytevectors with matched `()`, `[]`,
 or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifiers
 (including `|...|`, `#%-` names, and `→`), and line, nested block, and datum comments.
-`s-sequence` parses proper sequences first: no prefix gives a list and `#` a vector.
-A separate arm parses improper lists with at least one element and a required
-dotted tail. Lists and vectors use `(make-list-syntax elements improper-tail loc prefix)`;
+`s-list` tries proper lists first, then improper lists with at least one element
+and a required dotted tail. `s-vector` parses `#`-prefixed proper lists.
+Both use `(make-list-syntax elements improper-tail loc prefix)`;
 `list-syntax-prefix` returns `()` for lists and `"#"` for vectors. Their elements
-retain syntax objects and source locations. `s-bytevector-terminal` validates
+retain syntax objects and source locations. `s-bytevector` validates
 each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
 `s-terminal` parses literals, including bytevectors, and symbols; `expr` handles leading

@@ -14,6 +14,7 @@
 
    ;; Combinators and primitive parsers
    return
+   ε
    fail
    >>=
    chain
@@ -21,7 +22,6 @@
    char-if
    lookahead
    not-followed-by
-   capture
    char
    char-from
    tag
@@ -90,7 +90,7 @@
     (define chain
       (lambda binder-list
         (let recur ((binder-list binder-list)
-                    (parser (return '())))
+                    (parser (ε)))
           (if (null? binder-list)
               parser
               (recur
@@ -102,6 +102,9 @@
     (define (return value)
       (lambda (reader)
         (parse-result-ok value reader)))
+
+    ;; The empty sequence succeeds without consuming input.
+    (define (ε) (return '()))
 
     ;;; monadic return operator (fail variant) for (Parser T)
     ;;;   fail :: () -> Parser T
@@ -151,19 +154,6 @@
         (if (parse-result-err? (parser reader))
             (parse-result-ok '() reader)
             (parse-result-err reader))))
-
-    ;; Return the text consumed by a grammar rule, preserving its failure.
-    (define (capture parser)
-      (lambda (reader)
-        (let ((result (parser reader)))
-          (if (parse-result-err? result)
-              result
-              (let* ((input (parse-result-input result))
-                     (end (reader-chars input)))
-                (let loop ((chars (reader-chars reader)) (acc '()))
-                  (if (eq? chars end)
-                      (parse-result-ok (list->string (reverse acc)) input)
-                      (loop (cdr chars) (cons (car chars) acc)))))))))
 
     (define (repeat parser)
       (lambda (reader)
@@ -238,5 +228,5 @@
       (pmap (apply chain (map make-binder parsers)) reverse))
 
     (define (optional parser)
-      (choice parser (return '())))
+      (choice parser (ε)))
     ))
