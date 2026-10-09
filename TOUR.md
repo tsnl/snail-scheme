@@ -46,8 +46,12 @@ point passes `command-line` to `compiler-main` in
 [`compiler.sld`](src/snail-scheme/compiler.sld). `compile-file` reads the source,
 expands it, lowers the resulting HIR, and writes LLVM text. An optional VM dump
 shows the representation immediately before LLVM emission.
-`time-stage` measures each phase when `--timing` binds `timing-port` to stderr.
-Imported-library reading belongs to expansion timing. The driver separately
+`time-stage` measures phases when `--timing` binds `timing-port` to stderr.
+`expand-source` uses an invocation-local loader counter to report `import-parse`
+separately from `expand`: reading/parsing imported syntax is subtracted from the
+expansion interval before rounding. The import interval also includes path lookup
+and the loader's single-library declaration check. Macro expansion, binding work,
+and expansion of library bodies remain in `expand`. The driver separately
 reports Cargo build time, including execution when it invokes `cargo run`.
 
 `read-source` runs the file parser and reports failures with the reader's source
@@ -83,7 +87,11 @@ reader. `>>=` and `chain` sequence successful parses; `pmap` changes their value
 `choice` tries alternatives from the original position. `lookahead` and
 `not-followed-by` inspect without consuming. `repeat` accumulates results and
 rejects a parser that succeeds without advancing, preventing an infinite loop.
-`tuple` and `named-tuple` gather the parts of a grammar rule.
+`tuple` and `named-tuple` gather the parts of a grammar rule. `named-tuple` runs
+fields directly, retaining named values and skipping allocation of ignored
+field pairs. Its construction captures procedures; names are observed after
+each successful field, preserving the descriptor API. Both parsers return a
+child's first failure unchanged and keep their accumulators local to each call.
 
 [`syntax-parser.sld`](src/snail-scheme/syntax-parser.sld) is the grammar built
 from those combinators. Named rules are parser values, constructed once in
@@ -238,6 +246,12 @@ branch directly; calls and returns feed `write-dispatch`. Its switch contains
 procedure entries and non-tail return addresses. The `u32::MAX` destination
 stops execution; another unexpected destination reports an invalid instruction
 address.
+
+`handler-name` gives hyphenated VM operations their fixed LLVM spellings.
+`dispatch-targets` preserves first-occurrence order with a private bitmap for
+the lowerer's dense labels; sparse hand-built labels retain list membership
+checks. This deduplicates switch destinations, while the dispatch phi still
+lists every incoming control-flow edge.
 
 [`runner/build.rs`](runner/build.rs) connects this module to Cargo. It reads
 `SNAIL_LLVM_IR`, obtains the selected Rust target's LLVM triple and data layout

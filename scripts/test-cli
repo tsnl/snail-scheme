@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -62,9 +63,41 @@ def check_modes(directory, source):
     require(result, EXPECTED, diagnostic="runtime: elapsed_ns=")
     if "compiler: cargo-build-and-run " not in result.stderr:
         raise RuntimeError("run timing did not identify its execution interval")
+    phases = dict(timing_rows(result.stderr))
+    if not {"parse", "import-parse", "expand", "lower", "llvm"} <= phases.keys():
+        raise RuntimeError("compiler timing did not separate imported-source parsing")
     output = directory / "native executable"
     require(cli(directory, source, "-o", output), "")
     require(invoke([output, *ARGUMENTS], directory), EXPECTED)
+
+
+def timing_rows(stderr):
+    return [(name, int(ticks)) for name, ticks in
+            re.findall(r"^compiler: (\S+) (\d+) us$", stderr, re.MULTILINE)]
+
+
+def check_compiler_timing(directory, source):
+    imported = directory / "imports.scm"
+    imported.write_text("(import (scheme base))\n(if #t 1 2)\n")
+    first, second, untimed = (directory / name for name in
+                              ("first.ll", "second.ll", "untimed.ll"))
+    script = directory / "timing-twice.scm"
+    script.write_text("""(import (scheme base) (scheme process-context) (snail-scheme compiler))
+(define args (cdr (command-line)))
+(compiler-main (list "timing" (list-ref args 0) (list-ref args 1) (list-ref args 2) "--timing"))
+(compiler-main (list "timing" (list-ref args 0) (list-ref args 3) (list-ref args 4) "--timing"))
+""")
+    result = require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                             script, ROOT, imported, first, source, second], directory), "")
+    rows = timing_rows(result.stderr)
+    expected = ["parse", "import-parse", "expand", "lower", "llvm"]
+    if [name for name, _ in rows] != expected * 2 or rows[1][1] <= 0 or rows[6][1] != 0:
+        raise RuntimeError(f"import timings were missing or carried across compilations: {rows}")
+    result = require(invoke([ROOT / "snail-compile", imported, untimed], directory), "")
+    if result.stderr:
+        raise RuntimeError("untimed compilation wrote diagnostics")
+    if first.read_bytes() != untimed.read_bytes():
+        raise RuntimeError("timing changed generated LLVM")
 
 
 def check_emission(directory, source):
@@ -183,6 +216,7 @@ def main():
         source = directory / "quoted 'source.scm"
         source.write_text(SOURCE)
         check_modes(directory, source)
+        check_compiler_timing(directory, source)
         llvm = check_emission(directory, source)
         check_abi(directory, llvm)
         check_irreducible(directory)

@@ -293,8 +293,18 @@
             (length (utf8-bytes (symbol->string (cdr primitive)))) ")"))
 
     (define (handler-name operation)
-      (list->string (map (lambda (character) (if (char=? character #\-) #\_ character))
-                         (string->list (symbol->string operation)))))
+      ;; These instruction names have fixed LLVM spellings; the others already
+      ;; match. Avoid rebuilding character lists at every instruction site.
+      (case operation
+        ((refer-local) "refer_local")
+        ((refer-free) "refer_free")
+        ((refer-global) "refer_global")
+        ((set-local) "set_local")
+        ((set-free) "set_free")
+        ((set-global) "set_global")
+        ((capture-local) "capture_local")
+        ((capture-free) "capture_free")
+        (else (symbol->string operation))))
 
     (define (write-handler-call prefix instruction port)
       (display (string-append "  " prefix " @snail_vm_"
@@ -343,13 +353,26 @@
 
     ;; Only procedure entries and non-tail return addresses need dynamic lookup.
     ;; A return address needs a case even when no static branch targets it.
+    ;; Lowering produces dense labels. A private bitmap keeps their discovery
+    ;; linear; sparse hand-built programs use the existing list membership test.
+    ;; The table is fresh for every emission, and first-occurrence order is kept.
     (define (dispatch-targets program)
-      (let loop ((instructions (vm-program-instructions program))
-                 (targets (list (vm-program-entry program))))
-        (if (null? instructions) (reverse targets)
-            (let ((target (instruction-destination (car instructions))))
-              (loop (cdr instructions)
-                    (if (and target (not (memv target targets))) (cons target targets) targets))))))
+      (let* ((instructions (vm-program-instructions program))
+             (seen (make-vector (length instructions) #f)))
+        (remember-destination! seen '() (vm-program-entry program))
+        (let loop ((instructions instructions) (targets (list (vm-program-entry program))))
+          (if (null? instructions) (reverse targets)
+              (let ((target (instruction-destination (car instructions))))
+                (loop (cdr instructions)
+                      (if (remember-destination! seen targets target)
+                          (cons target targets) targets)))))))
+
+    (define (remember-destination! seen targets target)
+      (and target
+           (if (< target (vector-length seen))
+               (and (not (vector-ref seen target))
+                    (begin (vector-set! seen target #t) #t))
+               (not (memv target targets)))))
 
     (define (instruction-destination instruction)
       (let ((args (instruction-operands instruction)))

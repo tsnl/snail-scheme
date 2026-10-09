@@ -56,7 +56,9 @@
     preserve a checked dynamic fallback ([baseline diagnosis](doc/performance-baseline.md))
   - [ ] Add occurrence typing and strict annotations incrementally
   - [ ] Compare optimizations against the native/WASI benchmark baseline
-- [ ] Hosted compiler throughput ([measured diagnosis](doc/performance-baseline.md))
-  - [ ] Profile parser construction, allocation, and backtracking on bootstrap libraries
-  - [ ] Report imported-source parsing separately from expansion in compiler timings
+- [ ] Hosted compiler throughput ([measurements](doc/compilation-performance.md))
+  - [x] Profile parser construction, allocation, and backtracking on bootstrap libraries
+  - [x] Report imported-source parsing separately from expansion in compiler timings
+  - [x] Remove repeated handler-name construction and quadratic dense-label deduplication
+  - [ ] Reprofile remaining imported-source parsing and LLVM output costs
 - [ ] Switch the compiler's build to self-hosting after capability validation
