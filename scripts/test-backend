@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build" / "backend-tests"
 TARGET_DIR = ROOT / os.environ.get("CARGO_TARGET_DIR", str(BUILD / "cargo"))
 SUCCESSES = {
+    "llvmlite": "",
     "backend-bootstrap": "bootstrap checks passed\n",
     "backend-semantics": "backend checks passed\n",
 }
@@ -45,7 +46,12 @@ def compile_fixture(name, opt):
     source = ROOT / "tests" / "programs" / f"{name}.scm"
     llvm = BUILD / f"{name}.ll"
     print(f"compile and verify {name}", flush=True)
-    checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
+    if name == "llvmlite":
+        with llvm.open("w") as output:
+            checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"),
+                     "-I", str(ROOT / "tests"), str(ROOT / "tests/emit-llvmlite.scm")], stdout=output)
+    else:
+        checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
     checked([opt, "-passes=verify", "-disable-output", str(llvm)])
     return llvm
 

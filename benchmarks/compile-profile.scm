@@ -31,8 +31,8 @@
 (define llvm-env (module-env (find-module '(snail-scheme llvm))))
 (for-each
  (lambda (name) (replace! llvm-env name (observe 'llvm name (eval name llvm-env))))
- '(write-data write-vm-instructions write-execution write-initialization
-              write-dispatch write-destinations dispatch-targets))
+ '(write-data write-vm-instructions write-execution initialization-body
+              dispatch-body destination-inputs dispatch-targets))
 (apply compile-file (cdr (command-line)))
 (for-each
  (lambda (row)

@@ -63,7 +63,9 @@ nix-shell --run 'scripts/test-cli'
 
 The integration suite verifies LLVM and runs bootstrap and VM semantics on
 both targets with collection at every handler boundary. It also checks arity,
-uninitialized-binding, single-value-context, and overflow errors. Use
+uninitialized-binding, single-value-context, and overflow errors. A direct
+`llvmlite` fixture executes phi backedges, arithmetic, array access, and a switch
+through the same native/WASI pipeline. Use
 `scripts/test-backend --target native` for a native-only iteration. Normal-mode
 GC scheduling and reclamation have separate Rust tests: stress mode alone cannot
 validate the automatic collection threshold.
@@ -87,11 +89,17 @@ The new modules have explicit boundaries:
 | `lower.sld` | Library initialization order, storage, captures, tail positions, literals |
 | `vm.sld` | Target-independent instructions, constants, metadata, readable dump |
 | `llvm.sld` | Inline LLVM instruction bodies, static branches, and dynamic destinations |
+| `llvmlite.sld` | Immutable typed LLVM references/definitions, checks, and text serialization |
 | `runtime/src/vm.rs` | Activations, continuations, calls, multiple values, roots |
 | `runtime/src/object.rs` | Tagged words, concrete trait objects, allocation, tracing, and collection |
 | `runtime/src/primitives.rs`, `host.rs` | Primitive operations and host services |
 | `runner/` | Target assembly and final Rust application entry point |
 | `driver/` | CLI modes, generated Cargo project, subprocesses, and artifact publication |
+
+The emitter constructs IR through the [immutable `llvmlite` API](llvmlite.md).
+Branches reference block objects created before their bodies; phi backedges use
+previously created value references. LLVM syntax is confined to this wrapper,
+while VM semantics and the runtime ABI remain visible in `llvm.sld`.
 
 The only expander integration change is an optional initial library cache and
 `make-core-library`. Existing callers retain their builtin `(scheme base)`.
