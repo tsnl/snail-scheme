@@ -181,8 +181,11 @@ def check_aliases(directory, source):
 
 def check_abi(directory, llvm):
     source = directory / "stale.ll"
-    source.write_text(llvm.replace("@snail_program_abi() { ret i32 1 }",
-                                   "@snail_program_abi() { ret i32 0 }"))
+    stale, replacements = re.subn(r"(define i32 @snail_program_abi\(\)\s*\{.*?ret i32 )1\b",
+                                  r"\g<1>0", llvm, count=1, flags=re.DOTALL)
+    if replacements != 1:
+        raise RuntimeError("cannot locate generated program ABI accessor")
+    source.write_text(stale)
     environment = {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)}
     result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner"],
                     ROOT, environment)

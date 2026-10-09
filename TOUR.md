@@ -10,7 +10,7 @@ choice.
 Scheme source and imported libraries
     snail-scheme Rust driver -> hosted Scheme compiler
     reader -> syntax parser -> expander -> HIR
-    lowerer -> stack VM instructions -> LLVM text
+    lowerer -> stack VM instructions -> immutable LLVM objects -> LLVM text
     Cargo build script -> LLVM optimization -> target object
     Rust runner -> generated program <-> Rust runtime
 ```
@@ -232,26 +232,37 @@ Reference, assignment, capture, push, and test handlers implement actual word
 loads, stores, and tag tests. Closure construction and control transfers call
 Rust services for their variable-sized work.
 
-`write-handler-entry` establishes the automatic collection safepoint.
-`write-checked-pointer` branches around failed Rust services. A handler loads a
+`handler-entry` establishes the automatic collection safepoint.
+`checked-pointer-block` branches around failed Rust services. A handler loads a
 source word before requesting storage that might move its source, then publishes
 the result before another instruction can collect. LLVM uses `ptr` to copy one
 target-sized tagged word; the copied word is never dereferenced as an object.
 The false, unspecified, and uninitialized encodings agree with `Value` in Rust.
 
-`write-data` serializes bytes and constant indices. `write-initialization` builds
+`write-data` serializes bytes and constant indices. `initialization-body` builds
 constants and primitive globals, constructs the root closure, and enters it.
-`write-instruction` emits one labeled block per VM instruction. Known successors
-branch directly; calls and returns feed `write-dispatch`. Its switch contains
+`program-blocks` reserves immutable block references; `instruction-body` defines
+one block per VM instruction. Known successors branch directly; calls and returns
+feed `dispatch-body`. Its switch contains
 procedure entries and non-tail return addresses. The `u32::MAX` destination
 stops execution; another unexpected destination reports an invalid instruction
 address.
 
-`handler-name` gives hyphenated VM operations their fixed LLVM spellings.
+`vm-functions` gives VM operations their typed LLVM function references.
 `dispatch-targets` preserves first-occurrence order with a private bitmap for
 the lowerer's dense labels; sparse hand-built labels retain list membership
 checks. This deduplicates switch destinations, while the dispatch phi still
 lists every incoming control-flow edge.
+
+[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) supplies the immutable LLVM
+vocabulary used by that lowering. References precede definitions: create a
+function, its blocks and SSA values, then give each block instructions and a
+terminator. Instructions hold typed operands and direct block references. Loop
+backedges require no mutable builder. `block-body` checks scope, phi placement,
+and returns; LLVM verifies definitions and dominance. Only this module spells
+LLVM syntax. Its writer streams to a port, and `indexed-name` keeps generated
+numeric names as prefix/index data. See [the API notes](doc/llvmlite.md) for a
+complete loop example and the supported subset.
 
 [`runner/build.rs`](runner/build.rs) connects this module to Cargo. It reads
 `SNAIL_LLVM_IR`, obtains the selected Rust target's LLVM triple and data layout

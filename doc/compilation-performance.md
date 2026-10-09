@@ -236,19 +236,62 @@ contains accepted ablations, exploratory samples, source hashes, reproduction
 scripts, and measurement limitations. A contended exploratory parser batch was
 discarded and rerun; it is not used for the reported comparison.
 
+## Immutable LLVM construction
+
+The `llvmlite` migration was checked against `743a4cf` using another frozen copy
+of the compiler sources. Three fresh-process samples before and after used the
+same active host path and the same input paths, sequentially without concurrent
+builds. The groups were not interleaved. LLVM's `strip,verify` passes normalize
+the old count functions' unnamed entry blocks and the new explicit entry names;
+the resulting modules are byte-identical.
+
+| Chibi workload | Before, median seconds | After, median seconds |
+| --- | ---: | ---: |
+| Frozen compiler sources to LLVM, including startup | 9.617 | 6.689 |
+| LLVM emission stage | 4.221 | 1.783 |
+
+The complete compilation is **30.4% faster** in this batch. This measures the
+compiler host, not generated Scheme execution. Use this batch's baseline for
+comparison; the input and host source layout differ from earlier measurements.
+
+The first immutable wrapper was substantially slower. A diagnostic split found
+13.179 s constructing 28,612 numeric block names, versus 0.019 s constructing
+their block records, pairs, and vector. A standalone 30,000-name probe took only
+0.073 s, again demonstrating why the full workload matters. Chibi's decimal
+`number->string` opens a temporary string port; the wrapper now represents
+generated names as immutable prefix/index objects and writes each component
+directly. No mutable name cache or global counter is needed.
+
+Chibi's `(scheme write)` also routes numeric `display` through the shared
+structure writer, which allocates traversal tables even for integers. LLVM
+scalar tokens now use `write-simple`. The bootstrap library exposes its existing
+simple `write` primitive under that name, so the same Scheme emitter runs in
+the generated compiler. This keeps the wrapper's typed checks and immutable
+objects without retaining the initial formatting regression.
+
+The [raw report](../benchmarks/results/2026-10-09-llvmlite.json) records samples,
+source hashes, normalization, diagnostic observations, and limitations.
+
+Release-built native and WASI compilers also compiled Fibonacci, the frozen
+corpus, and their own updated sources, including `llvmlite`. All six outputs
+matched Chibi byte for byte. Compiling their own updated sources took 66.682 s
+native and 88.394 s WASI in single capability checks. Those use different input
+from the frozen-corpus comparison and do not establish a before/after speedup
+for the generated compiler. The normal build remains hosted by Chibi.
+
 ## Next candidates
 
 1. **Imported-source parsing remains the largest cost.** It accounts for about
-   3.92 s of the 6.53 s frozen-corpus run; actual expansion is about 0.61 s.
+   3.66 s of the latest 6.69 s frozen-corpus run; actual expansion is about 0.65 s.
    Further work should profile allocations in this path against the normal
    compiler entry point before changing parser structure. A versioned syntax
    cache is a possible separate project, requiring invalidation and preserved
    locations; no cache is introduced here.
-2. **Investigate remaining LLVM output allocation.** The large dispatcher now
-   deduplicates dense labels linearly. Output formatting still deserves profiling,
-   but the rejected numeric conversion demonstrates why full-program checks
-   must decide whether a micro-optimization helps. Lowering remains too small
-   to prioritize.
+2. **Profile remaining LLVM construction and output costs.** The dispatcher
+   deduplicates dense labels linearly, and the immutable wrapper avoids shared
+   structure printing for scalar tokens. The rejected numeric conversion and
+   wrapper experiments demonstrate why full-program checks must decide whether
+   an isolated improvement helps. Lowering remains too small to prioritize.
 
 Chibi GC is significant in the diagnostic run, but single probes with 16 MiB
 and 64 MiB initial heaps did not establish an overall speedup. Cargo currently
