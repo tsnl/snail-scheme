@@ -100,9 +100,44 @@ fn assemble(input: &Path, output: &Path, target: &str) -> PathBuf {
     let object = output.join("scheme.o");
     let mut command = Command::new(env::var_os("LLVM_LLC").unwrap_or_else(|| "llc".into()));
     command.arg("-filetype=obj");
-    if !target.starts_with("wasm") {
+    if target.starts_with("wasm") {
+        verify_reducible(input);
+        // All VM cycles use the dispatcher. LLVM 22's redundant repair pass
+        // computes quadratic reachability sets for the compiler-sized loop.
+        command.arg("--wasm-disable-fix-irreducible-control-flow-pass");
+    } else {
         command.arg("-relocation-model=pic");
     }
     run(command.arg(input).arg("-o").arg(&object));
     object
+}
+
+fn verify_reducible(input: &Path) {
+    let report = Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
+        .args(["-passes=print<cycles>", "-disable-output"])
+        .arg(input)
+        .output()
+        .expect("cannot check optimized LLVM cycles");
+    let text = String::from_utf8_lossy(&report.stderr);
+    assert!(
+        report.status.success(),
+        "LLVM cycle analysis failed: {text}"
+    );
+    assert!(
+        text.lines()
+            .any(|line| line == "CycleInfo for function: snail_program"),
+        "unrecognized LLVM cycle report"
+    );
+    assert!(
+        text.lines()
+            .filter(|line| line.trim_start().starts_with("depth="))
+            .all(single_cycle_entry),
+        "WASM requires reducible optimized control flow"
+    );
+}
+
+fn single_cycle_entry(line: &str) -> bool {
+    line.split_once("entries(")
+        .and_then(|(_, tail)| tail.split_once(')'))
+        .is_some_and(|(entries, _)| entries.split_whitespace().count() == 1)
 }

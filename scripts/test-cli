@@ -17,6 +17,18 @@ ARGUMENTS = ["space in argument", "", "--help"]
 EXPECTED = '("space in argument" "" "--help")\n'
 SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
           '(write (cdr (command-line)))\n(newline)\n')
+# Deliberately outside the emitter's single-entry-loop contract. The WASI build
+# must reject this before skipping LLVM's expensive irreducibility repair pass.
+IRREDUCIBLE = """(import (scheme base) (snail-scheme vm) (snail-scheme llvm))
+(write-llvm-program
+ (make-vm-program 3 0
+  (list (make-instruction 0 'return '() #f #f)
+        (make-instruction 1 'test '(2 0) #f #f)
+        (make-instruction 2 'test '(1 0) #f #f)
+        (make-instruction 3 'test '(1 2) #f #f))
+  '() '() '())
+ (current-output-port))
+"""
 
 
 def invoke(command, cwd, environment=None):
@@ -144,6 +156,19 @@ def check_abi(directory, llvm):
     require(result, "", 1, "program ABI 0 does not match runtime ABI 1")
 
 
+def check_irreducible(directory):
+    scheme = directory / "irreducible.scm"
+    scheme.write_text(IRREDUCIBLE)
+    emitted = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                      scheme], ROOT)
+    source = directory / "irreducible.ll"
+    source.write_text(require(emitted).stdout)
+    result = invoke(["cargo", "build", "--offline", "--quiet", "-p", "snail-runner",
+                     "--target", "wasm32-wasip1"], ROOT,
+                    {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)})
+    require(result, "", 101, "WASM requires reducible optimized control flow")
+
+
 def check_cleanup(before):
     after = set((ROOT / "build/cli").glob("*"))
     if before != after:
@@ -158,7 +183,9 @@ def main():
         source = directory / "quoted 'source.scm"
         source.write_text(SOURCE)
         check_modes(directory, source)
-        check_abi(directory, check_emission(directory, source))
+        llvm = check_emission(directory, source)
+        check_abi(directory, llvm)
+        check_irreducible(directory)
         check_wasi(directory, source)
         check_failures(directory, source)
         check_preserved_outputs(directory)

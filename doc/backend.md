@@ -218,6 +218,16 @@ checks that every `snail_vm_*` function disappeared before `llc` emits the objec
 Rust links it into the executable. There is no handwritten LLVM runtime, Rust
 bitcode linking, or cross-language LTO requirement. Compatible LLVM tools still
 matter: the supported toolchain above was tested together.
+For WASI, `verify_reducible` checks LLVM's cycle report after optimization: every
+cycle must have one entry. The emitter's ordinary edges are acyclic; calls and
+returns go through the shared dispatcher. The build then omits LLVM 22's
+irreducible-control-flow repair pass. Its
+[all-pairs reachability analysis](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/WebAssembly/WebAssemblyFixIrreducibleControlFlow.cpp)
+consumed over 24 GB on the compiler-sized dispatch loop despite having no
+irreducibility to repair. With the check and omission, the tested WASI compiler
+built in about 39 seconds. This policy is for this compiler's generated control
+flow; it is not a general-purpose LLVM assembler setting. A regression fixture
+with a two-entry VM loop confirms that the build rejects an irreducible module.
 The WASI module contains generated code and Rust in
 one linear memory, using this collector rather than Wasm GC.
 
@@ -247,10 +257,13 @@ The normal build deliberately continues to use `snail-compile` and Chibi.
 A subsequent self-hosting milestone should compare artifacts from consecutive
 compiler generations before changing that default.
 
-Initial validation compiled this entry point for both native and WASI. Both
-executables compiled a literal program to identical, verified LLVM. The native
-compiler also compiled a Fibonacci program with library imports; its output
-ran on both targets. Import-heavy compilation is still slow in this baseline.
+Capability validation compiled the current entry point for both native and WASI.
+Both executables compiled a small core-library program to LLVM byte-identical
+to Chibi's output. The native compiler also compiled Fibonacci with standard
+library imports; its identical output ran on both targets. Import-heavy
+compilation is still slow: that native compiler run took about 490 seconds,
+including 323 seconds in GC. These are single-host observations of the baseline,
+not benchmark promises. The normal build continues to use Chibi.
 
 ## Measurements
 
