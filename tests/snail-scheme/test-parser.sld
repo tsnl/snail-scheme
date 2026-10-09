@@ -23,13 +23,17 @@
       (check-fail (>>= (char #\a) (lambda (_) (fail))) "ab" "b"))
 
     (define (test-chain)
-      (check-ok (chain) "a" '() "a")
-      (check-ok (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ab" #\b)
-      (check-fail (chain (lambda (_) (char #\a)) (lambda (_) (char #\b))) "ac" "c"))
+      (check-ok (chain (ε)) "a" '() "a")
+      (check-ok (chain (char #\a)) "ab" #\a "b")
+      (check-ok (chain (char #\a) (lambda (_) (char #\b))) "ab" #\b)
+      (check-ok (chain (char #\a) (lambda (value) (char value))) "aab" #\a "b")
+      (check-fail (chain (fail) (lambda (_) (error "binder must not run"))) "a")
+      (check-fail (chain (char #\a) (lambda (_) (char #\b))) "ac" "c"))
 
     (define (test-pmap)
       (check-ok (pmap (char #\a) string) "ab" "a" "b")
       (check-ok (pmap (return #f) not) "a" #t "a")
+      (check-ok (pmap (char #\a) (lambda (_) #f)) "ab" #f "b")
       (check-ok (pmap (tuple (char #\a) (char #\b)) list->string) "ab" "ab")
       (check-fail (pmap (tag "ab") (lambda (_) (error "transform must not run"))) "ac" "c"))
 
@@ -92,6 +96,38 @@
       (check-ok (tuple (char #\a) (char #\b) (char #\c)) "abc" '(#\a #\b #\c))
       (check-fail (tuple (char #\a) (char #\b)) "ac" "c"))
 
+    (define (test-named-tuple)
+      (check-ok (named-tuple) "a" '() "a")
+      (check-ok
+       (named-tuple
+        `(left . ,(char #\a))
+        `(_ . ,(char #\:))
+        `(right . ,(char #\b))
+        `(_ . ,(char #\;)))
+       "a:b;c" '((left . #\a) (right . #\b)) "c")
+      (check-ok
+       (named-tuple
+        `(false . ,(return #f))
+        `(empty . ,(ε)))
+       "a" '((false . #f) (empty)) "a")
+      (check-fail
+       (named-tuple
+        `(left . ,(char #\a))
+        `(_ . ,(char #\:))
+        `(right . ,(char #\b)))
+       "ac" "c")
+      (for-each
+       (lambda (fields)
+         (expect
+          (guard (ex ((error-object? ex) (error-object-message ex)))
+            (apply named-tuple fields)
+            #f)
+          "assertion failed"))
+       (list (list 'x)
+             (list (cons "x" (ε)))
+             (list (cons 'x #f))
+             (list (cons 'x (ε)) (cons 'x (ε))))))
+
     (define (test-optional)
       (check-ok (optional (char #\a)) "ab" #\a "b")
       (check-ok (optional (tag "ab")) "ac" '() "ac")
@@ -100,6 +136,7 @@
     (define (test-tag)
       (check-ok (tag "ab") "abc" "ab" "c")
       (check-ok (tag "") "a" "" "a")
+      (check-ok (tag-ci "") "a" "" "a")
       (check-ok (tag-ci "Ab") "aBc" "aB" "c")
       (check-fail (tag-ci "ab") "Ac" "c")
       (check-ok (tag-val "a" #f) "a" #f)
@@ -110,7 +147,7 @@
       (check-ok (eof) "" '())
       (check-fail (eof) "a")
       (check-ok (location) "a" (at 1 1) "a")
-      (check-ok (chain (lambda (_) (tag "a\n")) (lambda (_) (location))) "a\nb" (at 2 1) "b"))
+      (check-ok (chain (tag "a\n") (lambda (_) (location))) "a\nb" (at 2 1) "b"))
 
     (define (test-parser)
       (run-test test-return-and-fail)
@@ -125,6 +162,7 @@
       (run-test test-choice)
       (run-test test-discard)
       (run-test test-tuple)
+      (run-test test-named-tuple)
       (run-test test-optional)
       (run-test test-tag)
       (run-test test-eof-and-location))))

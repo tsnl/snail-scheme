@@ -21,7 +21,6 @@
    char-intertoken-space?
    char-delimiter?
    char-bare-atom?
-   char-bare-atom-initial?
    char-quoted-identifier?
    char-line-comment?
    char-string-literal?
@@ -52,11 +51,6 @@
 
     (define (char-bare-atom? c)
       (not (char-delimiter? c)))
-
-    ;; Quote abbreviations introduce expressions only at the start of an atom.
-    ;; Inside a bare atom, retain them for later identifier validation.
-    (define (char-bare-atom-initial? c)
-      (and (char-bare-atom? c) (not (memv c '(#\' #\` #\,)))))
 
     (define (char-quoted-identifier? c)
       (not (memv c '(#\| #\\))))

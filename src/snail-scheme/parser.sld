@@ -32,6 +32,7 @@
    repeat-at-least-once
    discard
    tuple
+   named-tuple
    optional
    eof
    location)
@@ -76,26 +77,13 @@
     ;; IMPORTANT: the monadic type is (Parser T), NOT (ParseResult T).
     ;;
 
-    ;;; `chain` sequences binders, starting with the value '().
-    ;;;
-    ;;; It is a parser combinator (i.e. its application returns a parser function) that chains
-    ;;; multiple parsers together.
-    ;;;   ```scheme
-    ;;;   (chain
-    ;;;     (lambda (value) (...))
-    ;;;     (lambda (value) (...)))
-    ;;;   ```
-    ;;; The `chain` statement will try applying each closure in sequence until one of them fails,
-    ;;; including the init.
-    (define chain
-      (lambda binder-list
-        (let recur ((binder-list binder-list)
-                    (parser (ε)))
-          (if (null? binder-list)
-              parser
-              (recur
-               (cdr binder-list)
-               (>>= parser (car binder-list)))))))
+    ;; Run the initial parser, then pass each successful value to the next binder.
+    ;; With no binders, return the initial parser unchanged.
+    (define (chain parser . binders)
+      (let recur ((binders binders) (parser parser))
+        (if (null? binders)
+            parser
+            (recur (cdr binders) (>>= parser (car binders))))))
 
     ;;; monadic return operator for (Parser T)
     ;;;   return :: (T) -> Parser T
@@ -127,7 +115,7 @@
     ;; Transform a parser's value without changing consumption or failure.
     ;; Parser value mapping: (pmap parser transform).
     (define (pmap parser transform)
-      (>>= parser (lambda (value) (return (transform value)))))
+      (chain parser (lambda (value) (return (transform value)))))
 
     ;;
     ;; Primitive parsers: written manually, not by composition
@@ -225,7 +213,27 @@
       (define (make-binder parser)
         (lambda (reversed-values)
           (pmap parser (lambda (value) (cons value reversed-values)))))
-      (pmap (apply chain (map make-binder parsers)) reverse))
+      (pmap (apply chain (ε) (map make-binder parsers)) reverse))
+
+    ;; Fields are (symbol . parser) pairs. `_` runs its parser but omits its value.
+    (define (named-tuple . fields)
+      (define (keep-named entries)
+        (cond
+         ((null? entries) '())
+         ((eq? (caar entries) '_) (keep-named (cdr entries)))
+         (else (cons (car entries) (keep-named (cdr entries))))))
+      (let validate ((fields fields) (keys '()))
+        (if (pair? fields)
+            (let ((field (car fields)))
+              (assert (and (pair? field) (symbol? (car field)) (procedure? (cdr field))))
+              (assert (or (eq? (car field) '_) (not (memq (car field) keys))))
+              (validate (cdr fields) (cons (car field) keys)))))
+      (pmap
+       (apply tuple
+              (map (lambda (field)
+                     (pmap (cdr field) (lambda (value) (cons (car field) value))))
+                   fields))
+       keep-named))
 
     (define (optional parser)
       (choice parser (ε)))

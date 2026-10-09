@@ -3,6 +3,7 @@
  (scheme write)
  (snail-scheme cli)
  (snail-scheme reader)
+ (snail-scheme parser)
  (snail-scheme syntax-parser))
 
 (define (main argv)
@@ -11,6 +12,8 @@
     (if (null? entry-point-path)
         (error "expected an input file"))
     (let* ((reader (file->reader entry-point-path))
-           (entry-point-syntax (parse-file reader)))
-      (display entry-point-syntax)
+           (result ((s-file) reader)))
+      (if (parse-result-err? result)
+          (error "parse failed" (reader-filename reader) result))
+      (display (parse-result-value result))
       (newline))))

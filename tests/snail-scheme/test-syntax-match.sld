@@ -2,6 +2,7 @@
   (export test-syntax-match)
   (import (scheme base)
           (snail-scheme reader)
+          (snail-scheme parser)
           (snail-scheme source)
           (snail-scheme syntax)
           (snail-scheme syntax-parser)
@@ -11,7 +12,9 @@
     (define default-context (make-syntax-pattern-context '... '()))
 
     (define (read-syntax text)
-      (car (parse-file (string->reader "match.scm" text))))
+      (let ((result ((s-file) (string->reader "match.scm" text))))
+        (expect (parse-result-ok? result) #t)
+        (car (parse-result-value result))))
 
     (define (datum stx)
       (if (atom-syntax? stx)

@@ -34,17 +34,26 @@ the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`),
 and pattern matching and dispatch (`syntax-pattern.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
-Character predicates live in `common.sld`. Syntax rules compose parsers directly,
-using `tuple` and `pmap` to assemble spellings from character results. Direct reader
-access stays in the parser primitives. `symbol-or-number` reads a complete bare
-spelling and classifies it with literal predicates, so `12abc` and `hello#t` are rejected as
-whole spellings. The dotted-tail rule uses a local boundary assertion after `.`
-to require a delimiter or EOF, then delegates the tail to `expr`.
+Character predicates live in `common.sld`. Syntax rules match the input directly,
+using `tuple`, `repeat`, and `pmap` to assemble spellings from character results.
+Direct reader access stays in the parser primitives. Separate `s-number` and
+`s-symbol` rules check token boundaries with `not-followed-by`, so `12abc` and
+`hello#t` cannot split into smaller atoms. Booleans, characters, and dotted tails
+also require a delimiter or EOF after their spelling.
+
+`chain` takes an initial parser followed by binders that receive each successful
+value and return the next parser. `pmap` uses `chain` to transform a successful
+value. `tuple` collects positional values; `named-tuple` accepts `(symbol . parser)`
+pairs, conventionally written with quasiquote, and returns an association list.
+Use `(cdr (assq 'name fields))` to retrieve a named value. Keys must be unique
+symbols, except `_`, whose parser runs but whose value is discarded.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
-`file->reader` loads a file by path. Pass the resulting reader to `parse-file`.
-Source locations and parse errors retain the reader's filename. The launcher
-currently parses its input file and prints the syntax records.
+`file->reader` loads a file by path. Apply `((s-file) reader)` to parse a complete
+file, then check `parse-result-ok?` before extracting `parse-result-value`.
+The result contains a list of syntax objects; trailing intertoken space and EOF
+are handled by `s-file`. Source locations and the reader in a failed parse result
+retain the filename. The launcher reports parse failures or prints the syntax records.
 
 `make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
 parser, and syntax test libraries from the same directory. Test helpers also
@@ -56,7 +65,8 @@ to dispatch on a head, or use `_` to ignore it:
 
 ```scheme
 (import (scheme base)
-        (snail-scheme reader) (snail-scheme syntax-parser)
+        (snail-scheme reader) (snail-scheme parser)
+        (snail-scheme syntax-parser)
         (snail-scheme syntax-pattern))
 
 (define dispatch
@@ -66,7 +76,7 @@ to dispatch on a head, or use `_` to ignore it:
         (lambda (matched)
           (map match-group-data (match-result-groups matched)))))))
 
-(dispatch (car (parse-file (string->reader "example.scm" "(define x 42)"))))
+(dispatch (car (parse-result-value ((s-file) (string->reader "example.scm" "(define x 42)")))))
 ```
 
 The result has separate success and callback-return fields, so returning `#f`
@@ -87,7 +97,7 @@ dispatch share this context:
 (pattern-variables context '(1 ...))        ; => ()
 (pattern-variables context '(x x))          ; => (x x)
 (pattern? context '(x x))                   ; => #f, duplicate variables
-(match-syntax-pattern-arm context '(x ...) (car (parse-file (string->reader "example.scm" "(1 2)"))))
+(match-syntax-pattern-arm context '(x ...) (car (parse-result-value ((s-file) (string->reader "example.scm" "(1 2)")))))
 ```
 
 `pattern?` returns a boolean. `pattern-variables` only collects variable
@@ -115,9 +125,11 @@ Both use `(make-list-syntax elements improper-tail loc prefix)`;
 retain syntax objects and source locations. `s-bytevector` validates
 each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
-`s-terminal` parses literals, including bytevectors, and symbols; `expr` handles leading
-intertoken space. `number-literal?` and `char-literal?`
-validate complete strings. Numeric rules recognize radix and exactness prefixes,
+The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,
+including bytevectors, and symbols; `s-expr` also handles compound forms and leading
+intertoken space. Other rules remain temporarily exported for the external tests.
+The standalone literal predicates assert a string argument and recognize complete
+spellings; the syntax rules do not call them. Numeric rules recognize radix and exactness prefixes,
 integers, ratios, decimals, exponents, and complex numbers before `string->number`
 constructs the value; representation and precision still follow the host Scheme.
 Bytevector literals use `#u8(...)` with exact integer elements from 0 through 255;
