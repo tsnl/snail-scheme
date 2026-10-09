@@ -242,6 +242,12 @@ from a tiny Rust probe, and adds that metadata to the module. `optimize` runs
 to Rust's final link. The runtime is linked as Rust code; this build does not
 require cross-language Rust bitcode linking.
 
+For WASI, `verify_reducible` checks that each optimized cycle has a single entry
+before omitting LLVM 22's costly irreducibility repair pass. Ordinary instruction
+edges form a DAG; calls and returns use the one dispatcher. This avoids quadratic
+reachability storage when compiling the compiler itself. The negative VM fixture
+in the CLI suite verifies that a two-entry cycle is rejected.
+
 [`runner/src/main.rs`](runner/src/main.rs) first checks the generated program's
 ABI version against `PROGRAM_ABI`, then allocates a `Vm` using the generated
 global and constant counts, passes its opaque address to `snail_program`, and
