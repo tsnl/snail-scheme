@@ -1,3 +1,8 @@
+;; Parse syntax-rules-style raw patterns into structured pattern objects, then
+;; dispatch syntax scrutinees against them. Matching constructs structured match
+;; results; flattening turns successful results into capture alists for callbacks.
+;; Dispatch returns the first callback value other than #f, or #f if none accepts.
+;;
 ;; R7RS 4.3.2 raw pattern forms (P, Pi, and Pe denote nested patterns):
 ;;   _                         wildcard, unless declared a literal
 ;;   name                      pattern variable, unless literal or ellipsis
