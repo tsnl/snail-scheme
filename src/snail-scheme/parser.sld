@@ -236,23 +236,25 @@
 
     ;; Fields are (symbol . parser) pairs. `_` runs its parser but omits its value.
     (define (named-tuple . fields)
-      (define (keep-named entries)
-        (cond
-         ((null? entries) '())
-         ((eq? (caar entries) '_) (keep-named (cdr entries)))
-         (else (cons (car entries) (keep-named (cdr entries))))))
       (let validate ((fields fields) (keys '()))
         (if (pair? fields)
             (let ((field (car fields)))
               (assert (and (pair? field) (symbol? (car field)) (procedure? (cdr field))))
               (assert (or (eq? (car field) '_) (not (memq (car field) keys))))
               (validate (cdr fields) (cons (car field) keys)))))
-      (pmap
-       (apply tuple
-              (map (lambda (field)
-                     (pmap (cdr field) (lambda (value) (cons (car field) value))))
-                   fields))
-       keep-named))
+      ;; As with the former pmap callbacks, capture each parser now but read its
+      ;; field name after it succeeds. No caller-owned list is modified.
+      (let ((captured (map (lambda (field) (cons field (cdr field))) fields)))
+        (lambda (reader) (parse-named-fields captured reader '()))))
+
+    (define (parse-named-fields fields reader reversed-fields)
+      (if (null? fields) (parse-result-ok (reverse reversed-fields) reader)
+          (let* ((field (car fields)) (result ((cdr field) reader)))
+            (if (parse-result-err? result) result
+                (parse-named-fields
+                 (cdr fields) (parse-result-input result)
+                 (if (eq? (caar field) '_) reversed-fields
+                     (cons (cons (caar field) (parse-result-value result)) reversed-fields)))))))
 
     (define (optional parser)
       (choice

@@ -27,13 +27,29 @@
     (define (compile-file root input output . optional-dump)
       (let* ((forms (time-stage 'parse (lambda () (read-source input))))
              (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-             (hir (time-stage 'expand
-                              (lambda () (expand-program forms (library-loader root) (list core)))))
+             (hir (expand-source forms (library-loader root) core))
              (program (time-stage 'lower (lambda () (lower-program hir)))))
         (time-stage 'llvm (lambda () (write-program output program write-llvm-program)))
         (if (pair? optional-dump)
             (time-stage 'vm-dump
                         (lambda () (write-program (car optional-dump) program write-vm-program))))))
+
+    ;; Keep import timing local to this expansion. Loader calls read and parse
+    ;; syntax; recursive imports and expansion of library bodies happen outside
+    ;; those calls, so the intervals do not overlap. Subtract before rounding.
+    (define (expand-source forms loader core)
+      (if (not (timing-port)) (expand-program forms loader (list core))
+          (let ((import-ticks 0))
+            (define (timed-loader name)
+              (let* ((start (current-jiffy)) (form (loader name)))
+                (set! import-ticks (+ import-ticks (- (current-jiffy) start)))
+                form))
+            (let* ((start (current-jiffy))
+                   (hir (expand-program forms timed-loader (list core)))
+                   (elapsed (- (current-jiffy) start)))
+              (report-timing 'import-parse import-ticks)
+              (report-timing 'expand (- elapsed import-ticks))
+              hir))))
 
     (define (write-program path program writer)
       (call-with-output-file path (lambda (port) (writer program port))))

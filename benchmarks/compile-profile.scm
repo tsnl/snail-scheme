@@ -23,6 +23,8 @@
   (eval (list 'set! name (list 'quote procedure)) env))
 (replace! compiler-env 'time-stage
           (lambda (name thunk) ((observe 'stage name thunk))))
+(replace! compiler-env 'expand-source
+          (observe 'stage 'expand-including-imports (eval 'expand-source compiler-env)))
 (let ((read-source (eval 'read-source compiler-env)))
   (replace! compiler-env 'read-source
             (lambda (path) ((observe 'read path read-source) path))))
