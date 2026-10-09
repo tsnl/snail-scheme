@@ -52,7 +52,7 @@
         (display " us\n" port)))
 
     (define (read-source path)
-      (let ((result ((s-file) (file->reader path))))
+      (let ((result (s-file (file->reader path))))
         (if (parse-result-err? result)
             (error "cannot parse Scheme source" path (reader-loc (parse-result-input result))))
         (parse-result-value result)))
