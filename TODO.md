@@ -7,19 +7,26 @@
   - [ ] Syntax parser
     - [x] Parse most of Scheme
     - [x] Parse `#%-*` identifiers
-  - [x] Syntax pattern matcher
-- [ ] AST
-  - [ ] Lexical scope context and phase-aware binding identities
-  - [ ] AST build from syntax pattern matcher
-  - [ ] Imports, exports, and lexical scoping
+  - [x] Datum pattern matcher
+- [ ] HIR
+  - [x] Untyped, fully expanded Scheme records in `hir.sld`
+  - [x] Transient scope environments passed through `expand.sld` recursive descent
+  - [ ] Phase-aware resolution to shared definition identities
+  - [x] HIR construction using the datum pattern matcher
+  - [x] Basic imports, exports, and lexical scoping
+  - [ ] Connect expansion to the command-line launcher
 - [ ] Macro expansion
-  - [ ] `syntax-rules` pattern/template engine
+  - [x] Initial `syntax-rules` pattern/template engine
+  - [x] Connect datum matching to source locations and literal binding lookup
+  - [ ] Retain repetition-site extents in transformer plans, including empty
+    and variable-free repetitions
   - [ ] Design default errors for unbound `syntax-rules` literals and macros
     imported without their bound auxiliary keywords; relax these checks in
     strict R7RS mode
-  - [ ] Macro expansion, `macro-expand-1`
-  - [ ] Fully expand in context
-    - [ ] Dispatch `#%-macro`, `#%-let-syntax`, and `#%-letrec-syntax`
-    - [ ] Core binder regions and complete scope collection before body expansion
-- [ ] Elaboration and type-checking
+  - [x] Single-step macro expansion, `macroexpand-1`
+  - [x] Expand supported core forms in context
+    - [x] Handle `define-syntax`, `let-syntax`, and `letrec-syntax`
+    - [x] Reserve direct definitions and discover body bindings before expression construction
+  - [ ] Broader R7RS conformance, including interacting macro-generated binders
+- [ ] Inference, synthesis, and lowering
   - ...

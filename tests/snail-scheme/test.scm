@@ -5,11 +5,11 @@
  (snail-scheme test-reader)
  (snail-scheme test-parser)
  (snail-scheme test-syntax)
- (snail-scheme test-syntax-match))
+ (snail-scheme test-pattern))
 
 (test-cli)
 (test-reader)
 (test-parser)
 (test-syntax)
-(test-syntax-match)
+(test-pattern)
 (display-error "All tests ok\n")

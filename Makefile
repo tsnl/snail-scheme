@@ -14,4 +14,6 @@ format:
 
 check:
 	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --check {} +
+	awk -v limit=100 -f scripts/check-line-length.awk \
+		src/snail-scheme/expand.sld src/snail-scheme/hir.sld
 	$(NIXFMT) --check shell.nix

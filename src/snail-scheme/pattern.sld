@@ -1,14 +1,14 @@
 ;; Parse syntax-rules-style raw patterns into structured pattern objects, then
-;; dispatch syntax scrutinees against them. Matching constructs structured match
+;; dispatch datum scrutinees against them. Matching constructs structured match
 ;; results; flattening turns successful results into capture alists for callbacks.
 ;; Dispatch returns the first callback value other than #f, or #f if none accepts.
 ;;
 ;; R7RS 4.3.2 raw pattern forms (P, Pi, and Pe denote nested patterns):
 ;;   _                         wildcard, unless declared a literal
 ;;   name                      pattern variable, unless literal or ellipsis
-;;   literal                   identifier matched by binding identity
+;;   literal                   symbol matched with eqv? through lookup
 ;;   (P1 … Pn)               proper list, including ()
-;;   (P1 … Pn . Ptail)       dotted list; Ptail matches the remaining syntax
+;;   (P1 … Pn . Ptail)       dotted list; Ptail matches the remaining datum
 ;;   (P1 … Pk Pe <ellipsis> Pm+1 … Pn)
 ;;                             proper list with a repeated segment
 ;;   (P1 … Pk Pe <ellipsis> Pm+1 … Pn . Ptail)
@@ -24,14 +24,13 @@
 ;; the whole input. The public API currently uses symbol identity for literals.
 ;; https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-6.html#TAG:__tex2page_sec_4.3.2
 
-(define-library (snail-scheme syntax-pattern)
+(define-library (snail-scheme pattern)
   (export
-   syntax-dispatch)
+   pattern-dispatch)
 
   (import
    (scheme base)
-   (snail-scheme common)
-   (snail-scheme syntax))
+   (snail-scheme common))
 
   (begin
     ;;
@@ -41,17 +40,16 @@
     ;; Dispatch by symbol spelling. Match the head normally: use a literal head
     ;; for forms, or _ to ignore it. Callbacks receive a capture alist; #f declines
     ;; a branch. Return the first accepted callback value, or #f if none accepts.
-    (define (syntax-dispatch ellipsis literals pattern-callback-pairs)
-      (build-syntax-dispatcher
+    ;; Captures retain original datums; external records are opaque to matching.
+    (define (pattern-dispatch ellipsis literals pattern-callback-pairs)
+      (build-pattern-dispatcher
        ellipsis literals (lambda (x) x) pattern-callback-pairs))
 
     ;;
     ;; Dispatch
     ;;
 
-    ;; Check arguments once. Parsing needs ellipsis and literals; matching needs
-    ;; lookup, which maps symbols to identities compared with eqv?.
-    (define (build-syntax-dispatcher ellipsis literals lookup pattern-callback-pairs)
+    (define (build-pattern-dispatcher ellipsis literals lookup pattern-callback-pairs)
       (assert (symbol? ellipsis))
       (assert (and (list? literals) (every? symbol? literals)))
       (assert (procedure? lookup))
@@ -61,12 +59,11 @@
                           raw-patterns)))
         (for-each (lambda (pattern) (assert (distinct-pattern-variables? pattern))) patterns)
         (lambda (scrutinee)
-          (assert (syntax? scrutinee))
-          (dispatch-syntax-against-pattern-list lookup patterns callbacks scrutinee))))
+          (dispatch-against-pattern-list lookup patterns callbacks scrutinee))))
 
     ;; The lists are aligned at construction. A callback returning #f declines
     ;; its branch; every other value, including (), stops the search.
-    (define (dispatch-syntax-against-pattern-list lookup patterns callbacks scrutinee)
+    (define (dispatch-against-pattern-list lookup patterns callbacks scrutinee)
       (let loop ((patterns patterns)
 		 (callbacks callbacks))
         (if (null? patterns)
@@ -256,16 +253,16 @@
 
     ;; Successful matches retain structure; #f is reserved for failure.
     ;; Discard results also represent successful literals and constants, and
-    ;; absent repetitions or tails. Singleton results retain original input syntax.
+    ;; absent repetitions or tails. Singleton results retain original input datums.
     (define-record-type <discard-match>
       (make-discard-match)
       discard-match?)
 
     (define-record-type <singleton-match>
-      (make-singleton-match name syntax)
+      (make-singleton-match name datum)
       singleton-match?
       (name singleton-match-name)
-      (syntax singleton-match-syntax))
+      (datum singleton-match-datum))
 
     (define-record-type <repeated-match>
       (make-repeated-match variables iterations)
@@ -291,7 +288,7 @@
       (improper-tail list-match-improper-tail))
 
     ;; Return #f on failure, or a structured match result on success.
-    ;; Matching records syntax objects and repetition structure, never an alist.
+    ;; Matching records input datums and repetition structure, never an alist.
     ;; Literals and constants constrain matching without producing captures.
     (define (match-pattern lookup pattern input)
       (cond
@@ -299,8 +296,7 @@
        ((singleton-pattern? pattern) (make-singleton-match (singleton-pattern-name pattern) input))
        ((literal-pattern? pattern) (match-literal-pattern lookup pattern input))
        ((constant-pattern? pattern)
-        (and (atom-syntax? input)
-             (equal? (constant-pattern-datum pattern) (atom-syntax-value input)) (make-discard-match)))
+        (and (equal? (constant-pattern-datum pattern) input) (make-discard-match)))
        ((vector-pattern? pattern) (match-vector-pattern lookup pattern input))
        ((list-pattern? pattern) (match-list-pattern lookup pattern input))
        (else (error "unknown parsed pattern" pattern))))
@@ -308,14 +304,14 @@
     ;; Match the prefix, reserve and match the suffix, then repeat over the residue.
     ;; Record the parts without flattening their results into captures.
     (define (match-vector-pattern lookup pattern input)
-      (and (vector-syntax? input)
+      (and (vector? input)
            (let*-values (((item) (vector-pattern-opt-repeated-item-pattern pattern))
                          ((prefix-matches remaining)
                           (match-pattern-prefix lookup (vector-pattern-prefix-patterns pattern)
-                                                (vector-syntax-elements input)))
+                                                (vector->list input)))
                          ((residue suffix-elements)
                           (if prefix-matches
-                              (split-syntax-suffix (vector-pattern-suffix-patterns pattern) remaining)
+                              (split-pattern-suffix (vector-pattern-suffix-patterns pattern) remaining)
                               (values #f #f)))
                          ((suffix-matches)
                           (and residue
@@ -329,19 +325,19 @@
                   (make-vector-match prefix-matches repeated-match suffix-matches)))))
 
     (define (match-list-pattern lookup pattern input)
-      (and (list-syntax? input)
+      (and (or (pair? input) (null? input))
            (let*-values (((item) (list-pattern-opt-repeated-item-pattern pattern))
                          ((prefix-matches remaining)
                           (match-list-pattern-prefix lookup (list-pattern-prefix-patterns pattern) input))
                          ((elements tail)
                           (cond
                            ((not prefix-matches) (values #f #f))
-                           (item (split-list-syntax remaining))
+                           (item (split-list-tail remaining))
                            ;; Without repetition, the tail matches the whole remainder.
                            (else (values '() remaining))))
                          ((residue suffix-elements)
                           (if elements
-                              (split-syntax-suffix (list-pattern-suffix-patterns pattern) elements)
+                              (split-pattern-suffix (list-pattern-suffix-patterns pattern) elements)
                               (values #f #f)))
                          ((suffix-matches)
                           (and residue
@@ -357,7 +353,7 @@
              (and repeated-match
                   (make-list-match prefix-matches repeated-match suffix-matches tail-match)))))
 
-    ;; Consume a vector prefix directly from its list of child syntax objects.
+    ;; Consume a vector prefix from its list of elements.
     ;; Return child matches and remaining elements; #f matches indicate failure.
     (define (match-pattern-prefix lookup patterns elements)
       (let loop ((patterns patterns) (elements elements) (matches '()))
@@ -370,27 +366,17 @@
                 (loop (cdr patterns) (cdr elements) (cons matched matches))
                 (values #f #f)))))))
 
-    ;; Consume a list prefix, following explicit list tails such as (a . (b c)).
-    ;; Construct a remaining list only when needed, retaining children and location.
+    ;; Consume a list prefix, retaining the original cdr as the remainder.
     (define (match-list-pattern-prefix lookup patterns input)
-      (let loop ((patterns patterns) (input input)
-                 (elements (list-syntax-elements input)) (matches '()))
-        (let ((tail (list-syntax-improper-tail input)))
-          (cond
-           ((null? patterns)
-            (values (reverse matches)
-                    (cond
-                     ((eq? elements (list-syntax-elements input)) input)
-                     ((and (null? elements) (syntax? tail)) tail)
-                     (else (make-list-syntax elements tail (syntax-loc input))))))
-           ((pair? elements)
-            (let ((matched (match-pattern lookup (car patterns) (car elements))))
-              (if matched
-                  (loop (cdr patterns) input (cdr elements) (cons matched matches))
-                  (values #f #f))))
-           ((list-syntax? tail)
-            (loop patterns tail (list-syntax-elements tail) matches))
-           (else (values #f #f))))))
+      (let loop ((patterns patterns) (input input) (matches '()))
+        (cond
+         ((null? patterns) (values (reverse matches) input))
+         ((not (pair? input)) (values #f #f))
+         (else
+          (let ((matched (match-pattern lookup (car patterns) (car input))))
+            (if matched
+                (loop (cdr patterns) (cdr input) (cons matched matches))
+                (values #f #f)))))))
 
     (define (match-pattern-elements lookup patterns elements)
       (let-values (((matches remaining) (match-pattern-prefix lookup patterns elements)))
@@ -400,9 +386,7 @@
     (define (match-list-pattern-tail lookup pattern input)
       (if pattern
           (match-pattern lookup pattern input)
-          (and (list-syntax? input)
-               (null? (list-syntax-elements input))
-               (null? (list-syntax-improper-tail input)) (make-discard-match))))
+          (and (null? input) (make-discard-match))))
 
     ;; The residue is already isolated; repetition has no suffix or tail handling.
     (define (match-repeated-pattern lookup pattern elements)
@@ -413,33 +397,24 @@
               (and matched (loop (cdr elements) (cons matched iterations)))))))
 
     (define (match-literal-pattern lookup pattern input)
-      (and (syntax-identifier? input)
-           (eqv? (lookup (literal-pattern-name pattern))
-                 (lookup (atom-syntax-value input)))
+      (and (eqv? (lookup (literal-pattern-name pattern))
+                 (lookup input))
            (make-discard-match)))
 
     ;; Peel off one input element per suffix pattern, working from the end.
     ;; Return residue and suffix elements, or two #f values if too short.
-    (define (split-syntax-suffix suffix elements)
+    (define (split-pattern-suffix suffix elements)
       (let loop ((suffix suffix) (remaining (reverse elements)) (reserved '()))
         (cond
          ((null? suffix) (values (reverse remaining) reserved))
          ((null? remaining) (values #f #f))
          (else (loop (cdr suffix) (cdr remaining) (cons (car remaining) reserved))))))
 
-    ;; Separate all remaining list elements from the final cdr. Explicit list
-    ;; tails extend the elements; atom and vector tails remain syntax objects.
-    (define (split-list-syntax input)
+    ;; Separate remaining list elements from the final cdr without inspecting it.
+    (define (split-list-tail input)
       (let loop ((input input) (reversed-elements '()))
-        (if (list-syntax? input)
-            (let* ((elements (list-syntax-elements input))
-                   (tail (list-syntax-improper-tail input))
-                   (collected (append (reverse elements) reversed-elements)))
-              (if (syntax? tail)
-                  (loop tail collected)
-                  (values (reverse collected)
-                          (if (null? elements) input
-                              (make-list-syntax '() '() (syntax-loc input))))))
+        (if (pair? input)
+            (loop (cdr input) (cons (car input) reversed-elements))
             (values (reverse reversed-elements) input))))
 
     ;;
@@ -452,7 +427,7 @@
       (cond
        ((discard-match? matched) '())
        ((singleton-match? matched)
-        (list (cons (singleton-match-name matched) (singleton-match-syntax matched))))
+        (list (cons (singleton-match-name matched) (singleton-match-datum matched))))
        ((repeated-match? matched) (flatten-repeated-match matched))
        ((vector-match? matched)
         (append (flatten-match-list (vector-match-prefix matched))

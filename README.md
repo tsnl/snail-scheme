@@ -15,7 +15,8 @@ Use `nix-shell` (or direnv) to load the development tools. Run `make format`
 to indent the Scheme sources and tests with Emacs's `scheme-mode` and format
 `shell.nix` with nixfmt.
 Run `make check` to verify formatting without changing files; it exits with a
-nonzero status when formatting is needed. Plain `make` also runs this check.
+nonzero status when formatting is needed. It also enforces a 100-column limit in
+`expand.sld` and `hir.sld`. Plain `make` also runs this check.
 
 Scheme indentation uses spaces and preserves existing line breaks. Use `;;` for
 comments on their own lines and `;` for trailing comments, following Emacs's Lisp
@@ -32,7 +33,9 @@ the launcher or `make test`.
 The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`),
-and pattern matching and dispatch (`syntax-pattern.sld`). `pmap` transforms parser values;
+pattern matching and dispatch (`pattern.sld`), macro expansion (`expand.sld`),
+and resolved HIR records (`hir.sld`).
+`pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
 Character predicates live in `common.sld`. Syntax rules match the input directly,
 using `tuple`, `repeat`, and `pmap` to assemble spellings from character results.
@@ -56,29 +59,24 @@ are handled by `s-file`. Source locations and the reader in a failed parse resul
 retain the filename. The launcher reports parse failures or prints the syntax records.
 
 `make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
-parser, and syntax test libraries from the same directory. Test helpers also
+parser, syntax, and pattern test libraries from the same directory. Test helpers also
 live there; production libraries do not load test code.
 
-`syntax-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
+`pattern-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
 callbacks. It matches the whole input form; list literal identifiers explicitly
 to dispatch on a head, or use `_` to ignore it:
 
 ```scheme
-(import (scheme base)
-        (snail-scheme reader) (snail-scheme parser)
-        (snail-scheme syntax-parser)
-        (snail-scheme syntax-pattern))
+(import (scheme base) (snail-scheme pattern))
 
 (define dispatch
-  (syntax-dispatch '... '(define)
+  (pattern-dispatch '... '(define)
     (list
       (cons '(define name value)
         (lambda (captures)
           (map cdr captures))))))
 
-(define result
-  (dispatch (car (parse-result-value ((s-file) (string->reader "example.scm" "(define x 42)"))))))
-result                                      ; syntax objects for x and 42
+(dispatch '(define x 42))                    ; => (x 42)
 ```
 
 Dispatch returns the first callback value other than `#f`. A callback returning
@@ -87,17 +85,19 @@ accepts, dispatch returns `#f`. Only `#f` is false in Scheme: `'()`, `0`, and `"
 all select their branch.
 Callbacks receive an association list of `(name . capture)` entries in pattern
 traversal order. Use `(cdr (assq 'name captures))` to retrieve a capture.
-A singleton capture is the original syntax object. Repeated captures contain
-lists nested once per ellipsis, preserving empty and ragged repetitions.
-Synthesized list tails reuse the containing list's location and original children.
-`syntax-dispatch` takes an ellipsis symbol, a literal list, and pattern/callback
+A singleton capture is the original datum, including an unchanged list tail or
+opaque record. Repeated captures contain lists nested once per ellipsis, preserving
+empty and ragged repetitions. The pattern library does not depend on syntax objects;
+source locations and lexical identity belong to the reader and expander.
+`pattern-dispatch` takes an ellipsis symbol, a literal list, and pattern/callback
 pairs. Dispatch separates patterns and callbacks, parses the patterns independently,
-and walks the parallel lists with `dispatch-syntax-against-pattern-list`.
-Literal identifiers match by symbol spelling: the private dispatcher builder takes explicit
-ellipsis, literal-list, and lookup arguments. Lookup maps symbols to identities
-compared with `eqv?`, and the public wrapper supplies `(lambda (x) x)`.
+and walks the parallel lists with `dispatch-against-pattern-list`.
+Literal identifiers match by symbol spelling. The private dispatcher builder takes
+explicit ellipsis, literal-list, and lookup arguments. Lookup maps literal symbols
+and input datums to identities compared with `eqv?`; the public wrapper supplies
+`(lambda (x) x)`.
 Parsing classifies literal symbols without calling lookup. Matching resolves
-literal and input symbols through lookup and constructs private match-result
+literal symbols and input datums through lookup and constructs private match-result
 records. A final pass flattens successful results into the callback alist.
 
 Patterns support unique variables, wildcards, constants, dotted lists, vectors,
@@ -108,14 +108,25 @@ List and vector patterns are parsed into a prefix, an optional repeated item, an
 a suffix; lists additionally carry an optional improper-tail pattern. Matching
 consumes the prefix, reserves and matches the suffix and tail, then matches the
 repeated item against the remaining elements. Flattening preserves pattern order,
-original syntax objects, and empty and ragged repetition captures.
-The intended binding-aware semantics for future `syntax-rules` expansion,
+original datums, and empty and ragged repetition captures.
+The binding-aware semantics of `syntax-rules` expansion,
 including shadowed literals and exported auxiliary keywords, are documented in
-[the macro design](doc/core-ir.md#literal-binding-identity).
+[the macro design](doc/hir.md#literal-binding-identity).
 
-Lexical scoping and macro expansion are pending. `make-atom-syntax` constructs
-atoms from a value and source location. Later passes will carry lexical scope in
-their traversal context.
+`(snail-scheme expand)` provides `expand-program`, `expand-library`, and
+`macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
+macros, and constructs fully expanded Scheme HIR for the supported core forms.
+Library loading uses an explicit function parameter. Scope environments are
+transient association lists passed through recursive descent.
+
+`(snail-scheme hir)` defines the immutable records in
+[the HIR design](doc/hir.md#hir-records). A `value-definition` holds a binding's
+identity and definition location; a `name` refers to it and retains the reference
+location. A `value-binding` pairs that identity with an initializer. Library
+declarations and core expressions have separate records. HIR carries no types or
+closure capture lists; inference, synthesis, and lowering belong to later passes.
+This is an initial core and library implementation, not complete R7RS support.
+The command-line launcher still only parses and prints syntax records.
 
 ## Reader
 
