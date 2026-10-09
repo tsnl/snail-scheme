@@ -902,7 +902,8 @@
     (define (build-syntax-dispatcher raw ellipsis literals identities ranks)
       ;; Parse the original grammar before introducing adapter variables.
       (pattern-dispatch ellipsis literals (list (cons raw (lambda (_) #t))))
-      (let-values (((adapted constraints) (adapt-syntax-pattern raw ellipsis literals identities)))
+      (let-values (((adapted constraints)
+                    (translate-syntax-pattern raw ellipsis literals identities)))
         (let ((dispatch (pattern-dispatch ellipsis '()
                                           (list (cons adapted (lambda (captures) captures))))))
           (lambda (form) (match-syntax-pattern form dispatch constraints ranks)))))
@@ -921,48 +922,53 @@
                    (restore-capture (cdr (assq (car rank) captures))
                                     (cdr rank) tails source))) ranks))
 
-    (define (adapt-syntax-pattern raw ellipsis literals identities)
-      (adapt-pattern-node raw ellipsis literals
-                          (pattern-constraint-parser raw ellipsis literals identities) 0 '()))
+    (define (translate-syntax-pattern raw ellipsis literals identities)
+      (translate-pattern-syntax-to-raw-pattern
+       raw ellipsis literals (pattern-constraint-parser raw ellipsis literals identities) 0 '()))
 
-    (define (adapt-pattern-node pattern ellipsis literals constrain depth constraints)
+    (define (translate-pattern-syntax-to-raw-pattern
+             pattern ellipsis literals constrain depth constraints)
       (cond
-       ((symbol? pattern) (adapt-identifier-pattern pattern literals constrain depth constraints))
+       ((symbol? pattern)
+        (translate-identifier-pattern pattern literals constrain depth constraints))
        ((or (pair? pattern) (null? pattern) (vector? pattern))
-        (adapt-pattern-sequence pattern ellipsis literals constrain depth constraints))
+        (translate-pattern-sequence pattern ellipsis literals constrain depth constraints))
        (else (values (list pattern '_) constraints))))
 
-    (define (adapt-identifier-pattern pattern literals constrain depth constraints)
+    (define (translate-identifier-pattern pattern literals constrain depth constraints)
       (if (memq pattern literals)
           (let-values (((name constraints) (constrain pattern depth constraints)))
             (values (list '_ name) constraints))
           (values (if (eq? pattern '_) '_ (list '_ pattern)) constraints)))
 
-    (define (adapt-pattern-sequence pattern ellipsis literals constrain depth constraints)
+    (define (translate-pattern-sequence pattern ellipsis literals constrain depth constraints)
       (let-values (((items constraints)
-                    (adapt-pattern-elements (if (vector? pattern) (vector->list pattern) pattern)
-                                            ellipsis literals constrain depth constraints)))
+                    (translate-pattern-elements
+                     (if (vector? pattern) (vector->list pattern) pattern)
+                     ellipsis literals constrain depth constraints)))
         (values (list (if (vector? pattern) (list->vector items) items) '_) constraints)))
 
-    (define (adapt-pattern-elements remaining ellipsis literals constrain depth constraints)
+    (define (translate-pattern-elements remaining ellipsis literals constrain depth constraints)
       (cond
        ((null? remaining) (values '() constraints))
        ((pair? remaining)
-        (adapt-pattern-pair remaining ellipsis literals constrain depth constraints))
-       (else (adapt-pattern-tail remaining literals constrain depth constraints))))
+        (translate-pattern-pair remaining ellipsis literals constrain depth constraints))
+       (else (translate-pattern-tail remaining literals constrain depth constraints))))
 
-    (define (adapt-pattern-pair remaining ellipsis literals constrain depth constraints)
+    (define (translate-pattern-pair remaining ellipsis literals constrain depth constraints)
       (let* ((repeated? (and (pair? (cdr remaining))
                              (active-ellipsis? (cadr remaining) ellipsis literals)))
              (rest (if repeated? (cddr remaining) (cdr remaining))))
         (let*-values (((item constraints)
-                       (adapt-pattern-node (car remaining) ellipsis literals constrain
-                                           (if repeated? (+ depth 1) depth) constraints))
+                       (translate-pattern-syntax-to-raw-pattern
+                        (car remaining) ellipsis literals constrain
+                        (if repeated? (+ depth 1) depth) constraints))
                       ((tail constraints)
-                       (adapt-pattern-elements rest ellipsis literals constrain depth constraints)))
+                       (translate-pattern-elements
+                        rest ellipsis literals constrain depth constraints)))
           (values (cons item (if repeated? (cons ellipsis tail) tail)) constraints))))
 
-    (define (adapt-pattern-tail pattern literals constrain depth constraints)
+    (define (translate-pattern-tail pattern literals constrain depth constraints)
       (if (and (symbol? pattern) (not (memq pattern literals)))
           (values pattern constraints)
           (constrain pattern depth constraints)))
