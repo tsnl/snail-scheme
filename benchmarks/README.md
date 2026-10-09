@@ -107,6 +107,29 @@ alongside the Node version for WASI runs and whether Snail's GC stress mode is
 enabled. The artifact sidecars establish source identity; checkout metadata still describes the
 measurement context rather than claiming a saved binary's build revision.
 
+## Recorded Chez baseline
+
+The 2026-10-09 measurements used clean commit `f0c4e91`, LLVM O2, Cargo release,
+and Chez 10.4.1 at safe optimization level 2. Compilation and process startup are
+excluded. The [default report](results/2026-10-09-final-default.json) preserves
+all four workloads; the [longer report](results/2026-10-09-final-repeated.json)
+uses 16 matched repetitions for CPU, memory, and GC to lengthen Chez's samples.
+Both contain three measured pairs per program and target.
+
+Times below are median milliseconds **per repetition**. Each ratio uses the
+native Chez samples paired with that Snail target, on this host.
+
+| Program | Repetitions | Snail native ms | Snail WASI ms | Native / Chez | WASI / Chez |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CPU | 16 | 126.748 | 194.325 | 276.9 | 424.5 |
+| Memory | 16 | 135.815 | 222.152 | 260.9 | 435.5 |
+| I/O | 4 | 13.876 | 19.791 | 1.90 | 2.73 |
+| GC | 16 | 18.560 | 29.868 | 125.8 | 201.7 |
+
+The I/O comparison retains the documented difference between Rust substring
+search and Chez's Scheme scan. CPU, memory, and GC still show large runtime
+overheads; see the [profile analysis](../doc/performance-baseline.md).
+
 ## Runtime optimization ablations
 
 `ablate` saves compiled runtime variants before measuring them. Build both
