@@ -489,8 +489,8 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
         return Err("unsupported numeric radix".into());
     }
     if name == "string->number" {
-        let text = vm.string(args[0])?;
-        match i64::from_str_radix(text, radix as u32) {
+        let (text, radix) = strip_radix_prefix(vm.string(args[0])?, radix as u32);
+        match i64::from_str_radix(text, radix) {
             Ok(n) => return Ok(vm.integer(n)),
             Err(error)
                 if matches!(
@@ -525,6 +525,18 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri
         Number::Float(_) => return Err("inexact number requires decimal radix".into()),
     };
     Ok(vm.alloc(Text(text)))
+}
+
+fn strip_radix_prefix(text: &str, radix: u32) -> (&str, u32) {
+    let radix = match text.as_bytes().get(..2) {
+        Some([b'#', b'b' | b'B']) => 2,
+        Some([b'#', b'o' | b'O']) => 8,
+        Some([b'#', b'd' | b'D']) => 10,
+        Some([b'#', b'x' | b'X']) => 16,
+        _ => return (text, radix),
+    };
+    // A prefix overrides the supplied radix. Two ASCII bytes end on a UTF-8 boundary.
+    (&text[2..], radix)
 }
 
 pub(crate) fn parse_float(text: &str) -> Option<f64> {
@@ -917,6 +929,53 @@ mod tests {
             let literal = initialized_float(text);
             let read = vm.heap.get::<Float>(read).unwrap().0;
             assert!(literal == read || (literal.is_nan() && read.is_nan()));
+        }
+    }
+
+    #[test]
+    fn numeric_reader_honors_radix_prefixes() {
+        let mut vm = vm();
+        for (text, expected) in [
+            ("#b+11", 3),
+            ("#B10", 2),
+            ("#o17", 15),
+            ("#O10", 8),
+            ("#d19", 19),
+            ("#D10", 10),
+            ("#x10ffff", 1_114_111),
+            ("#X-ff", -255),
+            ("#x7fffffffffffffff", i64::MAX),
+            ("#x-8000000000000000", i64::MIN),
+        ] {
+            let text = vm.alloc(Text(text.into()));
+            let value = convert_number(&mut vm, "string->number", &[text, integer(2)]).unwrap();
+            assert_eq!(value.integer(&vm.heap).unwrap(), expected);
+        }
+        let text = vm.alloc(Text("#d1.5".into()));
+        let value = convert_number(&mut vm, "string->number", &[text, integer(16)]).unwrap();
+        assert_eq!(vm.heap.get::<Float>(value).unwrap().0, 1.5);
+        assert!(convert_number(&mut vm, "string->number", &[text, integer(3)]).is_err());
+    }
+
+    #[test]
+    fn numeric_reader_rejects_malformed_radix_prefixes() {
+        let mut vm = vm();
+        for text in [
+            "#", "#x", "#xg", "#x1.5", "#b102", "#x#d10", "#e10", "+#x1", " #x1", "#λ", "λ",
+        ] {
+            let text = vm.alloc(Text(text.into()));
+            assert_eq!(
+                convert_number(&mut vm, "string->number", &[text]).unwrap(),
+                Value::FALSE
+            );
+        }
+        for text in ["#x8000000000000000", "#x-8000000000000001"] {
+            let text = vm.alloc(Text(text.into()));
+            assert!(
+                convert_number(&mut vm, "string->number", &[text])
+                    .unwrap_err()
+                    .contains("overflow")
+            );
         }
     }
 
