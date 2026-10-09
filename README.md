@@ -58,8 +58,9 @@ Direct reader access stays in the parser primitives. Separate `s-number` and
 also require a delimiter or EOF after their spelling.
 
 `chain` takes an initial parser followed by binders that receive each successful
-value and return the next parser. `pmap` uses `chain` to transform a successful
-value. `tuple` collects positional values; `named-tuple` accepts `(symbol . parser)`
+value and return the next parser. `pmap` transforms a successful result directly.
+`tuple` threads the reader through its parsers and collects positional values;
+`named-tuple` accepts `(symbol . parser)`
 pairs, conventionally written with quasiquote, and returns an association list.
 Use `(cdr (assq 'name fields))` to retrieve a named value. Keys must be unique
 symbols, except `_`, whose parser runs but whose value is discarded.
