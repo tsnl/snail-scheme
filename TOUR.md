@@ -64,6 +64,20 @@ path, then prints parsed syntax. It defines `main` without invoking it; Chibi's
 that defines the procedure and exits silently. The compilation pipeline instead
 enters through `compile.scm`, whose top-level form invokes `compiler-main`.
 
+## Functional tree composition experiment
+
+[`react.sld`](src/snail-scheme/react.sld) is an independent Chibi-hosted prototype
+for composing document, GUI, and other trees. `create-element` records a host tag
+or component procedure, properties, and unrendered children. `render` resolves
+selected components into a forest of ordinary `(tag props child ...)` data,
+preserving strings and numbers and flattening list fragments. Property values
+remain opaque. This module does not participate in the compiler pipeline.
+
+[`examples/react.scm`](examples/react.scm) demonstrates document and GUI
+descriptions. [`doc/react.md`](doc/react.md) records the implemented contract and
+the remaining questions about host integrations and state. The composition tests
+join the existing Chibi suite in `tests/snail-scheme/test.scm`.
+
 ## Reading source
 
 [`source.sld`](src/snail-scheme/source.sld) defines `loc`: filename, one-based
