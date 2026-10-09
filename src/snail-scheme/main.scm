@@ -3,7 +3,7 @@
  (scheme write)
  (snail-scheme cli)
  (snail-scheme reader)
- (snail-scheme syntax))
+ (snail-scheme syntax-parser))
 
 (define (main argv)
   (let* ((args (parse-cli-args (car argv) (cdr argv)))

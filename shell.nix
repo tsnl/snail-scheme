@@ -10,5 +10,6 @@ pkgs.mkShell {
     gnumake
     nixfmt
     emacs-nox
+    ripgrep
   ];
 }

@@ -31,7 +31,8 @@ the launcher or `make test`.
 
 The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
-and syntax records and parsing (`syntax.sld`). `pmap` transforms parser values;
+syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`),
+and pattern matching and dispatch (`syntax-pattern.sld`). `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. CLI argument parsing lives in `cli.sld`.
 Character predicates live in `common.sld`. Syntax rules compose parsers directly,
 with `capture` returning the text consumed by a rule. Direct reader access stays
@@ -54,8 +55,12 @@ callbacks. It matches the whole input form; list literal identifiers explicitly
 to dispatch on a head, or use `_` to ignore it:
 
 ```scheme
+(import (scheme base)
+        (snail-scheme reader) (snail-scheme syntax-parser)
+        (snail-scheme syntax-pattern))
+
 (define dispatch
-  (syntax-pattern '... '(define)
+  (syntax-pattern (make-syntax-pattern-context '... '(define))
     (list
       (cons '(define name value)
         (lambda (matched)
@@ -70,23 +75,47 @@ Callbacks receive one `match-result`; groups appear in pattern traversal order.
 A singleton group's data is the original syntax object. Repeated groups contain
 lists nested once per ellipsis, preserving empty and ragged repetitions.
 Synthesized list tails reuse the containing list's location and original children.
-`pattern?` validates a datum, optionally taking an ellipsis symbol and literal list;
-`match-syntax-pattern-arm` exposes matching without dispatch. Patterns support
+`make-syntax-pattern-context` takes an explicit ellipsis symbol and literal list,
+plus an optional literal comparator. The comparator receives a literal name and
+input identifier; its default compares spellings. Validation, matching, and
+dispatch share this context:
+
+```scheme
+(define context (make-syntax-pattern-context '... '()))
+(pattern? context '(x ...))                 ; => #t
+(pattern? context '(1 ...))                 ; => #t, no variables required
+(pattern-variables context '(1 ...))        ; => ()
+(pattern-variables context '(x x))          ; => (x x)
+(pattern? context '(x x))                   ; => #f, duplicate variables
+(match-syntax-pattern-arm context '(x ...) (car (parse-file (string->reader "example.scm" "(1 2)"))))
+```
+
+`pattern?` returns a boolean. `pattern-variables` only collects variable
+occurrences in traversal order, always returning a list; validation checks
+uniqueness separately. `match-syntax-pattern-arm` exposes matching without
+dispatch. Patterns support
 unique variables, wildcards, constants, dotted lists, vectors, custom ellipses,
 and one repeated segment per sequence level. Bytevectors match as constants.
-Literal identifiers currently compare by spelling; binding-aware comparison,
-hygiene, and template expansion belong to subsequent passes.
+The context's comparator can supply binding-aware literal matching for a later
+scoping pass.
+
+Lexical scoping and macro expansion are pending. `make-atom-syntax` constructs
+atoms from a value and source location. Later passes will carry lexical scope in
+their traversal context.
+
+## Reader
 
 The syntax parser handles lists, vectors, and bytevectors with matched `()`, `[]`,
 or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifiers
-(including `|...|`), and line, nested block, and datum comments. `s-sequence` parses
-proper sequences first: no prefix gives a list, `#` a vector, and `#u8` a bytevector.
+(including `|...|`, `#%-` names, and `→`), and line, nested block, and datum comments.
+`s-sequence` parses proper sequences first: no prefix gives a list and `#` a vector.
 A separate arm parses improper lists with at least one element and a required
-dotted tail. All three forms use `(make-list-syntax elements improper-tail loc prefix)`;
-`list-syntax-prefix` returns `()` for lists, `"#"` for vectors, or `"#u8"` for
-bytevectors. Prefixes are normalized to lowercase. Elements retain their syntax
-objects and source locations, including in bytevectors.
-`s-terminal` parses individual literals and symbols; `expr` handles leading
+dotted tail. Lists and vectors use `(make-list-syntax elements improper-tail loc prefix)`;
+`list-syntax-prefix` returns `()` for lists and `"#"` for vectors. Their elements
+retain syntax objects and source locations. `s-bytevector-terminal` validates
+each byte and constructs an atom containing a bytevector, located at the prefix.
+The matcher compares bytevector datums as ordinary constants.
+`s-terminal` parses literals, including bytevectors, and symbols; `expr` handles leading
 intertoken space. `number-literal?` and `char-literal?`
 validate complete strings. Numeric rules recognize radix and exactness prefixes,
 integers, ratios, decimals, exponents, and complex numbers before `string->number`

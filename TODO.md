@@ -6,14 +6,17 @@
   - [x] Syntax
   - [ ] Syntax parser
     - [x] Parse most of Scheme
-    - [ ] Parse `#%-*` identifiers
+    - [x] Parse `#%-*` identifiers
   - [x] Syntax pattern matcher
 - [ ] AST
+  - [ ] Lexical scope context and phase-aware binding identities
   - [ ] AST build from syntax pattern matcher
   - [ ] Imports, exports, and lexical scoping
 - [ ] Macro expansion
-  - [ ] `syntax-rules` implementation
+  - [ ] `syntax-rules` pattern/template engine
   - [ ] Macro expansion, `macro-expand-1`
   - [ ] Fully expand in context
+    - [ ] Dispatch `#%-macro`, `#%-let-syntax`, and `#%-letrec-syntax`
+    - [ ] Core binder regions and complete scope collection before body expansion
 - [ ] Elaboration and type-checking
   - ...

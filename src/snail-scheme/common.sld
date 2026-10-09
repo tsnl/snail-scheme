@@ -80,7 +80,7 @@
       (or (char-decimal-digit? c) (char<=? #\a c #\f) (char<=? #\A c #\F)))
 
     (define (char-identifier-initial? c)
-      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~))))
+      (or (char-alphabetic? c) (memv c '(#\! #\$ #\% #\& #\* #\/ #\: #\< #\= #\> #\? #\^ #\_ #\~ #\→))))
 
     (define (char-identifier-subsequent? c)
       (or (char-identifier-initial? c) (char-decimal-digit? c) (memv c '(#\+ #\- #\. #\@))))
