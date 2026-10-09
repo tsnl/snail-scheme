@@ -59,8 +59,10 @@ import semantics to the expander.
 The historical parser inspection entry,
 [`main.scm`](src/snail-scheme/main.scm), uses
 [`cli.sld`](src/snail-scheme/cli.sld) to collect an input path and optional output
-path, then prints parsed syntax. It is useful for inspecting the frontend; the
-compilation pipeline instead enters through `snail-compile`.
+path, then prints parsed syntax. It defines `main` without invoking it; Chibi's
+`-r` runs that procedure. Compiling the file alone therefore produces a program
+that defines the procedure and exits silently. The compilation pipeline instead
+enters through `compile.scm`, whose top-level form invokes `compiler-main`.
 
 ## Reading source
 
