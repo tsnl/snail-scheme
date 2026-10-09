@@ -1,32 +1,32 @@
 ;; Run with: chibi-scheme -I src examples/react.scm
 (import (scheme base) (scheme write) (snail-scheme react))
 
-(define (notice props children)
-  (create-element 'admonition props children))
+(define (note kind children)
+  (apply element 'note kind children))
 
-(define (document props children)
-  (create-element 'document props
-                  (create-element 'heading '() "Scheme components")
-                  (create-element notice '((kind . warning))
-                                  (create-element 'paragraph '() "These are ordinary functions."))
-                  children))
-
-(define (button props children)
-  (create-element 'button props children))
+(define (document title children)
+  (element 'document title
+           (element 'heading #f "Scheme components")
+           (element note 'aside (element 'paragraph #f "These are ordinary functions."))
+           (apply fragment children)))
 
 (define page
-  (create-element document '((title . "Composition"))
-                  (map (lambda (n)
-                         (create-element 'paragraph '() "Square: " (* n n)))
-                       '(1 2 3))))
+  (element document "Composition"
+           (apply fragment (map (lambda (n) (element 'paragraph #f "Square: " (* n n))) '(1 2 3)))))
 
 (define window
-  (create-element 'window '((title . "Editor"))
-                  (create-element 'row '()
-                                  (create-element button '((action . save)) "Save")
-                                  (create-element button '((action . cancel)) "Cancel"))))
+  (element 'window "Editor"
+           (element 'row #f (element 'button 'save "Save") (element 'button 'cancel "Cancel"))))
 
-(write (render page))
+;; This example chooses an s-expression display format. The library returns
+;; element records, and a different consumer can preserve richer Scheme data.
+(define (tree->datum tree)
+  (if (element? tree)
+      (cons (element-type tree)
+            (cons (element-data tree) (map tree->datum (element-children tree))))
+      tree))
+
+(write (map tree->datum (resolve page)))
 (newline)
-(write (render window))
+(write (map tree->datum (resolve window)))
 (newline)

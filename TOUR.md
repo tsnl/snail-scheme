@@ -64,19 +64,25 @@ path, then prints parsed syntax. It defines `main` without invoking it; Chibi's
 that defines the procedure and exits silently. The compilation pipeline instead
 enters through `compile.scm`, whose top-level form invokes `compiler-main`.
 
-## Functional tree composition experiment
+## Functional tree composition and UI experiment
 
-[`react.sld`](src/snail-scheme/react.sld) is an independent Chibi-hosted prototype
-for composing document, GUI, and other trees. `create-element` records a host tag
-or component procedure, properties, and unrendered children. `render` resolves
-selected components into a forest of ordinary `(tag props child ...)` data,
-preserving strings and numbers and flattening list fragments. Property values
-remain opaque. This module does not participate in the compiler pipeline.
+[`react.sld`](src/snail-scheme/react.sld) is an independent Chibi-hosted prototype.
+`element` records a type, arbitrary data, and unexpanded children; `resolve`
+expands procedure-valued types and explicit fragments into a forest of element
+records and opaque leaves. HTML conventions do not participate in this core.
 
-[`examples/react.scm`](examples/react.scm) demonstrates document and GUI
-descriptions. [`doc/react.md`](doc/react.md) records the implemented contract and
-the remaining questions about host integrations and state. The composition tests
-join the existing Chibi suite in `tests/snail-scheme/test.scm`.
+[`ui.sld`](src/snail-scheme/ui.sld) stores model/update/view application values.
+`dispatch` produces a new application through its reducer. [`html.sld`](src/snail-scheme/html.sld)
+interprets trees as HTML and builds a matching action table. [`ui-server.sld`](src/snail-scheme/ui-server.sld)
+owns the current application in a local Chibi server, preparing a complete page
+before publishing a transition. These modules are separate from the compiler.
+
+[`examples/react.scm`](examples/react.scm) prints generic document and GUI trees.
+[`examples/ui.scm`](examples/ui.scm) renders one view as a static workbook or an
+interactive HTML page. [Tree semantics](doc/react.md) and the [UI guide](doc/ui.md)
+separate implemented behavior from the proposed browser/WASM host. Their Scheme
+tests join the existing Chibi suite; [`scripts/test-ui`](scripts/test-ui) exercises
+the real HTTP host, including stale actions and failed transitions.
 
 ## Reading source
 

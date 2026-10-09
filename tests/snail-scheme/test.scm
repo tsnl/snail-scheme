@@ -6,7 +6,8 @@
  (snail-scheme test-parser)
  (snail-scheme test-syntax)
  (snail-scheme test-pattern)
- (snail-scheme test-react))
+ (snail-scheme test-react)
+ (snail-scheme test-ui))
 
 (test-cli)
 (test-reader)
@@ -14,4 +15,5 @@
 (test-syntax)
 (test-pattern)
 (test-react)
+(test-ui)
 (display-error "All tests ok\n")
