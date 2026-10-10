@@ -4,9 +4,11 @@
 
 - [Programs that build programs](builds.md)
 - [The ABI](abi.md)
+  - [AWI extension](awi.md)
 - [Platforms](platforms/index.md)
-  - [Node / WASI](platforms/node.md)
-  - [Native (planned)](platforms/native.md)
+  - [Native (CLI)](platforms/native-cli.md)
+  - [Native (GUI)](platforms/native-gui.md)
+  - [Browser (GUI)](platforms/browser-gui.md)
 - [Tutorials: the integration milestones](tutorials/index.md)
   - [A game that reloads while you play](tutorials/game.md)
   - [A chat application in two places](tutorials/chat.md)
