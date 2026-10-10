@@ -257,4 +257,9 @@ the result matrix. Its small [Chez adapter](benchmarks/r7rs-chez.scm) supplies
 monotonic timing alongside upstream's language compatibility prelude.
 [`benchmarks/plots.py`](benchmarks/plots.py) draws sorted duration bars for both
 runners, with a compact README comparison and one chart per suite workload.
+[`benchmarks/studio.scm`](benchmarks/studio.scm) is a deterministic color
+ray-tracing showcase: rays, intersections, lighting, reflections, and pixels
+follow one another in a single file. Its small
+[renderer wrapper](benchmarks/render-studio.py) runs reference Scheme systems
+and converts their PPM output into a PNG preview.
 [BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.
