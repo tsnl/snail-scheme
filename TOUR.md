@@ -174,6 +174,8 @@ writes folded WAT. Its analysis records binding identity, assignment, lambda
 captures, and initialization. It does not build MIR, bytecode, a managed operand
 stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
 visible in the generated code.
+Stateful emission sequences expression visits explicitly so the Chibi-hosted
+and compiled compiler assign identical temporary and constant names.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
 fixed callees pass arguments directly; unknown calls use a GC argument array.
@@ -247,8 +249,9 @@ Record execution time separately from compilation and startup, verify answers,
 and retain raw samples and Chez/Chibi ratios when comparing backends. Retired
 prototypes and measurements remain in Git history.
 
-[`benchmarks/reproduce.py`](benchmarks/reproduce.py) rebuilds the native
-Fibonacci comparison, checks answers, collects rotating samples, and renders
+[`benchmarks/reproduce.py`](benchmarks/reproduce.py) rebuilds the recorded native
+Fibonacci comparison in its pinned historical worktree, checks answers,
+collects rotating samples, and renders
 plots from saved JSON. [`benchmarks/r7rs.py`](benchmarks/r7rs.py) runs the
 upstream R7RS suite across Snail native, Chez, Guile, and Chibi using the pinned
 [`r7rs-benchmarks`](benchmarks/r7rs-benchmarks) submodule. Preparation,
@@ -262,4 +265,9 @@ ray-tracing showcase: rays, intersections, lighting, reflections, and pixels
 follow one another in a single file. Its small
 [renderer wrapper](benchmarks/render-studio.py) runs reference Scheme systems
 and converts their PPM output into a PNG preview.
+[`benchmarks/compile-self.py`](benchmarks/compile-self.py) freezes the compiler's
+Scheme sources, builds its executable before timing, then measures it compiling
+those same sources. The small [Scheme entry](benchmarks/compile-self.scm) owns
+the clock boundary; Python checks output bytes and reuses the suite's process
+and reporting utilities.
 [BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.

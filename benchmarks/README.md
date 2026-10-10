@@ -9,6 +9,12 @@ Initialize the upstream suite with
 `git submodule update --init benchmarks/r7rs-benchmarks` before running it.
 **Workload times exclude compilation and process startup.**
 
+Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
+own full Scheme source, with byte-checked output and preparation excluded.
+See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
+and timing boundaries. [`render-studio.py`](render-studio.py) renders the
+[studio scene](../BENCHMARKS.md#studio-scene) and reports its elapsed time.
+
 ## Native LLVM CPU experiment
 
 The [LLVM code-generation ablation](results/2026-10-10-llvm-codegen.json)

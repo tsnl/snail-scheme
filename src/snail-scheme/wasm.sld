@@ -311,6 +311,9 @@
 
     ;; ---- Structured expressions ----
 
+    ;; Emission allocates temporary and constant names. Sequence those effects
+    ;; explicitly: quasiquote does not specify an order for its unquotes.
+
     (define (single node context)
       `(call $single ,(expression node context #f)))
 
@@ -332,15 +335,18 @@
     (define (sequence-expression items context tail?)
       (cond ((null? items) '(global.get $unspecified))
             ((null? (cdr items)) (expression (car items) context tail?))
-            (else `(block (result eqref) (drop ,(expression (car items) context #f))
-                          ,(sequence-expression (cdr items) context tail?)))))
+            (else
+             (let* ((first (expression (car items) context #f))
+                    (rest (sequence-expression (cdr items) context tail?)))
+               `(block (result eqref) (drop ,first) ,rest)))))
 
     (define (conditional-expression node context tail?)
-      `(if (result eqref) (call $truthy ,(single (ir:conditional-test node) context))
-           (then ,(expression (ir:conditional-consequent node) context tail?))
-           (else ,(if (ir:conditional-opt-alternate node)
-                      (expression (ir:conditional-opt-alternate node) context tail?)
-                      '(global.get $unspecified)))))
+      (let* ((test (single (ir:conditional-test node) context))
+             (yes (expression (ir:conditional-consequent node) context tail?))
+             (no (if (ir:conditional-opt-alternate node)
+                     (expression (ir:conditional-opt-alternate node) context tail?)
+                     '(global.get $unspecified))))
+        `(if (result eqref) (call $truthy ,test) (then ,yes) (else ,no))))
 
     (define (closure-expression node context)
       (let* ((module (function-module context))
@@ -391,11 +397,11 @@
       (let* ((operands (ir:application-operands node))
              (arguments (map (lambda (node) (temporary! context)) operands))
              (operator (temporary! context))
-             (procedure (known-procedure node (function-module context))))
-        `(block (result eqref)
-                ,@(map (lambda (name operand) `(local.set ,name ,(single operand context)))
-                       arguments operands)
-                (local.set ,operator ,(single (ir:application-operator node) context))
+             (procedure (known-procedure node (function-module context)))
+             (arguments-code (map (lambda (name operand) `(local.set ,name ,(single operand context)))
+                                  arguments operands))
+             (operator-code (single (ir:application-operator node) context)))
+        `(block (result eqref) ,@arguments-code (local.set ,operator ,operator-code)
                 ,(call-expression procedure operator arguments context tail?))))
 
     (define (call-expression procedure operator arguments context tail?)
@@ -633,7 +639,27 @@
           (expect (immutable-primitives (list plus) '()) (list plus))
           (expect (immutable-primitives (list plus) (list assigned)) '())))
 
+      (define (emitted-constant-data node)
+        (let* ((module (make-module '() '() '() '() '() '() '()))
+               (context (make-function module '() '())))
+          (expression node context #f)
+          (reverse (map car (module-constants module)))))
+
+      (define (test-emission-order)
+        (define (literal text) (ir:make-literal text #f))
+        (expect (emitted-constant-data
+                 (ir:make-block (list (literal "first") (literal "second")) #f))
+                '("first" "second"))
+        (expect (emitted-constant-data
+                 (ir:make-conditional (literal "test") (literal "yes") (literal "no") #f))
+                '("test" "yes" "no"))
+        (expect (emitted-constant-data
+                 (ir:make-application (literal "operator")
+                                      (list (literal "first") (literal "second")) #f))
+                '("first" "second" "operator")))
+
       (define (test-wasm)
         (run-test test-binding-cells)
         (run-test test-recursive-capture)
+        (run-test test-emission-order)
         (run-test test-primitive-rebinding))))))
