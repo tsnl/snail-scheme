@@ -2,6 +2,11 @@
 
 > Rewrite in progress; the previous implementation lives on branch `v3`.
 
+The [Snail-Scheme book](doc/book/index.md) describes the platform design,
+[ABI](doc/book/abi.md), and planned integration tutorials. In `nix-shell`, run
+`scripts/book serve --hostname 127.0.0.1 --port 3000` for a live preview, or
+`scripts/book build` to write `build/book/`.
+
 A small Scheme compiler library, hosted by Chibi. Ordinary Scheme scripts choose
 what to compile, where to write it, and whether to run it. There is no compiler
 CLI mode parser or separate Rust driver.

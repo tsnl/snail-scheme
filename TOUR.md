@@ -243,6 +243,12 @@ guest frames return, when no Rust host-state borrow is active. See
 
 ## Tests and measurements
 
+[`doc/book/`](doc/book/index.md) is the mdBook source. Its platform pages include
+WAT interface files and symbol references, distinguishing implemented Node/WASI
+behavior from proposed native linkage. [`scripts/book`](scripts/book) builds or
+serves the book using `book.toml`; the three tutorial chapters define future
+integration milestones. Built HTML stays in the ignored `build/book/` directory.
+
 Scheme unit tests live in each module's final `Tests` section with one
 conditional `test-<module>` export. `make test` enables the Chibi `snail-tests`
 feature and invokes [`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm).
