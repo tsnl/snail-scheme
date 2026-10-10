@@ -7,8 +7,8 @@
     ;; ---- Native compilation of a complete linked Wasm module ----
 
     ;; This build operation consumes the same final binary used by a Wasm host.
-    ;; Binaryen validates and disassembles it; the Scheme library translates the
-    ;; resulting folded expressions. Clang optimizes the module and native host
+    ;; Binaryen validates and canonicalizes its types; the Scheme library reads
+    ;; the binary directly. Clang optimizes the module and native host
     ;; together so bounds/type helpers can inline without removing their checks.
 
     (define (collector-flags)
@@ -19,10 +19,12 @@
                 (if library (list "-L" library (string-append "-Wl,-rpath," library)) '()))))
 
     (define (native-in-directory root input directory output)
-      (let ((wat (string-append directory "/module.wat"))
+      (let ((wasm (string-append directory "/module.wasm"))
             (llvm (string-append directory "/module.ll")))
-        (run-command "native.decode" (list (tool-name "WASM_DIS" "wasm-dis") input "-o" wat))
-        (call-with-trace "native.translate" (lambda () (wat-file->llvm-file wat llvm)))
+        (run-command "native.validate"
+                     (append (list (tool-name "WASM_OPT" "wasm-opt") input)
+                             wasm-features (list "-q" "-o" wasm)))
+        (call-with-trace "native.translate" (lambda () (wasm-file->llvm-file wasm llvm)))
         (run-command "native.compile"
                      (append (list (tool-name "CLANG" "clang") "-O3" "-flto" "-fuse-ld=lld"
                                    llvm (string-append root "/src/native.c"))

@@ -14,26 +14,37 @@ The compiler remains hosted by Chibi.
 
 The supported native target is x86-64 Linux. In addition to the Wasm build
 toolchain, install Clang, LLD, BDWGC headers/library, and the C math library.
-The repository's Nix shell includes these. `WASM_DIS` and `CLANG` override tool
+The repository's Nix shell includes these. `WASM_OPT` and `CLANG` override tool
 paths; `BDWGC_INCLUDE` and `BDWGC_LIB` optionally identify a separate collector
 installation. The latter adds a runtime library search path as well as a linker
 path. Translation, `-O3` optimization, and shared LLVM LTO happen automatically.
 Successful builds publish the executable atomically; failures preserve any
-existing output and print the directory retaining the WAT/LLVM intermediates.
+existing output and print the directory retaining the Wasm/LLVM intermediates.
 
 ## Compiler stages
 
-Binaryen validates and disassembles the binary. `wat.sld` reads Binaryen's folded
-text with its byte escapes and numeric atoms. `llvm.sld` records declarations
-and native layouts in one pass, then traverses function expressions directly.
-Its inputs contain no Scheme IR or Scheme binding information. WAT operators
-select explicit LLVM operations or C host helpers; unsupported operations fail.
+Binaryen validates the binary and canonicalizes equivalent types, using the
+same explicit feature set as the portable build. The bounded reader in
+`wasm-binary.sld` records numeric declarations and function ranges in one shared
+bytevector. `llvm.sld` indexes those declarations, then decodes each function's
+flat instructions directly into LLVM. There is no disassembly, instruction tree,
+or text-to-number conversion. This library consumes no Scheme IR or Scheme
+binding information; unsupported Wasm operations fail explicitly.
 
-Locals and block-result joins use entry-block slots. Structured labels retain
-their optional result slots, and a terminated expression stops operand emission.
-Operands execute left to right. LLVM promotes slots to SSA and optimizes the
-complete module together with the C host. Initialization allocates memory and
-tables, evaluates globals, copies active data/element segments, and invokes the
+`llvmlite.sld` preserves integers, names, quoted bytes, and float bit patterns as
+immutable operands. Nested lists compose output fragments; a single writer
+prints them without intermediate concatenation or repeated numeric formatting.
+Only one function's body is buffered, so its allocations can precede it in the
+entry block. Float bits never pass through the host's floating-point parser.
+
+Locals and block-result joins use entry-block slots. The compile-time operand
+stack holds already evaluated SSA operands, so a later mutation cannot change
+an earlier read. Lexical branch targets retain an optional result slot and a
+live-incoming-edge flag. Dead instructions are decoded without emitting values;
+only a target reached by a live edge can resume emission. LLVM promotes slots
+to SSA and optimizes the complete module together with the C host. Initialization
+allocates memory and tables, evaluates globals, copies active data/element
+segments, and invokes the
 Wasm start function before the host calls the exported `_start`.
 
 Every guest function uses LLVM [`tailcc`](https://llvm.org/docs/LangRef.html#call-instruction).
@@ -99,10 +110,11 @@ working directory and optional trace directory, and executes with ordinary
 native process permissions; it is not a Wasm security sandbox.
 
 This is not an implementation of every Wasm proposal. Subtyping, externref,
-multivalue function/block signatures, passive/declarative segments, memory64,
+multivalue function/block signatures, block parameters, passive segments, memory64,
 multiple/shared memories, SIMD, threads, exceptions, and stack switching are
 unsupported. Additional scalar/array/table instructions outside the emitted
-subset also fail explicitly. Scheme multiple values already use GC packets and
+subset also fail explicitly. Declarative element segments establish validation
+facts and need no runtime action. Scheme multiple values already use GC packets and
 do not require Wasm multivalue signatures. Unsupported imports and mismatched
 host signatures are diagnosed before native linking.
 

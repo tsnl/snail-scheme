@@ -221,12 +221,18 @@ implemented ownership from this planned support.
 
 [`native.sld`](src/snail-scheme/native.sld) builds an x86-64 Linux executable from
 the exact linked `.wasm` file used by the Wasm host. Binaryen validates and
-disassembles the binary; [`wat.sld`](src/snail-scheme/wat.sld) reads its folded
-text, including byte escapes. [`llvm.sld`](src/snail-scheme/llvm.sld) first records
-declarations, then emits LLVM directly from those expressions. It never reads
+canonicalizes the binary's types; [`wasm-binary.sld`](src/snail-scheme/wasm-binary.sld)
+reads bounded sections and retains function bodies as ranges in the original
+bytevector. [`llvm.sld`](src/snail-scheme/llvm.sld) indexes declarations, then
+decodes each function's flat instructions directly into LLVM. It never reads
 Scheme IR. Entry-block slots represent locals and structured branch results;
 LLVM promotes them to SSA. Guest functions use `tailcc`, with `tail` on Wasm
 tail calls, including calls with different argument counts.
+
+[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) keeps names, integer operands,
+escaped bytes, and float bit patterns structured until printing. Fragments
+compose as nested lists and stream directly to the output port. One function's
+body is buffered to place all local and branch-result slots in its entry block.
 
 [`native.c`](src/native.c) provides Wasm mechanics, WASIp1, and BDWGC. It keeps
 Scheme GC objects in scanned allocations and Rust's linear memory in an
