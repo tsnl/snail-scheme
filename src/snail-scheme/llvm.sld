@@ -67,11 +67,11 @@
       (globals module-globals) (output module-output))
 
     (define-record-type <function>
-      (make-function name params result locals body import type)
+      (make-function name params result locals body import type cold?)
       function?
       (name function-name) (params function-params) (result function-result)
       (locals function-locals) (body function-body) (import function-import)
-      (type function-wasm-type))
+      (type function-wasm-type) (cold? function-cold? set-function-cold?!))
 
     (define current-module (make-parameter #f))
 
@@ -85,7 +85,7 @@
       (let* ((type (caddr node)) (signature (type-definition type)))
         (make-function (cadr node) (cadr signature) (result-type signature)
                        (if import '() (cadddr node))
-                       (and (not import) (car (cddddr node))) import type)))
+                       (and (not import) (car (cddddr node))) import type #f)))
 
     (define (iota count start)
       (let loop ((index 0) (result '()))
@@ -120,7 +120,11 @@
         ((type) (record-type! node))
         ((func) (record-function! node #f))
         ((import) (record-function! (cadddr node) (list (cadr node) (caddr node))))
-        ((global) (vector-set! (module-globals (current-module)) (cadr node) node))))
+        ((global) (vector-set! (module-globals (current-module)) (cadr node) node))
+        ;; Names are optional optimization hints, never semantic requirements.
+        ((function-name)
+         (when (< (cadr node) (vector-length (module-functions (current-module))))
+           (set-function-cold?! (function-info (cadr node)) (prefix? "cold." (caddr node)))))))
 
     (define (function-type index) (function-wasm-type (function-info index)))
 
@@ -403,18 +407,15 @@
       reference)
 
     (define (emit-i31 value)
+      ;; The wrapping i32 shift discards input bit 31. Zero extension makes
+      ;; each payload one canonical odd word; heap references remain full i64s.
       (let* ((shifted (instruction "i32" "shl " (typed value) ", 1"))
-             (signed (instruction "i32" "ashr " (typed shifted) ", 1"))
-             (wide (cast "sext" signed "i64"))
-             (tagged (instruction "i64" "shl " (typed wide) ", 1")))
-        (instruction "i64" "or " (typed tagged) ", 1")))
+             (tagged (instruction "i32" "or " (typed shifted) ", 1")))
+        (cast "zext" tagged "i64")))
 
-    (define (emit-i31-get node signed?)
-      (let* ((reference (nonnull node))
-             (word (instruction "i64" "ashr " (typed reference) ", 1"))
-             (payload (cast "trunc" word "i31")))
-        ;; The width also tells LLVM the signed range guaranteed by Wasm.
-        (cast (if signed? "sext" "zext") payload "i32")))
+    (define (emit-i31-get reference signed?)
+      (let ((tagged (cast "trunc" (nonnull reference) "i32")))
+        (instruction "i32" (if signed? "ashr " "lshr ") (typed tagged) ", 1")))
 
     ;; ---- Structs and arrays ----
 
@@ -705,11 +706,11 @@
              (store (constant type (if (< index (length params)) (llvm-name "%arg" index) (zero type))) pointer)))
          locals (iota (length locals) 0))))
 
-    (define (emit-definition name params body)
+    (define (emit-definition name params body . attributes)
       (let ((emitter (make-emitter '#() '() 0 #t
                                    (open-output-string) '() '() "void")))
         (parameterize ((current-emitter emitter)) (body))
-        (output "define " name "(" (llvm-join (map typed params) ", ") ") {\nentry:")
+        (output "define " name "(" (llvm-join (map typed params) ", ") ") " attributes "{\nentry:")
         (for-each (lambda (line) (write-llvm line (module-output (current-module))))
                   (reverse (emitter-slots emitter)))
         (display (get-output-string (emitter-port emitter)) (module-output (current-module)))
@@ -764,7 +765,8 @@
                    (unless (and (eq? (emit-stream code) 'end) (wasm-code-end? code))
                      (error "invalid Wasm function ending"))
                    (close-control exit)
-                   (let ((value (join-target exit))) (when (alive?) (return-value value))))))))))
+                   (let ((value (join-target exit))) (when (alive?) (return-value value)))))))
+         (if (function-cold? function) "cold " ""))))
 
     (define (emit-export node)
       (case (caaddr node)

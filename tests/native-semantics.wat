@@ -8,10 +8,11 @@
   (memory $memory 1 2)
   (table $roots 1 4 eqref)
   (table $functions 2 2 funcref)
-  (elem (table $functions) (i32.const 0) func $increment $identity64)
+  (elem (table $functions) (i32.const 0) func $cold.increment $identity64)
   (data (i32.const 7) "\00\7f\80\ff")
   (global $mutable (ref $box) (struct.new $box (i64.const 10) (ref.null eq)))
   (global $ordering (mut i32) (i32.const 11))
+  (global $negative (ref i31) (ref.i31 (i32.const -1)))
 
   ;; ---- Values and structured control in binary instruction order ----
 
@@ -72,11 +73,13 @@
 
   ;; ---- Containers, branch values and numeric edges ----
 
-  (func $increment (type $integer) (param $n i32) (result i32)
+  (func $cold.increment (type $integer) (param $n i32) (result i32)
     (i32.add (local.get $n) (i32.const 1)))
   (func $identity64 (type $different) (param $n i64) (result i64) (local.get $n))
   (func (export "i31-s") (param $n i32) (result i32) (i31.get_s (ref.i31 (local.get $n))))
   (func (export "i31-u") (param $n i32) (result i32) (i31.get_u (ref.i31 (local.get $n))))
+  (func (export "i31-eq-negative") (param $n i32) (result i32)
+    (ref.eq (global.get $negative) (ref.i31 (local.get $n))))
   (func (export "check") (result i32)
     (local $bytes (ref $bytes)) (local $refs (ref $refs)) (local $n i32)
     (if (i32.ne (call $local-order (i32.const 4)) (i32.const 13)) (then unreachable))
@@ -92,9 +95,9 @@
     (local.set $bytes (array.new $bytes (i32.const 255) (i32.const 3)))
     (if (i32.ne (array.get_s $bytes (local.get $bytes) (i32.const 0)) (i32.const -1)) (then unreachable))
     (if (i32.ne (array.get_u $bytes (local.get $bytes) (i32.const 0)) (i32.const 255)) (then unreachable))
-    (local.set $refs (array.new_fixed $refs 3 (ref.i31 (i32.const 10)) (ref.i31 (i32.const 20)) (ref.null eq)))
+    (local.set $refs (array.new_fixed $refs 3 (ref.i31 (i32.const 10)) (global.get $negative) (ref.null eq)))
     (array.copy $refs $refs (local.get $refs) (i32.const 1) (local.get $refs) (i32.const 0) (i32.const 2))
-    (if (i32.ne (i31.get_s (ref.cast (ref i31) (array.get $refs (local.get $refs) (i32.const 2)))) (i32.const 20)) (then unreachable))
+    (if (i32.ne (i31.get_s (ref.cast (ref i31) (array.get $refs (local.get $refs) (i32.const 2)))) (i32.const -1)) (then unreachable))
     (if (i32.ne (table.grow $roots (global.get $mutable) (i32.const 2)) (i32.const 1)) (then unreachable))
     (if (i32.ne (table.grow $roots (ref.null eq) (i32.const 2)) (i32.const -1)) (then unreachable))
     (if (i32.eqz (ref.eq (table.get $roots (i32.const 2)) (global.get $mutable))) (then unreachable))
@@ -145,5 +148,7 @@
     (if (i32.eq (local.get $case) (i32.const 10))
       (then (drop (call_ref $short (i32.const 0) (ref.null eq) (ref.null $short)))))
     (if (i32.eq (local.get $case) (i32.const 11))
-      (then (memory.copy (i32.const 0) (i32.const 65536) (i32.const 1)))))
+      (then (memory.copy (i32.const 0) (i32.const 65536) (i32.const 1))))
+    (if (i32.eq (local.get $case) (i32.const 12))
+      (then (drop (i31.get_s (ref.null i31))))))
 )

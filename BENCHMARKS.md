@@ -12,15 +12,16 @@ Fibonacci inputs 22–25 and checks checksum `269118144`.
 
 | Implementation | Median seconds | Time / Chez |
 | --- | ---: | ---: |
-| Chez Scheme 10.4.1, safe optimization level 2 | 0.03039 | 1.00× |
-| Snail Wasm→LLVM, x86-64, BDWGC | **0.03850** | **1.27×** |
-| Snail WasmGC, Node/V8 24.19.0 | 0.08477 | 2.79× |
-| Guile 3.0.11, compiled `--r7rs -O2` | 0.09555 | 3.14× |
-| Chibi Scheme 0.12 | 0.46300 | 15.23× |
+| Snail Wasm→LLVM, x86-64, BDWGC | **0.02690** | **0.90×** |
+| Chez Scheme 10.4.1, safe optimization level 2 | 0.02978 | 1.00× |
+| Snail WasmGC, Node/V8 24.19.0 | 0.08347 | 2.80× |
+| Guile 3.0.11, compiled `--r7rs -O2` | 0.09566 | 3.21× |
+| Chibi Scheme 0.12 | 0.45900 | 15.41× |
 
-Native Snail takes 27% longer than Chez here, and runs about 2.20× faster than
-V8, 2.48× faster than Guile, and 12.03× faster than Chibi. These are observations
-for this CPU/call workload, not claims about allocation or other programs.
+Native Snail takes **9.7% less time than Chez** here, and runs about 3.10× faster
+than V8, 3.56× faster than Guile, and 17.06× faster than Chibi. These are
+observations for this CPU/call workload, not claims about allocation, floating-point
+workloads, or other programs.
 
 Every implementation runs the complete canonical [Scheme program](benchmarks/cpu.scm).
 Native and V8 consume the **same final Rust-linked Wasm module**. The native
@@ -31,15 +32,45 @@ Fibonacci function, replacement C workload, native Rust rebuild, type inference,
 or fixture-specific LLVM patch is involved. Guile compilation precedes timing;
 auto-compilation is disabled. Chibi runs the canonical source directly.
 
-The [raw report](benchmarks/results/2026-10-10-binary-runtime.json) retains
+The [raw report](benchmarks/results/2026-10-10-native-fibonacci.json) retains
 samples, commands, tool versions, source/artifact hashes, and environment settings.
-The earlier [text-translator baseline](benchmarks/results/2026-10-10-native-production.json)
-measured native 0.03821s and Chez 0.02996s; the faster compiler preserves runtime
-performance within the variation between these runs. The remaining gap to Chez
-has not been causally apportioned. Earlier assembly inspection showed
-initialization checks and the guaranteed-tail calling convention, but this
-comparison does not isolate their individual cost. The converter preserves
-Wasm's i31 width explicitly and keeps immutable numeric global objects distinct.
+The [previous production report](benchmarks/results/2026-10-10-binary-runtime.json)
+measured native 0.03850s and Chez 0.03039s. The changes below close that gap while
+preserving the `tailcc` calling convention, numeric checks, GC, and Rust callbacks.
+
+## Code-generation ablation
+
+A separate eight-round comparison translates the **same final linked Wasm binary**
+four ways. Only immediate-integer lowering and the authored `cold` attributes
+change; the complete Scheme workload and host remain identical:
+
+| Native lowering | Median seconds | Time / Chez |
+| --- | ---: | ---: |
+| Previous lowering, no cold hints | 0.038198 | 1.27× |
+| Cold numeric fallbacks only | 0.032532 | 1.09× |
+| Simpler i31 packing/extraction only | 0.031989 | 1.07× |
+| Both, as shipped | **0.026885** | **0.90×** |
+| Chez in this run | 0.029969 | 1.00× |
+
+Together these changes reduce runtime by **29.6%** versus the controlled baseline.
+The old lowering widened and narrowed integers through i64 and i31 intermediates.
+The new lowering packs with a wrapping i32 shift and zero extension, and extracts
+with an i32 signed or unsigned shift. Heap references remain full-width pointers.
+
+Explicit `cold.` names on the runtime's comparison, addition, and subtraction
+fallbacks survive Binaryen through the standard Wasm name section. The native
+converter maps that prefix to LLVM's `cold` attribute, which guides optimization
+and code layout. It adds no type assumptions or special Fibonacci handling.
+An earlier diagnostic found no improvement from `noinline` alone, so production
+leaves inlining decisions to LLVM. These hints favor immediate integers; wide and
+inexact arithmetic still takes the fully checked fallback.
+
+The [ablation report](benchmarks/results/2026-10-10-native-fibonacci-ablation.json)
+contains all samples, source and artifact hashes, commands, and its executable
+Python reproduction recipe. The baseline emitter comes from revision `23a7b20`;
+the cold-only arm copies attributes from the current emitter by matching function
+headers, without hardcoded benchmark function indices. No experimental calling
+convention is used.
 
 ## Reproduce the current comparison
 
@@ -66,13 +97,26 @@ build/native-benchmark/cpu 64
 node --no-warnings scripts/run-wasi.mjs build/native-benchmark/cpu.wasm 64
 ```
 
+To repeat the four-way ablation after running `benchmarks/native`:
+
+```sh
+python3 - <<'PY'
+import json, pathlib, subprocess
+report = json.loads(pathlib.Path(
+    "benchmarks/results/2026-10-10-native-fibonacci-ablation.json").read_text())
+script = pathlib.Path("build/reproduce-native-ablation.py")
+script.write_text(report["recipe_python"])
+subprocess.run(["python3", str(script)], check=True)
+PY
+```
+
 ## Translation time
 
 Binary Wasm now goes directly through the bounded reader and immutable LLVM
 operands. The folded-WAT reader, expression tree, repeated name formatting,
 and operand-list reconstruction are gone. The compiler still runs in Chibi.
 
-On the same 253,481-byte linked resource module, three alternating rounds pinned
+At revision `23a7b20`, on the same 253,481-byte linked resource module, three alternating rounds pinned
 to CPU 2 measured **69.31 seconds → 2.06 seconds** median
 wall time (**33.6× faster**). This measurement **includes Chibi
 startup, module loading, reading, lowering, and writing LLVM**. It excludes the
@@ -87,7 +131,7 @@ Writing integers directly and putting common operations first in Chibi's linear
 roughly 2.6×, not another 10×. These development timings excluded startup and
 were not the controlled process comparison above.
 
-To reproduce the current translation measurement, first generate the resource
+To measure current translation time, first generate the resource
 fixture with `scripts/test-native`, then time just the translator:
 
 ```sh

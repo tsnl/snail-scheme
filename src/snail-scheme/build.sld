@@ -94,6 +94,8 @@
 
     ;; ---- Linking a complete Wasm program ----
 
+    ;; Preserve the standard name section through linking and optimization:
+    ;; the native backend recognizes explicit cold. function-name hints.
     (define wasm-features
       '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
         "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"))
@@ -106,17 +108,17 @@
 
     (define (assemble-wasm input output)
       (run-command "build.assemble"
-                   (append (list (tool-name "WASM_AS" "wasm-as")) wasm-features
+                   (append (list (tool-name "WASM_AS" "wasm-as") "-g") wasm-features
                            (list input "-o" output))))
 
     (define (merge-wasm scheme runtime entry output)
       (run-command "build.link"
-                   (append (list (tool-name "WASM_MERGE" "wasm-merge")) wasm-features
+                   (append (list (tool-name "WASM_MERGE" "wasm-merge") "-g") wasm-features
                            (list scheme "snail.awi" runtime "snail.rust" entry "snail.entry" "-o" output))))
 
     (define (optimize-wasm input output)
       (run-command "build.optimize"
-                   (append (list (tool-name "WASM_OPT" "wasm-opt")) wasm-features
+                   (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
                            (list "--remove-exports" "--pass-arg=remove-exports@_initialize"
                                  "-O3" "--closed-world" "--always-inline-max-function-size=40"
                                  "--converge" input "-o" output))))

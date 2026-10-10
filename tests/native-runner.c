@@ -32,6 +32,7 @@ extern uint64_t root(uint32_t) __asm__("wasm.root");
 extern void trap(uint32_t) __asm__("wasm.trap");
 extern int32_t i31_signed(int32_t) __asm__("wasm.i31-s");
 extern uint32_t i31_unsigned(int32_t) __asm__("wasm.i31-u");
+extern uint32_t i31_equal_negative(int32_t) __asm__("wasm.i31-eq-negative");
 
 int main(int argc, char **argv) {
     struct rlimit stack = {256 * 1024, 256 * 1024};
@@ -44,6 +45,11 @@ int main(int argc, char **argv) {
     assert(i31_signed(1073741824) == -1073741824);
     assert(i31_signed(-1) == -1);
     assert(i31_unsigned(-1) == 2147483647);
+    assert(i31_signed(1073741823) == 1073741823);
+    assert(i31_unsigned(1073741824) == 1073741824);
+    assert(i31_signed(INT32_MAX) == -1);
+    assert(i31_equal_negative(-1) && i31_equal_negative(INT32_MAX));
+    assert(!i31_equal_negative(0));
     assert(tail(2000000) == 42);
     assert(root(500) == 99);
     assert(GC_get_gc_no() > 1);

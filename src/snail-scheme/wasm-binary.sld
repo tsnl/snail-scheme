@@ -303,6 +303,18 @@
 
     ;; ---- Module sections ----
 
+    ;; Only function names are needed by the native optimizer. Unknown custom
+    ;; sections and name subsections remain optional and are skipped by size.
+    (define (read-function-name code)
+      (let ((index (read-index code))) (list 'function-name index (read-name code))))
+
+    (define (read-custom-section code)
+      (if (not (string=? (read-name code) "name")) '()
+          (let loop ((names '()))
+            (if (wasm-code-end? code) names
+                (let* ((id (read-byte code)) (part (take-code code (read-index code))))
+                  (loop (if (= id 1) (append names (read-items read-function-name part)) names)))))))
+
     (define (read-import code)
       (let* ((module (read-name code)) (name (read-name code)) (kind (read-byte code)))
         (unless (= kind 0) (error "native nonfunction imports are unsupported" module name))
@@ -389,7 +401,8 @@
          (indexed-items 'memory (vector-ref sections 5) 0)
          (indexed-items 'global (vector-ref sections 6) 0)
          (vector-ref sections 7) (vector-ref sections 8) (vector-ref sections 9)
-         (indexed-items 'data (vector-ref sections 11) 0))))
+         (indexed-items 'data (vector-ref sections 11) 0)
+         (vector-ref sections 0))))
 
     (define (read-wasm bytes)
       (let ((code (make-code bytes 0 (bytevector-length bytes))) (sections (make-vector 13 '())))
@@ -398,10 +411,11 @@
         (let loop ()
           (unless (wasm-code-end? code)
             (let* ((id (read-byte code)) (section (take-code code (read-index code))))
-              (unless (= id 0)
-                (let ((entries (read-section id section)))
-                  (unless (wasm-code-end? section) (error "Wasm section size mismatch" id))
-                  (vector-set! sections id entries)))
+              (if (= id 0)
+                  (vector-set! sections 0 (append (vector-ref sections 0) (read-custom-section section)))
+                  (let ((entries (read-section id section)))
+                    (unless (wasm-code-end? section) (error "Wasm section size mismatch" id))
+                    (vector-set! sections id entries)))
               (loop))))
         (module-declarations sections)))
 
@@ -464,7 +478,17 @@
         (expect (guard (error (else #t)) (read-value-type (input-code 111)) #f) #t)
         (expect (guard (error (else #t)) (read-limits (input-code 4 1) 65536) #f) #t))
 
+      (define (test-binary-names)
+        ;; name section: skip module/local names, retain function 3's name.
+        (expect (read-custom-section
+                 (input-code 4 110 97 109 101 0 1 0
+                             1 9 1 3 6 99 111 108 100 46 120 2 1 0))
+                '((function-name 3 "cold.x")))
+        ;; An unknown custom section has no prescribed payload format.
+        (expect (read-custom-section (input-code 1 120 255)) '()))
+
       (define (test-wasm-binary)
         (run-test test-binary-integers)
         (run-test test-binary-boundaries)
-        (run-test test-binary-rejections))))))
+        (run-test test-binary-rejections)
+        (run-test test-binary-names))))))
