@@ -21,7 +21,7 @@ use std::{cell::RefCell, time::Instant};
 
 // Export a reactor initializer so wasm-ld does not wrap each exported function
 // in constructor/destructor calls. The linked Wasm entry calls it once, before
-// Scheme or Rust runs; extension bundles reexport this same initializer.
+// Scheme or Rust runs. All callable Rust services share this runtime.
 #[cfg(target_arch = "wasm32")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _initialize() {
@@ -140,6 +140,21 @@ fn open_file(args: &Arguments, input: bool) -> Result<Root, String> {
         Port::output_file(&path)?
     };
     HOST.with_borrow_mut(|host| host.add_port(port))
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:file-exists?"))]
+pub extern "C" fn file_exists(raw: u32) -> u32 {
+    let args = arguments(raw, "file-exists?", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| string_text(&value))
+            .and_then(|path| {
+                std::path::Path::new(&path)
+                    .try_exists()
+                    .map(Root::boolean)
+                    .map_err(|error| error.to_string())
+            }),
+    )
 }
 
 #[cfg_attr(
@@ -394,18 +409,6 @@ pub extern "C" fn error(raw: u32) -> u32 {
         .map(|i| args.get(i).and_then(|value| format_value(value, true)))
         .collect::<Result<Vec<_>, _>>();
     fail_message(&texts.unwrap_or_else(|error| fail_message(&error)).join(" "))
-}
-
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:collect-garbage"))]
-pub extern "C" fn collect_garbage(raw: u32) -> u32 {
-    arguments(raw, "collect-garbage", 0, 0);
-    fail_message("collect-garbage is not exposed by the portable WebAssembly GC API")
-}
-
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:gc-statistics"))]
-pub extern "C" fn gc_statistics(raw: u32) -> u32 {
-    arguments(raw, "gc-statistics", 0, 0);
-    fail_message("gc-statistics are provided by the WebAssembly engine, not AWI")
 }
 
 fn string_text(value: &Root) -> Result<String, String> {

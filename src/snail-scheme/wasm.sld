@@ -509,12 +509,12 @@
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
       '(string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
-                       error open-input-file open-output-file close-port read-char read-string
+                       error open-input-file open-output-file file-exists? close-port read-char read-string
                        open-output-string get-output-string display write newline
                        %current-input-port %current-output-port %current-error-port
                        %set-current-input-port! %set-current-output-port! %set-current-error-port!
                        command-line exit current-jiffy jiffies-per-second string-contains
-                       collect-garbage gc-statistics %trace-begin %trace-end))
+                       %trace-begin %trace-end))
 
     (define (module-services module)
       (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)

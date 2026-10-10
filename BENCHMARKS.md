@@ -31,8 +31,7 @@ expresses our design priorities, not a measured percentage of Scheme programs.
 
 The current production Wasm backend rejects `call/cc` and
 `call-with-current-continuation` entirely. Single-shot delimited continuations
-and coroutines are planned; an independent native stack-switching experiment
-demonstrates a bounded subset. Other conformance gaps also remain, so this is
+and coroutines are planned. Other conformance gaps also remain, so this is
 not a claim of “R7RS compliant except for re-entrant continuations.”
 
 The simpler execution model supports our performance goals, but the benchmark
@@ -73,7 +72,15 @@ settings, and the measurement script. The
 [LLVM ablation](benchmarks/results/2026-10-10-llvm-codegen.json) records how the
 two native variants were built.
 
-Run the following from the repository root on **x86-64 Linux**, with logical
+These prototype tools have been removed from the current compiler. Reproduce
+the historical measurements in their recorded checkout:
+
+```sh
+git worktree add --detach /tmp/snail-benchmark-repro feb1503a72f8c430227cbb3d959ca7bf48873ea4
+cd /tmp/snail-benchmark-repro
+```
+
+Run the following from that checkout on **x86-64 Linux**, with logical
 CPU 2 available to the process. Use an otherwise idle machine. The recorded
 toolchain was LLVM/Clang 22.1.8, Binaryen 132, BDWGC 8.2.12, Guile 3.0.11,
 Chez 10.4.1, and Chibi 0.12. Python 3 and Node with WasmGC/tail-call support
@@ -168,5 +175,5 @@ pass/fail thresholds. Guile's `guile-warm` case reports only the second workload
 execution in its process. No source-to-bytecode compilation occurs in either
 Guile measurement; runtime JIT activity, if any, remains included.
 
-Tool requirements, other workloads, production Wasm engine measurements, and
-historical results are in the [benchmark guide](benchmarks/README.md).
+Current production Wasm measurements and the allocation workload are in the
+[benchmark guide](benchmarks/README.md).

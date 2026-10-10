@@ -53,9 +53,22 @@
       (let ((parent (path-directory (absolute-path output))))
         (if (not (create-directory* parent)) (error "cannot create output directory" parent))
         (let ((directory (reserve-build-directory parent)))
-          (dynamic-wind (lambda () #f)
-              (lambda () (procedure directory))
-              (lambda () (delete-file-hierarchy directory))))))
+          (guard (failure (else (report-build-directory "build failed; intermediates retained: " directory)
+                                (raise failure)))
+            (let ((result (procedure directory)))
+              (clean-build-directory directory)
+              result)))))
+
+    (define (report-build-directory message directory)
+      (display message (current-error-port))
+      (display directory (current-error-port))
+      (newline (current-error-port)))
+
+    ;; Publication has already succeeded. Cleanup failure must not turn that
+    ;; completed build into an apparent compiler failure.
+    (define (clean-build-directory directory)
+      (guard (failure (else (report-build-directory "could not remove build directory: " directory)))
+        (delete-file-hierarchy directory)))
 
     (define (call-with-build-output output procedure)
       (call-with-build-directory output
@@ -128,13 +141,15 @@
 
     ;; Convenience for a one-file build. Scripts building several artifacts can
     ;; build-runtime once, emit each WAT file, and call link-wasm themselves.
-    (define-traced (build-wasm root input output . optional-foreign)
+    (define-traced (build-wasm root input output . options)
       (if (same-file? input output) (error "output must not replace source" output))
-      (call-with-build-directory output
-                                 (lambda (directory)
-                                   (let ((wat (string-append directory "/program.wat")))
-                                     (apply source-file->wat-file root input wat optional-foreign)
-                                     (link-wasm wat (build-runtime root) output)))))
+      (call-with-build-output output
+                              (lambda (directory finished)
+                                (let ((wat (string-append directory "/program.wat")))
+                                  (apply source-file->wat-file root input wat options)
+                                  (let ((runtime (build-runtime root)))
+                                    (if (same-file? runtime output) (error "output must not replace runtime" output))
+                                    (link-in-directory wat runtime directory finished))))))
 
     ;; ---- Execution ----
 
