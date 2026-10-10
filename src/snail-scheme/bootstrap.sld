@@ -21,5 +21,5 @@
           %current-input-port %current-output-port %current-error-port
           %set-current-input-port! %set-current-output-port! %set-current-error-port!
           command-line exit current-jiffy jiffies-per-second
-          string-contains collect-garbage gc-statistics
+          string-contains collect-garbage gc-statistics %trace-begin %trace-end
           %make-record-type %make-record %record? %record-ref %record-set!))))

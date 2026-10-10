@@ -16,6 +16,7 @@
    reader-loc)
 
   (import
+   (snail-scheme trace)
    (scheme base)
    (only (snail-scheme common) file->string)
    (snail-scheme source))
@@ -36,7 +37,7 @@
       (line reader-line)
       (column reader-column))
 
-    (define (file->reader filename)
+    (define-traced (file->reader filename)
       (string->reader filename (file->string filename)))
 
     (define (string->reader filename str)

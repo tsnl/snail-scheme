@@ -29,7 +29,7 @@ continuation frames.
 until `--`, after which arguments belong to the program. An input selects run
 mode, `-o` selects build mode, and `--emit-llvm` stops after emission. `execute`
 resolves source and output paths and creates an invocation-owned `Project`.
-`compile` invokes the hosted Scheme compiler; `write_manifest` generates the
+`source_file_to_llvm` invokes the hosted Scheme compiler; `write_manifest` generates the
 Cargo application using the existing runner and runtime paths.
 
 `cargo_command` selects `cargo run` or `cargo build`, and `configure_target`
@@ -43,19 +43,20 @@ command assembled from input paths.
 [`snail-compile`](snail-compile) locates the checkout and runs
 [`compile.scm`](src/snail-scheme/compile.scm) with Chibi. That small Scheme entry
 point passes `command-line` to `compiler-main` in
-[`compiler.sld`](src/snail-scheme/compiler.sld). `compile-file` reads the source,
+[`compiler.sld`](src/snail-scheme/compiler.sld). `source-file->llvm-file` reads the source,
 expands it, lowers the resulting HIR, and writes LLVM text. An optional VM dump
 shows the representation immediately before LLVM emission.
-`time-stage` measures phases when `--timing` binds `timing-port` to stderr.
-`expand-source` uses an invocation-local loader counter to report `import-parse`
-separately from `expand`: reading/parsing imported syntax is subtracted from the
-expansion interval before rounding. The import interval also includes path lookup
-and the loader's single-library declaration check. Macro expansion, binding work,
-and expansion of library bodies remain in `expand`. The driver separately
-reports Cargo build time, including execution when it invokes `cargo run`.
+Timing is centralized in [`trace.sld`](src/snail-scheme/trace.sld) and the
+[`snail-trace` crate](trace/src/lib.rs). `define-traced` wraps coarse Scheme
+operations; Rust scope guards cover the driver, LLVM tools, execution, and GC.
+Every process writes Chromium events to `build/traces/` by default. Imported
+source loading appears as nested spans inside expansion, so inclusive and
+exclusive time can be inspected without subtracting counters in compiler code.
+See [tracing](doc/tracing.md) for APIs and continuation limitations.
 
-`read-source` runs the file parser and reports failures with the reader's source
-position. `library-loader` applies the same operation to imports. `library-path`
+`source-file->syntax-list` composes `file->reader` from `reader.sld` with
+`reader->syntax-list` from `syntax-parser.sld`, which reports parse failures with
+the reader's source position. `library-loader` applies the same operation to imports. `library-path`
 maps `(scheme ...)` names into `bootstrap/scheme/`; project libraries resolve
 under `src/`. The loader returns located library syntax, leaving binding and
 import semantics to the expander.
@@ -126,7 +127,7 @@ library records preserve resolved imports, exports, bodies, and dependencies.
 The records do not contain expansion environments.
 
 [`expand.sld`](src/snail-scheme/expand.sld) constructs those records in three
-steps. `expand-program` separates initial imports from the body. Import
+steps. `syntax-list->hir-program` separates initial imports from the body. Import
 expansion loads and caches libraries, applies `only`, `except`, `prefix`, and
 `rename`, and preserves the original definition identities. Library construction
 resolves exports against the completed library environment.
@@ -194,7 +195,7 @@ benchmark-specific runtime measurements separate from the standard libraries.
 
 ## Lowering HIR into a machine
 
-[`lower.sld`](src/snail-scheme/lower.sld) begins with `lower-program`.
+[`lower.sld`](src/snail-scheme/lower.sld) begins with `hir-program->vm-program`.
 `program-libraries` orders libraries after their dependencies, and
 `library-items` places their initialization before the program body. Global
 storage is assigned by binding identity. `local-definitions` gathers the bindings
@@ -227,7 +228,7 @@ by a bytecode-fetch loop.
 ## Emitting and assembling LLVM
 
 [`llvm.sld`](src/snail-scheme/llvm.sld) follows the output file's order.
-`write-llvm-program` writes a program ABI version, Rust service declarations, inline instruction
+`write-vm-program-as-llvm` writes a program ABI version, Rust service declarations, inline instruction
 functions, constant data, count accessors, and the program body.
 `write-vm-instructions` emits the `snail_vm_*` functions as `internal alwaysinline`.
 Reference, assignment, argument, frame, shift, and test handlers implement

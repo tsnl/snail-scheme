@@ -246,7 +246,7 @@ optimizing host unchanged. For the compiled compiler itself, the explicit
 baseline-tier workaround is:
 
 ```sh
-./snail-scheme src/snail-scheme/compile.scm --wasm -o build/compiler.wasm
+./snail-scheme src/snail-scheme/compile.scm --target wasm32-wasip1 -o build/compiler.wasm
 node --liftoff-only --no-warnings scripts/run-wasi.mjs build/compiler.wasm \
   . src/snail-scheme/compile.scm build/compiler-self.ll
 ```

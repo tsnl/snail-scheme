@@ -1,4 +1,5 @@
 (import (scheme base)
+        (only (snail-scheme trace) test-trace)
         (only (snail-scheme common) display-error)
         (only (snail-scheme cli) test-cli)
         (only (snail-scheme reader) test-reader)
@@ -10,6 +11,7 @@
         (only (snail-scheme pattern) test-pattern)
         (only (snail-scheme expand) test-expand))
 
+(test-trace)
 (test-cli)
 (test-reader)
 (test-parser)

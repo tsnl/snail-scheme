@@ -22,16 +22,16 @@ on x86-64 Linux with support for executing i386 programs.
 
 ```sh
 mkdir -p build
-nix-shell --run './snail-scheme examples/fibonacci.scm --release --timing --runtime-stats'
+nix-shell --run './snail-scheme examples/fibonacci.scm --release --runtime-stats'
 nix-shell --run './snail-scheme examples/fibonacci.scm -o build/fibonacci'
 nix-shell --run './snail-scheme examples/fibonacci.scm --target wasm32-wasip1'
 nix-shell --run './snail-scheme examples/fibonacci.scm --target wasm32-wasip1 -o build/fibonacci.wasm'
 nix-shell --run './snail-scheme examples/fibonacci.scm --emit-llvm -o build/fibonacci.ll --dump-vm build/fibonacci.vm'
 ```
 
-The example prints `fib(25) = 75025`, elapsed monotonic-clock jiffies, and
-`1000000000` jiffies per second. Nanosecond units do not imply nanosecond hardware
-resolution. Compare repeated release runs on a stable machine; the executable
+The example prints `fib(25) = 75025` and elapsed seconds. The runtime clock
+uses monotonic nanosecond units internally; this does not imply nanosecond
+hardware resolution. Compare repeated release runs on a stable machine; the executable
 includes the full unspecialized bootstrap library.
 
 The command follows [Resin's](https://github.com/tsnl/resin) invocation shape:
@@ -50,7 +50,7 @@ whether the subsequent Cargo build succeeds. An existing executable survives
 Cargo failure as well. A retained project's LLVM can be rebuilt by setting
 `SNAIL_LLVM_IR` to its absolute `program.ll` path when invoking Cargo.
 
-`snail-compile INPUT OUTPUT [VM-DUMP] [--timing]` remains the lower-level emitter.
+`snail-compile INPUT OUTPUT [VM-DUMP]` remains the lower-level emitter.
 For direct workspace builds, set `SNAIL_LLVM_IR` to an absolute path or a path
 relative to the repository root and use `cargo run -p snail-runner --target i686-unknown-linux-musl`. `CHIBI`,
 `LLVM_LLC`, `LLVM_OPT`, and `NODE` select tool executables. The frontend's old
@@ -316,13 +316,13 @@ SNAIL_LLVM_IR=build/compiler.ll cargo build --release -p snail-runner --target w
 cp target/wasm32-wasip1/release/snail-runner.wasm build/snail-compiler.wasm
 ```
 
-The resulting compiler accepts `ROOT INPUT OUTPUT [VM-DUMP] [--timing]` after its executable
+The resulting compiler accepts `ROOT INPUT OUTPUT [VM-DUMP]` after its executable
 name. It can emit LLVM text; LLVM/Cargo still perform final code generation.
 For example, this writes a file rather than running Fibonacci or printing its
 answer:
 
 ```sh
-./build/snail-compiler "$PWD" examples/fibonacci.scm build/fibonacci.ll --timing
+./build/snail-compiler "$PWD" examples/fibonacci.scm build/fibonacci.ll
 SNAIL_LLVM_IR=build/fibonacci.ll cargo run --release -p snail-runner --target i686-unknown-linux-musl
 ```
 
@@ -361,13 +361,16 @@ integration tests and benchmarks retain the default optimizing host.
 
 ## Measurements
 
-`--timing` reports parse, expand, lower, LLVM emission, and optional VM dump
-durations in microseconds on stderr. Imported libraries are read during the
-expand phase. The driver labels Cargo time as `cargo-build` or
-`cargo-build-and-run`; the latter includes execution. `--runtime-stats` adds
-total runtime duration, collection count, cumulative and maximum collection
-nanoseconds, allocated/reclaimed/live/peak object counts, and maximum saved
-frames. It is available in run mode; built executables accept
+Chromium traces are always recorded under `build/traces/`, one file per process.
+Set `SNAIL_TRACE_DIR` to choose another directory. Traces include Scheme source
+loading and compiler passes, Cargo, LLVM tools, runtime execution, and GC. The
+`driver.cargo-build-and-run` span includes execution; `driver.cargo-build` does
+not. Imported-source parsing is nested within expansion. See
+[tracing](tracing.md) for viewing traces and adding scoped instrumentation.
+
+`--runtime-stats` adds total runtime duration, collection count, cumulative and
+maximum collection seconds, allocated/reclaimed/live/peak object counts,
+and maximum saved frames. It is available in run mode; built executables accept
 `SNAIL_RUNTIME_STATS=1` in their environment.
 
 `(snail-scheme runtime)` exposes `collect-garbage`, `gc-statistics`, and bulk

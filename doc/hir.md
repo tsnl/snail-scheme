@@ -273,8 +273,8 @@ to execution/lowering, not expansion.
 [`expand.sld`](../src/snail-scheme/expand.sld) exports:
 
 ```scheme
-(expand-program syntax-forms library-loader)       ; => program
-(expand-library define-library-syntax library-loader) ; => library
+(syntax-list->hir-program syntax-forms library-loader)       ; => program
+(syntax->hir-library define-library-syntax library-loader) ; => library
 (macroexpand-1 syntax environment transformers)    ; => syntax
 ```
 
