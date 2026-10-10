@@ -447,6 +447,11 @@ compares ordinary release, Rust-only LTO, and shared Scheme/Rust LTO. It saves
 linked bitcode, builds every variant before timing, then rotates native/WASI
 benchmark executions with the Chez reference. The default build is unchanged.
 
+[`scripts/check-static-codegen`](scripts/check-static-codegen) isolates a smaller
+question: whether equivalent checked fixnum helpers written in Rust and through
+`llvmlite` inline into LLVM callers. It executes both on native/WASI and retains
+the linked IR and assembly. This diagnostic does not change runtime primitives.
+
 [`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
 shared. `copy-program` replaces their imports with the required compatibility
 definitions; `compile-benchmark` calls Chez's native `compile-program` at safe

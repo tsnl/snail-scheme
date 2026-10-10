@@ -111,6 +111,85 @@ Other service calls remain, as do dynamic primitive dispatch, heap ownership-map
 lookups, and builtin objects represented as trait objects. LTO cannot be assumed
 to convert those data structures into the proposed direct builtin layout.
 
+## Why the remaining Rust calls did not inline
+
+A follow-up [artifact audit](../benchmarks/results/2026-10-09-inlining.json)
+shows substantially more inlining than the single entry-service example above.
+These are static call sites in the CPU benchmark's generated `snail_program`,
+not execution counts or shares of runtime. Native and WASI have the same counts:
+
+| Rust service | Before shared LTO | After |
+| --- | ---: | ---: |
+| `snail_rt_enter` | 2,211 | 0 |
+| `snail_rt_result` | 898 | 0 |
+| `snail_rt_uninitialized` | 814 | 0 |
+| `snail_rt_push` | 672 | 0 |
+| `snail_rt_slot` | 898 | 381 |
+| `snail_rt_call` | 389 | 389 |
+| `snail_rt_single` | 717 | 717 |
+
+Replaying LLVM's LTO optimizer on the saved preoptimization bitcode reports
+that the large remaining services are too costly to inline. With full cost
+diagnostics, native `snail_rt_call` costs 755–950 against a threshold of 250,
+`Vm::dispatch` costs 2,655/250, and the generic primitive dispatcher costs
+42,350/250. WASI reports the same reason, with slightly different costs. These
+numbers are heuristic units, not machine instruction counts. A specialized
+primitive-dispatch call has a smaller cost but still exceeds its threshold.
+
+The reasons are visible in the retained code: argument extraction still uses
+allocation and copying; procedure lookup still uses the ownership map and
+virtual type identification; primitive names are cloned and dispatched through
+string comparisons. Inlining those operations does not by itself replace them
+with fixed-layout object accesses. The earlier CPU profile predates LTO and
+must not be presented as a profile of this residual cost.
+
+The audit distinguishes actual linked-artifact call counts from diagnostics
+obtained by replay. To reproduce diagnostics against the saved CPU module:
+
+```sh
+opt build/lto/linked/native/cpu/*.0.0.preopt.bc '-passes=lto<O3>' \
+  -mcpu=x86-64 -inline-cost-full -disable-output \
+  -pass-remarks-output=build/lto/native-inline.yaml -pass-remarks-filter=inline
+```
+
+Use `-mcpu=generic` for the WASI module. Matching the target matters: omitting
+it from this standalone replay produces misleading attribute-conflict remarks
+against Rust's explicit CPU attributes, unlike the actual linked build.
+
+## Matched static fixnum probe
+
+The full-runtime experiment did not implement direct LLVM builtin object
+operations. A separate diagnostic now compares checked 32-bit fixnum addition:
+[Rust](../tests/codegen-fixnum.rs) against a
+[`llvmlite` definition](../tests/emit-codegen-fixnum.scm). Run it with:
+
+```sh
+NODE=/path/to/node scripts/check-static-codegen
+```
+
+Both functions accept arbitrary `u32` operands, reject non-fixnums and sums
+outside the signed 31-bit range, and return a decoded `i64` sum or `i64::MIN`
+as an error sentinel. That is a probe ABI, not a proposed Scheme representation.
+Identically shaped LLVM callers are retained with `noinline`; their small
+implementations receive no forced-inline attribute and are available to shared
+LTO. The native command passes LLVM bitcode under an `.o` filename so clang
+forwards it to LLD instead of compiling it separately before the link.
+
+Both implementations inline completely into their callers on native and WASI.
+The script verifies that those caller definitions remain and contain no calls,
+then executes 65,585 boundary and deterministic input pairs against an independent
+oracle on each target. Saved caller bodies and hashes are in the audit JSON;
+full IR and regenerated target assembly remain under `build/static-codegen`.
+
+The generated instructions are not identical: Rust uses 32-bit signed shifts
+and addition before extending the sum; the `llvmlite` version retains wider
+shifts and arithmetic. This wrapper currently lacks `sext`, so the probe spells
+signed decoding using `zext`, `shl`, and `ashr`. This is an IR-shape difference,
+not a surviving Rust call. No timing or equal-performance claim follows from
+this small check. It does establish successful Rust inlining for a checked
+primitive with dynamic inputs, while leaving boxed-object layouts, allocation,
+and the whole-runtime performance comparison for their own experiments.
+
 ## Following representation work
 
 Static Rust builtin operations with exposed bitcode remain a viable direction.
