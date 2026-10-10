@@ -1,0 +1,17 @@
+[book]
+title = "The Snail-Scheme book"
+authors = ["Snail-Scheme contributors"]
+language = "en"
+src = "doc/book"
+
+[build]
+build-dir = "build/book"
+create-missing = false
+extra-watch-dirs = ["build.scm"]
+
+[output.html]
+git-repository-url = "https://github.com/tsnl/snail-scheme"
+edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"
+
+[output.html.playground]
+runnable = false
