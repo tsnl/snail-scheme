@@ -643,7 +643,14 @@ class ResultsTests(unittest.TestCase):
             self.assertEqual(result["status"], "timeout")
             pid = (Path(directory) / "pid").read_text()
             status = Path(f"/proc/{pid}/stat")
-            self.assertTrue(not status.exists() or status.read_text().split()[2] == "Z")
+            for _ in range(100):
+                try:
+                    if status.read_text().split()[2] in {"Z", "X"}:
+                        return
+                except FileNotFoundError:
+                    return
+                time.sleep(0.01)
+            self.fail("benchmark descendant survived process-group timeout")
 
 
 if __name__ == "__main__":
