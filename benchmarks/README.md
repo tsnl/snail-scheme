@@ -1,5 +1,9 @@
 # Baseline workloads
 
+See [BENCHMARKS.md](../BENCHMARKS.md) for the current native LLVM comparison
+against Chez, Guile, and Chibi. **Runtime comparisons exclude compilation time
+and process startup**; the report explains Guile's runtime JIT timing separately.
+
 For compiler latency, parser ablations, and the distinction between Chibi and
 the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
 
