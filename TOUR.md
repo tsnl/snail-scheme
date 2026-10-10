@@ -217,12 +217,22 @@ callbacks work, but suspension and cancellation across Rust frames need an
 explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
 implemented ownership from this planned support.
 
-The [bounded Wasm-to-LLVM experiment](experiments/wasm-llvm/README.md) is a
-separate executor, independent of Scheme IR. It lowers references to native
-pointers and uses BDWGC. It does not yet translate full linked Rust programs.
-Wastrel is a useful performance reference; its tested revision lacks stack
-switching. Native library integration is being developed separately.
-Both native and JavaScript hosts can implement the same finalization import.
+[`native.sld`](src/snail-scheme/native.sld) builds an x86-64 Linux executable from
+the exact linked `.wasm` file used by the Wasm host. Binaryen validates and
+disassembles the binary; [`wat.sld`](src/snail-scheme/wat.sld) reads its folded
+text, including byte escapes. [`llvm.sld`](src/snail-scheme/llvm.sld) first records
+declarations, then emits LLVM directly from those expressions. It never reads
+Scheme IR. Entry-block slots represent locals and structured branch results;
+LLVM promotes them to SSA. Guest functions use `tailcc`, with `tail` on Wasm
+tail calls, including calls with different argument counts.
+
+[`native.c`](src/native.c) provides Wasm mechanics, WASIp1, and BDWGC. It keeps
+Scheme GC objects in scanned allocations and Rust's linear memory in an
+unscanned reservation. The translated Rust uses the same AWI root table as in
+Wasm. Finalizers queue scalar resource IDs; cleanup calls Rust only after all
+guest frames return, when no Rust host-state borrow is active. See
+[native execution](doc/native.md) for the representation and host contract.
+The older [bounded experiment](experiments/wasm-llvm/README.md) remains historical.
 
 ## Tests and measurements
 
@@ -235,8 +245,10 @@ sources compile without importing host-only test modules.
 Rust unit tests remain in implementation modules. `scripts/test-backend`
 executes linked Wasm semantic and diagnostic fixtures; `scripts/test-build`
 checks library imports, traces, publication, literal arguments, Rust callbacks, and
-root ownership. Native adapter checks require `SNAIL_WASM_NATIVE` and fail
-clearly if none is configured; they are not counted as native passes.
+root ownership. `scripts/test-backend --target both` compiles each fixture once
+and runs that exact module through both backends. `scripts/test-native` adds
+cross-engine Wasm semantics, traps, bounded native stack use, forced collection,
+Rust callbacks, and resource finalization.
 
 [`benchmarks/`](benchmarks/README.md) contains frozen CPU, memory, IO, and GC
 workloads plus historical measurement tools. CPU uses redundant recursive

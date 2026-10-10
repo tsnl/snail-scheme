@@ -137,23 +137,30 @@ stack when the toolchain supports it. Host finalization could schedule that
 cancellation, but does not itself implement unwinding. Current Rust release
 builds use `panic = "abort"`; no Rust forced-unwind support is promised.
 
-The separate
-[bounded translator](../experiments/wasm-llvm/README.md) has measured competitive
-performance but lacks the arrays, memories, imports, and other operations needed
-for the complete linked program. Its [continuation experiment](../experiments/wasm-stack-switching/README.md)
+The Scheme [`native` library](../src/snail-scheme/native.sld) translates the complete
+linked Wasm module to an x86-64 Linux executable. Scripts call
+`wasm-file->native-file(root, input-wasm, output-executable)` and choose whether
+to run it. The converter reads Binaryen's folded disassembly, independently of
+Scheme IR, and emits LLVM for both the Scheme and Rust portions. A C host supplies
+Wasm memory/table mechanics, WASIp1, and BDWGC. Clang/LLD compile and link these
+automatically. [Native execution](native.md) explains coverage, proper tail calls,
+GC roots, resource finalization, and the remaining unsupported Wasm features.
+
+The older [bounded translator](../experiments/wasm-llvm/README.md) remains an
+experiment. Its [continuation experiment](../experiments/wasm-stack-switching/README.md)
 decodes real `cont.new`, `resume`, and `suspend` instructions for a bounded
 `i64 -> i64` subset. It verifies single-shot consumption, nested handlers, foreign
 barriers, and GC roots across suspension. This is not yet a Scheme coroutine API
 or support for Rust unwinding.
-Wastrel remains a useful reference and optional translator: the tested revision
+Wastrel remains a useful reference: the tested revision
 `ad0b577df0773a1fc825b2a2455e23bf03ea9dcc` supports WasmGC but lists stack
-switching as future work. A native host can implement the same finalization
-import through BDWGC without making the translator depend on Scheme IR.
+switching as future work. The build library uses our Scheme converter.
 
 ## Validation and measurements
 
 Run `make test`, `make check`, `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
+`cargo fmt --all -- --check`, `scripts/test-backend --target both`,
+`scripts/test-native`, and `scripts/test-build`.
 The integration suites execute real linked Wasm, including closures, mutation,
 recursive initialization, rest arguments, values, numeric boundaries, proper
 tail calls, errors, and Rust callbacks with retained roots. Unit tests remain in
