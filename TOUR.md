@@ -22,6 +22,11 @@ or instruction-handler layer. Rust supplies object representation operations,
 allocation, collection, and runtime services. Release CLI builds optimize the
 generated LLVM and Rust together through shared LTO.
 
+The isolated [WasmGC experiment](experiments/wasmgc/README.md) explores replacing
+MIR with WebAssembly. It selects numeric functions from production HIR and emits
+GC references and real WASM calls. Its measurements and the separate Rust interop
+proof do not change the production path described below.
+
 ## Entering the compiler
 
 [`snail-scheme`](snail-scheme) launches the Rust command in

@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+experiment_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$experiment_dir"
+cargo build --offline --release --target wasm32-unknown-unknown
+"${WASM_AS:-wasm-as}" bridge.wat -o target/bridge.wasm --enable-gc --enable-reference-types
+"${NODE:-node}" --expose-gc test.mjs target/bridge.wasm \
+    target/wasm32-unknown-unknown/release/snail_wasmgc_interop.wasm
+"${WASM_MERGE:-wasm-merge}" target/bridge.wasm scheme \
+    target/wasm32-unknown-unknown/release/snail_wasmgc_interop.wasm extension \
+    -o target/linked.wasm --all-features
+"${NODE:-node}" --expose-gc test.mjs target/linked.wasm
