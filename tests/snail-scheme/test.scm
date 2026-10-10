@@ -1,4 +1,5 @@
 (import (scheme base)
+        (only (snail-scheme chromium-trace) test-chromium-trace)
         (only (snail-scheme trace) test-trace)
         (only (snail-scheme build) test-build)
         (only (snail-scheme common) display-error)
@@ -13,6 +14,7 @@
         (only (snail-scheme pattern) test-pattern)
         (only (snail-scheme expand) test-expand))
 
+(test-chromium-trace)
 (test-trace)
 (test-build)
 (test-reader)

@@ -1,6 +1,6 @@
 # Tracing operations
 
-Timing is always enabled. Each participating process writes a separate Chromium
+Compiler and runtime timing is always enabled. Each participating process writes a separate Chromium
 trace JSON file under `build/traces/`, relative to its working directory.
 `SNAIL_TRACE_DIR` selects another directory. Build scripts and their children normally share a working directory; use an
 absolute override when a script changes directories. Files remain after temporary build projects are removed.
@@ -53,6 +53,59 @@ The adapter lives in `src/snail-scheme/trace.sld`. Its Chibi-only branch owns th
 host file/clock operations; compiled programs call `%trace-begin`/`%trace-end`
 through the shared Rust recorder. These primitives allocate no Scheme objects
 and do not introduce GC safepoints.
+
+## Scheme trace files
+
+Import `(snail-scheme chromium-trace)` for an explicit destination. `trace` takes
+a string and a procedure and returns a procedure accepting the same arguments.
+It preserves zero, one, or multiple return values. The returned procedure reads
+the current file destination at invocation and raises an error before calling
+the original procedure when invoked outside `with-trace-to`.
+
+```scheme
+(import (scheme base) (snail-scheme chromium-trace))
+
+(define timed-add (trace "add" (lambda (x y) (+ x y))))
+
+(with-trace-to "operations.json"
+  (lambda () (timed-add 20 22)))
+```
+
+`with-trace-to` opens the named file for output, replacing existing contents,
+then initializes the JSON array, runs the thunk, finalizes the array, and closes
+the file. It preserves the thunk's return values. Nested scopes on different
+files restore the outer destination; each span records to the file selected
+when it was invoked.
+
+Initialization always writes a thread-name metadata event, even if the thunk
+runs no traced procedures. This supplies the first array element, so every
+timed span simply writes a leading comma. There is no session record, event
+counter, or lifecycle flag; the recording port is private to the library.
+
+Timed events use the Chromium complete-duration phase `X`
+with integer microsecond `ts` and `dur` fields, supported by
+[Perfetto](https://perfetto.dev/docs/getting-started/other-formats). Names escape
+JSON control characters, quotes, and backslashes. Each document uses one logical
+process/thread lane (`pid` and `tid` are both `1`); concurrent writes to the same
+port are unsupported.
+
+Timing uses `(scheme time)`: Chibi's jiffy clock has millisecond resolution and
+uses wall time; compiled programs use a monotonic nanosecond clock. Timestamps
+retain that clock's origin and durations round down to microseconds. Backward
+wall-clock adjustments clamp duration to zero. Tracing keeps each wrapper active
+until return, so decorating recursive loops affects their tail-call behavior.
+
+On Chibi, exceptions and continuation escapes record departing spans, finalize
+their files, and close them. A continuation reentering a span while its file
+scope remains active starts another span. Reentry into a finished file scope
+fails using the port's closed status. Cleanup attempts to close the file even
+if writing the closing bracket fails. Compiled programs support normal returns; terminal
+errors or process exit can leave a file incomplete. Output errors propagate.
+
+`make test` checks host values, JSON escaping, nesting, file closure, and
+continuation exits. `scripts/test-chromium-trace` parses files recorded by Chibi
+and linked Wasm and checks missing destinations and file-opening failures.
+Add `--target both` to run the same linked module through the native executor.
 
 ## Rust scopes and WASI
 
