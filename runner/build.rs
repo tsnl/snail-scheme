@@ -8,14 +8,15 @@ use std::{
 };
 
 fn main() {
+    let _trace = snail_trace::span("build.llvm-to-object");
     watch_environment();
     let input = input_path();
     let output = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let target = env::var("TARGET").unwrap();
     println!("cargo:rerun-if-changed={}", input.display());
-    let module = prepare_module(&input, &output, &target);
-    let optimized = optimize(&module, &output);
-    let object = assemble(&optimized, &output, &target);
+    let module = llvm_ir_with_target_layout(&input, &output, &target);
+    let optimized = optimize_llvm_ir(&module, &output);
+    let object = llvm_ir_to_object(&optimized, &output, &target);
     println!("cargo:rustc-link-arg={}", object.display());
 }
 
@@ -47,6 +48,7 @@ fn run(command: &mut Command) {
 // Ask the same rustc that Cargo uses for the target's actual LLVM layout. The
 // tiny no_std probe needs only core, already required by the target runtime.
 fn target_metadata(output: &Path, target: &str) -> String {
+    let _trace = snail_trace::span("build.target-layout");
     let source = output.join("target_layout.rs");
     let ir = output.join("target_layout.ll");
     fs::write(&source, "#![no_std]\n").unwrap();
@@ -63,7 +65,7 @@ fn target_metadata(output: &Path, target: &str) -> String {
         .collect()
 }
 
-fn prepare_module(input: &Path, output: &Path, target: &str) -> PathBuf {
+fn llvm_ir_with_target_layout(input: &Path, output: &Path, target: &str) -> PathBuf {
     assert_eq!(
         env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap(),
         "32",
@@ -76,7 +78,8 @@ fn prepare_module(input: &Path, output: &Path, target: &str) -> PathBuf {
     module
 }
 
-fn optimize(input: &Path, output: &Path) -> PathBuf {
+fn optimize_llvm_ir(input: &Path, output: &Path) -> PathBuf {
+    let _trace = snail_trace::span("build.optimize-llvm");
     let optimized = output.join("scheme.optimized.ll");
     run(
         Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
@@ -97,7 +100,8 @@ fn optimize(input: &Path, output: &Path) -> PathBuf {
     optimized
 }
 
-fn assemble(input: &Path, output: &Path, target: &str) -> PathBuf {
+fn llvm_ir_to_object(input: &Path, output: &Path, target: &str) -> PathBuf {
+    let _trace = snail_trace::span("build.llvm-to-object-code");
     let object = output.join("scheme.o");
     let mut command = Command::new(env::var_os("LLVM_LLC").unwrap_or_else(|| "llc".into()));
     command.arg("-filetype=obj");
@@ -114,6 +118,7 @@ fn assemble(input: &Path, output: &Path, target: &str) -> PathBuf {
 }
 
 fn verify_reducible(input: &Path) {
+    let _trace = snail_trace::span("build.verify-reducible");
     let report = Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
         .args(["-passes=print<cycles>", "-disable-output"])
         .arg(input)

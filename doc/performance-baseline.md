@@ -100,8 +100,9 @@ profile should not be generalized to all compiler work.
 
 ## Hosted compilation latency
 
-The normal CLI uses Chibi to run the compiler. A timed invocation of
-`./snail-scheme examples/fibonacci.scm --timing --runtime-stats` reported:
+The normal CLI uses Chibi to run the compiler. At the measured revision, a timed invocation of
+`./snail-scheme examples/fibonacci.scm --timing --runtime-stats` reported
+(the timing flag has since been replaced by [Chromium traces](tracing.md)):
 
 | Reported phase | Seconds |
 |---|---:|

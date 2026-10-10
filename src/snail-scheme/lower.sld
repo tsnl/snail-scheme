@@ -2,8 +2,8 @@
 ;; storage; printed names are only diagnostics. Assigned lexical bindings are
 ;; cells; immutable captures are values. Frames and arguments share one stack.
 (define-library (snail-scheme lower)
-  (export lower-program)
-  (import (scheme base) (scheme cxr)
+  (export hir-program->vm-program)
+  (import (snail-scheme trace) (scheme base) (scheme cxr)
           (prefix (snail-scheme hir) hir:)
           (snail-scheme vm))
   (begin
@@ -17,7 +17,7 @@
       (constants builder-constants set-builder-constants!)
       (next-constant builder-next-constant set-builder-next-constant!))
 
-    (define (lower-program program)
+    (define-traced (hir-program->vm-program program)
       (let ((libraries (program-libraries program)))
         (lower-program-items (append (library-items libraries) (hir:program-items program))
                              (primitive-definitions libraries) (hir:program-loc program))))

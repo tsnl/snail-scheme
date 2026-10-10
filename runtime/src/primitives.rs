@@ -111,6 +111,8 @@ builtins! {
     IsRecord => ("%record?", false),
     RecordRef => ("%record-ref", false),
     RecordSet => ("%record-set!", false),
+    TraceBegin => ("%trace-begin", false),
+    TraceEnd => ("%trace-end", false),
     CollectGarbage => ("collect-garbage", false),
     GcStatistics => ("gc-statistics", true),
     Values => ("values", false),
@@ -188,6 +190,16 @@ pub(crate) fn invoke(
             character(vm, op, args)?
         }
         IsRecord | RecordRef | RecordSet => record_access(vm, op, args)?,
+        TraceBegin => {
+            arity(name, args, 1, 1)?;
+            snail_trace::begin(vm.string(args[0])?);
+            Value::UNSPECIFIED
+        }
+        TraceEnd => {
+            arity(name, args, 0, 0)?;
+            snail_trace::end();
+            Value::UNSPECIFIED
+        }
         CollectGarbage => {
             arity(name, args, 0, 0)?;
             return Ok(PrimitiveResult::Collect);

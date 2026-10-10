@@ -1,4 +1,4 @@
-;; Chibi-hosted parser timing in microseconds. Imports and file reading are
+;; Chibi-hosted parser timing in seconds. Imports and file reading are
 ;; outside the timer; grammar values are already initialized. Validate the
 ;; parsed datums with the host reader after timing. Use fresh processes.
 (import (scheme base) (scheme file) (scheme read) (scheme write)
@@ -20,4 +20,4 @@
           (if (eof-object? form) (reverse forms) (loop (cons form forms))))))))
 (unless (equal? expected (map syntax->datum (parse-result-value result)))
   (error "datums differ from host reader"))
-(write (quotient (* elapsed 1000000) (jiffies-per-second))) (newline)
+(write (/ elapsed (* 1.0 (jiffies-per-second)))) (newline)

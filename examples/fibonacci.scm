@@ -7,5 +7,4 @@
 (define answer (fib 25))
 (define elapsed (- (current-jiffy) start))
 (display "fib(25) = ") (write answer) (newline)
-(display "elapsed jiffies = ") (write elapsed) (newline)
-(display "jiffies per second = ") (write (jiffies-per-second)) (newline)
+(display "elapsed seconds = ") (write (/ elapsed (* 1.0 (jiffies-per-second)))) (newline)

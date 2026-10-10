@@ -31,8 +31,10 @@ Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 executable without running it. The Rust driver generates a temporary Cargo
 project linking Scheme-emitted LLVM with the Rust runtime. Add `--target
 wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-vm PATH` for
-the stack instructions. Program arguments follow `--`. `--timing` and
-`--runtime-stats` report diagnostics on stderr. See `--help` and
+the stack instructions. Program arguments follow `--`. Chromium traces are always
+written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
+`--runtime-stats` reports counters on stderr. See [tracing](doc/tracing.md) for
+Scheme procedure decorators and Rust scopes. See `--help` and
 [the backend guide](doc/backend.md) for tools, modes, and limitations.
 
 Cargo/rustc, LLVM `opt` and `llc`, and a WASI-capable Node are needed in addition
@@ -143,7 +145,7 @@ The binding-aware semantics of `syntax-rules` expansion,
 including shadowed literals and exported auxiliary keywords, are documented in
 [the macro design](doc/hir.md#literal-binding-identity).
 
-`(snail-scheme expand)` provides `expand-program`, `expand-library`, and
+`(snail-scheme expand)` provides `syntax-list->hir-program`, `syntax->hir-library`, and
 `macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
 macros, and constructs fully expanded Scheme HIR for the supported core forms.
 Library loading uses an explicit function parameter. Scope environments are

@@ -166,7 +166,7 @@ def summarize(program, target, samples, arguments):
         raise RuntimeError("timing rounded to zero")
     result = {"program": program, "target": target, "repetitions": REPETITIONS[program],
               "before_median_ms": before, "after_median_ms": after, "speedup": before / after}
-    print(f"{target}/{program}: {before:.3f} -> {after:.3f} ms, {before / after:.3f}x",
+    print(f"{target}/{program}: {before / 1000:.6f} -> {after / 1000:.6f} s, {before / after:.3f}x",
           file=sys.stderr, flush=True)
     return result
 

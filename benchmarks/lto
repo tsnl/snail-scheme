@@ -159,7 +159,8 @@ def summarize(name, target, samples):
                for variant in dict.fromkeys(s["implementation"] for s in samples)}
     if min(s["elapsed_ms"] for s in samples) <= 0:
         raise RuntimeError("a measured duration rounded to zero")
-    print(f"{target}/{name}: {timings}", flush=True)
+    seconds = {variant: value / 1000 for variant, value in timings.items()}
+    print(f"{target}/{name}: {seconds} seconds", flush=True)
     return {"program": name, "target": target, "median_ms": timings,
             "baseline_over_variant": {v: timings["baseline"] / timings[v] for v in VARIANTS},
             "variant_over_chez": {v: timings[v] / timings["chez"] for v in VARIANTS} if "chez" in timings else {}}

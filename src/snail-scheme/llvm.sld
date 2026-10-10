@@ -1,8 +1,8 @@
 ;; Specialize Dybvig's stack operations into immutable LLVM functions and blocks.
 ;; Scheme owns ordinary control flow; Rust owns objects and allocation boundaries.
 (define-library (snail-scheme llvm)
-  (export write-llvm-program)
-  (import (scheme base) (scheme cxr) (scheme write) (snail-scheme vm)
+  (export write-vm-program-as-llvm)
+  (import (snail-scheme trace) (scheme base) (scheme cxr) (scheme write) (snail-scheme vm)
           (prefix (snail-scheme llvmlite) ir:))
   (begin
 
@@ -311,7 +311,7 @@
 
     ;; ---- Module and constant data ----
 
-    (define (write-llvm-program program port)
+    (define-traced (write-vm-program-as-llvm program port)
       (validate-code-addresses program)
       (let ((constants (program-constant-data program)) (primitives (program-primitive-data program)))
         (display "; Generated Scheme stack operations with the Rust object runtime.\n" port)

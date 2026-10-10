@@ -342,7 +342,7 @@ impl Vm {
     }
 
     fn collect_with(&mut self, extra: impl IntoIterator<Item = Value>) {
-        let started = std::time::Instant::now();
+        let started = snail_trace::span("runtime.gc");
         let mut roots = self.roots();
         roots.extend(extra);
         self.runtime.heap.collect(roots, &HeapAccess(()));
