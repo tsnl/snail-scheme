@@ -9,21 +9,36 @@
   (count model-count)
   (notes? model-notes?))
 
+(define-record-type <adjust-count>
+  (make-adjust-count delta)
+  adjust-count?
+  (delta adjust-count-delta))
+
+(define-record-type <toggle-notes>
+  (make-toggle-notes)
+  toggle-notes?)
+
+(define-record-type <reset-workbook>
+  (make-reset-workbook)
+  reset-workbook?)
+
 (define (update message model)
-  (case (if (pair? message) (car message) message)
-    ((adjust) (make-model (+ (model-count model) (cadr message)) (model-notes? model)))
-    ((toggle-notes) (make-model (model-count model) (not (model-notes? model))))
-    ((reset) (make-model 0 #f))
-    (else (error "unknown message" message))))
+  (cond
+   ((adjust-count? message)
+    (make-model (+ (model-count model) (adjust-count-delta message)) (model-notes? model)))
+   ((toggle-notes? message)
+    (make-model (model-count model) (not (model-notes? model))))
+   ((reset-workbook? message) (make-model 0 #f))
+   (else (error "unknown message" message))))
 
 (define (counter model children)
   (element 'section `((aria-label . "Counter") (style . ,panel-style))
            (element 'h2 '() "Try a small change")
            (element 'output '((id . "count") (aria-live . "polite") (style . "display:block;font-size:3em")) (model-count model))
            (element 'div '((style . "display:flex;flex-wrap:wrap;gap:12px"))
-                    (button '(adjust -1) "Decrease")
-                    (button '(adjust 1) "Increase")
-                    (button 'reset "Reset"))))
+                    (button (make-adjust-count -1) "Decrease")
+                    (button (make-adjust-count 1) "Increase")
+                    (button (make-reset-workbook) "Reset"))))
 
 (define (notes model children)
   (if (model-notes? model)
@@ -40,7 +55,7 @@
            (element 'p '() "Read a paragraph, try an idea, and see the result. "
                     "The prose and the controls belong to the same document.")
            (element counter model)
-           (button 'toggle-notes (if (model-notes? model) "Hide explanation" "Show explanation"))
+           (button (make-toggle-notes) (if (model-notes? model) "Hide explanation" "Show explanation"))
            (element notes model)))
 
 (define panel-style

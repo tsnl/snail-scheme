@@ -43,9 +43,9 @@ open its loopback URL. Keep that terminal running while using the page.
 The source path for an Increase click is short:
 
 ```text
-button '(adjust 1) "Increase"
+(button (make-adjust-count 1) "Increase")
   -> HTML form with a versioned action URL
-  -> POST resolves that URL to the Scheme message '(adjust 1)
+  -> POST resolves that URL to the adjustment record
   -> update(message, model) returns a new model record
   -> view(model) composes the next tree
   -> render-html prepares HTML and the matching action table
@@ -93,6 +93,12 @@ of a particular application. `application?` and `application-model` inspect it.
 The reducer receives the message first, matching
 [Elm's update convention](https://guide.elm-lang.org/architecture/buttons).
 Messages and models are ordinary Scheme data, including records and `#f`.
+
+The workbook defines a record type for each operation: `<adjust-count>` carries
+a `delta`, while `<toggle-notes>` and `<reset-workbook>` have no fields. Buttons
+construct those records, and the reducer dispatches on their predicates and uses
+the named delta accessor. The UI library passes messages through unchanged;
+this representation is a choice made by the app.
 
 Reducers and views must preserve their input model. The application record has
 no setters, but it cannot prevent mutation of a contained Scheme object. The
