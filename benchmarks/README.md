@@ -5,6 +5,8 @@ and the integrated R7RS suite. Run `python3 benchmarks/reproduce.py` to rebuild
 and measure Fibonacci, or `python3 benchmarks/r7rs.py` for the pinned 57-workload
 suite. Both accept `--plot` to regenerate reports from JSON;
 [`shell.nix`](shell.nix) supplies the measurement and plotting dependencies.
+Initialize the upstream suite with
+`git submodule update --init benchmarks/r7rs-benchmarks` before running it.
 **Workload times exclude compilation and process startup.**
 
 ## Native LLVM CPU experiment

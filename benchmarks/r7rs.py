@@ -14,17 +14,15 @@ import signal
 import statistics
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1"
-ARCHIVE_SHA256 = "651166b66af80410fdf28bfe018d25f5233e542040e9066f12813669e6819edb"
+SUITE = ROOT / "benchmarks/r7rs-benchmarks"
 UPSTREAM = "https://github.com/ecraven/r7rs-benchmarks"
 SYSTEMS = ("snail-native", "chez", "guile", "chibi")
 
@@ -36,26 +34,16 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def fetch_suite():
-    archive = ROOT / "build/r7rs-upstream.tar.gz"
-    archive.parent.mkdir(parents=True, exist_ok=True)
-    if not archive.exists():
-        url = f"https://api.github.com/repos/ecraven/r7rs-benchmarks/tarball/{REVISION}"
-        with urlopen(url, timeout=60) as response:
-            archive.write_bytes(response.read())
-    if digest(archive.read_bytes()) != ARCHIVE_SHA256:
-        raise ValueError(f"upstream archive checksum mismatch: {archive}")
-    return archive
-
-
 def suite_sources():
-    # Read directly from the verified archive: no mutable checkout or code vendoring.
-    with tarfile.open(fetch_suite()) as archive:
-        return {
-            member.name.split("/", 1)[1]: archive.extractfile(member).read()
-            for member in archive.getmembers()
-            if member.isfile()
-        }
+    if not (SUITE / ".git").exists():
+        raise ValueError("run git submodule update --init benchmarks/r7rs-benchmarks")
+    git = ["git", "-C", str(SUITE)]
+    revision = subprocess.check_output([*git, "rev-parse", "HEAD"], text=True).strip()
+    changes = subprocess.check_output([*git, "status", "--porcelain", "--untracked-files=no"])
+    if revision != REVISION or changes:
+        raise ValueError("benchmark submodule must be clean and pinned to " + REVISION)
+    paths = subprocess.check_output([*git, "ls-files", "-z"], text=True).split("\0")
+    return {name: (SUITE / name).read_bytes() for name in paths if name}
 
 
 def benchmark_names(files):
@@ -477,7 +465,6 @@ def metadata(args, files, names):
         "complete": False,
         "upstream": UPSTREAM,
         "upstream_revision": REVISION,
-        "archive_sha256": ARCHIVE_SHA256,
         "date": datetime.now(timezone.utc).isoformat(),
         "revision": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True

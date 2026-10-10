@@ -246,8 +246,9 @@ prototypes and measurements remain in Git history.
 
 [`benchmarks/reproduce.py`](benchmarks/reproduce.py) rebuilds the native
 Fibonacci comparison, checks answers, collects rotating samples, and renders
-plots from saved JSON. [`benchmarks/r7rs.py`](benchmarks/r7rs.py) runs the pinned
-upstream R7RS suite across Snail native, Chez, Guile, and Chibi. Preparation,
+plots from saved JSON. [`benchmarks/r7rs.py`](benchmarks/r7rs.py) runs the
+upstream R7RS suite across Snail native, Chez, Guile, and Chibi using the pinned
+[`r7rs-benchmarks`](benchmarks/r7rs-benchmarks) submodule. Preparation,
 measurement, and reporting are separate; failed and unavailable cases stay in
 the result matrix. Its small [Chez adapter](benchmarks/r7rs-chez.scm) supplies
 monotonic timing alongside upstream's language compatibility prelude.
