@@ -159,7 +159,7 @@ compiler optimizations can improve.
 
 The remaining bootstrap modules are deliberately thin. `cxr.sld` defines the
 longer `car`/`cdr` compositions. `file.sld` wraps file opening with
-`call-with-port`. `char.sld`, `process-context.sld`, `time.sld`, and `write.sld`
+`call-with-port`. `char.sld`, `inexact.sld`, `process-context.sld`, `time.sld`, and `write.sld`
 expose their corresponding primitive groups. `parameterize` and port wrappers
 preserve multiple values on normal returns; nonlocal exits and `dynamic-wind`
 are outside this bootstrap subset.
@@ -197,8 +197,11 @@ to their instance. Rust uses ordinary `extern "C"` functions and explicit Wasm e
 there is no procedural-macro crate or implicit argument conversion.
 
 [`src/lib.rs`](src/lib.rs) implements Rust services: ports,
-printing, numeric text conversion, substring search, Unicode classification,
+printing, numeric text conversion, inexact mathematics, substring search, Unicode classification,
 process arguments, clocks, traces, and diagnostics.
+The `(scheme inexact)` procedures operate on binary64 reals through this rooted
+boundary. They accept exact integers, return inexact mathematical results, and
+preserve NaNs, infinities, and signed zero; complex numbers remain unsupported.
 [`host.rs`](src/host.rs) owns port data and UTF-8 stream handling.
 Rust-owned external resources need explicit close. The additional JS
 [`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with

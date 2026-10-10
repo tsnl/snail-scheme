@@ -96,7 +96,8 @@
 
     (define wasm-features
       '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
-        "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"))
+        "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"
+        "--enable-nontrapping-float-to-int"))
 
     (define entry-module
       "(module

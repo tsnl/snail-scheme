@@ -58,8 +58,9 @@ Rust version separately when reproducing historical toolchain measurements.
 `CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select executable paths. Chibi hosts
 the build module's process/filesystem operations today. The Node runner provides
 WASIp1 and finalizer imports; a browser WASI adapter remains future work.
-WasmGC, reference types, tail calls, mutable globals, sign extension, and bulk
-memory are enabled explicitly rather than enabling every experimental feature.
+WasmGC, reference types, tail calls, mutable globals, sign extension, bulk
+memory, and nontrapping float-to-integer conversion are enabled explicitly.
+The last feature is required by Rust's floating-point math implementation.
 
 ## Build ownership
 
@@ -85,7 +86,7 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/runtime/wasmgc.wat` | Value representations, checked primitives, calls |
 | `src/runtime/awi.wat` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
-| `src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
+| `src/lib.rs` | Rust ports, formatting, inexact math, text search, clocks, process services |
 | `build.sld` | Chibi-hosted Cargo, linking, execution and artifact publication |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
@@ -98,6 +99,14 @@ already-initialized captures travel as values; assigned or early-captured
 bindings use shared cells. Recursive cells exist before their initializers run.
 Reading an uninitialized binding fails, including when a known callee can be
 called directly. Library initialization follows dependency order.
+
+`(scheme inexact)` exports the twelve standard mathematical and classification
+procedures, including the optional second arguments to `log` and `atan`.
+Mathematical results use binary64 even for exact integer inputs; classification
+returns booleans. Real-domain failures such as `(sqrt -1)` produce NaN, as
+permitted for real-only implementations by [R7RS §6.2.3](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html).
+Complex numbers are not supported. Linked-Wasm tests exercise ordinary and
+first-class calls, argument errors, signed zero, infinities, and NaNs.
 
 A fixed-arity lambda has a worker taking its environment and individual
 arguments, plus a uniform closure adapter taking an argument array. Proven
