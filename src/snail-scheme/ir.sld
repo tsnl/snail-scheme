@@ -1,7 +1,7 @@
-;; Resolved high-level representation. See doc/hir.md for the grammar,
+;; Resolved high-level representation. See doc/ir.md for the grammar,
 ;; lexical binding rules, macro expansion, and the boundary with later lowering.
 ;; expand.sld constructs these immutable records from located syntax. Environments
-;; are transient alists passed through expansion, never fields of HIR nodes.
+;; are transient alists passed through expansion, never fields of IR nodes.
 ;;
 ;; Item        = value-binding | Expression
 ;; Expression  = name | literal | application | lambda | block | conditional | assignment
@@ -10,9 +10,9 @@
 ;; those identities before expanding bodies supports recursion without mutation.
 ;; Lambda parameters are ordinary definitions; free references need no capture list.
 ;; All loc fields hold source locations, or #f for compiler-provided nodes.
-;; library.sld owns compilation containers; their HIR bodies are ordered item lists.
+;; library.sld owns compilation containers; their IR bodies are ordered item lists.
 
-(define-library (snail-scheme hir)
+(define-library (snail-scheme ir)
   (export
 
    ;; ---- Value definition ----

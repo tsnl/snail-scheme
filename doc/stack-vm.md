@@ -1,5 +1,8 @@
 # Chapter 4 stack baseline
 
+> Historical backend document. The current compiler emits WasmGC directly; see
+> [backend.md](backend.md). These measurements describe the retired stack/LLVM path.
+
 The ABI 3 backend uses one reusable Scheme stack and makes its ordinary
 transitions explicit in Scheme-generated LLVM. This replaces ABI 2's argument
 vectors, activation-local vectors, and promotion of every captured binding.

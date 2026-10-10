@@ -1,7 +1,7 @@
 ;; Compilation containers, independent of their bodies' representation.
 ;; A named library and an unnamed script share this record. Expansion supplies
-;; ordered HIR items; lowering supplies MIR code and data. This module neither
-;; interprets those bodies nor distinguishes value identities from macro identities.
+;; ordered IR items; Wasm emission consumes the same library graph. This module
+;; neither interprets bodies nor distinguishes value identities from macro identities.
 ;; Resolved imports retain dependencies even when they expose no bindings.
 (define-library (snail-scheme library)
   (export

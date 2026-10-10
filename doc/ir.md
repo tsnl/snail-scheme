@@ -1,10 +1,10 @@
-# Snail-Scheme HIR
+# Snail-Scheme IR
 
-HIR is fully expanded Scheme with resolved lexical references and source
+IR is fully expanded Scheme with resolved lexical references and source
 locations. `expand.sld` consumes the reader's syntax objects and constructs the
-immutable expression records in `hir.sld`, organized in the independent library
-containers from `library.sld`. The elaboration pass in `lower.sld` transforms each
-library body into structured MIR. Expansion does not choose machine
+immutable expression records in `ir.sld`, organized in the independent library
+containers from `library.sld`. `wasm.sld` analyzes bindings and captures, then emits
+each library body as structured WebAssembly. Expansion does not choose machine
 representations, infer types, or build closure environments.
 
 The implementation currently covers a Scheme core, library declarations, and
@@ -24,7 +24,7 @@ The work has three main stages:
    expression construction until the body's value identities are known, so
    functions can refer to themselves and each other.
 3. Expand those expressions under their lexical environments. Replace a macro
-   invocation, continue expanding its replacement, and construct HIR for the
+   invocation, continue expanding its replacement, and construct IR for the
    remaining core forms.
 
 A macro transformer has a smaller lifecycle of its own: parse its rules once,
@@ -57,7 +57,7 @@ expand_expression(form):
     identifier:     resolve its value definition
     datum or quote: preserve its datum and location
     lambda:         introduce parameters; expand its body into a block
-    other core form or call: expand its expression positions; construct HIR
+    other core form or call: expand its expression positions; construct IR
 
 finish_block(items):
     require a final item that is an expression
@@ -156,9 +156,9 @@ expressions. It can therefore consume binders, quoted data, vectors, or improper
 lists, and can discard input that would be invalid as an expression. Only an
 ordinary application requires a proper list of operator and operand expressions.
 
-## HIR records
+## IR records
 
-Executable records are defined in [`hir.sld`](../src/snail-scheme/hir.sld). Every
+Executable records are defined in [`ir.sld`](../src/snail-scheme/ir.sld). Every
 located node carries its own `loc`; compiler-provided definitions use `#f`. A
 definition and a reference to it have separate locations. Locations and spellings
 do not establish lexical identity.
@@ -176,7 +176,7 @@ do not establish lexical identity.
 | `block` | Nonempty ordered items ending in a result expression, location |
 
 Compilation containers belong to [`library.sld`](../src/snail-scheme/library.sld),
-which imports neither HIR nor MIR. Its body payload belongs to the current pass;
+which imports neither IR nor MIR. Its body payload belongs to the current pass;
 its interface bindings retain opaque identities, including macro identities.
 
 | Record | Contents |
@@ -186,7 +186,7 @@ its interface bindings retain opaque identities, including macro identities.
 | `named-binding` | Visible name and original definition identity |
 
 A script is an unnamed library (`name = #f`), selected as the executable's root.
-There is no separate program record. Expansion supplies an ordered HIR item list
+There is no separate program record. Expansion supplies an ordered IR item list
 as the body; lowering replaces it with a MIR body while retaining the library's
 organization. `library-dependency-order` visits each resolved library once by
 identity, placing dependencies before their importer and the root last.
@@ -205,7 +205,7 @@ identity-indexed tables by walking the binding nodes.
 For example, the initializer and final reference in this body share one object:
 
 ```scheme
-(import (scheme base) (snail-scheme hir))
+(import (scheme base) (snail-scheme ir))
 
 (define definition (make-value-definition 'identity #f))
 (define parameter (make-value-definition 'x #f))
@@ -229,12 +229,12 @@ single values. Library containers and resolved interfaces belong to their own
 module; they are not additional executable forms.
 
 Scope environments are transient association lists passed through recursive
-descent. They are never fields of HIR records. Imported names and re-exports
+descent. They are never fields of IR records. Imported names and re-exports
 refer directly to the original definitions; renaming an import creates a new
 visible name, not a new identity. Each import declaration retains the resolved libraries directly, making their
 bodies reachable by later passes even if an import exposes no value bindings.
 `only`, `except`, `prefix`, and `rename` are resolved during expansion and have
-no HIR node variants. The original located declaration remains available for
+no IR node variants. The original located declaration remains available for
 diagnostics; lowering does not reinterpret its syntax.
 
 Macro definitions are immutable identities private to the expander. A separate
@@ -275,7 +275,7 @@ bodies, supporting self and mutual references:
   (if (= n 0) #f (even (- n 1))))
 ```
 
-Binding visibility is separate from initialization. HIR retains source order;
+Binding visibility is separate from initialization. IR retains source order;
 expansion neither executes initializers nor proves that a forward read is safe.
 A later pass or runtime must enforce initialization semantics. An initializer is
 represented once, without duplication or reordering.
@@ -290,7 +290,7 @@ their expanded items are concatenated in source order into the library body.
 
 `if` tests Scheme truthiness: only `#f` is false. `set!` retains the target's
 resolved identity. Constructing an assignment record does not mutate the expander's
-environment or any HIR node. Applications retain operator and operand order;
+environment or any IR node. Applications retain operator and operand order;
 Scheme evaluation and any permitted choice of argument evaluation order belong
 to execution/lowering, not expansion.
 
@@ -299,8 +299,8 @@ to execution/lowering, not expansion.
 [`expand.sld`](../src/snail-scheme/expand.sld) exports:
 
 ```scheme
-(syntax-list->hir-library syntax-forms library-loader)     ; => unnamed library
-(syntax->hir-library define-library-syntax library-loader) ; => named library
+(syntax-list->ir-library syntax-forms library-loader)     ; => unnamed library
+(syntax->ir-library define-library-syntax library-loader) ; => named library
 (macroexpand-1 syntax environment transformers)            ; => syntax
 ```
 
@@ -339,7 +339,7 @@ exports retain only external names and resolved identities.
 ## Macro expansion
 
 `define-syntax` binds a name to a `syntax-rules` specification and disappears
-from runtime HIR. `let-syntax` compiles each specification in the outer environment;
+from runtime IR. `let-syntax` compiles each specification in the outer environment;
 `letrec-syntax` reserves all local macro identities first, so every specification
 can refer to the group. Both expand their bodies under the new bindings. Compiled
 transformers live in the separate alist, so recursive macro identities never need
@@ -559,15 +559,15 @@ are not implemented yet.
 
 ## Later passes
 
-[`lower.sld`](../src/snail-scheme/lower.sld) consumes this untyped HIR, analyzes
-captures and mutation, assigns storage, and elaborates it to structured
-[MIR](mir.md). Binding identities survive import renaming and source shadowing;
-representation choices belong beyond this boundary. Type inference and
-information-driven check elimination remain future work.
+[`wasm.sld`](../src/snail-scheme/wasm.sld) consumes this untyped IR, analyzes
+captures, mutation, and initialization, then emits structured WasmGC directly.
+Binding identities survive import renaming and source shadowing. Representation
+choices belong beyond expansion; type inference and check elimination remain
+future IR-to-IR work.
 
 The executable backend preserves proper tail calls, assignment, quoted data,
-recursive initialization, multiple values, and snapshot continuations. `values`
-and `call-with-values` remain ordinary calls in HIR. The command-line compiler
-runs this pipeline under Chibi and asks Cargo to link LLVM with the Rust runtime
-for native or WASI execution. See [backend.md](backend.md) for the implemented
-boundary and remaining limitations.
+recursive initialization, and multiple values. `values` and `call-with-values`
+remain ordinary calls in IR. `call/cc` is currently unsupported; single-shot
+delimited continuations are planned. Chibi hosts the compiler, while Cargo builds
+Rust services to Wasm for linking. See [backend.md](backend.md) for the current
+boundary and limitations.

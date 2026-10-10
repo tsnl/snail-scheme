@@ -1,5 +1,5 @@
 [workspace]
-members = ["abi", "runtime", "runner", "driver", "trace"]
+members = ["abi", "awi", "runtime", "driver", "trace"]
 default-members = ["runtime", "driver"]
 resolver = "3"
 

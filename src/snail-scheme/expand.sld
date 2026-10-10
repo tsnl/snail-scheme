@@ -1,20 +1,20 @@
-;; Expand located syntax into the resolved HIR in hir.sld. See doc/hir.md.
+;; Expand located syntax into the resolved IR in ir.sld. See doc/ir.md.
 ;; Resolve imports, discover body bindings, then expand expressions. Macro rules
 ;; are parsed when installed, then matched and instantiated at each use.
 ;;
 ;; Environments are alists from identifier keys to value or macro definitions.
-;; They are passed through recursive descent and never stored in HIR.
+;; They are passed through recursive descent and never stored in IR.
 ;; Definition identities are reserved before expanding bodies, then shared by
 ;; references, value bindings, and parameters without mutation.
 
 (define-library (snail-scheme expand)
-  (export syntax-list->hir-library syntax->hir-library macroexpand-1 make-core-library)
+  (export syntax-list->ir-library syntax->ir-library macroexpand-1 make-core-library)
   (import (snail-scheme trace) (scheme base)
           (scheme cxr)
           (snail-scheme common)
           (snail-scheme syntax)
           (snail-scheme pattern)
-          (snail-scheme hir) (snail-scheme library))
+          (snail-scheme ir) (snail-scheme library))
   (begin
 
     ;; ---- Public API ----
@@ -23,7 +23,7 @@
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
     ;; Each call starts a fresh library cache. A list of script forms produces an
     ;; unnamed library; a define-library form produces its named counterpart.
-    (define-traced (syntax-list->hir-library forms library-loader . initial-libraries)
+    (define-traced (syntax-list->ir-library forms library-loader . initial-libraries)
       (assert (list? forms))
       (assert (procedure? library-loader))
       (let-values (((imports body) (split-script-imports forms)))
@@ -31,7 +31,7 @@
                             (and (pair? forms) (syntax-loc (car forms)))
                             (expansion-library-cache initial-libraries))))
 
-    (define-traced (syntax->hir-library form library-loader . initial-libraries)
+    (define-traced (syntax->ir-library form library-loader . initial-libraries)
       (assert (procedure? library-loader))
       (let-values (((library cache transformers)
                     (expand-library-form form (library-parts form) library-loader
@@ -1284,12 +1284,12 @@
             (only (snail-scheme parser) parse-result-value))
     (begin
       (define (test-program text)
-        (syntax-list->hir-library
+        (syntax-list->ir-library
          (parse-result-value (s-file (string->reader "body.scm" text)))
          (lambda (name) (error "unexpected library load" name))))
 
-      (define (test-hir-library text)
-        (syntax->hir-library
+      (define (test-ir-library text)
+        (syntax->ir-library
          (car (parse-result-value (s-file (string->reader "conditional.sld" text))))
          (lambda (name) (error "unexpected library load" name))))
 
@@ -1304,7 +1304,7 @@
 
       (define (test-inactive-library-declarations)
         (let ((library
-                  (test-hir-library
+                  (test-ir-library
                    "(define-library (conditional)
                    (cond-expand
                     (snail-tests
@@ -1318,7 +1318,7 @@
 
       (define (test-nested-library-declarations)
         (let ((library
-                  (test-hir-library
+                  (test-ir-library
                    "(define-library (conditional)
                    (cond-expand (unknown (export absent)))
                    (cond-expand
@@ -1336,7 +1336,7 @@
          (lambda (case)
            (expect
             (guard (ex ((error-object? ex) (error-object-message ex)))
-              (test-hir-library (string-append "(define-library (bad) " (car case) ")"))
+              (test-ir-library (string-append "(define-library (bad) " (car case) ")"))
               #f)
             (cadr case)))
          '(("(cond-expand (else) (snail-scheme))" "else must be last")
@@ -1390,7 +1390,7 @@
 
       (define (test-library-container)
         (let* ((library
-                   (test-hir-library
+                   (test-ir-library
                     "(define-library (ordered)
                     (begin 1)
                     (import (scheme base))
@@ -1416,21 +1416,21 @@
          (lambda (exports)
            (expect
             (guard (ex ((error-object? ex) (error-object-message ex)))
-              (test-hir-library
+              (test-ir-library
                (string-append "(define-library (invalid) (import (scheme base)) "
                               "(begin (define x 1)) " exports ")")) #f)
             "duplicate name"))
          '("(export x x)" "(export x) (export x)" "(export x (rename x x))")))
 
       (define (test-import-library)
-        (test-hir-library "(define-library (import-source)
+        (test-ir-library "(define-library (import-source)
                        (import (scheme base))
                        (export alpha beta gamma)
                        (begin (define alpha 1) (define beta 2) (define gamma 3)))"))
 
       (define (test-import-program text library)
         (let ((forms (parse-result-value (s-file (string->reader "imports.scm" text)))))
-          (values (syntax-list->hir-library
+          (values (syntax-list->ir-library
                    forms (lambda (name) (error "unexpected library load" name))
                    (list library))
                   forms)))
