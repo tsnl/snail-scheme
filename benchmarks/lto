@@ -49,16 +49,13 @@ def rustflags(variant, target):
         return ""
     if variant == "rust-lto":
         return "-Cembed-bitcode=yes -Clto=fat"
-    shared = "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat "
-    if target == "native":
-        return shared + "-Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3"
-    return shared + "-Clinker=wasm-ld -Clink-arg=--save-temps -Clink-arg=--lto-O3"
+    return BENCH["shared_lto_flags"](target) + " -Clink-arg=--save-temps"
 
 
 def build_environment(module, variant, target):
     environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path),
                    "CARGO_TARGET_DIR": str(BUILD / "cargo" / variant),
-                   "RUSTFLAGS": rustflags(variant, target)}
+                   "RUSTFLAGS": rustflags(variant, target), "SNAIL_SHARED_LTO": "0"}
     if variant == "cross-lto":
         environment["LLVM_LLC"] = str(Path(__file__).resolve())
     return environment

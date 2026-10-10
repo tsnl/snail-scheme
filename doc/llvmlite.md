@@ -2,14 +2,16 @@
 
 `(snail-scheme llvmlite)` constructs typed LLVM IR and writes its text to a port.
 It borrows the types, values, instructions, blocks, functions, and module
-vocabulary from Python's [llvmlite.ir](https://llvmlite.readthedocs.io/en/latest/user-guide/ir/index.html).
+vocabulary from Python's
+[llvmlite.ir](https://llvmlite.readthedocs.io/en/latest/user-guide/ir/index.html).
 It is a small Scheme implementation of that idea, not a binding to Python or
 LLVM. The Python API's mutable insertion-point builder is replaced by immutable
 references and definitions.
 
-[`llvm.sld`](../src/snail-scheme/llvm.sld) owns the Scheme VM protocol: runtime
-signatures, tagged constants, safepoints, slot lifetimes, and the mapping from
-VM instructions to control flow. [`llvmlite.sld`](../src/snail-scheme/llvmlite.sld)
+[`machine.sld`](../src/snail-scheme/machine.sld) elaborates the Scheme stack
+protocol into MIR. [`mir-llvm.sld`](../src/snail-scheme/mir-llvm.sld) emits MIR
+control flow, while `llvm.sld` owns module data and the final dispatcher.
+[`llvmlite.sld`](../src/snail-scheme/llvmlite.sld)
 owns LLVM types, operand checks, and textual spelling. It has no knowledge of
 Scheme objects or garbage collection. Target metadata and optimization remain
 in `runner/build.rs`.
@@ -92,9 +94,9 @@ IR; construction is not a substitute for verification.
 | Operation | API |
 | --- | --- |
 | Types | `void`, `ptr`, `i1`, `i8`, `i32`, `i64`, `int-type`, `array-type`, `type=?` |
-| Typed operands | `local`, `parameter`, `integer`, `null-pointer`, `inttoptr`, `value-type` |
+| Typed operands | `local`, `parameter`, `integer`, `null-pointer`, `inttoptr`, `function-address`, `value-type` |
 | Function and block references | `function`, `block`, `indexed-name` |
-| Data and arithmetic | `call`, `load`, `store`, `gep`, `cast`, `select`, `icmp`, `zext`, `binop`, `phi` |
+| Data and arithmetic | `call`, `call-indirect`, `load`, `store`, `gep`, `cast`, `select`, `icmp`, `zext`, `binop`, `phi` |
 | Terminators | `br`, `cbr`, `ret`, `switch` |
 | Definitions | `block-body`, `define-function`, `declare`, `global-bytes`, `global-array` |
 | Output | `module`, `write-module`, `write-definition`, `utf8-bytes` |
@@ -105,6 +107,15 @@ as their first argument; `call` also accepts `#f` to discard its result.
 `ret` uses `#f` for a void return. `switch` takes `(integer-constant . block)`
 cases and an explicit default block. `global-array` currently accepts integer
 constants; `global-bytes` accepts byte lists without adding a null terminator.
+
+`call` takes `(result function arguments)`. `call-indirect` takes
+`(result signature pointer arguments)`: `signature` is a function reference
+describing the result and parameter types, while `pointer` is the actual `ptr`
+operand to call. Its signature name is not a dispatch target. `function-address`
+turns a function reference into a `ptr` operand. Both forms emit ordinary C ABI
+calls with no runtime checks or Scheme procedure dispatch. Their constructors
+check the supplied LLVM types and arity; callers must supply a valid pointer
+with the declared ABI.
 
 `gep` takes a result pointer, an element type, a base pointer, and integer
 indices. `cast` supports instruction-form `ptrtoint` and `inttoptr`; the existing
@@ -133,5 +144,20 @@ deterministic reuse, type and scope errors, malformed blocks, and byte escaping.
 `scripts/test-backend` additionally assembles and executes the standalone
 `tests/emit-llvmlite.scm` fixture through this API on native and WASI. It includes
 a loop with two phi backedges, arithmetic, a Unicode function name, an array
-load, and a switch whose default reports failure. The existing Scheme semantic
-fixtures exercise the migrated emitter with collection at every VM safepoint.
+load, and a switch whose default reports failure. The Scheme semantic fixtures
+exercise MIR emission with collection at every allocating boundary. Foreign-call
+integration fixtures also execute direct and genuinely indirect scalar Rust calls
+on both targets, with ordinary linking and shared LTO.
+
+## Incremental function output
+
+`write-function-start`, `write-function-block`, and `write-function-end` serialize
+a function without retaining all of its block bodies. The start operation takes
+a checked definition; each block checks its owning function identity. The ordinary
+whole-definition writer uses these same operations. Instruction, terminator, and
+return checks still happen when immutable blocks are constructed.
+
+The MIR emitter writes one completed code region at a time and retains only its
+dispatcher phi edges. Forward block references already hold their function and
+name, so they do not keep defining blocks alive. This bounds generated-LLVM
+storage to one region plus the edges; the source MIR graph remains live.

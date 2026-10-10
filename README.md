@@ -30,8 +30,11 @@ Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 `./snail-scheme INPUT.scm` compiles and runs through Cargo; `-o PATH` builds an
 executable without running it. The Rust driver generates a temporary Cargo
 project linking Scheme-emitted LLVM with the Rust runtime. Add `--target
-wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-vm PATH` for
-the stack instructions. Program arguments follow `--`. Chromium traces are always
+wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-mir PATH` for
+structured MIR (`--dump-vm` remains a compatibility alias). Release runs and
+`-o` builds use shared Scheme/Rust LTO; `SNAIL_SHARED_LTO=0` selects ordinary
+linking for comparison. Debug runs use ordinary linking. Program arguments
+follow `--`. Chromium traces are always
 written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
 `--runtime-stats` reports counters on stderr. See [tracing](doc/tracing.md) for
 Scheme procedure decorators and Rust scopes. See `--help` and
@@ -42,9 +45,10 @@ to the Scheme development tools. Install the Rust targets with
 `rustup target add i686-unknown-linux-musl wasm32-wasip1`. Native output is a
 static 32-bit Linux executable; the host must support running i386 programs.
 The runtime deliberately supports only 32-bit pointers. Set `CHIBI` to select
-the hosted compiler's Scheme executable. The build still uses Chibi; compiling
-the compiler's sources is supported without switching the default to
-self-hosting. Start with
+the hosted compiler's Scheme executable. The build still uses Chibi. Native and
+WASI compiled compilers can compile Fibonacci, and the native compiler can compile
+its own sources; see [the backend guide](doc/backend.md#compiling-the-compiler).
+Start with
 [TOUR.md](TOUR.md) for the control flow and a guide to every module, or
 [the benchmark suite](benchmarks/README.md) for the performance baseline.
 
@@ -145,7 +149,7 @@ The binding-aware semantics of `syntax-rules` expansion,
 including shadowed literals and exported auxiliary keywords, are documented in
 [the macro design](doc/hir.md#literal-binding-identity).
 
-`(snail-scheme expand)` provides `syntax-list->hir-program`, `syntax->hir-library`, and
+`(snail-scheme expand)` provides `syntax-list->hir-library`, `syntax->hir-library`, and
 `macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
 macros, and constructs fully expanded Scheme HIR for the supported core forms.
 Library loading uses an explicit function parameter. Scope environments are
@@ -154,10 +158,16 @@ transient association lists passed through recursive descent.
 `(snail-scheme hir)` defines the immutable records in
 [the HIR design](doc/hir.md#hir-records). A `value-definition` holds a binding's
 identity and definition location; a `name` refers to it and retains the reference
-location. A `value-binding` pairs that identity with an initializer. Library
-declarations and core expressions have separate records. HIR carries no types or
+location. A `value-binding` pairs that identity with an initializer.
+`(snail-scheme library)` independently owns library containers and resolved
+interfaces; each container holds HIR or MIR code, and scripts are unnamed libraries.
+HIR carries no types or
 closure capture lists; `lower.sld` computes storage and captures while translating
-to stack instructions. Type inference remains later work.
+to [structured MIR](doc/mir.md). MIR has five instruction forms: conditionals,
+direct and indirect calls, loads, and stores. Representation operations are
+explicit Rust calls, and `machine.sld` expresses the Scheme stack convention
+using those forms. Shared LTO optimizes generated LLVM together with Rust.
+Type inference remains later work.
 This is an initial core and library implementation, not complete R7RS support.
 The compiler command runs this expansion before lowering and LLVM emission.
 
@@ -171,7 +181,8 @@ and a required dotted tail. `s-vector` parses `#`-prefixed proper lists.
 Lists use `(make-list-syntax elements improper-tail loc)`; vectors have their
 own record, `(make-vector-syntax elements loc)`, recognized by `vector-syntax?`.
 Both store lists of child syntax objects and preserve their source locations.
-Vector locations start at the `#` prefix; list locations start at the opening fence. `s-bytevector` validates
+Vector locations start at the `#` prefix; list locations start at the opening fence.
+`s-bytevector` validates
 each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
 The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,

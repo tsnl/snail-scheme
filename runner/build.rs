@@ -1,5 +1,6 @@
-//! Specialize the Scheme-written instruction functions, then let Cargo link the
-//! resulting object with Rust. No Rust bitcode or handwritten LLVM is required.
+//! Compile generated LLVM and let Cargo link it with the Rust runtime. The
+//! driver's shared LTO mode leaves Scheme as bitcode to optimize together
+//! with Rust. Ordinary builds emit a native/WASM object directly.
 
 use std::{
     env, fs,
@@ -16,14 +17,44 @@ fn main() {
     println!("cargo:rerun-if-changed={}", input.display());
     let module = llvm_ir_with_target_layout(&input, &output, &target);
     let optimized = optimize_llvm_ir(&module, &output);
-    let object = llvm_ir_to_object(&optimized, &output, &target);
+    let object = if shared_lto() {
+        llvm_ir_to_bitcode(&optimized, &output)
+    } else {
+        llvm_ir_to_object(&optimized, &output, &target)
+    };
     println!("cargo:rustc-link-arg={}", object.display());
 }
 
 fn watch_environment() {
-    for name in ["SNAIL_LLVM_IR", "LLVM_LLC", "LLVM_OPT"] {
+    for name in ["SNAIL_LLVM_IR", "LLVM_LLC", "LLVM_OPT", "SNAIL_SHARED_LTO"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
+}
+
+fn shared_lto() -> bool {
+    env::var("SNAIL_SHARED_LTO").as_deref() == Ok("1")
+        && env::var("PROFILE").as_deref() == Ok("release")
+}
+
+fn llvm_ir_to_bitcode(input: &Path, output: &Path) -> PathBuf {
+    let flags = env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
+    assert!(
+        flags
+            .split('\x1f')
+            .any(|flag| matches!(flag, "-Clinker-plugin-lto" | "linker-plugin-lto")),
+        "SNAIL_SHARED_LTO=1 requires Rust linker-plugin LTO; use the snail-scheme driver"
+    );
+    let object = output.join("scheme.o");
+    run(
+        Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
+            .args(["-passes=verify"])
+            .arg(input)
+            .arg("-o")
+            .arg(&object),
+    );
+    // LLD recognizes bitcode regardless of extension. Its final WASM CFG repair
+    // must remain enabled: shared optimization can introduce new control flow.
+    object
 }
 
 fn input_path() -> PathBuf {
@@ -87,15 +118,6 @@ fn optimize_llvm_ir(input: &Path, output: &Path) -> PathBuf {
             .arg(input)
             .arg("-o")
             .arg(&optimized),
-    );
-    let text = fs::read_to_string(&optimized).unwrap();
-    // A compiled compiler contains handler names in its string constants.
-    // Only remaining function definitions indicate failed specialization.
-    assert!(
-        !text
-            .lines()
-            .any(|line| line.starts_with("define ") && line.contains("@snail_vm_")),
-        "VM instruction functions were not fully inlined"
     );
     optimized
 }

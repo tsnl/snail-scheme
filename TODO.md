@@ -29,13 +29,15 @@
     - [x] Reserve direct definitions and discover body bindings before expression construction
   - [ ] Broader R7RS conformance, including interacting macro-generated binders
 - [x] Executable backend baseline
-  - [x] Lower expanded HIR to Dybvig-style stack VM instructions
-  - [x] Emit LLVM instruction handlers and unrolled control flow from Scheme
+  - [x] Elaborate expanded HIR into structured MIR with five instruction forms
+  - [x] Express the Dybvig-style stack convention through explicit memory and calls
+  - [x] Emit LLVM from MIR, including value joins and direct/indirect foreign calls
   - [x] Rust runtime with tagged words, fixed object layouts, and precise nonmoving GC
   - [x] Link generated LLVM objects through Cargo for native and WASI executables
   - [x] Run an entry-point file by default; `-o` builds without running
   - [x] Invoke Cargo automatically and expose compiler/runtime/GC timings
   - [x] CPU, memory, IO, and GC benchmark programs with checked results
+  - [x] Optimize Scheme and Rust together with shared LTO in release CLI builds
 - [ ] Runtime representation and collection boundaries
   - [x] Measure native/WASI cross-language LTO against Rust-only LTO and Chez
     ([experiment](doc/lto-experiment.md))
@@ -52,8 +54,11 @@
   - [x] Profile the stack baseline against Chibi and Chez before type inference
     ([measurements](doc/stack-vm.md#matched-execution-measurements))
 - [ ] Rust interop and embedding ([design](doc/rust-interop.md))
+  - [x] Prove direct and indirect scalar C ABI calls on native and WASI
+  - [x] Generate stable scalar exports with the `snail-abi` proc macro
   - [ ] Scoped native-call context, checked conversions, and GC-free allocating calls
-  - [ ] Static Rust library exporting Scheme-callable functions, tested on native and WASI
+  - [ ] General Rust library exporting Scheme-callable functions with managed values,
+    tested on native and WASI; the scalar proof is not this embedding API
   - [ ] Declarative Scheme export metadata, explicit native registration, and generated
     Cargo dependencies with persistent lock resolution and one runtime package identity
   - [ ] Durable roots with VM ownership, generation checks, and shutdown semantics
@@ -67,8 +72,9 @@
   - [ ] Checked traced edges for custom Rust objects and an object-tracing derive macro
 - [ ] Type inference and optimization after the executable baseline
   - [ ] Design closed-world lattice analysis and function specialization
-  - [ ] Expose specialized arithmetic, known calls, and local value flow to LLVM;
-    preserve a checked dynamic fallback ([baseline diagnosis](doc/performance-baseline.md))
+  - [x] Expose checked arithmetic, known foreign calls, and local value flow in MIR
+  - [ ] Infer representation and effects to remove checks and specialize calls;
+    preserve the checked dynamic fallback ([MIR design](doc/mir.md))
   - [ ] Add occurrence typing and strict annotations incrementally
   - [ ] Compare optimizations against the native/WASI benchmark baseline
 - [ ] Hosted compiler throughput ([measurements](doc/compilation-performance.md))
@@ -76,8 +82,11 @@
   - [x] Report imported-source parsing separately from expansion in compiler timings
   - [x] Remove repeated handler-name construction and quadratic dense-label deduplication
   - [ ] Reprofile remaining imported-source parsing and LLVM output costs
-  - [ ] Reduce compiler-sized stack LLVM expansion and native register-allocation
+  - [x] Revalidate compiled-compiler capability after the HIR/MIR migration:
+    native/WASI compile Fibonacci; native compiles its own sources
+  - [ ] Reduce compiler-sized LLVM expansion and native register-allocation
     cost; measure changes without weakening the native/WASI control-flow checks
   - [ ] Resolve default Node/V8 optimizer exhaustion on the compiled WASI
-    compiler; baseline-tier execution succeeds ([diagnosis](doc/stack-vm.md#wasi-compiler-host-limitation))
+    compiler; baseline-tier execution also succeeds with MIR
+    ([historical diagnosis](doc/stack-vm.md#wasi-compiler-host-limitation))
 - [ ] Switch the compiler's build to self-hosting after capability validation

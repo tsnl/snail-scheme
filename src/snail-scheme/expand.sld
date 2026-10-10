@@ -8,27 +8,28 @@
 ;; references, value bindings, and parameters without mutation.
 
 (define-library (snail-scheme expand)
-  (export syntax-list->hir-program syntax->hir-library macroexpand-1 make-core-library)
+  (export syntax-list->hir-library syntax->hir-library macroexpand-1 make-core-library)
   (import (snail-scheme trace) (scheme base)
           (scheme cxr)
           (snail-scheme common)
           (snail-scheme syntax)
           (snail-scheme pattern)
-          (snail-scheme hir))
+          (snail-scheme hir) (snail-scheme library))
   (begin
 
     ;; ---- Public API ----
 
     ;; The loader receives a library-name datum and returns define-library syntax
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
-    ;; Each call starts a fresh library cache.
-    (define-traced (syntax-list->hir-program forms library-loader . initial-libraries)
+    ;; Each call starts a fresh library cache. A list of script forms produces an
+    ;; unnamed library; a define-library form produces its named counterpart.
+    (define-traced (syntax-list->hir-library forms library-loader . initial-libraries)
       (assert (list? forms))
       (assert (procedure? library-loader))
-      (let-values (((imports body) (split-program-imports forms)))
-        (expand-program-body imports body library-loader
-                             (and (pair? forms) (syntax-loc (car forms)))
-                             (expansion-library-cache initial-libraries))))
+      (let-values (((imports body) (split-script-imports forms)))
+        (expand-script-body imports body library-loader
+                            (and (pair? forms) (syntax-loc (car forms)))
+                            (expansion-library-cache initial-libraries))))
 
     (define-traced (syntax->hir-library form library-loader . initial-libraries)
       (assert (procedure? library-loader))
@@ -44,16 +45,16 @@
       (let ((rules (head-transformer form environment transformers)))
         (if rules (apply-transformer rules form environment) form)))
 
-    ;; ---- Program and library ----
+    ;; ---- Library containers ----
 
-    (define (expand-program-body imports body loader loc initial-cache)
+    (define (expand-script-body imports body loader loc initial-cache)
       (let*-values (((parsed bindings dependencies cache transformers)
                      (expand-import-declarations imports loader initial-cache '() '()))
                     ((items environment transformers)
                      (expand-body body '() bindings transformers 1000)))
-        (make-program (map cdr parsed) (runtime-items items) dependencies loc)))
+        (make-library #f (map cdr parsed) '() dependencies (runtime-items items) loc)))
 
-    (define (split-program-imports forms)
+    (define (split-script-imports forms)
       (let loop ((forms forms) (imports '()))
         (if (and (pair? forms) (declaration? (car forms) 'import))
             (loop (cdr forms) (cons (car forms) imports))
@@ -76,9 +77,9 @@
                 cache transformers)))
 
     (define (build-library form parts chunks imports environment dependencies)
-      (let-values (((parsed exports)
-                    (rebuild-library-declarations (cdr parts) chunks imports environment)))
-        (make-library (car parts) parsed exports dependencies (syntax-loc form))))
+      (make-library (car parts) (map cdr imports)
+                    (expand-library-exports (cdr parts) environment)
+                    dependencies (apply append (map runtime-items chunks)) (syntax-loc form)))
 
     (define (library-parts form)
       (if (not (declaration? form 'define-library)) (fail form "expected define-library"))
@@ -130,28 +131,18 @@
        ((or (declaration? declaration 'import) (declaration? declaration 'export)) '())
        (else (fail declaration "unsupported library declaration"))))
 
-    (define (rebuild-library-declarations declarations chunks imports environment)
-      (let loop ((raw declarations) (chunks chunks) (parsed '()) (exports '()))
-        (if (null? raw) (values (reverse parsed) (reverse exports))
-            (let-values (((declaration additions)
-                          (rebuild-library-declaration (car raw) (car chunks) imports environment)))
-              (check-export-names additions exports (car raw))
-              (loop (cdr raw) (cdr chunks) (cons declaration parsed)
-                    (append (reverse additions) exports))))))
-
-    (define (rebuild-library-declaration form items imports environment)
-      (cond
-       ((declaration? form 'import) (values (cdr (assq form imports)) '()))
-       ((declaration? form 'export) (expand-export-declaration form environment))
-       (else (values (make-library-body (runtime-items items) (syntax-loc form)) '()))))
+    (define (expand-library-exports declarations environment)
+      (let loop ((declarations declarations) (exports '()))
+        (if (null? declarations) (reverse exports)
+            (let* ((form (car declarations))
+                   (additions (if (declaration? form 'export)
+                                  (expand-export-declaration form environment) '())))
+              (check-export-names additions exports form)
+              (loop (cdr declarations) (append (reverse additions) exports))))))
 
     (define (expand-export-declaration form environment)
-      (let ((specs (map (lambda (spec) (expand-export spec environment))
-                        (car (fields form '(_ spec ...))))))
-        (values (make-export-declaration specs (syntax-loc form))
-                (map (lambda (spec)
-                       (make-named-binding (export-spec-external-name spec)
-                                           (export-spec-definition spec))) specs))))
+      (map (lambda (spec) (expand-export spec environment))
+           (car (fields form '(_ spec ...)))))
 
     (define (initial-library-cache)
       (list (cons '(scheme base) (core-library))))
@@ -193,19 +184,21 @@
                     (append dependencies deps) cache transformers)))))
 
     (define (expand-import form loader cache transformers loading)
-      (let-values (((sets bindings dependencies cache transformers)
+      (let-values (((libraries bindings dependencies cache transformers)
                     (expand-import-sets (car (fields form '(_ set ...)))
                                         loader cache transformers loading)))
-        (values (make-import-declaration sets (environment-bindings bindings) (syntax-loc form))
+        (values (make-import-declaration libraries (environment-bindings bindings)
+                                         form (syntax-loc form))
                 bindings dependencies cache transformers)))
 
     (define (expand-import-sets sets loader cache transformers loading)
-      (let loop ((sets sets) (parsed '()) (bindings '()) (dependencies '())
+      (let loop ((sets sets) (libraries '()) (bindings '()) (dependencies '())
                  (cache cache) (transformers transformers))
-        (if (null? sets) (values (reverse parsed) bindings (unique dependencies) cache transformers)
-            (let-values (((set additions deps cache transformers)
+        (if (null? sets)
+            (values (reverse libraries) bindings (unique dependencies) cache transformers)
+            (let-values (((library additions deps cache transformers)
                           (expand-import-set (car sets) loader cache transformers loading)))
-              (loop (cdr sets) (cons set parsed)
+              (loop (cdr sets) (cons library libraries)
                     (merge-imports bindings additions (car sets))
                     (append dependencies deps) cache transformers)))))
 
@@ -216,77 +209,69 @@
             (expand-modified-import-set form parts tag loader cache transformers loading)
             (expand-library-import form loader cache transformers loading))))
 
+    ;; Modifiers change visible names, never the resolved library or binding identities.
     (define (expand-modified-import-set form parts tag loader cache transformers loading)
       (if (< (length parts) 2) (fail form "missing import set"))
-      (let*-values (((base bindings dependencies cache transformers)
-                     (expand-import-set (cadr parts) loader cache transformers loading))
-                    ((set bindings) (modify-import-set tag base bindings (cddr parts) form)))
-        (values set bindings dependencies cache transformers)))
+      (let-values (((library bindings dependencies cache transformers)
+                    (expand-import-set (cadr parts) loader cache transformers loading)))
+        (values library (modify-import-bindings tag bindings (cddr parts) form)
+                dependencies cache transformers)))
 
     (define (expand-library-import form loader cache transformers loading)
       (let ((name (library-name-datum form)))
         (let-values (((library cache transformers)
                       (load-library name form loader cache transformers loading)))
-          (values (make-library-import name library (syntax-loc form))
-                  (library-bindings library) (cons name (library-dependencies library))
+          (values library (library-bindings library) (cons name (library-dependencies library))
                   cache transformers))))
 
     (define (library-bindings library)
       (map (lambda (binding) (cons (named-binding-name binding) (named-binding-definition binding)))
            (library-exports library)))
 
-    (define (modify-import-set tag base bindings arguments form)
+    (define (modify-import-bindings tag bindings arguments form)
       (case tag
-        ((only except) (restrict-imports tag base bindings arguments form))
-        ((prefix) (prefix-imports base bindings arguments form))
-        ((rename) (rename-imports base bindings arguments form))))
+        ((only except) (restrict-imports tag bindings arguments form))
+        ((prefix) (prefix-imports bindings arguments form))
+        ((rename) (rename-imports bindings arguments form))))
 
-    (define (restrict-imports tag base bindings arguments form)
+    (define (restrict-imports tag bindings arguments form)
       (let ((names (map require-symbol arguments)))
         (check-distinct names form)
         (for-each (lambda (name)
                     (if (not (assq name bindings)) (fail form "unknown imported name" name))) names)
-        (values ((if (eq? tag 'only) make-only-import make-except-import)
-                 base names (syntax-loc form))
-                (restrict-import-bindings tag names bindings))))
+        (filter (lambda (entry)
+                  (if (eq? tag 'only) (memq (car entry) names)
+                      (not (memq (car entry) names)))) bindings)))
 
-    (define (restrict-import-bindings tag names bindings)
-      (filter (lambda (entry)
-                (if (eq? tag 'only) (memq (car entry) names)
-                    (not (memq (car entry) names)))) bindings))
-
-    (define (prefix-imports base bindings arguments form)
+    (define (prefix-imports bindings arguments form)
       (if (not (= (length arguments) 1)) (fail form "expected import prefix"))
       (let ((prefix (require-symbol (car arguments))))
-        (values (make-prefix-import base prefix (syntax-loc form))
-                (map (lambda (entry)
-                       (cons (string->symbol
-                              (string-append (symbol->string prefix) (symbol->string (car entry))))
-                             (cdr entry))) bindings))))
+        (map (lambda (entry)
+               (cons (string->symbol
+                      (string-append (symbol->string prefix) (symbol->string (car entry))))
+                     (cdr entry))) bindings)))
 
-    (define (rename-imports base bindings arguments form)
+    (define (rename-imports bindings arguments form)
       (let* ((renamings (parse-import-renamings arguments bindings form))
              (renamed (map (lambda (entry) (rename-import-binding entry renamings)) bindings)))
         (check-distinct (map car renamed) form)
-        (values (make-rename-import base renamings (syntax-loc form)) renamed)))
+        renamed))
 
     (define (parse-import-renamings arguments bindings form)
       (let ((renamings (map parse-import-rename arguments)))
-        (check-distinct (map import-rename-from renamings) form)
+        (check-distinct (map car renamings) form)
         (for-each (lambda (rename)
-                    (if (not (assq (import-rename-from rename) bindings))
-                        (fail form "unknown renamed import" (import-rename-from rename))))
-                  renamings)
+                    (if (not (assq (car rename) bindings))
+                        (fail form "unknown renamed import" (car rename)))) renamings)
         renamings))
 
     (define (rename-import-binding entry renamings)
-      (let ((rename (find (lambda (r) (eq? (import-rename-from r) (car entry))) renamings)))
-        (cons (if rename (import-rename-to rename) (car entry)) (cdr entry))))
+      (let ((rename (assq (car entry) renamings)))
+        (cons (if rename (cdr rename) (car entry)) (cdr entry))))
 
     (define (parse-import-rename form)
       (let ((parts (fields form '(from to))))
-        (make-import-rename (require-symbol (car parts)) (require-symbol (cadr parts))
-                            (syntax-loc form))))
+        (cons (require-symbol (car parts)) (require-symbol (cadr parts)))))
 
     (define (expand-export form environment)
       (let* ((names (parse-export-names form))
@@ -294,7 +279,7 @@
              (external (require-symbol (cadr names)))
              (definition (lookup (car names) environment)))
         (if (not definition) (fail form "unbound export" local))
-        (make-export-spec local external definition (syntax-loc form))))
+        (make-named-binding external definition)))
 
     (define (parse-export-names form)
       (if (identifier-spelling form) (list form form)
@@ -562,8 +547,7 @@
       (let ((reversed (reverse items)))
         (if (or (null? reversed) (not (runtime-expression? (car reversed))))
             (fail source "body requires a final expression"))
-        (make-block (runtime-items (reverse (cdr reversed)))
-                    (car reversed) (syntax-loc source))))
+        (make-block (runtime-items items) (syntax-loc source))))
 
     (define (expand-local-macros form environment transformers fuel)
       (let* ((parts (fields form '(_ bindings item ...)))
@@ -1277,7 +1261,7 @@
                           core-syntax-names)
                      (map (lambda (name) (make-named-binding name (make-value-definition name #f)))
                           primitives))
-                    '() #f))
+                    '() '() #f))
 
     (define core-syntax-names
       '(define define-syntax syntax-rules let-syntax letrec-syntax lambda quote if set! begin))
@@ -1299,7 +1283,12 @@
             (only (snail-scheme syntax-parser) s-file)
             (only (snail-scheme parser) parse-result-value))
     (begin
-      (define (test-library text)
+      (define (test-program text)
+        (syntax-list->hir-library
+         (parse-result-value (s-file (string->reader "body.scm" text)))
+         (lambda (name) (error "unexpected library load" name))))
+
+      (define (test-hir-library text)
         (syntax->hir-library
          (car (parse-result-value (s-file (string->reader "conditional.sld" text))))
          (lambda (name) (error "unexpected library load" name))))
@@ -1315,7 +1304,7 @@
 
       (define (test-inactive-library-declarations)
         (let ((library
-                  (test-library
+                  (test-hir-library
                    "(define-library (conditional)
                    (cond-expand
                     (snail-tests
@@ -1329,7 +1318,7 @@
 
       (define (test-nested-library-declarations)
         (let ((library
-                  (test-library
+                  (test-hir-library
                    "(define-library (conditional)
                    (cond-expand (unknown (export absent)))
                    (cond-expand
@@ -1347,7 +1336,7 @@
          (lambda (case)
            (expect
             (guard (ex ((error-object? ex) (error-object-message ex)))
-              (test-library (string-append "(define-library (bad) " (car case) ")"))
+              (test-hir-library (string-append "(define-library (bad) " (car case) ")"))
               #f)
             (cadr case)))
          '(("(cond-expand (else) (snail-scheme))" "else must be last")
@@ -1356,9 +1345,166 @@
            ("(cond-expand ((library (scheme base))))" "unsupported library feature requirement")
            ("(cond-expand (42))" "malformed library feature requirement"))))
 
+      (define (test-block-item-order)
+        (let* ((program (test-program "(import (scheme base))
+                        (lambda (x) 1 (list (begin 2 x)))"))
+               (procedure (car (library-body program)))
+               (items (block-items (lambda-body procedure)))
+               (nested (block-items (car (application-operands (cadr items))))))
+          (expect (length items) 2)
+          (expect (map literal-value (list (car items) (car nested))) '(1 2))
+          (expect (eq? (name-definition (cadr nested))
+                       (car (lambda-parameters procedure))) #t)))
+
+      (define (test-block-binding-identities)
+        (let* ((program (test-program "(import (scheme base))
+                        (lambda () (define x 1) (set! x 2) x)"))
+               (items (block-items (lambda-body (car (library-body program)))))
+               (definition (value-binding-definition (car items))))
+          (expect (length items) 3)
+          (expect (literal-value (value-binding-initializer (car items))) 1)
+          (expect (eq? (name-definition (assignment-target (cadr items))) definition) #t)
+          (expect (eq? (name-definition (caddr items)) definition) #t)))
+
+      (define (test-block-macro-definition-removal)
+        (let* ((program (test-program "(import (scheme base))
+                        (lambda ()
+                          (define-syntax answer (syntax-rules () ((answer) 42)))
+                          (answer))"))
+               (items (block-items (lambda-body (car (library-body program))))))
+          (expect (map literal-value items) '(42))))
+
+      (define (test-block-final-expression-errors)
+        (for-each
+         (lambda (source)
+           (expect
+            (guard (ex ((error-object? ex) (error-object-message ex)))
+              (test-program (string-append "(import (scheme base)) " source)) #f)
+            "body requires a final expression"))
+         '("(lambda () (list (begin)))"
+           "(lambda ())"
+           "(lambda () (define x 1))"
+           "(lambda () 1 (define x 2))"
+           "(lambda () (define-syntax m (syntax-rules () ((m) 2))))"
+           "(lambda () 1 (define-syntax m (syntax-rules () ((m) 2))))")))
+
+      (define (test-library-container)
+        (let* ((library
+                   (test-hir-library
+                    "(define-library (ordered)
+                    (begin 1)
+                    (import (scheme base))
+                    (begin (define answer 2))
+                    (export (rename answer public-answer))
+                    (begin 3))"))
+               (items (library-body library))
+               (export (car (library-exports library))))
+          (expect (library-name library) '(ordered))
+          (expect (map literal-value (list (car items) (caddr items))) '(1 3))
+          (expect (named-binding-name export) 'public-answer)
+          (expect (eq? (named-binding-definition export)
+                       (value-binding-definition (cadr items))) #t)))
+
+      (define (test-script-container)
+        (let ((library (test-program "(import (scheme base)) 42")))
+          (expect (library-name library) #f)
+          (expect (library-exports library) '())
+          (expect (map literal-value (library-body library)) '(42))))
+
+      (define (test-export-name-errors)
+        (for-each
+         (lambda (exports)
+           (expect
+            (guard (ex ((error-object? ex) (error-object-message ex)))
+              (test-hir-library
+               (string-append "(define-library (invalid) (import (scheme base)) "
+                              "(begin (define x 1)) " exports ")")) #f)
+            "duplicate name"))
+         '("(export x x)" "(export x) (export x)" "(export x (rename x x))")))
+
+      (define (test-import-library)
+        (test-hir-library "(define-library (import-source)
+                       (import (scheme base))
+                       (export alpha beta gamma)
+                       (begin (define alpha 1) (define beta 2) (define gamma 3)))"))
+
+      (define (test-import-program text library)
+        (let ((forms (parse-result-value (s-file (string->reader "imports.scm" text)))))
+          (values (syntax-list->hir-library
+                   forms (lambda (name) (error "unexpected library load" name))
+                   (list library))
+                  forms)))
+
+      (define (test-nested-import-modifiers)
+        (let ((library (test-import-library)))
+          (let-values (((program forms)
+                        (test-import-program
+                         "(import (rename (prefix
+                           (except (only (import-source) alpha beta gamma) beta) p:)
+                           (p:alpha chosen))) chosen p:gamma" library)))
+            (let ((declaration (car (library-imports program)))
+                  (references (map name-definition (library-body program))))
+              (expect (eq? (car (import-declaration-libraries declaration)) library) #t)
+              (expect (length (import-declaration-bindings declaration)) 2)
+              (expect (eq? (car references) (cdr (assq 'alpha (library-bindings library)))) #t)
+              (expect (eq? (cadr references) (cdr (assq 'gamma (library-bindings library)))) #t)
+              (expect (eq? (import-declaration-source declaration) (car forms)) #t)
+              (expect (eq? (import-declaration-loc declaration) (syntax-loc (car forms))) #t)))))
+
+      (define (test-empty-import-bindings)
+        (let ((library (test-import-library)))
+          (let-values (((program forms)
+                        (test-import-program
+                         "(import (only (import-source))
+                                  (except (import-source) alpha beta gamma))" library)))
+            (let ((declaration (car (library-imports program))))
+              (expect (import-declaration-bindings declaration) '())
+              (expect (import-declaration-libraries declaration) (list library library))
+              (expect (library-dependencies program) '((import-source) (scheme base)))))))
+
+      (define (test-repeated-import-identity)
+        (let ((library (test-import-library)))
+          (let-values (((program forms)
+                        (test-import-program
+                         "(import (only (import-source) alpha)
+                                  (only (import-source) alpha)) alpha" library)))
+            (let ((declaration (car (library-imports program))))
+              (expect (import-declaration-libraries declaration) (list library library))
+              (expect (length (import-declaration-bindings declaration)) 1)
+              (expect (eq? (name-definition (car (library-body program)))
+                           (cdr (assq 'alpha (library-bindings library)))) #t)))))
+
+      (define (test-import-name-errors)
+        (let ((library (test-import-library)))
+          (for-each
+           (lambda (case)
+             (expect
+              (guard (ex ((error-object? ex)
+                          (list (error-object-message ex) (cadr (error-object-irritants ex)))))
+                (test-import-program (string-append "(import " (car case) ")") library) #f)
+              (cdr case)))
+           '(("(only (import-source) absent)" "unknown imported name" absent)
+             ("(except (import-source) absent)" "unknown imported name" absent)
+             ("(only (import-source) alpha alpha)" "duplicate name" alpha)
+             ("(except (import-source) beta beta)" "duplicate name" beta)
+             ("(rename (import-source) (absent alias))" "unknown renamed import" absent)
+             ("(rename (import-source) (alpha one) (alpha two))" "duplicate name" alpha)
+             ("(rename (import-source) (alpha beta))" "duplicate name" beta)))))
+
       (define (test-expand)
         (run-test test-feature-requirements)
         (run-test test-inactive-library-declarations)
         (run-test test-nested-library-declarations)
-        (run-test test-invalid-library-requirements))
+        (run-test test-invalid-library-requirements)
+        (run-test test-block-item-order)
+        (run-test test-block-binding-identities)
+        (run-test test-block-macro-definition-removal)
+        (run-test test-block-final-expression-errors)
+        (run-test test-library-container)
+        (run-test test-script-container)
+        (run-test test-export-name-errors)
+        (run-test test-nested-import-modifiers)
+        (run-test test-empty-import-bindings)
+        (run-test test-repeated-import-identity)
+        (run-test test-import-name-errors))
       ))))

@@ -8,13 +8,14 @@ in the current runtime.
 
 ## What exists today
 
-The compiler emits LLVM instruction handlers and a whole-program entry point.
+The compiler elaborates HIR to structured MIR and emits a whole-program LLVM
+entry point with ordinary C ABI calls into Rust.
 Cargo compiles that IR for the target and links the object with `snail-runtime`.
 The executable CLI generates a Cargo project and invokes `cargo build` or
 `cargo run`. The supported host pair is native and `wasm32-wasip1`, using the
 same Rust runtime and an adapter based on `std`. The generated entry exports
 `snail_program_abi`; the runner checks it against `PROGRAM_ABI` before executing
-the program. The current protocol version is 2.
+the program. The current protocol version is 3.
 
 The heap owns fixed-layout builtin objects and one `Extension` kind for foreign
 payloads. Its C ABI tracing/destruction vtable is implemented; safe registration,
@@ -31,6 +32,12 @@ runs only after consuming its inputs and publishing its result.
 
 See [backend.md](backend.md) for the executable implementation and
 [TOUR.md](../TOUR.md) for the module walkthrough.
+
+The implemented `snail-abi` proc macro exports fixed scalar Rust functions
+(`i32`/`u32` arguments, `i32`/`u32`/unit results) through named C ABI wrappers.
+Direct and function-pointer MIR calls execute on native and WASI; shared LTO
+inlines small helpers. This proof does not yet register user-defined Scheme
+procedures or provide managed-value conversion and rooting.
 
 ## First API: scoped leaf calls
 
