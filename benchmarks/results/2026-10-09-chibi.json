@@ -1,0 +1,1285 @@
+{
+  "schema_version": 1,
+  "host": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "chibi": {
+    "command": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+    "executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+    "optimization": "CLI default; tail-call optimization enabled; no -O option",
+    "clock": "(scheme time): wall clock, rounded to milliseconds (1000 Hz)"
+  },
+  "chez": {
+    "command": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "version": "10.4.1",
+    "optimize_level": 2
+  },
+  "wasm_runtime": {
+    "command": "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+    "version": "v24.15.0"
+  },
+  "warmup_runs": 1,
+  "samples_per_implementation": 4,
+  "protocol": "Same fixed work; implementations rotate execution order. Reported elapsed time excludes startup, parsing, compilation, and output.",
+  "limitations": [
+    "Chibi time is wall-clock milliseconds; other clocks are monotonic.",
+    "GC omitted: Chibi lacks the canonical check's reclaimed counter.",
+    "Native Snail is 32-bit; Chibi and Chez are host x86-64.",
+    "I/O uses each implementation's existing substring-search adapter."
+  ],
+  "driver_sha256": "0f9ec8829b5a706493ddda1ba906f14b98d01b8fc916a7987b078c4c9df38cd7",
+  "measurements": [
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "02782c74104af6edfae583311067ced55665b27b5075e25c760ca75729e408f4",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "cpu",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 120.0,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/cpu.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7de2536198dae33c65713caeb13187a7c3e888fe0af5c25f4cbd739f5f44efe1",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.369,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2359.246,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1785.155,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1781.126,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 5,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1284.466,
+      "checksum": 67279536,
+      "sample": 1,
+      "position": 6,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7de2536198dae33c65713caeb13187a7c3e888fe0af5c25f4cbd739f5f44efe1",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.195,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2357.092,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1798.993,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1744.872,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1278.435,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 5,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "02782c74104af6edfae583311067ced55665b27b5075e25c760ca75729e408f4",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "cpu",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 116.0,
+      "checksum": 67279536,
+      "sample": 2,
+      "position": 6,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/cpu.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2350.462,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1789.976,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1779.471,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1256.292,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "02782c74104af6edfae583311067ced55665b27b5075e25c760ca75729e408f4",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "cpu",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 115.0,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 5,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/cpu.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7de2536198dae33c65713caeb13187a7c3e888fe0af5c25f4cbd739f5f44efe1",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.337,
+      "checksum": 67279536,
+      "sample": 3,
+      "position": 6,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1752.73,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1773.291,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1267.525,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "02782c74104af6edfae583311067ced55665b27b5075e25c760ca75729e408f4",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "cpu",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 118.0,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/cpu.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7de2536198dae33c65713caeb13187a7c3e888fe0af5c25f4cbd739f5f44efe1",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.201,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 5,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2352.413,
+      "checksum": 67279536,
+      "sample": 4,
+      "position": 6,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "034db6dc299e1fbca5c9236b9b20cc658eb5b51a1a8ff87365f4c2b2537d9bf6",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "memory",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 152.0,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/memory.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "fb50a429921f996a8748aba916ed9d9a238c0d7f6a1c0b44502dacc8acc14a4e",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.338,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2140.136,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1618.673,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1638.916,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 5,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1192.798,
+      "checksum": 7278954048,
+      "sample": 1,
+      "position": 6,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "fb50a429921f996a8748aba916ed9d9a238c0d7f6a1c0b44502dacc8acc14a4e",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.297,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2105.452,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1630.011,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1642.32,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1185.261,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 5,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "034db6dc299e1fbca5c9236b9b20cc658eb5b51a1a8ff87365f4c2b2537d9bf6",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "memory",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 153.0,
+      "checksum": 7278954048,
+      "sample": 2,
+      "position": 6,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/memory.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2138.873,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1625.495,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1615.31,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1201.501,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "034db6dc299e1fbca5c9236b9b20cc658eb5b51a1a8ff87365f4c2b2537d9bf6",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "memory",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 157.0,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 5,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/memory.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "fb50a429921f996a8748aba916ed9d9a238c0d7f6a1c0b44502dacc8acc14a4e",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.345,
+      "checksum": 7278954048,
+      "sample": 3,
+      "position": 6,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1611.024,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1638.068,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "snail-shared-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1175.148,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "034db6dc299e1fbca5c9236b9b20cc658eb5b51a1a8ff87365f4c2b2537d9bf6",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "memory",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 153.0,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/memory.scm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "fb50a429921f996a8748aba916ed9d9a238c0d7f6a1c0b44502dacc8acc14a4e",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.181,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 5,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2140.328,
+      "checksum": 7278954048,
+      "sample": 4,
+      "position": 6,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "156b2543b0519c509d424ec3971411c53567e1c59304718af16f2297f7afc9d7",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "io",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 551.0,
+      "checksum": 829580,
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/io.scm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "133e9e2ebb022e904e40498ed0f8fcdc6cd3dd100e57c13eeb21e01ac77177d2",
+      "program": "io",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 29.019,
+      "checksum": 829580,
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/io.so",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "e6ee4a8f5418dfc7bb86e5f85b28257671d24863b61ac5f57c8b20a5dfbc9a5b",
+      "program": "io",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 79.091,
+      "checksum": 829580,
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/io",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "7254b9ca3379fc1c8ec7ed24155aabf8145ca82cdc960b71755d7694786ec6c7",
+      "program": "io",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 4,
+      "elapsed_ms": 55.502,
+      "checksum": 829580,
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/io.wasm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "133e9e2ebb022e904e40498ed0f8fcdc6cd3dd100e57c13eeb21e01ac77177d2",
+      "program": "io",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 29.078,
+      "checksum": 829580,
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/io.so",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "e6ee4a8f5418dfc7bb86e5f85b28257671d24863b61ac5f57c8b20a5dfbc9a5b",
+      "program": "io",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 79.162,
+      "checksum": 829580,
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/io",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "7254b9ca3379fc1c8ec7ed24155aabf8145ca82cdc960b71755d7694786ec6c7",
+      "program": "io",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 4,
+      "elapsed_ms": 57.365,
+      "checksum": 829580,
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/io.wasm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "156b2543b0519c509d424ec3971411c53567e1c59304718af16f2297f7afc9d7",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "io",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 551.0,
+      "checksum": 829580,
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/io.scm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "e6ee4a8f5418dfc7bb86e5f85b28257671d24863b61ac5f57c8b20a5dfbc9a5b",
+      "program": "io",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 78.115,
+      "checksum": 829580,
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/io",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "7254b9ca3379fc1c8ec7ed24155aabf8145ca82cdc960b71755d7694786ec6c7",
+      "program": "io",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 4,
+      "elapsed_ms": 58.256,
+      "checksum": 829580,
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/io.wasm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "156b2543b0519c509d424ec3971411c53567e1c59304718af16f2297f7afc9d7",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "io",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 550.0,
+      "checksum": 829580,
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/io.scm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "133e9e2ebb022e904e40498ed0f8fcdc6cd3dd100e57c13eeb21e01ac77177d2",
+      "program": "io",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 28.329,
+      "checksum": 829580,
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/io.so",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "7254b9ca3379fc1c8ec7ed24155aabf8145ca82cdc960b71755d7694786ec6c7",
+      "program": "io",
+      "implementation": "snail",
+      "target": "wasm",
+      "repetitions": 4,
+      "elapsed_ms": 55.568,
+      "checksum": 829580,
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/wasm/io.wasm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "artifact_kind": "scheme-source",
+      "adapter_sha256": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "executable_sha256": "156b2543b0519c509d424ec3971411c53567e1c59304718af16f2297f7afc9d7",
+      "chibi_version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "chibi_executable_sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "program": "io",
+      "implementation": "chibi",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 592.0,
+      "checksum": 829580,
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chibi/io.scm",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "133e9e2ebb022e904e40498ed0f8fcdc6cd3dd100e57c13eeb21e01ac77177d2",
+      "program": "io",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 29.08,
+      "checksum": 829580,
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/io.so",
+        "4"
+      ]
+    },
+    {
+      "source_sha256": "698eedf4c3d5566e37cd6ca6ceb69ec697a9ac65890966fdba688fceed9377ab",
+      "executable_sha256": "e6ee4a8f5418dfc7bb86e5f85b28257671d24863b61ac5f57c8b20a5dfbc9a5b",
+      "program": "io",
+      "implementation": "snail",
+      "target": "native",
+      "repetitions": 4,
+      "elapsed_ms": 77.762,
+      "checksum": 829580,
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/runtime-v3/bin/native/io",
+        "4"
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "program": "cpu",
+      "repetitions": 16,
+      "median_ms": {
+        "chez-native": 7.269,
+        "chibi-native": 117.0,
+        "snail-native": 2354.7525,
+        "snail-wasm": 1787.5655000000002,
+        "snail-shared-lto-native": 1776.3809999999999,
+        "snail-shared-lto-wasm": 1272.98
+      },
+      "snail-native-over-chibi": 20.126089743589745,
+      "snail-wasm-over-chibi": 15.278337606837608,
+      "snail-shared-lto-native-over-chibi": 15.18274358974359,
+      "snail-shared-lto-wasm-over-chibi": 10.88017094017094,
+      "chibi-over-chez": 16.09574907139909
+    },
+    {
+      "program": "memory",
+      "repetitions": 16,
+      "median_ms": {
+        "chez-native": 8.317499999999999,
+        "chibi-native": 153.0,
+        "snail-native": 2139.5045,
+        "snail-wasm": 1622.0839999999998,
+        "snail-shared-lto-native": 1638.492,
+        "snail-shared-lto-wasm": 1189.0295
+      },
+      "snail-native-over-chibi": 13.98368954248366,
+      "snail-wasm-over-chibi": 10.601856209150325,
+      "snail-shared-lto-native-over-chibi": 10.709098039215686,
+      "snail-shared-lto-wasm-over-chibi": 7.771434640522877,
+      "chibi-over-chez": 18.394950405770967
+    },
+    {
+      "program": "io",
+      "repetitions": 4,
+      "median_ms": {
+        "chez-native": 29.048499999999997,
+        "chibi-native": 551.0,
+        "snail-native": 78.603,
+        "snail-wasm": 56.466499999999996
+      },
+      "snail-native-over-chibi": 0.14265517241379308,
+      "snail-wasm-over-chibi": 0.10248003629764064,
+      "chibi-over-chez": 18.968277191593373
+    }
+  ]
+}

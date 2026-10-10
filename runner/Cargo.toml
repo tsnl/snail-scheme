@@ -5,3 +5,8 @@ edition = "2024"
 
 [dependencies]
 snail-runtime = { path = "../runtime" }
+
+snail-trace = { path = "../trace" }
+
+[build-dependencies]
+snail-trace = { path = "../trace" }

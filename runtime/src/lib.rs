@@ -1,26 +1,32 @@
 //! Runtime for statically emitted Scheme instruction streams.
 //!
 //! The LLVM-facing ABI passes only an opaque machine pointer and fixed-width
-//! operands, plus transient pointers to tagged-word slots. No Rust container
-//! layout, enum discriminant, or trait object crosses it.
+//! operands, a fixed register record, and transient pointers to tagged-word slots.
+//! No Rust container layout, enum discriminant, or trait object crosses it.
 //!
-//! Instruction entry is the automatic GC safepoint. Slot services below are
-//! GC-free; generated code publishes surviving values before the next entry.
-//! Explicit Scheme collection runs only inside the VM's rooted dispatch loop.
+//! Only allocating operations are automatic GC boundaries. They collect before
+//! acquiring an owned allocation capability; allocations within Rust never collect.
+//! Generated code publishes live words before invoking such an operation.
+//!
+//! Every unsafe ABI call requires all Scheme words in VM slots to be immediates
+//! or live objects owned by that VM. A stale or foreign pointer is invalid even
+//! when its bits name mapped memory. Slot pointers and the VM itself must obey
+//! the exclusive access/lifetime contracts below; forged values are unsupported.
 
 mod host;
 mod object;
 mod primitives;
+mod representation;
 
 mod vm;
 
-pub use object::{GcStatistics, SnailSchemeObject, Value};
+pub use object::{Extension, ExtensionVTable, GcStatistics, GcVisit, Value};
 
-pub use vm::{STOP, Vm};
+pub use vm::{CONSUME, STOP, State, Vm};
 
 /// Version of the generated-code protocol, including tagged singleton values.
-/// Keep this in sync with `write-llvm-program` in `llvm.sld`.
-pub const PROGRAM_ABI: u32 = 1;
+/// Keep this in sync with `write-mir-library-as-llvm` in `llvm.sld`.
+pub const PROGRAM_ABI: u32 = 3;
 
 use object::*;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -52,73 +58,55 @@ unsafe fn boundary<T: Copy>(
     }
 }
 
-/// Startup constructors and instruction entry may collect before doing any work.
-unsafe fn handler<T: Copy>(
-    machine: *mut Vm,
-    stopped: T,
-    operation: impl FnOnce(&mut Vm) -> Result<T, String>,
-) -> T {
-    unsafe {
-        boundary(machine, stopped, |vm| {
-            vm.safepoint();
-            operation(vm)
-        })
-    }
-}
+// ---- Slot and control services for generated code ----
 
-// ---- Slot and control services for Scheme-written LLVM instructions -------
-// Slot pointers last until the next operation that can relocate that storage.
-// These accessors never collect. LLVM loads a source before requesting a new
-// result/operand slot, and publishes the word before another instruction enters.
+// The register record remains at a fixed address while its VM stays in place.
+// Stack-slot pointers last until a service can resize the stack. LLVM loads
+// sources before resizing a destination and publishes live words before a
+// safepoint. Raw VM and register pointers may alias; neither has a noalias promise.
 
 /// # Safety
 /// `machine` must name a live, exclusively accessible VM with all values rooted.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_enter(machine: *mut Vm) -> u32 {
-    unsafe { handler(machine, 0, |_| Ok(1)) }
+pub unsafe extern "C" fn snail_rt_state(machine: *mut Vm) -> *mut State {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.state())) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before resizing it.
+/// `machine` must name a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_slot(machine: *mut Vm, index: u32, kind: u32) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.slot(index, kind)) }
+pub unsafe extern "C" fn snail_rt_reserve(machine: *mut Vm, depth: u32) {
+    unsafe { boundary(machine, (), |vm| vm.reserve(depth)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before resizing it.
+/// `machine` must name a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_capture_slot(
-    machine: *mut Vm,
-    index: u32,
-    free: u32,
-) -> *mut Value {
-    unsafe {
-        boundary(machine, std::ptr::null_mut(), |vm| {
-            vm.capture_slot(index, free != 0)
-        })
-    }
+pub unsafe extern "C" fn snail_rt_box(machine: *mut Vm, index: u32) {
+    unsafe { boundary(machine, (), |vm| vm.box_local(index)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before replacing results.
+/// `machine` must name a live VM and `cell` must be one of its live values.
+/// Consume the returned slot before a service that can collect its cell.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_single(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), Vm::single_slot) }
+pub unsafe extern "C" fn snail_rt_cell(machine: *mut Vm, cell: Value) -> *mut Value {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.cell_slot(cell)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; fill the returned slot before another safepoint.
+/// `machine` must name a live VM with its active closure rooted.
+/// Consume the returned slot before a service that can collect its closure.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_result(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.result_slot())) }
+pub unsafe extern "C" fn snail_rt_free(machine: *mut Vm, index: u32) -> *mut Value {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.free_slot(index)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; fill the returned slot before another safepoint.
+/// `machine` must point to a live VM with exclusive access for this call.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_push(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.push_slot())) }
+pub unsafe extern "C" fn snail_rt_value_error(machine: *mut Vm) {
+    unsafe { boundary(machine, (), |vm| vm.single().map(|_| ())) }
 }
 
 /// # Safety
@@ -153,15 +141,37 @@ pub unsafe extern "C" fn snail_rt_close(
 /// # Safety
 /// `machine` must point to a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_call(machine: *mut Vm, argc: u32, resume: u32, tail: u32) -> u32 {
-    unsafe { boundary(machine, STOP, |vm| vm.call(argc, resume, tail != 0)) }
+pub unsafe extern "C" fn snail_rt_prepare_apply(machine: *mut Vm, argc: u32) -> u32 {
+    unsafe { boundary(machine, 255, |vm| vm.prepare_apply(argc)) }
+}
+
+/// # Safety
+/// `machine` must name a live, exclusively accessible VM. Its top two stack
+/// words and registers must be rooted; `global` must identify a numeric builtin.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_numeric(machine: *mut Vm, global: u32) {
+    unsafe { boundary(machine, (), |vm| vm.numeric(global)) }
 }
 
 /// # Safety
 /// `machine` must point to a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_return(machine: *mut Vm) -> u32 {
-    unsafe { boundary(machine, STOP, Vm::return_values) }
+pub unsafe extern "C" fn snail_rt_receive(machine: *mut Vm) {
+    unsafe { boundary(machine, (), Vm::receive) }
+}
+
+/// # Safety
+/// `machine` must point to a live VM with all surviving values published in roots.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_capture(machine: *mut Vm) {
+    unsafe { boundary(machine, (), Vm::capture) }
+}
+
+/// # Safety
+/// `machine` must point to a live VM with all surviving values published in roots.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_restore(machine: *mut Vm, argc: u32) {
+    unsafe { boundary(machine, (), |vm| vm.restore(argc)) }
 }
 
 /// # Safety
@@ -169,7 +179,7 @@ pub unsafe extern "C" fn snail_rt_return(machine: *mut Vm) -> u32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_halt(machine: *mut Vm) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             vm.halt();
             Ok(())
         })
@@ -181,7 +191,7 @@ pub unsafe extern "C" fn snail_halt(machine: *mut Vm) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_invalid_pc(machine: *mut Vm, pc: u32) {
     unsafe {
-        handler(machine, (), |_| {
+        boundary(machine, (), |_| {
             Err(format!("invalid VM instruction address: {pc}"))
         })
     }
@@ -209,20 +219,21 @@ pub unsafe extern "C" fn snail_const_atom(
     len: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let data = bytes(data, len)?;
+            let mut allocation = vm.allocation([]);
             let value = if kind == 7 {
-                vm.alloc(Bytevector(data.to_vec()))
+                allocation.alloc(Bytevector(data.to_vec()))
             } else {
                 let text = std::str::from_utf8(data).map_err(|_| "constant is not UTF-8")?;
                 match kind {
-                    0 => vm.alloc(Text(text.into())),
-                    1 => vm.intern(text),
-                    2 => vm.integer(
+                    0 => allocation.alloc(Text::new(text.into())),
+                    1 => allocation.intern(text),
+                    2 => allocation.integer(
                         text.parse()
                             .map_err(|_| "integer constant exceeds supported i64 range")?,
                     ),
-                    3 => vm.float(
+                    3 => allocation.float(
                         primitives::parse_float(text).ok_or("invalid floating point constant")?,
                     ),
                     4 => Value::character(
@@ -250,8 +261,9 @@ pub unsafe extern "C" fn snail_const_atom(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_const_pair(machine: *mut Vm, index: u32, car: u32, cdr: u32) {
     unsafe {
-        handler(machine, (), |vm| {
-            let value = vm.alloc(Pair(vm.constant(car)?, vm.constant(cdr)?));
+        boundary(machine, (), |vm| {
+            let pair = Pair(vm.constant(car)?, vm.constant(cdr)?);
+            let value = vm.allocation([]).alloc(pair);
             vm.set_constant(index, value)
         })
     }
@@ -268,7 +280,7 @@ pub unsafe extern "C" fn snail_const_vector(
     count: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let indices = if count == 0 {
                 &[]
             } else {
@@ -281,7 +293,7 @@ pub unsafe extern "C" fn snail_const_vector(
                 .iter()
                 .map(|index| vm.constant(*index))
                 .collect::<Result<Vec<_>, _>>()?;
-            let value = vm.alloc(Vector(values));
+            let value = vm.allocation([]).alloc(Vector(values));
             vm.set_constant(index, value)
         })
     }
@@ -298,7 +310,7 @@ pub unsafe extern "C" fn snail_global_primitive(
     len: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let name = std::str::from_utf8(bytes(name, len)?)
                 .map_err(|_| "primitive name is not UTF-8")?;
             vm.global_primitive(index, name.into())

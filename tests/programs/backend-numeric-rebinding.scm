@@ -1,0 +1,12 @@
+(import (scheme base) (scheme write))
+
+(define original-subtract -)
+(define (subtract x y) (- x y))
+(define (replace-subtract) (set! - (lambda (x y) (+ x y))))
+(if (not (= 5 (subtract 9 4))) (error "builtin before rebinding"))
+(replace-subtract)
+(if (not (= 13 (subtract 9 4))) (error "nested rebinding was ignored"))
+(if (not (= 5 (original-subtract 9 4))) (error "aliased builtin changed"))
+(set! - original-subtract)
+(if (not (= 5 (subtract 9 4))) (error "builtin restoration failed"))
+(display "numeric rebinding checks passed\n")

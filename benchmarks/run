@@ -23,8 +23,9 @@ PROGRAMS = {
     "io": ("I/O: sequential frozen-corpus search", 207395, 4),
     "gc": ("GC: retained cyclic trees", 5460492, 1),
 }
-TIMING = re.compile(r"elapsed: (\d+\.\d{3}) ms; repetitions: (\d+)"
-                    r"(?:; GC: (\d+) collections, (\d+\.\d{3}) ms)?")
+# Accept older saved executables too; JSON fields keep their explicit ms units.
+TIMING = re.compile(r"elapsed: (?P<elapsed>\d+\.\d+) (?P<unit>ms|s); repetitions: (?P<count>\d+)"
+                    r"(?:; GC: (?P<collections>\d+) collections, (?P<gc>\d+\.\d+) (?P<gc_unit>ms|s))?")
 QUERIES = ("copper owl", "river lantern", "winter fern", "silent comet", "absent phrase")
 
 
@@ -44,7 +45,7 @@ class CompiledModule:
     inputs: dict
 
 
-# Command-line configuration and required runtimes.
+# ---- Command-line configuration and required runtimes ----
 
 def positive_integer(text):
     value = int(text)
@@ -86,7 +87,7 @@ def chez_runtime(arguments):
             "optimize_level": 2}
 
 
-# Frozen corpus identity and an independent, whole-file search oracle.
+# ---- Corpus identity and search oracle ----
 
 def verify_corpus():
     directory = ROOT / "benchmarks" / "corpus"
@@ -122,7 +123,7 @@ def verify_search_answer(directory):
         raise RuntimeError(f"incorrect frozen-corpus reference answer: {total}")
 
 
-# Compilation carries input identity through the final native or WASI artifact.
+# ---- Compilation and artifact identity ----
 
 def executable_path(name, target):
     extension = ".wasm" if target == "wasm" else ""
@@ -165,18 +166,27 @@ def compile_program(name):
 
 def cargo_command(target):
     command = ["cargo", "build", "--release", "--offline", "--quiet", "-p", "snail-runner"]
-    if target == "wasm":
-        command.extend(["--target", "wasm32-wasip1"])
-    return command
+    triple = "wasm32-wasip1" if target == "wasm" else "i686-unknown-linux-musl"
+    return [*command, "--target", triple]
 
 
 def build_executable(name, module, target):
     cargo = BUILD / "cargo"
     environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path), "CARGO_TARGET_DIR": str(cargo)}
+    if os.environ.get("SNAIL_SHARED_LTO") != "0":
+        if any(name in os.environ for name in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS")):
+            raise RuntimeError("shared LTO sets Rust flags; unset them or set SNAIL_SHARED_LTO=0")
+        environment.update(SNAIL_SHARED_LTO="1", RUSTFLAGS=shared_lto_flags(target))
     checked(cargo_command(target), env=environment)
-    artifact = "wasm32-wasip1/release/" if target == "wasm" else "release/"
+    artifact = "wasm32-wasip1/release/" if target == "wasm" else "i686-unknown-linux-musl/release/"
     artifact += "snail-runner.wasm" if target == "wasm" else "snail-runner"
     return save_executable(name, target, cargo / artifact, module.inputs)
+
+
+def shared_lto_flags(target):
+    linker = "wasm-ld" if target == "wasm" else "rust-lld"
+    return ("-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat "
+            f"-Clinker={linker} -Clink-arg=--lto-O3")
 
 
 def save_executable(name, target, artifact, inputs):
@@ -212,7 +222,7 @@ def chez_executable(name, chez, no_build):
     return Executable("chez", "native", path, (chez["command"], "--program", str(path)))
 
 
-# Validate every execution, then derive ratios from matched, alternating pairs.
+# ---- Execution and comparison ----
 
 def check_output(name, count, stdout):
     lines = stdout.splitlines()
@@ -224,9 +234,10 @@ def check_output(name, count, stdout):
 
 def timing_fields(name, count, line):
     match = TIMING.fullmatch(line)
-    if not match or int(match[2]) != count or bool(match[3]) != (name == "gc"):
+    if not match or int(match["count"]) != count or bool(match["collections"]) != (name == "gc"):
         raise RuntimeError(f"incorrect {name} timing report: {line!r}")
-    if not math.isfinite(float(match[1])) or (match[4] and not math.isfinite(float(match[4]))):
+    if (not math.isfinite(float(match["elapsed"]))
+            or (match["gc"] and not math.isfinite(float(match["gc"])))):
         raise RuntimeError(f"nonfinite {name} timing report: {line!r}")
     return match
 
@@ -235,9 +246,11 @@ def measurement(name, count, timing, executable):
     provenance = json.loads(executable.path.with_name(executable.path.name + ".json").read_text())
     result = {**provenance, "program": name, "implementation": executable.implementation,
               "target": executable.target, "repetitions": count,
-              "elapsed_ms": float(timing[1]), "checksum": PROGRAMS[name][1] * count}
-    if timing[3]:
-        result.update(gc_collections=int(timing[3]), gc_ms=float(timing[4]))
+              "elapsed_ms": float(timing["elapsed"]) * (1000 if timing["unit"] == "s" else 1),
+              "checksum": PROGRAMS[name][1] * count}
+    if timing["collections"]:
+        result.update(gc_collections=int(timing["collections"]),
+                      gc_ms=float(timing["gc"]) * (1000 if timing["gc_unit"] == "s" else 1))
     return result
 
 
@@ -296,11 +309,11 @@ def comparison_summary(name, target, count, pairs):
 def report_comparison(summary):
     print(f"ratio {summary['program']} Snail-{summary['snail_target']}/Chez-native: "
           f"{summary['snail_over_chez']:.3f}x "
-          f"({summary['snail_median_ms']:.3f}/{summary['chez_median_ms']:.3f} ms medians)",
+          f"({summary['snail_median_ms'] / 1000:.6f}/{summary['chez_median_ms'] / 1000:.6f} s medians)",
           file=sys.stderr, flush=True)
 
 
-# Preserve raw samples and measurement context alongside derived summaries.
+# ---- Samples and summaries ----
 
 def execution_host(results, chez):
     host = {"platform": platform.platform(), "snail_gc_stress": "SNAIL_GC_STRESS" in os.environ}

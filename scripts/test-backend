@@ -13,14 +13,30 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build" / "backend-tests"
 TARGET_DIR = ROOT / os.environ.get("CARGO_TARGET_DIR", str(BUILD / "cargo"))
 SUCCESSES = {
+    "llvmlite": "",
+    "mir-foreign": "",
+    "backend-mir": "MIR checks passed\n",
     "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-numeric": "numeric instruction checks passed\n",
+    "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
+    "backend-continuations": "continuation checks passed\n",
 }
 ERRORS = {
-    "arity": "procedure expected 1 arguments, received 0",
-    "uninitialized": "read of an uninitialized binding",
-    "values": "expected one value, received 2",
-    "overflow": "integer overflow",
+    "backend-errors": {
+        "arity": "procedure expected 1 arguments, received 0",
+        "uninitialized": "read of an uninitialized binding",
+        "values": "expected one value, received 2",
+        "overflow": "integer overflow",
+        "numeric-type": "expected a number",
+        "numeric-values": "expected one value, received 2",
+        "numeric-arity": "-: wrong number of arguments",
+    },
+    "backend-continuations": {
+        "empty-result": "expected one value, received 0",
+        "many-results": "expected one value, received 2",
+        "callcc-arity": "call-with-current-continuation: wrong number of arguments",
+    },
 }
 
 
@@ -45,23 +61,27 @@ def compile_fixture(name, opt):
     source = ROOT / "tests" / "programs" / f"{name}.scm"
     llvm = BUILD / f"{name}.ll"
     print(f"compile and verify {name}", flush=True)
-    checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
+    if name in ("llvmlite", "mir-foreign"):
+        with llvm.open("w") as output:
+            checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"),
+                     str(ROOT / "tests" / f"emit-{name}.scm")], stdout=output)
+    else:
+        checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
     checked([opt, "-passes=verify", "-disable-output", str(llvm)])
     return llvm
 
 
 def cargo_arguments(target):
     command = ["cargo", "build", "--offline", "--quiet", "-p", "snail-runner"]
-    if target == "wasm":
-        command.extend(["--target", "wasm32-wasip1"])
-    return command
+    triple = "wasm32-wasip1" if target == "wasm" else "i686-unknown-linux-musl"
+    return [*command, "--target", triple]
 
 
 def link_fixture(llvm, target):
     environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm),
                    "CARGO_TARGET_DIR": str(TARGET_DIR)}
     checked(cargo_arguments(target), env=environment)
-    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "debug/snail-runner"
+    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "i686-unknown-linux-musl/debug/snail-runner"
     return TARGET_DIR / suffix
 
 
@@ -89,9 +109,8 @@ def check_fixture(name, executable, target, node):
     command = execution_command(executable, target, node)
     if name in SUCCESSES:
         require_result(execute(command, []), SUCCESSES[name], "")
-    else:
-        for argument, diagnostic in ERRORS.items():
-            require_result(execute(command, [argument]), "", diagnostic)
+    for argument, diagnostic in ERRORS.get(name, {}).items():
+        require_result(execute(command, [argument]), "", diagnostic)
     print(f"passed {target}: {name} (GC stress)", flush=True)
 
 

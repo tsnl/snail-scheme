@@ -64,9 +64,13 @@ file to see the same document with disabled buttons. It has no host to receive
 messages. Stopping and restarting the live Chibi server also returns the workbook
 to its initial model; no model is saved to disk.
 
-The [engine design in draft #9](https://github.com/tsnl/snail-scheme/pull/9)
-proposes Rust hosts, contracts, workers with fresh mutable globals per invocation,
-explicit runtime state functions, and hot reload. This example uses an ordinary
+The [platform design in draft #9](https://github.com/tsnl/snail-scheme/pull/9)
+proposes isolated actors with their own heap, globals, and resource lifetime.
+Spawning and connecting are separate; connections can carry calls returning
+values, futures, or streams, with S-expression serialization at every actor
+boundary. The [chat tutorial specification](https://github.com/tsnl/snail-scheme/blob/codex/plan-generate-library/doc/tutorials/02-chat/README.md)
+extends this experiment toward browser WASM, distributed services, and reload.
+This example uses an ordinary
 long-lived Chibi process and an in-memory application instead. It demonstrates
 composition and message dispatch before those runtime facilities exist.
 
@@ -99,6 +103,11 @@ a `delta`, while `<toggle-notes>` and `<reset-workbook>` have no fields. Buttons
 construct those records, and the reducer dispatches on their predicates and uses
 the named delta accessor. The UI library passes messages through unchanged;
 this representation is a choice made by the app.
+
+The [planned actor protocol](https://github.com/tsnl/snail-scheme/blob/codex/plan-generate-library/doc/why-snail-scheme.md#messages-cross-heaps-pointers-do-not)
+derives S-expression codecs from record/variant and method types. That codec and
+type-metadata API are not implemented here; this host retains message objects
+and the browser sends action URLs.
 
 Reducers and views must preserve their input model. The application record has
 no setters, but it cannot prevent mutation of a contained Scheme object. The

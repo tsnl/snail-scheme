@@ -2,7 +2,9 @@
 """Exercise compiler modes, publication, argument boundaries, and native/WASI runs."""
 
 import os
+import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -17,18 +19,6 @@ ARGUMENTS = ["space in argument", "", "--help"]
 EXPECTED = '("space in argument" "" "--help")\n'
 SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
           '(write (cdr (command-line)))\n(newline)\n')
-# Deliberately outside the emitter's single-entry-loop contract. The WASI build
-# must reject this before skipping LLVM's expensive irreducibility repair pass.
-IRREDUCIBLE = """(import (scheme base) (snail-scheme vm) (snail-scheme llvm))
-(write-llvm-program
- (make-vm-program 3 0
-  (list (make-instruction 0 'return '() #f #f)
-        (make-instruction 1 'test '(2 0) #f #f)
-        (make-instruction 2 'test '(1 0) #f #f)
-        (make-instruction 3 'test '(1 2) #f #f))
-  '() '() '())
- (current-output-port))
-"""
 
 
 def invoke(command, cwd, environment=None):
@@ -57,23 +47,145 @@ def prepare():
 
 
 def check_modes(directory, source):
-    result = cli(directory, source, "--release", "--timing", "--runtime-stats",
-                 "--", *ARGUMENTS)
-    require(result, EXPECTED, diagnostic="runtime: elapsed_ns=")
-    if "compiler: cargo-build-and-run " not in result.stderr:
-        raise RuntimeError("run timing did not identify its execution interval")
+    result = cli(directory, source, "--release", "--runtime-stats", "--keep-build", "--", *ARGUMENTS)
+    require(result, EXPECTED, diagnostic="runtime: elapsed_s=")
+    check_link_object(result, b"BC\xc0\xde")
+    names = trace_names(directory / "build/traces")
+    expected = {"source-file->llvm-file", "reader->syntax-list", "syntax-list->hir-library",
+                "hir-library->mir-library", "write-mir-library-as-llvm", "driver.execute",
+                "driver.cargo-build-and-run", "build.optimize-llvm", "runtime.execute"}
+    if not expected <= names:
+        raise RuntimeError(f"missing trace spans: {expected - names}")
     output = directory / "native executable"
     require(cli(directory, source, "-o", output), "")
+    if output.read_bytes()[:5] != b"\x7fELF\x01":
+        raise RuntimeError("native output must be a 32-bit ELF executable")
     require(invoke([output, *ARGUMENTS], directory), EXPECTED)
 
 
+def trace_names(directory, balanced=True):
+    names = set()
+    for path in directory.glob("*.json"):
+        lanes = {}
+        previous = {}
+        events = json.loads(path.read_text())
+        for event in events:
+            lane = (event["pid"], event["tid"])
+            stack = lanes.setdefault(lane, [])
+            if event["ts"] < previous.get(lane, 0):
+                raise RuntimeError(f"trace clock went backwards: {path}")
+            previous[lane] = event["ts"]
+            if event["ph"] == "B":
+                names.add(event["name"])
+                stack.append(event["name"])
+            elif event["ph"] == "E":
+                if not stack:
+                    raise RuntimeError(f"unmatched trace end: {path}")
+                stack.pop()
+            else:
+                raise RuntimeError(f"unknown trace event: {event}")
+        if balanced and any(lanes.values()):
+            raise RuntimeError(f"unfinished trace spans: {path}")
+    return names
+
+
+def check_compiler_traces(directory, source):
+    imported = directory / "imports.scm"
+    imported.write_text("(import (scheme base))\n(if #t 1 2)\n")
+    first, second, repeated = (directory / name for name in
+                               ("first.ll", "second.ll", "repeated.ll"))
+    traces = directory / "compiler traces"
+    script = directory / "trace-twice.scm"
+    script.write_text("""(import (scheme base) (scheme process-context) (snail-scheme compiler))
+(define args (cdr (command-line)))
+(compiler-main (list "compile" (list-ref args 0) (list-ref args 1) (list-ref args 2)))
+(compiler-main (list "compile" (list-ref args 0) (list-ref args 3) (list-ref args 4)))
+""")
+    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                    script, ROOT, imported, first, source, second], directory,
+                   {"SNAIL_TRACE_DIR": str(traces)}), "")
+    files = list(traces.glob("*.json"))
+    if len(files) != 1:
+        raise RuntimeError("host compiler must own one trace per process")
+    starts = [event["name"] for event in json.loads(files[0].read_text()) if event["ph"] == "B"]
+    if starts.count("source-file->llvm-file") != 2 or starts.count("source-file->syntax-list") < 3:
+        raise RuntimeError("repeated compilation or imported source spans missing")
+    trace_names(traces)
+    result = require(invoke([ROOT / "snail-compile", imported, repeated], directory), "")
+    if result.stderr or first.read_bytes() != repeated.read_bytes():
+        raise RuntimeError("tracing changed compiler diagnostics or generated LLVM")
+
+
+def check_trace_decorator(directory):
+    source = directory / "traced.scm"
+    source.write_text(r'''(import (scheme base) (scheme write) (snail-scheme trace)
+        (only (snail-scheme core) collect-garbage))
+(define-traced (several first . rest) (apply values (cons first rest)))
+(define-traced (none) (values))
+(call-with-trace "quote\" slash\\ newline\nλ"
+  (lambda ()
+    (collect-garbage)
+    (write (call-with-values (lambda () (several 1 2)) list)) (newline)
+    (write (call-with-values none list)) (newline)))
+''')
+    # Overrides outside the execution cwd must also be preopened for WASI.
+    with tempfile.TemporaryDirectory(prefix="external traces ") as name:
+        traces = Path(name)
+        for options in [[], ["--target", "wasm32-wasip1"]]:
+            require(cli(directory, source, *options, SNAIL_TRACE_DIR=str(traces)), "(1 2)\n()\n")
+        names = trace_names(traces)
+        if not {"several", "none", "runtime.gc", 'quote" slash\\ newline\nλ'} <= names:
+            raise RuntimeError(f"decorator/Unicode/GC traces missing: {names}")
+
+
+def check_host_trace_control(directory):
+    script = directory / "trace-control.scm"
+    traces = directory / "control traces"
+    script.write_text("""(import (scheme base) (scheme write) (snail-scheme trace))
+(define (check-control)
+  (let ((saved #f) (passes 0))
+    (call-with-trace "continuation" (lambda () (call/cc (lambda (k) (set! saved k)))))
+    (set! passes (+ passes 1))
+    (if (= passes 1) (saved 'again))
+    (guard (error (else #f)) (call-with-trace "caught error" (lambda () (error "expected"))))
+    (write passes) (newline)))
+(check-control)
+""")
+    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", script],
+                   directory, {"SNAIL_TRACE_DIR": str(traces)}), "2\n")
+    if not {"continuation", "caught error"} <= trace_names(traces):
+        raise RuntimeError("host control transfers lost trace spans")
+    events = json.loads(next(traces.glob("*.json")).read_text())
+    if sum(event["ph"] == "B" and event["name"] == "continuation" for event in events) != 2:
+        raise RuntimeError("continuation reentry did not reopen its trace span")
+
+
+def check_trace_sink_failure(directory):
+    blocked = directory / "unwritable trace directory"
+    blocked.write_text("a regular file cannot contain trace files")
+    native = [directory / "native executable", *ARGUMENTS]
+    wasm = [os.environ.get("NODE", "node"), "--no-warnings", ROOT / "scripts/run-wasi.mjs",
+            directory / "WASI executable.wasm", *ARGUMENTS]
+    for command in [native, wasm]:
+        result = require(invoke(command, directory, {"SNAIL_TRACE_DIR": str(blocked)}),
+                         EXPECTED, diagnostic="snail-trace:")
+        if result.stderr.count("snail-trace:") != 1:
+            raise RuntimeError("failed sink must report once per process")
+    host = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                   directory / "trace-control.scm"], directory,
+                  {"SNAIL_TRACE_DIR": str(blocked)})
+    require(host, "2\n", diagnostic="snail-trace:")
+    if host.stderr.count("snail-trace:") != 1:
+        raise RuntimeError("failed host sink must report once")
+
+
 def check_emission(directory, source):
-    dump = directory / "program.vm"
-    result = cli(directory, source, "--emit-llvm", "--dump-vm", dump,
+    dump = directory / "program.mir"
+    result = cli(directory, source, "--emit-llvm", "--dump-mir", dump,
                  CARGO="/nonexistent/snail-test-cargo")
     require(result)
-    if "alwaysinline" not in result.stdout or not dump.read_text():
-        raise RuntimeError("LLVM emission or VM dump missing")
+    if "define void @snail_program(" not in result.stdout or not dump.read_text():
+        raise RuntimeError("LLVM emission or MIR dump missing")
     require(cli(directory, source, "--emit-llvm", "-o", "--help"), "")
     if (directory / "--help").read_text() != result.stdout:
         raise RuntimeError("an option value was parsed as a help flag")
@@ -84,13 +196,37 @@ def check_wasi(directory, source):
     require(cli(directory, source, "--target", "wasm32-wasip1", "--", *ARGUMENTS),
             EXPECTED)
     output = directory / "WASI executable.wasm"
-    require(cli(directory, source, "--target", "wasm32-wasip1", "-o", output), "")
+    built = require(cli(directory, source, "--target", "wasm32-wasip1", "--keep-build", "-o", output), "")
+    check_link_object(built, b"BC\xc0\xde")
     node = os.environ.get("NODE", "node")
     require(invoke([node, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output,
                     *ARGUMENTS], directory), EXPECTED)
 
 
+def check_link_object(result, magic):
+    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
+             if line.startswith("build project: ")]
+    if len(paths) != 1:
+        raise RuntimeError("retained build project missing")
+    directory = Path(paths[0])
+    objects = list(directory.rglob("scheme.o"))
+    if len(objects) != 1 or not objects[0].read_bytes().startswith(magic):
+        raise RuntimeError("unexpected Scheme object format for link mode")
+    shutil.rmtree(directory)
+
+
+def check_link_modes(directory, source):
+    ordinary = cli(directory, source, "--release", "--keep-build", "--", *ARGUMENTS,
+                   SNAIL_SHARED_LTO="0")
+    check_link_object(require(ordinary, EXPECTED), b"\x7fELF")
+    debug = cli(directory, source, "--keep-build", "--", *ARGUMENTS, SNAIL_SHARED_LTO="1")
+    check_link_object(require(debug, EXPECTED), b"\x7fELF")
+    require(cli(directory, source, "--release", RUSTFLAGS="-Cdebuginfo=1"),
+            "", 1, "set SNAIL_SHARED_LTO=0")
+
+
 def check_failures(directory, source):
+    require(cli(directory, source, "--timing"), "", 1, "unknown option: --timing")
     require(cli(directory, source, "-o", source), "", 1, "must not replace")
     require(cli(directory, source, "-o", "unused", "--", "arg"), "", 1,
             "program arguments require run mode")
@@ -103,11 +239,11 @@ def check_failures(directory, source):
 
 
 def check_preserved_outputs(directory):
-    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.vm"))
+    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.mir"))
     source.write_text("(\n")
     output.write_text("existing executable")
     dump.write_text("existing dump")
-    require(cli(directory, source, "-o", output, "--dump-vm", dump), "", 1)
+    require(cli(directory, source, "-o", output, "--dump-mir", dump), "", 1)
     if output.read_text() != "existing executable" or dump.read_text() != "existing dump":
         raise RuntimeError("failed compilation replaced an existing artifact")
 
@@ -142,23 +278,26 @@ def check_aliases(directory, source):
     output.write_text("old output")
     alias.unlink()
     alias.symlink_to(output)
-    require(cli(directory, source, "-o", output, "--dump-vm", alias), "", 1,
-            "output and VM dump must differ")
+    require(cli(directory, source, "-o", output, "--dump-mir", alias), "", 1,
+            "output and MIR dump must differ")
 
 
 def check_abi(directory, llvm):
     source = directory / "stale.ll"
-    source.write_text(llvm.replace("@snail_program_abi() { ret i32 1 }",
-                                   "@snail_program_abi() { ret i32 0 }"))
+    stale, replacements = re.subn(r"(define i32 @snail_program_abi\(\)\s*\{.*?ret i32 )3\b",
+                                  r"\g<1>0", llvm, count=1, flags=re.DOTALL)
+    if replacements != 1:
+        raise RuntimeError("cannot locate generated program ABI accessor")
+    source.write_text(stale)
     environment = {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)}
-    result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner"],
+    result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner",
+                     "--target", "i686-unknown-linux-musl"],
                     ROOT, environment)
-    require(result, "", 1, "program ABI 0 does not match runtime ABI 1")
+    require(result, "", 1, "program ABI 0 does not match runtime ABI 3")
 
 
 def check_irreducible(directory):
-    scheme = directory / "irreducible.scm"
-    scheme.write_text(IRREDUCIBLE)
+    scheme = ROOT / "tests/emit-irreducible.scm"
     emitted = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
                       scheme], ROOT)
     source = directory / "irreducible.ll"
@@ -183,10 +322,15 @@ def main():
         source = directory / "quoted 'source.scm"
         source.write_text(SOURCE)
         check_modes(directory, source)
+        check_compiler_traces(directory, source)
         llvm = check_emission(directory, source)
         check_abi(directory, llvm)
         check_irreducible(directory)
         check_wasi(directory, source)
+        check_link_modes(directory, source)
+        check_trace_decorator(directory)
+        check_host_trace_control(directory)
+        check_trace_sink_failure(directory)
         check_failures(directory, source)
         check_preserved_outputs(directory)
         check_failed_build(directory, source)

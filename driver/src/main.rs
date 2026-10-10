@@ -9,7 +9,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 type Result<T> = std::result::Result<T, String>;
@@ -19,18 +19,17 @@ const HELP: &str = "Usage: snail-scheme INPUT.scm [OPTIONS] [-- ARG ...]
 Run a Scheme program, or build an executable with -o.
   -o, --output, --out PATH  Build and copy the executable without running it
   --emit-llvm              Emit LLVM text instead (stdout, or -o PATH)
-  --target TARGET          native (default) or wasm32-wasip1
+  --target TARGET          native (32-bit Linux, default) or wasm32-wasip1
   --release                Optimize the runtime when running (builds use release)
-  --dump-vm PATH           Also write the readable stack-VM program
-  --timing                 Report compiler stages and Cargo time on stderr
+  --dump-mir PATH          Also write the structured MIR program
   --runtime-stats          Report execution and GC statistics on stderr
   --keep-build             Keep this invocation's generated Cargo project
   -h, --help               Show this help
 
 Program arguments after -- are passed literally and require run mode.
-CHIBI, NODE, LLVM_LLC and LLVM_OPT select tool executables.";
+Traces are always saved under build/traces/ (override with SNAIL_TRACE_DIR).\nCHIBI, NODE, LLVM_LLC and LLVM_OPT select tool executables.\nOptimized builds use shared Scheme/Rust LTO; SNAIL_SHARED_LTO=0 disables it.\nDebug builds always use ordinary linking.";
 
-// ---- Arguments and execution modes ---------------------------------------
+// ---- Arguments and execution modes ----
 
 #[derive(Default, Debug)]
 struct Options {
@@ -40,7 +39,6 @@ struct Options {
     wasm: bool,
     emit: bool,
     release: bool,
-    timing: bool,
     statistics: bool,
     keep: bool,
     help: bool,
@@ -82,11 +80,12 @@ fn parse_argument(
         Some("-o" | "--output" | "--out") => {
             options.output = Some(option_value(rest, "-o")?.into())
         }
-        Some("--dump-vm") => options.dump = Some(option_value(rest, "--dump-vm")?.into()),
+        Some("--dump-mir" | "--dump-vm") => {
+            options.dump = Some(option_value(rest, "--dump-mir")?.into())
+        }
         Some("--target") => options.wasm = target(&option_value(rest, "--target")?)?,
         Some("--emit-llvm") => options.emit = true,
         Some("--release") => options.release = true,
-        Some("--timing") => options.timing = true,
         Some("--runtime-stats") => options.statistics = true,
         Some("--keep-build") => options.keep = true,
         Some("-h" | "--help") => options.help = true,
@@ -99,7 +98,7 @@ fn parse_argument(
 
 fn target(value: &OsString) -> Result<bool> {
     match value.to_str() {
-        Some("native") => Ok(false),
+        Some("native" | "i686-unknown-linux-musl") => Ok(false),
         Some("wasm32-wasip1") => Ok(true),
         _ => Err("--target must be native or wasm32-wasip1".into()),
     }
@@ -121,7 +120,7 @@ fn validate_options(options: &Options) -> Result<()> {
     Ok(())
 }
 
-// ---- Invocation-owned files ---------------------------------------------
+// ---- Invocation-owned files ----
 
 struct Project {
     directory: PathBuf,
@@ -207,27 +206,26 @@ fn prepare_outputs(options: &Options, input: &Path) -> Result<(Option<PathBuf>, 
     if let (Some(output), Some(dump)) = (&output, &dump)
         && destination_identity(output) == destination_identity(dump)
     {
-        return Err("executable/LLVM output and VM dump must differ".into());
+        return Err("executable/LLVM output and MIR dump must differ".into());
     }
     Ok((output, dump))
 }
 
-// ---- Scheme emission and Cargo project ----------------------------------
+// ---- Scheme emission and Cargo project ----
 
-fn compile(
+fn source_file_to_llvm(
     root: &Path,
     project: &Project,
     input: &Path,
     dump: bool,
-    options: &Options,
+    trace_directory: &Path,
 ) -> Result<()> {
+    let _trace = snail_trace::span("driver.source-file-to-llvm");
     let mut command = Command::new(root.join("snail-compile"));
+    command.env("SNAIL_TRACE_DIR", trace_directory);
     command.arg(input).arg(project.path("program.ll"));
     if dump {
-        command.arg(project.path("program.vm"));
-    }
-    if options.timing {
-        command.arg("--timing");
+        command.arg(project.path("program.mir"));
     }
     require_success(&mut command, "Scheme compilation")
 }
@@ -254,10 +252,12 @@ fn quoted_path(path: &Path) -> Result<String> {
 
 fn write_manifest(root: &Path, project: &Project) -> Result<()> {
     let manifest = format!(
-        "[package]\nname = \"snail-program\"\nversion = \"0.0.0\"\nedition = \"2024\"\nbuild = {}\n\n[[bin]]\nname = \"snail-program\"\npath = {}\n\n[dependencies]\nsnail-runtime = {{ path = {} }}\n\n[profile.release]\npanic = \"abort\"\n\n[workspace]\n",
+        "[package]\nname = \"snail-program\"\nversion = \"0.0.0\"\nedition = \"2024\"\nbuild = {}\n\n[[bin]]\nname = \"snail-program\"\npath = {}\n\n[dependencies]\nsnail-runtime = {{ path = {} }}\nsnail-trace = {{ path = {} }}\n\n[build-dependencies]\nsnail-trace = {{ path = {} }}\n\n[profile.release]\npanic = \"abort\"\n\n[workspace]\n",
         quoted_path(&root.join("runner/build.rs"))?,
         quoted_path(&root.join("runner/src/main.rs"))?,
-        quoted_path(&root.join("runtime"))?
+        quoted_path(&root.join("runtime"))?,
+        quoted_path(&root.join("trace"))?,
+        quoted_path(&root.join("trace"))?
     );
     fs::write(project.path("Cargo.toml"), manifest).map_err(message)
 }
@@ -288,11 +288,50 @@ fn cargo_command(
         .arg(project.path("Cargo.toml"));
     command.arg("--target-dir").arg(project.path("target"));
     configure_target(&mut command, root, options, action)?;
+    configure_shared_lto(&mut command, options, action)?;
     command.env("SNAIL_LLVM_IR", project.path("program.ll"));
+    command.env(
+        "SNAIL_TRACE_DIR",
+        snail_trace::directory().map_err(message)?,
+    );
     if options.statistics {
         command.env("SNAIL_RUNTIME_STATS", "1");
     }
     Ok(command)
+}
+
+fn configure_shared_lto(command: &mut Command, options: &Options, action: &Action) -> Result<()> {
+    if env::var("SNAIL_SHARED_LTO").as_deref() == Ok("0")
+        || !(options.release || matches!(action, Action::Build(_)))
+    {
+        command.env("SNAIL_SHARED_LTO", "0");
+        return Ok(());
+    }
+    if env::var_os("RUSTFLAGS").is_some() || env::var_os("CARGO_ENCODED_RUSTFLAGS").is_some() {
+        return Err(
+            "shared LTO configures Rust flags; unset RUSTFLAGS/CARGO_ENCODED_RUSTFLAGS or set SNAIL_SHARED_LTO=0"
+                .into(),
+        );
+    }
+    command
+        .env("SNAIL_SHARED_LTO", "1")
+        .env("CARGO_ENCODED_RUSTFLAGS", shared_lto_flags(options.wasm));
+    Ok(())
+}
+
+fn shared_lto_flags(wasm: bool) -> String {
+    [
+        "-Cembed-bitcode=yes",
+        "-Clinker-plugin-lto",
+        "-Clto=fat",
+        "-Clink-arg=--lto-O3",
+        if wasm {
+            "-Clinker=wasm-ld"
+        } else {
+            "-Clinker=rust-lld"
+        },
+    ]
+    .join("\x1f")
 }
 
 fn configure_target(
@@ -304,10 +343,14 @@ fn configure_target(
     if options.release || matches!(action, Action::Build(_)) {
         command.arg("--release");
     }
+    command.args(["--target", target_triple(options.wasm)]);
     if options.wasm {
-        command
-            .args(["--target", "wasm32-wasip1", "--config"])
-            .arg(wasm_runner(root)?);
+        command.arg("--config").arg(wasm_runner(root)?);
+    } else {
+        command.args([
+            "--config",
+            "target.i686-unknown-linux-musl.linker=\"rust-lld\"",
+        ]);
     }
     if matches!(action, Action::Run) {
         command.arg("--").args(&options.arguments);
@@ -326,15 +369,20 @@ fn require_success(command: &mut Command, stage: &str) -> Result<()> {
     }
 }
 
-fn artifact(project: &Project, wasm: bool) -> PathBuf {
+fn target_triple(wasm: bool) -> &'static str {
     if wasm {
-        project.path("target/wasm32-wasip1/release/snail-program.wasm")
+        "wasm32-wasip1"
     } else {
-        project.path(&format!(
-            "target/release/snail-program{}",
-            env::consts::EXE_SUFFIX
-        ))
+        "i686-unknown-linux-musl"
     }
+}
+
+fn artifact(project: &Project, wasm: bool) -> PathBuf {
+    let extension = if wasm { ".wasm" } else { "" };
+    project.path(&format!(
+        "target/{}/release/snail-program{extension}",
+        target_triple(wasm)
+    ))
 }
 
 // Publish only a completed artifact. Failed compilation leaves an existing
@@ -354,7 +402,7 @@ fn publish(source: &Path, destination: &Path) -> Result<()> {
     result.map_err(message)
 }
 
-fn emit(project: &Project, output: Option<&Path>) -> Result<i32> {
+fn publish_llvm(project: &Project, output: Option<&Path>) -> Result<i32> {
     match output {
         Some(path) => publish(&project.path("program.ll"), path)?,
         None => io::stdout()
@@ -364,16 +412,23 @@ fn emit(project: &Project, output: Option<&Path>) -> Result<i32> {
     Ok(0)
 }
 
-// ---- Entry point ---------------------------------------------------------
+// ---- Entry point ----
 
 fn execute(options: Options) -> Result<i32> {
+    let _trace = snail_trace::span("driver.execute");
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let input = options.input.canonicalize().map_err(message)?;
     let (output, dump) = prepare_outputs(&options, &input)?;
     let project = Project::create(root, options.keep)?;
-    compile(root, &project, &input, dump.is_some(), &options)?;
+    source_file_to_llvm(
+        root,
+        &project,
+        &input,
+        dump.is_some(),
+        &snail_trace::directory().map_err(message)?,
+    )?;
     if let Some(dump) = dump {
-        publish(&project.path("program.vm"), &dump)?;
+        publish(&project.path("program.mir"), &dump)?;
     }
     let action = match (options.emit, output) {
         (true, output) => Action::Emit(output),
@@ -381,25 +436,22 @@ fn execute(options: Options) -> Result<i32> {
         (false, None) => Action::Run,
     };
     if let Action::Emit(output) = action {
-        return emit(&project, output.as_deref());
+        return publish_llvm(&project, output.as_deref());
     }
     write_manifest(root, &project)?;
     build_or_run(root, &project, &action, &options)
 }
 
 fn build_or_run(root: &Path, project: &Project, action: &Action, options: &Options) -> Result<i32> {
-    let start = Instant::now();
+    let phase = if matches!(action, Action::Run) {
+        "driver.cargo-build-and-run"
+    } else {
+        "driver.cargo-build"
+    };
+    let _trace = snail_trace::span(phase);
     let status = cargo_command(root, project, options, action)?
         .status()
         .map_err(message)?;
-    if options.timing {
-        let phase = if matches!(action, Action::Run) {
-            "cargo-build-and-run"
-        } else {
-            "cargo-build"
-        };
-        eprintln!("compiler: {phase} {} us", start.elapsed().as_micros());
-    }
     if status.success()
         && let Action::Build(output) = action
     {

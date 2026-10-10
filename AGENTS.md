@@ -1,11 +1,20 @@
 # Working on Snail-Scheme
 
 Make the implementation educational to read. Follow the program from located
-syntax through expanded HIR, stack instructions, LLVM, and the Rust runtime.
+syntax through expanded HIR, structured MIR, LLVM, and the Rust runtime.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
+- Write section headers as `;; ---- Title ----` in Scheme,
+  `// ---- Title ----` in Rust, and `# ---- Title ----` in Python, with sentence
+  case and a blank line on each side.
+  Keep unit tests in a final `Tests` section of their implementation module.
+  Each tested Scheme module exports one `test-<module>` entry point under the
+  `snail-tests` feature; test cases and helpers stay private. Keep integration
+  fixtures, runners, and shared assertion support in `tests/`.
+  Inactive test sections must still be readable by the bootstrap parser; decode
+  unsupported numeric expectations from strings only when the host tests run.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
@@ -28,7 +37,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
   APIs distinct from implemented behavior in documentation and TODOs.
 
-Relevant checks are `make test`, `make check`, `cargo test --offline`,
+Relevant checks are `make test`, `make check`,
+`cargo test --offline --target i686-unknown-linux-musl`,
 `cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-cli`.
 Backend changes should execute both native and WASI cases; compilation alone
 does not test target behavior. See [doc/backend.md](doc/backend.md) for tools

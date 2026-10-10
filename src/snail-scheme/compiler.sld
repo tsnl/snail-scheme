@@ -1,66 +1,45 @@
-;; The driver joins four explicit stages: located syntax, resolved HIR, stack
-;; instructions, and LLVM text. The current Scheme host still runs this module.
+;; Join explicit representations: source files, located syntax, resolved HIR,
+;; structured MIR, and LLVM text. The current Scheme host runs this module.
 (define-library (snail-scheme compiler)
-  (export compile-file compiler-main)
-  (import (scheme base) (scheme file) (scheme time) (scheme write)
-          (snail-scheme bootstrap)
-          (snail-scheme reader) (snail-scheme parser) (snail-scheme syntax-parser)
+  (export source-file->llvm-file compiler-main)
+  (import (scheme base) (scheme file)
+          (snail-scheme trace) (snail-scheme bootstrap)
+          (snail-scheme reader) (snail-scheme syntax-parser)
           (snail-scheme expand) (snail-scheme lower)
-          (snail-scheme vm) (snail-scheme llvm))
+          (only (snail-scheme mir) write-mir-library) (snail-scheme llvm))
   (begin
-    ;; Optional diagnostics stay off program stdout and do not change artifacts.
-    (define timing-port (make-parameter #f))
+    ;; ---- Compilation and output files ----
 
     (define (compiler-main arguments)
-      (let ((operands (without-timing-flag (cdr arguments)))
-            (report? (member "--timing" (cdr arguments))))
-        (if (not (memv (length operands) '(3 4)))
-            (error "usage: compile.scm ROOT INPUT OUTPUT [VM-DUMP] [--timing]"))
-        (parameterize ((timing-port (and report? (current-error-port))))
-          (apply compile-file operands))))
+      (let ((operands (cdr arguments)))
+        (if (or (not (memv (length operands) '(3 4))) (member "--timing" operands))
+            (error "usage: compile.scm ROOT INPUT OUTPUT [MIR-DUMP]"))
+        (apply source-file->llvm-file operands)))
 
-    (define (without-timing-flag arguments)
-      (cond ((null? arguments) '())
-            ((string=? (car arguments) "--timing") (without-timing-flag (cdr arguments)))
-            (else (cons (car arguments) (without-timing-flag (cdr arguments))))))
-
-    (define (compile-file root input output . optional-dump)
-      (let* ((forms (time-stage 'parse (lambda () (read-source input))))
+    (define-traced (source-file->llvm-file root input output . optional-dump)
+      (let* ((forms (source-file->syntax-list input))
              (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-             (hir (time-stage 'expand
-                              (lambda () (expand-program forms (library-loader root) (list core)))))
-             (program (time-stage 'lower (lambda () (lower-program hir)))))
-        (time-stage 'llvm (lambda () (write-program output program write-llvm-program)))
+             (hir (syntax-list->hir-library forms (library-loader root) (list core)))
+             (program (hir-library->mir-library hir)))
+        (mir-library->llvm-file program output)
         (if (pair? optional-dump)
-            (time-stage 'vm-dump
-                        (lambda () (write-program (car optional-dump) program write-vm-program))))))
+            (mir-library->dump-file program (car optional-dump)))))
 
-    (define (write-program path program writer)
-      (call-with-output-file path (lambda (port) (writer program port))))
+    (define-traced (mir-library->llvm-file program path)
+      (call-with-output-file path (lambda (port) (write-mir-library-as-llvm program port))))
 
-    (define (time-stage name thunk)
-      (if (not (timing-port)) (thunk)
-          (let* ((start (current-jiffy)) (result (thunk)))
-            (report-timing name (- (current-jiffy) start))
-            result)))
+    (define-traced (mir-library->dump-file program path)
+      (call-with-output-file path (lambda (port) (write-mir-library program port))))
 
-    (define (report-timing name ticks)
-      (let ((port (timing-port)) (frequency (jiffies-per-second)))
-        (display "compiler: " port) (display name port) (display " " port)
-        (display (+ (* (quotient ticks frequency) 1000000)
-                    (quotient (* (remainder ticks frequency) 1000000) frequency)) port)
-        (display " us\n" port)))
+    ;; ---- Source and library loading ----
 
-    (define (read-source path)
-      (let ((result ((s-file) (file->reader path))))
-        (if (parse-result-err? result)
-            (error "cannot parse Scheme source" path (reader-loc (parse-result-input result))))
-        (parse-result-value result)))
+    (define-traced (source-file->syntax-list path)
+      (reader->syntax-list (file->reader path)))
 
     (define (library-loader root)
       (lambda (name)
         (let* ((path (library-path root name))
-               (forms (read-source path)))
+               (forms (source-file->syntax-list path)))
           (if (not (= (length forms) 1))
               (error "expected exactly one library declaration" path))
           (car forms))))
