@@ -35,8 +35,7 @@ def target_ir(directory, triple, module):
 def linker_flags(wasm):
     if wasm:
         return ["-Clinker=wasm-ld", "-Clink-arg=--save-temps", "-Clink-arg=--lto-O3"]
-    return ["-Clinker=clang", "-Clink-arg=-fuse-ld=lld",
-            "-Clink-arg=-Wl,--save-temps", "-Clink-arg=-Wl,--lto-O3"]
+    return ["-Clinker=rust-lld", "-Clink-arg=--save-temps", "-Clink-arg=--lto-O3"]
 
 
 def compile_probe(directory, triple, bitcode, wasm):
@@ -82,7 +81,7 @@ def check_target(triple, module):
 
 def main():
     module = scheme_ir()
-    for triple in ("x86_64-unknown-linux-gnu", "wasm32-wasip1"):
+    for triple in ("i686-unknown-linux-musl", "wasm32-wasip1"):
         check_target(triple, module)
 
 

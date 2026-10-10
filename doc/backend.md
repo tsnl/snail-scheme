@@ -2,7 +2,7 @@
 
 Snail-Scheme lowers expanded HIR to Dybvig-style stack instructions, specializes
 that instruction stream into textual LLVM IR, and links the resulting object
-with a Rust runtime through Cargo. Native and `wasm32-wasip1` use the same
+with a Rust runtime through Cargo. 32-bit native and `wasm32-wasip1` use the same
 execution model. The existing Scheme host still runs the compiler.
 
 This milestone establishes working programs and a compiler that can be compiled.
@@ -13,9 +13,12 @@ specialization are subsequent milestones. There is no JIT or compile-time VM.
 ## Build and run
 
 The Scheme tools and formatter come from `nix-shell`. Also provide Cargo/rustc,
-LLVM `llc` and `opt`, and Node with WASI support. Install Rust's WASI target with
-`rustup target add wasm32-wasip1`. Initial validation used Rust 1.95.0 (LLVM
-22.1.2), LLVM tools 22.1.8, and Node 24.15.0 on x86-64 Linux.
+LLVM `llc` and `opt`, and Node with WASI support. Install both Rust targets with
+`rustup target add i686-unknown-linux-musl wasm32-wasip1`. Native programs are
+static 32-bit Linux executables linked with Rust's `rust-lld`; the CLI driver
+still runs on the host. The runtime deliberately rejects 64-bit builds.
+Validation uses Rust 1.95.0 (LLVM 22.1.2), LLVM tools 22.1.8, and Node 24.15.0
+on x86-64 Linux with support for executing i386 programs.
 
 ```sh
 mkdir -p build
@@ -49,13 +52,13 @@ Cargo failure as well. A retained project's LLVM can be rebuilt by setting
 
 `snail-compile INPUT OUTPUT [VM-DUMP] [--timing]` remains the lower-level emitter.
 For direct workspace builds, set `SNAIL_LLVM_IR` to an absolute path or a path
-relative to the repository root and use `cargo run -p snail-runner`. `CHIBI`,
+relative to the repository root and use `cargo run -p snail-runner --target i686-unknown-linux-musl`. `CHIBI`,
 `LLVM_LLC`, `LLVM_OPT`, and `NODE` select tool executables. The frontend's old
 parser inspection entry remains at `src/snail-scheme/main.scm`.
 
 ```sh
 nix-shell --run 'make test && make check'
-cargo test --offline
+cargo test --offline --target i686-unknown-linux-musl
 cargo fmt --all -- --check
 nix-shell --run 'scripts/test-backend'
 nix-shell --run 'scripts/test-cli'
@@ -67,7 +70,7 @@ normal imports and compiled programs omit that code. Integration fixtures remain
 in `tests/` and use public interfaces.
 
 The integration suite verifies LLVM and runs bootstrap and VM semantics on
-both targets with collection at every handler boundary. It also checks arity,
+both targets with collection before every allocating operation. It also checks arity,
 uninitialized-binding, single-value-context, and overflow errors. A direct
 `llvmlite` fixture executes phi backedges, arithmetic, array access, and a switch
 through the same native/WASI pipeline. Use
@@ -96,7 +99,7 @@ The new modules have explicit boundaries:
 | `llvm.sld` | Inline LLVM instruction bodies, static branches, and dynamic destinations |
 | `llvmlite.sld` | Immutable typed LLVM references/definitions, checks, and text serialization |
 | `runtime/src/vm.rs` | Activations, continuations, calls, multiple values, roots |
-| `runtime/src/object.rs` | Tagged words, concrete trait objects, allocation, tracing, and collection |
+| `runtime/src/object.rs` | 32-bit tagged words, fixed object layouts, allocation, tracing, and collection |
 | `runtime/src/primitives.rs`, `host.rs` | Primitive operations and host services |
 | `runner/` | Target assembly and final Rust application entry point |
 | `driver/` | CLI modes, generated Cargo project, subprocesses, and artifact publication |
@@ -157,13 +160,18 @@ crosses this ABI. LLVM copies a `Value` as one target-sized word using `ptr` on
 the supported integral-pointer targets. The copied word is never dereferenced
 as an object. It only moves between slots or compares against singleton tags.
 
-`Value` is a `usize`: odd values are signed fixnums, characters and singletons
-use other tags, and aligned addresses name nonmoving heap allocations. The
-immediate integer range is `[-2^62, 2^62-1]` on 64-bit targets and
-`[-2^30, 2^30-1]` on 32-bit targets. Larger `i64` integers and all `f64` values
-are boxed. Heap ownership is checked through an address-keyed map rather than
-by reconstructing a Rust reference from the tagged word. A collected unrooted
-word is invalid; address reuse means it is not a durable identity handle.
+`Value` is one 32-bit word. The tags come directly from `origin/v3`:
+null is zero, fixnums have low bit 1, interned symbols have low bits 10, and
+aligned nonzero addresses name boxed objects. Characters and singletons use
+v3's halfword tags. Fixnums span `[-2^30, 2^30-1]`; larger `i64` integers and all
+`f64` values are boxed. The old immediate float32 encoding needs 64 bits and is
+not used. Symbol IDs and their names remain in the VM's intern table for its
+lifetime. Copying a word does not retain its object; stale words are invalid.
+
+Builtin field access checks the pointer tag and header kind, then reads the
+concrete payload directly. There is no ownership-map lookup or `Any` downcast.
+The private runtime API requires every heap word to belong to the live heap;
+it does not accept arbitrary integers or offer durable host handles.
 
 | Handler family | Effect |
 | --- | --- |
@@ -180,7 +188,7 @@ defined in `runtime/src/lib.rs`. Reference, assignment, capture, push, and test
 instructions perform their loads, stores, and tag tests in LLVM. Variable-sized
 closure and call-frame work stays in Rust. Load a source slot before calling a
 service that may clear or grow its storage; publish the word before the next
-instruction's safepoint.
+allocating operation.
 
 The generated module exports `snail_program`, `snail_global_count`,
 `snail_constant_count`, and `snail_program_abi`. The runner checks the last
@@ -189,30 +197,43 @@ and tagged singleton encodings; stale generated code fails before executing.
 Compound constants refer to earlier constant-pool entries, so construction
 preserves roots without temporary object layouts in LLVM.
 
-The collector is precise, nonmoving mark-and-sweep. Objects remain in stable
-boxes; an iterative worklist follows managed references through
-`SnailSchemeObject::mark`. Each allocation owns a real
-`Box<dyn SnailSchemeObject>`: pairs, vectors, cells, closures, records, text,
-numbers, and ports are concrete Rust types. An aligned header keeps the trait
-metadata and mark bit outside the tagged word. The small internal `object!`
-macro supplies tracing implementations. A public derive macro and safe native
-extension API remain future work; see [Rust interop](rust-interop.md).
+The collector is precise, nonmoving mark-and-sweep. Each allocation is one
+`Box` containing an aligned kind/mark header followed by its concrete payload.
+Pairs, cells, strings, and vectors preserve v3's field model; Rust replaces the
+C++ virtual destructor and allocator metadata with static kind dispatch.
+Strings contain a byte count, byte pointer, and ownership bit; vectors use a Rust
+`Vec` in place of `std::vector`. Additional kinds represent this VM's closures,
+records, ports, primitive IDs, bytevectors, and boxed integers.
+
+An ownership vector is used only for sweeping. `gc_mark` dispatches on the
+header kind and adds children to an iterative worklist. Only `Extension`
+objects have a virtual table: C ABI callbacks report Scheme edges and release
+the foreign payload. The unsafe extension contract forbids collection,
+reentrancy, managed allocation, or unwinding from those callbacks. Safe foreign
+registration and durable host roots remain future work; see [Rust interop](rust-interop.md).
 
 Collection follows three rules:
 
-1. An instruction may collect at entry, before removing VM roots.
-2. Allocation and all subsequent helper work within that handler are GC-free.
-3. Surviving values are published into VM roots before the handler returns.
+1. Before an allocating Rust callable, the VM polls with its procedure and all
+   arguments included in the roots, then hands it an owned `Allocation`.
+2. The callable and its helpers allocate through that capability without GC.
+3. The VM publishes results or roots the complete returned call action before
+   another allocating boundary. Ending a capability never collects.
 
-Slot and frame services must not reenter an automatic safepoint after taking
-values out of roots. Internal helpers and ordinary invocation do not collect.
-The explicit `collect-garbage` dispatch action is an audited exception: it first
-consumes its inputs and publishes its result, then collects with complete roots.
-Roots
-include globals, constants, results, operands, current and saved activations,
-multiple-value consumers, and current ports. Large atomic operations can briefly
-exceed the collection budget; this is the baseline's simplicity tradeoff.
-Dropping unreachable objects also releases their owned Rust resources.
+Nonallocating primitives and ordinary instruction entry do not poll. Closure
+creation, first capture of a local, rest-list construction, and startup constants
+also acquire a capability. Arithmetic is classified as allocating because its
+result may require boxing. Interning symbols uses ordinary Rust storage only.
+`Runtime` exposes object/host services; the allocating entry receives
+`Allocation`, while only `Vm` owns Scheme roots and collection control.
+
+The explicit `collect-garbage` action consumes its inputs and publishes its
+result before collecting. Roots include globals, constants, results, operands,
+current and saved activations, multiple-value consumers, and current ports.
+Large Rust calls may exceed the soft collection budget by their entire burst;
+there is no emergency collection from inside those calls. Dropping unreachable
+objects releases their owned Rust resources. Host allocator OOM is not a
+recoverable Scheme exception.
 
 Scheme errors stop the VM and subsequent handlers do nothing. No Rust unwind
 may cross generated code. Debug builds contain unexpected Rust panics at handler
@@ -264,8 +285,8 @@ Run these commands through the existing Scheme host:
 
 ```sh
 nix-shell --run './snail-compile src/snail-scheme/compile.scm build/compiler.ll'
-SNAIL_LLVM_IR=build/compiler.ll cargo build --release -p snail-runner
-cp target/release/snail-runner build/snail-compiler
+SNAIL_LLVM_IR=build/compiler.ll cargo build --release -p snail-runner --target i686-unknown-linux-musl
+cp target/i686-unknown-linux-musl/release/snail-runner build/snail-compiler
 SNAIL_LLVM_IR=build/compiler.ll cargo build --release -p snail-runner --target wasm32-wasip1
 cp target/wasm32-wasip1/release/snail-runner.wasm build/snail-compiler.wasm
 ```
@@ -277,7 +298,7 @@ answer:
 
 ```sh
 ./build/snail-compiler "$PWD" examples/fibonacci.scm build/fibonacci.ll --timing
-SNAIL_LLVM_IR=build/fibonacci.ll cargo run --release -p snail-runner
+SNAIL_LLVM_IR=build/fibonacci.ll cargo run --release -p snail-runner --target i686-unknown-linux-musl
 ```
 
 The high-level driver can also build the native compiler directly:
@@ -286,15 +307,23 @@ The normal build deliberately continues to use `snail-compile` and Chibi.
 A subsequent self-hosting milestone should compare artifacts from consecutive
 compiler generations before changing that default.
 
-Capability validation compiled the current entry point for both native and WASI.
+The earlier capability validation compiled the entry point for both native and WASI.
 Both executables compiled a small core-library program to LLVM byte-identical
 to Chibi's output. The native compiler also compiled Fibonacci with standard
 library imports; its identical output ran on both targets. Import-heavy
-compilation is still slow: the finalized runtime took about 215 seconds,
+compilation with that earlier runtime took about 215 seconds,
 including 125 seconds in GC and 423 million managed allocations. These are
 single-host observations, not benchmark promises. The
 [validation record](../benchmarks/results/2026-10-09-compiler-capability.json)
 identifies the artifacts and exact scope. The normal build continues to use Chibi.
+
+The 32-bit fixed-layout runtime repeats those correctness checks successfully:
+[validation record](../benchmarks/results/2026-10-09-runtime-v3-compiler.json).
+Both compiled compilers emit the core fixture identically to Chibi; the native
+compiler emits identical Fibonacci IR, which executes on native32 and WASI.
+Its Fibonacci compilation took 2.81 seconds in this single check. The earlier
+215-second observation used older compiler sources as well as the older runtime,
+so these figures are not an isolated runtime speedup comparison.
 
 ## Measurements
 
@@ -380,11 +409,13 @@ Further references: [LLVM attributes](https://llvm.org/docs/LangRef.html#functio
 [WASIp1](https://doc.rust-lang.org/rustc/platform-support/wasm32-wasip1.html), and
 [cross-language LTO](https://doc.rust-lang.org/rustc/linker-plugin-lto.html).
 
-## Next runtime experiment
+## Runtime measurements
 
-[Cross-language LTO](lto-experiment.md) compares the existing object implementation
-with and without shared Scheme/Rust optimization. It does not change the default
-build or the collector. The proposed replacement for instruction-entry polling
-is an [owned allocation capability](rust-interop.md#proposed-allocation-capability)
-created outside allocating Rust callables. Individual allocations inside those
-callables remain GC-free, so Rust stack locals need no root registration.
+[Cross-language LTO](lto-experiment.md) records the earlier trait-object runtime
+and the static Rust/LLVM inlining probe. Those measurements describe the old
+representation. The runtime now uses the [allocation capability](rust-interop.md#allocation-capability)
+and fixed layouts above. Shared LLVM optimization remains optional: ordinary
+Cargo release builds already optimize the statically typed Rust object access.
+
+The [fixed-layout runtime report](runtime-v3.md) records the v3 adaptations,
+matched 32-bit measurements, inlining evidence, and validation.

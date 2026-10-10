@@ -4,9 +4,14 @@
 //! operands, plus transient pointers to tagged-word slots. No Rust container
 //! layout, enum discriminant, or trait object crosses it.
 //!
-//! Instruction entry is the automatic GC safepoint. Slot services below are
-//! GC-free; generated code publishes surviving values before the next entry.
-//! Explicit Scheme collection runs only inside the VM's rooted dispatch loop.
+//! Only allocating operations are automatic GC boundaries. They collect before
+//! acquiring an owned allocation capability; allocations within Rust never collect.
+//! Generated code publishes live words before invoking such an operation.
+//!
+//! Every unsafe ABI call requires all Scheme words in VM slots to be immediates
+//! or live objects owned by that VM. A stale or foreign pointer is invalid even
+//! when its bits name mapped memory. Slot pointers and the VM itself must obey
+//! the exclusive access/lifetime contracts below; forged values are unsupported.
 
 mod host;
 mod object;
@@ -14,13 +19,13 @@ mod primitives;
 
 mod vm;
 
-pub use object::{GcStatistics, SnailSchemeObject, Value};
+pub use object::{Extension, ExtensionVTable, GcStatistics, GcVisit, Value};
 
 pub use vm::{STOP, Vm};
 
 /// Version of the generated-code protocol, including tagged singleton values.
 /// Keep this in sync with `write-llvm-program` in `llvm.sld`.
-pub const PROGRAM_ABI: u32 = 1;
+pub const PROGRAM_ABI: u32 = 2;
 
 use object::*;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -52,31 +57,18 @@ unsafe fn boundary<T: Copy>(
     }
 }
 
-/// Startup constructors and instruction entry may collect before doing any work.
-unsafe fn handler<T: Copy>(
-    machine: *mut Vm,
-    stopped: T,
-    operation: impl FnOnce(&mut Vm) -> Result<T, String>,
-) -> T {
-    unsafe {
-        boundary(machine, stopped, |vm| {
-            vm.safepoint();
-            operation(vm)
-        })
-    }
-}
-
 // ---- Slot and control services for Scheme-written LLVM instructions ----
 
 // Slot pointers last until the next operation that can relocate that storage.
-// These accessors never collect. LLVM loads a source before requesting a new
-// result/operand slot, and publishes the word before another instruction enters.
+// Ordinary slot access never collects; promoting a captured local may collect
+// before allocation. LLVM loads sources before resizing a destination and
+// publishes live words before an allocating service.
 
 /// # Safety
 /// `machine` must name a live, exclusively accessible VM with all values rooted.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_rt_enter(machine: *mut Vm) -> u32 {
-    unsafe { handler(machine, 0, |_| Ok(1)) }
+    unsafe { boundary(machine, 0, |_| Ok(1)) }
 }
 
 /// # Safety
@@ -170,7 +162,7 @@ pub unsafe extern "C" fn snail_rt_return(machine: *mut Vm) -> u32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_halt(machine: *mut Vm) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             vm.halt();
             Ok(())
         })
@@ -182,7 +174,7 @@ pub unsafe extern "C" fn snail_halt(machine: *mut Vm) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_invalid_pc(machine: *mut Vm, pc: u32) {
     unsafe {
-        handler(machine, (), |_| {
+        boundary(machine, (), |_| {
             Err(format!("invalid VM instruction address: {pc}"))
         })
     }
@@ -210,20 +202,21 @@ pub unsafe extern "C" fn snail_const_atom(
     len: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let data = bytes(data, len)?;
+            let mut allocation = vm.allocation([]);
             let value = if kind == 7 {
-                vm.alloc(Bytevector(data.to_vec()))
+                allocation.alloc(Bytevector(data.to_vec()))
             } else {
                 let text = std::str::from_utf8(data).map_err(|_| "constant is not UTF-8")?;
                 match kind {
-                    0 => vm.alloc(Text(text.into())),
-                    1 => vm.intern(text),
-                    2 => vm.integer(
+                    0 => allocation.alloc(Text::new(text.into())),
+                    1 => allocation.intern(text),
+                    2 => allocation.integer(
                         text.parse()
                             .map_err(|_| "integer constant exceeds supported i64 range")?,
                     ),
-                    3 => vm.float(
+                    3 => allocation.float(
                         primitives::parse_float(text).ok_or("invalid floating point constant")?,
                     ),
                     4 => Value::character(
@@ -251,8 +244,9 @@ pub unsafe extern "C" fn snail_const_atom(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_const_pair(machine: *mut Vm, index: u32, car: u32, cdr: u32) {
     unsafe {
-        handler(machine, (), |vm| {
-            let value = vm.alloc(Pair(vm.constant(car)?, vm.constant(cdr)?));
+        boundary(machine, (), |vm| {
+            let pair = Pair(vm.constant(car)?, vm.constant(cdr)?);
+            let value = vm.allocation([]).alloc(pair);
             vm.set_constant(index, value)
         })
     }
@@ -269,7 +263,7 @@ pub unsafe extern "C" fn snail_const_vector(
     count: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let indices = if count == 0 {
                 &[]
             } else {
@@ -282,7 +276,7 @@ pub unsafe extern "C" fn snail_const_vector(
                 .iter()
                 .map(|index| vm.constant(*index))
                 .collect::<Result<Vec<_>, _>>()?;
-            let value = vm.alloc(Vector(values));
+            let value = vm.allocation([]).alloc(Vector(values));
             vm.set_constant(index, value)
         })
     }
@@ -299,7 +293,7 @@ pub unsafe extern "C" fn snail_global_primitive(
     len: u32,
 ) {
     unsafe {
-        handler(machine, (), |vm| {
+        boundary(machine, (), |vm| {
             let name = std::str::from_utf8(bytes(name, len)?)
                 .map_err(|_| "primitive name is not UTF-8")?;
             vm.global_primitive(index, name.into())
