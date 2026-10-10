@@ -229,6 +229,12 @@ Scheme IR. Entry-block slots represent locals and structured branch results;
 LLVM promotes them to SSA. Guest functions use `tailcc`, with `tail` on Wasm
 tail calls, including calls with different argument counts.
 
+The binary reader also retains optional function names. The native converter
+maps the explicit `cold.` prefix to LLVM's `cold` hint, which keeps wide-number
+fallbacks from dictating the hot integer path's layout. Name stripping discards
+only this optimization hint. Immediate i31 values pack and unpack with i32 shifts;
+all reference storage remains i64 so heap pointers retain their full width.
+
 [`llvmlite.sld`](src/snail-scheme/llvmlite.sld) keeps names, integer operands,
 escaped bytes, and float bit patterns structured until printing. Fragments
 compose as nested lists and stream directly to the output port. One function's

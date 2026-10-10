@@ -9,9 +9,12 @@ and process startup**; the report explains Guile's runtime JIT timing separately
 [`benchmarks/native`](native) builds one complete Rust-linked Wasm program and
 translates that exact binary with the Scheme LLVM converter. It compares native,
 V8, Chez, Guile, and Chibi after all compilation finishes. Eight rotating CPU2
-rounds give native **0.03850s**, Chez **0.03039s**, V8 **0.08477s**, Guile
-**0.09555s**, and Chibi **0.46300s**, for checksum `269118144` in every sample.
-See [the raw report](results/2026-10-10-binary-runtime.json) and
+rounds give native **0.02690s**, Chez **0.02978s**, V8 **0.08347s**, Guile
+**0.09566s**, and Chibi **0.45900s**, for checksum `269118144` in every sample.
+Native takes **0.90× Chez's time** on this workload. Simpler i31 lowering and cold
+numeric fallbacks reduce native runtime by 29.6% in a separate controlled ablation.
+See [the raw report](results/2026-10-10-native-fibonacci.json),
+[the ablation](results/2026-10-10-native-fibonacci-ablation.json), and
 [BENCHMARKS.md](../BENCHMARKS.md) for reproduction, scope, and compile-time costs.
 
 ## Historical native LLVM CPU experiment

@@ -90,11 +90,13 @@ def check_semantics():
     features = ["--enable-gc", "--enable-reference-types", "--enable-tail-call",
                 "--enable-bulk-memory", "--enable-sign-ext", "--enable-mutable-globals"]
     require(invoke([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/native-semantics.wat",
-                    *features, "-o", wasm]))
+                    *features, "-g", "-o", wasm]))
     require(invoke([os.environ.get("NODE", "node"), ROOT / "tests/check-native-semantics.mjs", wasm]))
-    executable = custom_host(translate(wasm, "semantics"), "semantics")
+    llvm = translate(wasm, "semantics")
+    assert len(re.findall(r"^define .*\) cold \{", llvm.read_text(), re.MULTILINE)) == 1
+    executable = custom_host(llvm, "semantics")
     require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"))
-    for kind in range(12):
+    for kind in range(13):
         result = require(invoke([executable, kind]), failure=True)
         if result.returncode != 1 or result.stderr != "WebAssembly trap\n":
             raise RuntimeError(f"native trap {kind}: {result.stderr}")
@@ -108,7 +110,13 @@ def check_semantics():
     retained = re.findall(r"build failed; intermediates retained: (.+)", failed.stderr)
     if len(retained) != 1 or not (Path(retained[0]) / "module.ll").is_file():
         raise RuntimeError("failed native build did not retain its LLVM")
-    print("passed native Wasm ABI, 12 traps, forced GC, and atomic publication", flush=True)
+    stripped = BUILD / "semantics-stripped.wasm"
+    require(invoke([os.environ.get("WASM_OPT", "wasm-opt"), wasm,
+                    *features, "--strip-debug", "-o", stripped]))
+    stripped_llvm = translate(stripped, "semantics-stripped")
+    assert not re.search(r"^define .*\) cold \{", stripped_llvm.read_text(), re.MULTILINE)
+    require(invoke([custom_host(stripped_llvm, "semantics-stripped")], SNAIL_NATIVE_GC_INTERVAL="1"))
+    print("passed native Wasm ABI, 13 traps, forced GC, optional hints, and atomic publication", flush=True)
 
 
 def check_rust_callbacks():
