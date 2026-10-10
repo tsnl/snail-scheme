@@ -21,13 +21,13 @@ Run a Scheme program, or build an executable with -o.
   --emit-llvm              Emit LLVM text instead (stdout, or -o PATH)
   --target TARGET          native (32-bit Linux, default) or wasm32-wasip1
   --release                Optimize the runtime when running (builds use release)
-  --dump-vm PATH           Also write the readable stack-VM program
+  --dump-mir PATH          Also write the structured MIR program
   --runtime-stats          Report execution and GC statistics on stderr
   --keep-build             Keep this invocation's generated Cargo project
   -h, --help               Show this help
 
 Program arguments after -- are passed literally and require run mode.
-Traces are always saved under build/traces/ (override with SNAIL_TRACE_DIR).\nCHIBI, NODE, LLVM_LLC and LLVM_OPT select tool executables.";
+Traces are always saved under build/traces/ (override with SNAIL_TRACE_DIR).\nCHIBI, NODE, LLVM_LLC and LLVM_OPT select tool executables.\nOptimized builds use shared Scheme/Rust LTO; SNAIL_SHARED_LTO=0 disables it.\nDebug builds always use ordinary linking.";
 
 // ---- Arguments and execution modes ----
 
@@ -80,7 +80,9 @@ fn parse_argument(
         Some("-o" | "--output" | "--out") => {
             options.output = Some(option_value(rest, "-o")?.into())
         }
-        Some("--dump-vm") => options.dump = Some(option_value(rest, "--dump-vm")?.into()),
+        Some("--dump-mir" | "--dump-vm") => {
+            options.dump = Some(option_value(rest, "--dump-mir")?.into())
+        }
         Some("--target") => options.wasm = target(&option_value(rest, "--target")?)?,
         Some("--emit-llvm") => options.emit = true,
         Some("--release") => options.release = true,
@@ -204,7 +206,7 @@ fn prepare_outputs(options: &Options, input: &Path) -> Result<(Option<PathBuf>, 
     if let (Some(output), Some(dump)) = (&output, &dump)
         && destination_identity(output) == destination_identity(dump)
     {
-        return Err("executable/LLVM output and VM dump must differ".into());
+        return Err("executable/LLVM output and MIR dump must differ".into());
     }
     Ok((output, dump))
 }
@@ -223,7 +225,7 @@ fn source_file_to_llvm(
     command.env("SNAIL_TRACE_DIR", trace_directory);
     command.arg(input).arg(project.path("program.ll"));
     if dump {
-        command.arg(project.path("program.vm"));
+        command.arg(project.path("program.mir"));
     }
     require_success(&mut command, "Scheme compilation")
 }
@@ -286,6 +288,7 @@ fn cargo_command(
         .arg(project.path("Cargo.toml"));
     command.arg("--target-dir").arg(project.path("target"));
     configure_target(&mut command, root, options, action)?;
+    configure_shared_lto(&mut command, options, action)?;
     command.env("SNAIL_LLVM_IR", project.path("program.ll"));
     command.env(
         "SNAIL_TRACE_DIR",
@@ -295,6 +298,40 @@ fn cargo_command(
         command.env("SNAIL_RUNTIME_STATS", "1");
     }
     Ok(command)
+}
+
+fn configure_shared_lto(command: &mut Command, options: &Options, action: &Action) -> Result<()> {
+    if env::var("SNAIL_SHARED_LTO").as_deref() == Ok("0")
+        || !(options.release || matches!(action, Action::Build(_)))
+    {
+        command.env("SNAIL_SHARED_LTO", "0");
+        return Ok(());
+    }
+    if env::var_os("RUSTFLAGS").is_some() || env::var_os("CARGO_ENCODED_RUSTFLAGS").is_some() {
+        return Err(
+            "shared LTO configures Rust flags; unset RUSTFLAGS/CARGO_ENCODED_RUSTFLAGS or set SNAIL_SHARED_LTO=0"
+                .into(),
+        );
+    }
+    command
+        .env("SNAIL_SHARED_LTO", "1")
+        .env("CARGO_ENCODED_RUSTFLAGS", shared_lto_flags(options.wasm));
+    Ok(())
+}
+
+fn shared_lto_flags(wasm: bool) -> String {
+    [
+        "-Cembed-bitcode=yes",
+        "-Clinker-plugin-lto",
+        "-Clto=fat",
+        "-Clink-arg=--lto-O3",
+        if wasm {
+            "-Clinker=wasm-ld"
+        } else {
+            "-Clinker=rust-lld"
+        },
+    ]
+    .join("\x1f")
 }
 
 fn configure_target(
@@ -391,7 +428,7 @@ fn execute(options: Options) -> Result<i32> {
         &snail_trace::directory().map_err(message)?,
     )?;
     if let Some(dump) = dump {
-        publish(&project.path("program.vm"), &dump)?;
+        publish(&project.path("program.mir"), &dump)?;
     }
     let action = match (options.emit, output) {
         (true, output) => Action::Emit(output),

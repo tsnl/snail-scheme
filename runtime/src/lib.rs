@@ -14,9 +14,9 @@
 //! the exclusive access/lifetime contracts below; forged values are unsupported.
 
 mod host;
-mod instructions;
 mod object;
 mod primitives;
+mod representation;
 
 mod vm;
 
@@ -25,7 +25,7 @@ pub use object::{Extension, ExtensionVTable, GcStatistics, GcVisit, Value};
 pub use vm::{CONSUME, STOP, State, Vm};
 
 /// Version of the generated-code protocol, including tagged singleton values.
-/// Keep this in sync with `write-vm-program-as-llvm` in `llvm.sld`.
+/// Keep this in sync with `write-mir-library-as-llvm` in `llvm.sld`.
 pub const PROGRAM_ABI: u32 = 3;
 
 use object::*;
@@ -58,7 +58,7 @@ unsafe fn boundary<T: Copy>(
     }
 }
 
-// ---- Slot and control services for Scheme-written LLVM instructions ----
+// ---- Slot and control services for generated code ----
 
 // The register record remains at a fixed address while its VM stays in place.
 // Stack-slot pointers last until a service can resize the stack. LLVM loads

@@ -19,23 +19,6 @@ ARGUMENTS = ["space in argument", "", "--help"]
 EXPECTED = '("space in argument" "" "--help")\n'
 SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
           '(write (cdr (command-line)))\n(newline)\n')
-# Deliberately outside the emitter's single-entry-loop contract. The WASI build
-# must reject this before skipping LLVM's expensive irreducibility repair pass.
-# Object services keep the branch inputs opaque across each loop iteration;
-# repeated tests of one unchanged register would simplify to a reducible loop.
-IRREDUCIBLE = """(import (scheme base) (snail-scheme vm) (snail-scheme llvm))
-(write-vm-program-as-llvm
- (make-vm-program 5 0
-  (list (make-instruction 0 'return '() #f #f)
-        (make-instruction 1 'close '(0 0 0 0 0) 2 #f)
-        (make-instruction 2 'test '(3 0) #f #f)
-        (make-instruction 3 'close '(0 0 0 0 0) 4 #f)
-        (make-instruction 4 'test '(1 0) #f #f)
-        (make-instruction 5 'close '(0 0 0 0 0) 6 #f)
-        (make-instruction 6 'test '(1 3) #f #f))
-  '() '() '())
- (current-output-port))
-"""
 
 
 def invoke(command, cwd, environment=None):
@@ -64,11 +47,12 @@ def prepare():
 
 
 def check_modes(directory, source):
-    result = cli(directory, source, "--release", "--runtime-stats", "--", *ARGUMENTS)
+    result = cli(directory, source, "--release", "--runtime-stats", "--keep-build", "--", *ARGUMENTS)
     require(result, EXPECTED, diagnostic="runtime: elapsed_s=")
+    check_link_object(result, b"BC\xc0\xde")
     names = trace_names(directory / "build/traces")
-    expected = {"source-file->llvm-file", "reader->syntax-list", "syntax-list->hir-program",
-                "hir-program->vm-program", "write-vm-program-as-llvm", "driver.execute",
+    expected = {"source-file->llvm-file", "reader->syntax-list", "syntax-list->hir-library",
+                "hir-library->mir-library", "write-mir-library-as-llvm", "driver.execute",
                 "driver.cargo-build-and-run", "build.optimize-llvm", "runtime.execute"}
     if not expected <= names:
         raise RuntimeError(f"missing trace spans: {expected - names}")
@@ -196,12 +180,12 @@ def check_trace_sink_failure(directory):
 
 
 def check_emission(directory, source):
-    dump = directory / "program.vm"
-    result = cli(directory, source, "--emit-llvm", "--dump-vm", dump,
+    dump = directory / "program.mir"
+    result = cli(directory, source, "--emit-llvm", "--dump-mir", dump,
                  CARGO="/nonexistent/snail-test-cargo")
     require(result)
-    if "alwaysinline" not in result.stdout or not dump.read_text():
-        raise RuntimeError("LLVM emission or VM dump missing")
+    if "define void @snail_program(" not in result.stdout or not dump.read_text():
+        raise RuntimeError("LLVM emission or MIR dump missing")
     require(cli(directory, source, "--emit-llvm", "-o", "--help"), "")
     if (directory / "--help").read_text() != result.stdout:
         raise RuntimeError("an option value was parsed as a help flag")
@@ -212,10 +196,33 @@ def check_wasi(directory, source):
     require(cli(directory, source, "--target", "wasm32-wasip1", "--", *ARGUMENTS),
             EXPECTED)
     output = directory / "WASI executable.wasm"
-    require(cli(directory, source, "--target", "wasm32-wasip1", "-o", output), "")
+    built = require(cli(directory, source, "--target", "wasm32-wasip1", "--keep-build", "-o", output), "")
+    check_link_object(built, b"BC\xc0\xde")
     node = os.environ.get("NODE", "node")
     require(invoke([node, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output,
                     *ARGUMENTS], directory), EXPECTED)
+
+
+def check_link_object(result, magic):
+    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
+             if line.startswith("build project: ")]
+    if len(paths) != 1:
+        raise RuntimeError("retained build project missing")
+    directory = Path(paths[0])
+    objects = list(directory.rglob("scheme.o"))
+    if len(objects) != 1 or not objects[0].read_bytes().startswith(magic):
+        raise RuntimeError("unexpected Scheme object format for link mode")
+    shutil.rmtree(directory)
+
+
+def check_link_modes(directory, source):
+    ordinary = cli(directory, source, "--release", "--keep-build", "--", *ARGUMENTS,
+                   SNAIL_SHARED_LTO="0")
+    check_link_object(require(ordinary, EXPECTED), b"\x7fELF")
+    debug = cli(directory, source, "--keep-build", "--", *ARGUMENTS, SNAIL_SHARED_LTO="1")
+    check_link_object(require(debug, EXPECTED), b"\x7fELF")
+    require(cli(directory, source, "--release", RUSTFLAGS="-Cdebuginfo=1"),
+            "", 1, "set SNAIL_SHARED_LTO=0")
 
 
 def check_failures(directory, source):
@@ -232,11 +239,11 @@ def check_failures(directory, source):
 
 
 def check_preserved_outputs(directory):
-    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.vm"))
+    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.mir"))
     source.write_text("(\n")
     output.write_text("existing executable")
     dump.write_text("existing dump")
-    require(cli(directory, source, "-o", output, "--dump-vm", dump), "", 1)
+    require(cli(directory, source, "-o", output, "--dump-mir", dump), "", 1)
     if output.read_text() != "existing executable" or dump.read_text() != "existing dump":
         raise RuntimeError("failed compilation replaced an existing artifact")
 
@@ -271,8 +278,8 @@ def check_aliases(directory, source):
     output.write_text("old output")
     alias.unlink()
     alias.symlink_to(output)
-    require(cli(directory, source, "-o", output, "--dump-vm", alias), "", 1,
-            "output and VM dump must differ")
+    require(cli(directory, source, "-o", output, "--dump-mir", alias), "", 1,
+            "output and MIR dump must differ")
 
 
 def check_abi(directory, llvm):
@@ -290,8 +297,7 @@ def check_abi(directory, llvm):
 
 
 def check_irreducible(directory):
-    scheme = directory / "irreducible.scm"
-    scheme.write_text(IRREDUCIBLE)
+    scheme = ROOT / "tests/emit-irreducible.scm"
     emitted = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
                       scheme], ROOT)
     source = directory / "irreducible.ll"
@@ -321,6 +327,7 @@ def main():
         check_abi(directory, llvm)
         check_irreducible(directory)
         check_wasi(directory, source)
+        check_link_modes(directory, source)
         check_trace_decorator(directory)
         check_host_trace_control(directory)
         check_trace_sink_failure(directory)

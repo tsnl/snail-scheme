@@ -333,6 +333,13 @@ struct Header {
     marked: bool,
 }
 
+/// `word` must be an immediate or a live allocation; no collection may intervene.
+pub(crate) unsafe fn object_kind(word: u32) -> Option<ObjectKind> {
+    let address = Value(word as usize).address()?;
+    let pointer = std::ptr::with_exposed_provenance::<Header>(address);
+    Some(unsafe { (*pointer).kind })
+}
+
 #[repr(C)]
 struct Boxed<T> {
     header: Header,
