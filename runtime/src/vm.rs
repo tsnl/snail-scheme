@@ -525,17 +525,27 @@ impl Vm {
         }
     }
 
+    fn invoke_primitive(&mut self, builtin: primitives::Builtin, argc: u32) -> Result<u32, String> {
+        let result = self.call_primitive(builtin, argc, self.state.f)?;
+        self.accept_primitive(result)
+    }
+
     /// Poll before borrowing the argument slice. A Rust callable sees Runtime,
     /// never Vm: it cannot collect, grow this stack, or restore a continuation.
-    /// Reversing just its consumed operands presents source order without a Vec.
-    fn invoke_primitive(&mut self, builtin: primitives::Builtin, argc: u32) -> Result<u32, String> {
-        if builtin.may_allocate() {
+    /// Arguments presents source order without moving the downward stack words.
+    fn call_primitive(
+        &mut self,
+        builtin: primitives::Builtin,
+        argc: u32,
+        base: u32,
+    ) -> Result<PrimitiveResult, String> {
+        let allocates = builtin.may_allocate();
+        if allocates {
             self.poll();
         }
-        let end = self.stack.len() - self.state.f as usize;
-        let arguments = &mut self.stack[end - argc as usize..end];
-        arguments.reverse();
-        let result = if builtin.may_allocate() {
+        let end = self.stack.len() - base as usize;
+        let arguments = primitives::Arguments(&self.stack[end - argc as usize..end]);
+        if allocates {
             primitives::invoke_allocating(
                 Allocation {
                     runtime: &mut self.runtime,
@@ -543,11 +553,37 @@ impl Vm {
                 },
                 builtin,
                 arguments,
-            )?
+            )
         } else {
-            primitives::invoke(&mut self.runtime, builtin, arguments)?
+            primitives::invoke(&mut self.runtime, builtin, arguments)
+        }
+    }
+
+    /// Numeric VM instructions retain f/c and root operands through s. Polling
+    /// also traces a/c, so the current environment needs no extra call frame.
+    pub(crate) fn numeric(&mut self, global: u32) -> Result<(), String> {
+        let builtin = self.numeric_builtin(global)?;
+        let base = self.state.s - 2;
+        let PrimitiveResult::Value(value) = self.call_primitive(builtin, 2, base)? else {
+            unreachable!("numeric primitive cannot change control flow");
         };
-        self.accept_primitive(result)
+        self.set_result(value);
+        self.state.s = base;
+        Ok(())
+    }
+
+    fn numeric_builtin(&self, global: u32) -> Result<primitives::Builtin, String> {
+        use primitives::Builtin::*;
+        let Primitive(builtin) = *self
+            .runtime
+            .heap
+            .get::<Primitive>(self.globals[global as usize])?;
+        match builtin {
+            Add | Subtract | NumericEqual | Less | LessEqual | Greater | GreaterEqual => {
+                Ok(builtin)
+            }
+            _ => Err("invalid numeric instruction builtin".into()),
+        }
     }
 
     fn accept_primitive(&mut self, result: PrimitiveResult) -> Result<u32, String> {
@@ -787,6 +823,47 @@ mod tests {
         vm.state.s = depth;
         vm.state.c = procedure;
         vm.set_result(procedure);
+    }
+
+    #[test]
+    fn numeric_fallback_roots_the_environment_and_preserves_the_frame() {
+        let mut vm = machine(1, 0);
+        vm.globals[0] = primitive(&mut vm, "+");
+        let captured = text(&mut vm, "only reachable through the current closure");
+        let environment = alloc(
+            &mut vm,
+            Closure {
+                entry: 77,
+                required: 0,
+                has_rest: false,
+                locals: 1,
+                captures: vec![captured],
+            },
+        );
+        vm.state.c = environment;
+        vm.reserve(6).unwrap();
+        vm.put(4, integer(99));
+        vm.put(5, integer(1073741823));
+        vm.put(6, integer(1));
+        vm.state.s = 6;
+        let collections = vm.gc_statistics().collections;
+        vm.numeric(0).unwrap();
+        assert_eq!(vm.gc_statistics().collections, collections + 1);
+        assert_eq!((vm.state.f, vm.state.s, vm.state.c), (3, 4, environment));
+        assert_eq!(vm.word(4), integer(99));
+        assert_eq!(
+            vm.single().unwrap().integer(&vm.runtime.heap).unwrap(),
+            1073741824
+        );
+        assert_eq!(
+            vm.runtime.string(captured).unwrap(),
+            "only reachable through the current closure"
+        );
+        vm.collect();
+        assert_eq!(
+            vm.single().unwrap().integer(&vm.runtime.heap).unwrap(),
+            1073741824
+        );
     }
 
     #[test]

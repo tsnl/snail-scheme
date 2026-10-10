@@ -54,6 +54,7 @@
             (cons 'close (foreign "snail_rt_close" ir:void
                                   (list ir:ptr ir:i32 ir:i32 ir:i32 ir:i32 ir:i32)))
             (cons 'prepare (foreign "snail_rt_prepare_apply" ir:i32 (list ir:ptr ir:i32)))
+            (cons 'numeric (foreign "snail_rt_numeric" ir:void (list ir:ptr ir:i32)))
             (cons 'receive (foreign "snail_rt_receive" ir:void (list ir:ptr)))
             (cons 'capture (foreign "snail_rt_capture" ir:void (list ir:ptr)))
             (cons 'restore (foreign "snail_rt_restore" ir:void (list ir:ptr ir:i32)))
@@ -74,10 +75,11 @@
       (map (lambda (spec) (cons (car spec) (vm-function (symbol->string (car spec))
                                                         (if (eq? (car spec) 'test) ir:i32 ir:i1)
                                                         (cdr spec))))
-           '((constant "index") (refer-local "index") (refer-free "index") (refer-global "index")
-             (init-local "index") (set-local "index") (set-free "index") (set-global "index")
-             (indirect) (box "index") (argument) (frame "resume") (shift "argc") (test)
-             (reserve "depth") (close "code" "required" "rest" "locals" "captures"))))
+           (append '((constant "index") (refer-local "index") (refer-free "index") (refer-global "index")
+                     (init-local "index") (set-local "index") (set-free "index") (set-global "index")
+                     (indirect) (box "index") (argument) (frame "resume") (shift "argc") (test)
+                     (reserve "depth") (close "code" "required" "rest" "locals" "captures"))
+                   (map (lambda (entry) (list (cdr entry) "global")) binary-numeric-primitives))))
     (define (instruction-function operation)
       (let ((entry (assq operation vm-functions)))
         (if entry (cdr entry) (error "unknown VM instruction" operation))))
@@ -300,6 +302,68 @@
                                                              (cons (ir:parameter function (+ index 2)) (loop (+ index 1)))))))))
          (ir:ret (value function ir:i1 "running")) '())))
 
+    ;; ---- Binary numeric instructions ----
+
+    ;; Operands are published at stack depths s-1 and s. The fast path neither
+    ;; allocates nor changes f/c; fallback keeps those roots until Rust returns.
+    (define (numeric-operands function)
+      (append
+       (list (read-register function 's "top") (read-register function 'end "end")
+             (ir:binop (value function ir:i32 "left_depth") 'sub (value function ir:i32 "top") (word 1)))
+       (stack-address function (value function ir:ptr "left_slot") (value function ir:ptr "end") (value function ir:i32 "left_depth"))
+       (stack-address function (value function ir:ptr "right_slot") (value function ir:ptr "end") (value function ir:i32 "top"))
+       (list (ir:load (value function ir:i32 "left") (value function ir:ptr "left_slot"))
+             (ir:load (value function ir:i32 "right") (value function ir:ptr "right_slot")))))
+
+    (define (fixnum-check function)
+      (list (ir:binop (value function ir:i32 "tags") 'and (value function ir:i32 "left") (value function ir:i32 "right"))
+            (ir:binop (value function ir:i32 "tag") 'and (value function ir:i32 "tags") (word 1))
+            (ir:icmp (value function ir:i1 "fixnums") 'eq (value function ir:i32 "tag") (word 1))))
+
+    ;; Decoded signed31 operands add/subtract exactly in signed32. Biasing the
+    ;; result maps the signed31 range to 0..2^31-1 for one unsigned bounds check.
+    (define (fixnum-arithmetic function operation)
+      (list (ir:binop (value function ir:i32 "x") 'ashr (value function ir:i32 "left") (word 1))
+            (ir:binop (value function ir:i32 "y") 'ashr (value function ir:i32 "right") (word 1))
+            (ir:binop (value function ir:i32 "number") (if (eq? operation 'add) 'add 'sub)
+                      (value function ir:i32 "x") (value function ir:i32 "y"))
+            (ir:binop (value function ir:i32 "biased") 'add (value function ir:i32 "number") (word 1073741824))
+            (ir:icmp (value function ir:i1 "fits") 'ule (value function ir:i32 "biased") (word 2147483647))
+            (ir:binop (value function ir:i32 "shifted") 'shl (value function ir:i32 "number") (word 1))
+            (ir:binop (value function ir:i32 "answer") 'or (value function ir:i32 "shifted") (word 1))))
+
+    ;; Tagging preserves signed order, so comparisons need no decoding.
+    (define (fixnum-comparison function operation)
+      (let ((predicate (cdr (assq operation '((numeric-equal . eq) (less . slt) (less-equal . sle)
+                                              (greater . sgt) (greater-equal . sge))))))
+        (list (ir:icmp (value function ir:i1 "comparison") predicate
+                       (value function ir:i32 "left") (value function ir:i32 "right"))
+              (ir:select (value function ir:i32 "answer") (value function ir:i1 "comparison") (word 84) (word 20)))))
+
+    (define (numeric-fallback function)
+      (ir:block-body
+       (ir:block function "fallback")
+       (stopped-result function (list (ir:call #f (runtime-function 'numeric)
+                                               (list (ir:parameter function 0) (ir:parameter function 2)))))
+       (ir:ret (value function ir:i1 "running"))))
+
+    (define (numeric-handler operation)
+      (let* ((function (instruction-function operation)) (arithmetic? (memq operation '(add subtract)))
+             (calculate (ir:block function "calculate")) (done (ir:block function "done"))
+             (fallback (ir:block function "fallback")))
+        (handler-definition
+         function (append (numeric-operands function) (fixnum-check function))
+         (ir:cbr (value function ir:i1 "fixnums") calculate fallback)
+         (list (ir:block-body calculate
+                              (if arithmetic? (fixnum-arithmetic function operation) (fixnum-comparison function operation))
+                              (if arithmetic? (ir:cbr (value function ir:i1 "fits") done fallback) (ir:br done)))
+               (ir:block-body done
+                              (append (single-result function (value function ir:i32 "answer"))
+                                      (list (ir:binop (value function ir:i32 "remaining") 'sub (value function ir:i32 "top") (word 2))
+                                            (write-register function 's (value function ir:i32 "remaining"))))
+                              (ir:ret (boolean #t)))
+               (numeric-fallback function)))))
+
     (define (write-vm-instructions port)
       (for-each (lambda (entry) (ir:write-definition (reference-handler (car entry) (cadr entry)) port))
                 '((constant constants) (refer-local local) (refer-free free) (refer-global globals)))
@@ -307,7 +371,8 @@
                 '((init-local local #f) (set-local local #t) (set-free free #t) (set-global globals #f)))
       (for-each (lambda (definition) (ir:write-definition definition port))
                 (list (indirect-handler) (reserve-handler) (argument-handler) (frame-handler)
-                      (shift-handler) (test-handler) (object-handler 'box 1) (object-handler 'close 5))))
+                      (shift-handler) (test-handler) (object-handler 'box 1) (object-handler 'close 5)))
+      (for-each (lambda (entry) (ir:write-definition (numeric-handler (cdr entry)) port)) binary-numeric-primitives))
 
     ;; ---- Module and constant data ----
 

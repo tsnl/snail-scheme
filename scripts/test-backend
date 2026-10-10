@@ -15,6 +15,8 @@ TARGET_DIR = ROOT / os.environ.get("CARGO_TARGET_DIR", str(BUILD / "cargo"))
 SUCCESSES = {
     "llvmlite": "",
     "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-numeric": "numeric instruction checks passed\n",
+    "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
     "backend-continuations": "continuation checks passed\n",
 }
@@ -24,6 +26,9 @@ ERRORS = {
         "uninitialized": "read of an uninitialized binding",
         "values": "expected one value, received 2",
         "overflow": "integer overflow",
+        "numeric-type": "expected a number",
+        "numeric-values": "expected one value, received 2",
+        "numeric-arity": "-: wrong number of arguments",
     },
     "backend-continuations": {
         "empty-result": "expected one value, received 0",

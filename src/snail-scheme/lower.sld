@@ -8,9 +8,10 @@
           (snail-scheme vm))
   (begin
     (define-record-type <builder>
-      (make-builder globals boxed instructions next-label constants next-constant)
+      (make-builder globals primitives boxed instructions next-label constants next-constant)
       builder?
       (globals builder-globals)
+      (primitives builder-primitives)
       (boxed builder-boxed)
       (instructions builder-instructions set-builder-instructions!)
       (next-label builder-next-label set-builder-next-label!)
@@ -24,7 +25,9 @@
 
     (define (lower-program-items items primitives loc)
       (let* ((globals (unique-identities (append primitives (item-definitions items))))
-             (builder (make-builder (numbered globals) (boxed-definitions items globals)
+             (builder (make-builder (numbered globals)
+                                    (immutable-primitives primitives items)
+                                    (boxed-definitions items globals)
                                     '() 0 '() 0))
              (locals (local-definitions items globals))
              (environment (storage-environment locals '()))
@@ -364,9 +367,45 @@
                              (else (error "global unnecessarily captured" (car free))))
                    (list (cdr slot)) push loc))))
 
-    ;; Evaluate arguments left to right, then the operator. Scheme leaves their
-    ;; relative order unspecified; this choice puts the procedure in the accumulator.
+    ;; A core binding is eligible only if no source initializer or set! can
+    ;; replace it. Identity, not spelling, distinguishes imports from shadowing.
+    (define (initialized-definitions items)
+      (define (visit node)
+        (append (if (hir:value-binding? node) (list (hir:value-binding-definition node)) '())
+                (if (hir:lambda? node) (visit (hir:lambda-body node))
+                    (apply append (map visit (children node))))))
+      (apply append (map visit items)))
+
+    (define (immutable-primitives primitives items)
+      (let ((written (append (initialized-definitions items) (assigned-definitions items))))
+        (let loop ((remaining primitives))
+          (cond ((null? remaining) '())
+                ((memq (car remaining) written) (loop (cdr remaining)))
+                (else (cons (car remaining) (loop (cdr remaining))))))))
+
+    (define (binary-primitive application builder)
+      (let ((operator (hir:application-operator application)))
+        (and (= (length (hir:application-operands application)) 2)
+             (hir:name? operator)
+             (let ((definition (hir:name-definition operator)))
+               (and (memq definition (builder-primitives builder))
+                    (assq (hir:value-definition-name definition) binary-numeric-primitives))))))
+
     (define (lower-application application environment builder next tail?)
+      (let ((primitive (binary-primitive application builder)))
+        (if primitive
+            (lower-binary-primitive application (cdr primitive) environment builder next)
+            (lower-procedure-call application environment builder next tail?))))
+
+    (define (lower-binary-primitive application operation environment builder next)
+      (let* ((definition (hir:name-definition (hir:application-operator application)))
+             (index (cdr (assq definition (builder-globals builder))))
+             (loc (hir:application-loc application))
+             (instruction (emit! builder operation (list index) next loc)))
+        (lower-arguments (hir:application-operands application) environment builder instruction loc)))
+
+    ;; Evaluate operands left to right, then operator; leave it in the accumulator.
+    (define (lower-procedure-call application environment builder next tail?)
       (let* ((operands (hir:application-operands application)) (loc (hir:application-loc application))
              (call (emit! builder 'apply (list (length operands)) #f loc))
              (transfer (if tail? (emit! builder 'shift (list (length operands)) call loc) call))
@@ -451,8 +490,30 @@
           (expect (operation-count 'shift operations) 1)
           (expect (operation-count 'apply operations) 2)))
 
+      (define (test-numeric-instructions)
+        (let* ((builtin (hir:make-value-definition '+ #f))
+               (shadow (hir:make-value-definition '+ #f))
+               (reference (hir:make-name builtin #f)))
+          (define (operations operator operands items)
+            (map instruction-operation
+                 (vm-program-instructions
+                  (lower-program-items
+                   (append items (list (hir:make-application operator operands #f))) (list builtin) #f))))
+          (let ((operands (list (hir:make-literal 1 #f) (hir:make-literal 2 #f))))
+            (expect (operation-count 'add (operations reference operands '())) 1)
+            (expect (operation-count 'apply (operations reference operands '())) 0)
+            (expect (operation-count 'add (operations (hir:make-name shadow #f) operands
+                                                      (list (hir:make-value-binding shadow reference #f)))) 0)
+            (expect (operation-count 'add (operations reference (cdr operands) '())) 0)
+            (expect (operation-count 'add (operations reference operands
+                                                      (list (test-procedure '() '()
+                                                                            (hir:make-assignment reference reference #f))))) 0)
+            (expect (immutable-primitives (list builtin)
+                                          (list (test-procedure '() (list (hir:make-value-binding builtin reference #f)) reference))) '()))))
+
       (define (test-lower)
         (run-test test-immutable-bindings)
         (run-test test-assigned-bindings)
         (run-test test-recursive-initialization)
-        (run-test test-explicit-call-frames))))))
+        (run-test test-explicit-call-frames)
+        (run-test test-numeric-instructions))))))

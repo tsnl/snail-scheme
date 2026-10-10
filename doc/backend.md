@@ -6,8 +6,8 @@ with a Rust runtime through Cargo. 32-bit native and `wasm32-wasip1` use the sam
 execution model. The existing Scheme host still runs the compiler.
 
 This milestone establishes working programs and a compiler that can be compiled.
-Switching the build to that compiler, type inference, and performance
-specialization are subsequent milestones. There is no JIT or compile-time VM.
+Switching the build to that compiler and type inference remain subsequent
+milestones. Checked binary numeric instructions already bypass generic calls. There is no JIT or compile-time VM.
 `syntax-rules` uses the existing pattern machinery; `syntax-case` is deferred.
 
 ## Build and run
@@ -94,7 +94,7 @@ The new modules have explicit boundaries:
 | --- | --- |
 | `compiler.sld` | Source/library loading and stage orchestration |
 | `bootstrap.sld`, `bootstrap/scheme/` | Primitive inventory, derived syntax, Scheme library procedures |
-| `lower.sld` | Library initialization order, storage, captures, tail positions, literals |
+| `lower.sld` | Library order, storage, captures, tail positions, literals, known numeric calls |
 | `vm.sld` | Target-independent instructions, constants, metadata, readable dump |
 | `llvm.sld` | Inline LLVM instruction bodies, static branches, and dynamic destinations |
 | `llvmlite.sld` | Immutable typed LLVM references/definitions, checks, and text serialization |
@@ -147,7 +147,9 @@ The Scheme-written LLVM handlers implement `frame`, `argument`, `shift`,
 `apply`, and `return`. A normal call pushes a return frame; a tail call moves
 arguments over the current locals and keeps that frame. Closure entry pads its
 local slots in this same buffer. Rust checks callable kind and arity, constructs
-rest lists when required, and borrows native arguments from the stack. There is
+rest lists when required, and borrows native arguments from the stack.
+Rust's `Arguments` view maps source index `i` to physical index `len - 1 - i`;
+iteration follows the same order. Native calls never reverse the argument slice. There is
 no per-call argument or local vector for ordinary fixed-arity calls. Rust never
 recursively enters Scheme, so tail recursion does not depend on Wasm tail calls.
 
@@ -395,8 +397,17 @@ Raw samples are retained in JSON; values above one mean Snail took longer.
 The benchmark guide documents the IO adapters and differing collector statistics.
 The [performance diagnosis](performance-baseline.md) counts generated Fibonacci
 operations and records a native CPU profile. LLVM inlines the instruction
-handlers, but the separately compiled Rust services remain opaque; arithmetic
-and calls still pay for generic runtime dispatch.
+handlers, but the separately compiled Rust services remain opaque. That profile
+predates the numeric instructions described below; remaining dynamic calls still
+pay for generic runtime dispatch.
+
+Binary calls to core `+`, `-`, `=`, `<`, `<=`, `>`, and `>=` now lower to
+individual VM instructions when their resolved bindings have no source writes.
+They consume two stack operands without an extra call frame. Checked fixnums
+execute in the inline LLVM handler; other numbers and errors use the Rust
+fallback, with roots published before any safepoint. Other calls keep the
+ordinary protocol. See [numeric instructions](numeric-instructions.md) for the
+contract, ablation, and current CPU comparison.
 
 ## Baseline limits and next steps
 

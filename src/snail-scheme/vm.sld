@@ -13,9 +13,17 @@
    make-instruction instruction? instruction-label instruction-operation
    instruction-operands instruction-next instruction-loc
    make-constant constant? constant-kind constant-data
-   write-vm-program)
+   binary-numeric-primitives write-vm-program)
   (import (scheme base) (scheme write))
   (begin
+    ;; These binary instructions consume the top two arguments in source order,
+    ;; publish one result, and continue without changing the enclosing frame.
+    ;; Their global operand identifies the proven, never-rebound core builtin
+    ;; for the numeric runtime fallback. LLVM checks tags and fixnum overflow.
+    (define binary-numeric-primitives
+      '((+ . add) (- . subtract) (= . numeric-equal) (< . less)
+        (<= . less-equal) (> . greater) (>= . greater-equal)))
+
     (define-record-type <vm-program>
       (make-vm-program entry locals instructions constants globals primitives)
       vm-program?
