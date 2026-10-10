@@ -99,6 +99,7 @@ IR; construction is not a substitute for verification.
 | Data and arithmetic | `call`, `call-indirect`, `load`, `store`, `gep`, `cast`, `select`, `icmp`, `zext`, `binop`, `phi` |
 | Terminators | `br`, `cbr`, `ret`, `switch` |
 | Definitions | `block-body`, `define-function`, `declare`, `global-bytes`, `global-array` |
+| Metadata | `metadata-reference`, `metadata`, `with-metadata` |
 | Output | `module`, `write-module`, `write-definition`, `utf8-bytes` |
 
 Function parameter specifications are `(type . name)` pairs. `parameter` uses
@@ -123,10 +124,17 @@ indices. `cast` supports instruction-form `ptrtoint` and `inttoptr`; the existin
 condition and two operands matching its result type. These operations validate
 types and function scope while preserving immutable references.
 
+Metadata references have caller-assigned numeric module identities. `metadata`
+takes a reference, a list of metadata references/strings, and a `distinct?` flag;
+references may precede definitions. `with-metadata` returns a new instruction
+with `(name . reference)` attachments, leaving the original unchanged. The wrapper
+only serializes these generic objects. The backend owns the correctness of alias
+claims, and LLVM validates metadata structure.
+
 Function definitions accept `external`, `internal`, or `private` linkage and
 the `alwaysinline`, `noinline`, `nounwind`, and `cold` attributes. The supported
 subset covers the current backend and the arithmetic loop above. Struct types,
-metadata, exceptions, parameter attributes, and LLVM/JIT bindings are not
+debug metadata, exceptions, parameter attributes, and LLVM/JIT bindings are not
 implemented. Add concrete typed operations when a backend change needs them.
 
 The writer streams definitions to a port. It neither accumulates a complete

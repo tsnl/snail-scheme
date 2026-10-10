@@ -11,6 +11,7 @@
    value-name
    global-bytes global-array global-length utf8-bytes
    call call-indirect load store gep cast select icmp zext binop phi br cbr ret switch
+   metadata-reference metadata with-metadata
    declare define-function module write-module write-definition
    write-function-start write-function-block write-function-end)
   (import (scheme base) (scheme cxr) (scheme write))
@@ -131,9 +132,30 @@
     ;; as their result. Operands hold objects, never snippets of LLVM text.
 
     (define-record-type <instruction>
-      (instruction result operation operands) instruction?
+      (make-instruction result operation operands metadata) instruction?
       (result instruction-result) (operation instruction-operation)
-      (operands instruction-operands))
+      (operands instruction-operands) (metadata instruction-metadata))
+    (define (instruction result operation operands)
+      (make-instruction result operation operands '()))
+
+    ;; Metadata references, like block references, can precede their definitions.
+    ;; Numeric identities belong to the caller's module; no mutable registry exists.
+    (define-record-type <metadata-reference>
+      (make-metadata-reference index) metadata-reference? (index metadata-index))
+    (define (metadata-reference index)
+      (require (and (exact-integer? index) (>= index 0)) "invalid metadata identity")
+      (make-metadata-reference index))
+    (define-record-type <metadata>
+      (metadata reference operands distinct?) metadata?
+      (reference metadata-identity) (operands metadata-operands) (distinct? metadata-distinct?))
+    (define (with-metadata item attachments)
+      (require (instruction? item) "metadata requires an instruction")
+      (for-each (lambda (entry)
+                  (require (and (string? (car entry)) (bare-name? (car entry))
+                                (metadata-reference? (cdr entry))) "invalid metadata attachment"))
+                attachments)
+      (make-instruction (instruction-result item) (instruction-operation item)
+                        (instruction-operands item) attachments))
 
     (define (require-type value type)
       (require (type=? (value-type value) type) "operand type mismatch" value type))
@@ -354,6 +376,7 @@
 
     (define (write-definition definition port)
       (cond ((global? definition) (write-global definition port))
+            ((metadata? definition) (write-metadata definition port))
             ((definition? definition) (write-function definition port))
             (else (error "llvmlite: expected a top-level definition" definition))))
 
@@ -451,7 +474,21 @@
       (if (instruction-result item)
           (begin (write-value (instruction-result item) port) (display " = " port)))
       (write-operation item port)
+      (for-each (lambda (entry)
+                  (text port ", !" (car entry) " ") (write-metadata-operand (cdr entry) port))
+                (instruction-metadata item))
       (newline port))
+
+    (define (write-metadata-operand operand port)
+      (cond ((metadata-reference? operand) (text port "!" (metadata-index operand)))
+            ((string? operand)
+             (display "!\"" port) (write-escaped-bytes (utf8-bytes operand) port) (display "\"" port))
+            (else (error "llvmlite: expected a metadata reference or string" operand))))
+    (define (write-metadata node port)
+      (write-metadata-operand (metadata-identity node) port)
+      (display (if (metadata-distinct? node) " = distinct !{" " = !{") port)
+      (separated write-metadata-operand (metadata-operands node) port)
+      (display "}\n" port))
 
     (define (write-operation item port)
       (let ((args (instruction-operands item)) (result (instruction-result item)))
@@ -696,6 +733,7 @@
           (expect (get-output-string port) "")))
 
       (define (test-llvmlite)
+        (run-test test-metadata)
         (run-test test-immutable-construction)
         (run-test test-global-bytes)
         (run-test test-indexed-names)
@@ -707,4 +745,18 @@
         (run-test test-indirect-calls)
         (run-test test-streamed-serialization)
         (run-test test-streamed-block-ownership))
+
+      (define (test-metadata)
+        (let* ((reference (metadata-reference 0))
+               (node (metadata reference (list reference "a\"λ") #t))
+               (function (function "metadata" void '())) (original (ret #f))
+               (annotated (with-metadata original (list (cons "annotation" reference))))
+               (port (open-output-string)))
+          (write-definition node port)
+          (write-instruction annotated port)
+          (write-instruction original port)
+          (expect (get-output-string port)
+                  "!0 = distinct !{!0, !\"\\61\\22\\CE\\BB\"}\n  ret void, !annotation !0\n  ret void\n")
+          (expect (instruction-metadata original) '())
+          (expect (raises? (lambda () (metadata-reference -1))) #t)))
       ))))

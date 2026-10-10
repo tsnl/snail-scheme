@@ -97,6 +97,19 @@ because it does not mutate. Existing runtime allocation-boundary services are
 explicitly distinguished from leaf callables, which never collect internally.
 No effect inference or check elimination is required for this milestone.
 
+`load` and `store` accept an optional proven memory region, `state` or `external`.
+The latter covers separately allocated stack, global/constant vectors, and heap
+fields. Elaboration supplies these facts; the emitter attaches LLVM alias scopes.
+Unclassified accesses and foreign calls stay conservative. The facts concern live
+storage, so a stack resize still invalidates old addresses. VM and its interior
+State are never declared disjoint. No new MIR instruction or provenance analysis
+is involved.
+
+Direct signed31 integer, boolean, character and nil literals become immediate
+tagged words. An omitted `if` alternate produces the unspecified word. The machine
+module owns these encodings; lowering retains the pool for other literals and for
+children of pooled pairs/vectors, whose initialization still uses pool indices.
+
 ## Example: a numeric conditional
 
 These are readable notations; names with suffixes denote binding identities.
@@ -208,6 +221,27 @@ and optimized CLI builds enable it by default.
 
 These are Fibonacci results, not evidence that arbitrary programs share those
 ratios. No occurrence typing or general check-elision pass has been introduced.
+
+The [memory follow-up](../benchmarks/results/2026-10-10-mir-memory.json) compares
+immediate literals and scoped alias annotations against this committed checkpoint
+in eight rotating CPU2 rounds of 64 repetitions. The final implementation takes
+0.318272 s versus 0.336965 s: 5.5% less time, 0.6874× Chibi and 10.58× Chez.
+Scratch ablations retained in the report isolate alias information, immediate
+constants, cold fallback hints, and direct dispatcher edges. Cold hints and direct
+edges did not improve this workload; a finer memory partition produced the same
+binary. These results support the small memory changes, not a predicted 2–5× gain.
+
+The sampled checkpoint spends 86.63% in generated code and 13.36% in procedure-call
+preparation; its 64-repeat run records zero collections. Hot assembly still has
+substantial stack/register-state traffic. SSA argument/result retention is a future
+experiment, preserving root publication and continuation snapshots. Chez also has
+an enabled-by-default [type recovery pass](https://cisco.github.io/ChezScheme/csug10.0/system.html)
+that removes redundant checks; safe optimization mode does not retain every check.
+
+The memory follow-up passes 72 native/WASI ordinary/shared-LTO executions under
+GC stress, plus unit/format checks and full compiler-source LLVM verification.
+Compiled-compiler execution was validated at the preceding MIR checkpoint and
+was not repeated for this follow-up.
 
 ## HIR rule review
 
