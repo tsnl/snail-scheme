@@ -2,17 +2,15 @@
 
 The compiler remains hosted by Chibi. Source expands into resolved IR, grouped
 by library; `wasm.sld` emits WasmGC text directly. Binaryen assembles, links, and
-optimizes it with the Rust runtime compiled to Wasm. The old managed Scheme
-stack, MIR, LLVM emitter, and native Rust heap are retired.
+optimizes it with the Rust runtime compiled to Wasm.
 
 ## Build and run
 
 Run ordinary Scheme build scripts with Chibi:
 
 ```sh
-rustup target add wasm32-wasip1
 chibi-scheme -I src build.scm
-chibi-scheme -I src examples/extension/build.scm
+chibi-scheme -I src examples/rust-interop/build.scm
 ```
 
 `(snail-scheme compiler)` exports `source-file->wat-file(root, input, output)`.
@@ -24,9 +22,21 @@ chibi-scheme -I src examples/extension/build.scm
 - `run-wasm(root, module, arguments)` runs Node/WASI and returns its exit code.
 - `run-command(stage, argv)` runs a subprocess with tracing and raises on failure.
 
-The optional final argument to `source-file->wat-file` and `build-wasm` is an
-alist of Scheme names and Wasm import modules for built-in Rust callable functions.
-It does not package or build separate extension crates.
+`source-file->wat-file` and `build-wasm` accept two optional arguments, in order:
+foreign declarations (an alist of Scheme names to Wasm import modules), then
+project library directories. For example:
+
+```scheme
+(build-wasm "." "app/main.scm" "build/app.wasm" '() '("app/lib" "shared/lib"))
+```
+
+Paths are relative to the calling script's working directory. For nonstandard
+libraries, the first existing `name/parts.sld` in those directories wins, followed
+by the compiler's `src/`. Its parse/declaration errors are reported without trying
+another copy. Transitive imports use the same search order. Missing-library
+errors include the import name and all searched paths. `(scheme ...)` imports
+always use the checkout's bootstrap runtime libraries and cannot be shadowed by
+project directories. Foreign declarations do not package separate Rust crates.
 
 The single root Cargo crate contains all Rust services under `src/`.
 `build-runtime` invokes Cargo with a stable manifest and target directory;
@@ -42,7 +52,10 @@ link several Scheme modules against it. Runtime initialization occurs once in
 the linked Wasm entry before Scheme executes. Rust pointers address one linear
 memory; Scheme values live in WasmGC and cross the AWI as root handles.
 
-`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select tools. Chibi hosts
+`rust-toolchain.toml` requests Rust stable, rustfmt and the WASI target; the Nix
+shell includes rustup. First use may download missing components. Pin an exact
+Rust version separately when reproducing historical toolchain measurements.
+`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select executable paths. Chibi hosts
 the build module's process/filesystem operations today. The Node runner provides
 WASIp1 and finalizer imports; a browser WASI adapter remains future work.
 WasmGC, reference types, tail calls, mutable globals, sign extension, and bulk
@@ -52,7 +65,9 @@ memory are enabled explicitly rather than enabling every experimental feature.
 
 Scripts own artifact paths and decide whether failures abort or are caught.
 Linking stages use unique temporary directories on the destination filesystem;
-failed builds preserve existing output and clean up their intermediates.
+failed builds preserve existing output and report the directory retaining their
+intermediates. Successful builds remove the directory. Cleanup failure after
+publication prints a warning instead of claiming the completed build failed.
 Tool arguments are passed literally, without shell quoting or interpolation.
 Concurrent builds with distinct output paths have independent intermediates;
 concurrent successful publishers to one path replace it atomically, last wins.
@@ -116,8 +131,7 @@ impose implementation limits. Rust currently targets ordinary wasm32 linear
 memory and retains its own address-space limit.
 
 Portable WasmGC does not expose forced collection, collector statistics, or
-finalizers. `collect-garbage` and `gc-statistics` diagnose this limitation rather
-than inventing values. Explicit close releases external resources promptly.
+finalizers. Explicit close releases external resources promptly.
 The JS host additionally registers extension objects with `FinalizationRegistry`
 and calls the Rust resource-release export when cleanup occurs. This is a
 host service, not a WasmGC opcode; it is neither timely nor guaranteed at shutdown.
@@ -146,16 +160,6 @@ Wasm memory/table mechanics, WASIp1, and BDWGC. Clang/LLD compile and link these
 automatically. [Native execution](native.md) explains coverage, proper tail calls,
 GC roots, resource finalization, and the remaining unsupported Wasm features.
 
-The older [bounded translator](../experiments/wasm-llvm/README.md) remains an
-experiment. Its [continuation experiment](../experiments/wasm-stack-switching/README.md)
-decodes real `cont.new`, `resume`, and `suspend` instructions for a bounded
-`i64 -> i64` subset. It verifies single-shot consumption, nested handlers, foreign
-barriers, and GC roots across suspension. This is not yet a Scheme coroutine API
-or support for Rust unwinding.
-Wastrel remains a useful reference: the tested revision
-`ad0b577df0773a1fc825b2a2455e23bf03ea9dcc` supports WasmGC but lists stack
-switching as future work. The build library uses our Scheme converter.
-
 ## Validation and measurements
 
 Run `make test`, `make check`, `cargo test --offline`,
@@ -180,9 +184,5 @@ from 0.33860s, with representation checks preserved. Eight rotating rounds use
 the same source and checksum; compilation and process startup are excluded.
 V8 tiering during the timed workload remains included.
 
-The [October 10 experiment](../benchmarks/results/2026-10-10-wastrel.json)
-measured fixed Fibonacci work with compilation/startup excluded: Chez 0.03015s,
-our bounded native LLVM translator 0.04695s (1.56× Chez), and tuned Wastrel
-0.04801s (1.59×). These are experimental modules, not measurements of the full
-new production backend. Old stack/LLVM measurements remain historical evidence
-in [stack-vm.md](stack-vm.md) and the benchmark reports.
+See [BENCHMARKS.md](../BENCHMARKS.md) for the historical native CPU comparison,
+its scope, and reproduction against its recorded Git revision.

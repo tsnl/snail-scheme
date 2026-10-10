@@ -3,6 +3,8 @@
 
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -69,6 +71,8 @@ def check_build_and_run(directory, source):
     stamp = runtime.stat().st_mtime_ns
     source.write_text(SOURCE + '; Changed Scheme source, unchanged Rust.\n')
     require(script(directory, compile_source(source, output) + '\n' + run_module(output)), EXPECTED)
+    if list(directory.glob(".snail-build-*")):
+        raise RuntimeError("successful build retained temporary files")
     if runtime.stat().st_mtime_ns != stamp:
         raise RuntimeError("Scheme edit rebuilt the Rust runtime")
     require(invoke([NODE, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output, *ARGUMENTS], directory), EXPECTED)
@@ -85,7 +89,29 @@ def check_explicit_stages(directory, source):
 def check_failures(directory, source):
     output = directory / "existing.wasm"
     output.write_text("previous successful build")
-    require(script(directory, compile_source(source, output), WASM_OPT="/nonexistent/wasm-opt"), failure=True)
+    result = require(script(directory, compile_source(source, output),
+                            WASM_OPT="/nonexistent/wasm-opt"), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if len(retained) != 1:
+        raise RuntimeError(f"missing unique failed-build location: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or not workspace.name.startswith('.snail-build-'):
+        raise RuntimeError(f"invalid retained workspace: {workspace}")
+    for filename in ('program.wat', 'scheme.wasm', 'entry.wat', 'entry.wasm', 'linked.wasm'):
+        if not (workspace / filename).is_file():
+            raise RuntimeError(f"missing failure intermediate: {filename}")
+    shutil.rmtree(workspace)
+    blocked = directory / "output-is-a-directory"
+    blocked.mkdir()
+    (blocked / "keep").write_text("existing directory")
+    result = require(script(directory, compile_source(source, blocked)), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if len(retained) != 1 or (blocked / "keep").read_text() != "existing directory":
+        raise RuntimeError(f"publication failure lost output or diagnostics: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or not (workspace / "artifact").is_file():
+        raise RuntimeError("publication failure did not retain the completed candidate")
+    shutil.rmtree(workspace)
     if output.read_text() != "previous successful build":
         raise RuntimeError("failed build replaced existing output")
     require(script(directory, compile_source(source, source)), failure=True)
@@ -93,7 +119,7 @@ def check_failures(directory, source):
     alias.symlink_to(source)
     require(script(directory, compile_source(source, alias)), failure=True)
     if list(directory.glob('.snail-build-*')):
-        raise RuntimeError("failed build leaked its intermediate directory")
+        raise RuntimeError("an input/output alias failure created a workspace")
 
 
 def check_exit(directory):
@@ -104,6 +130,45 @@ def check_exit(directory):
         raise RuntimeError(f"exit status lost: {result}")
 
 
+# ---- Ordered project-library lookup ----
+
+
+def check_project_libraries(directory):
+    first, second = directory / "first libraries", directory / "second libraries"
+    for path in (first / 'project', first / 'scheme', second / 'project'):
+        path.mkdir(parents=True)
+    chosen = first / 'project/answer.sld'
+    chosen.write_text('(define-library (project answer) (export answer) '
+                      '(import (scheme base) (project helper)) (begin (define answer (+ base 2))))')
+    (second / 'project/answer.sld').write_text('(define-library (project answer) '
+        '(export answer) (import (scheme base)) (begin (define answer 99)))')
+    (second / 'project/helper.sld').write_text('(define-library (project helper) '
+        '(export base) (import (scheme base)) (begin (define base 40)))')
+    (first / 'scheme/base.sld').write_text('invalid project shadow of standard library')
+    source, output = directory / 'project.scm', directory / 'project.wasm'
+    source.write_text('(import (scheme base) (scheme write) (scheme file) (project answer)) '
+                      '(display answer) (newline) '
+                      f'(write (file-exists? {quote(source)})) (newline) '
+                      '(write (file-exists? "absent-file")) (newline)')
+    body = (f"(build-wasm {quote(ROOT)} {quote(source)} {quote(output)} '() "
+            f"(list {quote(first)} {quote(second)}))")
+    require(script(directory, body), "")
+    require(invoke([NODE, '--no-warnings', ROOT / 'scripts/run-wasi.mjs', output], directory),
+            '42\n#t\n#f\n')
+    for text, diagnostic in [('(', str(chosen)),
+                             ('(define-library (wrong name) (import (scheme base)))',
+                              'library name does not match import')]:
+        chosen.write_text(text)
+        result = require(script(directory, body), failure=True)
+        if diagnostic not in result.stderr:
+            raise RuntimeError(f"chosen library error was hidden: {result.stderr}")
+    source.write_text('(import (scheme base) (project absent))')
+    result = require(script(directory, body), failure=True)
+    for diagnostic in ('library not found', str(first), str(second), 'project/absent.sld'):
+        if diagnostic not in result.stderr:
+            raise RuntimeError(f"missing library search diagnostic: {result.stderr}")
+
+
 # ---- Built-in Rust calls, roots and tracing ----
 
 
@@ -111,7 +176,7 @@ def check_interop(directory):
     output = directory / "interop.wasm"
     names = '(rust-triple rust-remember rust-recalled rust-call rust-forget rust-root-stress)'
     foreign = f'(map (lambda (name) (cons name "snail.rust")) \'{names})'
-    body = f'(build-wasm {quote(ROOT)} {quote(ROOT / "examples/extension.scm")} {quote(output)} {foreign})'
+    body = f'(build-wasm {quote(ROOT)} {quote(ROOT / "examples/rust-interop/main.scm")} {quote(output)} {foreign})'
     require(script(directory, body), "")
     expected = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
     require(invoke([NODE, "--no-warnings", ROOT / "tests/check-awi-roots.mjs", output, "3"], directory), expected)
@@ -143,6 +208,7 @@ def main():
         check_failures(directory, source)
         check_exit(directory)
         check_interop(directory)
+        check_project_libraries(directory)
         check_traces(directory)
     print("Scheme build library and Rust AWI checks passed")
 

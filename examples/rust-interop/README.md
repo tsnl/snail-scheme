@@ -1,12 +1,12 @@
 Run this ordinary build script from the repository root:
 
 ```sh
-chibi-scheme -I src examples/extension/build.scm
+chibi-scheme -I src examples/rust-interop/build.scm
 ```
 
 The callable Rust functions are in [`src/interop_example.rs`](../../src/interop_example.rs),
 compiled into the single standard runtime crate. The build script explicitly
-declares their Scheme names and emits `build/extension.wasm`, then runs it.
+declares their Scheme names and emits `build/rust-interop.wasm`, then runs it.
 There is no separate extension crate or package discovery step. Future extension
 packaging is deferred while the runtime and library APIs settle.
 
