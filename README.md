@@ -20,6 +20,10 @@ Each `-I` prepends a library directory, so later flags take precedence.
 Use `--` before a script filename beginning with `-`; arguments after the
 filename pass through literally.
 
+Applications can use `(snail-scheme options)` for the same option syntax.
+`parse-options` reads declared switches and string-valued options and returns
+their occurrences plus the remaining arguments. See [the API and example](doc/options.md).
+
 The checked-in [build.scm](build.scm) builds the interpreter. A Fibonacci build
 script can use:
 

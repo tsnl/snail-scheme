@@ -12,6 +12,8 @@ BUILD = ROOT / "build/backend-tests"
 SUCCESSES = {
     "backend-wasmgc": "",
     "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-options": '(("-v" . #t) ("-I" . "first") ("--output" . "a=b") ("-I" . "second"))\n'
+                       '("script.scm" "-v" "")\n',
     "backend-binary": "binary IO checks passed\n",
     "backend-numeric": "numeric instruction checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",

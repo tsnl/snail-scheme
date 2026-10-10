@@ -21,6 +21,10 @@ defines its zero-argument `main` handler: parse `-I` library directories, run th
 supplied script, and return its status. Both `-Isrc` and `-I src` work; each
 occurrence prepends a directory. `--` ends interpreter options, and arguments
 after the script filename pass through literally.
+[`options.sld`](src/snail-scheme/options.sld) supplies the reusable option reader.
+Applications declare switches and single-value options; `parse-options` returns
+occurrences in input order and the untouched positional suffix. The interpreter
+chooses directory priority after parsing. See [option parsing](doc/options.md).
 [`native.sld`](src/snail-scheme/native.sld) composes source compilation,
 the native runtime archive, and explicit CLI entry adapters. A normal script has
 no special entry name: its forms execute once and normal completion returns zero.

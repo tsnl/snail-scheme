@@ -28,6 +28,11 @@ Paths are relative to the current working directory. `--` permits a script
 filename beginning with `-`. After the script filename, all arguments belong to
 the script, including any `-I` tokens.
 
+The CLI uses the public `(snail-scheme options)` library. Its `parse-options`
+procedure accepts declarations such as `'(("-I" . #t) ("--verbose" . #f))` and
+returns option occurrences plus remaining arguments. Applications can use this
+same reader for short and long options.
+
 This first native platform targets **x86-64 Linux**. Enter `nix-shell` for Chibi,
 Rust, Binaryen, Clang/LLD, BDWGC, and mdBook. Cargo's dependencies and Rust target
 must be available before the offline build. `BDWGC_INCLUDE` and `BDWGC_LIB` can
