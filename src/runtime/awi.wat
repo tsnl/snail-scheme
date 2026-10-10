@@ -119,6 +119,10 @@
   (call $awi_root (struct.new $text_object (i32.const 0) (array.new $text (i32.const 0) (local.get $length)))))
 (func (export "string_set") (param $root i32) (param $index i32) (param $value i32)
   (array.set $text (struct.get $text_object 1 (ref.cast (ref $text_object) (call $awi_get (local.get $root)))) (local.get $index) (local.get $value)))
+(func (export "bytes_new") (param $length i32) (result i32)
+  (call $awi_root (struct.new $bytevector (array.new $bytes (i32.const 0) (local.get $length)))))
+(func (export "byte_set") (param $root i32) (param $index i32) (param $value i32)
+  (array.set $bytes (struct.get $bytevector 0 (ref.cast (ref $bytevector) (call $awi_get (local.get $root)))) (local.get $index) (local.get $value)))
 
 ;; ---- Accessors ----
 

@@ -1,6 +1,6 @@
 # WebAssembly backend
 
-The compiler remains hosted by Chibi. Source expands into resolved IR, grouped
+The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
 by library; `wasm.sld` emits WasmGC text directly. Binaryen assembles, links, and
 optimizes it with the Rust runtime compiled to Wasm.
 
@@ -43,7 +43,7 @@ The single root Cargo crate contains all Rust services under `src/`.
 Scheme-only changes do not rebuild Rust. To prebuild the identical runtime:
 
 ```sh
-cargo build --offline --release --target wasm32-wasip1 --target-dir build/wasm-runtime
+cargo rustc --crate-type=cdylib --offline --release --target wasm32-wasip1 --target-dir build/wasm-runtime
 ```
 
 The artifact is `build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`.
@@ -56,7 +56,8 @@ memory; Scheme values live in WasmGC and cross the AWI as root handles.
 shell includes rustup. First use may download missing components. Pin an exact
 Rust version separately when reproducing historical toolchain measurements.
 `CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select executable paths. Chibi hosts
-the build module's process/filesystem operations today. The Node runner provides
+the bootstrap process/filesystem adapter; the native interpreter uses Rust
+operations from the same build library. The Node runner provides
 WASIp1 and finalizer imports; a browser WASI adapter remains future work.
 WasmGC, reference types, tail calls, mutable globals, sign extension, and bulk
 memory are enabled explicitly rather than enabling every experimental feature.
@@ -86,7 +87,9 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/runtime/awi.wat` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
 | `src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
-| `build.sld` | Chibi-hosted Cargo, linking, execution and artifact publication |
+| `build.sld` | Cargo, linking, execution and artifact publication |
+| `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
+| `cli.sld`, `main.scm` | Native command entry, interpreter construction and script execution |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
 and assignments. A library owns its body and dependencies. Expansion retains
@@ -165,17 +168,19 @@ GC roots, resource finalization, and the remaining unsupported Wasm features.
 
 Run `make test`, `make check`, `cargo test --offline`,
 `cargo fmt --all -- --check`, `scripts/test-backend --target both`,
-`scripts/test-native`, and `scripts/test-build`.
+`scripts/test-native`, `scripts/test-build`, and `scripts/test-self-host`.
 The integration suites execute real linked Wasm, including closures, mutation,
 recursive initialization, rest arguments, values, numeric boundaries, proper
-tail calls, errors, and Rust callbacks with retained roots. Unit tests remain in
+tail calls, errors, and Rust callbacks with retained roots, native CLI startup, and self-hosted rebuilds. Unit tests remain in
 implementation modules; integration fixtures remain in `tests/`.
 
 The frontend-only [examples/compile.scm](../examples/compile.scm) script has been
 compiled to Wasm, then executed to emit Fibonacci WAT, which was linked and run
 successfully. It imports `(snail-scheme compiler)` without the Chibi-specific
-build module. This checks compiler-source capability; the default host remains
-Chibi and running build scripts under Snail is a later milestone.
+build module. The root `build.scm` now builds the native interpreter;
+running `build/snail-scheme build.scm` rebuilds it through that same library API.
+See [the build chapter](book/builds.md) for bootstrap requirements and the current
+checkout-bound installation model.
 
 The [production WasmGC report](../benchmarks/results/2026-10-10-wasmgc-production.json)
 measures the full linked CPU benchmark under Node/V8: 0.08627s versus Chez

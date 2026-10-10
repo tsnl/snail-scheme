@@ -1,5 +1,6 @@
 ;; Compile source through located syntax and resolved IR directly to WasmGC.
-;; The current Chibi host runs this module; Wasm tools assemble and link its output.
+;; Both Chibi and the native interpreter host this module. Build libraries own
+;; external tools; this module only reads source and writes its Wasm output.
 (define-library (snail-scheme compiler)
   (export source-file->wat-file)
   (import (scheme base) (scheme cxr) (scheme file)
@@ -17,7 +18,7 @@
                     '() '() #f))
 
     (define-traced (source-file->wat-file root input output . options)
-      (if (> (length options) 2) (error "expected foreign declarations and library directories"))
+      (if (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
       (let* ((foreign (if (null? options) '() (car options)))
              (directories (if (< (length options) 2) '() (cadr options)))
              (forms (source-file->syntax-list input))
@@ -27,8 +28,9 @@
                                                (list core extensions))))
         (call-with-output-file output
           (lambda (port)
-            (write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
-                                      (string-append root "/src/runtime/awi.wat") port foreign)))))
+            (apply write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
+                   (string-append root "/src/runtime/awi.wat") port foreign
+                   (if (= (length options) 3) (list (caddr options)) '()))))))
 
     ;; ---- Source and library loading ----
 
