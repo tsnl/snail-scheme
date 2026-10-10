@@ -76,8 +76,11 @@ def digest(path):
 
 def provenance(builds, variants):
     sources = [ROOT / name for name in ("benchmarks/cpu.scm", "benchmarks/native",
-                                       "benchmarks/native-build.scm", "src/native.c")]
+                                       "benchmarks/native-build.scm", "src/native.c",
+                                       "src/runtime/wasmgc.wat", "Cargo.toml", "Cargo.lock",
+                                       "rust-toolchain.toml")]
     sources += list((ROOT / "src/snail-scheme").glob("*.sld"))
+    sources += list((ROOT / "src").rglob("*.rs"))
     artifacts = [OUT / name for name in ("cpu", "cpu.wasm", "chez.so", "guile.go")]
     return {"base_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
             "host": platform.platform(), "build_commands": builds, "commands": variants,

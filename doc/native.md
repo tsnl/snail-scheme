@@ -31,6 +31,14 @@ flat instructions directly into LLVM. There is no disassembly, instruction tree,
 or text-to-number conversion. This library consumes no Scheme IR or Scheme
 binding information; unsupported Wasm operations fail explicitly.
 
+The build preserves Wasm's standard name section. A function name beginning
+`cold.` requests LLVM's `cold` optimization hint; the runtime uses it for its
+wide/inexact comparison, addition, and subtraction fallbacks. The converter reads
+the final function indices after Binaryen optimization. It does not infer types
+or remove checks, and it leaves inlining decisions to LLVM. Stripping names
+removes the hints without changing semantics. This favors the immediate-integer
+path; it is not a claim that floating-point arithmetic is rare in every program.
+
 `llvmlite.sld` preserves integers, names, quoted bytes, and float bit patterns as
 immutable operands. Nested lists compose output fragments; a single writer
 prints them without intermediate concatenation or repeated numeric formatting.
@@ -58,8 +66,12 @@ calls, integer/reference/floating arguments, and a 256 KiB native stack limit.
 
 ## Representations and roots
 
-Null is zero; i31 references are odd words containing a signed 31-bit integer;
-other references are uncompressed pointers. Heap objects begin with a type and
+Null is zero; i31 references are the zero-extended 32-bit word `(input << 1) | 1`.
+The wrapping shift discards input bit 31, exactly as `ref.i31` requires. Extraction
+truncates to i32 and shifts right arithmetically or logically for `i31.get_s` or
+`i31.get_u`, after checking null. Global initializers and dynamic construction
+use this same canonical encoding, so reference equality is ordinary i64 equality.
+Other references are uncompressed pointers. Heap objects begin with a type and
 category word. Struct fields occupy eight-byte slots; arrays add a length word
 and eight-byte element slots. Packed fields load/store their specified width.
 Immutable, numeric-only global structs have distinct static objects, preserving
@@ -122,10 +134,12 @@ host signatures are diagnosed before native linking.
 
 `scripts/test-backend --target both` builds each Scheme fixture once, then
 executes its exact linked binary in Node and as native code. `scripts/test-native`
-compares a separate Wasm semantics fixture under both engines, checks twelve
+compares a separate Wasm semantics fixture under both engines, checks thirteen
 traps and proper tail calls, forces collection at every allocation, verifies
 Rust-retained Scheme roots and Rust-to-Scheme callbacks, and checks actual Rust
-resource cleanup. Set `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every
+resource cleanup. It also runs with the optional function names stripped and
+checks signed/unsigned i31 boundaries and equality across initialization and
+dynamic construction. Set `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every
 N native object allocations; leave it unset for ordinary execution.
 
 `benchmarks/native` builds the complete canonical Fibonacci workload in all

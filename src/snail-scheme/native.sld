@@ -23,7 +23,7 @@
             (llvm (string-append directory "/module.ll")))
         (run-command "native.validate"
                      (append (list (tool-name "WASM_OPT" "wasm-opt") input)
-                             wasm-features (list "-q" "-o" wasm)))
+                             wasm-features (list "-q" "-g" "-o" wasm)))
         (call-with-trace "native.translate" (lambda () (wasm-file->llvm-file wasm llvm)))
         (run-command "native.compile"
                      (append (list (tool-name "CLANG" "clang") "-O3" "-flto" "-fuse-ld=lld"

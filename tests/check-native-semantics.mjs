@@ -7,7 +7,11 @@ if (wasm.check() !== 0 || wasm.tail(2000000) !== 42n || wasm.root(500) !== 99n)
 if (wasm['i31-s'](-2147483648) !== 0 || wasm['i31-s'](1073741824) !== -1073741824 ||
     wasm['i31-s'](-1) !== -1 || wasm['i31-u'](-1) !== 2147483647)
   throw new Error('Wasm i31 result differs');
-for (let kind = 0; kind < 12; kind++) {
+if (wasm['i31-s'](1073741823) !== 1073741823 || wasm['i31-u'](1073741824) !== 1073741824 ||
+    wasm['i31-s'](2147483647) !== -1 || !wasm['i31-eq-negative'](-1) ||
+    !wasm['i31-eq-negative'](2147483647) || wasm['i31-eq-negative'](0))
+  throw new Error('Wasm i31 boundary or equality differs');
+for (let kind = 0; kind < 13; kind++) {
   const { instance: fresh } = await WebAssembly.instantiate(await readFile(process.argv[2]));
   let trapped = false;
   try { fresh.exports.trap(kind); } catch (error) {
