@@ -61,10 +61,15 @@ performance thresholds.
 
 The broader runner uses all 57 workloads from
 [ecraven's R7RS benchmarks](https://github.com/ecraven/r7rs-benchmarks), derived
-from the Larceny, Gabriel, and Gambit suites. It pins the upstream revision and
-archive checksum, retains the benchmark bodies and correctness predicates, and
-covers allocation, lists, arrays, strings, IO, numeric computation, and control
-flow. Sources are downloaded into `build/`; their upstream notices are retained.
+from the Larceny, Gabriel, and Gambit suites. A pinned
+[submodule](benchmarks/r7rs-benchmarks) supplies the unchanged benchmark bodies
+and correctness predicates. The suite covers allocation, lists, arrays,
+strings, IO, numeric computation, and control
+flow. Initialize the submodule once:
+
+```sh
+git submodule update --init benchmarks/r7rs-benchmarks
+```
 
 With Rust/Cargo and the `wasm32-wasip1` target installed, use the same Nix shell:
 
@@ -103,11 +108,9 @@ status. Interrupted runs retain incomplete JSON and cannot produce a final plot.
 Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
 score that silently drops failed benchmarks.
 
-The saved [57-workload smoke report](benchmarks/results/2026-10-10-r7rs-smoke/summary.md)
-validates reference-engine integration with reduced iterations. It records
-timeouts and timer-resolution limits; Snail native is explicitly unavailable
-pending the full-program translator command. These smoke timings are not the
-performance comparison above.
+Suite reports stay under `build/`; only the published Fibonacci comparison is
+checked in. The full-program native suite is ready to run once its translator
+command is available.
 
 ## Language scope
 
