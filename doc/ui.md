@@ -24,6 +24,52 @@ snapshot includes the initial content and disabled controls. The live page uses
 real HTML buttons, posts messages to Chibi, and redirects to a newly rendered
 page. No Scheme interpreter or JavaScript UI runtime runs in this browser demo.
 
+## Walk through the running example
+
+Start the server from the repository worktree containing this prototype, then
+open its loopback URL. Keep that terminal running while using the page.
+
+1. The initial page shows a count of **0** and a **Show explanation** button.
+   Its prose and controls come from the same `view` procedure.
+2. Press **Increase** twice. Each press submits a form and the next page shows
+   **1**, then **2**. **Decrease** sends the corresponding negative adjustment.
+3. Press **Show explanation**. A paragraph appears beneath the counter, without
+   changing its value. **Hide explanation** removes that part of the tree.
+4. Press **Reset**. The model returns to count **0** with the explanation hidden.
+5. Open the URL in a second tab. Both tabs address the same application. After
+   one tab changes it, submitting an old page in the other produces a conflict
+   page with a reload link. Reload to obtain the current controls.
+
+The source path for an Increase click is short:
+
+```text
+button '(adjust 1) "Increase"
+  -> HTML form with a versioned action URL
+  -> POST resolves that URL to the Scheme message '(adjust 1)
+  -> update(message, model) returns a new model record
+  -> view(model) composes the next tree
+  -> render-html prepares HTML and the matching action table
+  -> the host publishes both, then sends a 303 redirect to /
+```
+
+Read [examples/ui.scm](../examples/ui.scm) for the model, `update`, the `counter`
+and `notes` components, and the document shell. The small
+[ui.sld](../src/snail-scheme/ui.sld) stores model/update/view and implements
+`dispatch`. The [HTML renderer](../src/snail-scheme/html.sld) turns the tree into
+markup and actions; [ui-server.sld](../src/snail-scheme/ui-server.sld) owns the
+current page and HTTP dispatch.
+
+The `--html` command evaluates the same initial application once. Open the output
+file to see the same document with disabled buttons. It has no host to receive
+messages. Stopping and restarting the live Chibi server also returns the workbook
+to its initial model; no model is saved to disk.
+
+The [engine design in draft #9](https://github.com/tsnl/snail-scheme/pull/9)
+proposes Rust hosts, contracts, workers with fresh mutable globals per invocation,
+explicit runtime state functions, and hot reload. This example uses an ordinary
+long-lived Chibi process and an in-memory application instead. It demonstrates
+composition and message dispatch before those runtime facilities exist.
+
 ## A small application value
 
 ```scheme
