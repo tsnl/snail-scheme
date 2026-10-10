@@ -16,7 +16,7 @@ messages, and own work across invocations. This note develops their execution,
 memory, and resource rules. It replaces the earlier assumption that every actor
 has a retained application model.
 
-The [Chibi UI prototype](https://github.com/tsnl/snail-scheme/pull/10) demonstrates
+The [Chibi UI prototype](ui.md) demonstrates
 model/update/view composition and an HTTP host. It does not implement the
 isolation, mandatory message serialization, state services, or reload described
 here. Procedure names are sketches. The filename preserves earlier design links.
@@ -702,7 +702,7 @@ they do not replace the host's execution and storage responsibilities.
 
 ## Current boundary and next experiments
 
-The Chibi workbook in [draft #10](https://github.com/tsnl/snail-scheme/pull/10)
+The [Chibi workbook](ui.md)
 uses one application shared by all tabs. Its HTTP host retains Scheme objects and
 serializes reduction and HTML publication. It has no isolated invocation heaps,
 message codec, native state service, browser Scheme, or actor reload protocol.

@@ -53,7 +53,7 @@ project that must make it observable, not a claim that the feature exists today.
 | R06 | Ordinary Scheme authoring precedes a custom reader. | C02 functional view before C07 markup; G02 pure rules. |
 | R07 | Elements, fragments, and functional components form a generic tree API with simple names. | C02 renderer-independent composition; T06 workbook reuse. |
 | R08 | Reducers and explicit model/message values replace hidden hook state. | C02/C03 browser reducer; T06 control view. |
-| R09 | Use Chibi now and keep application/library code separately readable. | Existing [UI walkthrough](https://github.com/tsnl/snail-scheme/blob/codex/react-composition/doc/ui.md); G02, C02, and T01 host checkpoints. No early self-hosting requirement. |
+| R09 | Use Chibi now and keep application/library code separately readable. | Existing [UI walkthrough](../ui.md); G02, C02, and T01 host checkpoints. No early self-hosting requirement. |
 | R10 | HTML/DOM is the first document/UI backend. | C02/C03 browser rendering and focus retention. |
 | R11 | Browser Scheme runs through Snail's WASM output. | C03 two actual clients; T06 workbook. WASI and server rendering do not satisfy it. |
 | R12 | One authoring source can produce server/browser/GPU payloads with explicit crossings. | C03 roots in one source; T07 graph/coordinator/browser outputs. |

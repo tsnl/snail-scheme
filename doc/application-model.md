@@ -18,7 +18,7 @@ examples, operational contracts, and an explicit mechanism for every requirement
 The detailed [execution notes](application-engines.md),
 [staging proposal](staged-programs.md), and
 [generated-library proposal](generate-library.md) develop particular boundaries.
-The [Chibi UI](https://github.com/tsnl/snail-scheme/pull/10) is an existing composition experiment; it does not implement
+The [Chibi UI](ui.md) is an existing composition experiment; it does not implement
 these isolation, serialization, or service contracts.
 
 ## Requirements inventory
@@ -66,10 +66,8 @@ surface forms remain provisional where the underlying feature is unimplemented.
 | R36 | Hot reload | Rebuild affected artifacts from a shared source, validate candidates, and use them for new work while old work finishes. Native services retain resources; explicit migrations handle persistent schema changes. |
 | R37 | Pub/sub | Independent subscriptions are separate logical recipients; workers within one subscription share its work. Publication is fire-and-forget; completion tracking and waiting are optional libraries. |
 
-Review work remains in one worktree with the library and app visible separately.
-The [TODO issue](https://github.com/tsnl/snail-scheme/issues/11) tracks work and
-links the original draft PRs; there is no separate `TODO.md` roadmap. These notes
-do not imply that the combined local branch has been published to those PRs.
+The [TODO issue](https://github.com/tsnl/snail-scheme/issues/11) tracks implementation
+work and links the consolidated platform-design and UI-prototype draft.
 
 ## What the requirements share
 

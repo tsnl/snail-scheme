@@ -12,7 +12,9 @@
         (only (snail-scheme lower) test-lower)
         (only (snail-scheme syntax-parser) test-syntax-parser)
         (only (snail-scheme pattern) test-pattern)
-        (only (snail-scheme expand) test-expand))
+        (only (snail-scheme expand) test-expand)
+        (only (snail-scheme test-react) test-react)
+        (only (snail-scheme test-ui) test-ui))
 
 (test-trace)
 (test-cli)
@@ -27,4 +29,6 @@
 (test-syntax-parser)
 (test-pattern)
 (test-expand)
+(test-react)
+(test-ui)
 (display-error "All tests ok\n")

@@ -8,7 +8,7 @@ application as a library another project can configure and build.
 **Status: project specification, not a runnable tutorial yet.** Proposed names
 illustrate the [actor model](../../why-snail-scheme.md); the
 [acceptance criteria](requirements.md) are the completion contract. The existing
-[Chibi workbook](https://github.com/tsnl/snail-scheme/pull/10) is a useful first checkpoint, but it executes the
+[Chibi workbook](../../ui.md) is a useful first checkpoint, but it executes the
 application on the server and does not satisfy browser execution here.
 
 ## 1. Describe the conversation with types

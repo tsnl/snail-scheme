@@ -7,7 +7,7 @@ small computation that lives for one frame.
 
 This is the platform we intend to build. The actor runtime and the tutorial APIs
 below are **planned**, not implemented. Today's compiler remains hosted by Chibi;
-the [Chibi UI experiment](https://github.com/tsnl/snail-scheme/pull/10) already demonstrates functional tree composition
+the [Chibi UI experiment](ui.md) already demonstrates functional tree composition
 and reducers. Native and WASI compilation are useful foundations, but WASI alone
 does not provide browser hosting or an actor system.
 
