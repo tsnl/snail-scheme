@@ -94,7 +94,7 @@ IR; construction is not a substitute for verification.
 | Types | `void`, `ptr`, `i1`, `i8`, `i32`, `i64`, `int-type`, `array-type`, `type=?` |
 | Typed operands | `local`, `parameter`, `integer`, `null-pointer`, `inttoptr`, `value-type` |
 | Function and block references | `function`, `block`, `indexed-name` |
-| Data and arithmetic | `call`, `load`, `store`, `icmp`, `zext`, `binop`, `phi` |
+| Data and arithmetic | `call`, `load`, `store`, `gep`, `cast`, `select`, `icmp`, `zext`, `binop`, `phi` |
 | Terminators | `br`, `cbr`, `ret`, `switch` |
 | Definitions | `block-body`, `define-function`, `declare`, `global-bytes`, `global-array` |
 | Output | `module`, `write-module`, `write-definition`, `utf8-bytes` |
@@ -106,10 +106,16 @@ as their first argument; `call` also accepts `#f` to discard its result.
 cases and an explicit default block. `global-array` currently accepts integer
 constants; `global-bytes` accepts byte lists without adding a null terminator.
 
+`gep` takes a result pointer, an element type, a base pointer, and integer
+indices. `cast` supports instruction-form `ptrtoint` and `inttoptr`; the existing
+`inttoptr` constructor still builds constant expressions. `select` takes an `i1`
+condition and two operands matching its result type. These operations validate
+types and function scope while preserving immutable references.
+
 Function definitions accept `external`, `internal`, or `private` linkage and
 the `alwaysinline`, `noinline`, `nounwind`, and `cold` attributes. The supported
 subset covers the current backend and the arithmetic loop above. Struct types,
-GEP, metadata, exceptions, parameter attributes, and LLVM/JIT bindings are not
+metadata, exceptions, parameter attributes, and LLVM/JIT bindings are not
 implemented. Add concrete typed operations when a backend change needs them.
 
 The writer streams definitions to a port. It neither accumulates a complete

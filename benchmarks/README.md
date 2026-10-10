@@ -278,6 +278,15 @@ See the [v3 runtime report](../doc/runtime-v3.md) for the matched 32-bit
 before/after comparison and its raw samples. Historical native tables above
 use 64-bit GNU/Linux and must not be treated as the same target.
 
+The later [chapter-4 stack report](../doc/stack-vm.md) compares the reusable
+Scheme stack with the frozen ABI 2 runtime at `03d02cf`, keeping the same
+32-bit native and WASI targets. Its
+[raw measurements](results/2026-10-09-ch4-stack.json) retain six rotated samples
+per implementation, exact source/artifact hashes, and Chez and Chibi ratios.
+These measure ordinary release builds without LTO. Scheme/LLVM/Cargo compilation
+and process startup are excluded; Node may still optimize Wasm during a fresh
+process's timed execution.
+
 ## Chibi comparisons
 
 `benchmarks/chibi` compares saved native/WASI Snail executables with Chibi and

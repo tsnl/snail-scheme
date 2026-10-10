@@ -20,13 +20,18 @@ SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
           '(write (cdr (command-line)))\n(newline)\n')
 # Deliberately outside the emitter's single-entry-loop contract. The WASI build
 # must reject this before skipping LLVM's expensive irreducibility repair pass.
+# Object services keep the branch inputs opaque across each loop iteration;
+# repeated tests of one unchanged register would simplify to a reducible loop.
 IRREDUCIBLE = """(import (scheme base) (snail-scheme vm) (snail-scheme llvm))
 (write-llvm-program
- (make-vm-program 3 0
+ (make-vm-program 5 0
   (list (make-instruction 0 'return '() #f #f)
-        (make-instruction 1 'test '(2 0) #f #f)
-        (make-instruction 2 'test '(1 0) #f #f)
-        (make-instruction 3 'test '(1 2) #f #f))
+        (make-instruction 1 'close '(0 0 0 0 0) 2 #f)
+        (make-instruction 2 'test '(3 0) #f #f)
+        (make-instruction 3 'close '(0 0 0 0 0) 4 #f)
+        (make-instruction 4 'test '(1 0) #f #f)
+        (make-instruction 5 'close '(0 0 0 0 0) 6 #f)
+        (make-instruction 6 'test '(1 3) #f #f))
   '() '() '())
  (current-output-port))
 """
@@ -183,7 +188,7 @@ def check_aliases(directory, source):
 
 def check_abi(directory, llvm):
     source = directory / "stale.ll"
-    stale, replacements = re.subn(r"(define i32 @snail_program_abi\(\)\s*\{.*?ret i32 )2\b",
+    stale, replacements = re.subn(r"(define i32 @snail_program_abi\(\)\s*\{.*?ret i32 )3\b",
                                   r"\g<1>0", llvm, count=1, flags=re.DOTALL)
     if replacements != 1:
         raise RuntimeError("cannot locate generated program ABI accessor")
@@ -192,7 +197,7 @@ def check_abi(directory, llvm):
     result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner",
                      "--target", "i686-unknown-linux-musl"],
                     ROOT, environment)
-    require(result, "", 1, "program ABI 0 does not match runtime ABI 2")
+    require(result, "", 1, "program ABI 0 does not match runtime ABI 3")
 
 
 def check_irreducible(directory):

@@ -197,7 +197,7 @@ benchmark-specific runtime measurements separate from the standard libraries.
 [`lower.sld`](src/snail-scheme/lower.sld) begins with `lower-program`.
 `program-libraries` orders libraries after their dependencies, and
 `library-items` places their initialization before the program body. Global
-storage is assigned by binding identity. `local-definitions` gathers the cells
+storage is assigned by binding identity. `local-definitions` gathers the bindings
 belonging to one activation and stops at nested lambdas. `free-definitions`
 continues through nested lambdas: a parent may need to carry an outer binding
 solely so that it can construct a child closure.
@@ -206,8 +206,10 @@ solely so that it can construct a child closure.
 label that should run afterward and returns its own entry label. This explains
 why `lower-items` constructs continuations backward even though execution follows
 source order. `lower-lambda` creates the procedure body and emits captures of its
-free cells. `lower-application` evaluates arguments left to right, pushes each
-argument, evaluates the operator, and emits a call. `lower-conditional` gives the
+free values or cells. `boxed-definitions` combines explicit assignments with
+forward captures needed for recursive initialization. `lower-application` emits
+a frame for a non-tail call, evaluates arguments left to right, pushes each,
+evaluates the operator, and applies it. Tail calls shift arguments instead. `lower-conditional` gives the
 test two explicit destinations. Tail position is passed through these operations
 rather than recovered later from emitted code.
 
@@ -228,31 +230,32 @@ by a bytecode-fetch loop.
 `write-llvm-program` writes a program ABI version, Rust service declarations, inline instruction
 functions, constant data, count accessors, and the program body.
 `write-vm-instructions` emits the `snail_vm_*` functions as `internal alwaysinline`.
-Reference, assignment, capture, push, and test handlers implement actual word
-loads, stores, and tag tests. Closure construction and control transfers call
-Rust services for their variable-sized work.
+Reference, assignment, argument, frame, shift, and test handlers implement
+actual stack loads, stores, and branches. Application and return are shared
+blocks in the generated function. Rust services prepare heap-backed operations
+and native calls; they do not own ordinary call/return transitions.
 
-`handler-entry` checks whether the VM has stopped; it does not collect.
-`checked-pointer-block` branches around failed Rust services. A handler loads a
-source word before requesting storage that might move its source, then publishes
-the result before another instruction can collect. LLVM uses `ptr` to copy one
-target-sized tagged word; the copied word is never dereferenced as an object.
-The false, unspecified, and uninitialized encodings agree with `Value` in Rust.
+Handlers check single-value contexts and service errors before using results.
+They load source words before a service can relocate stack storage and publish
+live words before allocation boundaries. LLVM uses `i32` for tagged words and
+`ptr` for storage addresses; ordinary handlers dereference stack/slot addresses. The false,
+unspecified, and uninitialized encodings agree with Rust's `Value`.
 
 `write-data` serializes bytes and constant indices. `initialization-body` builds
 constants and primitive globals, constructs the root closure, and enters it.
 `program-blocks` reserves immutable block references; `instruction-body` defines
 one block per VM instruction. Known successors branch directly; calls and returns
 feed `dispatch-body`. Its switch contains
-procedure entries and non-tail return addresses. The `u32::MAX` destination
+procedure entries, non-tail return addresses, and reserved apply/return/consumer
+actions. The `u32::MAX` destination
 stops execution; another unexpected destination reports an invalid instruction
 address.
 
 `vm-functions` gives VM operations their typed LLVM function references.
 `dispatch-targets` preserves first-occurrence order with a private bitmap for
 the lowerer's dense labels; sparse hand-built labels retain list membership
-checks. This deduplicates switch destinations, while the dispatch phi still
-lists every incoming control-flow edge.
+checks. This deduplicates switch destinations; a phi gathers instruction and shared-control
+destinations at the dispatcher.
 
 [`llvmlite.sld`](src/snail-scheme/llvmlite.sld) supplies the immutable LLVM
 vocabulary used by that lowering. References precede definitions: create a
@@ -314,59 +317,47 @@ live same-heap words; a copied value is not a durable host root.
 Allocation never collects. Collection scheduling uses allocations since the
 last sweep and a budget fixed at that sweep. Statistics count objects, not bytes.
 
-## Activations, continuations, and Rust services
+## Stack storage, continuations, and Rust services
 
-[`runtime/src/vm.rs`](runtime/src/vm.rs) holds the machine's roots and control
-state. An `Activation` owns local slots, its closure, and its operand-stack base.
-Each local stores either a direct value or a shared cell created on first capture.
-A return frame saves an activation and resume label. A consumer frame saves the
-procedure that should receive a producer's multiple values.
+[`runtime/src/vm.rs`](runtime/src/vm.rs) owns a single initialized value buffer.
+Its active suffix is the downward-growing Scheme stack; saved frame positions
+are depths from its high end. `State` is the fixed C-compatible register layout
+shared with generated LLVM. Globals and constants have stable storage; `reserve`
+moves the active suffix to a larger buffer and refreshes `stack_end`.
 
-`close` consumes captured cells and creates a closure. `call` takes the prepared
-arguments and operator, saves the caller for an ordinary call, or replaces the
-activation for a tail call. `dispatch` then advances explicit call and return
-actions until generated Scheme code needs to resume. `enter_closure` checks
-arity, installs direct parameter and local values, builds a rest list when needed,
-and returns the procedure entry label. `return_values` reuses the same dispatcher.
-No Scheme call recursively enters generated code through the Rust call stack.
-Primitive outcomes distinguish one value, multiple values, and control requests.
-`set_result` reuses the VM's result vector for ordinary single-value publications.
+`prepare_apply` checks whether the operator is a closure, primitive, or saved
+continuation. Fixed-arity closure entry creates no Rust or managed allocation.
+`prepare_rest` constructs a list for variadic calls. Primitive invocation polls
+when necessary, reverses the consumed argument region into source order, and
+borrows a slice. The callable cannot collect or resize the Scheme stack.
 
-`slot`, `capture_slot`, `single_slot`, `result_slot`, and `push_slot` are the
-checked storage services used by LLVM instruction bodies. Capturing a direct
-local acquires an allocation capability before constructing and publishing its
-shared cell. Later captures reuse it without polling. A capture selects the cell itself; a lexical reference selects either
-the direct value or the cell's contents. Slot pointers are
-short-lived: growing the underlying vector can invalidate them. Ordinary slot services
-do not collect; generated code finishes its loads and stores before an
-allocating operation.
+`capture` copies the active suffix through the call's return header into an
+immutable continuation object. `restore` preserves invocation values, copies
+the snapshot back, and lets LLVM execute its ordinary return transition. The
+snapshot can be invoked repeatedly. Assigned binding cells retain identity
+across snapshots; immutable captures are copied directly into closures.
 
-`Runtime` owns the heap, ports, argv, and permanent symbol-name table. Rust
-callables receive its read/mutation services without access to VM control state.
-`Allocation` adds managed constructors and borrows those same services. Only
-the VM creates this owned capability after checking pressure or `SNAIL_GC_STRESS`.
-Arguments and procedures passed through a returned dispatch action are included
-as extra roots before acquisition. Allocations inside the callable never poll,
-and capability destruction never collects.
+`Runtime` owns heap, ports, argv, and symbol names. Rust callables receive these
+services without VM control. `Allocation` adds managed construction for a
+GC-free burst; only the VM creates that capability at an allocation boundary.
+Neither a managed allocation nor capability destruction triggers collection.
+`roots` gathers globals, constants, registers, active stack words, multiple
+results, and current ports. Saved snapshots trace their words as heap children.
+All stack metadata is tagged immediate data, so the collector never mistakes a
+raw frame index for an object pointer.
 
-`collect_with`, `roots`, `Activation::roots`, and `Frame::roots` account for
-all active/saved Scheme values and current ports. Immediate symbols need no
-tracing; their backing names survive until the runtime is dropped.
+One result lives in `State.a`; multiple values use a reusable vector.
+`receive` transfers those results to the consumer's arguments. `apply`, multiple
+values, and continuation invocation rejoin shared LLVM control blocks without
+nesting native Rust calls. Explicit `collect-garbage` requests collection only
+after the native operation returns. `gc_statistics` includes root gathering,
+tracing, and sweeping in its collection timings.
 
-The explicit `collect-garbage` primitive requests a `Collect` action. The VM
-publishes its unspecified result and collects only after the consumed inputs
-are no longer needed. `gc_statistics` reports collection count, cumulative and
-maximum collection nanoseconds, allocation and reclamation counts, live objects,
-and peak live objects. The measured collection interval includes root gathering
-and tracing/sweeping.
-
-[`runtime/src/lib.rs`](runtime/src/lib.rs) is the C ABI boundary.
-`boundary` records errors and contains unwinds where the build supports
-unwinding; stopped machines make later services return their stopped values.
-Ordinary instruction entry only checks the stopped state. The `snail_rt_*` functions
-expose the VM services, while `snail_const_*` and `snail_global_primitive` build
-startup data. Release builds abort on unexpected Rust panics. Scheme errors use
-the VM's explicit error state.
+[`runtime/src/lib.rs`](runtime/src/lib.rs) provides ABI 3. `boundary` records
+errors and contains unwinds where supported; stopped machines return stopped
+values. Release builds abort on unexpected Rust panics. Startup services build
+constants and primitive globals; execution services expose state, storage,
+heap-backed bindings, application preparation, and snapshots.
 
 [`runtime/src/primitives.rs`](runtime/src/primitives.rs) dispatches builtins.
 A closed `Builtin` inventory records names and allocation effects; dispatch
@@ -502,7 +493,7 @@ A useful order for an optimization change is HIR identity, lowering's storage
 and tail-position decisions, VM operations, then the corresponding LLVM body
 and Rust service. HIR and VM dumps expose the boundaries before machine code;
 benchmarks and semantic fixtures provide separate performance and correctness
-checks. Captured locals use cells, values remain dynamically checked, and
+checks. Assigned locals use cells, values remain dynamically checked, and
 library bodies are retained. Those choices make the costs visible before type
 inference changes representation or removes checks.
 
