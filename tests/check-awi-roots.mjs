@@ -1,4 +1,4 @@
-// Execute the Rust extension example, then inspect the root table. Host current
+// Execute the Rust interop example, then inspect the root table. Host current
 // input/output/error ports own three roots; all temporary roots must be released.
 import { readFile } from 'node:fs/promises';
 import { WASI } from 'node:wasi';

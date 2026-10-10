@@ -58,7 +58,7 @@ and do not introduce GC safepoints.
 
 ```rust
 fn operation() {
-    let _trace = snail_trace::span("module.operation");
+    let _trace = snail_runtime::trace::span("module.operation");
     // The guard closes the span on return or panic unwinding.
 }
 ```
