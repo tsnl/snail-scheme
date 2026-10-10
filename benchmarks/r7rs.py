@@ -145,8 +145,7 @@ def build_commands(case):
             raise FileNotFoundError(
                 "set SNAIL_WASM_NATIVE to a compiler accepting INPUT.wasm -o OUTPUT"
             )
-        artifact = str(directory / "program")
-        return [str(ROOT / "snail-scheme"), source, "--native", "-o", artifact], [artifact]
+        return native_commands(directory, source)
     if system == "chez":
         return chez_commands(directory, source)
     if system == "guile":
@@ -159,6 +158,19 @@ def build_commands(case):
             f"(load-compiled {json.dumps(artifact)})",
         ]
     return [], [tool("CHIBI", "chibi-scheme"), source]
+
+
+def native_commands(directory, source):
+    artifact, wasm = str(directory / "program"), str(directory / "program.wasm")
+    quote = lambda value: json.dumps(str(value), ensure_ascii=False)
+    native = tool("SNAIL_WASM_NATIVE", "")
+    script = directory / "build.scm"
+    script.write_text(
+        "(import (scheme base) (snail-scheme build))\n"
+        f"(build-wasm {quote(ROOT)} {quote(source)} {quote(wasm)})\n"
+        f'(run-command "benchmark.native" (list {quote(native)} {quote(wasm)} "-o" {quote(artifact)}))\n'
+    )
+    return [tool("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"), str(script)], [artifact]
 
 
 def chez_commands(directory, source):
