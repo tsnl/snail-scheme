@@ -436,7 +436,9 @@
                    (result-type (cdr (type-definition type))) tail?)))
 
     (define (reference-test reference type)
-      (let* ((nullable? (and (pair? type) (eq? (cadr type) 'null)))
+      (let* ((alias (assq type reference-aliases))
+             (type (if alias (list 'ref 'null (cdr alias)) type))
+             (nullable? (and (pair? type) (eq? (cadr type) 'null)))
              (heap (if (pair? type) (car (reverse type)) type))
              (tag (if (wat-name? heap) (type-id heap)
                       (case heap ((any eq) -1) ((i31) -2) ((struct) -3) ((array) -4)
@@ -445,6 +447,10 @@
         (if (= tag -2) (i31-test reference nullable?)
             (call-native "native_ref_test" "i32"
                          (list reference (constant "i64" tag) (constant "i32" (if nullable? 1 0)))))))
+
+    (define reference-aliases
+      '((anyref . any) (eqref . eq) (i31ref . i31) (structref . struct)
+        (arrayref . array) (funcref . func) (nullref . none) (nullfuncref . nofunc)))
 
     (define (i31-test reference nullable?)
       (let* ((tag (instruction "i64" "and " (typed reference) ", 1"))
