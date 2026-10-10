@@ -525,6 +525,144 @@ fn float_text(number: f64) -> String {
     }
 }
 
+// ---- Inexact mathematics ----
+
+// Snail has i64 integers and binary64 reals, without complex numbers. Conversion
+// may round large integers, so math results are always inexact. Real-domain
+// failures produce NaN, as permitted by R7RS; signed zero and infinities survive.
+// Arguments stay rooted across result allocation; only copied f64 values enter
+// the math operations. finish transfers the separately owned result root.
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:acos"))]
+pub extern "C" fn acos(raw: u32) -> u32 {
+    let args = arguments(raw, "acos", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.acos())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:asin"))]
+pub extern "C" fn asin(raw: u32) -> u32 {
+    let args = arguments(raw, "asin", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.asin())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:cos"))]
+pub extern "C" fn cos(raw: u32) -> u32 {
+    let args = arguments(raw, "cos", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.cos())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:exp"))]
+pub extern "C" fn exp(raw: u32) -> u32 {
+    let args = arguments(raw, "exp", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.exp())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:finite?"))]
+pub extern "C" fn finite(raw: u32) -> u32 {
+    let args = arguments(raw, "finite?", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::boolean(value.is_finite())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:infinite?"))]
+pub extern "C" fn infinite(raw: u32) -> u32 {
+    let args = arguments(raw, "infinite?", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::boolean(value.is_infinite())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:nan?"))]
+pub extern "C" fn nan(raw: u32) -> u32 {
+    let args = arguments(raw, "nan?", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::boolean(value.is_nan())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:sin"))]
+pub extern "C" fn sin(raw: u32) -> u32 {
+    let args = arguments(raw, "sin", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.sin())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:sqrt"))]
+pub extern "C" fn sqrt(raw: u32) -> u32 {
+    let args = arguments(raw, "sqrt", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.sqrt())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:tan"))]
+pub extern "C" fn tan(raw: u32) -> u32 {
+    let args = arguments(raw, "tan", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| value.as_real())
+            .map(|value| Root::real(value.tan())),
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:atan"))]
+pub extern "C" fn atan(raw: u32) -> u32 {
+    finish(arctangent(&arguments(raw, "atan", 1, 2)))
+}
+
+fn arctangent(args: &Arguments) -> Result<Root, String> {
+    let y = args.get(0)?.as_real()?;
+    let result = if args.len() == 2 {
+        y.atan2(args.get(1)?.as_real()?)
+    } else {
+        y.atan()
+    };
+    Ok(Root::real(result))
+}
+
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:log"))]
+pub extern "C" fn log(raw: u32) -> u32 {
+    finish(logarithm(&arguments(raw, "log", 1, 2)))
+}
+
+fn logarithm(args: &Arguments) -> Result<Root, String> {
+    let value = args.get(0)?.as_real()?;
+    let result = if args.len() == 2 {
+        value.log(args.get(1)?.as_real()?)
+    } else {
+        value.ln()
+    };
+    Ok(Root::real(result))
+}
+
 // ---- Unicode and substring search ----
 
 #[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:char-alphabetic?"))]

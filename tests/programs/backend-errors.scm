@@ -1,4 +1,4 @@
-(import (scheme base) (scheme process-context))
+(import (scheme base) (scheme inexact) (scheme process-context))
 
 ;; Compile the shared bootstrap once, then exercise independent failure paths.
 (case (string->symbol (cadr (command-line)))
@@ -8,5 +8,9 @@
   ((numeric-type) (+ 1 #f))
   ((numeric-values) (+ 1 (values 2 3)))
   ((numeric-arity) (-))
+  ((inexact-type) (sqrt #f))
+  ((inexact-arity) (sqrt 1 2))
+  ((inexact-optional-type) (log 2 #f))
+  ((inexact-optional-arity) (atan 1 2 3))
   ((overflow) (+ 9223372036854775807 1))
   (else (error "unknown backend error case")))

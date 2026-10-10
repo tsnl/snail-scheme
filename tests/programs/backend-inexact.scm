@@ -1,0 +1,68 @@
+(import (scheme base) (scheme inexact) (scheme write))
+
+(define (check expected actual)
+  (if (not (equal? expected actual)) (error "inexact mismatch" expected actual)))
+
+(define (near expected actual)
+  (if (not (< (abs (- expected actual)) 0.000000000001))
+      (error "inexact result outside tolerance" expected actual)))
+
+;; ---- Functions and optional arguments ----
+
+(define pi (acos -1))
+(near 3 (sqrt 9))
+(near 1.4142135623730951 (sqrt 2.0))
+(near 0 (acos 1))
+(near (/ pi 2) (asin 1))
+(near 0.5 (sin (/ pi 6)))
+(near 0.5 (cos (/ pi 3)))
+(near 1 (tan (/ pi 4)))
+(near 2.718281828459045 (exp 1))
+(near 1 (log (exp 1)))
+(near 3 (log 8 2))
+(near -3 (log 8 0.5))
+(near 0.4636476090008061 (atan 0.5))
+(near 0.4636476090008061 (atan 1 2))
+(near 2.677945044588987 (atan 1 -2))
+(near -2.677945044588987 (atan -1 -2))
+
+;; Ordinary and first-class calls share checked entry points.
+(near 3 (apply sqrt '(9)))
+(near 3 (apply log '(8 2)))
+(near 0.4636476090008061 (apply atan '(1 2)))
+(check '(#t #f) (map finite? (list 1 +inf.0)))
+(check #t (inexact? (sqrt 9)))
+
+;; ---- Classification and binary64 boundaries ----
+
+(for-each (lambda (x)
+            (check #t (finite? x))
+            (check #f (infinite? x))
+            (check #f (nan? x)))
+          (list -9223372036854775808 9223372036854775807 0 -0.0 1.5))
+(for-each (lambda (x)
+            (check #f (finite? x))
+            (check #t (infinite? x))
+            (check #f (nan? x)))
+          (list +inf.0 -inf.0))
+(check #f (finite? +nan.0))
+(check #f (infinite? +nan.0))
+(check #t (nan? +nan.0))
+(for-each (lambda (f) (check #t (nan? (f +nan.0))))
+          (list acos asin atan cos exp log sin sqrt tan))
+(for-each (lambda (f) (check #t (nan? (f +inf.0)))) (list sin cos tan))
+(check #t (nan? (sqrt -1)))
+(check #t (nan? (log -1)))
+(check #t (nan? (asin 2)))
+(check #t (nan? (acos -2)))
+(check #t (infinite? (exp 1000)))
+(check 0.0 (exp -inf.0))
+(check -inf.0 (log 0.0))
+(check +inf.0 (sqrt +inf.0))
+
+;; Check signs without division by zero, which the base library rejects.
+(for-each (lambda (f) (check "-0.0" (number->string (f -0.0))))
+          (list sqrt sin tan asin atan))
+(near pi (atan 0.0 -1.0))
+(near (- pi) (atan -0.0 -1.0))
+(display "inexact checks passed\n")
