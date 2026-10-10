@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Expose the working directory at both its relative and absolute WASI paths.
-// Scheme arguments and environment variables, including SNAIL_GC_STRESS, pass
+// Scheme arguments and environment variables pass
 // through unchanged after the module filename.
 import { mkdir, readFile } from 'node:fs/promises';
 import { WASI } from 'node:wasi';
 import { resolve } from 'node:path';
+import { createFinalizers } from '../runtime/host.mjs';
 
 const [filename, ...args] = process.argv.slice(2);
 if (!filename) {
@@ -33,5 +34,12 @@ const wasi = new WASI({
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(await readFile(filename));
-const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
+let instance;
+const finalizers = createFinalizers((kind, id) =>
+  instance.exports['snail:drop-resource'](kind, id));
+const imports = { ...wasi.getImportObject(), 'snail.host': {
+  'register-finalizer': finalizers.register,
+  'unregister-finalizer': finalizers.unregister,
+} };
+instance = await WebAssembly.instantiate(module, imports);
 process.exitCode = wasi.start(instance);

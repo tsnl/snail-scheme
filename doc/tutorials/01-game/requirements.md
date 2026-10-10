@@ -3,6 +3,11 @@
 All criteria are **planned**. The [tutorial](README.md) is the reading sequence;
 this file states observable evidence for the future integration test.
 
+The [WasmGC actor prototype](../../../examples/actors/README.md) supplies the first
+instance/handler/connection checkpoint. Its collector is engine-owned: G03's
+intended memory layout and G06's collection controls are not currently enforceable.
+An unsupported GC policy must be reported as unsupported, never counted as a pass.
+
 | ID | Exercise | Required evidence |
 | --- | --- | --- |
 | G01 | Build the actor definition and start the native window runtime. Dispatch resume, input, resize, suspend/resume, redraw, and close. | The runtime spawns the root and invokes exported Scheme handlers. No Scheme polling loop. Window/surface cleanup handles repeated lifecycle events and partial initialization. |

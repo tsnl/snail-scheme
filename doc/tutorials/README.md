@@ -5,6 +5,14 @@ examples. They test the design in [Why Snail-Scheme?](../why-snail-scheme.md).
 **This directory currently contains specifications only: no runnable actor
 examples, test harnesses, or implemented APIs are claimed.**
 
+The separate [library actor prototype](../../examples/actors/README.md) establishes
+isolated WasmGC instances, exported handlers, and local S-expression connections.
+It is a platform checkpoint, not completion of any tutorial's acceptance suite.
+The new backend's engine-owned GC does not provide the proposed 32-bit Scheme
+heap layout or GC policies; G03/G06 and the external-storage work still need
+explicit runtime capabilities. Scheme suspension and native execution of complete
+linked applications also remain unfinished.
+
 | Project | Follow the program | Acceptance criteria |
 | --- | --- | --- |
 | Game | [A game that reloads while you play](01-game/README.md): pure rules, host handlers, frame actors, retained resources, reload. | [G01–G07](01-game/requirements.md) |

@@ -136,7 +136,9 @@ from the Scheme call alone.
 Large datasets and checkpoints use storage references with checked 64-bit ranges
 and binary transfers. Message serialization still applies to commands and resource
 descriptions, even for an in-process GPU provider. No raw pointer into an actor's
-32-bit Scheme heap is smuggled across the boundary.
+Scheme heap is smuggled across the boundary. The current backend uses opaque
+WasmGC references; the intended bounded 32-bit working-memory policy remains
+separate runtime work.
 
 **Checkpoint T04:** run the same captured graph through CPU and GPU backends and
 compare outputs/updates within stated tolerances. Inspect uploads and allocations

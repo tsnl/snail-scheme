@@ -158,8 +158,10 @@ The actor and typed-graph APIs described here are planned, not implemented.
 
 Large graph data and model weights use the
 [external-storage model](why-snail-scheme.md#resource-lifetimes-are-a-programming-tool):
-Scheme working memory stays 32-bit, while explicit 64-bit ranges identify external
-binary data. Graph and compiler actors can work on bounded windows or ask native
+the intended policy bounds Scheme working memory while explicit 64-bit ranges
+identify external binary data. Current WasmGC references do not establish a
+32-bit Scheme heap layout or enforce that policy. Graph and compiler actors can
+eventually work on bounded windows or ask native
 storage/device actors to transfer data directly. This does not make tracing,
 compilation, and graph execution the same operation or require an actor per tensor
 element. Actors delimit independently scheduled work and ownership.

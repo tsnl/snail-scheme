@@ -1,0 +1,887 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-10-10T10:44:20.534602+00:00",
+  "scope": "Whole canonical Scheme CPU program compiled by the production IR-to-WasmGC backend, merged with the Rust WASI runtime. Native Chez and Chibi are references, not Wasm engines.",
+  "measurement": {
+    "repetitions": 64,
+    "checksum": 269118144,
+    "cpu": 2,
+    "rounds": 8,
+    "clock": "Program-internal elapsed time; excludes compilation, process startup, input/oracle checks, final checksum validation, and output. Includes recursive workload, repeated-result validation, and loop control.",
+    "warmup": "One checked fresh-process invocation per variant, discarded. All measured invocations are fresh processes, so warmup affects OS caches, not a retained V8 tier or Scheme heap.",
+    "v8_tiering": "Default Node/V8 tiering. Canonical untimed checks call fibonacci(0..12); tier-up during timed fibonacci(22..25) remains included. No custom outer JavaScript benchmark loop.",
+    "rotation": "Variant order rotates left by one each round.",
+    "resolution": "Programs print microsecond-normalized seconds. Chibi 0.12 current-jiffy resolves milliseconds."
+  },
+  "checkout": {
+    "path": "/tmp/snail-wasmgc-backend-20261010",
+    "head": "f303d6b6f9aa1ef64bb31aff37d0a32d37228a48",
+    "branch": "backend/wasmgc",
+    "status": "M .gitignore\n M AGENTS.md\n M Cargo.lock\n M Cargo.toml\n M Makefile\n M README.md\n M TODO.md\n M TOUR.md\n M doc/backend.md\n D doc/hir.md\n M doc/lto-experiment.md\n M doc/mir.md\n M doc/rust-interop.md\n M doc/stack-vm.md\n M doc/tracing.md\n M driver/Cargo.toml\n M driver/src/main.rs\n M experiments/wasm-llvm/translate.py\n D runner/Cargo.toml\n D runner/build.rs\n D runner/src/main.rs\n M runtime/Cargo.toml\n M runtime/src/host.rs\n M runtime/src/lib.rs\n D runtime/src/object.rs\n D runtime/src/primitives.rs\n D runtime/src/representation.rs\n D runtime/src/vm.rs\n D scripts/check-static-codegen\n M scripts/run-wasi.mjs\n M scripts/test-backend\n M scripts/test-cli\n M shell.nix\n M src/snail-scheme/bootstrap.sld\n M src/snail-scheme/compiler.sld\n M src/snail-scheme/expand.sld\n D src/snail-scheme/hir.sld\n M src/snail-scheme/library.sld\n D src/snail-scheme/llvm.sld\n D src/snail-scheme/llvmlite.sld\n D src/snail-scheme/lower.sld\n D src/snail-scheme/machine.sld\n D src/snail-scheme/mir-llvm.sld\n D src/snail-scheme/mir.sld\n D tests/codegen-fixnum.rs\n D tests/emit-codegen-fixnum.scm\n D tests/emit-irreducible.scm\n D tests/emit-llvmlite.scm\n D tests/emit-mir-foreign.scm\n M tests/programs/backend-continuations.scm\n D tests/programs/backend-mir.scm\n M tests/programs/backend-numeric.scm\n M tests/snail-scheme/test.scm\n?? awi/\n?? benchmarks/results/2026-10-10-wasmgc-production.json\n?? doc/ir.md\n?? examples/extension.scm\n?? examples/extension/\n?? experiments/wasm-stack-switching/\n?? runtime/awi.wat\n?? runtime/host.mjs\n?? runtime/wasmgc.wat\n?? src/snail-scheme/ir.sld\n?? src/snail-scheme/wasm.sld\n?? tests/check-awi-roots.mjs\n?? tests/check-finalizers.mjs\n?? tests/check-wasm-foreign.mjs\n?? tests/finalizers.wat\n?? tests/programs/backend-control.scm\n?? tests/programs/backend-wasm-foreign.scm\n?? tests/programs/backend-wasmgc.scm",
+    "tracked_diff_sha256": "6d65f4fe33ff5ad07081a39e0eb216d008197adc90b7c6d32462b0e464d3f987",
+    "source_files_sha256": {
+      "Cargo.lock": "45701d38d6aad6469b56c554b861615f38b86815fe3483864f0dd2fc5e5bd71d",
+      "Cargo.toml": "c1f0fa82eb89c2dfafc866f6f180044d8a33bc8b483bd1c5d9ddb77ffe7cf2be",
+      "abi/Cargo.toml": "2dbda3288ff629e3262f74972344129644540a1553fa98c4ea54521bd921bd0e",
+      "abi/src/lib.rs": "e77ca807851d0e35d473c596506fa234639207da9ba4f8ac2977ca65662037f1",
+      "awi/Cargo.toml": "9d265dbaf050165c797a5ebcadc62efc25e5b28cfe8a8209be0b818f260ed3e3",
+      "awi/src/lib.rs": "3c04186d940cfdcd3653635f3272bcd1ff515e4823634db7c1b549e3bf6af13b",
+      "benchmarks/chez.scm": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "benchmarks/chibi.scm": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "bootstrap/scheme/base.sld": "c57065a494a10392a5f9f3debfea04bd3273203b4e2eac2a3261f3e6cb5b5d8a",
+      "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+      "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+      "bootstrap/scheme/file.sld": "c21a93aecaba05c92173b86318b06547bd3ad4bf7761a5d1e9440c7ea371e955",
+      "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+      "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+      "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+      "driver/src/main.rs": "061217e4a1b180b77ccc719130fe94d5824ba5abc8e98f5107c2b1036ff9ed92",
+      "runtime/Cargo.toml": "4a0a4f657c3113fbc8cca7744b1c9ec33c816f064187460abd712b0f5b241593",
+      "runtime/awi.wat": "3320524b9f610e83b6eca1d48c2c0dab4b7e7be6966e8fe468ebbff9decdeea5",
+      "runtime/host.mjs": "a919df9534dfc14cdcad751b551a4352d219a6fd505ff9f6177fec808bc76be5",
+      "runtime/src/host.rs": "3b8b4f4c5d5a062e34e70fe556485e1f4647f036c3f7624406ce5c5d1fe7cb4a",
+      "runtime/src/lib.rs": "5b2f77c22def6df2196502f89028e0ae6bc18ca31fe703536cd0d24a4e52918d",
+      "runtime/wasmgc.wat": "eca8ca567732635cad384f16edf85f212c4137f2f446ca0e1a1ab3fd140cf699",
+      "scripts/run-wasi.mjs": "ecf53415176519792cbcee84fb9bccef1536033fedf16f35d7cb2e1178665e8f",
+      "src/snail-scheme/bootstrap.sld": "ae9c16cb70dc1c0d5d1cdea775ac5069461f4a2639196356eb5c65b96b26cba8",
+      "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+      "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+      "src/snail-scheme/compiler.sld": "a612da2b0afab1fd4162e7484636f58edefc7b3a1bf2ba01e9576af98e23757f",
+      "src/snail-scheme/expand.sld": "12c80e5cc12711c5ea5452a84d332888557c3fff0a79f147bf6872fa0142e66d",
+      "src/snail-scheme/ir.sld": "aa41e1ee068c59aefc859370f349df151c4f90323d087bacbcc9752b7cff6c21",
+      "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+      "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8",
+      "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+      "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+      "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+      "src/snail-scheme/wasm.sld": "c93d8bd6b801caa1c7c3c50b2a53082a85c71d59ef0155045690c9c62ce7c8d3",
+      "trace/Cargo.toml": "c6aa314469d4b7153ac85fbf155642d797cea3a96e80065bec9db3f6dbbd47f3",
+      "trace/src/lib.rs": "0c5f61300d3f89162045572b1e608ce3f34f3bcb7011e03400d02f46e28c267e"
+    },
+    "provenance": "Artifacts were freshly compiled from the dirty migration worktree. These source hashes identify the measurement-time snapshot; binaries are independently frozen and checked before and after measurement."
+  },
+  "host": {
+    "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+    "machine": "x86_64",
+    "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ]
+  },
+  "tools": {
+    "node": "v24.15.0",
+    "v8": "13.6.233.17-node.48",
+    "chibi": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+    "chez": "10.4.1",
+    "binaryen": "wasm-opt version 132",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+  },
+  "variants": {
+    "wasmgc-default": {
+      "artifact": "build/wasmgc-production-benchmark/base.wasm",
+      "sha256": "18bd8cb81e452695694fc901a73c270ee95be11ae4710a920601bde87080c16c",
+      "bytes": 200816,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-wasmgc-backend-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/base.wasm",
+        "64"
+      ],
+      "defined_function_count": 543,
+      "optimizer": "-O3 --closed-world",
+      "optimization_passes": 1,
+      "rust_profile": "release, lto=true, codegen-units=1, panic=abort, target wasm32-wasip1"
+    },
+    "wasmgc-inline40": {
+      "artifact": "build/wasmgc-production-benchmark/direct40.wasm",
+      "sha256": "9ff2a96074f0530f31b7973f3b79f14a23e6bfefb9c3f8648eac1364aff2030f",
+      "bytes": 254100,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-wasmgc-backend-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/direct40.wasm",
+        "64"
+      ],
+      "defined_function_count": 386,
+      "optimizer": "-O3 --closed-world --always-inline-max-function-size=40",
+      "optimization_passes": 1,
+      "rust_profile": "release, lto=true, codegen-units=1, panic=abort, target wasm32-wasip1"
+    },
+    "wasmgc-second-pass-inline40": {
+      "artifact": "build/wasmgc-production-benchmark/inline40.wasm",
+      "sha256": "a121f1245212f5bc89332aa7783345d11c67b02a01f2c5d369249dcb0b9695f4",
+      "bytes": 254366,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-wasmgc-backend-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/inline40.wasm",
+        "64"
+      ],
+      "defined_function_count": 384,
+      "optimizer": "-O3 --closed-world --always-inline-max-function-size=40",
+      "optimization_passes": 2,
+      "rust_profile": "release, lto=true, codegen-units=1, panic=abort, target wasm32-wasip1"
+    },
+    "wasmgc-converge40": {
+      "artifact": "build/wasmgc-production-benchmark/converge40.wasm",
+      "sha256": "f3099396321f2ee632377ce8163885686d76f3e46530dce1f534470055694c6b",
+      "bytes": 222711,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-wasmgc-backend-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/converge40.wasm",
+        "64"
+      ],
+      "defined_function_count": 337,
+      "optimizer": "-O3 --closed-world --always-inline-max-function-size=40 --converge",
+      "optimization_passes": "repeat until binary size stops improving",
+      "rust_profile": "release, lto=true, codegen-units=1, panic=abort, target wasm32-wasip1"
+    },
+    "chez": {
+      "artifact": "build/wasmgc-production-benchmark/chez.so",
+      "sha256": "2089be7ffd8841a786fe455fb6bf57d0edb996a85cab615cc7a1374a0fe81f1b",
+      "bytes": 10309,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/chez.so",
+        "64"
+      ],
+      "optimization": "compile-program, safe optimize-level 2"
+    },
+    "chibi": {
+      "artifact": "build/wasmgc-production-benchmark/chibi.scm",
+      "sha256": "a24bb4afec3253f5b7664a18b089c67ab44ecc7e1fdcd381488cf831ab381dfc",
+      "bytes": 3352,
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-wasmgc-backend-20261010/build/wasmgc-production-benchmark/chibi.scm",
+        "64"
+      ]
+    }
+  },
+  "warmups": [
+    {
+      "variant": "wasmgc-default",
+      "round": null,
+      "position": 0,
+      "seconds": 0.338549,
+      "wall_seconds": 0.36685355100780725,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.338549 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": null,
+      "position": 1,
+      "seconds": 0.127097,
+      "wall_seconds": 0.15363468194846064,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127097 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": null,
+      "position": 2,
+      "seconds": 0.101216,
+      "wall_seconds": 0.12825689604505897,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.101216 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": null,
+      "position": 3,
+      "seconds": 0.08607,
+      "wall_seconds": 0.11147069896105677,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086070 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": null,
+      "position": 4,
+      "seconds": 0.0297,
+      "wall_seconds": 0.06638475297950208,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.029700 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": null,
+      "position": 5,
+      "seconds": 0.478,
+      "wall_seconds": 0.6037707640789449,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.478000 s; repetitions: 64\n",
+      "stderr": ""
+    }
+  ],
+  "samples": [
+    {
+      "variant": "wasmgc-default",
+      "round": 0,
+      "position": 0,
+      "seconds": 0.337439,
+      "wall_seconds": 0.36289769201539457,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.337439 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 0,
+      "position": 1,
+      "seconds": 0.127129,
+      "wall_seconds": 0.15376848704181612,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127129 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 0,
+      "position": 2,
+      "seconds": 0.101872,
+      "wall_seconds": 0.13166300300508738,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.101872 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 0,
+      "position": 3,
+      "seconds": 0.086123,
+      "wall_seconds": 0.11747066397219896,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086123 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 0,
+      "position": 4,
+      "seconds": 0.030447,
+      "wall_seconds": 0.06814771599601954,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030447 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 0,
+      "position": 5,
+      "seconds": 0.485,
+      "wall_seconds": 0.6108279019827023,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.485000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 1,
+      "position": 0,
+      "seconds": 0.127943,
+      "wall_seconds": 0.15369536995422095,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127943 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 1,
+      "position": 1,
+      "seconds": 0.10221,
+      "wall_seconds": 0.1282740329625085,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102210 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 1,
+      "position": 2,
+      "seconds": 0.083588,
+      "wall_seconds": 0.11043374997097999,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.083588 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 1,
+      "position": 3,
+      "seconds": 0.030538,
+      "wall_seconds": 0.06703455396927893,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030538 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 1,
+      "position": 4,
+      "seconds": 0.48,
+      "wall_seconds": 0.606500101974234,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.480000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 1,
+      "position": 5,
+      "seconds": 0.338174,
+      "wall_seconds": 0.36550614703446627,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.338174 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 2,
+      "position": 0,
+      "seconds": 0.101834,
+      "wall_seconds": 0.13105376693420112,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.101834 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 2,
+      "position": 1,
+      "seconds": 0.085732,
+      "wall_seconds": 0.11365737591404468,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.085732 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 2,
+      "position": 2,
+      "seconds": 0.030524,
+      "wall_seconds": 0.06431125500239432,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030524 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 2,
+      "position": 3,
+      "seconds": 0.481,
+      "wall_seconds": 0.6167683599051088,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.481000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 2,
+      "position": 4,
+      "seconds": 0.338862,
+      "wall_seconds": 0.3673471229849383,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.338862 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 2,
+      "position": 5,
+      "seconds": 0.127326,
+      "wall_seconds": 0.1565834559733048,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127326 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 3,
+      "position": 0,
+      "seconds": 0.086462,
+      "wall_seconds": 0.11577689601108432,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086462 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 3,
+      "position": 1,
+      "seconds": 0.03053,
+      "wall_seconds": 0.06517591199371964,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030530 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 3,
+      "position": 2,
+      "seconds": 0.482,
+      "wall_seconds": 0.6067484869854525,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.482000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 3,
+      "position": 3,
+      "seconds": 0.343558,
+      "wall_seconds": 0.37221882899757475,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.343558 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 3,
+      "position": 4,
+      "seconds": 0.128218,
+      "wall_seconds": 0.15725742490030825,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.128218 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 3,
+      "position": 5,
+      "seconds": 0.102611,
+      "wall_seconds": 0.12955255107954144,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102611 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 4,
+      "position": 0,
+      "seconds": 0.030578,
+      "wall_seconds": 0.06651136605069041,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030578 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 4,
+      "position": 1,
+      "seconds": 0.477,
+      "wall_seconds": 0.6059186230413616,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.477000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 4,
+      "position": 2,
+      "seconds": 0.338859,
+      "wall_seconds": 0.3693416960304603,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.338859 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 4,
+      "position": 3,
+      "seconds": 0.128145,
+      "wall_seconds": 0.15351873799227178,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.128145 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 4,
+      "position": 4,
+      "seconds": 0.102193,
+      "wall_seconds": 0.1294992018956691,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102193 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 4,
+      "position": 5,
+      "seconds": 0.086418,
+      "wall_seconds": 0.11475951597094536,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086418 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 5,
+      "position": 0,
+      "seconds": 0.482,
+      "wall_seconds": 0.6057293710764498,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.482000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 5,
+      "position": 1,
+      "seconds": 0.338345,
+      "wall_seconds": 0.36335920507553965,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.338345 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 5,
+      "position": 2,
+      "seconds": 0.127391,
+      "wall_seconds": 0.1542679249541834,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127391 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 5,
+      "position": 3,
+      "seconds": 0.102261,
+      "wall_seconds": 0.12996373302303255,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102261 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 5,
+      "position": 4,
+      "seconds": 0.08626,
+      "wall_seconds": 0.11219468794297427,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086260 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 5,
+      "position": 5,
+      "seconds": 0.030562,
+      "wall_seconds": 0.06824263301678002,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030562 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 6,
+      "position": 0,
+      "seconds": 0.339033,
+      "wall_seconds": 0.36455373698845506,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.339033 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 6,
+      "position": 1,
+      "seconds": 0.127786,
+      "wall_seconds": 0.1570708219660446,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127786 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 6,
+      "position": 2,
+      "seconds": 0.102056,
+      "wall_seconds": 0.13132750999648124,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102056 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 6,
+      "position": 3,
+      "seconds": 0.086284,
+      "wall_seconds": 0.11112766002770513,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086284 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 6,
+      "position": 4,
+      "seconds": 0.0291,
+      "wall_seconds": 0.06595869199372828,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.029100 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 6,
+      "position": 5,
+      "seconds": 0.488,
+      "wall_seconds": 0.6135130319744349,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.488000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-inline40",
+      "round": 7,
+      "position": 0,
+      "seconds": 0.127602,
+      "wall_seconds": 0.15339631994720548,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.127602 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-second-pass-inline40",
+      "round": 7,
+      "position": 1,
+      "seconds": 0.102515,
+      "wall_seconds": 0.13026086310856044,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102515 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-converge40",
+      "round": 7,
+      "position": 2,
+      "seconds": 0.086388,
+      "wall_seconds": 0.11605219100601971,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.086388 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "round": 7,
+      "position": 3,
+      "seconds": 0.030493,
+      "wall_seconds": 0.06803372001741081,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030493 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chibi",
+      "round": 7,
+      "position": 4,
+      "seconds": 0.479,
+      "wall_seconds": 0.6041789260925725,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.479000 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "wasmgc-default",
+      "round": 7,
+      "position": 5,
+      "seconds": 0.337974,
+      "wall_seconds": 0.3633115899283439,
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.337974 s; repetitions: 64\n",
+      "stderr": ""
+    }
+  ],
+  "summary": {
+    "wasmgc-default": {
+      "median_seconds": 0.338602,
+      "minimum_seconds": 0.337439,
+      "maximum_seconds": 0.343558,
+      "time_over_chez": 11.091885871523571,
+      "time_over_chibi": 0.7032232606438215,
+      "speedup_over_default": 1.0
+    },
+    "wasmgc-inline40": {
+      "median_seconds": 0.127694,
+      "minimum_seconds": 0.127129,
+      "maximum_seconds": 0.128218,
+      "time_over_chez": 4.182985553772071,
+      "time_over_chibi": 0.2652004153686397,
+      "speedup_over_default": 2.6516672670603163
+    },
+    "wasmgc-second-pass-inline40": {
+      "median_seconds": 0.1022015,
+      "minimum_seconds": 0.101834,
+      "maximum_seconds": 0.102611,
+      "time_over_chez": 3.3479051331608085,
+      "time_over_chibi": 0.2122564901349948,
+      "speedup_over_default": 3.3130824890045645
+    },
+    "wasmgc-converge40": {
+      "median_seconds": 0.086272,
+      "minimum_seconds": 0.083588,
+      "maximum_seconds": 0.086462,
+      "time_over_chez": 2.8260883807776724,
+      "time_over_chibi": 0.17917341640706128,
+      "speedup_over_default": 3.9248191765578637
+    },
+    "chez": {
+      "median_seconds": 0.030527,
+      "minimum_seconds": 0.0291,
+      "maximum_seconds": 0.030578,
+      "time_over_chez": 1.0,
+      "time_over_chibi": 0.06339979231568016,
+      "speedup_over_default": 11.091885871523571
+    },
+    "chibi": {
+      "median_seconds": 0.4815,
+      "minimum_seconds": 0.477,
+      "maximum_seconds": 0.488,
+      "time_over_chez": 15.7729223310512,
+      "time_over_chibi": 1.0,
+      "speedup_over_default": 0.7032232606438215
+    }
+  },
+  "integrity": {
+    "artifact_hashes_unchanged": true,
+    "source_files_changed_during_measurement": [
+      "driver/src/main.rs"
+    ],
+    "harness_sha256": "93d8e582ffb51d06cf251e6bce01842b844b63483acfcbef8f6ba8ca6145a1b1",
+    "linked_module_sha256": "895f8f7247c7b3f2ea76d7a93e42818a36757a675687758365e875373302184d",
+    "changed_driver_explanation": "The parent agent added the measured inlining/convergence flags during this final measurement. The saved Wasm binaries, launcher, canonical benchmark, Chez/Chibi controls, and runtime host file did not change."
+  },
+  "optimizer_control": {
+    "commands": {
+      "one-pass40": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "build/wasmgc-production-benchmark/linked.wasm",
+        "-o",
+        "build/wasmgc-production-benchmark/one-pass40.wasm"
+      ],
+      "converge40": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--converge",
+        "--always-inline-max-function-size=40",
+        "build/wasmgc-production-benchmark/linked.wasm",
+        "-o",
+        "build/wasmgc-production-benchmark/converge40.wasm"
+      ]
+    },
+    "optimizer_wall_seconds": {
+      "one-pass40": 0.2653491960372776,
+      "converge40": 0.615772542078048
+    },
+    "samples": {
+      "one-pass40": [
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.124767 s; repetitions: 64\n",
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.124723 s; repetitions: 64\n",
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.124728 s; repetitions: 64\n"
+      ],
+      "converge40": [
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.085178 s; repetitions: 64\n",
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.085153 s; repetitions: 64\n",
+        "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.082246 s; repetitions: 64\n"
+      ]
+    },
+    "note": "Three preliminary canonical runs per setting and one optimizer wall-time sample per setting; not compilation-time confidence intervals. Final runtime comparisons use the eight-round samples above."
+  },
+  "limitations": [
+    "Only the CPU Fibonacci workload is measured; this does not claim allocating, I/O, extension-heavy, or continuation performance.",
+    "No native output from the new full WasmGC production module is measured.",
+    "The earlier bounded prototype used a custom JS outer harness and forced optimizing tier; its 0.082-second value is not a matched whole-program comparison.",
+    "The second-pass control uses one additional -O3 optimization of the default optimized module. It must not be presented as the single driver-flag result.",
+    "Inlining threshold 80 regressed in a preliminary unrecorded control; no general monotonic relation or causal explanation is claimed."
+  ],
+  "compiled_source_snapshot": {
+    "head": "f303d6b6f9aa1ef64bb31aff37d0a32d37228a48",
+    "tracked_diff_sha256": "3a50a6321967dfd61127068c31c251a7cc65f54d3ed98852458410da2b8cdfa6",
+    "source_files_sha256": {
+      "Cargo.lock": "45701d38d6aad6469b56c554b861615f38b86815fe3483864f0dd2fc5e5bd71d",
+      "Cargo.toml": "c1f0fa82eb89c2dfafc866f6f180044d8a33bc8b483bd1c5d9ddb77ffe7cf2be",
+      "abi/Cargo.toml": "2dbda3288ff629e3262f74972344129644540a1553fa98c4ea54521bd921bd0e",
+      "abi/src/lib.rs": "e77ca807851d0e35d473c596506fa234639207da9ba4f8ac2977ca65662037f1",
+      "awi/Cargo.toml": "9d265dbaf050165c797a5ebcadc62efc25e5b28cfe8a8209be0b818f260ed3e3",
+      "awi/src/lib.rs": "3c04186d940cfdcd3653635f3272bcd1ff515e4823634db7c1b549e3bf6af13b",
+      "benchmarks/chez.scm": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "benchmarks/chibi.scm": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "bootstrap/scheme/base.sld": "c57065a494a10392a5f9f3debfea04bd3273203b4e2eac2a3261f3e6cb5b5d8a",
+      "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+      "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+      "bootstrap/scheme/file.sld": "c21a93aecaba05c92173b86318b06547bd3ad4bf7761a5d1e9440c7ea371e955",
+      "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+      "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+      "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+      "driver/src/main.rs": "061217e4a1b180b77ccc719130fe94d5824ba5abc8e98f5107c2b1036ff9ed92",
+      "runtime/Cargo.toml": "4a0a4f657c3113fbc8cca7744b1c9ec33c816f064187460abd712b0f5b241593",
+      "runtime/awi.wat": "3320524b9f610e83b6eca1d48c2c0dab4b7e7be6966e8fe468ebbff9decdeea5",
+      "runtime/host.mjs": "a919df9534dfc14cdcad751b551a4352d219a6fd505ff9f6177fec808bc76be5",
+      "runtime/src/host.rs": "3b8b4f4c5d5a062e34e70fe556485e1f4647f036c3f7624406ce5c5d1fe7cb4a",
+      "runtime/src/lib.rs": "5b2f77c22def6df2196502f89028e0ae6bc18ca31fe703536cd0d24a4e52918d",
+      "runtime/wasmgc.wat": "eca8ca567732635cad384f16edf85f212c4137f2f446ca0e1a1ab3fd140cf699",
+      "scripts/run-wasi.mjs": "ecf53415176519792cbcee84fb9bccef1536033fedf16f35d7cb2e1178665e8f",
+      "src/snail-scheme/bootstrap.sld": "ae9c16cb70dc1c0d5d1cdea775ac5069461f4a2639196356eb5c65b96b26cba8",
+      "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+      "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+      "src/snail-scheme/compiler.sld": "a612da2b0afab1fd4162e7484636f58edefc7b3a1bf2ba01e9576af98e23757f",
+      "src/snail-scheme/expand.sld": "12c80e5cc12711c5ea5452a84d332888557c3fff0a79f147bf6872fa0142e66d",
+      "src/snail-scheme/ir.sld": "aa41e1ee068c59aefc859370f349df151c4f90323d087bacbcc9752b7cff6c21",
+      "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+      "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8",
+      "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+      "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+      "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+      "src/snail-scheme/wasm.sld": "c93d8bd6b801caa1c7c3c50b2a53082a85c71d59ef0155045690c9c62ce7c8d3",
+      "trace/Cargo.toml": "c6aa314469d4b7153ac85fbf155642d797cea3a96e80065bec9db3f6dbbd47f3",
+      "trace/src/lib.rs": "0c5f61300d3f89162045572b1e608ce3f34f3bcb7011e03400d02f46e28c267e"
+    },
+    "note": "Snapshot taken immediately after compiling frozen linked.wasm, before the driver adopted the measured optimization flags. Benchmark, adapter, launcher, runtime, and compiler source hashes remained unchanged through the first measurement. Final artifacts are all derived from this one linked module; the later driver source edit does not affect saved modules."
+  },
+  "artifact_build_commands": {
+    "scheme": "CHIBI=<recorded Chibi path> WASM_AS=<Binaryen>/wasm-as WASM_MERGE=<Binaryen>/wasm-merge WASM_OPT=<Binaryen>/wasm-opt ./snail-scheme benchmarks/cpu.scm --keep-build -o build/wasmgc-production-benchmark/frozen-current.wasm",
+    "chez": "<recorded Chez path> --script benchmarks/chez.scm benchmarks/cpu.scm build/wasmgc-production-benchmark/chez.so",
+    "chibi": "<recorded Chibi path> benchmarks/chibi.scm benchmarks/cpu.scm build/wasmgc-production-benchmark/chibi.scm",
+    "wasm_optimization": "All variants use the same linked.wasm recorded in integrity. Default uses -O3 --closed-world; one-pass40 adds --always-inline-max-function-size=40. Second-pass40 runs -O3 --closed-world --always-inline-max-function-size=40 once on the default optimized module. Converge40 adds --converge to one-pass40. Exact one-pass/converge commands are retained in optimizer_control.commands."
+  }
+}

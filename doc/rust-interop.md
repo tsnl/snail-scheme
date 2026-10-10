@@ -1,320 +1,125 @@
-# Rust interop
+# Application Wasm interface (AWI)
 
-The next interop milestone should use ordinary Rust library dependencies built
-by Cargo together with the runtime and generated Scheme object. Start with
-synchronous Rust functions callable from Scheme. Add reusable Rust embedding
-after that boundary is tested. These APIs are proposed; they are not available
-in the current runtime.
+Wasm is the substrate. Rust extensions compile to Wasm and link with the Scheme
+module. Native execution is a subsequent translation step, not a different
+extension ABI. AWI v0 consists of named Wasm functions using scalar parameters
+and opaque root handles; it is not a standardized Component Model interface.
 
-## What exists today
+## Calling Scheme and Rust
 
-The compiler elaborates HIR to structured MIR and emits a whole-program LLVM
-entry point with ordinary C ABI calls into Rust.
-Cargo compiles that IR for the target and links the object with `snail-runtime`.
-The executable CLI generates a Cargo project and invokes `cargo build` or
-`cargo run`. The supported host pair is native and `wasm32-wasip1`, using the
-same Rust runtime and an adapter based on `std`. The generated entry exports
-`snail_program_abi`; the runner checks it against `PROGRAM_ABI` before executing
-the program. The current protocol version is 3.
+Each exported Scheme-callable Rust function accepts one `u32` borrowed
+argument-vector handle and returns one `u32` owned result handle. Functions have
+separate import/export names, `snail:<Scheme-name>` in module `snail.rust`.
+There is no builtin-number dispatcher. The prefix avoids collisions with libc
+symbols such as `exit` and `write`.
 
-The heap owns fixed-layout builtin objects and one `Extension` kind for foreign
-payloads. Its C ABI tracing/destruction vtable is implemented; safe registration,
-checked host roots, and a public embedding facade remain proposed. Tagged
-32-bit words point directly to objects. Copying a word does not retain its
-object, and an address can be reused after collection.
-
-The internal builtin call boundary uses an owned allocation capability.
-Collection occurs before entry into an allocating Rust callable, with its
-procedure and arguments explicitly rooted. Allocation inside Rust never
-collects. Nonallocating callables do not poll. Returned values and invocation
-requests become roots before another allocating operation. Explicit collection
-runs only after consuming its inputs and publishing its result.
-
-See [backend.md](backend.md) for the executable implementation and
-[TOUR.md](../TOUR.md) for the module walkthrough.
-
-The implemented `snail-abi` proc macro exports fixed scalar Rust functions
-(`i32`/`u32` arguments, `i32`/`u32`/unit results) through named C ABI wrappers.
-Direct and function-pointer MIR calls execute on native and WASI; shared LTO
-inlines small helpers. This proof does not yet register user-defined Scheme
-procedures or provide managed-value conversion and rooting.
-
-## First API: scoped leaf calls
-
-A native procedure should hold a VM-local registration ID. Its immutable
-registry entry contains the function pointer, original Scheme library/export
-identity, diagnostic name, and arity. Initially exports are stateless Rust
-function pointers. The dispatcher checks arity and copies the entry's callable
-metadata before lending the VM to a restricted context.
-
-One possible signature is:
+The `snail-abi` proc macro generates a stable exported scalar wrapper. It does
+not infer Scheme types or perform implicit argument conversion. The
+`snail-awi` SDK supplies explicit checked conversion and root ownership:
 
 ```rust
-pub type NativeFn = for<'call>
-    fn(&mut NativeContext<'call>) -> NativeResult<'call>;
-pub type NativeResult<'call> =
-    Result<NativeValues<'call>, NativeError>;
+#[snail_abi::export("snail:example")]
+fn example(raw: u32) -> u32 {
+    // The generated Scheme wrapper keeps this vector rooted for this call.
+    let args = unsafe { snail_awi::Arguments::borrow(raw) };
+    args.check("example", 1, 1).expect("wrong argument count");
+    let value = args.get(0).expect("missing argument");
+    value.into_handle()
+}
 ```
 
-Names and signatures are illustrative. `NativeContext` supplies argument
-access, checked conversions, and constructors for built-in values. It does not
-expose the VM, heap, raw slots, raw-value constructors, collection, callbacks,
-or asynchronous suspension. It and its values are initially thread-confined.
-Native code may call ordinary Rust helpers and allocate; it cannot introduce
-a Scheme safepoint.
+Use `Root::call(&[Root])` for a synchronous Scheme callback. The callback may
+allocate and reenter Rust; do not hold a `RefCell` borrow or a lock that it could
+reacquire. Existing Rust roots remain in the GC table across the call. Scheme
+`apply` and `call-with-values` themselves remain in Wasm so they can tail-call
+without retaining Rust frames.
 
-`NativeValue<'call>` has private representation and an invariant invocation
-lifetime. The runtime creates each scope through a higher-ranked boundary.
-Constructors return values with that invocation lifetime, allowing several
-allocations and a composite result. References such as `&str` instead borrow
-the context briefly: allocation or mutation requires `&mut self`, preventing a
-borrowed object view from surviving it. Generative scopes or explicit owner
-checks must also prevent mixing values from distinct VMs; a lifetime spelling
-alone does not establish ownership. Rust's [higher-ranked bounds](https://doc.rust-lang.org/reference/trait-bounds.html#higher-ranked-trait-bounds)
-and [variance rules](https://doc.rust-lang.org/nomicon/subtyping.html) provide the
-language mechanisms, not a complete proof of the eventual API.
+The [example](../examples/extension/README.md) exercises retained Scheme
+values and Rust-to-Scheme callbacks. `--extension PATH` reads a library package's
+`[package.metadata.snail] exports` list, adds that crate to the generated Cargo
+manifest, and exposes its functions through `(snail-scheme extensions)`.
+Runtime and extension dependencies become one Rust cdylib, sharing a single
+linear memory. Cargo builds it for `wasm32-wasip1`; Binaryen links it with the
+Scheme Wasm module and a command entry point.
 
-`NativeValues` distinguishes zero, one, and multiple results. Zero values are
-different from one unspecified value. The dispatcher publishes every returned
-value into traced VM storage before another safepoint. Expected failures return
-an owned `NativeError`; partial results are not published. Errors do not roll
-back mutations or IO.
+The [actor prototype](../examples/actors/README.md) uses `--actor` to select a
+library entry instead. `scheme:method:<export-name>` wrappers accept a borrowed
+argument-vector root and return an owned result root in that same instance.
+`scheme:wire:decode-call` and `scheme:wire:encode-result` expose its Scheme codec.
+The host initializes WASI and calls `actor_initialize` once before dispatch;
+initialization a second time traps. These embedding exports are trusted, local
+AWI operations. Connections transport S-expression text and never send handles.
 
-Do not expose the internal sealed builtin trait as a generic foreign allocator.
-Foreign payloads use `Extension`; its unsafe vtable contract is not yet a safe
-interface for invocation-scoped values. Custom objects containing Scheme
-references need a checked traced-edge API. A future derive macro can enumerate
-those edges once their ownership contract is established.
+## Root contract
 
-## Allocation, ownership, and failure
+`runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
+An integer handle does not itself retain a value: the corresponding live table
+slot does. The SDK's `Root` owns exactly one slot in the current instance.
 
-A Scheme string or pair constructed by native code belongs to the managed
-heap immediately. It does not wait in an unowned Rust allocation until return.
-Temporary Scheme objects remain valid throughout the GC-free call, then
-unreachable ones can be collected. Returning an object changes its reachability,
-not its allocator or owner. Ordinary temporary Rust buffers use normal Rust
-ownership; moving one into an accepted heap payload transfers that ownership.
+- `Arguments` borrows the caller's rooted vector for the exported call.
+- `Arguments::get` and child accessors return separately owned roots.
+- `Root::clone` retains a separate slot; `Drop` releases that slot.
+- `Root::into_handle` transfers ownership to the Scheme caller.
+- `Root::from_handle` is unsafe: the handle must be live, instance-local, and
+  exclusively owned. Raw handles are not generation-checked durable IDs.
+- Roots cannot cross threads or instances. A fatal trap can bypass Rust cleanup;
+  discard the failed instance instead of promising recoverable trap cleanup.
 
-There are three distinct allocation conditions:
+Scalar helpers are imported from `snail.awi`. They construct and inspect Scheme
+values while keeping the references in engine-visible locals or table slots.
+Rust strings, files, vectors, and other ordinary Rust allocations use Rust's own
+allocator. Copying into a Scheme string constructs WasmGC data and leaves the
+Rust allocation to normal Rust ownership. Rust's substring search copies only
+the search pattern and accesses the Scheme haystack by Unicode scalar index.
 
-| Condition | Contract |
-| --- | --- |
-| Soft collection threshold | Schedule collection at the next safepoint. A leaf call may exceed it by its entire allocation burst. This is the current policy. |
-| Future managed-heap quota | Constructors return a limit error before admitting an allocation. A leaf call cannot collect secretly, even if garbage could be reclaimed. |
-| Host allocator failure | Separate from the managed quota; it may occur in library buffers, runtime tables, result construction, or collector scratch storage. General recovery is not currently provided. |
+## External resources and finalization
 
-The current threshold and GC statistics count objects, not bytes. A byte quota
-would need a stated accounting policy for payload capacities, headers, tables,
-mutable growth, roots, and marking scratch. A buffer constructed outside the
-runtime cannot be retrospectively bounded by charging for its admission.
-Fallible constructors should leave room for a quota, but `Result` alone does
-not make underlying `Box`, `Vec`, or `HashMap` allocation recoverable.
+An extension wrapper contains a resource kind and ID, not a native address or
+Rust trait object. The initial runtime reserves kind 1 for ports; IDs are never
+reused. Current ports have durable roots. Explicit `close-port` closes promptly;
+an output-string port remains readable after close until its wrapper dies.
 
-The proposed [microprocess memory policy](why-snail-scheme.md#resource-lifetimes-are-a-programming-tool)
-makes collection permission and release recovery explicit at spawn. Strict
-`no-gc` remains strict in release builds; `expect-no-gc` traps in debug and can
-opt into recovery. Any collection fallback must return to a valid safepoint with
-published roots. It cannot run inside the scoped leaf-call allocation API.
-[Allocation proofs](tutorials/01-game/requirements.md) require byte-cost summaries
-for native operations as well as generated Scheme code.
+AWI imports `snail.host/register-finalizer(object, kind, id)`. The browser/Node
+implementation in `runtime/host.mjs` uses `FinalizationRegistry`, holding only
+resource IDs. Cleanup invokes `snail:drop-resource`; the Rust implementation
+drops the port payload and marks its slot closed. Repeated cleanup is harmless.
+`Root::from_raw_extension` is unsafe: create exactly one owning wrapper per
+resource and clone its roots to share it. Constructing a second wrapper for
+one ID could finalize the resource while the first wrapper is still live.
+Other extension resource kinds need an explicit release implementation before
+claiming automatic cleanup. Generic registration of extension destructors is
+future work.
 
-Unrestricted allocation, no native safepoints, a fixed heap bound, and guaranteed
-success cannot all be promised. Begin with allocation under the soft threshold
-policy, optionally adding explicit quota errors. Long native calls that need
-reclamation require the rooted-call design below.
+The registry and its held values must not strongly retain the watched object.
+A Rust resource that retains its own Scheme wrapper through `Root` creates such
+a cycle and requires explicit release. Finalization is nondeterministic and is
+not guaranteed at shutdown. Explicit close/cancel remains the prompt path.
+A native Wasm executor can implement the same import with BDWGC finalization;
+the translator need not know about Scheme.
 
-Catch unwinding panics before they cross the LLVM boundary and stop the VM;
-do not resume partially mutated state. The current release build uses
-`panic = "abort"`. Neither aborting panics nor allocator aborts become ordinary
-Scheme errors through `catch_unwind`. Rust documents these limits for
-[panic catching](https://doc.rust-lang.org/std/panic/fn.catch_unwind.html) and
-[allocation failure](https://doc.rust-lang.org/std/alloc/fn.handle_alloc_error.html).
+## Continuations: planned, not implemented
 
-Unreachable heap payloads drop their Rust resources during sweep or VM
-destruction. Files, sockets, and transactions still need explicit close or
-commit operations when timing and errors matter. Tracing and destructors must
-not reenter Scheme, allocate Scheme objects, or panic. This is trusted native
-code: Rust permits leaks through mechanisms such as
-[`mem::forget`](https://doc.rust-lang.org/std/mem/fn.forget.html), so the API cannot
-promise that arbitrary extensions never leak.
+Single-shot continuations prevent duplicate resumption, but do not by themselves
+make arbitrary Rust frames suspendable or cancellable. The initial planned rule
+is a foreign-call barrier: ordinary callbacks work, while a continuation may
+not capture or transfer across an active Rust call boundary. A delimiter inside
+a Scheme callback can still contain Scheme-only coroutines.
 
-## Later: callbacks and durable roots
+Supporting Rust frames later requires valid suspended borrows, separate
+linear-memory stack storage where needed, and a cancellation/unwinding protocol.
+A finalizer can enqueue a coroutine for cancellation on its owning thread,
+keeping its stack alive until cleanup completes. It cannot manufacture missing
+Rust unwind metadata or replace that protocol. Current release builds abort
+on panic; no forced Rust unwinding is implemented.
 
-Before native code can collect or call Scheme, add dispatcher-owned native
-root frames covering the procedure, arguments, local handles, pending results,
-and suspended native state. Registration must precede any safepoint. Frame
-cleanup occurs on return, error, or unwind after publishing results or stopping
-the VM. Child scopes or released slots let long loops discard temporary roots;
-retaining every temporary until return would defeat bounded live space.
+The [stack-switching proposal](https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md)
+provides single-shot delimited continuations, not reusable snapshots.
+[WasmGC post-MVP work](https://github.com/WebAssembly/gc/blob/main/proposals/gc/Post-MVP.md#weak-references)
+explicitly defers finalization primitives. Our host import supplies an optional
+execution-environment service rather than pretending it is a core Wasm opcode.
 
-Prefer a returned invocation request for a native tail call. For a callback
-followed by more Rust work, a traced continuation can resume with a fresh
-context. Synchronous reentry instead needs explicit save/restore rules for VM
-activations, operands, results, continuations, and error/exit state. All borrowed
-views must end before collection or callbacks. Stateful native functions also
-need a defined policy for recursive invocation of their mutable state.
-
-Embedding needs a separate durable `OwnedRoot` concept backed by a VM registry.
-It must enforce VM identity and slot generations, support explicit retain/drop,
-and define behavior when the VM closes. Prefer handles that do not accidentally
-keep the whole VM alive; access after shutdown fails and dropping a handle
-after shutdown is harmless. A raw `Value` returned by today's `Vm::results()`
-does not satisfy this contract.
-
-External roots represent host ownership. Do not store them as ordinary edges
-inside GC objects: that can permanently root a cycle. Internal edges belong to
-tracing, including eventual custom-object fields and native captured state.
-
-## Cargo dependencies and registration
-
-Extensions should be source-built Rust libraries in the final application's
-Cargo graph, sharing one `snail-runtime` package identity. A path dependency and
-a registry dependency can be different packages despite matching names and
-versions. Validate the graph and diagnose both paths before incompatible
-runtime types or duplicate ABI symbols reach the linker. Cargo describes the
-underlying [version and package compatibility hazards](https://doc.rust-lang.org/cargo/reference/resolver.html#version-incompatibility-hazards).
-
-Keep three identities distinct: Cargo package identity, the Rust dependency
-alias/registration path, and the original Scheme library/export identity.
-Scheme import renaming preserves the latter. Different libraries may export
-the same name. Rust `TypeId` and function addresses are not portable serialized
-export identities.
-
-Generate explicit calls such as `native_math::register(&mut registry)` in a
-Rust bridge. Ordinary references retain code under native and Wasm dead
-stripping; `#[used]` alone does not guarantee retention by the final linker.
-[Rust's attribute documentation](https://doc.rust-lang.org/reference/abi.html#the-used-attribute)
-describes that distinction. Freeze the registry before execution and reject
-duplicate, absent, or mismatched exports with library-qualified diagnostics.
-
-The compiler needs declarative export metadata before code generation. It
-cannot run a target WASI library to discover exports while cross-compiling.
-A Scheme library stub or metadata file supplies names and arities; registration
-checks them and fills compiler-assigned foreign global slots. Rust function
-pointers, containers, and trait objects remain inside Rust.
-
-Future dependency configuration should persist outside temporary build jobs:
-source/version, alias, registration path, features, and Scheme metadata. Resolve
-path dependencies relative to that declaration, retain a project lockfile, and
-make dependency updates explicit. Generated manifests must preserve selected
-features and use the chosen alias in Rust source. The current transient project
-only links the repository runtime; user-supplied dependencies are not implemented.
-
-This is static Cargo composition, without a stable Rust binary plugin ABI.
-An `rlib` is the normal Rust library artifact; let rustc own the final link.
-[Rust linkage guidance](https://doc.rust-lang.org/reference/linkage.html#mixed-rust-and-foreign-codebases)
-explains why separately bundled Rust `staticlib` dependencies are a different
-packaging choice.
-
-## Reusable embedding and targets
-
-The current build script supplies the generated object through
-`cargo:rustc-link-arg` for an executable. A Scheme library consumed through an
-`rlib` needs an object archive and `rustc-link-search`/`rustc-link-lib` directives,
-plus a Rust wrapper referencing its program descriptor. A final-binary link
-argument alone does not propagate the code through an ordinary Rust library.
-See [Cargo's linking directives](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-arg).
-
-A reusable program descriptor needs separate initialization and execution or
-resumption. The host must be able to call exported Scheme procedures repeatedly,
-retain rooted results between calls, and receive normal completion, VM failure,
-or an exit request without the library terminating its process. Define explicit
-idle, running, failed, and exited states.
-
-The [platform design](why-snail-scheme.md) uses that boundary for isolated Scheme
-actors with explicit native state/resource services. Their globals live for the
-actor's lifetime; short-lived frame actors supply disposable heaps. Those are
-later requirements, not properties of today's `Vm`. Retaining a rooted value
-within one VM does not transfer it into another worker or make it durable storage.
-Every actor message must encode/decode even locally. Scoped native calls executing
-within one invocation are a different boundary; their borrows must not escape
-into a service or become a pointer-based actor delivery shortcut.
-
-Start with one generated whole-program image per instance. Namespace generated
-symbols so multiple program crates can coexist, but do not mistake that for
-cross-program Scheme calls: today's closure PC is a `u32` without program
-identity. Separately compiled images calling each other would require qualified
-instruction destinations and appropriate global/constant ownership.
-
-On WASI, the generated program, runtime, and extensions are linked into one
-Wasm module sharing its linear memory. Extension dependencies must themselves
-support the chosen target and features. Browser hosting, Wasm components,
-dynamic loading, asynchronous callbacks, and cross-VM value transfer remain
-separate work. The current host uses filesystem IO and clocks; the
-[`wasm32-wasip1` target](https://doc.rust-lang.org/rustc/platform-support/wasm32-wasip1.html)
-and the [minimal Wasm target](https://doc.rust-lang.org/rustc/platform-support/wasm32-unknown-unknown.html)
-have different host capabilities.
-
-## Implementation and acceptance sequence
-
-1. Implement the scoped leaf API and a Rust library exporting one Scheme-callable
-   function. Test allocation bursts without collection, argument aliases, fresh
-   containers, zero/multiple results, arity errors, ordinary/tail/`apply` calls,
-   result publication under GC stress, and error/panic cleanup. Compile-fail
-   tests reject escaped values, mixed scopes, and borrows across mutation.
-2. Add declarative exports and generated dependency/registration code. Build and
-   run the extension example on native and WASI, including explicit features,
-   transitive dependencies, paths with spaces, release dead stripping, stale
-   metadata, duplicate exports, and conflicting runtime package identities.
-3. Add a Rust embedding example: register the Rust library, initialize generated
-   Scheme once, call an exported Scheme procedure repeatedly, and retain a rooted
-   result between calls. Package its object through an archive. Test independent
-   instances, wrong-VM and expired handles, resource destruction, and controlled
-   errors/exits on both targets.
-4. Only then add rooted callbacks or hard managed quotas. Test nested collection
-   with outer locals alive, temporary-root release, reentrancy policy, and injected
-   allocation failures where recovery is promised. Keep actual OOM/abort tests in
-   subprocesses. Decide separately whether cross-program Scheme calls are needed.
-
-## Allocation capability
-
-The runtime implements an owned `Allocation` capability at the Scheme-to-Rust
-call boundary, before entering a builtin that may allocate. `Runtime` provides
-object and host services without VM control state; allocating entries own an
-`Allocation` and their internal helpers borrow it. This is an internal API,
-not yet the proposed public foreign-function API above. Nonallocating operations
-need neither this capability nor a collection check.
-
-The VM must keep the procedure and its arguments reachable from explicit roots
-while acquiring the capability. Acquisition may collect. The allocating Rust
-operation consumes the capability, uses it for all of its constructors, and
-returns its results. The dispatcher publishes those results into roots before
-another capability can be acquired. Internal construction helpers may borrow
-that same capability; they must not acquire another one.
-
-This makes composite construction straightforward: a rest-argument list,
-command-line strings and their containing list, or a record and its supporting
-objects can be built without registering every intermediate Rust local as a
-root. The capability must not expose unrestricted VM access, collection, or
-callbacks. Merely owning a token does not prove the arguments were rooted or
-the results published; the dispatch boundary must enforce those invariants.
-
-Every individual allocation could be a safepoint only if all live Scheme values
-in Rust locals were registered as roots, or conservatively retained by another
-mechanism. That is deliberately outside this initial interface. Allocations
-through an acquired capability never collect, even when they cross the soft
-collection threshold. The heap may grow until the operation finishes. A hard
-quota must produce a defined failure; it cannot secretly retry after collection.
-Objects are managed from construction onward and unreachable temporary objects
-are reclaimed at a later collection, not leaked or transferred between heaps.
-
-Do not defer acquisition until the first allocation after arbitrary mutation.
-For example, a native operation can read a child, remove it from its rooted
-parent, and keep it only in a Rust local. Collecting at its next allocation would
-lose that child. Acquire the capability outside the Rust callable, before its
-body begins. Nested Rust helpers share that capability; they do not introduce
-new safepoints. A callable that sometimes boxes a numeric result is allocating
-under this contract, even on invocations that happen to return an immediate.
-
-The allocation audit must include closure creation, captured-local promotion,
-rest arguments, constant initialization, and boxed numeric results, as well as
-user-visible constructors. Immediate symbol interning uses Rust storage only.
-`apply` and `call-with-values`
-transitions must publish the next procedure and arguments before acquisition.
-Stress tests should collect at every acquisition and verify that no collection
-occurs during a multi-object construction. Nonallocating execution must not poll.
-
-Object tracing is separate: `gc_mark` follows an object's Scheme-valued fields
-from the collector's worklist. It is not reference counting and is not a call
-that native procedures make to retain their intermediate local values. Custom
-extension payloads still need to describe any Scheme references they contain.
+For coroutine finalization, a retained stack must not strongly reference its
+watched wrapper, even transitively through mutable Scheme data. A registry
+holding only an integer stack ID does not avoid this cycle if a global table
+still retains the stack and its roots. Automatic cancellation of arbitrary
+cyclic suspended computations therefore needs more than this finalizer shim.

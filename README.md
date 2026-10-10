@@ -9,13 +9,15 @@ The planned platform direction is described in
 [Why Snail-Scheme?](doc/why-snail-scheme.md): actors, connections, and artifacts
 for games, distributed applications, and GPU computation. Its
 [three tutorial projects](doc/tutorials/README.md) specify future integration
-tests; their actor APIs are not implemented yet.
+tests; their full APIs remain planned. The first runnable
+[library actor prototype](examples/actors/README.md) provides isolated WasmGC
+workers, exported Scheme handlers, and S-expression connections.
 
 ```bash
 nix-shell
-./snail-scheme examples/fibonacci.scm --release
-./snail-scheme examples/fibonacci.scm -o build/fibonacci
-./snail-scheme examples/fibonacci.scm --target wasm32-wasip1
+./snail-scheme examples/fibonacci.scm
+./snail-scheme examples/fibonacci.scm -o build/fibonacci.wasm
+./snail-scheme examples/fibonacci.scm --emit-wat -o build/fibonacci.wat
 make test
 ```
 
@@ -24,7 +26,7 @@ to indent the Scheme sources and tests with Emacs's `scheme-mode` and format
 `shell.nix` with nixfmt.
 Run `make check` to verify formatting without changing files; it exits with a
 nonzero status when formatting is needed. It also enforces a 100-column limit in
-`expand.sld` and `hir.sld`. Plain `make` also runs this check.
+`expand.sld` and `ir.sld`. Plain `make` also runs this check.
 
 Scheme indentation uses spaces and preserves existing line breaks. Use `;;` for
 comments on their own lines and `;` for trailing comments, following Emacs's Lisp
@@ -33,36 +35,46 @@ loading personal configuration; set `EMACS` to use another executable. With no
 arguments it reads stdin and writes stdout, as used by the project's Zed settings.
 Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 
-`./snail-scheme INPUT.scm` compiles and runs through Cargo; `-o PATH` builds an
-executable without running it. The Rust driver generates a temporary Cargo
-project linking Scheme-emitted LLVM with the Rust runtime. Add `--target
-wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-mir PATH` for
-structured MIR (`--dump-vm` remains a compatibility alias). Release runs and
-`-o` builds use shared Scheme/Rust LTO; `SNAIL_SHARED_LTO=0` selects ordinary
-linking for comparison. Debug runs use ordinary linking. Program arguments
-follow `--`. Chromium traces are always
-written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
-`--runtime-stats` reports counters on stderr. See [tracing](doc/tracing.md) for
-Scheme procedure decorators and Rust scopes. See `--help` and
-[the backend guide](doc/backend.md) for tools, modes, and limitations.
+`./snail-scheme INPUT.scm` compiles and runs a WasmGC program; `-o PATH`
+builds the `.wasm` artifact without running it. The Scheme compiler expands
+source into a small resolved IR and emits WebAssembly directly. Cargo builds
+the Rust runtime and extension crates into a Wasm module; Binaryen links and
+optimizes the modules. Scheme objects live in the engine's GC heap. Rust owns
+its ordinary linear-memory allocations.
 
-Cargo/rustc, LLVM `opt` and `llc`, and a WASI-capable Node are needed in addition
-to the Scheme development tools. Install the Rust targets with
-`rustup target add i686-unknown-linux-musl wasm32-wasip1`. Native output is a
-static 32-bit Linux executable; the host must support running i386 programs.
-The runtime deliberately supports only 32-bit pointers. Set `CHIBI` to select
-the hosted compiler's Scheme executable. The build still uses Chibi. Native and
-WASI compiled compilers can compile Fibonacci, and the native compiler can compile
-its own sources; see [the backend guide](doc/backend.md#compiling-the-compiler).
-Start with
-[TOUR.md](TOUR.md) for the control flow and a guide to every module, or
-[the benchmark suite](benchmarks/README.md) for the performance baseline.
+Use `--emit-wat` to inspect the Scheme module before linking, `--extension PATH`
+to link a Rust library, and `--` before program arguments. See the
+[Rust extension example](examples/extension/README.md) and
+[application Wasm interface](doc/rust-interop.md). Chromium traces are always
+written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
+
+The required tools are Chibi, Cargo/rustc with `wasm32-wasip1`, Binaryen with
+WasmGC and tail-call support, and a compatible Node. Set `CHIBI`, `CARGO`,
+`WASM_AS`, `WASM_MERGE`, `WASM_OPT`, or `NODE` to select their executables.
+The compiler remains hosted by Chibi. Its own sources can be compiled; changing
+the build to self-hosting is a later milestone.
+
+WebAssembly is the portable output. Native translation is an optional execution
+step: `--native` invokes `SNAIL_WASM_NATIVE`, an external tool accepting
+`INPUT.wasm -o OUTPUT`. Our separate Wasm-to-LLVM translator remains an
+experiment and does not yet accept the full linked Rust program.
+
+This is an R7RS-inspired implementation, not a claim of full R7RS compliance.
+The Wasm backend currently diagnoses `call/cc` and
+`call-with-current-continuation` as unsupported. Single-shot, delimited
+continuations and coroutines are planned; reusable multi-shot continuations are
+not a goal. Rust callback boundaries and cancellation require explicit lifetime
+and unwinding rules. See [future work](TODO.md).
+
+Start with [TOUR.md](TOUR.md), [the backend guide](doc/backend.md), or
+[the benchmark suite](benchmarks/README.md). [Tracing](doc/tracing.md) describes
+the Scheme procedure decorator and Rust scopes.
 
 The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
 syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`),
 pattern matching and dispatch (`pattern.sld`), macro expansion (`expand.sld`),
-and resolved HIR records (`hir.sld`).
+and resolved IR records (`ir.sld`).
 `pmap` transforms parser values;
 ordinary Scheme `map` operates on lists. The historical parser inspection CLI
 lives in `cli.sld` and `main.scm`; the compiler command lives in `driver/`.
@@ -153,29 +165,23 @@ repeated item against the remaining elements. Flattening preserves pattern order
 original datums, and empty and ragged repetition captures.
 The binding-aware semantics of `syntax-rules` expansion,
 including shadowed literals and exported auxiliary keywords, are documented in
-[the macro design](doc/hir.md#literal-binding-identity).
+[the macro design](doc/ir.md#literal-binding-identity).
 
-`(snail-scheme expand)` provides `syntax-list->hir-library`, `syntax->hir-library`, and
+`(snail-scheme expand)` provides `syntax-list->ir-library`, `syntax->ir-library`, and
 `macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
-macros, and constructs fully expanded Scheme HIR for the supported core forms.
+macros, and constructs fully expanded Scheme IR for the supported core forms.
 Library loading uses an explicit function parameter. Scope environments are
 transient association lists passed through recursive descent.
 
-`(snail-scheme hir)` defines the immutable records in
-[the HIR design](doc/hir.md#hir-records). A `value-definition` holds a binding's
+`(snail-scheme ir)` defines the immutable records in
+[the IR design](doc/ir.md#ir-records). A `value-definition` holds a binding's
 identity and definition location; a `name` refers to it and retains the reference
 location. A `value-binding` pairs that identity with an initializer.
 `(snail-scheme library)` independently owns library containers and resolved
-interfaces; each container holds HIR or MIR code, and scripts are unnamed libraries.
-HIR carries no types or
-closure capture lists; `lower.sld` computes storage and captures while translating
-to [structured MIR](doc/mir.md). MIR has five instruction forms: conditionals,
-direct and indirect calls, loads, and stores. Representation operations are
-explicit Rust calls, and `machine.sld` expresses the Scheme stack convention
-using those forms. Shared LTO optimizes generated LLVM together with Rust.
-Type inference remains later work.
-This is an initial core and library implementation, not complete R7RS support.
-The compiler command runs this expansion before lowering and LLVM emission.
+interfaces; each container holds an IR body, and scripts are unnamed libraries.
+IR carries no types or closure capture lists. `wasm.sld` analyzes captures and
+initialization and emits structured WebAssembly directly. Type inference remains
+later work. The compiler command runs expansion before Wasm emission.
 
 ## Reader
 

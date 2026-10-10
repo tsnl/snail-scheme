@@ -3,7 +3,7 @@
 (define (check expected actual)
   (if (not (equal? expected actual)) (error "numeric instruction mismatch" expected actual)))
 
-;; Direct calls exercise instructions; the passed procedure exercises Rust.
+;; Compare direct Wasm helpers with the uniform closure adapters.
 (define (check-operations x y add subtract equal less less-equal greater greater-equal)
   (check (add x y) (+ x y))
   (check (subtract x y) (- x y))
@@ -32,19 +32,12 @@
 (check 5 (- (note 9) (note 4)))
 (check '(4 9) order)
 
-;; A saved continuation retains the first pending operand and is reusable.
-(define saved #f)
-(define again 0)
-(define answer (+ 100 (call/cc (lambda (k) (set! saved k) 1))))
-(check (+ 101 again) answer)
-(if (< again 2) (begin (set! again (+ again 1)) (saved (+ 1 again))))
-
-;; Fallback collection must retain the executing closure's captured objects.
+;; Numeric allocation must retain the executing closure's captured objects.
 (define (capturing text)
   (lambda (n) (+ n 1) text))
 (check "captured" ((capturing (string #\c #\a #\p #\t #\u #\r #\e #\d)) 1073741823))
 
-;; A numeric instruction in tail position returns through the existing frame.
+;; Tail calls to numeric helpers preserve the result.
 (define (tail-add x y) (+ x y))
 (check 1073741824 (tail-add 1073741823 1))
 (display "numeric instruction checks passed\n")

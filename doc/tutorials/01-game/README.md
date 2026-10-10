@@ -143,6 +143,10 @@ recover. Show versioned frames and uninterrupted session ownership throughout.
 
 ## 6. Make the resource claim measurable
 
+This step requires collector capabilities beyond the current portable WasmGC
+backend. The first worker prototype isolates instances but does not enforce these
+budgets or collection policies. Keep that capability gap visible in test results.
+
 Exercise `no-gc`, `expect-no-gc`, and `allow-gc` with an intentionally small frame
 budget. Record collection counts and budget outcomes; debug traps must terminate
 the offending isolate through the host's failure mechanism, preserving supervision.

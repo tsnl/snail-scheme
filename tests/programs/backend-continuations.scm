@@ -14,6 +14,30 @@
 (define (capture-add receiver)
   (+ 10 (call-with-current-continuation receiver)))
 
+;; A saved continuation retains the first pending operand and is reusable.
+(define saved #f)
+(define again 0)
+(define answer (+ 100 (call/cc (lambda (k) (set! saved k) 1))))
+(check (+ 101 again) answer)
+(if (< again 2) (begin (set! again (+ again 1)) (saved (+ 1 again))))
+
+(define (identity value) value)
+
+;; Both arms suspend in Scheme calls. Their shared suffix must execute on each
+;; arrival, including a replay, while the assigned cells retain their mutations.
+(define (replay-branch choose-left?)
+  (let ((saved #f) (phase 0) (visits '()))
+    (let ((value
+           (if choose-left?
+               (identity (call/cc (lambda (k) (set! saved k) 10)))
+               (identity (call/cc (lambda (k) (set! saved k) 20))))))
+      (set! visits (cons value visits))
+      (if (= phase 0)
+          (begin (set! phase 1) (saved 30))
+          (reverse visits)))))
+
+(check (replay-branch #t) '(10 30))
+(check (replay-branch #f) '(20 30))
 ;; ---- Repeated invocation and mutation ----
 
 (define (multi-shot)

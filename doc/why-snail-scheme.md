@@ -5,11 +5,12 @@ and resources, exposes ordinary functions, and communicates through connections.
 The same model describes a game, a browser, a database client, a compiler, or a
 small computation that lives for one frame.
 
-This is the platform we intend to build. The actor runtime and the tutorial APIs
-below are **planned**, not implemented. Today's compiler remains hosted by Chibi;
-the [Chibi UI experiment](ui.md) already demonstrates functional tree composition
-and reducers. Native and WASI compilation are useful foundations, but WASI alone
-does not provide browser hosting or an actor system.
+This is the platform we intend to build. A first
+[library actor prototype](../examples/actors/README.md) now runs isolated WasmGC
+workers with exported handlers and asynchronous S-expression connections. The
+full tutorial APIs below remain **planned**. Chibi hosts compilation; the
+[Chibi UI experiment](ui.md) demonstrates functional tree composition and reducers.
+Browser hosting, native actor services, and Scheme suspension are still future work.
 
 Snail-Scheme aims to be a platform for distributed, heterogeneous computation.
 Like .NET in ambition, it should make a collection of runtimes, libraries, tools,
@@ -130,13 +131,17 @@ A frame actor receives a snapshot, computes a frame result, hands off owned outp
 and dies. Its entire heap can be discarded. The renderer and world store outlive
 it. The same pattern works for a web request, a build, or a tensor-training step.
 
-The platform keeps a **32-bit Scheme heap/object ABI**. Large datasets, weights,
-and buffers live in explicit external storage with full-width 64-bit offsets and
-lengths and binary IO/copy operations. These are checked storage ranges, not
-disguised Scheme pointers. The current runtime's 32-bit values are a foundation;
-the actor isolation and external-storage contracts described here remain planned.
+The design asks for **32-bit working memory** with large datasets, weights, and
+buffers in explicit external storage. Full-width 64-bit offsets and lengths name
+checked storage ranges, with binary IO/copy operations. They are not Scheme
+pointers. Current WasmGC values are engine-owned references (`eqref`), not the old
+32-bit Scheme object representation. Rust's wasm32 linear memory does not bound
+the engine's GC heap. Enforcing the intended memory model therefore remains an
+explicit implementation gap, alongside external-storage contracts.
 
-Spawning selects a heap budget and a collection policy:
+The proposed resource contract lets spawning select a heap budget and collection
+policy. Portable WasmGC does not currently expose these controls; a provider must
+reject unsupported policy requests rather than imply they are enforced:
 
 | Policy | Debug | Release |
 | --- | --- | --- |
@@ -144,10 +149,11 @@ Spawning selects a heap budget and a collection policy:
 | `expect-no-gc` | Trap on budget exhaustion. | Explicitly choose failure or recovery with collection at a safepoint. |
 | `allow-gc` | Collect at permitted safepoints within the resource policy. | Same permission, with configured resource limits. |
 
-Allocation alone never triggers collection. Recovery must first publish live
-roots; suspended continuations remain roots in their actor. Encoded outputs and
-transferred external resources must have independent owners before a heap is
-released. Native/device work may still be in flight after Scheme returns.
+The intended controlled-allocation provider would only collect where its policy
+permits, with live roots published first. Today's WasmGC engine can collect on
+allocation; the portable prototype cannot promise otherwise. Encoded outputs and
+transferred external resources need independent owners before an actor is retired.
+Native/device work may still be in flight after Scheme returns.
 
 Small heaps bound individual collection domains. They do not prove a frame-time
 bound: scheduling, IO, native resources, and queued work also need budgets. Later,
@@ -165,13 +171,15 @@ means handlers must not assume that actor globals stay unchanged while they wait
 Whether multiple threads may mutate one heap simultaneously remains an implementation
 decision; concurrency does not require that choice.
 
-A future `task-run` can schedule a closure within its actor. `call/cc` can help
-construct control-flow abstractions, but `(call/cc task-run)` alone does not specify
-a yield: capturing/enqueuing a continuation does not stop the original path. A
-scheduler handoff must define suspension, resumption, cancellation, and how many
-times a continuation can run. Copy-on-write snapshots and thread/fiber migration
-are promising later work, subject to native resource affinity. No global thread
-pool, async annotation system, or continuation representation is selected here.
+A future `task-run` can schedule a closure within its actor. Capturing/enqueuing
+a continuation does not by itself stop the original path: a scheduler handoff
+must define suspension, resumption, and cancellation. The current backend rejects
+`call/cc`; its direction is single-shot delimited continuations through Wasm stack
+switching. Earlier copy-on-write, multi-shot sketches are not implemented promises.
+Foreign-call barriers and thread affinity still constrain suspension. See the
+[AWI continuation contract](rust-interop.md#continuations-planned-not-implemented).
+The prototype executes synchronous handlers in separate workers and provides
+promises to the host; it does not yet suspend a Scheme handler.
 
 Hot reload follows ownership. Build and validate a candidate artifact, then use
 it for newly spawned work. In-flight work pins its old code and resources until

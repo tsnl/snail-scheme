@@ -1,75 +1,40 @@
 # A tour of Snail-Scheme
 
-Start with the path taken by one program, then follow the representations it
-passes between modules. The compiler is Scheme. The runtime, target integration,
-and executable entry point are Rust. Chibi still runs the compiler during the
-normal build; compiling the compiler's Scheme sources does not change that
-choice.
+The compiler is Scheme, hosted by Chibi. WebAssembly is its portable output;
+Rust provides host services and extensions through a named application Wasm
+interface (AWI). Compiling the compiler sources does not switch the build host.
 
 ```text
-Scheme source and imported libraries
-    snail-scheme Rust driver -> hosted Scheme compiler
-    reader -> syntax parser -> expander -> HIR
-    lowerer + explicit stack convention -> MIR -> immutable LLVM objects -> LLVM text
-    Cargo build script -> shared Scheme/Rust LLVM optimization -> executable
-    Rust runner -> generated program <-> Rust runtime
+snail-scheme driver
+  -> Chibi: reader -> syntax parser -> expander -> library-grouped IR -> WAT
+  -> Binaryen: assemble Scheme WasmGC
+  -> Cargo: runtime + extension crates -> one Rust Wasm module
+  -> Binaryen: link and optimize -> portable .wasm
+  -> Node/WASI + host shim, or an optional separate native translator
 ```
-
-The generated program keeps an explicit Scheme stack. Structured MIR expresses
-its memory operations and calls; LLVM emission introduces blocks and a dispatcher
-for Scheme procedure calls and returns. There is no intermediate bytecode stream
-or instruction-handler layer. Rust supplies object representation operations,
-allocation, collection, and runtime services. Release CLI builds optimize the
-generated LLVM and Rust together through shared LTO.
 
 ## Entering the compiler
 
-[`snail-scheme`](snail-scheme) launches the Rust command in
-[`driver/src/main.rs`](driver/src/main.rs). `parse` handles compiler options
-until `--`, after which arguments belong to the program. An input selects run
-mode, `-o` selects build mode, and `--emit-llvm` stops after emission. `execute`
-resolves source and output paths and creates an invocation-owned `Project`.
-`source_file_to_llvm` invokes the hosted Scheme compiler; `write_manifest` generates the
-Cargo application using the existing runner and runtime paths.
+[`driver/src/main.rs`](driver/src/main.rs) owns modes, temporary artifacts,
+subprocesses, and publication. A source path runs; `-o` builds without running;
+`--emit-wat` stops before assembly. Arguments after `--` pass literally through
+`Command`. Each invocation owns its temporary project. Completed artifacts are
+staged and renamed into place so a failed build does not truncate prior output.
 
-`cargo_command` selects `cargo run` or `cargo build`, and `configure_target`
-sets the profile, WASI target and runner, and literal program arguments.
-`configure_shared_lto` enables shared LTO for release runs and output builds;
-`SNAIL_SHARED_LTO=0` disables it for comparisons. Debug runs use ordinary linking.
-Every job has its own Cargo target directory, so concurrent invocations cannot replace
-one another's executable. `publish` copies a finished artifact to a staging file
-and renames it into place. `Project::drop` removes temporary files unless
-`--keep-build` was selected. Subprocess arguments use `Command`, never a shell
-command assembled from input paths.
+[`snail-compile`](snail-compile) invokes Chibi on
+[`compile.scm`](src/snail-scheme/compile.scm), whose top-level call enters
+[`compiler.sld`](src/snail-scheme/compiler.sld). `source-file->wasm-file` parses,
+expands, and emits WAT. The loader maps `(scheme ...)` to `bootstrap/scheme/` and
+project libraries to `src/`. Library and binding semantics stay in the expander.
 
-[`snail-compile`](snail-compile) locates the checkout and runs
-[`compile.scm`](src/snail-scheme/compile.scm) with Chibi. That small Scheme entry
-point passes `command-line` to `compiler-main` in
-[`compiler.sld`](src/snail-scheme/compiler.sld). `source-file->llvm-file` reads the source,
-expands it, lowers the resulting HIR, and writes LLVM text. An optional MIR dump
-shows the representation immediately before LLVM emission.
-Timing is centralized in [`trace.sld`](src/snail-scheme/trace.sld) and the
-[`snail-trace` crate](trace/src/lib.rs). `define-traced` wraps coarse Scheme
-operations; Rust scope guards cover the driver, LLVM tools, execution, and GC.
-Every process writes Chromium events to `build/traces/` by default. Imported
-source loading appears as nested spans inside expansion, so inclusive and
-exclusive time can be inspected without subtracting counters in compiler code.
-See [tracing](doc/tracing.md) for APIs and continuation limitations.
+[`trace.sld`](src/snail-scheme/trace.sld) and
+[`trace/src/lib.rs`](trace/src/lib.rs) centralize coarse Chromium trace spans.
+They are always enabled; `build/traces/` is the default directory and
+`SNAIL_TRACE_DIR` overrides it. [Tracing](doc/tracing.md) describes decorators.
 
-`source-file->syntax-list` composes `file->reader` from `reader.sld` with
-`reader->syntax-list` from `syntax-parser.sld`, which reports parse failures with
-the reader's source position. `library-loader` applies the same operation to imports. `library-path`
-maps `(scheme ...)` names into `bootstrap/scheme/`; project libraries resolve
-under `src/`. The loader returns located library syntax, leaving binding and
-import semantics to the expander.
-
-The historical parser inspection entry,
-[`main.scm`](src/snail-scheme/main.scm), uses
-[`cli.sld`](src/snail-scheme/cli.sld) to collect an input path and optional output
-path, then prints parsed syntax. It defines `main` without invoking it; Chibi's
-`-r` runs that procedure. Compiling the file alone therefore produces a program
-that defines the procedure and exits silently. The compilation pipeline instead
-enters through `compile.scm`, whose top-level form invokes `compiler-main`.
+The older parser inspection entry [`main.scm`](src/snail-scheme/main.scm) defines
+`main` without invoking it. Chibi's `-r` invokes that procedure. Compiling a
+file containing only definitions correctly produces no printed output.
 
 ## Functional tree composition and UI experiment
 
@@ -94,9 +59,8 @@ the real HTTP host, including stale actions and failed transitions.
 ## Reading source
 
 [`source.sld`](src/snail-scheme/source.sld) defines `loc`: filename, one-based
-line, and one-based column. Locations travel with syntax and later with HIR and
-resolved references. MIR currently omits source-location metadata, so preserving
-locations through machine lowering remains future debugging work.
+line, and one-based column. Locations travel with syntax and later with IR and
+resolved references. Wasm debug source mappings remain future work.
 
 [`reader.sld`](src/snail-scheme/reader.sld) represents an immutable character
 cursor. `file->reader` and `string->reader` establish the initial position;
@@ -140,7 +104,7 @@ characters combine into tokens.
 
 ## Expanding names, libraries, and macros
 
-[`hir.sld`](src/snail-scheme/hir.sld) defines the resolved high-level records.
+[`ir.sld`](src/snail-scheme/ir.sld) defines the resolved high-level records.
 A `value-definition` is a binding identity. A `name` refers to that identity,
 and a `value-binding` attaches an initializer to it. Thus a renamed import, a
 reference inside a closure, and the original definition can share one identity
@@ -149,7 +113,7 @@ applications, lambdas, blocks, conditionals, assignments, and names. The records
 do not contain expansion environments.
 
 [`library.sld`](src/snail-scheme/library.sld) owns compilation containers
-independently of HIR and MIR. Named libraries and unnamed executable scripts
+independently of a backend. Named libraries and unnamed executable scripts
 share one record: imports, exported identities, dependency names, a body and a
 location. The current compiler pass owns the body representation. Import
 declarations retain resolved libraries and local bindings directly, along with
@@ -158,7 +122,7 @@ original located syntax for diagnostics. Later passes do not peel `only`,
 `library-dependency-order` visits each dependency once before its importer.
 
 [`expand.sld`](src/snail-scheme/expand.sld) constructs those records in three
-steps. `syntax-list->hir-library` separates a script's initial imports from its body. Import
+steps. `syntax-list->ir-library` separates a script's initial imports from its body. Import
 expansion loads and caches libraries, applies `only`, `except`, `prefix`, and
 `rename`, and preserves the original definition identities. Library construction
 resolves exports against the completed library environment, then concatenates
@@ -201,8 +165,7 @@ path.
 
 ## The Scheme library used by compiled programs
 
-[`bootstrap.sld`](src/snail-scheme/bootstrap.sld) is the inventory of Rust
-primitive names. The compiler supplies these through a synthetic
+[`bootstrap.sld`](src/snail-scheme/bootstrap.sld) is the inventory of primitive names. The compiler supplies these through a synthetic
 `(snail-scheme core)` library using `make-core-library`. It then loads the
 bootstrap libraries as ordinary Scheme libraries. Chibi uses its own libraries
 while hosting the compiler.
@@ -211,7 +174,7 @@ while hosting the compiler.
 forms with `syntax-rules`, including binding forms, conditionals, quasiquotation,
 multiple-value bindings, records, and parameterization. Its procedure sections
 implement lists, association searches, multi-list `map` and `for-each`, container
-conversion, and cycle-aware equality. The native boundary supplies individual
+conversion, and cycle-aware equality. The Wasm/Rust boundary supplies individual
 object operations; higher-level traversal remains Scheme code that future
 compiler optimizations can improve.
 
@@ -226,343 +189,109 @@ are outside this bootstrap subset.
 `string-contains`, `collect-garbage`, and `gc-statistics` operations. This keeps
 benchmark-specific runtime measurements separate from the standard libraries.
 
-## Lowering HIR into a machine
+## Emitting WebAssembly
 
-[`lower.sld`](src/snail-scheme/lower.sld) begins with `hir-library->mir-library`.
-It visits the library graph in dependency order, assigns shared storage by binding
-identity, identifies captures, and boxes assigned lexical bindings and recursive
-initialization locations. Each library keeps its own initializer, code
-definitions, constants, global names, and primitive declarations in its MIR body.
-The rebuilt import graph points at the corresponding MIR libraries while binding
-identities and import provenance remain unchanged.
+[`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
+writes folded WAT. Its analysis records binding identity, assignment, lambda
+captures, and initialization. It does not build MIR, bytecode, a managed operand
+stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
+visible in the generated code.
 
-Initializers transfer directly to the next library on one root Scheme frame;
-the unnamed script runs last. Procedure entries and non-tail call resumptions
-receive immutable code objects. Ordinary operations are structured MIR, with no
-per-instruction labels.
+Each lambda has a fixed worker and a generic closure adapter. Known immutable
+fixed callees pass arguments directly; unknown calls use a GC argument array.
+Wasm tail-call instructions implement proper tail calls. Captures known to be
+initialized and immutable travel by value; mutable or early captures use cells.
+Recursive initialization preserves unreadable cells until each initializer
+finishes. Single/multiple-value contexts are checked explicitly.
 
-[`machine.sld`](src/snail-scheme/machine.sld) makes the calling convention
-concrete: stack addresses, three-word frames, argument movement, return,
-multiple values and continuation capture. Its construction helpers expand into
-MIR loads, stores, conditionals and calls. No VM opcode survives this boundary.
-Known immutable numeric bindings receive explicit checked fast paths; known
-procedure/number/integer predicates call their Rust implementations directly.
-All other applications retain the same general Scheme calling convention.
-This module also encodes immediate literals and marks accesses to VM state versus
-separately allocated Scheme storage. Lowering preserves pooled composite children.
+[`runtime/wasmgc.wat`](runtime/wasmgc.wat) defines the value representations and
+checked primitives. Small integers are immediate `i31ref`; larger integers and
+floats are boxes. Other values use structs and arrays. Type equivalence is
+structural, so atom and text categories carry explicit tags. The engine owns
+GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 
-[`mir.sld`](src/snail-scheme/mir.sld) defines five instructions: `if`,
-`call-direct`, `call-indirect`, `load`, and `store`. Instructions are their own
-SSA value references. Ordered regions express sequencing, and calls carry their
-ABI convention and tail bit. Its body record groups each library's code and
-data. `write-mir-library` prints those libraries with indexed producers and
-their references.
-Memory accesses can carry a proven region; unclassified accesses and foreign calls
-remain conservative. The LLVM emitter translates regions into scoped alias metadata
-through llvmlite's immutable metadata objects.
-See [the design and examples](doc/mir.md) for the complete contract.
+[`runtime/awi.wat`](runtime/awi.wat) exposes separately named scalar functions
+for Rust: owned root handles, construction, extraction, and synchronous Scheme
+callbacks. A reference table retains values; a free list reuses released slots.
+The [`snail-awi` SDK](awi/src/lib.rs) expresses that ownership through `Root`:
+clone retains, drop releases, return transfers. Raw handles are unsafe and bound
+to their instance. The [`snail-abi` macro](abi/src/lib.rs) emits scalar export
+wrappers; it does not infer Scheme types or hide conversions.
 
-## Emitting and assembling LLVM
+[`runtime/src/lib.rs`](runtime/src/lib.rs) implements Rust services: ports,
+printing, numeric text conversion, substring search, Unicode classification,
+process arguments, clocks, traces, and diagnostics.
+[`host.rs`](runtime/src/host.rs) owns port data and UTF-8 stream handling.
+Rust-owned external resources need explicit close. The additional JS
+[`host.mjs`](runtime/host.mjs) registers WasmGC wrappers with
+`FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;
+[`run-wasi.mjs`](scripts/run-wasi.mjs) supplies the Node WASIp1 runner.
 
-[`mir-llvm.sld`](src/snail-scheme/mir-llvm.sld) emits structured regions through
-llvmlite. Conditionals create LLVM blocks and phi nodes. Producer references
-reuse already computed values; shared terminal regions retain one continuation.
-C calls use ordinary direct or indirect C ABI calls. Scheme transfers publish a
-code destination to the common dispatcher, preserving bounded native stack use.
+[`examples/extension`](examples/extension/README.md) demonstrates Rust retaining
+Scheme values, calling Scheme callbacks, and returning rooted values. The driver
+puts runtime and extension dependencies in one generated Cargo cdylib, sharing
+one linear memory, then links it with the Scheme module. This avoids merging
+WASI imports whose pointers address different memories.
 
-[`llvm.sld`](src/snail-scheme/llvm.sld) flattens the MIR library bodies in
-dependency order at the executable boundary. It writes declarations, constant
-data, program ABI accessors, initialization and the shared dispatcher. It assigns
-code addresses here; constant and global slots already follow the same library
-order. It contains no Scheme instruction handler functions or object-operation
-implementations.
+## Continuations and native translation
 
-[`representation.rs`](runtime/src/representation.rs) supplies tiny Rust C ABI
-operations for representation conversion, integer arithmetic, pointer operations
-and object predicates. Shared LTO exposes their bodies to LLVM. The
-[`snail-abi` macro](abi/src/lib.rs) exports fixed scalar Rust functions with stable
-C symbols; the foreign integration fixture exercises genuinely indirect calls
-on native and WASI, including under LTO.
+The production Wasm backend currently rejects `call/cc`. Single-shot, delimited
+continuations are future work; multi-shot continuations are not a goal. Rust
+callbacks work, but suspension and cancellation across Rust frames need an
+explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
+implemented ownership from this planned support.
 
-[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) supplies the immutable LLVM
-vocabulary used by that lowering. References precede definitions: create a
-function, its blocks and SSA values, then give each block instructions and a
-terminator. Instructions hold typed operands and direct block references. Loop
-backedges require no mutable builder. `block-body` checks scope, phi placement,
-and returns; LLVM verifies definitions and dominance. Only this module spells
-LLVM syntax. Its writer streams to a port, and `indexed-name` keeps generated
-numeric names as prefix/index data. See [the API notes](doc/llvmlite.md) for a
-complete loop example and the supported subset.
+The [bounded Wasm-to-LLVM experiment](experiments/wasm-llvm/README.md) is a
+separate executor, independent of Scheme IR. It lowers references to native
+pointers and uses BDWGC. It does not yet translate full linked Rust programs.
+Wastrel is a useful performance reference; its tested revision lacks stack
+switching. `--native` invokes an explicitly configured external translator.
+Both native and JavaScript hosts can implement the same finalization import.
 
-[`runner/build.rs`](runner/build.rs) connects this module to Cargo. It reads
-`SNAIL_LLVM_IR`, obtains the selected Rust target's LLVM triple and data layout
-from a tiny Rust probe, and adds that metadata to the module.
-`optimize_llvm_ir` runs LLVM's O2 pipeline and verification. With shared LTO, the
-build retains Scheme bitcode for the final LLD link with Rust. Ordinary builds
-use `llc` to produce a target object first; this remains the debug and ablation
-path. The driver sets the matching Rust linker-plugin flags. Direct Cargo users
-must supply them explicitly, as shown in [the backend guide](doc/backend.md).
+## Tests and measurements
 
-For ordinary WASI object builds, `verify_reducible` checks that each optimized
-cycle has a single entry before omitting LLVM 22's costly irreducibility repair
-pass. Shared LTO retains the final linker's control-flow repair: optimization
-with Rust may change the graph. The negative control-flow fixture in the CLI
-suite verifies that the ordinary path rejects a two-entry cycle.
+Scheme unit tests live in each module's final `Tests` section with one
+conditional `test-<module>` export. `make test` enables the Chibi `snail-tests`
+feature and invokes [`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm).
+The compiler advertises `snail-scheme`, not its host's test features, so its own
+sources compile without importing host-only test modules.
 
-[`runner/src/main.rs`](runner/src/main.rs) first checks the generated program's
-ABI version against `PROGRAM_ABI`, then allocates a `Vm` using the generated
-global and constant counts, passes its opaque address to `snail_program`, and
-reports errors and the requested exit status. `report_statistics` prints elapsed
-time, GC counts and durations, object counts, and maximum saved frames when
-`SNAIL_RUNTIME_STATS` is set. The Cargo workspace contains the driver, runner,
-runtime, scalar ABI macro, and tracing crates. The driver and runtime are default
-members, so ordinary Rust checks do not need a generated Scheme program.
+Rust unit tests remain in implementation modules. `scripts/test-backend`
+executes linked Wasm semantic and diagnostic fixtures; `scripts/test-cli`
+checks modes, traces, publication, arguments, extension linking, callbacks, and
+root ownership. Native adapter checks require `SNAIL_WASM_NATIVE` and fail
+clearly if none is configured; they are not counted as native passes.
 
-## Values, objects, and collection
+[`benchmarks/`](benchmarks/README.md) contains frozen CPU, memory, IO, and GC
+workloads plus historical measurement tools. CPU uses redundant recursive
+Fibonacci with an independent oracle; memory uses a sieve; IO searches a frozen
+corpus; GC builds cyclic trees. Historical stack/LLVM ablation tools and
+reports describe their original backend. The GC workload's forced-collection
+counters need engine instrumentation on WasmGC, which does not expose them.
+Record execution time separately from compilation and startup, verify answers,
+and retain raw samples and Chez/Chibi ratios when comparing backends.
 
-[`runtime/src/object.rs`](runtime/src/object.rs) keeps representation and
-ownership together. `Value` is a 32-bit `usize`; other pointer widths are
-rejected. Its tags preserve v3: odd fixnums, immediate symbol IDs, zero null,
-halfword characters/singletons, and aligned nonzero heap pointers. Fixnums range
-from `-2^30` through `2^30 - 1`; boxed integers preserve the remaining `i64`
-range. All floats are boxed `f64`: v3's immediate float32 encoding cannot fit a
-32-bit word. `Number` is a decoded arithmetic value, not a heap object.
+## The actor platform
 
-One `Boxed<T>` allocation contains an aligned kind/mark header and concrete
-payload. Pairs, cells, text, and vectors keep v3's field model, adapted for Rust
-ownership; additional kinds cover closures, records, ports, and primitive IDs.
-`find`, `get`, and `get_mut` check the tag and kind before direct field access.
-There is no hash lookup, `Any`, or virtual dispatch for builtin objects.
+[`compiler.sld`](src/snail-scheme/compiler.sld) builds an actor facade from the
+entry library's resolved exports and the codec. This preserves renamed binding
+identity and dependency initialization. [`wasm.sld`](src/snail-scheme/wasm.sld)
+emits scalar AWI wrappers; the driver's `--actor` entry initializes the library
+once without invoking a Scheme main loop.
 
-The ownership vector is used for sweeping. `gc_mark` statically follows each
-kind's Scheme fields using a worklist; `destroy_object` releases its own Rust
-storage without recursively freeing children. Cycles therefore work naturally.
-Only `Extension` delegates tracing and destruction through a C ABI vtable.
-Its callbacks must report live same-VM edges and cannot allocate managed
-objects, collect, reenter Scheme, or unwind. All internal pointer access requires
-live same-heap words; a copied value is not a durable host root.
+[`actor-wire.sld`](src/snail-scheme/actor-wire.sld) reads calls with the existing
+reader and validates a limited portable datum subset. It never evaluates input.
+[`actor-instance.mjs`](runtime/actor-instance.mjs) owns WASI initialization and
+the AWI roots used during invocation. [`actor-worker.mjs`](runtime/actor-worker.mjs)
+keeps that instance in one subprocess. [`actors.mjs`](runtime/actors.mjs)
+separates worker lifetime from connection-owned pending calls. A fatal call
+discards its worker; siblings remain usable. `scripts/test-actors` executes the
+compiled artifact and checks isolation, root lifetimes, and shutdown behavior.
+The [counter example](examples/actors/README.md) is runnable now; browser hosting,
+typed record codecs, Scheme suspension, and GC policy controls remain future work.
 
-Allocation never collects. Collection scheduling uses allocations since the
-last sweep and a budget fixed at that sweep. Statistics count objects, not bytes.
-
-## Stack storage, continuations, and Rust services
-
-[`runtime/src/vm.rs`](runtime/src/vm.rs) owns a single initialized value buffer.
-Its active suffix is the downward-growing Scheme stack; saved frame positions
-are depths from its high end. `State` is the fixed C-compatible register layout
-shared with generated LLVM. Globals and constants have stable storage; `reserve`
-moves the active suffix to a larger buffer and refreshes `stack_end`.
-
-`prepare_apply` checks whether the operator is a closure, primitive, or saved
-continuation. Fixed-arity closure entry creates no Rust or managed allocation.
-`prepare_rest` constructs a list for variadic calls. Primitive invocation polls
-when necessary and borrows a slice of the downward-growing stack. `Arguments`
-maps source indices to reversed physical indices without rearranging storage.
-The callable cannot collect or resize the Scheme stack.
-
-`capture` copies the active suffix through the call's return header into an
-immutable continuation object. `restore` preserves invocation values, copies
-the snapshot back, and lets LLVM execute its ordinary return transition. The
-snapshot can be invoked repeatedly. Assigned binding cells retain identity
-across snapshots; immutable captures are copied directly into closures.
-
-`Runtime` owns heap, ports, argv, and symbol names. Rust callables receive these
-services without VM control. `Allocation` adds managed construction for a
-GC-free burst; only the VM creates that capability at an allocation boundary.
-Neither a managed allocation nor capability destruction triggers collection.
-`roots` gathers globals, constants, registers, active stack words, multiple
-results, and current ports. Saved snapshots trace their words as heap children.
-All stack metadata is tagged immediate data, so the collector never mistakes a
-raw frame index for an object pointer.
-
-One result lives in `State.a`; multiple values use a reusable vector.
-`receive` transfers those results to the consumer's arguments. `apply`, multiple
-values, and continuation invocation rejoin shared LLVM control blocks without
-nesting native Rust calls. Explicit `collect-garbage` requests collection only
-after the native operation returns. `gc_statistics` includes root gathering,
-tracing, and sweeping in its collection timings.
-
-The earlier [Rust instruction experiment](doc/rust-instruction-experiment.md)
-established that shared LTO could inline small Rust handlers. MIR replaces that
-experimental handler layer with explicit representation calls. Its report is a
-historical ablation, not a description of the current module layout.
-
-[`runtime/src/lib.rs`](runtime/src/lib.rs) provides ABI 3. `boundary` records
-errors and contains unwinds where supported; stopped machines return stopped
-values. Release builds abort on unexpected Rust panics. Startup services build
-constants and primitive globals; execution services expose state, storage,
-heap-backed bindings, application preparation, and snapshots.
-
-[`runtime/src/primitives.rs`](runtime/src/primitives.rs) dispatches builtins.
-A closed `Builtin` inventory records names and allocation effects; dispatch
-uses enum IDs instead of copied strings. A borrowed `Arguments` view indexes and
-iterates the downward stack in source order without reversing its storage.
-Allocation classification happens once per invocation; builtin names are read
-only when a diagnostic needs one. Numeric operations decode arguments
-while traversing them, without allocating a temporary number vector;
-`compare_integer_float` avoids first rounding a large exact integer to `f64`.
-The pair, vector, bytevector, string, character, and record operations validate
-types and indices before use. `Runtime::string` borrows text for reads;
-`string_byte_offset` translates Unicode-scalar indices for substring and search.
-Constructors own their output before allocating it in the heap. Record descriptors
-are generative identities, and `constructor_fields` establishes field order by
-name. `apply` and
-`call-with-values` return dispatch requests instead of calling Scheme from Rust.
-`format_value` uses its own work stack for deep structures and detects cycles
-on the current print path, so shared acyclic values print normally.
-
-[`runtime/src/host.rs`](runtime/src/host.rs) implements ports, command-line
-arguments, exit, and the monotonic clock. `open_port`, `read_char`, `read_string`,
-`write_port`, and `close_port` handle the port variants. String indices and read
-counts refer to Unicode scalar values. File input currently loads and decodes
-the complete text when opened; chunked Scheme reads consume that retained input.
-`current-jiffy` uses nanosecond units from `Instant`, which does not imply
-nanosecond hardware resolution. The initial host uses Rust `std` on native and
-WASIp1 targets.
-
-## Checks and benchmark measurements
-
-The tests follow the same boundaries. Each tested Scheme module ends with a
-`Tests` section containing private cases and one exported `test-<module>` entry
-point. `make test` enables Chibi's `snail-tests` feature;
-[`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm) calls the CLI, reader,
-combinator, syntax-parser, pattern, expander, lowering, MIR, MIR emission, and
-llvmlite entries.
-Shared assertions in `tests/` depend only on Scheme base and write, avoiding
-cycles with the implementation modules. Importing a module does not run tests,
-and normal builds omit their imports, exports, and definitions.
-
-The expander selects library-level `cond-expand` declarations before resolving
-imports or expanding bodies. It advertises `snail-scheme` independently of the
-host; compiled programs therefore omit the host-only `snail-tests` branches.
-Inactive branches are still read as syntax. This preserves the compiler's ability
-to compile its own source files without requiring host-only testing facilities.
-
-The Rust modules also end with their representation, GC, primitive, port, and
-continuation tests under `#[cfg(test)]`. [`scripts/test-backend`](scripts/test-backend) compiles
-bootstrap and semantic fixtures, verifies LLVM, links both targets, and executes
-them under GC stress. [`scripts/test-cli`](scripts/test-cli) exercises CLI modes,
-artifact publication, literal arguments, and native/WASI execution.
-The direct LLVM fixture in [`tests/emit-llvmlite.scm`](tests/emit-llvmlite.scm)
-builds a module through the public IR API. The backend error fixture checks arity, undefined reads,
-single-value contexts, and integer overflow.
-
-[`scripts/run-wasi.mjs`](scripts/run-wasi.mjs) supplies Node's WASIp1 imports,
-forwards arguments and environment, and preopens the working directory. Native
-and WASI run the same generated program and Rust heap model. Browser hosting,
-WASIp2 packaging, and a general native embedding interface are separate work.
-
-[`benchmarks/run`](benchmarks/run) verifies the frozen corpus, compiles each
-benchmark, saves its release executable, checks its three output lines, and
-optionally writes JSON samples. Each Scheme program validates an answer and
-measures a fixed amount of work; changing repetitions changes the recorded work
-count rather than silently calibrating it to a time limit.
-
-`chez_runtime` selects the native Chez reference. `measure_pair` alternates
-execution order while holding work and repetition counts equal;
-`comparison_summary` divides Snail's median elapsed time by Chez's. Raw samples,
-artifact hashes, and pairing order remain in JSON. `record_artifact` records
-input hashes around successful builds; `verify_artifact` checks saved files
-before `--no-build` reuses them. WASI Snail also compares with native Chez.
-
-[`benchmarks/ablate`](benchmarks/ablate) saves runtime variants with `snapshot`,
-including native/WASI executables, reusable LLVM, source hashes, and source
-patches. `compare` checks that the compiler and toolchain stayed fixed, runs
-equal workloads in alternating pairs, and saves raw samples with median
-speedups. These comparisons isolate individual runtime changes before the
-next optimization milestone.
-
-[`benchmarks/lto`](benchmarks/lto) instead holds runtime sources fixed and
-compares ordinary release, Rust-only LTO, and shared Scheme/Rust LTO. It saves
-linked bitcode, builds every variant before timing, then rotates native/WASI
-benchmark executions with the Chez reference. The CLI now selects shared LTO
-for optimized builds; this harness still provides explicit comparison controls.
-
-[`scripts/check-static-codegen`](scripts/check-static-codegen) isolates a smaller
-question: whether equivalent checked fixnum helpers written in Rust and through
-`llvmlite` inline into LLVM callers. It executes both on native/WASI and retains
-the linked IR and assembly. This diagnostic does not change runtime primitives.
-
-[`benchmarks/chibi`](benchmarks/chibi) compares saved Snail executables with
-Chibi and Chez, rotating execution order and checking equal fixed work. Its
-[`Scheme adapter`](benchmarks/chibi.scm) keeps the workload bodies unchanged and
-converts Chibi substring-search cursors to character indices. The report records
-Chibi's millisecond wall clock and the native pointer-width difference explicitly.
-
-[`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
-shared. `copy-program` replaces their imports with the required compatibility
-definitions; `compile-benchmark` calls Chez's native `compile-program` at safe
-optimization level 2 before any timing begins. The adapters translate records,
-clocks, bulk input, substring search, and collector statistics. Their IO
-algorithms and GC accounting differ from Rust's and are documented beside the
-comparison methodology. `--snail-only` deliberately omits the Chez reference.
-
-The four benchmark modules each expose their measured operation directly:
-
-- [`cpu.scm`](benchmarks/cpu.scm): `fibonacci` makes deliberately redundant calls;
-  `fibonacci-linear` supplies an independent oracle, and `workload` combines
-  checked results.
-- [`memory.scm`](benchmarks/memory.scm): `sieve` mutates composite flags,
-  `prime-list` retains the discovered primes, and `summarize` traverses their
-  counts, sums, and gaps. Trial division checks small instances independently.
-- [`io.scm`](benchmarks/io.scm): `read-matches` keeps the suffix needed for matches
-  across chunk boundaries; `search-file` opens and closes one file at a time.
-  Rust bulk reads and substring search make this a comparison where less work
-  is available for Scheme optimization. Repeated runs use the normal page cache.
-- [`gc.scm`](benchmarks/gc.scm): `make-tree` creates parent-linked cyclic trees,
-  `fill-ring!` replaces older roots, and `verify-tree` checks the retained graph.
-  It reports collection counts and collection time alongside elapsed time.
-
-[`benchmarks/generate-corpus.py`](benchmarks/generate-corpus.py) explains the
-original fictional text and independently computes its search answer. The
-checked-in corpus and SHA-256 manifest fix its bytes; the benchmark runner does
-not regenerate it. See [the benchmark notes](benchmarks/README.md) for workload
-sizes, expected answers, and measurement commands.
-
-[`Makefile`](Makefile) runs the hosted Scheme tests and formatting checks.
-[`shell.nix`](shell.nix) supplies Chibi, Chez, and development utilities; Rust, LLVM,
-and a WASI runner are additional tools. The formatter scripts share Scheme
-indentation rules between writing and checking files. `Cargo.lock` records the
-Rust workspace resolution, and generated LLVM, objects, executables, and timing
-reports belong under ignored build directories.
-
-## Reading toward the next milestone
-
-A useful order for an optimization change is HIR identity, lowering's storage
-and tail-position decisions, explicit MIR operations, then LLVM and the Rust
-callee. MIR dumps expose the machine boundary before code generation;
-benchmarks and semantic fixtures provide separate performance and correctness
-checks. Assigned locals use cells, values remain dynamically checked, and
-library bodies are retained. Those choices make the costs visible before type
-inference changes representation or removes checks.
-
-[The backend notes](doc/backend.md) describe build commands and current limits.
-[The HIR notes](doc/hir.md) explain binding and macro contracts. The highlighted
-[Dybvig thesis](doc/three-imp.pdf) provides the stack-machine starting point;
-[the R7RS report](doc/r7rs-small.pdf) is the language reference. [TODO.md](TODO.md)
-tracks the next work. The repository's pinned `simplify` skill describes the
-independent explanation and review process used when changing these modules.
-[The Rust interop design](doc/rust-interop.md) separates today's executable
-linking and scalar C ABI proof from the scoped managed-value calls and reusable
-embedding API planned next.
-
-[Why Snail-Scheme?](doc/why-snail-scheme.md) is the current platform design:
-actors own resources, connections carry method invocations, and artifacts describe
-loadable code/data. It specifies actor-local globals, separate spawn/connect
-operations, mandatory S-expression boundaries, temporary frame heaps, GC policies,
-and reload. All of these actor facilities remain planned.
-[The tutorial specifications](doc/tutorials/README.md) map the full requirements
-inventory to a game, a distributed chat application, and GPU MNIST training with
-autodiff. Each folder contains a reading sequence and observable integration
-criteria. The reader, typed-kernel, and allocation-proof extensions keep the
-original authoring and memory goals visible without claiming they are implemented.
-[The earlier synthesis](doc/application-model.md),
-[candidate comparison](doc/execution-primitives.md), and
-[execution notes](doc/application-engines.md) preserve design history; their
-fire-and-forget-only and fresh-heap-per-invocation assumptions are superseded.
-[The staged-program design](doc/staged-programs.md) proposes named build targets,
-artifact references, application descriptions exported by vendored libraries,
-and S-expression codecs derived from message types. It treats build evaluation
-as an actor invocation and distinguishes syntax expansion, graph construction,
-and later artifact execution. The [TODO issue](https://github.com/tsnl/snail-scheme/issues/11)
-links the related design and prototype PRs.
+[Why Snail-Scheme?](doc/why-snail-scheme.md) defines the actor, connection, and
+artifact model. The [three tutorial projects](doc/tutorials/README.md) specify
+game frame isolates, distributed chat, and GPU tensor training as integration
+goals. [Reader generation](doc/generate-library.md) and
+[staged programs](doc/staged-programs.md) remain planned features.
