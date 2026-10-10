@@ -40,7 +40,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-cli`.
+`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
 Backend changes should execute linked Wasm. Native executor changes also need
 actual native execution; compilation alone does not test target behavior. See [doc/backend.md](doc/backend.md) for tools
 and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

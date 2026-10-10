@@ -1,6 +1,6 @@
 # TODO
 
-- [x] CLI args parser
+- [x] Historical parser inspection CLI (not the compiler build interface)
 - [x] Parser and parser combinator
 - [ ] Syntax
   - [x] Syntax
@@ -14,7 +14,7 @@
   - [ ] Phase-aware resolution to shared definition identities
   - [x] IR construction using the datum pattern matcher
   - [x] Basic imports, exports, and lexical scoping
-  - [x] Connect expansion to the command-line launcher
+  - [x] Expose expansion through the compiler library
 - [ ] Macro expansion
   - [x] Initial `syntax-rules` pattern/template engine
   - [x] Connect datum matching to source locations and literal binding lookup
@@ -33,8 +33,9 @@
   - [x] Emit WasmGC directly; retire MIR, LLVM emission, and managed Scheme stack
   - [x] Use real tail calls, direct fixed workers, closure adapters, and GC references
   - [x] Build and link Rust as Wasm through an application Wasm interface (AWI)
-  - [x] Invoke Cargo automatically; source runs, `-o` builds, `--emit-wat` inspects
-  - [x] Rust extension example with retained roots and reentrant Scheme callbacks
+  - [x] Scheme build library with ordinary Chibi-hosted build scripts
+  - [x] One root Rust runtime crate and reusable compiled runtime Wasm
+  - [x] Built-in Rust example with retained roots and reentrant Scheme callbacks
   - [x] Explicit resource close plus browser/Node finalizer host shim
   - [x] Compile compiler sources while keeping Chibi as the build host
   - [x] Run the newly compiled compiler to generate and execute a second program
@@ -67,7 +68,8 @@
   - [ ] Generic extension resource-kind registration and release callbacks
   - [ ] Native host finalization equivalent to the JS shim
   - [ ] Recoverable error/trap boundaries and explicit instance shutdown
-  - [ ] Rust host embedding example distinct from the Rust-in-Wasm extension example
+  - [ ] Rust host embedding example distinct from the built-in Rust callback example
+  - [ ] Revisit independent extension packaging after the library baseline
   - [ ] Test cleanup cycles; a resource rooting its own wrapper needs explicit release
 - [ ] Type inference and optimization after the measured executable baseline
   - [ ] Closed-world lattice analysis, occurrence typing, strict annotations

@@ -13,43 +13,37 @@ separate import/export names, `snail:<Scheme-name>` in module `snail.rust`.
 There is no builtin-number dispatcher. The prefix avoids collisions with libc
 symbols such as `exit` and `write`.
 
-The `snail-abi` proc macro generates a stable exported scalar wrapper. It does
-not infer Scheme types or perform implicit argument conversion. The
-`snail-awi` SDK supplies explicit checked conversion and root ownership:
+The single Rust runtime crate exposes ordinary scalar C-ABI functions with
+explicit Wasm export names. There is no procedural macro or implicit conversion:
 
 ```rust
-#[snail_abi::export("snail:example")]
-fn example(raw: u32) -> u32 {
-    // The generated Scheme wrapper keeps this vector rooted for this call.
-    let args = unsafe { snail_awi::Arguments::borrow(raw) };
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:example"))]
+pub extern "C" fn example(raw: u32) -> u32 {
+    let args = unsafe { crate::awi::Arguments::borrow(raw) };
     args.check("example", 1, 1).expect("wrong argument count");
-    let value = args.get(0).expect("missing argument");
-    value.into_handle()
+    args.get(0).expect("missing argument").into_handle()
 }
 ```
 
-Use `Root::call(&[Root])` for a synchronous Scheme callback. The callback may
-allocate and reenter Rust; do not hold a `RefCell` borrow or a lock that it could
-reacquire. Existing Rust roots remain in the GC table across the call. Scheme
-`apply` and `call-with-values` themselves remain in Wasm so they can tail-call
-without retaining Rust frames.
+`src/awi.rs` supplies checked conversion and root ownership. `Root::call` makes
+a synchronous Scheme callback, which may allocate and reenter Rust. Do not hold
+a `RefCell` borrow or a lock that the callback could reacquire. Existing roots
+remain in the GC table across callbacks. Scheme `apply` and `call-with-values`
+remain in Wasm so tail calls do not retain Rust frames.
 
-The [example](../examples/extension/README.md) exercises retained Scheme
-values and Rust-to-Scheme callbacks. `--extension PATH` reads a library package's
-`[package.metadata.snail] exports` list, adds that crate to the generated Cargo
-manifest, and exposes its functions through `(snail-scheme extensions)`.
-Runtime and extension dependencies become one Rust cdylib, sharing a single
-linear memory. Cargo builds it for `wasm32-wasip1`; Binaryen links it with the
-Scheme Wasm module and a command entry point.
+The [example](../examples/extension/README.md) lives in `src/interop_example.rs`
+and is built into the standard runtime. Its Scheme build script supplies an
+alist mapping callable Scheme names to the `"snail.rust"` Wasm import module.
+Those names are exposed through `(snail-scheme extensions)`. This naming scope
+does not imply dynamic loading or a separate Rust crate. Independent extension
+packaging is deferred; all current Rust services share one runtime linear memory.
 
-Without extensions, the driver builds the existing runtime cdylib directly and
-reuses its Wasm artifact across programs. Cargo checks the Rust inputs on each
-invocation; Scheme edits do not cause Rust compilation or LTO. The runtime owns
-the `_initialize` export in both cases, and the linked entry calls it once.
+Cargo builds/reuses the root runtime crate as Wasm. The runtime exports
+`_initialize`; the linked entry invokes it once before Scheme executes.
 
 ## Root contract
 
-`runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
+`src/runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
 An integer handle does not itself retain a value: the corresponding live table
 slot does. The SDK's `Root` owns exactly one slot in the current instance.
 
@@ -77,7 +71,7 @@ reused. Current ports have durable roots. Explicit `close-port` closes promptly;
 an output-string port remains readable after close until its wrapper dies.
 
 AWI imports `snail.host/register-finalizer(object, kind, id)`. The browser/Node
-implementation in `runtime/host.mjs` uses `FinalizationRegistry`, holding only
+implementation in `src/runtime/host.mjs` uses `FinalizationRegistry`, holding only
 resource IDs. Cleanup invokes `snail:drop-resource`; the Rust implementation
 drops the port payload and marks its slot closed. Repeated cleanup is harmless.
 `Root::from_raw_extension` is unsafe: create exactly one owning wrapper per

@@ -5,7 +5,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { WASI } from 'node:wasi';
 import { resolve } from 'node:path';
-import { createFinalizers } from '../runtime/host.mjs';
+import { createFinalizers } from '../src/runtime/host.mjs';
 
 const [filename, ...args] = process.argv.slice(2);
 if (!filename) {

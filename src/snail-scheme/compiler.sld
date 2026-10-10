@@ -1,7 +1,7 @@
 ;; Compile source through located syntax and resolved IR directly to WasmGC.
 ;; The current Chibi host runs this module; Wasm tools assemble and link its output.
 (define-library (snail-scheme compiler)
-  (export source-file->wasm-file compiler-main)
+  (export source-file->wat-file)
   (import (scheme base) (scheme cxr) (scheme file)
           (snail-scheme trace) (snail-scheme bootstrap)
           (snail-scheme reader) (snail-scheme syntax-parser)
@@ -11,24 +11,12 @@
   (begin
     ;; ---- Compilation and output files ----
 
-    (define (compiler-main arguments)
-      (let ((operands (cdr arguments)))
-        (if (or (< (length operands) 3) (not (= (modulo (- (length operands) 3) 2) 0)))
-            (error "usage: compile.scm ROOT INPUT OUTPUT.wat [WASM-MODULE SCHEME-NAME] ..."))
-        (source-file->wasm-file (car operands) (cadr operands) (caddr operands)
-                                (foreign-declarations (cdddr operands)))))
-
-    (define (foreign-declarations arguments)
-      (if (null? arguments) '()
-          (cons (cons (string->symbol (cadr arguments)) (car arguments))
-                (foreign-declarations (cddr arguments)))))
-
     (define (make-extension-library names)
       (make-library '(snail-scheme extensions) '()
                     (map (lambda (name) (make-named-binding name (make-value-definition name #f))) names)
                     '() '() #f))
 
-    (define-traced (source-file->wasm-file root input output . optional-foreign)
+    (define-traced (source-file->wat-file root input output . optional-foreign)
       (let* ((foreign (if (null? optional-foreign) '() (car optional-foreign)))
              (forms (source-file->syntax-list input))
              (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
@@ -36,8 +24,8 @@
              (program (syntax-list->ir-library forms (library-loader root) (list core extensions))))
         (call-with-output-file output
           (lambda (port)
-            (write-ir-library-as-wasm program (string-append root "/runtime/wasmgc.wat")
-                                      (string-append root "/runtime/awi.wat") port foreign)))))
+            (write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
+                                      (string-append root "/src/runtime/awi.wat") port foreign)))))
 
     ;; ---- Source and library loading ----
 

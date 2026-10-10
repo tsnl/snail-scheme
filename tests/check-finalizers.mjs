@@ -1,7 +1,7 @@
 // Integration test: the production JS shim observes a real WasmGC object.
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import { createFinalizers } from '../runtime/host.mjs';
+import { createFinalizers } from '../src/runtime/host.mjs';
 
 const { instance } = await WebAssembly.instantiate(await readFile(process.argv[2]));
 const wasm = instance.exports;

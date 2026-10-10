@@ -7,39 +7,57 @@ stack, MIR, LLVM emitter, and native Rust heap are retired.
 
 ## Build and run
 
+Run ordinary Scheme build scripts with Chibi:
+
 ```sh
 rustup target add wasm32-wasip1
-./snail-scheme examples/fibonacci.scm
-./snail-scheme examples/fibonacci.scm -o build/fibonacci.wasm
-./snail-scheme examples/fibonacci.scm --emit-wat -o build/fibonacci.wat
-./snail-scheme examples/extension.scm --extension examples/extension
+chibi-scheme -I src build.scm
+chibi-scheme -I src examples/extension/build.scm
 ```
 
-`-o` builds without running. Arguments after `--` pass literally to the program.
-All normal builds optimize the linked Wasm. `--keep-build` retains intermediate
-files. The driver invokes Cargo automatically. Ordinary programs reuse the
-runtime cdylib at `build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`;
-Cargo checks freshness, so Scheme-only changes do not rebuild or relink Rust.
-To prebuild it, use the same settings as the driver:
+`(snail-scheme compiler)` exports `source-file->wat-file(root, input, output)`.
+`(snail-scheme build)` supplies complete build operations:
+
+- `build-runtime(root)` builds/reuses the Rust Wasm runtime and returns its path.
+- `link-wasm(wat, runtime, output)` assembles, links, optimizes and publishes Wasm.
+- `build-wasm(root, input, output)` combines source emission and linking.
+- `run-wasm(root, module, arguments)` runs Node/WASI and returns its exit code.
+- `run-command(stage, argv)` runs a subprocess with tracing and raises on failure.
+
+The optional final argument to `source-file->wat-file` and `build-wasm` is an
+alist of Scheme names and Wasm import modules for built-in Rust callable functions.
+It does not package or build separate extension crates.
+
+The single root Cargo crate contains all Rust services under `src/`.
+`build-runtime` invokes Cargo with a stable manifest and target directory;
+Scheme-only changes do not rebuild Rust. To prebuild the identical runtime:
 
 ```sh
-cargo build --offline --release --target wasm32-wasip1 \
-  --manifest-path runtime/Cargo.toml --target-dir build/wasm-runtime \
-  --config profile.release.lto=true --config profile.release.codegen-units=1
+cargo build --offline --release --target wasm32-wasip1 --target-dir build/wasm-runtime
 ```
 
-Extension builds still use one generated Rust cdylib containing runtime and
-extension dependencies: their pointers all address one linear memory.
-Independently merging arbitrary WASI modules would require
-preserving which module's memory each pointer-taking WASI import accesses.
+The artifact is `build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`.
+Release LTO settings live in the root manifest. Scripts can build it once and
+link several Scheme modules against it. Runtime initialization occurs once in
+the linked Wasm entry before Scheme executes. Rust pointers address one linear
+memory; Scheme values live in WasmGC and cross the AWI as root handles.
 
-Tool overrides are `CHIBI`, `CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and
-`NODE`. Tested tools include Chibi 0.12, Rust 1.95, Binaryen 132, and Node 24.15.
-The Node runner supplies WASIp1 and AWI finalization imports. Browser hosting
-can reuse `runtime/host.mjs`; a browser WASI adapter is separate work.
-WasmGC, typed function references, tail calls, mutable globals, sign extension,
-and bulk memory are enabled explicitly. Do not enable every experimental
-Binaryen feature: it can produce modules unsupported by the selected engine.
+`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select tools. Chibi hosts
+the build module's process/filesystem operations today. The Node runner provides
+WASIp1 and finalizer imports; a browser WASI adapter remains future work.
+WasmGC, reference types, tail calls, mutable globals, sign extension, and bulk
+memory are enabled explicitly rather than enabling every experimental feature.
+
+## Build ownership
+
+Scripts own artifact paths and decide whether failures abort or are caught.
+Linking stages use unique temporary directories on the destination filesystem;
+failed builds preserve existing output and clean up their intermediates.
+Tool arguments are passed literally, without shell quoting or interpolation.
+Concurrent builds with distinct output paths have independent intermediates;
+concurrent successful publishers to one path replace it atomically, last wins.
+Do not mutate runtime sources or build configurations while another script is
+linking the returned Cargo artifact. There is no separate runtime cache manager.
 
 ## Source to WebAssembly
 
@@ -49,11 +67,11 @@ Binaryen feature: it can produce modules unsupported by the selected engine.
 | `library.sld` | Library containers, imports, exports, dependency order |
 | `expand.sld` | Located syntax to IR, including `syntax-rules` expansion |
 | `wasm.sld` | Binding/capture analysis and direct folded WAT emission |
-| `runtime/wasmgc.wat` | Value representations, checked primitives, calls |
-| `runtime/awi.wat` | Root handles and scalar accessors for foreign Wasm code |
-| `awi/src/lib.rs` | Rust ownership and checked conversions over AWI |
-| `runtime/src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
-| `driver/src/main.rs` | Hosted compilation, Cargo, linking, execution/publication |
+| `src/runtime/wasmgc.wat` | Value representations, checked primitives, calls |
+| `src/runtime/awi.wat` | Root handles and scalar accessors for foreign Wasm code |
+| `src/awi.rs` | Rust ownership and checked conversions over AWI |
+| `src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
+| `build.sld` | Chibi-hosted Cargo, linking, execution and artifact publication |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
 and assignments. A library owns its body and dependencies. Expansion retains
@@ -119,7 +137,7 @@ stack when the toolchain supports it. Host finalization could schedule that
 cancellation, but does not itself implement unwinding. Current Rust release
 builds use `panic = "abort"`; no Rust forced-unwind support is promised.
 
-`--native` delegates to `SNAIL_WASM_NATIVE`. The separate
+The separate
 [bounded translator](../experiments/wasm-llvm/README.md) has measured competitive
 performance but lacks the arrays, memories, imports, and other operations needed
 for the complete linked program. Its [continuation experiment](../experiments/wasm-stack-switching/README.md)
@@ -135,22 +153,17 @@ import through BDWGC without making the translator depend on Scheme IR.
 ## Validation and measurements
 
 Run `make test`, `make check`, `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-cli`.
+`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
 The integration suites execute real linked Wasm, including closures, mutation,
 recursive initialization, rest arguments, values, numeric boundaries, proper
 tail calls, errors, and Rust callbacks with retained roots. Unit tests remain in
 implementation modules; integration fixtures remain in `tests/`.
 
-To check that the compiler can compile its own source without switching hosts:
-
-```sh
-./snail-scheme src/snail-scheme/compile.scm -o build/compiler.wasm
-node scripts/run-wasi.mjs build/compiler.wasm . examples/fibonacci.scm build/fibonacci.wat
-```
-
-The generated compiler has executed this command successfully; its Fibonacci
-output was assembled, linked with the Rust runtime, and executed. Chibi remains
-the default build host.
+The frontend-only [examples/compile.scm](../examples/compile.scm) script has been
+compiled to Wasm, then executed to emit Fibonacci WAT, which was linked and run
+successfully. It imports `(snail-scheme compiler)` without the Chibi-specific
+build module. This checks compiler-source capability; the default host remains
+Chibi and running build scripts under Snail is a later milestone.
 
 The [production WasmGC report](../benchmarks/results/2026-10-10-wasmgc-production.json)
 measures the full linked CPU benchmark under Node/V8: 0.08627s versus Chez

@@ -2,9 +2,8 @@
 
 Timing is always enabled. Each participating process writes a separate Chromium
 trace JSON file under `build/traces/`, relative to its working directory.
-`SNAIL_TRACE_DIR` selects another directory. The CLI resolves that path before
-launching its children, so compiler, driver, and executable use the
-same destination. Files remain after temporary build projects are removed.
+`SNAIL_TRACE_DIR` selects another directory. Build scripts and their children normally share a working directory; use an
+absolute override when a script changes directories. Files remain after temporary build projects are removed.
 Standalone Cargo build scripts and tests can run from their crate directories;
 set an absolute override to collect those files in one place.
 
@@ -64,7 +63,7 @@ fn operation() {
 }
 ```
 
-`trace/src/lib.rs` owns destination selection, exclusive file creation, JSON
+`src/trace.rs` owns destination selection, exclusive file creation, JSON
 escaping, monotonic clocks, thread lanes, and serialized writes. Keep guards on
 the creating thread. `Span::elapsed()` measures a Rust scope without separate profiling clocks. Explicit process exit/abort
 bypasses destructors; the runner returns from its traced scope before exiting.
@@ -90,4 +89,4 @@ in the middle of a write can still leave a partial file.
 | `expand.sld` | `syntax-list->ir-library` | Syntax list → unnamed IR library |
 | `expand.sld` | `syntax->ir-library` | Library syntax → resolved IR library |
 | `wasm.sld` | `write-ir-library-as-wasm` | IR library graph → WAT on a port |
-| `compiler.sld` | `source-file->wasm-file` | Source filename → WAT output file |
+| `compiler.sld` | `source-file->wat-file` | Source filename → WAT output file |
