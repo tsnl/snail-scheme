@@ -11,14 +11,17 @@ build.scm -> compile-native main.scm and its generated installation library
   -> Binaryen validation -> binary Wasm reader -> LLVM
   -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
 
-snail-scheme SCRIPT -> compile temporary native script -> run -> return status
+snail-scheme [-I DIRECTORY ...] SCRIPT -> compile temporary native script -> run -> return status
 ```
 
 ## Entering the compiler
 
 [build.scm](build.scm) owns the interpreter's output path. [main.scm](main.scm)
-defines its zero-argument `main` handler: run the supplied script and return its
-status. [`native.sld`](src/snail-scheme/native.sld) composes source compilation,
+defines its zero-argument `main` handler: parse `-I` library directories, run the
+supplied script, and return its status. Both `-Isrc` and `-I src` work; each
+occurrence prepends a directory. `--` ends interpreter options, and arguments
+after the script filename pass through literally.
+[`native.sld`](src/snail-scheme/native.sld) composes source compilation,
 the native runtime archive, and explicit CLI entry adapters. A normal script has
 no special entry name: its forms execute once and normal completion returns zero.
 

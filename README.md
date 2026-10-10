@@ -2,19 +2,26 @@
 
 > Rewrite in progress; the previous implementation lives on branch `v3`.
 
-A small Scheme compiler library, hosted by Chibi. Ordinary Scheme scripts choose
-what to compile, where to write it, and whether to run it. There is no compiler
-CLI mode parser or separate Rust driver.
+A small Scheme compiler library. Chibi bootstraps the native `snail-scheme`
+interpreter, which can run its own build script. Ordinary Scheme scripts choose
+what to compile, where to write it, and whether to run it.
 
 ```sh
 nix-shell
 chibi-scheme -I src build.scm
+build/snail-scheme -Isrc build.scm
 make test
 scripts/test-build
 scripts/test-backend
 ```
 
-The checked-in [build.scm](build.scm) compiles and runs Fibonacci:
+The native CLI accepts both `-Isrc` and `-I src` before the script filename.
+Each `-I` prepends a library directory, so later flags take precedence.
+Use `--` before a script filename beginning with `-`; arguments after the
+filename pass through literally.
+
+The checked-in [build.scm](build.scm) builds the interpreter. A Fibonacci build
+script can use:
 
 ```scheme
 (import (scheme base) (snail-scheme build))
@@ -76,9 +83,6 @@ The stable channel is not a fixed-version benchmark toolchain. `CARGO`, `WASM_AS
 `WASM_MERGE`, `WASM_OPT`, and `NODE` override build tools with executable paths,
 not shell command strings. Chromium traces are always written under
 `build/traces/`; `SNAIL_TRACE_DIR` overrides the destination.
-
-The compiler stays Chibi-hosted. Running build scripts with Snail itself and
-switching the build to self-hosting are later milestones.
 
 This is R7RS-inspired, not fully R7RS compliant. `call/cc` is currently
 unsupported. Single-shot delimited continuations are planned; reusable

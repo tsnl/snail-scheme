@@ -1,9 +1,10 @@
 # Programs that build programs
 
-`snail-scheme SCRIPT [ARGUMENT ...]` evaluates an ordinary Scheme script. The
-native CLI compiles that script through Wasm and LLVM into a temporary executable,
-runs it, and returns its status. Script statements execute in order. Compilation,
-artifact paths, and execution policy are procedures in Scheme libraries.
+`snail-scheme [-I DIRECTORY ...] [--] SCRIPT [ARGUMENT ...]` evaluates an ordinary
+Scheme script. The native CLI compiles that script through Wasm and LLVM into a
+temporary executable, runs it, and returns its status. Script statements execute
+in order. Compilation, artifact paths, and execution policy are procedures in
+Scheme libraries.
 
 ## Bootstrap and rebuild
 
@@ -17,9 +18,15 @@ Bootstrap with Chibi, then run the same script with the resulting interpreter:
 
 ```sh
 chibi-scheme -I src build.scm
-build/snail-scheme build.scm
+build/snail-scheme -Isrc build.scm
 build/snail-scheme build.scm build/another-snail-scheme
 ```
+
+Both `-Isrc` and `-I src` prepend `src` to the library search path, as in Chibi.
+Repeat `-I` to add directories; the last supplied directory is searched first.
+Paths are relative to the current working directory. `--` permits a script
+filename beginning with `-`. After the script filename, all arguments belong to
+the script, including any `-I` tokens.
 
 This first native platform targets **x86-64 Linux**. Enter `nix-shell` for Chibi,
 Rust, Binaryen, Clang/LLD, BDWGC, and mdBook. Cargo's dependencies and Rust target

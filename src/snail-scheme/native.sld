@@ -74,9 +74,12 @@
 
     ;; A private executable needs no publication. The completed child status,
     ;; including nonzero, returns normally and permits workspace cleanup.
-    (define (run-script root script arguments)
+    ;; Optional library directories precede the compiler's project sources.
+    (define (run-script root script arguments . options)
+      (if (> (length options) 1) (error "expected library directories"))
       (call-with-build-directory #f
                                  (lambda (directory)
                                    (let ((executable (string-append directory "/script")))
-                                     (compile-native root script directory executable #f '())
+                                     (compile-native root script directory executable #f
+                                                     (if (null? options) '() (car options)))
                                      (process-status (cons executable arguments) "." #t script)))))))

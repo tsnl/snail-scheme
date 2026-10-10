@@ -128,12 +128,64 @@ def check_script(interpreter, directory, **environment):
     require(invoke([interpreter, source.name, *ARGUMENTS], directory, input="aλ😀z", **environment), expected)
     exit_source = write_script(directory, "exit.scm", '(import (scheme process-context)) (exit 7)\n')
     require(invoke([interpreter, exit_source], **environment), status=7)
-    result = invoke([interpreter], **environment)
-    if result.returncode == 0 or "usage: snail-scheme SCRIPT" not in result.stderr:
-        raise RuntimeError(f"missing interpreter usage diagnostic: {result}")
     if list(temporary.iterdir()):
         raise RuntimeError("completed script retained temporary files")
     print("passed script order, stdin, argv, UTF-8, and exit status", flush=True)
+
+
+# ---- Interpreter library options ----
+
+
+def write_project_script(directory):
+    first, second = directory / "first libraries", directory / "second libraries"
+    for path in (first / "project", second / "project"):
+        path.mkdir(parents=True)
+    for path, increment in ((first, 2), (second, 59)):
+        (path / "project/answer.sld").write_text(
+            '(define-library (project answer) (export answer) '
+            '(import (scheme base) (project helper)) '
+            f'(begin (define answer (+ base {increment}))))')
+    (first / "project/helper.sld").write_text(
+        '(define-library (project helper) (export base) '
+        '(import (scheme base)) (begin (define base 40)))')
+    source = write_script(directory, "project.scm", """(import (scheme base) (scheme write)
+        (scheme process-context) (project answer))
+(write answer) (newline)
+(write (command-line)) (newline)
+""")
+    return source, first.name, second.name
+
+
+def check_library_options(interpreter, directory, **environment):
+    source, first, second = write_project_script(directory)
+    arguments = [*ARGUMENTS, "-I", "literal directory", "-Iscript-only", "--"]
+    cases = [([f"-I{first}"], 42), (["-I", first], 42),
+             ([f"-I{first}", "-I", second], 99), (["-I", second, f"-I{first}"], 42)]
+    for options, answer in cases:
+        expected = f"{answer}\n(" + " ".join(map(quote, [source.name, *arguments])) + ")\n"
+        require(invoke([interpreter, *options, source.name, *arguments], directory, **environment), expected)
+    source.rename(directory / "-Iscript.scm")
+    expected = '42\n("-Iscript.scm" "-I" "literal")\n'
+    require(invoke([interpreter, f"-I{first}", "--", "-Iscript.scm", "-I", "literal"],
+                   directory, **environment), expected)
+    print("passed attached/separate -I, prepending, transitive imports, literal argv, and --", flush=True)
+
+
+def check_option_errors(interpreter, directory, **environment):
+    temporary = directory / "option-temporaries"
+    temporary.mkdir()
+    cases = [([], "usage:"), (["-I"], "-I requires a directory"),
+             (["-Isrc"], "usage:"), (["-I", "src"], "usage:"),
+             (["--"], "usage:"), (["-Isrc", "--"], "usage:"),
+             (["-Z"], "unknown option")]
+    for arguments, diagnostic in cases:
+        result = invoke([interpreter, *arguments], directory, TMPDIR=str(temporary), **environment)
+        if (result.returncode == 0 or diagnostic not in result.stderr or
+                "usage: snail-scheme [-I DIRECTORY ...]" not in result.stderr):
+            raise RuntimeError(f"missing interpreter option diagnostic: {result}")
+    if list(temporary.iterdir()):
+        raise RuntimeError("invalid options created compilation intermediates")
+    print("passed missing script, missing -I directory, and unknown option diagnostics", flush=True)
 
 
 # ---- Failed publication and self-hosted replacement ----
@@ -164,9 +216,11 @@ def check_self_host(interpreter, directory):
     (tools / "chibi-scheme").symlink_to(blocked)
     environment = {"CHIBI": str(blocked), "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
     replacement = directory / "rebuilt-snail-scheme"
-    require(invoke([interpreter, ROOT / "build.scm", replacement], **environment))
+    require(invoke([interpreter, "-Isrc", ROOT / "build.scm", replacement], **environment))
     require_native(replacement)
     check_script(replacement, directory, **environment)
+    check_library_options(replacement, directory, **environment)
+    check_option_errors(replacement, directory, **environment)
     check_failed_build(replacement, directory, **environment)
     print("passed native compiler self-hosting with Chibi unavailable", flush=True)
 
