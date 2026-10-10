@@ -8,6 +8,42 @@ use crate::{
 };
 use std::{cmp::Ordering, collections::HashSet};
 
+// ---- Borrowed Scheme arguments ----
+
+// The Scheme stack grows downward: its last slice element is source argument 0.
+// This view never moves values or owns storage. The caller must not resize the
+// stack or collect while Rust holds it; constructors only allocate.
+#[derive(Clone, Copy)]
+pub(crate) struct Arguments<'a>(pub(crate) &'a [Value]);
+
+impl<'a> Arguments<'a> {
+    pub(crate) fn len(self) -> usize {
+        self.0.len()
+    }
+    pub(crate) fn get(self, index: usize) -> Option<&'a Value> {
+        self.0.get(self.len().checked_sub(index)?.checked_sub(1)?)
+    }
+    pub(crate) fn first(self) -> Option<&'a Value> {
+        self.0.last()
+    }
+    pub(crate) fn iter(self) -> std::iter::Rev<std::slice::Iter<'a, Value>> {
+        self.0.iter().rev()
+    }
+    fn skip(self, count: usize) -> Self {
+        Self(&self.0[..self.len() - count])
+    }
+    fn to_vec(self) -> Vec<Value> {
+        self.iter().copied().collect()
+    }
+}
+
+impl std::ops::Index<usize> for Arguments<'_> {
+    type Output = Value;
+    fn index(&self, index: usize) -> &Value {
+        &self.0[self.len() - 1 - index]
+    }
+}
+
 // ---- Builtin identities and allocation effects ----
 
 // Every builtin's spelling and managed-allocation effect are declared together.
@@ -30,10 +66,12 @@ macro_rules! builtins {
                 }
             }
 
+            #[inline]
             pub(crate) fn name(self) -> &'static str {
                 match self { $(Self::$variant => $name),* }
             }
 
+            #[inline]
             pub(crate) fn may_allocate(self) -> bool {
                 match self { $(Self::$variant => $allocates),* }
             }
@@ -152,12 +190,18 @@ pub(crate) enum PrimitiveResult {
     Collect,
 }
 
-pub(crate) fn arity<T>(name: &str, args: &[T], min: usize, max: usize) -> Result<(), String> {
+pub(crate) fn arity(
+    op: Builtin,
+    args: Arguments<'_>,
+    min: usize,
+    max: usize,
+) -> Result<(), String> {
     if (min..=max).contains(&args.len()) {
         Ok(())
     } else {
         Err(format!(
-            "{name}: wrong number of arguments (got {})",
+            "{}: wrong number of arguments (got {})",
+            op.name(),
             args.len()
         ))
     }
@@ -166,19 +210,18 @@ pub(crate) fn arity<T>(name: &str, args: &[T], min: usize, max: usize) -> Result
 pub(crate) fn invoke(
     vm: &mut Runtime,
     op: Builtin,
-    args: &[Value],
+    args: Arguments<'_>,
 ) -> Result<PrimitiveResult, String> {
     use Builtin::*;
-    let name = op.name();
     let value = match op {
         NumericEqual | Less | LessEqual | Greater | GreaterEqual => numeric_compare(vm, op, args)?,
         Eq | Eqv => {
-            arity(name, args, 2, 2)?;
+            arity(op, args, 2, 2)?;
             Value::boolean(equivalent(vm, args[0], args[1]))
         }
         IsBoolean | IsNumber | IsReal | IsInexact | IsInteger | IsExactInteger | IsPair
         | IsNull | IsSymbol | IsString | IsChar | IsVector | IsBytevector | IsProcedure => {
-            arity(name, args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             predicate(vm, op, args[0])
         }
         Car | Cdr | SetCar | SetCdr => pair(vm, op, args)?,
@@ -191,28 +234,33 @@ pub(crate) fn invoke(
         }
         IsRecord | RecordRef | RecordSet => record_access(vm, op, args)?,
         TraceBegin => {
-            arity(name, args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             snail_trace::begin(vm.string(args[0])?);
             Value::UNSPECIFIED
         }
         TraceEnd => {
-            arity(name, args, 0, 0)?;
+            arity(op, args, 0, 0)?;
             snail_trace::end();
             Value::UNSPECIFIED
         }
         CollectGarbage => {
-            arity(name, args, 0, 0)?;
+            arity(op, args, 0, 0)?;
             return Ok(PrimitiveResult::Collect);
         }
-        Values | CallWithValues => return Err(format!("{name} requires VM control")),
+        Values | CallWithValues => return Err(format!("{} requires VM control", op.name())),
         Apply => {
-            arity(name, args, 2, usize::MAX)?;
-            let mut arguments = args[1..args.len() - 1].to_vec();
+            arity(op, args, 2, usize::MAX)?;
+            let mut arguments = args
+                .iter()
+                .skip(1)
+                .take(args.len() - 2)
+                .copied()
+                .collect::<Vec<_>>();
             arguments.extend(vm.list_values(args[args.len() - 1])?);
             return Ok(PrimitiveResult::Invoke(args[0], arguments));
         }
         Error => {
-            arity(name, args, 1, usize::MAX)?;
+            arity(op, args, 1, usize::MAX)?;
             let messages = args
                 .iter()
                 .map(|v| format_value(vm, *v, true))
@@ -230,7 +278,7 @@ pub(crate) fn invoke(
 pub(crate) fn invoke_allocating(
     mut vm: Allocation<'_>,
     op: Builtin,
-    args: &[Value],
+    args: Arguments<'_>,
 ) -> Result<PrimitiveResult, String> {
     use Builtin::*;
     let value = match op {
@@ -238,7 +286,7 @@ pub(crate) fn invoke_allocating(
             arithmetic_values(&mut vm, op, args)?
         }
         Cons => {
-            arity(op.name(), args, 2, 2)?;
+            arity(op, args, 2, 2)?;
             vm.alloc(crate::object::Pair(args[0], args[1]))
         }
         Vector | MakeVector | VectorLength => vector(&mut vm, op, args)?,
@@ -247,11 +295,11 @@ pub(crate) fn invoke_allocating(
         | NumberToString | StringContains => string(&mut vm, op, args)?,
         MakeRecordType | MakeRecord => record(&mut vm, op, args)?,
         GcStatistics => {
-            arity(op.name(), args, 0, 0)?;
+            arity(op, args, 0, 0)?;
             gc_statistics(&mut vm)?
         }
         CallWithCurrentContinuation => {
-            arity(op.name(), args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             return Err("call-with-current-continuation requires VM control".into());
         }
         OpenInputFile | OpenOutputFile | ReadString | OpenOutputString | GetOutputString
@@ -271,7 +319,7 @@ pub(crate) fn invoke_allocating(
 fn arithmetic_values(
     vm: &mut Allocation<'_>,
     op: Builtin,
-    args: &[Value],
+    args: Arguments<'_>,
 ) -> Result<Value, String> {
     let number = arithmetic(vm, op, args)?;
     Ok(match number {
@@ -287,12 +335,12 @@ fn equivalent(vm: &Runtime, left: Value, right: Value) -> bool {
     }
 }
 
-fn arithmetic(vm: &Runtime, op: Builtin, args: &[Value]) -> Result<Number, String> {
+fn arithmetic(vm: &Runtime, op: Builtin, args: Arguments<'_>) -> Result<Number, String> {
     use Builtin::*;
     let identity = matches!(op, Add | Multiply);
     let minimum = if identity { 0 } else { 1 };
     if matches!(op, Quotient | Remainder | Modulo) {
-        arity(op.name(), args, 2, 2)?;
+        arity(op, args, 2, 2)?;
         let a = args[0].integer(&vm.heap)?;
         let b = args[1].integer(&vm.heap)?;
         let value = if op == Quotient {
@@ -309,7 +357,7 @@ fn arithmetic(vm: &Runtime, op: Builtin, args: &[Value]) -> Result<Number, Strin
             },
         ));
     }
-    arity(op.name(), args, minimum, usize::MAX)?;
+    arity(op, args, minimum, usize::MAX)?;
     // Decode each argument once; no argument-number vector or heap allocation.
     // Exact arithmetic stays exact until an inexact operand/nonintegral division.
     let (mut result, rest) = if identity || args.len() == 1 {
@@ -318,16 +366,15 @@ fn arithmetic(vm: &Runtime, op: Builtin, args: &[Value]) -> Result<Number, Strin
             args,
         )
     } else {
-        (vm.heap.number(args[0])?, &args[1..])
+        (vm.heap.number(args[0])?, args.skip(1))
     };
-    for &value in rest {
+    for &value in rest.iter() {
         result = numeric_step(op, result, vm.heap.number(value)?)?;
     }
     Ok(result)
 }
 
 fn numeric_step(op: Builtin, left: Number, right: Number) -> Result<Number, String> {
-    let name = op.name();
     if let (Number::Integer(a), Number::Integer(b)) = (left, right) {
         let exact = match op {
             Builtin::Add => a.checked_add(b),
@@ -349,7 +396,7 @@ fn numeric_step(op: Builtin, left: Number, right: Number) -> Result<Number, Stri
         };
         return exact
             .map(Number::Integer)
-            .ok_or_else(|| format!("{name}: integer overflow"));
+            .ok_or_else(|| format!("{}: integer overflow", op.name()));
     }
     let a = left.real();
     let b = right.real();
@@ -385,11 +432,11 @@ fn compare_integer_float(integer: i64, float: f64) -> Option<Ordering> {
     }
 }
 
-fn numeric_compare(vm: &Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
-    arity(op.name(), args, 2, usize::MAX)?;
+fn numeric_compare(vm: &Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
+    arity(op, args, 2, usize::MAX)?;
     let mut previous = vm.heap.number(args[0])?;
     let mut matches = true;
-    for &value in &args[1..] {
+    for &value in args.skip(1).iter() {
         let next = vm.heap.number(value)?;
         matches &= number_matches(op, previous, next);
         previous = next;
@@ -447,13 +494,13 @@ fn predicate(vm: &Runtime, op: Builtin, value: Value) -> Value {
 
 // ---- Pairs and vectors ----
 
-fn pair(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn pair(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let count = if matches!(op, Builtin::Car | Builtin::Cdr) {
         1
     } else {
         2
     };
-    arity(op.name(), args, count, count)?;
+    arity(op, args, count, count)?;
     let Pair(car, cdr) = vm.heap.get_mut(args[0])?;
     match op {
         Builtin::Car => Ok(*car),
@@ -470,16 +517,16 @@ fn pair(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> 
     }
 }
 
-fn vector(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn vector(vm: &mut Allocation<'_>, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     if op == Builtin::Vector {
         return Ok(vm.alloc(Vector(args.to_vec())));
     }
     if op == Builtin::VectorLength {
-        arity(op.name(), args, 1, 1)?;
+        arity(op, args, 1, 1)?;
         let length = vm.heap.get::<Vector>(args[0])?.0.len();
         return length_value(vm, length);
     }
-    arity(op.name(), args, 1, 2)?;
+    arity(op, args, 1, 2)?;
     let length = args[0].index(&vm.heap)?;
     let fill = args.get(1).copied().unwrap_or(Value::UNSPECIFIED);
     let mut elements = Vec::new();
@@ -490,9 +537,9 @@ fn vector(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value,
     Ok(vm.alloc(Vector(elements)))
 }
 
-fn vector_access(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn vector_access(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let count = if op == Builtin::VectorRef { 2 } else { 3 };
-    arity(op.name(), args, count, count)?;
+    arity(op, args, count, count)?;
     let index = args[1].index(&vm.heap)?;
     let element = vm
         .heap
@@ -512,7 +559,7 @@ fn byte(vm: &Runtime, value: Value) -> Result<u8, String> {
     u8::try_from(value.integer(&vm.heap)?).map_err(|_| "expected a byte between 0 and 255".into())
 }
 
-fn bytevector(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn bytevector(vm: &mut Allocation<'_>, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     if op == Builtin::Bytevector {
         let bytes = args
             .iter()
@@ -520,14 +567,14 @@ fn bytevector(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Va
             .collect::<Result<Vec<_>, _>>()?;
         return Ok(vm.alloc(Bytevector(bytes)));
     }
-    arity(op.name(), args, 1, 1)?;
+    arity(op, args, 1, 1)?;
     let length = vm.heap.get::<Bytevector>(args[0])?.0.len();
     length_value(vm, length)
 }
 
-fn bytevector_access(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn bytevector_access(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let count = if op == Builtin::BytevectorRef { 2 } else { 3 };
-    arity(op.name(), args, count, count)?;
+    arity(op, args, count, count)?;
     let index = args[1].index(&vm.heap)?;
     let new_byte = if op == Builtin::BytevectorSet {
         byte(vm, args[2])?
@@ -562,7 +609,7 @@ fn char_value(value: Value) -> Result<char, String> {
 
 // ---- Strings ----
 
-fn string(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn string(vm: &mut Allocation<'_>, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     match op {
         Builtin::String => {
             let text = args
@@ -581,17 +628,17 @@ fn string(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value,
         Builtin::StringToNumber | Builtin::NumberToString => convert_number(vm, op, args),
         Builtin::StringContains => string_contains(vm, args),
         Builtin::SymbolToString => {
-            arity(op.name(), args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             let text = vm.symbol_name(args[0])?.to_owned();
             Ok(vm.alloc(Text::new(text)))
         }
         Builtin::StringLength => {
-            arity(op.name(), args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             let length = vm.string(args[0])?.chars().count();
             length_value(vm, length)
         }
         Builtin::Substring => {
-            arity(op.name(), args, 3, 3)?;
+            arity(op, args, 3, 3)?;
             let text = vm.string(args[0])?;
             let start = string_byte_offset(text, args[1].index(&vm.heap)?)
                 .ok_or("substring indices out of range")?;
@@ -607,24 +654,24 @@ fn string(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value,
     }
 }
 
-fn string_access(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn string_access(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     match op {
         Builtin::StringEqual => {
-            arity(op.name(), args, 2, usize::MAX)?;
+            arity(op, args, 2, usize::MAX)?;
             let first = vm.string(args[0])?;
             let mut equal = true;
-            for &value in &args[1..] {
+            for &value in args.skip(1).iter() {
                 equal &= first == vm.string(value)?;
             }
             Ok(Value::boolean(equal))
         }
         Builtin::StringToSymbol => {
-            arity(op.name(), args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             let name = vm.string(args[0])?.to_owned();
             Ok(vm.intern(&name))
         }
         Builtin::StringRef => {
-            arity(op.name(), args, 2, 2)?;
+            arity(op, args, 2, 2)?;
             vm.string(args[0])?
                 .chars()
                 .nth(args[1].index(&vm.heap)?)
@@ -642,8 +689,8 @@ fn string_byte_offset(text: &str, index: usize) -> Option<usize> {
         .nth(index)
 }
 
-fn string_contains(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String> {
-    arity("string-contains", args, 2, 3)?;
+fn string_contains(vm: &mut Allocation<'_>, args: Arguments<'_>) -> Result<Value, String> {
+    arity(Builtin::StringContains, args, 2, 3)?;
     let text = vm.string(args[0])?;
     let pattern = vm.string(args[1])?;
     let start = match args.get(2) {
@@ -683,8 +730,12 @@ fn gc_statistics(vm: &mut Allocation<'_>) -> Result<Value, String> {
     Ok(vm.alloc(Vector(values)))
 }
 
-fn convert_number(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
-    arity(op.name(), args, 1, 2)?;
+fn convert_number(
+    vm: &mut Allocation<'_>,
+    op: Builtin,
+    args: Arguments<'_>,
+) -> Result<Value, String> {
+    arity(op, args, 1, 2)?;
     let radix = match args.get(1) {
         Some(v) => v.integer(&vm.heap)?,
         None => 10,
@@ -765,7 +816,7 @@ fn float_text(number: f64) -> String {
     }
 }
 
-fn character(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn character(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let comparison = matches!(
         op,
         Builtin::CharEqual
@@ -776,7 +827,7 @@ fn character(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, Str
             | Builtin::CharCiEqual
     );
     arity(
-        op.name(),
+        op,
         args,
         if comparison { 2 } else { 1 },
         if comparison { usize::MAX } else { 1 },
@@ -823,9 +874,9 @@ fn symbol_list(vm: &Runtime, value: Value) -> Result<Vec<String>, String> {
 
 // ---- Records ----
 
-fn record(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn record(vm: &mut Allocation<'_>, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let count = if op == Builtin::MakeRecordType { 2 } else { 3 };
-    arity(op.name(), args, count, count)?;
+    arity(op, args, count, count)?;
     if op == Builtin::MakeRecordType {
         let name = symbol_name(vm, args[0])?;
         let fields = symbol_list(vm, args[1])?;
@@ -847,13 +898,13 @@ fn record(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value,
     }))
 }
 
-fn record_access(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
+fn record_access(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let count = match op {
         Builtin::IsRecord => 2,
         Builtin::RecordSet => 4,
         _ => 3,
     };
-    arity(op.name(), args, count, count)?;
+    arity(op, args, count, count)?;
     let RecordType {
         fields: field_names,
         ..
@@ -1102,15 +1153,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn arguments_borrow_the_stack_in_source_order() {
+        let physical = [integer(3), integer(2), integer(1)];
+        let args = Arguments(&physical);
+        assert_eq!(args[0], integer(1));
+        assert_eq!(args[2], integer(3));
+        assert_eq!(args.first(), Some(&integer(1)));
+        assert_eq!(args.get(3), None);
+        assert_eq!(args.get(usize::MAX), None);
+        assert_eq!(args.to_vec(), vec![integer(1), integer(2), integer(3)]);
+        assert_eq!(args.skip(1).to_vec(), vec![integer(2), integer(3)]);
+        assert_eq!(physical, [integer(3), integer(2), integer(1)]);
+        assert_eq!(Arguments(&[]).first(), None);
+    }
+
+    #[test]
     fn allocation_effects_route_every_builtin_to_its_implementation() {
         let mut vm = vm();
         // Four invalid values avoid host I/O while reaching each dispatch arm.
         let args = [Value::UNSPECIFIED; 4];
         for &op in Builtin::ALL {
             let result = if op.may_allocate() {
-                invoke_allocating(vm.allocation(), op, &args)
+                invoke_allocating(vm.allocation(), op, Arguments(&args))
             } else {
-                invoke(&mut vm, op, &args)
+                invoke(&mut vm, op, Arguments(&args))
             };
             if let Err(error) = result {
                 assert!(
@@ -1149,6 +1215,8 @@ mod tests {
 
     fn call(vm: &mut Runtime, name: &str, args: &[Value]) -> Result<Value, String> {
         let op = Builtin::from_name(name)?;
+        let reversed: Vec<_> = args.iter().copied().rev().collect();
+        let args = Arguments(&reversed);
         let result = if op.may_allocate() {
             invoke_allocating(vm.allocation(), op, args)
         } else {
@@ -1173,14 +1241,16 @@ mod tests {
 
     fn arithmetic_numbers(name: &str, args: &[Number]) -> Result<Number, String> {
         let mut vm = vm();
-        let values = number_values(&mut vm, args);
-        arithmetic(&vm, Builtin::from_name(name)?, &values)
+        let mut values = number_values(&mut vm, args);
+        values.reverse();
+        arithmetic(&vm, Builtin::from_name(name)?, Arguments(&values))
     }
 
     fn compare_numbers(name: &str, args: &[Number]) -> Result<Value, String> {
         let mut vm = vm();
-        let values = number_values(&mut vm, args);
-        numeric_compare(&vm, Builtin::from_name(name)?, &values)
+        let mut values = number_values(&mut vm, args);
+        values.reverse();
+        numeric_compare(&vm, Builtin::from_name(name)?, Arguments(&values))
     }
 
     #[test]
@@ -1212,22 +1282,36 @@ mod tests {
         let pattern = vm.allocation().alloc(Text::new("λ".into()));
         let empty = vm.allocation().alloc(Text::new(String::new()));
         assert_eq!(
-            string_contains(&mut vm.allocation(), &[text, pattern]).unwrap(),
+            string_contains(&mut vm.allocation(), Arguments(&[pattern, text])).unwrap(),
             integer(1)
         );
         assert_eq!(
-            string_contains(&mut vm.allocation(), &[text, pattern, integer(2)]).unwrap(),
+            string_contains(
+                &mut vm.allocation(),
+                Arguments(&[integer(2), pattern, text])
+            )
+            .unwrap(),
             integer(3)
         );
         assert_eq!(
-            string_contains(&mut vm.allocation(), &[text, pattern, integer(4)]).unwrap(),
+            string_contains(
+                &mut vm.allocation(),
+                Arguments(&[integer(4), pattern, text])
+            )
+            .unwrap(),
             Value::FALSE
         );
         assert_eq!(
-            string_contains(&mut vm.allocation(), &[text, empty, integer(4)]).unwrap(),
+            string_contains(&mut vm.allocation(), Arguments(&[integer(4), empty, text])).unwrap(),
             integer(4)
         );
-        assert!(string_contains(&mut vm.allocation(), &[text, pattern, integer(5)]).is_err());
+        assert!(
+            string_contains(
+                &mut vm.allocation(),
+                Arguments(&[integer(5), pattern, text])
+            )
+            .is_err()
+        );
     }
 
     #[test]

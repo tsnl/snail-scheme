@@ -24,7 +24,7 @@ pub use object::{Extension, ExtensionVTable, GcStatistics, GcVisit, Value};
 pub use vm::{CONSUME, STOP, State, Vm};
 
 /// Version of the generated-code protocol, including tagged singleton values.
-/// Keep this in sync with `write-llvm-program` in `llvm.sld`.
+/// Keep this in sync with `write-vm-program-as-llvm` in `llvm.sld`.
 pub const PROGRAM_ABI: u32 = 3;
 
 use object::*;
@@ -142,6 +142,14 @@ pub unsafe extern "C" fn snail_rt_close(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn snail_rt_prepare_apply(machine: *mut Vm, argc: u32) -> u32 {
     unsafe { boundary(machine, 255, |vm| vm.prepare_apply(argc)) }
+}
+
+/// # Safety
+/// `machine` must name a live, exclusively accessible VM. Its top two stack
+/// words and registers must be rooted; `global` must identify a numeric builtin.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_numeric(machine: *mut Vm, global: u32) {
+    unsafe { boundary(machine, (), |vm| vm.numeric(global)) }
 }
 
 /// # Safety
