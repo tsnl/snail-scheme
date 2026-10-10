@@ -4,21 +4,22 @@ The ABI describes how compiled Scheme, the Rust runtime, and a platform call one
 another. Wasm signatures are the reference notation. Native compilation gives
 those signatures an explicit mapping to the target C ABI.
 
-**Implemented:** scalar [AWI extension calls](awi.md) inside linked Wasm.
-**Planned:** the three [platform contracts](platforms/index.md), native linkage,
-and browser hosting, with the ownership and instance rules below. AWI remains
-the extension boundary; the initial supported functions come from Snail's Rust
-runtime. This does not introduce arbitrary Rust extension packaging.
+**Implemented:** scalar [AWI extension calls](awi.md) in linked Wasm and the
+[native CLI](platforms/native-cli.md), including direct linkage to Rust's native
+archive. **Planned:** native and browser GUI hosting, multiple native instances,
+and actor connections. AWI remains the extension boundary; the supported
+functions come from Snail's runtime. There is no arbitrary Rust extension
+packaging.
 
 | Output | Scheme compilation | Rust compilation | Linkage |
 | --- | --- | --- | --- |
 | Bootstrap Wasm, current | Scheme → WasmGC | Rust → Wasm | Merge the modules for the existing test runner. |
 | Browser, planned | Scheme → WasmGC | Rust → browser-compatible Wasm | Link with the browser bindings; the browser owns DOM access. |
-| Native, planned | Scheme → WasmGC → LLVM → native object | Rust → native library | Resolve runtime calls using the target C ABI. |
+| Native CLI, current | Scheme → WasmGC → LLVM → native object | Rust → native library | Resolve runtime calls using the target C ABI. |
 
 The native route can translate the Scheme module while its runtime calls remain
 imports. It need not translate Rust's Wasm output or link the runtime twice.
-Translating an already linked Wasm module is another possible execution route;
+Translating an already linked Wasm module is also implemented;
 it does not establish this native Rust linkage by itself.
 
 ## Values and ownership
@@ -83,7 +84,9 @@ lifetime. A platform's control service can expose spawning through that same
 model. An OS subprocess can participate through an adapter for its streams and
 completion; the executable need not understand Scheme messages itself.
 
-Native code must preserve per-instance state. One process-global root table or
+The current native CLI deliberately hosts one instance per OS process. A future
+host supporting several actors in one process must preserve per-instance state.
+One process-global root table or
 unscoped thread-local port table is insufficient when several actors share a
 thread. Native entry must select the correct instance and restore that context
 across callbacks; future suspension needs an equally explicit contract.

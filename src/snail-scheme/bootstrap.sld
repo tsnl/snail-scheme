@@ -16,10 +16,11 @@
           char-ci=? char-alphabetic? char-numeric? char-whitespace?
           bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
           values call-with-values call-with-current-continuation call/cc apply error
-          open-input-file open-output-file file-exists? close-port read-char read-string eof-object?
+          open-input-file open-output-file open-binary-input-file file-exists? close-port
+          read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8 eof-object?
           open-output-string get-output-string display write newline
           %current-input-port %current-output-port %current-error-port
           %set-current-input-port! %set-current-output-port! %set-current-error-port!
-          command-line exit current-jiffy jiffies-per-second
+          command-line exit get-environment-variable current-jiffy jiffies-per-second
           string-contains %trace-begin %trace-end
           %make-record-type %make-record %record? %record-ref %record-set!))))

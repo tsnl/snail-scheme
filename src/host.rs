@@ -17,6 +17,7 @@ pub(crate) enum Port {
     Input { chars: Vec<char>, offset: usize },
     Output { buffer: String, closed: bool },
     FileOutput(File),
+    BinaryInput(File),
     Closed,
     Stdin,
     Stdout,
@@ -35,6 +36,12 @@ impl Port {
     pub(crate) fn output_file(path: &str) -> Result<Self, String> {
         File::create(path)
             .map(Self::FileOutput)
+            .map_err(|e| format!("{path}: {e}"))
+    }
+
+    pub(crate) fn binary_input_file(path: &str) -> Result<Self, String> {
+        File::open(path)
+            .map(Self::BinaryInput)
             .map_err(|e| format!("{path}: {e}"))
     }
 
@@ -104,6 +111,21 @@ impl Port {
             None
         } else {
             Some(text)
+        })
+    }
+
+    pub(crate) fn read_bytes(&mut self, count: usize) -> Result<Option<Vec<u8>>, String> {
+        let Self::BinaryInput(file) = self else {
+            return Err("expected an open binary input port".into());
+        };
+        let mut bytes = Vec::new();
+        file.take(count as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        Ok(if count > 0 && bytes.is_empty() {
+            None
+        } else {
+            Some(bytes)
         })
     }
 

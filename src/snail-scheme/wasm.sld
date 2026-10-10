@@ -482,13 +482,34 @@
                                (array.new_fixed $vector 0))))
 
     (define (module-entry libraries module)
-      `(func (export "snail_main") (result eqref)
+      `(func $program (export "snail_main") (result eqref)
              ,@(map (lambda (entry) `(global.set ,(cdr entry) ,(constant-expression (car entry))))
                     (reverse (module-constants module)))
              ,@(map global-initializer (library-primitive-slots libraries module))
              ,@(map (lambda (entry) `(drop (call ,(identifier "library" (cdr entry)))))
                     (reverse (cdr (reverse libraries))))
              (call ,(identifier "library" (cdr (car (reverse libraries)))))))
+
+    ;; A CLI entry is selected explicitly by the build. A script adapter ignores
+    ;; the final expression's value; defining a helper named main has no effect.
+    ;; Initialization and the handler run once inside this one platform call.
+    (define (cli-entry root module name)
+      (let ((definition (and name (find-definition name (item-definitions (library:library-body root))))))
+        (if (and name (not definition)) (error "CLI handler is not defined" name))
+        `(func (export "snail:main") (param $arguments i32) (result i32)
+               (local $args (ref $vector))
+               (local.set $args (ref.cast (ref $vector) (call $awi_get (local.get $arguments))))
+               (call $arity (local.get $args) (i32.const 0) (i32.const 0))
+               (drop (call $program))
+               (call $awi_root ,(if definition
+                                    `(call $apply ,(read-binding definition (make-function module '() '()))
+                                           (local.get $args))
+                                    '(ref.i31 (i32.const 0)))))))
+
+    (define (find-definition name definitions)
+      (cond ((null? definitions) #f)
+            ((eq? name (ir:value-definition-name (car definitions))) (car definitions))
+            (else (find-definition name (cdr definitions)))))
 
     (define (primitive-slot definition library module)
       (let* ((foreign? (equal? (library:library-name library) '(snail-scheme extensions)))
@@ -509,11 +530,12 @@
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
       '(string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
-                       error open-input-file open-output-file file-exists? close-port read-char read-string
+                       error open-input-file open-output-file open-binary-input-file file-exists? close-port
+                       read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8
                        open-output-string get-output-string display write newline
                        %current-input-port %current-output-port %current-error-port
                        %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                       command-line exit current-jiffy jiffies-per-second string-contains
+                       command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains
                        %trace-begin %trace-end))
 
     (define (module-services module)
@@ -566,9 +588,9 @@
       (write-wasm-expression definition port)
       (newline port))
 
-    (define-traced (write-ir-library-as-wasm root runtime-path awi-path port . foreign)
+    (define-traced (write-ir-library-as-wasm root runtime-path awi-path port . options)
       (let* ((libraries (numbered (library:library-dependency-order root)))
-             (module (prepare-module (map car libraries) (if (null? foreign) '() (car foreign))))
+             (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
              (procedures (map (lambda (entry) (procedure-function entry module)) (module-functions module)))
              (entries (map (lambda (entry) (library-function entry module)) libraries)))
         (display "(module\n" port)
@@ -581,6 +603,8 @@
         (copy-file awi-path port)
         (for-each (lambda (definition) (write-definition definition port))
                   (module-definitions libraries module procedures entries))
+        (if (and (pair? options) (pair? (cdr options)))
+            (write-definition (cli-entry root module (cadr options)) port))
         (display ")\n" port)))
 
     (define (module-definitions libraries module procedures entries)

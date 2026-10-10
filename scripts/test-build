@@ -41,7 +41,7 @@ def require(result, stdout=None, failure=False):
 
 def script(directory, body, **environment):
     path = directory / "build.scm"
-    path.write_text('(import (scheme base) (scheme write) (scheme process-context)\n'
+    path.write_text('(import (scheme base) (scheme file) (scheme write) (scheme process-context)\n'
                     '        (snail-scheme compiler) (snail-scheme build))\n' + body + '\n')
     return invoke([CHIBI, "-I", ROOT / "src", path], directory, **environment)
 
@@ -130,6 +130,22 @@ def check_exit(directory):
         raise RuntimeError(f"exit status lost: {result}")
 
 
+def check_generated_input(directory):
+    runtime = directory / "generated-runtime"
+    body = f'''(call-with-build-output {quote(runtime)} (list {quote(runtime)})
+      (lambda (workspace artifact)
+        (call-with-output-file {quote(runtime)} (lambda (port) (display "runtime" port)))
+        (call-with-output-file artifact (lambda (port) (display "executable" port)))))'''
+    result = require(script(directory, body), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if runtime.read_text() != "runtime" or len(retained) != 1:
+        raise RuntimeError(f"publication replaced a generated input: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or (workspace / "artifact").read_text() != "executable":
+        raise RuntimeError("late alias rejection did not retain the candidate")
+    shutil.rmtree(workspace)
+
+
 # ---- Ordered project-library lookup ----
 
 
@@ -206,6 +222,7 @@ def main():
         check_build_and_run(directory, source)
         check_explicit_stages(directory, source)
         check_failures(directory, source)
+        check_generated_input(directory)
         check_exit(directory)
         check_interop(directory)
         check_project_libraries(directory)

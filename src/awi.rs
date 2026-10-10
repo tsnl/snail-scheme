@@ -10,14 +10,20 @@ use std::{marker::PhantomData, rc::Rc};
 
 // ---- Scalar Wasm imports ----
 
-// The native stubs let pure Rust unit tests link. AWI execution requires a
-// linked Wasm instance; it does not silently substitute a native object heap.
+// Native translation exports C adapters named wasm.<operation>. Both routes
+// address the Scheme module's own root table; Rust never invents a second heap.
+// Without native-runtime, stubs let pure Rust helper tests link independently.
 macro_rules! imports {
     ($(fn $name:ident($($arg:ident: $ty:ty),*) $(-> $result:ty)?;)*) => {
         #[cfg(target_arch = "wasm32")]
         #[link(wasm_import_module = "snail.awi")]
         unsafe extern "C" { $(pub fn $name($($arg: $ty),*) $(-> $result)?;)* }
-        $(#[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "native-runtime", not(test)))]
+        unsafe extern "C" {
+            $(#[link_name = concat!("wasm.", stringify!($name))]
+            pub fn $name($($arg: $ty),*) $(-> $result)?;)*
+        }
+        $(#[cfg(all(not(target_arch = "wasm32"), any(not(feature = "native-runtime"), test)))]
         pub unsafe fn $name($($arg: $ty),*) $(-> $result)? {
             $(let _ = $arg;)*
             panic!("AWI imports require a Wasm instance");
@@ -40,6 +46,8 @@ mod raw {
         fn vector_set(root: u32, index: u32, value: u32);
         fn string_new(length: u32) -> u32;
         fn string_set(root: u32, index: u32, value: u32);
+        fn bytes_new(length: u32) -> u32;
+        fn byte_set(root: u32, index: u32, value: u32);
         fn extension(kind: u32, id: u32) -> u32;
         fn as_integer(root: u32) -> i64;
         fn as_real(root: u32) -> f64;
@@ -142,6 +150,11 @@ impl Root {
         handle
     }
 
+    /// Borrows this root for one ABI call. The owner must outlive the call.
+    pub fn handle(&self) -> u32 {
+        self.handle
+    }
+
     pub fn kind(&self) -> Kind {
         Kind::from_raw(unsafe { raw::kind(self.handle) })
     }
@@ -225,6 +238,15 @@ impl Root {
         let root = unsafe { Self::from_handle(raw::string_new(length)) };
         for (index, ch) in text.chars().enumerate() {
             unsafe { raw::string_set(root.handle, index as u32, ch as u32) };
+        }
+        root
+    }
+
+    pub fn bytevector(bytes: &[u8]) -> Self {
+        let length = u32::try_from(bytes.len()).expect("AWI bytevector too long");
+        let root = unsafe { Self::from_handle(raw::bytes_new(length)) };
+        for (index, byte) in bytes.iter().enumerate() {
+            unsafe { raw::byte_set(root.handle, index as u32, u32::from(*byte)) };
         }
         root
     }

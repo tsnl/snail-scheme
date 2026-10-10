@@ -12,6 +12,7 @@ BUILD = ROOT / "build/backend-tests"
 SUCCESSES = {
     "backend-wasmgc": "",
     "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-binary": "binary IO checks passed\n",
     "backend-numeric": "numeric instruction checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
@@ -25,6 +26,8 @@ ERRORS = {
     "numeric-type": "expected a number",
     "numeric-values": "expected a single value",
     "numeric-arity": "wrong number of arguments",
+    "binary-range": "slice index out of range",
+    "binary-utf8": "invalid utf-8",
 }
 
 

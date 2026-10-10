@@ -122,7 +122,7 @@
   (import "snail.dom" "unlisten"
     (func (param $arguments i32) (result i32)))
 
-  ;; ---- Application handlers ----
+  ;; ---- Handlers required from the application ----
 
   ;; [] -> unspecified. Called once after initialization and again on supported
   ;; restoration from page suspension. Create or restore the surface and

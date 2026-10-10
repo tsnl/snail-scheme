@@ -6,7 +6,7 @@ use std::cell::RefCell;
 
 // ---- AWI exports ----
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-triple"))]
+#[unsafe(export_name = "snail:rust-triple")]
 pub extern "C" fn triple(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-triple", 1, 1).expect("one argument");
@@ -16,7 +16,7 @@ pub extern "C" fn triple(raw: u32) -> u32 {
 
 thread_local! { static REMEMBERED: RefCell<Option<Root>> = const { RefCell::new(None) }; }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-remember"))]
+#[unsafe(export_name = "snail:rust-remember")]
 pub extern "C" fn remember(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-remember", 1, 1).expect("one argument");
@@ -24,7 +24,7 @@ pub extern "C" fn remember(raw: u32) -> u32 {
     Root::unspecified().into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-recalled"))]
+#[unsafe(export_name = "snail:rust-recalled")]
 pub extern "C" fn recalled(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-recalled", 0, 0).expect("no arguments");
@@ -37,7 +37,7 @@ pub extern "C" fn recalled(raw: u32) -> u32 {
         .into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-call"))]
+#[unsafe(export_name = "snail:rust-call")]
 pub extern "C" fn call(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-call", 2, 2)
@@ -51,7 +51,7 @@ pub extern "C" fn call(raw: u32) -> u32 {
         .into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-forget"))]
+#[unsafe(export_name = "snail:rust-forget")]
 pub extern "C" fn forget(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-forget", 0, 0).expect("no arguments");
@@ -59,7 +59,7 @@ pub extern "C" fn forget(raw: u32) -> u32 {
     Root::unspecified().into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-root-stress"))]
+#[unsafe(export_name = "snail:rust-root-stress")]
 pub extern "C" fn root_stress(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-root-stress", 1, 1).expect("one argument");
