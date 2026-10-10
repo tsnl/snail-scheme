@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKLOAD_REVISION = "feb1503a72f8c430227cbb3d959ca7bf48873ea4"
 LABELS = {
     "llvm-tuned": "Snail native translator · tuned",
     "chez": "Chez Scheme · safe O2",
@@ -42,10 +43,24 @@ TOOLS = {
 # ---- Preparation and provenance ----
 
 
-def run(command, log):
+def run(command, log, directory=ROOT):
     command = [str(part) for part in command]
     log.append(command)
-    subprocess.run(command, cwd=ROOT, check=True)
+    subprocess.run(command, cwd=directory, check=True)
+
+
+def source_checkout(output, log):
+    checkout = output / "source"
+    if not checkout.exists():
+        run(["git", "worktree", "add", "--detach", checkout, WORKLOAD_REVISION], log)
+    git = lambda *args: subprocess.check_output(
+        ["git", "-C", str(checkout), *args], text=True
+    ).strip()
+    if git("rev-parse", "HEAD") != WORKLOAD_REVISION or git(
+        "status", "--porcelain", "--untracked-files=no"
+    ):
+        raise ValueError("reproduction source must be clean and pinned to " + WORKLOAD_REVISION)
+    return checkout
 
 
 def resolve_tools():
@@ -57,10 +72,10 @@ def resolve_tools():
     return tools
 
 
-def native_programs(log):
+def native_programs(log, checkout):
     for script in ["experiments/wasmgc/build.py", "experiments/wasm-llvm/build.py"]:
-        run([sys.executable, ROOT / script], log)
-    sys.path.insert(0, str(ROOT / "experiments/wasm-llvm"))
+        run([sys.executable, checkout / script], log, checkout)
+    sys.path.insert(0, str(checkout / "experiments/wasm-llvm"))
     import ablate
 
     ablate.OUT.mkdir(parents=True, exist_ok=True)
@@ -73,14 +88,20 @@ def native_programs(log):
     return programs
 
 
-def prepare(tools, out, log):
-    programs = native_programs(log)
-    source = ROOT / "benchmarks/cpu.scm"
+def prepare(tools, out, log, checkout):
+    programs = native_programs(log, checkout)
+    source = checkout / "benchmarks/cpu.scm"
     for name, extension in [("chez", "so"), ("chibi", "scm")]:
         programs[name] = out / f"cpu-{name}.{extension}"
         flags = ["--script"] if name == "chez" else []
         run(
-            [tools[name.upper()], *flags, ROOT / f"benchmarks/{name}.scm", source, programs[name]],
+            [
+                tools[name.upper()],
+                *flags,
+                checkout / f"benchmarks/{name}.scm",
+                source,
+                programs[name],
+            ],
             log,
         )
     programs["guile"] = out / "cpu.go"
@@ -108,19 +129,19 @@ def hashes(paths):
     }
 
 
-def source_files():
+def source_files(checkout):
     paths = [Path(__file__), ROOT / "benchmarks/shell.nix"]
-    paths += [ROOT / f"benchmarks/{name}" for name in ["cpu.scm", "chez.scm", "chibi.scm"]]
+    paths += [checkout / f"benchmarks/{name}" for name in ["cpu.scm", "chez.scm", "chibi.scm"]]
     for directory in ["src", "bootstrap", "experiments/wasmgc", "experiments/wasm-llvm"]:
         paths += [
             p
-            for p in (ROOT / directory).rglob("*")
+            for p in (checkout / directory).rglob("*")
             if p.is_file() and p.suffix in {".sld", ".scm", ".py", ".c", ".mjs", ".wat"}
         ]
     return paths
 
 
-def provenance(tools, programs):
+def provenance(tools, programs, checkout):
     versions = {
         key: subprocess.check_output(
             [path, "-V" if key == "CHIBI" else "--version"], text=True, stderr=subprocess.STDOUT
@@ -130,11 +151,12 @@ def provenance(tools, programs):
     git = lambda *args: subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
     return {
         "revision": git("rev-parse", "HEAD"),
+        "workload_revision": WORKLOAD_REVISION,
         "working_tree": git("status", "--short"),
-        "source_sha256": hashes(source_files()),
+        "source_sha256": hashes(source_files(checkout)),
         "artifact_sha256": hashes(programs.values()),
         "build_details": {
-            name: json.loads((ROOT / "build" / name / "build-commands.json").read_text())
+            name: json.loads((checkout / "build" / name / "build-commands.json").read_text())
             for name in ["wasmgc", "wasm-llvm"]
         },
         "tools": tools,
@@ -210,7 +232,7 @@ def measure(report, cpu):
         os.sched_setaffinity(0, allowed)
 
 
-def collect(args, tools, programs, log):
+def collect(args, tools, programs, log, checkout):
     allowed = sorted(os.sched_getaffinity(0))
     cpu = args.cpu if args.cpu is not None else allowed[0]
     report = {
@@ -223,7 +245,7 @@ def collect(args, tools, programs, log):
         "repetitions": args.repetitions,
         "cpu": cpu,
         "allowed_cpus": allowed,
-        "provenance": provenance(tools, programs),
+        "provenance": provenance(tools, programs, checkout),
         "build_commands": log,
         "commands": commands(tools, programs, args.repetitions),
         "preliminary": [],
@@ -231,6 +253,8 @@ def collect(args, tools, programs, log):
     }
     try:
         measure(report, cpu)
+        if hashes(source_files(checkout)) != report["provenance"]["source_sha256"]:
+            raise ValueError("reproduction sources changed during measurement")
         report["complete"] = True
     finally:
         name = "results.json" if report["complete"] else "partial.json"
@@ -382,8 +406,9 @@ def main():
     if args.cpu is not None and args.cpu not in os.sched_getaffinity(0):
         raise ValueError("requested CPU is outside the allowed affinity set")
     tools, log = resolve_tools(), []
-    programs = prepare(tools, args.output, log)
-    render(collect(args, tools, programs, log), args.output)
+    checkout = source_checkout(args.output, log)
+    programs = prepare(tools, args.output, log, checkout)
+    render(collect(args, tools, programs, log, checkout), args.output)
 
 
 # ---- Tests ----

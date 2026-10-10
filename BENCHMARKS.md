@@ -1,6 +1,7 @@
 # Benchmarks
 
-**Execution time only: compilation and process startup are excluded.**
+**Runtime comparisons exclude compilation and process startup.** The
+[compiler benchmark](#compile-the-compiler) measures compilation itself.
 
 ![Recursive Fibonacci execution times](benchmarks/results/2026-10-10-reproduction/comparison.svg)
 
@@ -24,6 +25,9 @@ The script builds all implementations, runs the native correctness checks, then
 measures eight rotating rounds of 64 repetitions on one CPU. Every run must
 produce checksum `269118144`. Omit `--cpu` to use the first CPU allowed by the
 host; use `--rounds` and `--repetitions` to change the measurement duration.
+It creates a clean worktree at recorded revision `feb1503` under the output
+directory: those native Fibonacci tools have since been retired from `main`.
+The R7RS and compiler benchmarks below use the current compiler.
 
 Outputs go to `build/benchmark-report/`: `results.json`, `summary.md`,
 `comparison.svg`, and `comparison.png`, plus a compact `readme.svg`/`readme.png`
@@ -155,10 +159,44 @@ python3 benchmarks/render-studio.py --width 960 --samples 3
 ```
 
 The wrapper writes the actual PPM pixels and a PNG preview under `build/studio/`.
+It prints elapsed time including process startup and PPM output, excluding
+compilation and PNG conversion. This render took 125.34 seconds on our host
+with Chez; that single observation is not an implementation comparison.
 Use `--system guile` or `--system chibi` to run the same Scheme program on another
 reference implementation; `--width 32 --samples 1` provides a quick check.
 This visual showcase is separate from the upstream `ray` timing workload and
 has no published Snail timing yet.
+
+## Compile the compiler
+
+[`compile-self.py`](benchmarks/compile-self.py) runs Snail's compiler on its own
+full Scheme source and imported libraries. It first freezes the sources and
+builds the compiler, then times source parsing, library loading, WAT emission,
+and file output. Process startup, building the compiler executable, assembly,
+and linking are outside the timer. Every output must match the assembled,
+validated Chibi-hosted reference byte for byte.
+
+```sh
+export SNAIL_WASM_NATIVE=/path/to/native-translator
+python3 benchmarks/compile-self.py --cpu 2
+```
+
+The default comparison is Chibi-hosted versus Snail native. To explicitly
+exercise the compiled Wasm compiler while the native translator is being
+integrated:
+
+```sh
+python3 benchmarks/compile-self.py --systems chibi snail-wasm \
+  --rounds 3 --output build/compiler-wasm-report
+```
+
+Each case gets one discarded preliminary run and rotating fresh-process
+samples on one CPU. The runner records commands, source/artifact hashes, raw
+times, and failures in `results.json`, and generates `compiler-self.svg`/`.png`.
+Native availability never changes a case into a Wasm run. Missing tools,
+timeouts, or differing output fail the comparison and remain in the report.
+Choose a fresh output directory for each run; `--plot PATH` regenerates charts
+from saved JSON. The normal compiler build remains Chibi-hosted.
 
 ## Language scope
 
