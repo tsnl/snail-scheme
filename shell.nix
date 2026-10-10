@@ -12,6 +12,8 @@ pkgs.mkShell {
     nixfmt
     emacs-nox
     ripgrep
+    python3
+    rustup
     binaryen
     nodejs
   ];

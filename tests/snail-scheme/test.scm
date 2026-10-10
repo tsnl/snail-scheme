@@ -2,7 +2,6 @@
         (only (snail-scheme trace) test-trace)
         (only (snail-scheme build) test-build)
         (only (snail-scheme common) display-error)
-        (only (snail-scheme cli) test-cli)
         (only (snail-scheme reader) test-reader)
         (only (snail-scheme parser) test-parser)
         (only (snail-scheme library) test-library)
@@ -13,7 +12,6 @@
 
 (test-trace)
 (test-build)
-(test-cli)
 (test-reader)
 (test-parser)
 (test-library)

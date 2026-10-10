@@ -20,11 +20,14 @@ ordinary Scheme build.scm (run by Chibi)
 flow; importing compiler libraries has no build or execution side effects.
 `run-command` passes an argv list directly to Chibi's process API without a shell.
 Build intermediates have private directories, and only completed Wasm artifacts
-replace existing outputs. Cargo tracks Rust dependencies and reuses the runtime.
+replace existing outputs. Failed builds report their retained directory; successful
+builds clean up. Cargo tracks Rust dependencies and reuses the runtime.
 
 [`compiler.sld`](src/snail-scheme/compiler.sld) exports
 `source-file->wat-file`: source filename to unlinked WasmGC text. The loader
-maps `(scheme ...)` to `bootstrap/scheme/` and compiler libraries to `src/`.
+maps `(scheme ...)` to `bootstrap/scheme/`. Other imports search caller-provided
+library directories in order, then `src/`; one search policy covers transitive
+imports, and malformed first matches do not fall through.
 The frontend does not launch processes. The Chibi-specific build module is a
 host adapter; compiling it for self-hosted execution is future work.
 
@@ -162,8 +165,7 @@ preserve multiple values on normal returns; nonlocal exits and `dynamic-wind`
 are outside this bootstrap subset.
 
 [`runtime.sld`](src/snail-scheme/runtime.sld) exposes the explicitly nonstandard
-`string-contains`, `collect-garbage`, and `gc-statistics` operations. This keeps
-benchmark-specific runtime measurements separate from the standard libraries.
+`string-contains` operation, implemented by Rust's substring search.
 
 ## Emitting WebAssembly
 
@@ -189,7 +191,7 @@ GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 [`src/runtime/awi.wat`](src/runtime/awi.wat) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
-The [`snail-awi` SDK](src/awi.rs) expresses that ownership through `Root`:
+The [Rust AWI module](src/awi.rs) expresses that ownership through `Root`:
 clone retains, drop releases, return transfers. Raw handles are unsafe and bound
 to their instance. Rust uses ordinary `extern "C"` functions and explicit Wasm export names;
 there is no procedural-macro crate or implicit argument conversion.
@@ -205,7 +207,7 @@ Rust-owned external resources need explicit close. The additional JS
 
 [`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
 Scheme values, invoking callbacks, and returning rooted values. It is compiled
-into the standard runtime; [its build script](examples/extension/build.scm)
+into the standard runtime; [its build script](examples/rust-interop/build.scm)
 provides the Scheme name-to-Wasm-module declarations. All Rust code in a program
 shares the runtime's one linear memory.
 
@@ -217,11 +219,9 @@ callbacks work, but suspension and cancellation across Rust frames need an
 explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
 implemented ownership from this planned support.
 
-The [bounded Wasm-to-LLVM experiment](experiments/wasm-llvm/README.md) is a
-separate executor, independent of Scheme IR. It lowers references to native
-pointers and uses BDWGC. It does not yet translate full linked Rust programs.
-Wastrel is a useful performance reference; its tested revision lacks stack
-switching. Native library integration is being developed separately.
+Native library integration is being developed separately. The intended executor
+translates linked Wasm independently of Scheme IR, lowering references to native
+pointers collected by BDWGC.
 Both native and JavaScript hosts can implement the same finalization import.
 
 ## Tests and measurements
@@ -238,11 +238,8 @@ checks library imports, traces, publication, literal arguments, Rust callbacks, 
 root ownership. Native adapter checks require `SNAIL_WASM_NATIVE` and fail
 clearly if none is configured; they are not counted as native passes.
 
-[`benchmarks/`](benchmarks/README.md) contains frozen CPU, memory, IO, and GC
-workloads plus historical measurement tools. CPU uses redundant recursive
-Fibonacci with an independent oracle; memory uses a sieve; IO searches a frozen
-corpus; GC builds cyclic trees. Historical stack/LLVM ablation tools and
-reports describe their original backend. The GC workload's forced-collection
-counters need engine instrumentation on WasmGC, which does not expose them.
+[`benchmarks/`](benchmarks/README.md) contains CPU and allocation workloads.
+CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
 Record execution time separately from compilation and startup, verify answers,
-and retain raw samples and Chez/Chibi ratios when comparing backends.
+and retain raw samples and Chez/Chibi ratios when comparing backends. Retired
+prototypes and measurements remain in Git history.
