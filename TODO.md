@@ -3,10 +3,7 @@
 The compiler stays Chibi-hosted. Current behavior is described in [TOUR.md](TOUR.md);
 this list contains work that has not landed.
 
-- [ ] Finish the native executor for the complete Rust-linked Wasm program
-  - Scheme Wasm-to-LLVM translation and BDWGC host services
-  - Deferred resource finalization outside Wasm execution
-  - Native execution checks and matched CPU measurements
+- [ ] Reduce Chibi Wasm-to-LLVM translation time; full modules still take over a minute
 - [ ] Rebaseline the allocation workload on the current backend
 - [ ] Browser runner with a WASI adapter
 - [ ] Source mappings for generated Wasm and native debugging

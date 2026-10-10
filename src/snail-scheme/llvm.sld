@@ -1,7 +1,7 @@
 (define-library (snail-scheme llvm)
   (export wat->llvm wat-file->llvm-file)
-  (import (scheme base) (scheme case-lambda) (scheme char) (scheme cxr)
-          (scheme file) (scheme inexact) (scheme write)
+  (import (scheme base) (scheme char) (scheme cxr)
+          (scheme file) (scheme write)
           (only (scheme bytevector) bytevector-ieee-double-set! bytevector-u64-ref endianness
                 bytevector-ieee-single-set! bytevector-ieee-single-ref)
           (srfi 69) (snail-scheme wat))
@@ -9,9 +9,12 @@
 
     ;; ---- Text and native types ----
 
+    (define (write-pieces port pieces)
+      (for-each (lambda (piece) (display piece port)) pieces))
+
     (define (text . pieces)
       (let ((port (open-output-string)))
-        (for-each (lambda (piece) (display piece port)) pieces)
+        (write-pieces port pieces)
         (get-output-string port)))
 
     (define (join pieces separator)
@@ -39,14 +42,17 @@
     (define (symbol-name prefix name)
       (text "@" (quoted (text prefix (wat-text name)))))
 
+    (define reference-aliases
+      '((anyref . any) (eqref . eq) (i31ref . i31) (structref . struct)
+        (arrayref . array) (funcref . func) (nullref . none) (nullfuncref . nofunc)))
+
     (define (value-type type)
       (cond ((and (pair? type) (eq? (car type) 'ref)) "i64")
             ((memq type '(i8 i16 i32)) "i32")
             ((eq? type 'i64) "i64")
             ((eq? type 'f32) "float")
             ((eq? type 'f64) "double")
-            ((memq type '(eqref anyref i31ref structref arrayref funcref
-                                nullref nullfuncref)) "i64")
+            ((assq type reference-aliases) "i64")
             (else (error "unsupported native Wasm value type" type))))
 
     (define (storage-type type)
@@ -230,7 +236,10 @@
 
     (define (line . pieces)
       (unless (alive?) (error "LLVM emission after terminator" pieces))
-      (display (text "  " (apply text pieces) "\n") (emitter-port (current-emitter))))
+      (let ((port (emitter-port (current-emitter))))
+        (display "  " port)
+        (write-pieces port pieces)
+        (newline port)))
 
     (define (instruction type . pieces)
       (let ((name (fresh "%v")))
@@ -447,10 +456,6 @@
         (if (= tag -2) (i31-test reference nullable?)
             (call-native "native_ref_test" "i32"
                          (list reference (constant "i64" tag) (constant "i32" (if nullable? 1 0)))))))
-
-    (define reference-aliases
-      '((anyref . any) (eqref . eq) (i31ref . i31) (structref . struct)
-        (arrayref . array) (funcref . func) (nullref . none) (nullfuncref . nofunc)))
 
     (define (i31-test reference nullable?)
       (let* ((tag (instruction "i64" "and " (typed reference) ", 1"))
@@ -766,7 +771,7 @@
     ;; ---- Function definitions and host boundary ----
 
     (define (output . pieces)
-      (display (apply text pieces) (module-output (current-module)))
+      (write-pieces (module-output (current-module)) pieces)
       (newline (module-output (current-module))))
 
     (define (parameter-values function)

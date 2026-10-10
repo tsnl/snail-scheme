@@ -4,7 +4,17 @@ See [BENCHMARKS.md](../BENCHMARKS.md) for the current native LLVM comparison
 against Chez, Guile, and Chibi. **Runtime comparisons exclude compilation time
 and process startup**; the report explains Guile's runtime JIT timing separately.
 
-## Native LLVM CPU experiment
+## Complete linked native CPU baseline
+
+[`benchmarks/native`](native) builds one complete Rust-linked Wasm program and
+translates that exact binary with the Scheme LLVM converter. It compares native,
+V8, Chez, Guile, and Chibi after all compilation finishes. Eight rotating CPU2
+rounds give native **0.03821s**, Chez **0.02996s**, V8 **0.08358s**, Guile
+**0.09426s**, and Chibi **0.46050s**, for checksum `269118144` in every sample.
+See [the raw report](results/2026-10-10-native-production.json) and
+[BENCHMARKS.md](../BENCHMARKS.md) for reproduction, scope, and compile-time costs.
+
+## Historical native LLVM CPU experiment
 
 The [LLVM code-generation ablation](results/2026-10-10-llvm-codegen.json)
 measures the bounded Wasm-to-LLVM Fibonacci fixture with x86-64 and BDWGC:

@@ -1,0 +1,415 @@
+{
+  "base_revision": "019e3859ad632bc782da164067b2f7d0c5033115",
+  "host": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "build_commands": [
+    [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "src",
+      "benchmarks/native-build.scm"
+    ],
+    [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "benchmarks/chez.scm",
+      "benchmarks/cpu.scm",
+      "/tmp/snail-native-production-20261010/build/native-benchmark/chez.so"
+    ],
+    [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+      "compile",
+      "--r7rs",
+      "-O2",
+      "-o",
+      "/tmp/snail-native-production-20261010/build/native-benchmark/guile.go",
+      "benchmarks/cpu.scm"
+    ]
+  ],
+  "commands": {
+    "native": [
+      "/tmp/snail-native-production-20261010/build/native-benchmark/cpu",
+      "64"
+    ],
+    "v8": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "scripts/run-wasi.mjs",
+      "/tmp/snail-native-production-20261010/build/native-benchmark/cpu.wasm",
+      "64"
+    ],
+    "chez": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-native-production-20261010/build/native-benchmark/chez.so",
+      "64"
+    ],
+    "guile": [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "--no-auto-compile",
+      "--r7rs",
+      "-c",
+      "(load-compiled \"/tmp/snail-native-production-20261010/build/native-benchmark/guile.go\")",
+      "64"
+    ],
+    "chibi": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "benchmarks/cpu.scm",
+      "64"
+    ]
+  },
+  "versions": {
+    "clang": "clang version 22.1.8",
+    "binaryen": "wasm-dis version 132",
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "node": "v24.19.0",
+    "chez": "10.4.1",
+    "guile": "guile (GNU Guile) 3.0.11",
+    "chibi": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+  },
+  "environment": {
+    "BDWGC_INCLUDE": "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+    "BDWGC_LIB": "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+    "GUILE_JIT_THRESHOLD": null,
+    "GUILE_AUTO_COMPILE": null
+  },
+  "source_sha256": {
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/native": "d63f9d0ec683d6ea62bc674cd3f00574ae8d7ed8ff9336c9d7ab75f22ab123d8",
+    "benchmarks/native-build.scm": "bab77e6e1411441d1d86c928be781dffb0b886cf23100afa6cf4213b947b376f",
+    "src/native.c": "49812e0ccfc465b009aed5d1c5474dc7b00c9489838623c614b37f8ee7f79c00",
+    "src/snail-scheme/expand.sld": "12c80e5cc12711c5ea5452a84d332888557c3fff0a79f147bf6872fa0142e66d",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/wasm.sld": "4fbdbb9eb3e298d49b6663ee4d5240f46fc1e75d61e608371bbf167b0faf0547",
+    "src/snail-scheme/compiler.sld": "a8e9a4df3b0e1c5fc5fae5e041054a200a815fda91a67a5f033e75cb527c8d00",
+    "src/snail-scheme/llvm.sld": "d9c456fd9e22f5bf893e5610711560e92cc97cebed74ece07a1f7662a38bb789",
+    "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+    "src/snail-scheme/build.sld": "835444287c07d15f1a0d938bdb5204e9853098c1734b924641444848ffcbeaca",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+    "src/snail-scheme/native.sld": "33312f1a76773cc592a3f99460932e42ba087a7fff0905136d31b3dbbd0d7a3d",
+    "src/snail-scheme/wat.sld": "8137787d8a433008722e1cced0309e264832fe8a8bbd9d758a113ce9d31fe5dd",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/ir.sld": "aa41e1ee068c59aefc859370f349df151c4f90323d087bacbcc9752b7cff6c21",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/bootstrap.sld": "7e4e44843c3a48641071fd740ccea31288d4834332c457b1296e186897f42f57",
+    "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8"
+  },
+  "artifact_sha256": {
+    "build/native-benchmark/cpu": "d8954c3ec1e5eeebcc97cdef7c47b8488dddeb1da5aff31fd71a6479394b3ac3",
+    "build/native-benchmark/cpu.wasm": "1e6ad814fdf2d316c777523f06d8c80ef1f20413f962394ed1dce1209597a899",
+    "build/native-benchmark/chez.so": "5476a217c14ba07c06e12633f3998320a609fffeef0bf03b7b660a98529c52c7",
+    "build/native-benchmark/guile.go": "a7fb152fee12e68d1053d9dc78064b141d957798e93c6e8f2a5f1fdccc308582"
+  },
+  "cpu": 2,
+  "rounds": 8,
+  "repetitions": 64,
+  "warmups": 1,
+  "samples": [
+    {
+      "variant": "native",
+      "seconds": 0.038209,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 1
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083604,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 1
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029932,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 1
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.091438,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 1
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.461,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 1
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083581,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.028791,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 2
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.093376,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 2
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.466,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 2
+    },
+    {
+      "variant": "native",
+      "seconds": 0.037961,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030011,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.089347,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 3
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.464,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 3
+    },
+    {
+      "variant": "native",
+      "seconds": 0.036446,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 3
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083592,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.09681,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 4
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.469,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 4
+    },
+    {
+      "variant": "native",
+      "seconds": 0.038195,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 4
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083549,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 4
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.02822,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 4
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.46,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 5
+    },
+    {
+      "variant": "native",
+      "seconds": 0.038208,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 5
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083607,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 5
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030107,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 5
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.102866,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 5
+    },
+    {
+      "variant": "native",
+      "seconds": 0.038273,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 6
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083485,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 6
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030109,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 6
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.094682,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 6
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.453,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 6
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083575,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 7
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029967,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 7
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.094017,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 7
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.454,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 7
+    },
+    {
+      "variant": "native",
+      "seconds": 0.038252,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 7
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029962,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 8
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.094497,
+      "checksum": 269118144,
+      "diagnostic": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 8
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.457,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 8
+    },
+    {
+      "variant": "native",
+      "seconds": 0.038259,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 8
+    },
+    {
+      "variant": "v8",
+      "seconds": 0.083515,
+      "checksum": 269118144,
+      "diagnostic": "",
+      "round": 8
+    }
+  ],
+  "median_seconds": {
+    "native": 0.0382085,
+    "v8": 0.083578,
+    "chez": 0.029964499999999998,
+    "guile": 0.09425700000000001,
+    "chibi": 0.4605
+  },
+  "time_over_chez": {
+    "native": 1.275125565252215,
+    "v8": 2.789233926813396,
+    "chez": 1.0,
+    "guile": 3.145622319745032,
+    "chibi": 15.36818568639557
+  },
+  "scope": "Every implementation executes the complete canonical Scheme workload. Native translates the exact Rust-linked binary run by V8. Internal timers exclude compilation, startup, checks, and output; V8/Guile runtime tiering remains included.",
+  "translation_observation": {
+    "input": "build/native-tests/resources.wat",
+    "input_bytes": 3696604,
+    "output_bytes": 5807449,
+    "wall_seconds": 68.83,
+    "user_cpu_seconds": 68.73,
+    "scope": "Single full-module translation after direct serialization cleanup; LLVM bytes match the previously executed resource test artifact. This is a compile-time observation, outside runtime samples. Earlier concurrent native builds took 127\u2013221 seconds in translation; those timings are not a controlled before/after comparison."
+  }
+}
