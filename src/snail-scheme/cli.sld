@@ -68,9 +68,11 @@
 
     ;; The child receives the script's name as argv[0], literal user arguments,
     ;; and untouched stdin. A nonzero child status still permits normal cleanup.
+    ;; This executable is private: compile in its execution directory directly.
     (define (run-script root script arguments)
       (call-with-build-directory #f
                                  (lambda (directory)
                                    (let ((executable (string-append directory "/script")))
-                                     (build-native root script executable)
+                                     (native-in-directory (absolute-path root) (absolute-path script)
+                                                          directory executable #f '())
                                      (process-status (cons executable arguments) "." #t script)))))))

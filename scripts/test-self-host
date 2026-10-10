@@ -89,6 +89,9 @@ def check_input_aliases(directory, source):
 
 
 def check_script(interpreter, directory, **environment):
+    temporary = directory / "script-temporaries"
+    temporary.mkdir()
+    environment = {**environment, "TMPDIR": str(temporary)}
     source = write_script(directory, "literal 'script.scm", """(import (scheme base) (scheme write) (scheme process-context))
 (display "first\\n")
 (define (main) (error "a script's helper must not become its entry"))
@@ -107,6 +110,8 @@ def check_script(interpreter, directory, **environment):
     result = invoke([interpreter], **environment)
     if result.returncode == 0 or "usage: snail-scheme SCRIPT" not in result.stderr:
         raise RuntimeError(f"missing interpreter usage diagnostic: {result}")
+    if list(temporary.iterdir()):
+        raise RuntimeError("completed script retained temporary files")
     print("passed script order, stdin, argv, UTF-8, and exit status", flush=True)
 
 

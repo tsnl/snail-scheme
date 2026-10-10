@@ -125,17 +125,41 @@ pub extern "C" fn publish_file(raw: u32) -> u32 {
 
 thread_local! { static DIRECTORIES: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) }; }
 
+// Returning a reserved directory establishes ownership before path conversion
+// or allocation of its Scheme wrapper can fail.
 fn reserve_directory(parent: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(parent)?;
     for serial in 0..1024 {
         let path = parent.join(format!(".snail-build-{}-{serial}", std::process::id()));
         match fs::DirBuilder::new().mode(0o700).create(&path) {
-            Ok(()) => return Ok(path),
+            Ok(()) => {
+                DIRECTORIES.with_borrow_mut(|paths| paths.push(path.clone()));
+                return Ok(path);
+            }
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(error),
         }
     }
     Err(io::Error::other("cannot reserve build directory"))
+}
+
+// Consume ownership before removal. Cleanup failure warns but cannot change a
+// successful build or make a later error report this directory as unfinished.
+fn clean_directory(path: &Path) -> Result<(), String> {
+    let owned = DIRECTORIES.with_borrow_mut(|paths| {
+        paths
+            .iter()
+            .position(|owned| owned == path)
+            .map(|index| paths.remove(index))
+    });
+    let owned = owned.ok_or("build directory is not owned by this invocation")?;
+    if let Err(error) = fs::remove_dir_all(&owned) {
+        eprintln!(
+            "could not remove build directory: {}: {error}",
+            owned.display()
+        );
+    }
+    Ok(())
 }
 
 #[unsafe(export_name = "snail:%reserve-build-directory")]
@@ -153,31 +177,16 @@ pub extern "C" fn reserve_build_directory(raw: u32) -> u32 {
                 .to_owned()
         };
         let path = reserve_directory(&parent).map_err(|error| error.to_string())?;
-        DIRECTORIES.with_borrow_mut(|paths| paths.push(path.clone()));
         Ok(Root::string(&path_text(path)?))
     })())
 }
 
-// Successful publication stays successful even if removal fails. Forget the
-// registration after warning, so a later unrelated error cannot mislabel it.
 #[unsafe(export_name = "snail:%clean-build-directory")]
 pub extern "C" fn clean_build_directory(raw: u32) -> u32 {
     let args = arguments(raw, "clean-build-directory", 1, 1);
     finish((|| {
         let path = PathBuf::from(string_text(&args.get(0)?)?);
-        let owned = DIRECTORIES.with_borrow_mut(|paths| {
-            paths
-                .iter()
-                .position(|p| *p == path)
-                .map(|index| paths.remove(index))
-        });
-        let owned = owned.ok_or("build directory is not owned by this invocation")?;
-        if let Err(error) = fs::remove_dir_all(&owned) {
-            eprintln!(
-                "could not remove build directory: {}: {error}",
-                owned.display()
-            );
-        }
+        clean_directory(&path)?;
         Ok(Root::unspecified())
     })())
 }
@@ -220,7 +229,7 @@ mod tests {
         );
         let signal = ["sh", "-c", "kill -TERM $$"].map(str::to_owned);
         assert_eq!(process_status(&signal, ".", false, "sh").unwrap(), 143);
-        fs::remove_dir_all(directory).unwrap();
+        clean_directory(&directory).unwrap();
     }
 
     #[test]
@@ -252,6 +261,31 @@ mod tests {
         fs::hard_link(&source, &alias).unwrap();
         assert!(same_file(&source, &alias).unwrap());
         assert!(!same_file(&source, &parent.join("missing")).unwrap());
-        fs::remove_dir_all(parent).unwrap();
+        clean_directory(&first).unwrap();
+        clean_directory(&second).unwrap();
+        clean_directory(&parent).unwrap();
+    }
+
+    #[test]
+    fn cleanup_requires_and_consumes_ownership() {
+        let parent = reserve_directory(&std::env::temp_dir()).unwrap();
+        let unowned = parent.join("unowned");
+        fs::create_dir(&unowned).unwrap();
+        assert!(clean_directory(&unowned).is_err());
+        assert!(unowned.is_dir());
+        clean_directory(&parent).unwrap();
+        assert!(!parent.exists());
+        assert!(clean_directory(&parent).is_err());
+    }
+
+    #[test]
+    fn failed_removal_still_consumes_ownership() {
+        let directory = reserve_directory(&std::env::temp_dir()).unwrap();
+        fs::remove_dir(&directory).unwrap();
+        fs::write(&directory, "a file prevents recursive directory removal").unwrap();
+        clean_directory(&directory).unwrap();
+        assert!(directory.is_file());
+        assert!(clean_directory(&directory).is_err());
+        fs::remove_file(directory).unwrap();
     }
 }
