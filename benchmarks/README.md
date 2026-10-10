@@ -1,8 +1,11 @@
 # Baseline workloads
 
-See [BENCHMARKS.md](../BENCHMARKS.md) for the current native LLVM comparison
-against Chez, Guile, and Chibi. **Runtime comparisons exclude compilation time
-and process startup**; the report explains Guile's runtime JIT timing separately.
+See [BENCHMARKS.md](../BENCHMARKS.md) for the native comparison, generated plots,
+and the integrated R7RS suite. Run `python3 benchmarks/reproduce.py` to rebuild
+and measure Fibonacci, or `python3 benchmarks/r7rs.py` for the pinned 57-workload
+suite. Both accept `--plot` to regenerate reports from JSON;
+[`shell.nix`](shell.nix) supplies the measurement and plotting dependencies.
+**Workload times exclude compilation and process startup.**
 
 ## Native LLVM CPU experiment
 

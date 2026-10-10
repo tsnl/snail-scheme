@@ -243,3 +243,12 @@ CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
 Record execution time separately from compilation and startup, verify answers,
 and retain raw samples and Chez/Chibi ratios when comparing backends. Retired
 prototypes and measurements remain in Git history.
+
+[`benchmarks/reproduce.py`](benchmarks/reproduce.py) rebuilds the native
+Fibonacci comparison, checks answers, collects rotating samples, and renders
+plots from saved JSON. [`benchmarks/r7rs.py`](benchmarks/r7rs.py) runs the pinned
+upstream R7RS suite across Snail native, Chez, Guile, and Chibi. Preparation,
+measurement, and reporting are separate; failed and unavailable cases stay in
+the result matrix. Its small [Chez adapter](benchmarks/r7rs-chez.scm) supplies
+monotonic timing alongside upstream's language compatibility prelude.
+[BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.

@@ -1,179 +1,106 @@
-# Runtime benchmarks
+# Benchmarks
 
-**EXCLUDES COMPILATION TIME AND PROCESS STARTUP.** These numbers measure
-execution after ahead-of-time compilation has finished. They do not measure
-the time taken by `snail-scheme` to build and launch a program.
+**Execution time only: compilation and process startup are excluded.**
 
-## Recursive Fibonacci: native LLVM, Chez, Guile, and Chibi
+![Recursive Fibonacci execution times](benchmarks/results/2026-10-10-reproduction/comparison.svg)
 
-Measured October 10, 2026, on the same machine in eight rotating rounds pinned
-to CPU 2. Each sample performs 64 repetitions of Fibonacci inputs 22–25,
-with checksum `269118144`. Lower times and ratios are better.
+The tuned native translator is faster than Chez and Guile on this recursive
+Fibonacci workload. Dots show individual samples; the short lines show medians.
+See the [generated table](benchmarks/results/2026-10-10-reproduction/summary.md)
+and [raw measurements](benchmarks/results/2026-10-10-reproduction/results.json).
+This is one call/arithmetic workload, not a claim about every Scheme program.
 
-| Implementation | Median seconds | Time / Chez |
-| --- | ---: | ---: |
-| Snail Wasm→LLVM prototype, tuned, x86-64 | **0.02676** | **0.89×** |
-| Chez Scheme 10.4.1 | 0.02994 | 1.00× |
-| Snail Wasm→LLVM prototype, baseline, x86-64 | 0.04659 | 1.56× |
-| Guile 3.0.11 | 0.09490 | 3.17× |
-| Chibi Scheme 0.12 | 0.46000 | 15.37× |
-
-The tuned LLVM prototype is **3.55× faster than Guile**, **1.12× faster than
-Chez**, and **17.19× faster than Chibi** on this workload.
-
-## Language-compliance trade-off
-
-**Snail Scheme is not fully R7RS compliant.** We deliberately leave reusable,
-re-entrant (multi-shot) continuations out of the intended language. We regard
-these as a “1% feature”: a small part of the language that we are willing to
-forgo to simplify execution and prioritize fast ordinary calls. That phrase
-expresses our design priorities, not a measured percentage of Scheme programs.
-
-The current production Wasm backend rejects `call/cc` and
-`call-with-current-continuation` entirely. Single-shot delimited continuations
-and coroutines are planned. Other conformance gaps also remain, so this is
-not a claim of “R7RS compliant except for re-entrant continuations.”
-
-The simpler execution model supports our performance goals, but the benchmark
-above does **not** isolate the cost of reusable continuations. Its latest
-measured speedup comes from exposing boolean identities and keeping numeric
-fallbacks out of line. See [future work](TODO.md) for the language scope.
-
-## What these results measure
-
-- The LLVM rows use the bounded experimental Wasm-to-LLVM translator, optimized
-  with Clang `-O3` and linked with BDWGC. Its C harness runs the extracted
-  recursive Fibonacci procedure. These are **not yet measurements of the full
-  production compiler's linked Wasm output**.
-- The tuned variant exposes distinct static boolean objects and marks numeric
-  fallback functions `cold noinline`. Integer representation and checks remain
-  intact. These changes are reproduced by an experimental LLVM patcher; the
-  general translator does not yet implement them. The combined variant passed
-  all 43 numeric and tail-call checks.
-- Chez, Guile, and Chibi run the complete canonical
-  [Scheme benchmark](benchmarks/cpu.scm). Chez uses safe optimization level 2.
-  Guile compiles the unchanged source to bytecode with `guild compile --r7rs
-  -O2`; auto-compilation is disabled during execution. Chibi uses the existing
-  compatibility adapter without changing the benchmark algorithms.
-- Each measured sample starts a fresh process. One preliminary sample per
-  implementation is discarded. Guile uses its default runtime/JIT settings;
-  any JIT activity during execution is included, not separately subtracted.
-  An additional Guile control performs a full 64-repetition warmup inside each
-  process before timing again: **0.09514s**, essentially unchanged.
-- Timers surround the workload, excluding build time, process startup, initial
-  correctness checks, and final output. This is a CPU/call benchmark, not a
-  measure of allocation-heavy workloads, compilation speed, or browser speed.
-
-## Reproduction and raw data
-
-The [Guile comparison report](benchmarks/results/2026-10-10-guile.json) records
-all samples, commands, versions, artifact hashes, relevant Guile environment
-settings, and the measurement script. The
-[LLVM ablation](benchmarks/results/2026-10-10-llvm-codegen.json) records how the
-two native variants were built.
-
-These prototype tools have been removed from the current compiler. Reproduce
-the historical measurements in their recorded checkout:
+## Reproduce the comparison
 
 ```sh
-git worktree add --detach /tmp/snail-benchmark-repro feb1503a72f8c430227cbb3d959ca7bf48873ea4
-cd /tmp/snail-benchmark-repro
+nix-shell benchmarks/shell.nix
+python3 benchmarks/reproduce.py --cpu 2
 ```
 
-Run the following from that checkout on **x86-64 Linux**, with logical
-CPU 2 available to the process. Use an otherwise idle machine. The recorded
-toolchain was LLVM/Clang 22.1.8, Binaryen 132, BDWGC 8.2.12, Guile 3.0.11,
-Chez 10.4.1, and Chibi 0.12. Python 3 and Node with WasmGC/tail-call support
-are also required by the build/check scripts.
+The script builds all implementations, runs the native correctness checks, then
+measures eight rotating rounds of 64 repetitions on one CPU. Every run must
+produce checksum `269118144`. Omit `--cpu` to use the first CPU allowed by the
+host; use `--rounds` and `--repetitions` to change the measurement duration.
 
-With Nix, enter a shell containing those tools:
+Outputs go to `build/benchmark-report/`: `results.json`, `summary.md`,
+`comparison.svg`, and `comparison.png`. JSON includes raw output, preliminary
+runs, execution order, commands, tool versions, and source/artifact hashes.
+Regenerate the reports without rebuilding or running any workloads:
 
 ```sh
-nix-shell -p python3 llvmPackages_22.clang llvmPackages_22.llvm \
-  binaryen boehmgc pkg-config guile chez chibi nodejs util-linux
+python3 benchmarks/reproduce.py --plot build/benchmark-report/results.json
 ```
 
-This uses your current `<nixpkgs>`; it is not a pinned toolchain. Check versions
-when comparing results. Without Nix, install equivalent tools on `PATH`.
+### What is timed
 
-### Build and check every implementation
+- The native translator compiles an extracted Fibonacci function from Wasm to
+  LLVM and links it with a C workload harness and BDWGC. The tuned version uses
+  static boolean objects and cold, out-of-line numeric fallbacks; integer checks
+  remain intact. Both variants execute native code. The build checks numeric
+  boundaries, tail calls, collection, and Wasm semantics before timing.
+- Chez, Guile, and Chibi execute the complete [Scheme workload](benchmarks/cpu.scm).
+  Chez uses safe optimization level 2; Guile is compiled to bytecode with `-O2`.
+  Native and Scheme versions perform the same recursive calls and weighted
+  checksum, but have different outer harnesses.
+- Every sample starts a fresh process. One preliminary run per implementation
+  is discarded. The Guile warmup control performs the entire workload twice in
+  one process and reports the second interval; both answers are checked.
+  Runtime JIT activity remains included. Builds and startup are never timed as
+  workload execution.
 
-These commands perform compilation **before** any reported execution timing.
-The LLVM scripts also execute numeric, tail-call, and GC correctness checks.
+Absolute times vary with hardware, tool versions, and system load. Compare
+implementations within the same run. These results are observations, not CI
+performance thresholds.
+
+## Run the R7RS suite
+
+The broader runner uses all 57 workloads from
+[ecraven's R7RS benchmarks](https://github.com/ecraven/r7rs-benchmarks), derived
+from the Larceny, Gabriel, and Gambit suites. It pins the upstream revision and
+archive checksum, retains the benchmark bodies and correctness predicates, and
+covers allocation, lists, arrays, strings, IO, numeric computation, and control
+flow. Sources are downloaded into `build/`; their upstream notices are retained.
+
+With Rust/Cargo and the `wasm32-wasip1` target installed, use the same Nix shell:
 
 ```sh
-export BDWGC_INCLUDE="$(pkg-config --variable=includedir bdw-gc)"
-export BDWGC_LIB="$(pkg-config --variable=libdir bdw-gc)"
-python3 experiments/wasmgc/build.py
-python3 experiments/wasm-llvm/build.py
-python3 experiments/wasm-llvm/ablate.py
-
-mkdir -p build/guile
-guild compile --r7rs -O2 -o build/guile/cpu.go benchmarks/cpu.scm
-scheme --script benchmarks/chez.scm benchmarks/cpu.scm build/guile/cpu-chez.so
-chibi-scheme benchmarks/chibi.scm benchmarks/cpu.scm build/guile/cpu-chibi.scm
+export SNAIL_WASM_NATIVE=/path/to/native-translator
+python3 benchmarks/r7rs.py --cpu 2
 ```
 
-The native executables are `build/wasm-llvm-ablation/cpu-baseline` and
-`build/wasm-llvm-ablation/cpu-both`. The ablation script additionally reports its
-own four-way comparison; the next step measures all six comparison cases
-together, including the Guile warmup control.
+The native command must accept `INPUT.wasm -o OUTPUT`; the runner invokes it
+through `snail-scheme --native`. Default participants are Snail native, Chez,
+Guile, and Chibi. Missing tools or an unset native command produce explicit
+`unavailable` entries. No substitute backend is selected.
 
-### Run the matched comparison
-
-Copy this block into the same shell. It checks every checksum, discards one
-preliminary run per implementation, rotates eight rounds on CPU 2, prints
-medians and Chez ratios, and saves raw samples to `build/benchmark-comparison.json`.
-It reads each program's internal timer rather than timing the subprocess.
+For a quick harness check while the native command is being configured:
 
 ```sh
-python3 - <<'PY'
-import json, os, re, statistics, subprocess
-from pathlib import Path
-
-os.sched_setaffinity(0, {2})
-guile = ["guile", "--no-auto-compile", "--r7rs", "-c"]
-load = '(load-compiled "build/guile/cpu.go")'
-commands = {
-    "llvm-baseline": ["build/wasm-llvm-ablation/cpu-baseline", "64"],
-    "llvm-tuned": ["build/wasm-llvm-ablation/cpu-both", "64"],
-    "chez": ["scheme", "--program", "build/guile/cpu-chez.so", "64"],
-    "guile": [*guile, load, "64"],
-    "guile-warm": [*guile, load + " (main)", "64"],
-    "chibi": ["chibi-scheme", "build/guile/cpu-chibi.scm", "64"],
-}
-
-def sample(name):
-    result = subprocess.run(commands[name], check=True, capture_output=True, text=True)
-    checksums = re.findall(r"checksum: (\d+)", result.stdout)
-    times = re.findall(r"elapsed: ([\d.]+) s", result.stdout)
-    count = 2 if name == "guile-warm" else 1
-    assert checksums == ["269118144"] * count, result.stdout
-    assert len(times) == count, result.stdout
-    return {"variant": name, "seconds": float(times[-1]), "checksum": 269118144}
-
-names, rows = list(commands), []
-for name in names:
-    sample(name)
-for round in range(8):
-    offset = round % len(names)
-    for name in names[offset:] + names[:offset]:
-        rows.append({**sample(name), "round": round + 1})
-medians = {name: statistics.median(r["seconds"] for r in rows if r["variant"] == name)
-           for name in names}
-for name, seconds in medians.items():
-    print(f"{name:14s} {seconds:.6f} s  {seconds / medians['chez']:.2f}x Chez")
-report = {"cpu": 2, "repetitions": 64, "rounds": 8, "commands": commands,
-          "samples": rows, "median_seconds": medians}
-Path("build/benchmark-comparison.json").write_text(json.dumps(report, indent=2) + "\n")
-PY
+python3 benchmarks/r7rs.py --systems chez guile chibi \
+  --benchmarks fib array1 quicksort --count 1 --rounds 1 --timeout 30
 ```
 
-Absolute times vary with hardware, tool versions, and system load. Compare the
-implementations from the same run; the published numbers are observations, not
-pass/fail thresholds. Guile's `guile-warm` case reports only the second workload
-execution in its process. No source-to-bytecode compilation occurs in either
-Guile measurement; runtime JIT activity, if any, remains included.
+`--count` replaces only the upstream iteration count and labels the result as a
+**smoke run**. Normal runs keep original inputs. `--timeout` and
+`--build-timeout` bound each process, including its descendants. All builds
+finish before measurement; successful programs get one discarded preliminary
+run followed by rotating measured rounds.
 
-Current production Wasm measurements and the allocation workload are in the
-[benchmark guide](benchmarks/README.md).
+The runner writes JSON, CSV, Markdown, SVG, and PNG under `build/r7rs-report/`.
+Every requested cell remains visible, including build errors, incorrect answers,
+timeouts, and unavailable implementations. It exits nonzero for failures;
+`--allow-failures` permits exploratory runs without changing their recorded
+status. Interrupted runs retain incomplete JSON and cannot produce a final plot.
+Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
+score that silently drops failed benchmarks.
+
+## Language scope
+
+Snail is not fully R7RS compliant. Reusable, multi-shot continuations are outside
+the intended language; the current backend rejects `call/cc` entirely. Single-shot
+delimited continuations and coroutines are planned, and other conformance gaps
+remain. The Fibonacci comparison does not isolate the cost of continuations.
+See [the roadmap](TODO.md) and [backend guide](doc/backend.md).
+
+[The benchmark guide](benchmarks/README.md) retains historical measurements,
+other workloads, and compiler-latency results.

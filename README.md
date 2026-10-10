@@ -10,7 +10,7 @@ browsers, servers, GPUs, and database clusters, handling communication so you
 can focus on your application's behavior and reuse logic across platforms.
 
 Snail Scheme is faster than Chez Scheme and Guile
-([benchmarks](benchmarks/README.md)), combining broad R7RS compatibility with
+([benchmarks](BENCHMARKS.md)), combining broad R7RS compatibility with
 portability wherever WebAssembly runs. Proudly open source under [Apache-2.0](LICENSE).
 
 ## Getting started
