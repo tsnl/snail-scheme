@@ -136,7 +136,9 @@ def measure(programs, sample_count):
         summary = summarize(name, samples)
         measurements.extend(samples)
         summaries.append(summary)
-        print(json.dumps(summary), file=sys.stderr, flush=True)
+        display = {key: value for key, value in summary.items() if key != "median_ms"}
+        display["median_seconds"] = {key: value / 1000 for key, value in summary["median_ms"].items()}
+        print(json.dumps(display), file=sys.stderr, flush=True)
     return measurements, summaries
 
 # ---- Reproducible report ----

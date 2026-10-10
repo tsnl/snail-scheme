@@ -1,5 +1,9 @@
 # Compilation measurements
 
+This is a historical measurement record. The former `--timing` diagnostics
+have been replaced by [always-on Chromium traces](tracing.md); the recorded
+numbers and phase definitions below describe the versions measured.
+
 These measurements separate the compiler host, parser costs, and output toolchain.
 The 2026-10-09 combinator change replaces `pmap`'s temporary parser with a direct
 result transformation and `tuple`'s chain of temporary parsers with a local loop.
@@ -13,13 +17,13 @@ Run mode defaults to a debug Rust runtime; place `--release` before `--` to
 benchmark the generated compiler with an optimized runtime:
 
 ```sh
-./snail-compile examples/fibonacci.scm /tmp/fibonacci.ll --timing
-./snail-scheme src/snail-scheme/compile.scm --release -- . examples/fibonacci.scm /tmp/fibonacci.ll --timing
+./snail-compile examples/fibonacci.scm /tmp/fibonacci.ll
+./snail-scheme src/snail-scheme/compile.scm --release -- . examples/fibonacci.scm /tmp/fibonacci.ll
 ```
 
-The second command first builds the compiler executable. Its forwarded
-`--timing` measures that executable compiling Fibonacci; it excludes building
-the compiler itself. A later Cargo invocation still has to turn its LLVM output
+The second command first builds the compiler executable. Its runtime trace
+measures that executable compiling Fibonacci; the driver and build-script traces
+record building the compiler itself separately. A later Cargo invocation still has to turn its LLVM output
 into an executable. Generated LLVM receives O2 even when the Rust runtime is
 debug-built.
 
@@ -161,12 +165,12 @@ The combined reduction is **38.2%**. LLVM emission falls from **5.344 s to
 1.491 s**. Standalone `base.sld` parsing improves only modestly, **0.513 s to
 0.499 s** (2.7%); most of this round's gain comes from LLVM emission.
 
-The new `--timing` output separates `import-parse` from `expand`. It accumulates
+At that revision, `--timing` output separated `import-parse` from `expand`. It accumulated
 library-loader intervals locally to one compilation, including path construction,
 file reading, parsing, and the single-library declaration check. Recursive
 imports and expansion of library bodies happen outside the loader. Subtracting
 these intervals from expansion before rounding avoids double counting; disabled
-timing bypasses the counter and clocks entirely.
+timing bypassed the counter and clocks entirely.
 
 | Current Chibi compiler stage | Median seconds |
 | --- | ---: |
@@ -306,7 +310,7 @@ Run timings sequentially, using a fixed input corpus and several fresh processes
 
 ```sh
 chibi-scheme -I src benchmarks/parser-time.scm bootstrap/scheme/base.sld
-./snail-compile src/snail-scheme/compile.scm /tmp/compiler.ll --timing
+./snail-compile src/snail-scheme/compile.scm /tmp/compiler.ll
 chibi-scheme -I src benchmarks/compile-profile.scm "$PWD" examples/fibonacci.scm /tmp/fibonacci.ll
 ```
 

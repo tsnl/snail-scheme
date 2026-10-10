@@ -68,12 +68,15 @@ for the distinction between safe levels and level 3's unchecked operations.
 
 Each sample pair runs equal repetition counts in separate processes. Pair order
 alternates between Chez-first and Snail-first. The reported ratio is
-`median(Snail elapsed milliseconds) / median(Chez elapsed milliseconds)`;
+`median(Snail elapsed seconds) / median(Chez elapsed seconds)`;
 values above one mean Snail took longer. Both Snail native and Snail WASI compare
 against **native Chez on this host**. This is not a comparison of two WASM engines.
 The runner writes ratio summaries to stderr while preserving each Snail program's
 three-line stdout report. Chez output is checked with the same title/checksum/time
-parser and its raw measurements are saved in JSON.
+parser and its raw measurements are saved in JSON. Human-readable reports use
+seconds with six decimal places. JSON retains its explicitly named `_ms` fields
+for compatibility with saved reports; older executables reporting milliseconds
+are also accepted.
 
 Chez's CPU, memory, and GC loops may finish in less than a millisecond at the
 defaults. The clock uses monotonic nanoseconds, but reports round down to

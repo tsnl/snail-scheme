@@ -8,8 +8,8 @@
 ;; references, value bindings, and parameters without mutation.
 
 (define-library (snail-scheme expand)
-  (export expand-program expand-library macroexpand-1 make-core-library)
-  (import (scheme base)
+  (export syntax-list->hir-program syntax->hir-library macroexpand-1 make-core-library)
+  (import (snail-scheme trace) (scheme base)
           (scheme cxr)
           (snail-scheme common)
           (snail-scheme syntax)
@@ -22,7 +22,7 @@
     ;; The loader receives a library-name datum and returns define-library syntax
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
     ;; Each call starts a fresh library cache.
-    (define (expand-program forms library-loader . initial-libraries)
+    (define-traced (syntax-list->hir-program forms library-loader . initial-libraries)
       (assert (list? forms))
       (assert (procedure? library-loader))
       (let-values (((imports body) (split-program-imports forms)))
@@ -30,7 +30,7 @@
                              (and (pair? forms) (syntax-loc (car forms)))
                              (expansion-library-cache initial-libraries))))
 
-    (define (expand-library form library-loader . initial-libraries)
+    (define-traced (syntax->hir-library form library-loader . initial-libraries)
       (assert (procedure? library-loader))
       (let-values (((library cache transformers)
                     (expand-library-form form (library-parts form) library-loader
@@ -1300,7 +1300,7 @@
             (only (snail-scheme parser) parse-result-value))
     (begin
       (define (test-library text)
-        (expand-library
+        (syntax->hir-library
          (car (parse-result-value (s-file (string->reader "conditional.sld" text))))
          (lambda (name) (error "unexpected library load" name))))
 

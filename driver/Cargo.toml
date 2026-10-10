@@ -6,3 +6,6 @@ edition = "2024"
 [[bin]]
 name = "snail-scheme"
 path = "src/main.rs"
+
+[dependencies]
+snail-trace = { path = "../trace" }

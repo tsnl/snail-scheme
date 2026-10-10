@@ -1,5 +1,5 @@
 use snail_runtime::{PROGRAM_ABI, Vm};
-use std::{ffi::c_void, time::Instant};
+use std::ffi::c_void;
 
 unsafe extern "C" {
     fn snail_program_abi() -> u32;
@@ -9,7 +9,11 @@ unsafe extern "C" {
 }
 
 fn main() {
-    let started = Instant::now();
+    std::process::exit(run_program());
+}
+
+fn run_program() -> i32 {
+    let started = snail_trace::span("runtime.execute");
     check_program_abi();
     // Only opaque pointers and fixed-width scalar values cross this boundary.
     let mut machine = unsafe {
@@ -26,9 +30,9 @@ fn main() {
         eprintln!("snail-scheme: {error}");
     }
     if std::env::var_os("SNAIL_RUNTIME_STATS").is_some() {
-        report_statistics(&machine, started);
+        report_statistics(&machine, &started);
     }
-    std::process::exit(machine.exit_code());
+    machine.exit_code()
 }
 
 fn check_program_abi() {
@@ -39,14 +43,14 @@ fn check_program_abi() {
     }
 }
 
-fn report_statistics(machine: &Vm, started: Instant) {
+fn report_statistics(machine: &Vm, started: &snail_trace::Span) {
     let gc = machine.gc_statistics();
     eprintln!(
-        "runtime: elapsed_ns={} gc_collections={} gc_ns={} gc_max_ns={} allocated={} reclaimed={} live={} peak={} max_frames={}",
-        started.elapsed().as_nanos(),
+        "runtime: elapsed_s={:.9} gc_collections={} gc_s={:.9} gc_max_s={:.9} allocated={} reclaimed={} live={} peak={} max_frames={}",
+        started.elapsed().as_secs_f64(),
         gc.collections,
-        gc.total_nanoseconds,
-        gc.max_nanoseconds,
+        gc.total_nanoseconds as f64 / 1_000_000_000.0,
+        gc.max_nanoseconds as f64 / 1_000_000_000.0,
         gc.allocated,
         gc.reclaimed,
         gc.live,

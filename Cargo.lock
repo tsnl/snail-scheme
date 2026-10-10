@@ -5,14 +5,25 @@ version = 4
 [[package]]
 name = "snail-driver"
 version = "0.1.0"
+dependencies = [
+ "snail-trace",
+]
 
 [[package]]
 name = "snail-runner"
 version = "0.1.0"
 dependencies = [
  "snail-runtime",
+ "snail-trace",
 ]
 
 [[package]]
 name = "snail-runtime"
+version = "0.1.0"
+dependencies = [
+ "snail-trace",
+]
+
+[[package]]
+name = "snail-trace"
 version = "0.1.0"
