@@ -14,6 +14,7 @@ SUCCESSES = {
     "backend-bootstrap": "bootstrap checks passed\n",
     "backend-binary": "binary IO checks passed\n",
     "backend-numeric": "numeric instruction checks passed\n",
+    "backend-inexact": "inexact checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
     "backend-control": "control-flow checks passed\n",
@@ -28,6 +29,10 @@ ERRORS = {
     "numeric-arity": "wrong number of arguments",
     "binary-range": "slice index out of range",
     "binary-utf8": "invalid utf-8",
+    "inexact-type": "expected [Integer, Real]",
+    "inexact-arity": "sqrt: expected 1..=1 arguments",
+    "inexact-optional-type": "expected [Integer, Real]",
+    "inexact-optional-arity": "atan: expected 1..=2 arguments",
 }
 
 

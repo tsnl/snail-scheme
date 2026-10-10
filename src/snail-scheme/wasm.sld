@@ -544,7 +544,8 @@
     ;; Each service has its own Wasm import. Rust borrows the argument root and
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
-      '(string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
+      '(acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
+        string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
                        error open-input-file open-output-file open-binary-input-file file-exists? close-port
                        read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8
                        open-output-string get-output-string display write newline

@@ -130,8 +130,9 @@ the symbol `ok`. Results include a pixel checksum, the timing chart appears at
 `build/r7rs-report/cases/ray/<system>/outputs/ray.output`.
 
 This is the next proposed README comparison, pending Snail execution. The
-current Snail build fails on the missing `(scheme inexact)` library before
-native translation; no Snail ray-tracing timing is published. To exercise the
+`(scheme inexact)` library now passes linked-Wasm execution checks. The ray
+program next fails on the missing `(scheme read)` library before native
+translation; no Snail ray-tracing timing is published. To exercise the
 reference engines and image checks now:
 
 ```sh
