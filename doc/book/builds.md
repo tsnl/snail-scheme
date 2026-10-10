@@ -33,13 +33,11 @@ hot reload, output selection, and application composition remain library calls.
 A future root `build.scm` will build this interpreter and specify its artifacts.
 The resulting interpreter must then run `build.scm` and rebuild itself.
 
-This needs runtime support for the build's effects, including subprocesses while
-the tools are external. WASIp1 does not provide `std::process::Command` support;
-the current Node launcher has no process-spawn import. A process operation must
-therefore be specified and implemented before claiming self-hosting works.
-[Rust's WASIp1 documentation](https://doc.rust-lang.org/rustc/platform-support/wasm32-wasip1.html#requirements)
-records that limitation. Native IO belongs in the Rust runtime; an eventual
-native executable should not depend on Node.
+The [native CLI platform](platforms/native-cli.md) is the first target for this
+milestone. Its Rust runtime must supply the build's effects, including process
+execution while Cargo and Binaryen remain external tools. The same native
+interpreter must rebuild itself before self-hosting is considered complete.
+The temporary Wasm execution mechanism and native linking remain library policy.
 
 ## Stages are ordinary computations with explicit outputs
 

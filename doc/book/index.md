@@ -21,15 +21,15 @@ requirements, not claims about the current scheduler or collector.
 
 ## What runs today
 
-The compiler runs in Chibi. It emits WasmGC, links the Rust runtime, and executes
-the result under Node/V8 with WASI. Scheme build scripts choose inputs, output
-paths, and execution. The book documents this [build workflow](builds.md) and the
-implemented [Node platform](platforms/node.md).
+The compiler runs in Chibi. It emits WasmGC and links the Rust runtime; the
+existing bootstrap runner executes that output. Scheme scripts choose inputs,
+output paths, and execution through the [build libraries](builds.md).
 
-The [native ABI](platforms/native.md), self-hosted interpreter, actor scheduling,
-browser runtime, and [three integration tutorials](tutorials/index.md) are planned.
-Each page separates existing behavior from the work needed to reach that design.
-The book is the documentation foundation for those prototypes.
+The first platform contracts are [native CLI](platforms/native-cli.md),
+[native GUI](platforms/native-gui.md), and [browser GUI](platforms/browser-gui.md).
+They build on the existing [AWI extension](awi.md), but their entry points,
+native linkage, browser services, and actor scheduling remain planned. The
+[three integration tutorials](tutorials/index.md) will exercise that design.
 
 ## Read and develop the book
 
@@ -42,10 +42,9 @@ scripts/book serve --hostname 127.0.0.1 --port 3000
 
 Open <http://127.0.0.1:3000>. mdBook watches the sources and reloads changed pages.
 `scripts/book build` writes the static site to `build/book/`. `MDBOOK` can select
-an installed mdBook executable; no Node package manager or custom preprocessor
-is needed. [mdBook's serve documentation](https://rust-lang.github.io/mdBook/cli/serve.html)
+an installed mdBook executable. [mdBook's serve documentation](https://rust-lang.github.io/mdBook/cli/serve.html)
 describes the preview options.
 
-Book sources live under `doc/book/`. Each platform gets one page, with its WAT
-interface included from a `.wat` file and a linked symbol reference. The module
-bodies marked `unreachable` are interface stubs, not runnable implementations.
+Book sources live under `doc/book/`. Each platform gets one page rendering its
+`.wat` interface. Function documentation lives inline in that file. Bodies marked
+`unreachable` are interface stubs, not runnable implementations.

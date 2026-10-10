@@ -4,14 +4,16 @@ The ABI describes how compiled Scheme, the Rust runtime, and a platform call one
 another. Wasm signatures are the reference notation. Native compilation gives
 those signatures an explicit mapping to the target C ABI.
 
-**Implemented:** scalar AWI calls inside linked Wasm and the Node/WASI command
-interface. **Planned:** native linkage against the same Rust runtime sources,
-with the ownership and instance rules below. This is a runtime interface, not
-an arbitrary Rust extension or plugin system.
+**Implemented:** scalar [AWI extension calls](awi.md) inside linked Wasm.
+**Planned:** the three [platform contracts](platforms/index.md), native linkage,
+and browser hosting, with the ownership and instance rules below. AWI remains
+the extension boundary; the initial supported functions come from Snail's Rust
+runtime. This does not introduce arbitrary Rust extension packaging.
 
 | Output | Scheme compilation | Rust compilation | Linkage |
 | --- | --- | --- | --- |
-| Wasm, current | Scheme → WasmGC | Rust → Wasm | Merge the modules; the platform supplies remaining imports. |
+| Bootstrap Wasm, current | Scheme → WasmGC | Rust → Wasm | Merge the modules for the existing test runner. |
+| Browser, planned | Scheme → WasmGC | Rust → browser-compatible Wasm | Link with the browser bindings; the browser owns DOM access. |
 | Native, planned | Scheme → WasmGC → LLVM → native object | Rust → native library | Resolve runtime calls using the target C ABI. |
 
 The native route can translate the Scheme module while its runtime calls remain
@@ -46,9 +48,9 @@ must also remain within the instance that allocated them.
 
 `anyref` and `eqref` remain meaningful Wasm types. They do not acquire a portable
 C pointer representation just because native objects happen to use pointers.
-The current [finalization hook](platforms/node.md#snailhostregister-finalizer)
-is a collector/embedding hook with a GC reference; its native adapter needs
-collector integration, not a scalar bitcast.
+The current finalization hook, described beside `extension` in the
+[AWI interface](awi.md), takes a GC reference. Its native adapter needs collector
+integration, not a scalar bitcast.
 
 Use `extern "C"` for function calling conventions and explicit unmangled symbols
 for native linkage. `#[repr(C)]` describes exposed data layout; it does not select

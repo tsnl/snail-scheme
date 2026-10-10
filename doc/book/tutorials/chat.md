@@ -3,7 +3,10 @@
 **Planned integration tutorial.** A vendorable application library builds a native
 server and browser Wasm. Two browsers run their own Scheme reducer and functional
 view; the server connects to a native history service. Static document rendering
-and the live DOM share the same ordinary tree-composition API.
+and the live DOM share the same ordinary tree-composition API. The server uses
+[native CLI](../platforms/native-cli.md); clients use
+[browser GUI](../platforms/browser-gui.md), including real DOM input and composition
+events alongside the shared GUI lifecycle.
 
 Aim for `build.scm`, `protocol.sld`, and `chat.sld`, with separate browser and
 server roots in the application source. Top-level typed message declarations

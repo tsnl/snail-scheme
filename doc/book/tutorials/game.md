@@ -3,7 +3,8 @@
 **Planned integration tutorial.** Build a small game whose Scheme library exports
 window handlers. The runtime creates the root actor and invokes resume, input,
 resize, redraw, and close handlers. Scheme authoring starts with ordinary pure
-rules; the platform owns the event loop and IO.
+rules; the [native GUI platform](../platforms/native-gui.md) owns the event loop
+and IO. Its lifecycle, input, and redraw handlers also guide the browser platform.
 
 Aim for `build.scm`, `game.sld`, and `frame.sld`. A frame actor receives an owned
 snapshot and computes the next world and drawing commands in a temporary heap.
