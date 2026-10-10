@@ -251,4 +251,6 @@ upstream R7RS suite across Snail native, Chez, Guile, and Chibi. Preparation,
 measurement, and reporting are separate; failed and unavailable cases stay in
 the result matrix. Its small [Chez adapter](benchmarks/r7rs-chez.scm) supplies
 monotonic timing alongside upstream's language compatibility prelude.
+[`benchmarks/plots.py`](benchmarks/plots.py) draws sorted duration bars for both
+runners, with a compact README comparison and one chart per suite workload.
 [BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.

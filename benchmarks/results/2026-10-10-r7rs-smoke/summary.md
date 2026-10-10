@@ -1,0 +1,65 @@
+# R7RS suite
+
+Upstream `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1` · 1 rounds · SMOKE RUN: iteration count 1
+
+Build/startup excluded. Each successful result passed the upstream result predicate.
+
+| Benchmark | snail-native | chez | guile | chibi |
+| --- | ---: | ---: | ---: | ---: |
+| [browse](plots/browse.svg) | unavailable | 0.00047391s | 0.00305863s | 0.327s |
+| [deriv](plots/deriv.svg) | unavailable | 1.925e-06s | 5.2441e-05s | runtime-invalid-output |
+| [destruc](plots/destruc.svg) | unavailable | 0.000281108s | 0.000642482s | 0.006s |
+| [diviter](plots/diviter.svg) | unavailable | 1.836e-06s | 1.2706e-05s | runtime-invalid-output |
+| [divrec](plots/divrec.svg) | unavailable | 4.024e-06s | 2.6229e-05s | runtime-invalid-output |
+| [puzzle](plots/puzzle.svg) | unavailable | 0.00105178s | 0.0117296s | 0.082s |
+| [triangl](plots/triangl.svg) | unavailable | 0.0167006s | 0.0402446s | 0.623s |
+| [tak](plots/tak.svg) | unavailable | 0.63093s | 2.11338s | runtime-timeout |
+| [takl](plots/takl.svg) | unavailable | 2.47693s | 2.59438s | runtime-timeout |
+| [ntakl](plots/ntakl.svg) | unavailable | 2.47613s | 2.59068s | runtime-timeout |
+| [cpstak](plots/cpstak.svg) | unavailable | 1.77741s | runtime-timeout | runtime-timeout |
+| [ctak](plots/ctak.svg) | unavailable | 0.249044s | runtime-timeout | runtime-timeout |
+| [fib](plots/fib.svg) | unavailable | 0.276191s | 0.941411s | 4.371s |
+| [fibc](plots/fibc.svg) | unavailable | 0.0203632s | runtime-timeout | runtime-timeout |
+| [fibfp](plots/fibfp.svg) | unavailable | 0.0871081s | 1.00213s | 1.457s |
+| [sum](plots/sum.svg) | unavailable | 5.753e-06s | 1.2598e-05s | runtime-invalid-output |
+| [sumfp](plots/sumfp.svg) | unavailable | 0.0038488s | 0.0375456s | 0.055s |
+| [fft](plots/fft.svg) | unavailable | 0.0103453s | 0.0359346s | 0.208s |
+| [mbrot](plots/mbrot.svg) | unavailable | 0.00384457s | 0.0244447s | 0.061s |
+| [mbrotZ](plots/mbrotZ.svg) | unavailable | 0.00327515s | 0.0256352s | 0.136s |
+| [nucleic](plots/nucleic.svg) | unavailable | 0.0175419s | 0.136752s | 0.547s |
+| [pi](plots/pi.svg) | unavailable | 0.00285168s | 0.000750996s | 4.516s |
+| [pnpoly](plots/pnpoly.svg) | unavailable | 4.337e-06s | 6.0794e-05s | runtime-invalid-output |
+| [ray](plots/ray.svg) | unavailable | 0.0184345s | 0.143396s | 1.442s |
+| [simplex](plots/simplex.svg) | unavailable | 7.02e-06s | 1.7522e-05s | runtime-invalid-output |
+| [ack](plots/ack.svg) | unavailable | 0.40296s | 1.42459s | runtime-timeout |
+| [array1](plots/array1.svg) | unavailable | 0.0125942s | 0.0110451s | 0.045s |
+| [string](plots/string.svg) | unavailable | 0.0181741s | 0.0142467s | 0.037s |
+| [sum1](plots/sum1.svg) | unavailable | 0.0173428s | 0.155319s | 1.363s |
+| [cat](plots/cat.svg) | unavailable | 0.0140886s | 0.129512s | 0.343s |
+| [tail](plots/tail.svg) | unavailable | 0.0232287s | 0.0703625s | 0.095s |
+| [wc](plots/wc.svg) | unavailable | 0.0131036s | 0.0769455s | 2.689s |
+| [read1](plots/read1.svg) | unavailable | 0.000176325s | 0.00154516s | 0.032s |
+| [compiler](plots/compiler.svg) | unavailable | 0.000521992s | 0.00529634s | 0.018s |
+| [conform](plots/conform.svg) | unavailable | 0.00236374s | 0.0102307s | 0.098s |
+| [dynamic](plots/dynamic.svg) | unavailable | 0.00203464s | 0.0100232s | 0.212s |
+| [earley](plots/earley.svg) | unavailable | 1.83542s | runtime-timeout | runtime-timeout |
+| [graphs](plots/graphs.svg) | unavailable | 0.277776s | runtime-timeout | runtime-timeout |
+| [lattice](plots/lattice.svg) | unavailable | 0.117323s | 0.485014s | runtime-timeout |
+| [matrix](plots/matrix.svg) | unavailable | 0.000256137s | 0.00325405s | 0.027s |
+| [maze](plots/maze.svg) | unavailable | 5.8779e-05s | 0.00029995s | 0.004s |
+| [mazefun](plots/mazefun.svg) | unavailable | 0.000131392s | 0.000536522s | 0.004s |
+| [nqueens](plots/nqueens.svg) | unavailable | 0.260573s | 0.836589s | runtime-timeout |
+| [paraffins](plots/paraffins.svg) | unavailable | 0.307365s | 0.970035s | runtime-timeout |
+| [parsing](plots/parsing.svg) | unavailable | 0.000691904s | 0.0020253s | 0.237s |
+| [peval](plots/peval.svg) | unavailable | 0.000587322s | 0.00399603s | 0.029s |
+| [primes](plots/primes.svg) | unavailable | 4.3227e-05s | 0.000243142s | runtime-invalid-output |
+| [quicksort](plots/quicksort.svg) | unavailable | 0.000818927s | 0.00119677s | 0.033s |
+| [scheme](plots/scheme.svg) | unavailable | 2.1478e-05s | 0.000135628s | runtime-invalid-output |
+| [slatex](plots/slatex.svg) | unavailable | 0.00222363s | 0.0052786s | 0.085s |
+| [chudnovsky](plots/chudnovsky.svg) | unavailable | 0.000131281s | 0.000146801s | 0.057s |
+| [nboyer](plots/nboyer.svg) | unavailable | 0.939817s | 2.41553s | runtime-timeout |
+| [sboyer](plots/sboyer.svg) | unavailable | 0.400654s | 1.41259s | runtime-timeout |
+| [gcbench](plots/gcbench.svg) | unavailable | 0.396826s | 1.23744s | runtime-timeout |
+| [mperm](plots/mperm.svg) | unavailable | 0.30067s | 0.529507s | runtime-timeout |
+| [equal](plots/equal.svg) | unavailable | 0.259066s | runtime-timeout | runtime-timeout |
+| [bv2string](plots/bv2string.svg) | unavailable | 0.0056656s | 0.0128672s | 0.031s |

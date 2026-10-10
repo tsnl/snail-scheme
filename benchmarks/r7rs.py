@@ -369,77 +369,69 @@ def table(report, rows, output):
         for r in rows
     }
     lines += [
-        "| " + name + " | " + " | ".join(cells[name, s] for s in report["systems"]) + " |"
+        "| ["
+        + name
+        + "](plots/"
+        + name
+        + ".svg) | "
+        + " | ".join(cells[name, s] for s in report["systems"])
+        + " |"
         for name in report["benchmarks"]
     ]
     (output / "summary.md").write_text("\n".join(lines) + "\n")
 
 
-def plot(report, rows, output):
-    import matplotlib
+def plot(report, output):
+    if __package__:
+        from .plots import GRAY, ORANGE, duration_chart
+    else:
+        from plots import GRAY, ORANGE, duration_chart
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    plt.rcParams.update({"svg.fonttype": "none", "svg.hashsalt": "snail-r7rs"})
-    names, systems = report["benchmarks"], report["systems"]
-    lookup = {(r["benchmark"], r["system"]): r for r in rows}
-    data = np.full((len(names), len(systems)), np.nan)
-    for y, name in enumerate(names):
-        for x, system in enumerate(systems):
-            seconds = lookup[name, system]["median_seconds"]
-            if seconds is not None:
-                data[y, x] = math.log10(seconds)
-    fig, axis = plt.subplots(
-        figsize=(max(7, 2.3 * len(systems)), max(3, 0.34 * len(names) + 1.8)), layout="constrained"
-    )
-    colors = plt.get_cmap("YlGnBu").copy()
-    colors.set_bad("#eeeeee")
-    image = axis.imshow(np.ma.masked_invalid(data), cmap=colors, aspect="auto", vmin=-4, vmax=2)
-    annotate_plot(axis, names, systems, lookup)
-    axis.set(
-        xticks=range(len(systems)), xticklabels=systems, yticks=range(len(names)), yticklabels=names
-    )
-    axis.set_title(
-        "R7RS suite · "
-        + ("original inputs" if report["count"] is None else "SMOKE RUN · reduced iterations")
-    )
-    fig.colorbar(image, ax=axis, label="log₁₀(seconds) · lower is faster")
-    fig.supxlabel(
-        "Median checked workload time · build/startup excluded · gray cells are failures, not timings",
-        fontsize=9,
-    )
-    for extension in ["svg", "png"]:
-        fig.savefig(
-            output / f"suite.{extension}",
-            dpi=160,
-            metadata={"Date": None} if extension == "svg" else {},
+    labels = {
+        "snail-native": "Snail Scheme\nnative",
+        "chez": "Chez Scheme\nsafe O2",
+        "guile": "Guile\nbytecode O2",
+        "chibi": "Chibi Scheme",
+    }
+    for name in report["benchmarks"]:
+        cases = [case for case in report["cases"] if case["benchmark"] == name]
+        series = [
+            {
+                "label": labels[case["system"]],
+                "seconds": [sample["seconds"] for sample in case["samples"]],
+                "color": ORANGE if case["system"] == "snail-native" else GRAY,
+            }
+            for case in cases
+            if case["status"] == "passed"
+        ]
+        missing = [
+            f"{labels[case['system']].replace(chr(10), ' ')}: {case['status']}"
+            for case in cases
+            if case["status"] != "passed"
+        ]
+        mode = "original inputs" if report["count"] is None else "SMOKE RUN · reduced iterations"
+        runs = (
+            f"Median of {report['rounds']} runs · whiskers: observed min–max"
+            if report["rounds"] > 1
+            else "One measured run · no variability estimate"
         )
-    plt.close(fig)
-
-
-def annotate_plot(axis, names, systems, lookup):
-    for y, name in enumerate(names):
-        for x, system in enumerate(systems):
-            row = lookup[name, system]
-            value = row["median_seconds"]
-            text = f"{value:.3g}s" if value is not None else row["status"]
-            axis.text(
-                x,
-                y,
-                text,
-                ha="center",
-                va="center",
-                fontsize=8,
-                color="white" if value is not None and value > 1 else "black",
-            )
+        duration_chart(
+            series,
+            output / "plots" / name,
+            title=f"R7RS · {name}",
+            subtitle=mode + " · slowest to fastest",
+            notes=[
+                runs + " · build/startup excluded",
+                "Compare heights within this chart; each benchmark has its own time scale.",
+            ],
+            missing=missing,
+        )
 
 
 def render(report, output):
     rows = results(report)
     table(report, rows, output)
-    plot(report, rows, output)
+    plot(report, output)
     print(
         f"{sum(r['status'] == 'passed' for r in rows)}/{len(rows)} cases passed; {output / 'summary.md'}"
     )

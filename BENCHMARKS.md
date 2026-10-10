@@ -5,7 +5,8 @@
 ![Recursive Fibonacci execution times](benchmarks/results/2026-10-10-reproduction/comparison.svg)
 
 The tuned native translator is faster than Chez and Guile on this recursive
-Fibonacci workload. Dots show individual samples; the short lines show medians.
+Fibonacci workload. Bars show median execution time, ordered slowest to fastest;
+whiskers show the observed minimum and maximum. Orange identifies Snail.
 See the [generated table](benchmarks/results/2026-10-10-reproduction/summary.md)
 and [raw measurements](benchmarks/results/2026-10-10-reproduction/results.json).
 This is one call/arithmetic workload, not a claim about every Scheme program.
@@ -25,7 +26,9 @@ produce checksum `269118144`. Omit `--cpu` to use the first CPU allowed by the
 host; use `--rounds` and `--repetitions` to change the measurement duration.
 
 Outputs go to `build/benchmark-report/`: `results.json`, `summary.md`,
-`comparison.svg`, and `comparison.png`. JSON includes raw output, preliminary
+`comparison.svg`, and `comparison.png`, plus a compact `readme.svg`/`readme.png`
+comparing Guile, Chez, and tuned Snail. The full chart includes Chibi, the native
+baseline, and the Guile warmup control. JSON includes raw output, preliminary
 runs, execution order, commands, tool versions, and source/artifact hashes.
 Regenerate the reports without rebuilding or running any workloads:
 
@@ -71,9 +74,10 @@ python3 benchmarks/r7rs.py --cpu 2
 ```
 
 The native command must accept `INPUT.wasm -o OUTPUT`; the runner first calls
-`build-wasm` from a Scheme build script, then invokes the translator. Default participants are Snail native, Chez,
-Guile, and Chibi. Missing tools or an unset native command produce explicit
-`unavailable` entries. No substitute backend is selected.
+`build-wasm` from a Scheme build script, then invokes the translator. Default
+participants are Snail native, Chez, Guile, and Chibi. Missing tools or an unset
+native command produce explicit `unavailable` entries. No substitute backend is
+selected.
 
 For a quick harness check while the native command is being configured:
 
@@ -88,13 +92,22 @@ python3 benchmarks/r7rs.py --systems chez guile chibi \
 finish before measurement; successful programs get one discarded preliminary
 run followed by rotating measured rounds.
 
-The runner writes JSON, CSV, Markdown, SVG, and PNG under `build/r7rs-report/`.
+The runner writes JSON, CSV, and a Markdown index under `build/r7rs-report/`,
+with a separate SVG/PNG bar chart for each benchmark in `plots/`. Each chart
+uses its own zero-based time axis; compare heights within a chart. The index
+links every benchmark to its plot.
 Every requested cell remains visible, including build errors, incorrect answers,
 timeouts, and unavailable implementations. It exits nonzero for failures;
 `--allow-failures` permits exploratory runs without changing their recorded
 status. Interrupted runs retain incomplete JSON and cannot produce a final plot.
 Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
 score that silently drops failed benchmarks.
+
+The saved [57-workload smoke report](benchmarks/results/2026-10-10-r7rs-smoke/summary.md)
+validates reference-engine integration with reduced iterations. It records
+timeouts and timer-resolution limits; Snail native is explicitly unavailable
+pending the full-program translator command. These smoke timings are not the
+performance comparison above.
 
 ## Language scope
 

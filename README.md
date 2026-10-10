@@ -13,6 +13,8 @@ Snail Scheme is faster than Chez Scheme and Guile
 ([benchmarks](BENCHMARKS.md)), combining broad R7RS compatibility with
 portability wherever WebAssembly runs. Proudly open source under [Apache-2.0](LICENSE).
 
+[![Recursive Fibonacci: Guile, Chez, and Snail execution times](benchmarks/results/2026-10-10-reproduction/readme.svg)](BENCHMARKS.md)
+
 ## Getting started
 
 Install Rust/Cargo, then run from the repository root
