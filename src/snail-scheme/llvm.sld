@@ -372,7 +372,12 @@
       (for-each (lambda (definition) (ir:write-definition definition port))
                 (list (indirect-handler) (reserve-handler) (argument-handler) (frame-handler)
                       (shift-handler) (test-handler) (object-handler 'box 1) (object-handler 'close 5)))
-      (for-each (lambda (entry) (ir:write-definition (numeric-handler (cdr entry)) port)) binary-numeric-primitives))
+      (for-each (lambda (entry)
+                  (ir:write-definition
+                   (cond-expand
+                    (snail-rust-numeric (ir:declare (instruction-function (cdr entry))))
+                    (else (numeric-handler (cdr entry)))) port))
+                binary-numeric-primitives))
 
     ;; ---- Module and constant data ----
 
