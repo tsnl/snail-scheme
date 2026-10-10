@@ -19,5 +19,6 @@ pkgs.mkShell {
     llvmPackages.clang
     llvmPackages.lld
     boehmgc
+    mdbook
   ];
 }

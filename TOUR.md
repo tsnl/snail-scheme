@@ -243,6 +243,13 @@ guest frames return, when no Rust host-state borrow is active. See
 
 ## Tests and measurements
 
+[`doc/book/`](doc/book/index.md) is the mdBook source. Its first platforms are
+native CLI, native GUI, and browser GUI, with AWI as a separate extension reference.
+Function documentation lives inline in the included WAT interface files;
+platform contracts remain proposals. [`scripts/book`](scripts/book) builds or
+serves the book using `book.toml`; the three tutorial chapters define future
+integration milestones. Built HTML stays in the ignored `build/book/` directory.
+
 Scheme unit tests live in each module's final `Tests` section with one
 conditional `test-<module>` export. `make test` enables the Chibi `snail-tests`
 feature and invokes [`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm).
