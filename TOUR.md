@@ -48,10 +48,11 @@ the frontend.
 centralize always-on Chromium trace spans. `build/traces/` is the default;
 `SNAIL_TRACE_DIR` overrides it. See [Tracing](doc/tracing.md).
 
-[`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) provides explicit
-procedure decoration with `trace`. `with-trace-to` opens a file, initializes its
-JSON array with a metadata event, and finalizes and closes it after the thunk.
-Calling a traced procedure outside a file scope raises an error.
+[`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) decorates procedures
+with `trace` and records spans only when calls return normally. `with-trace-to`
+opens a file, initializes its JSON array with a metadata event, and finalizes
+and closes it when the thunk returns. Calling a traced procedure outside a file
+scope raises an error.
 
 ## Reading source
 

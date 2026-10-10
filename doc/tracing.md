@@ -73,9 +73,9 @@ the original procedure when invoked outside `with-trace-to`.
 
 `with-trace-to` opens the named file for output, replacing existing contents,
 then initializes the JSON array, runs the thunk, finalizes the array, and closes
-the file. It preserves the thunk's return values. Nested scopes on different
-files restore the outer destination; each span records to the file selected
-when it was invoked.
+the file on normal return. It preserves the thunk's return values. Nested
+scopes on different files restore the outer destination; each span records to
+the file selected when it was invoked.
 
 Initialization always writes a thread-name metadata event, even if the thunk
 runs no traced procedures. This supplies the first array element, so every
@@ -95,17 +95,20 @@ retain that clock's origin and durations round down to microseconds. Backward
 wall-clock adjustments clamp duration to zero. Tracing keeps each wrapper active
 until return, so decorating recursive loops affects their tail-call behavior.
 
-On Chibi, exceptions and continuation escapes record departing spans, finalize
-their files, and close them. A continuation reentering a span while its file
-scope remains active starts another span. Reentry into a finished file scope
-fails using the port's closed status. Cleanup attempts to close the file even
-if writing the closing bracket fails. Compiled programs support normal returns; terminal
-errors or process exit can leave a file incomplete. Output errors propagate.
+The same implementation runs on Chibi and compiled Snail-Scheme. A span is
+written only after the wrapped procedure returns normally. An invocation that
+never returns emits no event; already completed child spans remain. On Chibi,
+an error caught inside the file scope or an escape back to that scope can omit
+the unfinished span and still produce valid JSON when the thunk returns. If
+the whole file scope is abandoned, finalization and explicit close do not run,
+so the file may remain incomplete. Continuation reentry is unsupported. Output
+errors propagate.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and
-continuation exits. `scripts/test-chromium-trace` parses files recorded by Chibi
-and linked Wasm and checks missing destinations and file-opening failures.
-Add `--target both` to run the same linked module through the native executor.
+omission of failed or escaped calls. `scripts/test-chromium-trace` parses files
+recorded by Chibi and linked Wasm and checks missing destinations, file-opening
+failures, and omission of a span on terminal error. Add `--target both` to run
+the same linked module through the native executor.
 
 ## Rust scopes and WASI
 

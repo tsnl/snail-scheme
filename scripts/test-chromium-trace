@@ -33,6 +33,18 @@ def check_files(directory):
     assert all(parent["ts"] <= event["ts"] <= parent["ts"] + parent["dur"] for event in outer[1:-1])
 
 
+def check_abort(command, directory):
+    result = subprocess.run([*command, str(directory), "abort"], cwd=ROOT,
+                            text=True, capture_output=True)
+    assert result.returncode != 0 and not result.stdout
+    assert "expected failure" in result.stderr, result.stderr
+    recorded = (directory / "outer.json").read_text()
+    assert not recorded.rstrip().endswith("]"), recorded
+    # Complete the abandoned file's array solely to inspect its written prefix.
+    events = json.loads(recorded + "\n]")
+    assert [event["name"] for event in events] == ["thread_name", "completed"]
+
+
 def check_execution(command):
     with tempfile.TemporaryDirectory(prefix="trace files ", dir=BUILD) as name:
         directory = Path(name)
@@ -40,6 +52,7 @@ def check_execution(command):
         assert result.returncode == 0, result.stderr
         assert result.stdout == "trace file checks passed\n", result.stdout
         check_files(directory)
+        check_abort(command, directory)
         failure = subprocess.run([*command, str(directory / "absent")], cwd=ROOT,
                                  text=True, capture_output=True)
         assert failure.returncode != 0 and not failure.stdout

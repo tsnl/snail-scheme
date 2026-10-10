@@ -23,11 +23,16 @@
            ((trace "after" values))
            (values 1 2))))
 
-(if (string=? directory "unbound")
-    (unbound)
-    (begin
-      (check '(1 2)
-             (call-with-values
-                 (lambda () (with-trace-to outer recorded)) list))
-      (check '() (call-with-values (lambda () (with-trace-to empty values)) list))
-      (display "trace file checks passed\n")))
+(cond ((string=? directory "unbound") (unbound))
+      ((and (> (length (command-line)) 2) (string=? (list-ref (command-line) 2) "abort"))
+       (with-trace-to
+        outer (trace "aborted"
+                     (lambda ()
+                       ((trace "completed" values))
+                       (error "expected failure")))))
+      (else
+       (check '(1 2)
+              (call-with-values
+                  (lambda () (with-trace-to outer recorded)) list))
+       (check '() (call-with-values (lambda () (with-trace-to empty values)) list))
+       (display "trace file checks passed\n")))
