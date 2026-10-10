@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Compare ordinary, Rust-only LTO, and cross-language LTO release builds."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import runpy
+import shutil
+from statistics import median
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent.parent
+BENCH = runpy.run_path(str(ROOT / "benchmarks/run"), run_name="benchmark_helpers")
+ABLATE = runpy.run_path(str(ROOT / "benchmarks/ablate"), run_name="ablation_helpers")
+BUILD = ROOT / "build/lto"
+VARIANTS = ("baseline", "rust-lto", "cross-lto")
+TRIPLES = {"native": "x86_64-unknown-linux-gnu", "wasm": "wasm32-wasip1"}
+
+# ---- Configuration and bitcode assembly ----
+
+
+def options():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("programs", nargs="*", choices=tuple(BENCH["PROGRAMS"]))
+    parser.add_argument("--target", choices=("native", "wasm", "both"), default="both")
+    parser.add_argument("--samples", type=BENCH["positive_integer"], default=4)
+    parser.add_argument("--json", type=Path, default=BUILD / "results.json")
+    BENCH["comparison_options"](parser)
+    return parser.parse_args()
+
+
+def assemble_bitcode(arguments):
+    # The runner's existing LLVM_LLC hook supplies optimized target IR here.
+    # LLD recognizes bitcode even though the runner names its output scheme.o.
+    if (len(arguments) != 5 or arguments[0] != "-filetype=obj" or arguments[-2] != "-o"
+            or arguments[1] not in ("-relocation-model=pic",
+                                   "--wasm-disable-fix-irreducible-control-flow-pass")):
+        raise RuntimeError(f"unexpected runner assembler arguments: {arguments}")
+    subprocess.run([os.environ.get("LLVM_OPT", "opt"), "-passes=verify",
+                    arguments[-3], "-o", arguments[-1]], check=True)
+    # Do not forward the runner's WASM repair bypass to LLD. LTO changes the CFG.
+
+
+def rustflags(variant, target):
+    if variant == "baseline":
+        return ""
+    if variant == "rust-lto":
+        return "-Cembed-bitcode=yes -Clto=fat"
+    shared = "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat "
+    if target == "native":
+        return shared + ("-Clinker=clang -Clink-arg=-fuse-ld=lld "
+                         "-Clink-arg=-Wl,--save-temps -Clink-arg=-Wl,--lto-O3")
+    return shared + "-Clinker=wasm-ld -Clink-arg=--save-temps -Clink-arg=--lto-O3"
+
+
+def build_environment(module, variant, target):
+    environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path),
+                   "CARGO_TARGET_DIR": str(BUILD / "cargo" / variant),
+                   "RUSTFLAGS": rustflags(variant, target)}
+    if variant == "cross-lto":
+        environment["LLVM_LLC"] = str(Path(__file__).resolve())
+    return environment
+
+
+def validate_environment():
+    conflicts = [name for name in os.environ if name.startswith("CARGO_PROFILE_")
+                 or name in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "LLVM_LLC", "SNAIL_GC_STRESS")]
+    if conflicts:
+        raise RuntimeError(f"unset experiment overrides first: {', '.join(sorted(conflicts))}")
+    host = ABLATE["checked_text"](["rustc", "-vV"])
+    if "host: x86_64-unknown-linux-gnu" not in host:
+        raise RuntimeError("this experiment currently specifies x86-64 Linux and WASIp1")
+
+
+# ---- Freeze each executable before the next Cargo build ----
+
+
+def save_executable(name, variant, target, directory, module):
+    suffix = ".wasm" if target == "wasm" else ""
+    artifact = directory / TRIPLES[target] / "release" / ("snail-runner" + suffix)
+    destination = BUILD / "bin" / target / variant / (name + suffix)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(artifact, destination)
+    BENCH["record_artifact"](name, destination, module.inputs)
+    command = tuple(BENCH["execution_command"](destination, target))
+    return BENCH["Executable"](variant, target, destination, command)
+
+
+def save_lto_ir(name, target, directory):
+    deps = directory / TRIPLES[target] / "release/deps"
+    destination = BUILD / "linked" / target / name
+    destination.mkdir(parents=True, exist_ok=True)
+    paths = [path for suffix in ("*.0.0.preopt.bc", "*.0.4.opt.bc") for path in deps.glob(suffix)]
+    if len(paths) != 2:
+        raise RuntimeError(f"expected one linked pre/post-LTO module in {deps}; clean build/lto/cargo")
+    for path in paths:
+        shutil.copy2(path, destination / path.name)
+    return {str(destination / p.name): BENCH["fingerprint"](p) for p in paths}
+
+
+def build_variant(name, module, variant, target, builds):
+    environment = build_environment(module, variant, target)
+    command = ["cargo", "build", "--offline", "--release", "-p", "snail-runner", "--target", TRIPLES[target]]
+    started = time.monotonic()
+    BENCH["checked"](command, env=environment)
+    elapsed = time.monotonic() - started
+    directory = Path(environment["CARGO_TARGET_DIR"])
+    executable = save_executable(name, variant, target, directory, module)
+    builds.append(build_metadata(name, module, executable, environment, command, elapsed))
+    if variant == "cross-lto":
+        builds[-1]["linked_ir_sha256"] = save_lto_ir(name, target, directory)
+    return executable
+
+
+def build_metadata(name, module, executable, environment, command, elapsed):
+    return {"program": name, "target": executable.target, "variant": executable.implementation,
+            "command": command, "flags": environment["RUSTFLAGS"], "seconds": elapsed,
+            "ir_sha256": BENCH["fingerprint"](module.path),
+            "executable_sha256": BENCH["fingerprint"](executable.path),
+            "executable_bytes": executable.path.stat().st_size}
+
+
+def build_program(name, targets, chez, builds):
+    module = BENCH["CompiledModule"](BUILD / (name + ".ll"), BENCH["input_metadata"](name))
+    BENCH["checked"]([str(ROOT / "snail-compile"), str(ROOT / "benchmarks" / (name + ".scm")), str(module.path)])
+    reference = BENCH["chez_executable"](name, chez, False) if chez else None
+    return {target: [build_variant(name, module, variant, target, builds) for variant in VARIANTS]
+            + ([reference] if reference else []) for target in targets}
+
+
+# ---- Execute only after every build has finished ----
+
+
+def warmup(name, group, count, chez):
+    for executable in group:
+        reference = chez if executable.implementation == "chez" else None
+        BENCH["verify_artifact"](name, executable.path, reference)
+        BENCH["run_sample"](name, executable, count, False)
+
+
+def measure_group(name, target, group, rounds, chez):
+    count = ABLATE["REPETITIONS"][name]
+    warmup(name, group, count, chez)
+    samples = []
+    for index in range(rounds):
+        offset = index % len(group)
+        for position, executable in enumerate(group[offset:] + group[:offset]):
+            result = BENCH["run_sample"](name, executable, count, False)
+            result.update(comparison_target=target, sample=index + 1, position=position + 1,
+                          command=[*executable.command, str(count)])
+            samples.append(result)
+    return samples
+
+
+def summarize(name, target, samples):
+    timings = {variant: median(s["elapsed_ms"] for s in samples if s["implementation"] == variant)
+               for variant in dict.fromkeys(s["implementation"] for s in samples)}
+    if min(s["elapsed_ms"] for s in samples) <= 0:
+        raise RuntimeError("a measured duration rounded to zero")
+    print(f"{target}/{name}: {timings}", flush=True)
+    return {"program": name, "target": target, "median_ms": timings,
+            "baseline_over_variant": {v: timings["baseline"] / timings[v] for v in VARIANTS},
+            "variant_over_chez": {v: timings[v] / timings["chez"] for v in VARIANTS} if "chez" in timings else {}}
+
+
+def provenance():
+    commands = {"rustc": ["rustc", "-vV"], "clang": ["clang", "--version"],
+                "ld.lld": ["ld.lld", "--version"], "wasm-ld": ["wasm-ld", "--version"],
+                "opt": [os.environ.get("LLVM_OPT", "opt"), "--version"],
+                "llc": ["llc", "--version"]}
+    return {"revision": ABLATE["checked_text"](["git", "rev-parse", "HEAD"]),
+            "source_sha256": ABLATE["source_state"](),
+            "corpus_manifest_sha256": BENCH["fingerprint"](ROOT / "benchmarks/corpus/SHA256SUMS"),
+            "experiment_sha256": {name: BENCH["fingerprint"](ROOT / name)
+                                  for name in ("benchmarks/lto", "benchmarks/run", "benchmarks/ablate")},
+            "toolchain": {name: ABLATE["checked_text"](command) for name, command in commands.items()}}
+
+
+def save_report(path, report):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+
+def main():
+    arguments = options()
+    validate_environment()
+    BUILD.mkdir(parents=True, exist_ok=True)
+    BENCH["verify_corpus"]()
+    chez = BENCH["chez_runtime"](arguments)
+    targets = tuple(TRIPLES) if arguments.target == "both" else (arguments.target,)
+    report = {**provenance(), "chez": chez, "builds": [], "samples": [], "summaries": []}
+    groups = {name: build_program(name, targets, chez, report["builds"])
+              for name in arguments.programs or BENCH["PROGRAMS"]}
+    if report["source_sha256"] != ABLATE["source_state"]():
+        raise RuntimeError("sources changed during the experiment; discard these builds")
+    measure_programs(groups, arguments, report)
+
+
+def measure_programs(groups, arguments, report):
+    save_report(arguments.json, report)
+    for name, targets in groups.items():
+        for target, group in targets.items():
+            samples = measure_group(name, target, group, arguments.samples, report["chez"])
+            report["samples"].extend(samples)
+            report["host"] = BENCH["execution_host"](report["samples"], report["chez"])
+            report["summaries"].append(summarize(name, target, samples))
+            save_report(arguments.json, report)
+
+
+if __name__ == "__main__":
+    try:
+        if sys.argv[1:2] == ["-filetype=obj"]:
+            assemble_bitcode(sys.argv[1:])
+        else:
+            main()
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        sys.exit(str(error))

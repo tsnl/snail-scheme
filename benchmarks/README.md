@@ -256,3 +256,12 @@ helpers. Each remains independently readable and executable; a shared benchmark
 framework would add imports and hide the small measured operation. More elaborate
 statistics, concurrency, adaptive workloads, and production search algorithms
 would obscure this initial baseline.
+
+## Cross-language LTO
+
+`benchmarks/lto` compares ordinary release, Rust-only fat LTO, and shared
+Scheme/Rust linker LTO on native and WASI targets. It builds all variants before
+rotating execution samples and retains linked LLVM bitcode for inspection.
+See the [experiment and allocation-design boundaries](../doc/lto-experiment.md)
+for tool requirements, flags, timing scope, and the distinction from a future
+static builtin representation.

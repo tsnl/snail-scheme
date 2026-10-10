@@ -379,3 +379,12 @@ Further references: [LLVM attributes](https://llvm.org/docs/LangRef.html#functio
 [Rust inline attributes](https://doc.rust-lang.org/reference/attributes/codegen.html#the-inline-attribute),
 [WASIp1](https://doc.rust-lang.org/rustc/platform-support/wasm32-wasip1.html), and
 [cross-language LTO](https://doc.rust-lang.org/rustc/linker-plugin-lto.html).
+
+## Next runtime experiment
+
+[Cross-language LTO](lto-experiment.md) compares the existing object implementation
+with and without shared Scheme/Rust optimization. It does not change the default
+build or the collector. The proposed replacement for instruction-entry polling
+is an [owned allocation capability](rust-interop.md#proposed-allocation-capability)
+created outside allocating Rust callables. Individual allocations inside those
+callables remain GC-free, so Rust stack locals need no root registration.
