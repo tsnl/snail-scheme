@@ -2,8 +2,8 @@
 ;; importing this library never reads command-line arguments or starts a build.
 (define-library (snail-scheme build)
   (export build-runtime link-wasm build-wasm run-wasm run-command tool-name wasm-features
-          call-with-build-output same-file?)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme write)
+          assemble-wasm call-with-build-output)
+  (import (scheme base) (scheme file) (scheme write)
           (scheme process-context) (snail-scheme compiler) (snail-scheme trace)
           (snail-scheme build-host))
   (begin
@@ -19,29 +19,37 @@
                                                        #f (car arguments))))
                            (if (not (zero? status)) (error "build command failed" arguments status))))))
 
-    (define (command-status arguments)
-      (process-status arguments "." #t (car arguments)))
-
     ;; Intermediates share the output filesystem. Publication is one rename;
-    ;; failure leaves the old artifact and retains the diagnostic workspace.
-    (define (call-with-build-output output procedure)
+    ;; protect the same inputs before any work and again after generated inputs
+    ;; (such as Cargo's runtime archive) exist. Stages only write private paths.
+    (define (check-build-output output inputs)
+      (for-each (lambda (input)
+                  (if (same-file? input output)
+                      (error "output must not replace a compilation input" output input))) inputs))
+
+    (define (call-with-build-output output inputs procedure)
+      (check-build-output output inputs)
       (call-with-build-directory output
                                  (lambda (directory)
                                    (let ((finished (string-append directory "/artifact")))
                                      (procedure directory finished)
+                                     (check-build-output output inputs)
                                      (publish-file finished output)))))
 
     ;; ---- Reusable Rust standard runtime ----
 
     ;; Cargo owns dependency tracking. The crate and build directory stay fixed
     ;; across Scheme programs; release LTO is configured in the root manifest.
+    (define (wasm-runtime-path root)
+      (string-append root "/build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"))
+
     (define-traced (build-runtime root)
       (let* ((root (absolute-path root)) (target (string-append root "/build/wasm-runtime")))
         (run-command "build.cargo"
                      (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                            "--target" "wasm32-wasip1" "--manifest-path" (string-append root "/Cargo.toml")
                            "--target-dir" target) root)
-        (string-append target "/wasm32-wasip1/release/snail_runtime.wasm")))
+        (wasm-runtime-path root)))
 
     ;; ---- Linking a complete Wasm program ----
 
@@ -86,23 +94,18 @@
         (optimize-wasm linked output)))
 
     (define-traced (link-wasm wat runtime output)
-      (if (or (same-file? wat output) (same-file? runtime output))
-          (error "output must not replace a link input" output))
-      (call-with-build-output output
+      (call-with-build-output output (list wat runtime)
                               (lambda (directory finished)
                                 (link-in-directory wat runtime directory finished))))
 
     ;; Convenience for a one-file build. Scripts building several artifacts can
     ;; build-runtime once, emit each WAT file, and call link-wasm themselves.
     (define-traced (build-wasm root input output . options)
-      (if (same-file? input output) (error "output must not replace source" output))
-      (call-with-build-output output
+      (call-with-build-output output (list input (wasm-runtime-path root))
                               (lambda (directory finished)
                                 (let ((wat (string-append directory "/program.wat")))
                                   (apply source-file->wat-file root input wat options)
-                                  (let ((runtime (build-runtime root)))
-                                    (if (same-file? runtime output) (error "output must not replace runtime" output))
-                                    (link-in-directory wat runtime directory finished))))))
+                                  (link-in-directory wat (build-runtime root) directory finished)))))
 
     ;; ---- Execution ----
 
@@ -111,9 +114,10 @@
     (define (run-wasm root module arguments)
       (call-with-trace "build.run"
                        (lambda ()
-                         (command-status (append (list (tool-name "NODE" "node") "--no-warnings"
-                                                       (string-append root "/scripts/run-wasi.mjs") module)
-                                                 arguments))))))
+                         (let ((node (tool-name "NODE" "node")))
+                           (process-status (append (list node "--no-warnings"
+                                                         (string-append root "/scripts/run-wasi.mjs") module)
+                                                   arguments) "." #t node))))))
 
   ;; ---- Tests ----
 
@@ -123,8 +127,8 @@
     (export test-build)
     (begin
       (define (test-build)
-        (expect (command-status '("sh" "-c" "exit 7")) 7)
-        (expect (command-status '("sh" "-c" "kill -TERM $$")) 143)
+        (expect (process-status '("sh" "-c" "exit 7") "." #t "sh") 7)
+        (expect (process-status '("sh" "-c" "kill -TERM $$") "." #t "sh") 143)
         (expect (guard (failure (else 'failed))
                   (run-command "test.failure" '("sh" "-c" "exit 7")) 'succeeded)
                 'failed))))

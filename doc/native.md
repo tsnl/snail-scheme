@@ -4,6 +4,9 @@
 executable. It supports two runtime arrangements: a complete Rust-linked Wasm
 module, and the CLI's Scheme Wasm module importing a native Rust archive. Both
 use the same translator, AWI ownership rules, and BDWGC collector.
+`build-native` compiles Scheme through that same native tail; `run-script` uses
+it in a private execution directory. The project-specific interpreter recipe and
+installation data live in `build.scm`.
 
 The native CLI is built by `chibi-scheme -I src build.scm`. Its `main.scm` handler
 accepts a script, compiles it, executes it, and returns its status. The resulting

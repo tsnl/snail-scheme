@@ -58,7 +58,7 @@ def check_entry(directory):
 """)
     command, script = directory / "command", directory / "script"
     build = write_script(directory, "entry-build.scm",
-                         '(import (scheme base) (snail-scheme cli))\n' +
+                         '(import (scheme base) (snail-scheme native))\n' +
                          f"(build-native {quote(ROOT)} {quote(source)} {quote(command)} 'main)\n" +
                          f"(build-native {quote(ROOT)} {quote(source)} {quote(script)})\n")
     require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
@@ -68,6 +68,7 @@ def check_entry(directory):
     require(invoke([script]), "initialize\n")
     require(invoke([command], SNAIL_NATIVE_GC_INTERVAL="1"), "initialize\nmain\n", 7)
     check_input_aliases(directory, source)
+    check_link_failure(directory, source)
     print("passed explicit main and ordinary script entry", flush=True)
 
 
@@ -78,14 +79,34 @@ def check_input_aliases(directory, source):
     stamp = runtime.stat().st_mtime_ns
     calls = [f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})'
              for output in (source, alias, runtime)]
-    calls.append(f'(build-interpreter {quote(ROOT)} {quote(ROOT / "main.scm")})')
-    body = '(import (scheme base) (snail-scheme cli))\n'
+    body = '(import (scheme base) (snail-scheme native))\n'
     body += '\n'.join(f'(unless (guard (failure (else #t)) {call} #f) (error "accepted input alias"))'
                       for call in calls)
     build = write_script(directory, "aliases.scm", body)
     require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
+    rejected = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                       ROOT / "build.scm", ROOT / "main.scm"])
+    if (rejected.returncode == 0 or "output must not replace" not in rejected.stderr or
+            "intermediates retained" in rejected.stderr):
+        raise RuntimeError(f"self-build did not reject its input before staging: {rejected}")
     if runtime.stat().st_mtime_ns != stamp or list(directory.glob('.snail-build-*')):
         raise RuntimeError("input alias check rebuilt runtime or created intermediates")
+
+
+def check_link_failure(directory, source):
+    output = directory / "link-output"
+    output.write_text("previous executable")
+    build = write_script(directory, "failed-link.scm", '(import (snail-scheme native))\n' +
+                         f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
+    result = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build], CLANG="/missing/clang")
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if result.returncode == 0 or output.read_text() != "previous executable" or len(retained) != 1:
+        raise RuntimeError(f"native link failure lost output or split its workspace: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or not all((workspace / name).is_file() for name in
+            ("program.wat", "program.wasm", "module.wasm", "module.ll")):
+        raise RuntimeError("native link failure did not retain all compilation stages together")
+    shutil.rmtree(workspace)
 
 
 def check_script(interpreter, directory, **environment):
@@ -122,18 +143,16 @@ def check_failed_build(interpreter, directory, **environment):
     output = directory / "keep-output"
     output.write_text("last successful artifact")
     source = write_script(directory, "broken.scm", "(")
-    build = write_script(directory, "failed-build.scm", '(import (scheme base) (snail-scheme cli))\n' +
+    build = write_script(directory, "failed-build.scm", '(import (scheme base) (snail-scheme native))\n' +
                          f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
     result = invoke([interpreter, build], **environment)
     if result.returncode == 0 or output.read_text() != "last successful artifact":
         raise RuntimeError(f"failed build replaced output: {result}")
     retained = [Path(path) for path in re.findall(r"build failed; intermediates retained: (.+)", result.stderr)]
-    if not retained or not all(path.is_dir() for path in retained):
-        raise RuntimeError(f"failure did not retain intermediates: {result.stderr}")
+    if len(retained) != 1 or not retained[0].is_dir() or retained[0].parent != directory:
+        raise RuntimeError(f"failure did not retain one build workspace: {result.stderr}")
     # All reported paths belong to this test invocation, never to another build.
-    for path in retained:
-        if path.parent == directory:
-            shutil.rmtree(path)
+    shutil.rmtree(retained[0])
     print("passed failed-build publication and retained diagnostics", flush=True)
 
 

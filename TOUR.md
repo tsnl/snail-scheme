@@ -6,7 +6,7 @@ the portable intermediate format. Rust provides runtime operations through the
 application Wasm interface (AWI), with matching native C symbols.
 
 ```text
-build.scm -> build-interpreter -> compile main.scm and its libraries
+build.scm -> compile-native main.scm and its generated installation library
   -> reader -> syntax parser -> expander -> library-grouped IR -> WasmGC
   -> Binaryen validation -> binary Wasm reader -> LLVM
   -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
@@ -18,12 +18,16 @@ snail-scheme SCRIPT -> compile temporary native script -> run -> return status
 
 [build.scm](build.scm) owns the interpreter's output path. [main.scm](main.scm)
 defines its zero-argument `main` handler: run the supplied script and return its
-status. [`cli.sld`](src/snail-scheme/cli.sld) composes source compilation, the
-native runtime archive, and explicit CLI entry adapters. A normal script has
+status. [`native.sld`](src/snail-scheme/native.sld) composes source compilation,
+the native runtime archive, and explicit CLI entry adapters. A normal script has
 no special entry name: its forms execute once and normal completion returns zero.
 
 [`build.sld`](src/snail-scheme/build.sld) supplies portable Wasm assembly/linking,
 external tool invocation, and atomic artifact publication.
+The publication operation checks its protected input paths before creating work
+and again before renaming the completed artifact. Native compilation stages share
+that one workspace. `build.scm` supplies the project recipe and generated
+installation library; the native library does not know which program it builds.
 [`build-host.sld`](src/snail-scheme/build-host.sld) selects the Chibi bootstrap
 adapter or named native Rust operations from [`build_host.rs`](src/build_host.rs).
 Both pass literal argv without a shell. Build tools receive EOF on stdin;

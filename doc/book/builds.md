@@ -26,7 +26,8 @@ Rust, Binaryen, Clang/LLD, BDWGC, and mdBook. Cargo's dependencies and Rust targ
 must be available before the offline build. `BDWGC_INCLUDE` and `BDWGC_LIB` can
 select a collector installation outside the compiler's normal search paths.
 
-`build-interpreter` compiles `main.scm`, selecting its `main` handler explicitly:
+The build script generates its installation library and compiles `main.scm`,
+selecting its `main` handler explicitly:
 
 ```scheme
 {{#include ../../main.scm}}
@@ -47,9 +48,12 @@ rebuilding the interpreter, and executing scripts with the replacement.
 ## Build policy belongs to libraries
 
 `(snail-scheme compiler)` emits unlinked WAT. `(snail-scheme build)` assembles and
-links portable Wasm. `(snail-scheme native)` translates binary Wasm to LLVM and
-invokes the native linker. `(snail-scheme cli)` composes these operations with the
-native Rust runtime and a CLI entry adapter. Importing them performs no build.
+links portable Wasm. `(snail-scheme native)` builds native executables from Scheme
+or binary Wasm and runs ordinary scripts. Its `build-native` procedure publishes
+an executable atomically. `compile-native` is the composition stage used by the
+build script above: it writes a private candidate into the caller's workspace,
+without reserving another directory or publishing anything. Importing these
+libraries performs no build.
 
 The CLI links Rust's native archive directly through the AWI. Rust provides file
 IO, binary input, process arguments, environment access, subprocesses, and artifact
@@ -59,8 +63,14 @@ operation and the application's required handler inline.
 
 Build scripts choose every artifact path. A successful build atomically renames
 a completed artifact over the destination; a failed build preserves the previous
-output and reports retained intermediates. Tool arguments are literal strings.
-Build tools receive EOF on stdin, leaving the invoking script's input intact.
+output and reports retained intermediates.
+`call-with-build-output` owns one workspace and checks the declared input paths
+both before building and before publication. The second check also protects a
+runtime archive created during this build. `native-runtime-path` selects that
+archive's filename without building it.
+
+Tool arguments are literal strings. Build tools receive EOF on stdin, leaving
+the invoking script's input intact.
 Scripts inherit stdin/stdout/stderr, environment, working directory, and arguments.
 
 ## Stages are ordinary computations with explicit outputs

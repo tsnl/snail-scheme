@@ -89,7 +89,8 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
 | `build.sld` | Cargo, linking, execution and artifact publication |
 | `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
-| `cli.sld`, `main.scm` | Native command entry, interpreter construction and script execution |
+| `native.sld` | Scheme/Wasm-to-native stages and ordinary script execution |
+| `build.scm`, `main.scm` | Interpreter build recipe and command entry |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
 and assignments. A library owns its body and dependencies. Expansion retains

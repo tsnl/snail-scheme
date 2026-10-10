@@ -1,7 +1,7 @@
 ;; The native CLI platform initializes this module and invokes main once.
 ;; Compilation, artifact paths, and execution are ordinary library operations.
 (import (scheme base) (scheme process-context)
-        (snail-scheme cli) (snail-scheme installation))
+        (snail-scheme native) (snail-scheme installation))
 
 (define (main)
   (let ((arguments (cdr (command-line))))
