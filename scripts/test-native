@@ -35,9 +35,8 @@ def scheme(script, *arguments, **environment):
 
 
 def translate(wasm, name):
-    wat, llvm = BUILD / f"{name}.wat", BUILD / f"{name}.ll"
-    require(invoke([os.environ.get("WASM_DIS", "wasm-dis"), wasm, "-o", wat]))
-    require(scheme("tests/translate-native.scm", wat, llvm))
+    llvm = BUILD / f"{name}.ll"
+    require(scheme("tests/translate-native.scm", wasm, llvm))
     return llvm
 
 
@@ -62,6 +61,28 @@ def custom_host(llvm, name, program=False):
 
 
 # ---- ABI, traps, roots and finalizer scheduling ----
+
+
+def check_dead_control():
+    # Assemble the bytes here: a WAT assembler can erase the unreachable block.
+    # (block (result i32) (br 0 (i32.const 7))
+    #   (block (result i32) (i32.const 99))) must still produce 7.
+    code = bytes([0, 2, 127, 65, 7, 12, 0, 2, 127, 65, 227, 0, 11, 11,
+                  65, 7, 71, 4, 64, 0, 11, 11])
+    module = (b'\0asm\1\0\0\0' + bytes([1, 4, 1, 96, 0, 0, 3, 2, 1, 0]) +
+              bytes([7, 10, 1, 6]) + b'_start\0\0' +
+              bytes([10, len(code) + 2, 1, len(code)]) + code)
+    wasm, output = BUILD / "dead-control.wasm", BUILD / "dead-control"
+    wasm.write_bytes(module)
+    javascript = ("const fs = require('node:fs'); "
+                  "new WebAssembly.Instance(new WebAssembly.Module("
+                  "fs.readFileSync(process.argv[1]))).exports._start()")
+    require(invoke([os.environ.get("NODE", "node"), "-e", javascript, wasm]))
+    llvm = translate(wasm, "dead-control")
+    require(invoke([os.environ.get("CLANG", "clang"), "-O3", "-flto", "-fuse-ld=lld",
+                    llvm, ROOT / "src/native.c", *collector_flags(), "-o", output]))
+    require(invoke([output]))
+    print("passed nested unreachable binary control", flush=True)
 
 
 def check_semantics():
@@ -112,6 +133,7 @@ def check_resources():
 
 def main():
     BUILD.mkdir(parents=True, exist_ok=True)
+    check_dead_control()
     check_semantics()
     check_rust_callbacks()
     check_resources()

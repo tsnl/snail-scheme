@@ -90,7 +90,7 @@ def provenance(builds, variants):
 
 def versions():
     commands = {"clang": [tool("CLANG", "clang"), "--version"],
-                "binaryen": [tool("WASM_DIS", "wasm-dis"), "--version"],
+                "binaryen": [tool("WASM_OPT", "wasm-opt"), "--version"],
                 "rust": [tool("RUSTC", "rustc"), "--version"],
                 "node": [tool("NODE", "node"), "--version"],
                 "chez": [tool("CHEZ", "scheme"), "--version"],

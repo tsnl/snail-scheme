@@ -154,8 +154,9 @@ builds use `panic = "abort"`; no Rust forced-unwind support is promised.
 The Scheme [`native` library](../src/snail-scheme/native.sld) translates the complete
 linked Wasm module to an x86-64 Linux executable. Scripts call
 `wasm-file->native-file(root, input-wasm, output-executable)` and choose whether
-to run it. The converter reads Binaryen's folded disassembly, independently of
-Scheme IR, and emits LLVM for both the Scheme and Rust portions. A C host supplies
+to run it. The converter reads the validated binary directly, independently of
+Scheme IR, and emits structured LLVM operands through `llvmlite` for both the
+Scheme and Rust portions. A C host supplies
 Wasm memory/table mechanics, WASIp1, and BDWGC. Clang/LLD compile and link these
 automatically. [Native execution](native.md) explains coverage, proper tail calls,
 GC roots, resource finalization, and the remaining unsupported Wasm features.
@@ -184,8 +185,8 @@ from 0.33860s, with representation checks preserved. Eight rotating rounds use
 the same source and checksum; compilation and process startup are excluded.
 V8 tiering during the timed workload remains included.
 
-The [complete native comparison](../benchmarks/results/2026-10-10-native-production.json)
-translates the exact Rust-linked module used by V8. Native takes 0.03821s, Chez
-0.02996s, V8 0.08358s, Guile 0.09426s, and Chibi 0.46050s. See
+The [complete native comparison](../benchmarks/results/2026-10-10-binary-runtime.json)
+translates the exact Rust-linked module used by V8. Native takes 0.03850s, Chez
+0.03039s, V8 0.08477s, Guile 0.09555s, and Chibi 0.46300s. See
 [BENCHMARKS.md](../BENCHMARKS.md) for scope, reproduction, the remaining native
 compile-time cost, and the older bounded experiment's distinct measurements.

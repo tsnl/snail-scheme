@@ -1,7 +1,7 @@
 ;; Chibi-hosted build operations. Scripts choose inputs, outputs, and execution;
 ;; importing this library never reads command-line arguments or starts a build.
 (define-library (snail-scheme build)
-  (export build-runtime link-wasm build-wasm run-wasm run-command tool-name
+  (export build-runtime link-wasm build-wasm run-wasm run-command tool-name wasm-features
           call-with-build-output same-file?)
   (import (scheme base) (scheme cxr) (scheme file) (scheme write)
           (scheme process-context) (snail-scheme compiler) (snail-scheme trace)

@@ -11,6 +11,30 @@
   (elem (table $functions) (i32.const 0) func $increment $identity64)
   (data (i32.const 7) "\00\7f\80\ff")
   (global $mutable (ref $box) (struct.new $box (i64.const 10) (ref.null eq)))
+  (global $ordering (mut i32) (i32.const 11))
+
+  ;; ---- Values and structured control in binary instruction order ----
+
+  (func $local-order (param $x i32) (result i32)
+    (i32.add (local.get $x)
+      (block (result i32) (local.set $x (i32.const 9)) (local.get $x))))
+  (func $mutate-global (result i32)
+    (global.set $ordering (i32.const 22)) (i32.const 1))
+  (func $global-order (result i32)
+    (i32.add (global.get $ordering) (call $mutate-global)))
+  (func $conditional-branch (param $condition i32) (result i32)
+    (block $exit (result i32)
+      (i32.add (br_if $exit (i32.const 7) (local.get $condition)) (i32.const 10))))
+  (func $branch-table (param $index i32) (result i32)
+    (block $outer (result i32)
+      (i32.add
+        (block $inner (result i32)
+          (br_table $inner $outer (i32.const 7) (local.get $index)))
+        (i32.const 10))))
+  (func $if-branch (param $condition i32) (result i32)
+    (if $exit (result i32) (local.get $condition)
+      (then (br $exit (i32.const 7)))
+      (else (br $exit (i32.const 9)))))
 
   ;; ---- Tail ABI and live native roots ----
 
@@ -55,6 +79,14 @@
   (func (export "i31-u") (param $n i32) (result i32) (i31.get_u (ref.i31 (local.get $n))))
   (func (export "check") (result i32)
     (local $bytes (ref $bytes)) (local $refs (ref $refs)) (local $n i32)
+    (if (i32.ne (call $local-order (i32.const 4)) (i32.const 13)) (then unreachable))
+    (if (i32.ne (call $global-order) (i32.const 12)) (then unreachable))
+    (if (i32.ne (call $conditional-branch (i32.const 0)) (i32.const 17)) (then unreachable))
+    (if (i32.ne (call $conditional-branch (i32.const 1)) (i32.const 7)) (then unreachable))
+    (if (i32.ne (call $branch-table (i32.const 0)) (i32.const 17)) (then unreachable))
+    (if (i32.ne (call $branch-table (i32.const -1)) (i32.const 7)) (then unreachable))
+    (if (i32.ne (call $if-branch (i32.const 0)) (i32.const 9)) (then unreachable))
+    (if (i32.ne (call $if-branch (i32.const 1)) (i32.const 7)) (then unreachable))
     (struct.set $box 0 (global.get $mutable) (i64.const 20))
     (if (i64.ne (struct.get $box 0 (global.get $mutable)) (i64.const 20)) (then unreachable))
     (local.set $bytes (array.new $bytes (i32.const 255) (i32.const 3)))
