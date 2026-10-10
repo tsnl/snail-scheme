@@ -208,9 +208,13 @@ label that should run afterward and returns its own entry label. This explains
 why `lower-items` constructs continuations backward even though execution follows
 source order. `lower-lambda` creates the procedure body and emits captures of its
 free values or cells. `boxed-definitions` combines explicit assignments with
-forward captures needed for recursive initialization. `lower-application` emits
-a frame for a non-tail call, evaluates arguments left to right, pushes each,
-evaluates the operator, and applies it. Tail calls shift arguments instead. `lower-conditional` gives the
+forward captures needed for recursive initialization. `lower-application` first
+recognizes binary calls to never-written core numeric bindings by identity.
+Those become `add`, `subtract`, or comparison instructions with a known successor,
+without a call frame. Shadowed, initialized, or assigned bindings and other
+arities retain ordinary calls. `lower-procedure-call` emits a frame for a
+non-tail call, evaluates arguments left to right, pushes each, evaluates the
+operator, and applies it. Tail calls shift arguments instead. `lower-conditional` gives the
 test two explicit destinations. Tail position is passed through these operations
 rather than recovered later from emitted code.
 
@@ -225,6 +229,9 @@ known successor where applicable, and location. `write-vm-program` is the readab
 dump. These instructions are distinct from LLVM bitcode and are not interpreted
 by a bytecode-fetch loop.
 
+The binary numeric instructions and their measured effect are described in
+[the numeric instruction notes](doc/numeric-instructions.md).
+
 ## Emitting and assembling LLVM
 
 [`llvm.sld`](src/snail-scheme/llvm.sld) follows the output file's order.
@@ -232,7 +239,10 @@ by a bytecode-fetch loop.
 functions, constant data, count accessors, and the program body.
 `write-vm-instructions` emits the `snail_vm_*` functions as `internal alwaysinline`.
 Reference, assignment, argument, frame, shift, and test handlers implement
-actual stack loads, stores, and branches. Application and return are shared
+actual stack loads, stores, and branches. Numeric handlers consume two stack
+operands: fixnum arithmetic and comparisons stay in LLVM; boxed values and
+fixnum overflow call Rust's `snail_rt_numeric` before continuing. Fallback keeps
+the enclosing frame and all live roots published. Application and return are shared
 blocks in the generated function. Rust services prepare heap-backed operations
 and native calls; they do not own ordinary call/return transitions.
 
@@ -362,7 +372,10 @@ heap-backed bindings, application preparation, and snapshots.
 
 [`runtime/src/primitives.rs`](runtime/src/primitives.rs) dispatches builtins.
 A closed `Builtin` inventory records names and allocation effects; dispatch
-uses enum IDs instead of copied strings. Numeric operations decode arguments
+uses enum IDs instead of copied strings. A borrowed `Arguments` view indexes and
+iterates the downward stack in source order without reversing its storage.
+Allocation classification happens once per invocation; builtin names are read
+only when a diagnostic needs one. Numeric operations decode arguments
 while traversing them, without allocating a temporary number vector;
 `compare_integer_float` avoids first rounding a large exact integer to `f64`.
 The pair, vector, bytevector, string, character, and record operations validate

@@ -324,3 +324,14 @@ any subsequent isolated fixes; these saved artifacts retain their original data.
 The subsequent [lazy-error fix](results/2026-10-09-lazy-errors.json) reduces
 ordinary native32's gaps to 14.8× Chibi on CPU and 11.1× on memory. Its report
 holds LLVM fixed and changes only three eager error constructions in Rust.
+
+## Numeric VM instructions
+
+The [numeric instruction ablation](../doc/numeric-instructions.md) compares
+unchanged `e570708` with Rust dispatch cleanup and the new binary numeric VM
+instructions on Fibonacci. Five rotating rounds of 64 repetitions, pinned to
+one core, give 1.488415 s before and 0.449323 s after: 3.31× faster, 0.975×
+Chibi's time and 15.75× Chez's. These are native execution times, excluding
+compilation and startup. [Raw samples and artifact/source hashes](results/2026-10-09-numeric-instructions.json)
+retain the runtime-only ablation too. This experiment does not include IIFE
+inlining, allocator changes, type inference, or shared LTO.

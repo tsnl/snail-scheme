@@ -6,7 +6,7 @@
 
 use crate::{
     object::*,
-    primitives::{Builtin, PrimitiveResult, arity, format_value},
+    primitives::{Arguments, Builtin, PrimitiveResult, arity, format_value},
     vm::{Allocation, Runtime},
 };
 use std::{
@@ -61,28 +61,27 @@ impl Host {
 pub(crate) fn invoke(
     vm: &mut Runtime,
     op: Builtin,
-    args: &[Value],
+    args: Arguments<'_>,
 ) -> Result<PrimitiveResult, String> {
     use Builtin::*;
-    let name = op.name();
     let value = match op {
         ClosePort => {
-            arity(name, args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             close_port(port_mut(vm, args[0])?)?;
             Value::UNSPECIFIED
         }
         ReadChar => {
-            arity(name, args, 0, 1)?;
+            arity(op, args, 0, 1)?;
             let handle = args.first().copied().unwrap_or(vm.host.input);
             read_char(port_mut(vm, handle)?)?
         }
         IsEof => {
-            arity(name, args, 1, 1)?;
+            arity(op, args, 1, 1)?;
             Value::boolean(args[0] == Value::EOF)
         }
         Display | Write | Newline => output(vm, op, args)?,
         CurrentInputPort | CurrentOutputPort | CurrentErrorPort => {
-            arity(name, args, 0, 0)?;
+            arity(op, args, 0, 0)?;
             match op {
                 CurrentInputPort => vm.host.input,
                 CurrentOutputPort => vm.host.output,
@@ -95,10 +94,10 @@ pub(crate) fn invoke(
         }
         Exit => return Ok(PrimitiveResult::Exit(exit_status(vm, args)?)),
         JiffiesPerSecond => {
-            arity(name, args, 0, 0)?;
+            arity(op, args, 0, 0)?;
             Value::fixnum(1_000_000_000).unwrap()
         }
-        _ => unreachable!("nonallocating host dispatch: {name}"),
+        _ => unreachable!("nonallocating host dispatch: {}", op.name()),
     };
     Ok(PrimitiveResult::Value(value))
 }
@@ -106,7 +105,7 @@ pub(crate) fn invoke(
 pub(crate) fn invoke_allocating(
     vm: &mut Allocation<'_>,
     op: Builtin,
-    args: &[Value],
+    args: Arguments<'_>,
 ) -> Result<PrimitiveResult, String> {
     use Builtin::*;
     let value = match op {
@@ -120,8 +119,8 @@ pub(crate) fn invoke_allocating(
     Ok(PrimitiveResult::Value(value))
 }
 
-fn exit_status(vm: &Runtime, args: &[Value]) -> Result<i32, String> {
-    arity("exit", args, 0, 1)?;
+fn exit_status(vm: &Runtime, args: Arguments<'_>) -> Result<i32, String> {
+    arity(Builtin::Exit, args, 0, 1)?;
     match args.first() {
         None | Some(&Value::TRUE) => Ok(0),
         Some(&Value::FALSE) => Ok(1),
@@ -131,8 +130,8 @@ fn exit_status(vm: &Runtime, args: &[Value]) -> Result<i32, String> {
     }
 }
 
-fn command_line(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String> {
-    arity("command-line", args, 0, 0)?;
+fn command_line(vm: &mut Allocation<'_>, args: Arguments<'_>) -> Result<Value, String> {
+    arity(Builtin::CommandLine, args, 0, 0)?;
     let arguments = vm.argv.clone();
     let strings: Vec<Value> = arguments
         .into_iter()
@@ -141,8 +140,8 @@ fn command_line(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String
     Ok(vm.list(&strings))
 }
 
-fn current_jiffy(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String> {
-    arity("current-jiffy", args, 0, 0)?;
+fn current_jiffy(vm: &mut Allocation<'_>, args: Arguments<'_>) -> Result<Value, String> {
+    arity(Builtin::CurrentJiffy, args, 0, 0)?;
     let ticks = i64::try_from(vm.host.started.elapsed().as_nanos())
         .map_err(|_| "monotonic clock exceeds integer range")?;
     Ok(vm.integer(ticks))
@@ -154,34 +153,34 @@ fn port_mut(vm: &mut Runtime, value: Value) -> Result<&mut Port, String> {
     vm.heap.get_mut::<Port>(value)
 }
 
-fn open_port(vm: &mut Allocation<'_>, op: Builtin, args: &[Value]) -> Result<Value, String> {
-    let name = op.name();
+fn open_port(vm: &mut Allocation<'_>, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let port = if op == Builtin::OpenOutputString {
-        arity(name, args, 0, 0)?;
+        arity(op, args, 0, 0)?;
         Port::Output {
             buffer: String::new(),
             closed: false,
         }
     } else {
-        arity(name, args, 1, 1)?;
+        arity(op, args, 1, 1)?;
         let path = vm.string(args[0])?;
         if op == Builtin::OpenInputFile {
-            let text = std::fs::read_to_string(path).map_err(|e| format!("{name}: {path}: {e}"))?;
+            let text =
+                std::fs::read_to_string(path).map_err(|e| format!("{}: {path}: {e}", op.name()))?;
             Port::Input {
                 chars: text.chars().collect(),
                 offset: 0,
                 closed: false,
             }
         } else {
-            let file = File::create(path).map_err(|e| format!("{name}: {path}: {e}"))?;
+            let file = File::create(path).map_err(|e| format!("{}: {path}: {e}", op.name()))?;
             Port::FileOutput(Some(file))
         }
     };
     Ok(vm.alloc(port))
 }
 
-fn read_port_string(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String> {
-    arity("read-string", args, 1, 2)?;
+fn read_port_string(vm: &mut Allocation<'_>, args: Arguments<'_>) -> Result<Value, String> {
+    arity(Builtin::ReadString, args, 1, 2)?;
     let count = args[0].index(&vm.heap)?;
     let handle = args.get(1).copied().unwrap_or(vm.host.input);
     Ok(match read_string(port_mut(vm, handle)?, count)? {
@@ -190,8 +189,8 @@ fn read_port_string(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, St
     })
 }
 
-fn output_string(vm: &mut Allocation<'_>, args: &[Value]) -> Result<Value, String> {
-    arity("get-output-string", args, 1, 1)?;
+fn output_string(vm: &mut Allocation<'_>, args: Arguments<'_>) -> Result<Value, String> {
+    arity(Builtin::GetOutputString, args, 1, 1)?;
     let Port::Output { buffer, .. } = port_mut(vm, args[0])? else {
         return Err("get-output-string: expected a string output port".into());
     };
@@ -309,13 +308,12 @@ fn read_stdin_char() -> Result<Value, String> {
         .ok_or_else(|| "read-char: empty UTF-8 character".into())
 }
 
-fn output(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<Value, String> {
-    let name = op.name();
+fn output(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<Value, String> {
     let (text, handle) = if op == Builtin::Newline {
-        arity(name, args, 0, 1)?;
+        arity(op, args, 0, 1)?;
         ("\n".into(), args.first().copied().unwrap_or(vm.host.output))
     } else {
-        arity(name, args, 1, 2)?;
+        arity(op, args, 1, 2)?;
         (
             format_value(vm, args[0], op == Builtin::Display)?,
             args.get(1).copied().unwrap_or(vm.host.output),
@@ -353,8 +351,8 @@ fn write_port(port: &mut Port, text: &str) -> Result<(), String> {
     }
 }
 
-fn set_current_port(vm: &mut Runtime, op: Builtin, args: &[Value]) -> Result<(), String> {
-    arity(op.name(), args, 1, 1)?;
+fn set_current_port(vm: &mut Runtime, op: Builtin, args: Arguments<'_>) -> Result<(), String> {
+    arity(op, args, 1, 1)?;
     let port = port_mut(vm, args[0])?;
     if op == Builtin::SetCurrentInputPort {
         if !matches!(port, Port::Stdin | Port::Input { closed: false, .. }) {
@@ -420,17 +418,25 @@ mod tests {
     #[test]
     fn string_ports_capture_output_and_reject_writes_after_close() {
         let mut vm = Runtime::for_test(Vec::new());
-        let port = open_port(&mut vm.allocation(), Builtin::OpenOutputString, &[]).unwrap();
+        let port = open_port(
+            &mut vm.allocation(),
+            Builtin::OpenOutputString,
+            Arguments(&[]),
+        )
+        .unwrap();
         let text = vm.allocation().alloc(Text::new("λ".into()));
-        output(&mut vm, Builtin::Display, &[text, port]).unwrap();
-        output(&mut vm, Builtin::Newline, &[port]).unwrap();
-        let PrimitiveResult::Value(value) =
-            invoke_allocating(&mut vm.allocation(), Builtin::GetOutputString, &[port]).unwrap()
-        else {
+        output(&mut vm, Builtin::Display, Arguments(&[port, text])).unwrap();
+        output(&mut vm, Builtin::Newline, Arguments(&[port])).unwrap();
+        let PrimitiveResult::Value(value) = invoke_allocating(
+            &mut vm.allocation(),
+            Builtin::GetOutputString,
+            Arguments(&[port]),
+        )
+        .unwrap() else {
             panic!("get-output-string must return a value");
         };
         assert_eq!(vm.string(value).unwrap(), "λ\n");
         close_port(port_mut(&mut vm, port).unwrap()).unwrap();
-        assert!(output(&mut vm, Builtin::Newline, &[port]).is_err());
+        assert!(output(&mut vm, Builtin::Newline, Arguments(&[port])).is_err());
     }
 }
