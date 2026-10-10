@@ -140,6 +140,26 @@ python3 benchmarks/r7rs.py --systems chez guile chibi --benchmarks ray \
   --count 1 --rounds 1
 ```
 
+### Studio scene
+
+![Scheme studio ray trace](benchmarks/images/studio.png)
+
+[`studio.scm`](benchmarks/studio.scm) renders colored materials, soft shadows,
+and two reflection bounces. The image above is a 960 × 576 Chez reference
+render with nine camera rays per pixel and 64 fixed area-light samples.
+The scene and sampling are deterministic. Reproduce it with:
+
+```sh
+nix-shell benchmarks/shell.nix
+python3 benchmarks/render-studio.py --width 960 --samples 3
+```
+
+The wrapper writes the actual PPM pixels and a PNG preview under `build/studio/`.
+Use `--system guile` or `--system chibi` to run the same Scheme program on another
+reference implementation; `--width 32 --samples 1` provides a quick check.
+This visual showcase is separate from the upstream `ray` timing workload and
+has no published Snail timing yet.
+
 ## Language scope
 
 Snail is not fully R7RS compliant. Reusable, multi-shot continuations are outside
