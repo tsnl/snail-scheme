@@ -1,5 +1,8 @@
 # Structured middle representation
 
+> Historical backend document. The current compiler emits WasmGC directly; see
+> [backend.md](backend.md). These measurements describe the retired stack/LLVM path.
+
 This is the design contract for the HIR/MIR rewrite. The implementation uses
 these boundaries; the benchmark report records the measured migration cost.
 

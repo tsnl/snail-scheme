@@ -1,25 +1,10 @@
 (import (scheme base) (scheme write))
 
 (define (check actual expected)
-  (if (not (equal? actual expected)) (error "MIR check failed" actual expected)))
+  (if (not (equal? actual expected)) (error "control-flow check failed" actual expected)))
 
 (define (identity value) value)
 
-;; Both arms suspend in Scheme calls. Their shared suffix must execute on each
-;; arrival, including a replay, while the assigned cells retain their mutations.
-(define (replay-branch choose-left?)
-  (let ((saved #f) (phase 0) (visits '()))
-    (let ((value
-           (if choose-left?
-               (identity (call/cc (lambda (k) (set! saved k) 10)))
-               (identity (call/cc (lambda (k) (set! saved k) 20))))))
-      (set! visits (cons value visits))
-      (if (= phase 0)
-          (begin (set! phase 1) (saved 30))
-          (reverse visits)))))
-
-(check (replay-branch #t) '(10 30))
-(check (replay-branch #f) '(20 30))
 (check (procedure? identity) #t)
 (check (procedure? 12) #f)
 (check (number? 12) #t)
@@ -50,5 +35,5 @@
 (check (procedure? 12) 'rebound)
 (set! procedure? original-procedure?)
 
-(display "MIR checks passed")
+(display "control-flow checks passed")
 (newline)

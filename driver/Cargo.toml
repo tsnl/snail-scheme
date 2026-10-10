@@ -9,3 +9,4 @@ path = "src/main.rs"
 
 [dependencies]
 snail-trace = { path = "../trace" }
+serde_json = "1.0"

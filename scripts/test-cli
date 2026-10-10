@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
-"""Exercise compiler modes, publication, argument boundaries, and native/WASI runs."""
+"""Exercise portable compilation, publication, literal arguments and Rust AWI."""
 
-import os
 import json
-from pathlib import Path
-import re
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build" / "cli-tests"
+BUILD = ROOT / "build/cli-tests"
 CARGO = BUILD / "cargo"
-DRIVER = CARGO / "debug" / "snail-scheme"
+DRIVER = CARGO / "debug/snail-scheme"
 ARGUMENTS = ["space in argument", "", "--help"]
 EXPECTED = '("space in argument" "" "--help")\n'
-SOURCE = ('(import (snail-scheme core))\n(define marker "@snail_vm_marker")\n'
-          '(write (cdr (command-line)))\n(newline)\n')
+SOURCE = '(import (scheme base) (scheme write) (scheme process-context))\n(write (cdr (command-line))) (newline)\n'
 
 
-def invoke(command, cwd, environment=None):
+# ---- Test commands and traces ----
+
+
+def invoke(command, cwd, **environment):
     return subprocess.run([str(arg) for arg in command], cwd=cwd, text=True,
-                          capture_output=True, timeout=180,
-                          env={**os.environ, **(environment or {})})
+                          capture_output=True, check=False, timeout=240,
+                          env={**os.environ, **environment})
 
 
 def require(result, stdout=None, code=0, diagnostic=None):
@@ -36,40 +36,14 @@ def require(result, stdout=None, code=0, diagnostic=None):
 
 
 def cli(directory, *arguments, **environment):
-    return invoke([DRIVER, *arguments], directory, environment)
+    return invoke([DRIVER, *arguments], directory, **environment)
 
 
-def prepare():
-    BUILD.mkdir(parents=True, exist_ok=True)
-    result = invoke(["cargo", "build", "--offline", "--quiet", "-p", "snail-driver",
-                     "--target-dir", CARGO], ROOT)
-    require(result, "")
-
-
-def check_modes(directory, source):
-    result = cli(directory, source, "--release", "--runtime-stats", "--keep-build", "--", *ARGUMENTS)
-    require(result, EXPECTED, diagnostic="runtime: elapsed_s=")
-    check_link_object(result, b"BC\xc0\xde")
-    names = trace_names(directory / "build/traces")
-    expected = {"source-file->llvm-file", "reader->syntax-list", "syntax-list->hir-library",
-                "hir-library->mir-library", "write-mir-library-as-llvm", "driver.execute",
-                "driver.cargo-build-and-run", "build.optimize-llvm", "runtime.execute"}
-    if not expected <= names:
-        raise RuntimeError(f"missing trace spans: {expected - names}")
-    output = directory / "native executable"
-    require(cli(directory, source, "-o", output), "")
-    if output.read_bytes()[:5] != b"\x7fELF\x01":
-        raise RuntimeError("native output must be a 32-bit ELF executable")
-    require(invoke([output, *ARGUMENTS], directory), EXPECTED)
-
-
-def trace_names(directory, balanced=True):
+def trace_names(directory):
     names = set()
     for path in directory.glob("*.json"):
-        lanes = {}
-        previous = {}
-        events = json.loads(path.read_text())
-        for event in events:
+        lanes, previous = {}, {}
+        for event in json.loads(path.read_text()):
             lane = (event["pid"], event["tid"])
             stack = lanes.setdefault(lane, [])
             if event["ts"] < previous.get(lane, 0):
@@ -78,267 +52,136 @@ def trace_names(directory, balanced=True):
             if event["ph"] == "B":
                 names.add(event["name"])
                 stack.append(event["name"])
-            elif event["ph"] == "E":
-                if not stack:
-                    raise RuntimeError(f"unmatched trace end: {path}")
+            elif event["ph"] == "E" and stack:
                 stack.pop()
             else:
-                raise RuntimeError(f"unknown trace event: {event}")
-        if balanced and any(lanes.values()):
+                raise RuntimeError(f"unmatched trace event: {event}")
+        if any(lanes.values()):
             raise RuntimeError(f"unfinished trace spans: {path}")
     return names
 
 
-def check_compiler_traces(directory, source):
-    imported = directory / "imports.scm"
-    imported.write_text("(import (scheme base))\n(if #t 1 2)\n")
-    first, second, repeated = (directory / name for name in
-                               ("first.ll", "second.ll", "repeated.ll"))
-    traces = directory / "compiler traces"
-    script = directory / "trace-twice.scm"
-    script.write_text("""(import (scheme base) (scheme process-context) (snail-scheme compiler))
-(define args (cdr (command-line)))
-(compiler-main (list "compile" (list-ref args 0) (list-ref args 1) (list-ref args 2)))
-(compiler-main (list "compile" (list-ref args 0) (list-ref args 3) (list-ref args 4)))
-""")
-    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
-                    script, ROOT, imported, first, source, second], directory,
-                   {"SNAIL_TRACE_DIR": str(traces)}), "")
-    files = list(traces.glob("*.json"))
-    if len(files) != 1:
-        raise RuntimeError("host compiler must own one trace per process")
-    starts = [event["name"] for event in json.loads(files[0].read_text()) if event["ph"] == "B"]
-    if starts.count("source-file->llvm-file") != 2 or starts.count("source-file->syntax-list") < 3:
-        raise RuntimeError("repeated compilation or imported source spans missing")
-    trace_names(traces)
-    result = require(invoke([ROOT / "snail-compile", imported, repeated], directory), "")
-    if result.stderr or first.read_bytes() != repeated.read_bytes():
-        raise RuntimeError("tracing changed compiler diagnostics or generated LLVM")
+# ---- Portable output and extension modules ----
+
+
+def check_modes(directory, source):
+    require(cli(directory, source, "--", *ARGUMENTS), EXPECTED)
+    output = directory / "portable program.wasm"
+    require(cli(directory, source, "-o", output), "")
+    if not output.read_bytes().startswith(b"\0asm"):
+        raise RuntimeError("output must be a WebAssembly module")
+    command = [os.environ.get("NODE", "node"), "--no-warnings", ROOT / "scripts/run-wasi.mjs"]
+    require(invoke([*command, output, *ARGUMENTS], directory), EXPECTED)
+    expected = {"driver.execute", "driver.cargo-build", "driver.link-wasm", "driver.run",
+                "source-file->wasm-file", "syntax-list->ir-library"}
+    names = trace_names(directory / "build/traces")
+    if not expected <= names:
+        raise RuntimeError(f"missing trace spans: {expected - names}")
+    if os.environ.get("SNAIL_WASM_NATIVE"):
+        native = directory / "native program"
+        require(cli(directory, source, "--native", "-o", native), "")
+        require(invoke([native, *ARGUMENTS], directory), EXPECTED)
+
+
+def check_emission(directory, source):
+    result = require(cli(directory, source, "--emit-wat", CARGO="/nonexistent/snail-cargo"))
+    if '(export "snail_main")' not in result.stdout:
+        raise RuntimeError("WAT entry point missing")
+    require(cli(directory, source, "--emit-wat", "-o", "--help"), "")
+    if (directory / "--help").read_text() != result.stdout:
+        raise RuntimeError("an output value was parsed as a flag")
+
+
+def check_extension(directory):
+    expected = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
+    result = cli(directory, ROOT / "examples/extension.scm",
+                 "--extension", ROOT / "examples/extension", "--keep-build")
+    require(result, expected)
+    project = retained_project(result)
+    command = [os.environ.get("NODE", "node"), "--no-warnings",
+               ROOT / "tests/check-awi-roots.mjs", project / "program.wasm", "3"]
+    require(invoke(command, directory), expected)
+    shutil.rmtree(project)
+
 
 
 def check_trace_decorator(directory):
     source = directory / "traced.scm"
-    source.write_text(r'''(import (scheme base) (scheme write) (snail-scheme trace)
-        (only (snail-scheme core) collect-garbage))
+    source.write_text(r'''(import (scheme base) (scheme write) (snail-scheme trace))
 (define-traced (several first . rest) (apply values (cons first rest)))
 (define-traced (none) (values))
 (call-with-trace "quote\" slash\\ newline\nλ"
   (lambda ()
-    (collect-garbage)
     (write (call-with-values (lambda () (several 1 2)) list)) (newline)
     (write (call-with-values none list)) (newline)))
 ''')
-    # Overrides outside the execution cwd must also be preopened for WASI.
     with tempfile.TemporaryDirectory(prefix="external traces ") as name:
         traces = Path(name)
-        for options in [[], ["--target", "wasm32-wasip1"]]:
-            require(cli(directory, source, *options, SNAIL_TRACE_DIR=str(traces)), "(1 2)\n()\n")
-        names = trace_names(traces)
-        if not {"several", "none", "runtime.gc", 'quote" slash\\ newline\nλ'} <= names:
-            raise RuntimeError(f"decorator/Unicode/GC traces missing: {names}")
-
-
-def check_host_trace_control(directory):
-    script = directory / "trace-control.scm"
-    traces = directory / "control traces"
-    script.write_text("""(import (scheme base) (scheme write) (snail-scheme trace))
-(define (check-control)
-  (let ((saved #f) (passes 0))
-    (call-with-trace "continuation" (lambda () (call/cc (lambda (k) (set! saved k)))))
-    (set! passes (+ passes 1))
-    (if (= passes 1) (saved 'again))
-    (guard (error (else #f)) (call-with-trace "caught error" (lambda () (error "expected"))))
-    (write passes) (newline)))
-(check-control)
-""")
-    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", script],
-                   directory, {"SNAIL_TRACE_DIR": str(traces)}), "2\n")
-    if not {"continuation", "caught error"} <= trace_names(traces):
-        raise RuntimeError("host control transfers lost trace spans")
-    events = json.loads(next(traces.glob("*.json")).read_text())
-    if sum(event["ph"] == "B" and event["name"] == "continuation" for event in events) != 2:
-        raise RuntimeError("continuation reentry did not reopen its trace span")
-
-
-def check_trace_sink_failure(directory):
-    blocked = directory / "unwritable trace directory"
-    blocked.write_text("a regular file cannot contain trace files")
-    native = [directory / "native executable", *ARGUMENTS]
-    wasm = [os.environ.get("NODE", "node"), "--no-warnings", ROOT / "scripts/run-wasi.mjs",
-            directory / "WASI executable.wasm", *ARGUMENTS]
-    for command in [native, wasm]:
-        result = require(invoke(command, directory, {"SNAIL_TRACE_DIR": str(blocked)}),
-                         EXPECTED, diagnostic="snail-trace:")
-        if result.stderr.count("snail-trace:") != 1:
-            raise RuntimeError("failed sink must report once per process")
-    host = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
-                   directory / "trace-control.scm"], directory,
-                  {"SNAIL_TRACE_DIR": str(blocked)})
-    require(host, "2\n", diagnostic="snail-trace:")
-    if host.stderr.count("snail-trace:") != 1:
-        raise RuntimeError("failed host sink must report once")
-
-
-def check_emission(directory, source):
-    dump = directory / "program.mir"
-    result = cli(directory, source, "--emit-llvm", "--dump-mir", dump,
-                 CARGO="/nonexistent/snail-test-cargo")
-    require(result)
-    if "define void @snail_program(" not in result.stdout or not dump.read_text():
-        raise RuntimeError("LLVM emission or MIR dump missing")
-    require(cli(directory, source, "--emit-llvm", "-o", "--help"), "")
-    if (directory / "--help").read_text() != result.stdout:
-        raise RuntimeError("an option value was parsed as a help flag")
-    return result.stdout
-
-
-def check_wasi(directory, source):
-    require(cli(directory, source, "--target", "wasm32-wasip1", "--", *ARGUMENTS),
-            EXPECTED)
-    output = directory / "WASI executable.wasm"
-    built = require(cli(directory, source, "--target", "wasm32-wasip1", "--keep-build", "-o", output), "")
-    check_link_object(built, b"BC\xc0\xde")
-    node = os.environ.get("NODE", "node")
-    require(invoke([node, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output,
-                    *ARGUMENTS], directory), EXPECTED)
-
-
-def check_link_object(result, magic):
-    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
-             if line.startswith("build project: ")]
-    if len(paths) != 1:
-        raise RuntimeError("retained build project missing")
-    directory = Path(paths[0])
-    objects = list(directory.rglob("scheme.o"))
-    if len(objects) != 1 or not objects[0].read_bytes().startswith(magic):
-        raise RuntimeError("unexpected Scheme object format for link mode")
-    shutil.rmtree(directory)
-
-
-def check_link_modes(directory, source):
-    ordinary = cli(directory, source, "--release", "--keep-build", "--", *ARGUMENTS,
-                   SNAIL_SHARED_LTO="0")
-    check_link_object(require(ordinary, EXPECTED), b"\x7fELF")
-    debug = cli(directory, source, "--keep-build", "--", *ARGUMENTS, SNAIL_SHARED_LTO="1")
-    check_link_object(require(debug, EXPECTED), b"\x7fELF")
-    require(cli(directory, source, "--release", RUSTFLAGS="-Cdebuginfo=1"),
-            "", 1, "set SNAIL_SHARED_LTO=0")
+        require(cli(directory, source, SNAIL_TRACE_DIR=str(traces)), "(1 2)\n()\n")
+        expected = {"several", "none", 'quote" slash\\ newline\nλ'}
+        if not expected <= trace_names(traces):
+            raise RuntimeError("decorator spans or external trace destination missing")
 
 
 def check_failures(directory, source):
-    require(cli(directory, source, "--timing"), "", 1, "unknown option: --timing")
+    require(cli(directory, source, "--emit-llvm"), "", 1, "retired")
+    require(cli(directory, source, "--timing"), "", 1, "unknown option")
     require(cli(directory, source, "-o", source), "", 1, "must not replace")
-    require(cli(directory, source, "-o", "unused", "--", "arg"), "", 1,
-            "program arguments require run mode")
-    require(cli(directory, source, "--emit-llvm", "--runtime-stats"), "", 1,
-            "--runtime-stats requires run mode")
-    require(cli(directory, source, "--target", "unknown"), "", 1, "--target must be")
+    require(cli(directory, source, "-o", "unused", "--", "arg"), "", 1, "run mode")
+    alias = directory / "source-link"
+    alias.symlink_to(source)
+    require(cli(directory, source, "-o", alias), "", 1, "must not replace")
     exiting = directory / "exit.scm"
-    exiting.write_text("(import (snail-scheme core)) (exit 7)\n")
+    exiting.write_text('(import (scheme process-context)) (exit 7)\n')
     require(cli(directory, exiting), "", 7)
+    unsupported = directory / "callcc.scm"
+    unsupported.write_text('(import (scheme base)) (call/cc (lambda (k) (k 1)))\n')
+    require(cli(directory, unsupported), "", 1, "call/cc is not supported")
 
 
-def check_preserved_outputs(directory):
-    source, output, dump = (directory / name for name in ("broken.scm", "old", "old.mir"))
-    source.write_text("(\n")
-    output.write_text("existing executable")
-    dump.write_text("existing dump")
-    require(cli(directory, source, "-o", output, "--dump-mir", dump), "", 1)
-    if output.read_text() != "existing executable" or dump.read_text() != "existing dump":
+def check_preserved_outputs(directory, source):
+    broken, output = directory / "broken.scm", directory / "existing.wasm"
+    broken.write_text("(\n")
+    output.write_text("previous successful build")
+    require(cli(directory, broken, "-o", output), "", 1)
+    require(cli(directory, source, "-o", output, CARGO="/nonexistent/snail-cargo"), "", 1)
+    if output.read_text() != "previous successful build":
         raise RuntimeError("failed compilation replaced an existing artifact")
 
 
-def check_failed_build(directory, source):
-    output = directory / "build-failure-output"
-    output.write_text("previous successful build")
-    require(cli(directory, source, "-o", output, CARGO="/nonexistent/snail-test-cargo"),
-            "", 1)
-    if output.read_text() != "previous successful build":
-        raise RuntimeError("failed Cargo invocation replaced its destination")
-
-
-def check_kept_project(directory, source, code):
-    result = cli(directory, source, "--keep-build", "--emit-llvm", "-o", "kept.ll")
-    require(result, "", code)
-    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
-             if line.startswith("build project: ")]
-    if len(paths) != 1:
-        raise RuntimeError("retained project path was not reported")
-    project = Path(paths[0])
+def check_kept_project(directory, source):
+    result = require(cli(directory, source, "--keep-build", "--emit-wat", "-o", "kept.wat"), "")
+    project = retained_project(result)
     if not project.is_dir() or project.parent != ROOT / "build/cli":
         raise RuntimeError(f"invalid retained project: {project}")
     shutil.rmtree(project)
 
 
-def check_aliases(directory, source):
-    alias = directory / "source-link"
-    alias.symlink_to(source)
-    require(cli(directory, source, "-o", alias), "", 1, "must not replace")
-    output = directory / "aliased-output"
-    output.write_text("old output")
-    alias.unlink()
-    alias.symlink_to(output)
-    require(cli(directory, source, "-o", output, "--dump-mir", alias), "", 1,
-            "output and MIR dump must differ")
 
-
-def check_abi(directory, llvm):
-    source = directory / "stale.ll"
-    stale, replacements = re.subn(r"(define i32 @snail_program_abi\(\)\s*\{.*?ret i32 )3\b",
-                                  r"\g<1>0", llvm, count=1, flags=re.DOTALL)
-    if replacements != 1:
-        raise RuntimeError("cannot locate generated program ABI accessor")
-    source.write_text(stale)
-    environment = {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)}
-    result = invoke(["cargo", "run", "--offline", "--quiet", "-p", "snail-runner",
-                     "--target", "i686-unknown-linux-musl"],
-                    ROOT, environment)
-    require(result, "", 1, "program ABI 0 does not match runtime ABI 3")
-
-
-def check_irreducible(directory):
-    scheme = ROOT / "tests/emit-irreducible.scm"
-    emitted = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
-                      scheme], ROOT)
-    source = directory / "irreducible.ll"
-    source.write_text(require(emitted).stdout)
-    result = invoke(["cargo", "build", "--offline", "--quiet", "-p", "snail-runner",
-                     "--target", "wasm32-wasip1"], ROOT,
-                    {"SNAIL_LLVM_IR": str(source), "CARGO_TARGET_DIR": str(CARGO)})
-    require(result, "", 101, "WASM requires reducible optimized control flow")
-
-
-def check_cleanup(before):
-    after = set((ROOT / "build/cli").glob("*"))
-    if before != after:
-        raise RuntimeError(f"invocations leaked build projects: {after - before}")
+def retained_project(result):
+    paths = [line.removeprefix("build project: ") for line in result.stderr.splitlines()
+             if line.startswith("build project: ")]
+    if len(paths) != 1:
+        raise RuntimeError("retained project path missing")
+    return Path(paths[0])
 
 
 def main():
-    prepare()
-    before = set((ROOT / "build/cli").glob("*"))
+    BUILD.mkdir(parents=True, exist_ok=True)
+    require(invoke(["cargo", "build", "--offline", "--quiet", "-p", "snail-driver",
+                    "--target-dir", CARGO], ROOT), "")
     with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
         directory = Path(name)
         source = directory / "quoted 'source.scm"
         source.write_text(SOURCE)
         check_modes(directory, source)
-        check_compiler_traces(directory, source)
-        llvm = check_emission(directory, source)
-        check_abi(directory, llvm)
-        check_irreducible(directory)
-        check_wasi(directory, source)
-        check_link_modes(directory, source)
+        check_emission(directory, source)
+        check_extension(directory)
         check_trace_decorator(directory)
-        check_host_trace_control(directory)
-        check_trace_sink_failure(directory)
         check_failures(directory, source)
-        check_preserved_outputs(directory)
-        check_failed_build(directory, source)
-        check_kept_project(directory, source, 0)
-        check_kept_project(directory, directory / "broken.scm", 1)
-        check_aliases(directory, source)
-    check_cleanup(before)
-    print("CLI native/WASI and ABI checks passed")
+        check_preserved_outputs(directory, source)
+        check_kept_project(directory, source)
+    print("Wasm CLI and Rust AWI checks passed")
 
 
 if __name__ == "__main__":

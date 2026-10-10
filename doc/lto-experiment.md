@@ -1,5 +1,8 @@
 # Cross-language LTO experiment
 
+> Historical backend document. The current compiler emits WasmGC directly; see
+> [backend.md](backend.md). These measurements describe the retired stack/LLVM path.
+
 This experiment compares three release build configurations without changing
 Scheme lowering, runtime representation, or collection scheduling. It tests
 whether LLVM can optimize across the emitted Scheme/Rust boundary, and how much
