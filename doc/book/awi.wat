@@ -1,8 +1,9 @@
 ;; AWI extension ABI: the Rust side of the Scheme/runtime boundary.
-;; These scalar signatures exist in the current Wasm runtime. Native linkage
-;; needs real root/collector support; today's native AWI stubs panic.
-;; Wasm names are unversioned (informally AWI v0). Native names must be declared
-;; explicitly with extern "C" and unmangled exports, preserving these types.
+;; These scalar signatures exist in the Wasm and native CLI runtimes. The native
+;; Rust build uses C adapters exported by the translated Scheme module; roots
+;; address the same GC-visible table. Helper-only Rust tests still use stubs.
+;; Wasm names are unversioned (informally AWI v0). Native exports use the same
+;; unmangled names and extern "C", preserving these types.
 ;; repr(C) only governs exposed record layout, not function calling conventions.
 ;;
 ;; Every root parameter is borrowed except release's consumed root. A returned
@@ -11,7 +12,8 @@
 ;; A released index can be reused. Keep all live values rooted across allocation
 ;; and callbacks. Invalid raw handles/types/indices may trap; discard that instance.
 ;; Rust callbacks are synchronous and must not capture/suspend across Rust frames.
-;; Native entry must select and restore the correct instance context.
+;; The current native CLI owns one instance per process. Hosting multiple
+;; instances will require explicit context selection and restoration.
 ;;
 ;; Scheme-callable exports borrow one argument-vector root and return an owned
 ;; result root. Comments describe the Scheme values inside that vector. Current
@@ -113,6 +115,13 @@
   ;; than a character root.
   (import "snail.awi" "char_at" (func (param $root i32) (param $index i32) (result i32)))
 
+  ;; Allocate a zero-filled Scheme bytevector and return its owned root.
+  (import "snail.awi" "bytes_new" (func (param $length i32) (result i32)))
+
+  ;; Set one element of a bytevector retained by root. Caller checks the index
+  ;; and that value is in 0..255. No Scheme callback or allocation occurs.
+  (import "snail.awi" "byte_set" (func (param $root i32) (param $index i32) (param $value i32)))
+
   ;; Returns a bytevector element as an unsigned scalar in 0–255.
   (import "snail.awi" "byte_at" (func (param $root i32) (param $index i32) (result i32)))
 
@@ -189,6 +198,31 @@
   ;; request returns an empty string.
   (func (export "snail:read-string") (param $arguments i32) (result i32) unreachable)
 
+  ;; [path] -> owned binary-input-port. Open the native/Wasm runtime's file
+  ;; resource without decoding UTF-8. Explicit close releases it promptly.
+  (func (export "snail:open-binary-input-file") (param $arguments i32) (result i32) unreachable)
+
+  ;; [count, optional binary-input-port] -> bytevector or EOF. Read at most count
+  ;; bytes; count zero returns an empty bytevector even at EOF. The initial
+  ;; current stdin port is textual; pass an explicitly opened binary port.
+  (func (export "snail:read-bytevector") (param $arguments i32) (result i32) unreachable)
+
+  ;; [bytevector, optional start, optional end] -> fresh bytevector copy. Bounds
+  ;; are byte indices, start-inclusive/end-exclusive; default to the whole input.
+  (func (export "snail:bytevector-copy") (param $arguments i32) (result i32) unreachable)
+
+  ;; [bytevector ...] -> fresh bytevector containing the inputs in order.
+  ;; No arguments produces an empty bytevector. Input storage is never shared.
+  (func (export "snail:bytevector-append") (param $arguments i32) (result i32) unreachable)
+
+  ;; [string, optional start, optional end] -> fresh UTF-8 bytevector. Bounds
+  ;; count Unicode scalars in the string, not encoded bytes.
+  (func (export "snail:string->utf8") (param $arguments i32) (result i32) unreachable)
+
+  ;; [bytevector, optional start, optional end] -> decoded string. Bounds count
+  ;; bytes; invalid UTF-8 is a terminal runtime error, never replacement text.
+  (func (export "snail:utf8->string") (param $arguments i32) (result i32) unreachable)
+
   ;; Takes no arguments and returns a new output-string port. Its buffer
   ;; belongs to the Rust runtime.
   (func (export "snail:open-output-string") (param $arguments i32) (result i32) unreachable)
@@ -238,6 +272,10 @@
   ;; command platform defines the first argument.
   (func (export "snail:command-line") (param $arguments i32) (result i32) unreachable)
 
+  ;; Takes an environment-variable name. Returns its UTF-8 string value or false
+  ;; when absent; a non-UTF-8 native value is a runtime error.
+  (func (export "snail:get-environment-variable") (param $arguments i32) (result i32) unreachable)
+
   ;; Takes an optional status (default 0); true maps to 0 and false to 1, or a
   ;; signed i32 integer is accepted. Terminates the command without returning a
   ;; root.
@@ -266,9 +304,8 @@
   ;; ---- Initialization, diagnostics, and cleanup ----
 
   ;; Initializes the Rust runtime before any Scheme execution. The Wasm build
-  ;; calls its reactor initializer once. The native entry shim must establish
-  ;; equivalent once-per-instance initialization; sharing code must not share
-  ;; actor state.
+  ;; calls its reactor initializer once. Native Rust uses its normal startup
+  ;; and lazy per-thread resources; this symbol is specific to the Wasm reactor.
   (func (export "_initialize") unreachable)
 
   ;; Reports a compiler/runtime failure and terminates with status 1. The

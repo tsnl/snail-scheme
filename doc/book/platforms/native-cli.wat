@@ -1,4 +1,4 @@
-;; Native CLI -- proposed application interface, not implemented. Scheme
+;; Native CLI -- one command instance per native process (x86-64 Linux). Scheme
 ;; compiles through Wasm to native code and links the Rust runtime. The
 ;; platform owns command startup, OS IO, subprocesses, and resource teardown.
 ;;
@@ -7,11 +7,12 @@
 ;; vector. These are local AWI calls; actor connections serialize S-expressions
 ;; separately.
 ;;
-;; The host initializes runtime/library globals before entry. Ordinary Scheme
-;; scripts get a generated command adapter; no new entry-point syntax is
-;; needed. Existing snail.rust signatures come from the Wasm runtime. Native
-;; linking, snail.process/run, and snail:main still need implementation. Bodies
-;; are stubs.
+;; Wasm module globals are initialized before the host invokes snail:main.
+;; The generated adapter evaluates library/source forms once, then invokes the
+;; selected Scheme handler. An ordinary script instead returns zero after its
+;; top-level forms. build-native selects the handler explicitly; a helper named
+;; main does not change script behavior. Rust is linked as a native archive.
+;; Interface bodies below are documentary stubs.
 ;;
 ;; The self-hosting acceptance case is a build.scm that chooses output paths,
 ;; builds snail-scheme, and then runs under that interpreter to rebuild it.
@@ -20,7 +21,7 @@
 ;; instead.
 (module
 
-  ;; ---- Arguments and IO ----
+  ;; ---- Operations provided by the platform ----
 
   ;; [] -> argv list of strings, including the executable/script identity
   ;; selected by the interpreter. Forward argument strings without shell parsing.
@@ -67,24 +68,63 @@
   (import "snail.rust" "snail:exit"
     (func (param $arguments i32) (result i32)))
 
-  ;; ---- Build subprocesses ----
-
-  ;; [executable, argv-list] -> process-outcome. Proposed blocking convenience
-  ;; operation: inherit cwd, environment, and stdio, launch without a shell, and
-  ;; wait for termination. The outcome distinguishes exited(status),
-  ;; signalled(signal), and not-started(reason). Exact record syntax remains to
-  ;; be designed with typed messages. Nonzero status is an outcome; the build
-  ;; library decides whether to fail. Files already written are not rolled back.
-  ;; Ownership lasts through reaping/cleanup. GUI/streaming process contracts and
-  ;; cancellation need separate support.
-  (import "snail.process" "run"
+  ;; [name] -> string or false. Read an environment variable. Native strings
+  ;; must be UTF-8; missing variables return false. No shell interpolation.
+  (import "snail.rust" "snail:get-environment-variable"
     (func (param $arguments i32) (result i32)))
 
-  ;; ---- Command entry ----
+  ;; [argv-list, cwd, inherit-stdin?, argv0] -> integer status. Spawn and reap one
+  ;; child without a shell. argv-list starts with its executable; argv0 selects
+  ;; the identity seen by the child. Stdout/stderr and environment are inherited.
+  ;; False stdin supplies EOF from /dev/null; build tools use this so the user
+  ;; script's input remains untouched. Return exit status or 128+signal; those
+  ;; encodings can overlap. Failure to launch is a terminal runtime error.
+  ;; This blocking CLI convenience is not a GUI task or actor connection API.
+  (import "snail.cli" "snail:%process-status"
+    (func (param $arguments i32) (result i32)))
 
-  ;; [] -> exit-status. Invoke once after library initialization. The returned
-  ;; Scheme exact integer must fit the supported OS status range; the launcher
-  ;; validates and transfers it to the OS. For ordinary scripts the compiler
+  ;; [path] -> absolute path string, relative to the caller's working directory.
+  ;; Does not require the final file to exist or resolve symlinks.
+  (import "snail.cli" "snail:%absolute-path"
+    (func (param $arguments i32) (result i32)))
+
+  ;; [first, second] -> boolean. Compare existing files by device/inode, following
+  ;; symbolic links and recognizing hard links. Missing files return false;
+  ;; other filesystem failures are errors. Used to protect build inputs.
+  (import "snail.cli" "snail:%same-file?"
+    (func (param $arguments i32) (result i32)))
+
+  ;; [path] -> unspecified. Create a directory and missing parents; an existing
+  ;; directory is accepted. Does not remove or replace existing files.
+  (import "snail.cli" "snail:%create-directory*"
+    (func (param $arguments i32) (result i32)))
+
+  ;; [output-path or false] -> private directory path. Create beside the output
+  ;; on the same filesystem, or in the OS temporary directory for execution.
+  ;; Register ownership for cleanup and terminal-failure diagnostics. Fatal
+  ;; runtime errors report retained paths; aborts and external kills may not.
+  (import "snail.cli" "snail:%reserve-build-directory"
+    (func (param $arguments i32) (result i32)))
+
+  ;; [owned-directory] -> unspecified. Remove only a directory registered by
+  ;; this invocation, then forget it. Removal failure warns without changing a
+  ;; completed build's success; failed builds do not call this operation.
+  (import "snail.cli" "snail:%clean-build-directory"
+    (func (param $arguments i32) (result i32)))
+
+  ;; [completed-file, output-path] -> unspecified. Rename the completed artifact
+  ;; atomically over the destination. Build callers keep both on one filesystem;
+  ;; failed compilation never reaches this operation. Rename failure retains
+  ;; the previous output and the completed candidate.
+  (import "snail.cli" "snail:%publish-file"
+    (func (param $arguments i32) (result i32)))
+
+  ;; ---- Handler required from the application ----
+
+  ;; [] -> exit-status. Invoke once; its adapter initializes the Scheme program
+  ;; and invokes the selected zero-argument handler. The returned Scheme exact
+  ;; integer must be in 0..255; the launcher validates and transfers it to the OS.
+  ;; For ordinary scripts the compiler
   ;; supplies this adapter, evaluates statements in order, and returns 0 on
   ;; normal completion. A trap/fatal runtime error produces a failing command
   ;; status and host-owned resource cleanup.

@@ -9,4 +9,6 @@
   ((numeric-values) (+ 1 (values 2 3)))
   ((numeric-arity) (-))
   ((overflow) (+ 9223372036854775807 1))
+  ((binary-range) (bytevector-copy (bytevector 1) 2))
+  ((binary-utf8) (utf8->string (bytevector 255)))
   (else (error "unknown backend error case")))

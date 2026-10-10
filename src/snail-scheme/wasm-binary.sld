@@ -35,25 +35,48 @@
         (set-code-position! code (+ 1 (code-position code)))
         byte))
 
+    ;; Validate the last payload before folding from most to least significant.
+    ;; Sign extension starts at -1; neither positive 2^63 nor 2^64 is needed.
+    (define (leb-terminal-valid? payload signed? remaining)
+      (or (> remaining 7)
+          (let ((limit (vector-ref '#(1 2 4 8 16 32 64 128) remaining)))
+            (if signed? (or (< payload (quotient limit 2))
+                            (>= payload (- 128 (quotient limit 2))))
+                (< payload limit)))))
+
+    (define (fold-leb payloads negative?)
+      (let loop ((rest payloads) (value (if negative? -1 0)))
+        (if (null? rest) value
+            (loop (cdr rest) (+ (* value 128) (car rest))))))
+
     (define (read-leb code signed? width)
-      (let loop ((scale 1) (remaining width) (value 0))
-        (when (<= remaining 0) (error "Wasm integer encoding is too long"))
-        (let* ((byte (read-byte code)) (value (+ value (* scale (modulo byte 128)))))
-          (if (< byte 128)
-              (let ((value (if (and signed? (>= byte 64)) (- value (* scale 128)) value)))
-                (unless (if signed? (<= (- (expt 2 (- width 1))) value (- (expt 2 (- width 1)) 1))
-                            (< value (expt 2 width))) (error "Wasm integer overflow"))
-                value)
-              (loop (* scale 128) (- remaining 7) value)))))
+      (let loop ((remaining width) (payloads '()))
+        (let* ((byte (read-byte code)) (payload (modulo byte 128))
+               (payloads (cons payload payloads)))
+          (cond ((< byte 128)
+                 (unless (leb-terminal-valid? payload signed? remaining)
+                   (error "Wasm integer overflow"))
+                 (fold-leb payloads (and signed? (>= payload 64))))
+                ((<= remaining 7) (error "Wasm integer encoding is too long"))
+                (else (loop (- remaining 7) payloads))))))
 
     (define (read-index code)
       (if (< (peek-byte code) 128) (read-byte code) (read-leb code #f 32)))
 
-    (define (read-word code count)
-      (let loop ((left count) (scale 1) (word 0))
-        (if (= left 0) word
+    (define (read-u32 code)
+      (let loop ((remaining 4) (scale 1) (word 0))
+        (if (= remaining 0) word
             (let ((byte (read-byte code)))
-              (loop (- left 1) (* scale 256) (+ word (* byte scale)))))))
+              (loop (- remaining 1) (* scale 256) (+ word (* byte scale)))))))
+
+    ;; A raw 64-bit word is a signed integer carrying the same bits. Compose
+    ;; two halves so the sign bit never overflows the compiler's exact integers.
+    (define (read-word code count)
+      (let ((low (read-u32 code)))
+        (if (= count 4) low
+            (let* ((high (read-u32 code))
+                   (signed-high (if (>= high 2147483648) (- high 4294967296) high)))
+              (+ (* signed-high 4294967296) low)))))
 
     (define (read-items reader code)
       (let loop ((count (read-index code)) (items '()))
@@ -232,7 +255,7 @@
               ((<= 20 opcode 23)
                (let ((type (read-heap-type code)))
                  (list (if (< opcode 22) 'ref.test 'ref.cast)
-                       (if (odd? opcode) (list 'ref 'null type) (list 'ref type)))))
+                       (if (not (zero? (modulo opcode 2))) (list 'ref 'null type) (list 'ref type)))))
               ((<= 28 opcode 30) (list (vector-ref '#(ref.i31 i31.get_s i31.get_u) (- opcode 28))))
               (else (error "unsupported native Wasm GC instruction" opcode)))))
 
@@ -431,6 +454,17 @@
         (expect (read-leb (input-code 128 128 128 128 120) #t 32) (- (expt 2 31)))
         (expect (read-leb (input-code 128 128 128 128 128 128 128 128 128 127) #t 64)
                 (- (expt 2 63)))
+        (expect (read-leb (input-code 255 255 255 255 255 255 255 255 255 0) #t 64)
+                (string->number "9223372036854775807"))
+        (expect (read-leb (input-code 255 255 255 255 255 255 255 255 255 127) #t 64) -1)
+        (expect (read-word (input-code 0 0 0 0 0 0 0 128) 8)
+                (string->number "-9223372036854775808"))
+        (expect (read-word (input-code 255 255 255 255 255 255 255 255) 8) -1)
+        (for-each
+         (lambda (last)
+           (expect (guard (error (else #t))
+                     (read-leb (input-code 128 128 128 128 128 128 128 128 128 last) #t 64) #f) #t))
+         '(1 64 126 128))
         (expect (read-index (input-code 128 0)) 0)
         (for-each
          (lambda (bytes)

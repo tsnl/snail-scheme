@@ -1,7 +1,10 @@
-;; An ordinary build script. Run from the checkout:
+;; Bootstrap from the checkout, then rebuild using the resulting executable:
 ;;   chibi-scheme -I src build.scm
-;; Copy or edit this script to choose other programs, artifacts, or execution.
-(import (scheme base) (snail-scheme build))
+;;   build/snail-scheme build.scm
+;; An optional argument selects the complete output filename.
+(import (scheme base) (scheme process-context) (snail-scheme cli))
 
-(build-wasm "." "examples/fibonacci.scm" "build/fibonacci.wasm")
-(run-wasm "." "build/fibonacci.wasm" '())
+(define arguments (cdr (command-line)))
+(if (> (length arguments) 1) (error "usage: build.scm [OUTPUT]"))
+(define output (if (null? arguments) "build/snail-scheme" (car arguments)))
+(build-interpreter "." output)

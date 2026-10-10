@@ -1,9 +1,16 @@
-# Native execution of linked Wasm
+# Native execution through Wasm
 
-`(snail-scheme native)` exports `wasm-file->native-file(root, input, output)`.
-It consumes the same final Rust-linked binary that `run-wasm` executes. Both the
-Scheme and Rust portions become LLVM; Rust is never rebuilt for a native target.
-The compiler remains hosted by Chibi.
+`(snail-scheme native)` translates Wasm to LLVM and links an x86-64 Linux
+executable. It supports two runtime arrangements: a complete Rust-linked Wasm
+module, and the CLI's Scheme Wasm module importing a native Rust archive. Both
+use the same translator, AWI ownership rules, and BDWGC collector.
+
+The native CLI is built by `chibi-scheme -I src build.scm`. Its `main.scm` handler
+accepts a script, compiles it, executes it, and returns its status. The resulting
+`build/snail-scheme build.scm` rebuilds the interpreter. See the
+[build chapter](book/builds.md) and [inline CLI ABI](book/platforms/native-cli.md).
+
+For complete linked Wasm, the existing library workflow remains:
 
 ```scheme
 (import (scheme base) (snail-scheme build) (snail-scheme native))
@@ -45,7 +52,8 @@ only a target reached by a live edge can resume emission. LLVM promotes slots
 to SSA and optimizes the complete module together with the C host. Initialization
 allocates memory and tables, evaluates globals, copies active data/element
 segments, and invokes the
-Wasm start function before the host calls the exported `_start`.
+Wasm start function before the host calls the exported `_start`, or the CLI
+handler adapter `snail:main` for a command.
 
 Every guest function uses LLVM [`tailcc`](https://llvm.org/docs/LangRef.html#call-instruction).
 Wasm tail instructions emit `tail call`
@@ -74,17 +82,25 @@ and no separate shadow-root stack. The collector and optimizer must preserve
 live uncompressed pointers under this restricted ABI; forced-collection tests
 exercise locals, allocating operands, tables, callbacks, and tail transfers.
 
-Rust linear memory is a separate, unscanned 4 GiB address reservation. Growth
+When translating a complete Rust-linked Wasm module, Rust linear memory is a
+separate, unscanned 4 GiB address reservation. Growth
 commits zeroed pages without moving its base. Rust addresses remain wasm32
 offsets; memory bounds use widened arithmetic so offsets cannot wrap through a
 check. Loads and stores allow byte alignment. Rust retains Scheme values through
 owned AWI handles in the scanned reference table, exactly as under a Wasm engine.
 
+The native CLI instead links Rust's native archive directly. Scheme imports
+under `snail.rust` and `snail.cli` retain their `snail:` symbol names and scalar
+signatures. Rust's AWI calls bind to the translated Scheme exports. Files,
+subprocesses, and environment access use Rust's native standard library, with no
+WASI shim on this route. This first host supports one instance per OS process;
+multiple actors sharing a process still need explicit instance selection.
+
 Collector callbacks queue only resource kinds and IDs. They never enter Rust:
 an allocation may occur while a translated Rust `RefCell` is borrowed. The host
 drains a finite queued batch only after guest execution returns. Held finalizer
 records do not retain their watched wrapper. The ordinary executable polls after
-`_start`; custom C hosts must call `native_poll_finalizers` only with no active
+`_start` or `snail:main`; custom C hosts must call `native_poll_finalizers` only with no active
 guest frames. A long-running call or `proc_exit` may defer cleanup indefinitely;
 explicit close remains the prompt resource-release mechanism. There is no Scheme
 collection/statistics API; portable Wasm does not expose those operations.
@@ -100,7 +116,7 @@ The converter covers operations emitted by the current linked compiler/runtime:
 | GC | Final struct/array types, recursive type groups, allocation, fields/elements, packed access, copy, reference tests/casts, i31 |
 | Memory | One unshared wasm32 memory, active data, size/grow, loads/stores, fill/copy |
 | Tables | Nullable table32, active function elements, get/set, size/grow, indirect-call checks |
-| Host | WASIp1 arguments/environment, clocks, descriptor I/O/stat/seek/close, preopens, path open/stat/mkdir, process exit, AWI finalizers |
+| Host | Native CLI AWI imports, or WASIp1 arguments/environment, clocks, descriptor I/O/stat/seek/close, preopens, path open/stat/mkdir, process exit, AWI finalizers |
 
 Integer division, float truncation, reference casts, and memory/array/table bounds
 trap at Wasm boundaries rather than relying on LLVM undefined behavior. A trap
@@ -125,7 +141,8 @@ executes its exact linked binary in Node and as native code. `scripts/test-nativ
 compares a separate Wasm semantics fixture under both engines, checks twelve
 traps and proper tail calls, forces collection at every allocation, verifies
 Rust-retained Scheme roots and Rust-to-Scheme callbacks, and checks actual Rust
-resource cleanup. Set `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every
+resource cleanup. `scripts/test-self-host` separately exercises direct native
+Rust linkage, the CLI handler, and rebuilding without Chibi. Set `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every
 N native object allocations; leave it unset for ordinary execution.
 
 `benchmarks/native` builds the complete canonical Fibonacci workload in all
