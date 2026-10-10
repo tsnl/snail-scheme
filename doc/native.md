@@ -19,7 +19,7 @@ paths; `BDWGC_INCLUDE` and `BDWGC_LIB` optionally identify a separate collector
 installation. The latter adds a runtime library search path as well as a linker
 path. Translation, `-O3` optimization, and shared LLVM LTO happen automatically.
 Successful builds publish the executable atomically; failures preserve any
-existing output.
+existing output and print the directory retaining the WAT/LLVM intermediates.
 
 ## Compiler stages
 

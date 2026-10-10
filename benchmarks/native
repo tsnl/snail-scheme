@@ -20,7 +20,8 @@ CPU, ROUNDS, REPETITIONS = int(os.environ.get("BENCH_CPU", "2")), 8, "64"
 
 
 def tool(variable, default):
-    return shutil.which(os.environ.get(variable, default)) or default
+    selected = os.environ.get(variable, default)
+    return shutil.which(selected) or selected
 
 
 def build_commands():
@@ -74,21 +75,32 @@ def digest(path):
 
 
 def provenance(builds, variants):
-    sources = [ROOT / "benchmarks/cpu.scm", ROOT / "src/native.c"]
+    sources = [ROOT / name for name in ("benchmarks/cpu.scm", "benchmarks/native",
+                                       "benchmarks/native-build.scm", "src/native.c")]
     sources += list((ROOT / "src/snail-scheme").glob("*.sld"))
     artifacts = [OUT / name for name in ("cpu", "cpu.wasm", "chez.so", "guile.go")]
     return {"base_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
             "host": platform.platform(), "build_commands": builds, "commands": variants,
+            "versions": versions(),
+            "environment": {name: os.environ.get(name) for name in
+                            ("BDWGC_INCLUDE", "BDWGC_LIB", "GUILE_JIT_THRESHOLD", "GUILE_AUTO_COMPILE")},
             "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
             "artifact_sha256": {str(p.relative_to(ROOT)): digest(p) for p in artifacts}}
 
 
-def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    builds, variants = build_commands(), commands()
-    for command in builds:
-        subprocess.run(command, cwd=ROOT, check=True)
-    samples = measure(variants)
+def versions():
+    commands = {"clang": [tool("CLANG", "clang"), "--version"],
+                "binaryen": [tool("WASM_DIS", "wasm-dis"), "--version"],
+                "rust": [tool("RUSTC", "rustc"), "--version"],
+                "node": [tool("NODE", "node"), "--version"],
+                "chez": [tool("CHEZ", "scheme"), "--version"],
+                "guile": [tool("GUILE", "guile"), "--version"],
+                "chibi": [tool("CHIBI", "chibi-scheme"), "-V"]}
+    return {name: subprocess.check_output(command, stderr=subprocess.STDOUT, text=True).splitlines()[0]
+            for name, command in commands.items()}
+
+
+def write_report(builds, variants, samples):
     medians = {name: statistics.median(row["seconds"] for row in samples if row["variant"] == name)
                for name in variants}
     report = {**provenance(builds, variants), "cpu": CPU, "rounds": ROUNDS,
@@ -101,6 +113,14 @@ def main():
     (OUT / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     for name, seconds in medians.items():
         print(f"{name:8s} {seconds:.6f} s; {seconds / medians['chez']:.2f}x Chez")
+
+
+def main():
+    OUT.mkdir(parents=True, exist_ok=True)
+    builds, variants = build_commands(), commands()
+    for command in builds:
+        subprocess.run(command, cwd=ROOT, check=True)
+    write_report(builds, variants, measure(variants))
 
 
 if __name__ == "__main__":

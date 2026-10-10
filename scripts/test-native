@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -80,9 +81,12 @@ def check_semantics():
     require(scheme("tests/build-native.scm", ROOT, wasm, output))
     require(invoke([output]))
     before = output.read_bytes()
-    require(scheme("tests/build-native.scm", ROOT, wasm, output, CLANG="/missing/clang"), failure=True)
+    failed = require(scheme("tests/build-native.scm", ROOT, wasm, output, CLANG="/missing/clang"), failure=True)
     if output.read_bytes() != before:
         raise RuntimeError("failed native compilation replaced the output")
+    retained = re.findall(r"build failed; intermediates retained: (.+)", failed.stderr)
+    if len(retained) != 1 or not (Path(retained[0]) / "module.ll").is_file():
+        raise RuntimeError("failed native build did not retain its LLVM")
     print("passed native Wasm ABI, 12 traps, forced GC, and atomic publication", flush=True)
 
 
@@ -98,6 +102,8 @@ def check_resources():
     wasm = BUILD / "resources.wasm"
     require(scheme("tests/build-program.scm", ROOT,
                    ROOT / "tests/programs/backend-native-resources.scm", wasm))
+    require(invoke([os.environ.get("NODE", "node"), "--no-warnings",
+                    ROOT / "scripts/run-wasi.mjs", wasm]), "native resource checks passed\n")
     executable = custom_host(translate(wasm, "resources"), "resources", program=True)
     require(invoke([executable, "finalizers"], SNAIL_NATIVE_GC_INTERVAL="1"),
             "native resource checks passed\n")
