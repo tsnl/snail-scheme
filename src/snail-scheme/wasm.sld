@@ -8,7 +8,7 @@
 (define-library (snail-scheme wasm)
   (export write-ir-library-as-wasm)
   (import (scheme base) (scheme cxr) (scheme write) (scheme file)
-          (snail-scheme trace) (snail-scheme bootstrap)
+          (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
@@ -535,8 +535,7 @@
                        open-output-string get-output-string display write newline
                        %current-input-port %current-output-port %current-error-port
                        %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                       command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains
-                       %trace-begin %trace-end))
+                       command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains))
 
     (define (module-services module)
       (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)
@@ -588,24 +587,27 @@
       (write-wasm-expression definition port)
       (newline port))
 
-    (define-traced (write-ir-library-as-wasm root runtime-path awi-path port . options)
-      (let* ((libraries (numbered (library:library-dependency-order root)))
-             (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
-             (procedures (map (lambda (entry) (procedure-function entry module)) (module-functions module)))
-             (entries (map (lambda (entry) (library-function entry module)) libraries)))
-        (display "(module\n" port)
-        (write-definition '(import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32))) port)
-        (write-definition '(import "snail.host" "register-finalizer"
-                                   (func $host_register_finalizer (param eqref i32 i32))) port)
-        (for-each (lambda (entry) (write-definition (rust-import entry) port))
-                  (numbered (module-services module)))
-        (copy-file runtime-path port)
-        (copy-file awi-path port)
-        (for-each (lambda (definition) (write-definition definition port))
-                  (module-definitions libraries module procedures entries))
-        (if (and (pair? options) (pair? (cdr options)))
-            (write-definition (cli-entry root module (cadr options)) port))
-        (display ")\n" port)))
+    (define write-ir-library-as-wasm
+      (chromium-trace
+       "write-ir-library-as-wasm"
+       (lambda (root runtime-path awi-path port . options)
+         (let* ((libraries (numbered (library:library-dependency-order root)))
+                (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
+                (procedures (map (lambda (entry) (procedure-function entry module)) (module-functions module)))
+                (entries (map (lambda (entry) (library-function entry module)) libraries)))
+           (display "(module\n" port)
+           (write-definition '(import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32))) port)
+           (write-definition '(import "snail.host" "register-finalizer"
+                                      (func $host_register_finalizer (param eqref i32 i32))) port)
+           (for-each (lambda (entry) (write-definition (rust-import entry) port))
+                     (numbered (module-services module)))
+           (copy-file runtime-path port)
+           (copy-file awi-path port)
+           (for-each (lambda (definition) (write-definition definition port))
+                     (module-definitions libraries module procedures entries))
+           (if (and (pair? options) (pair? (cdr options)))
+               (write-definition (cli-entry root module (cadr options)) port))
+           (display ")\n" port)))))
 
     (define (module-definitions libraries module procedures entries)
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))

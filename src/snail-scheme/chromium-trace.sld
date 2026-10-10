@@ -1,7 +1,7 @@
 ;; File scopes own Chromium traces. Only completed calls emit spans; an initial
 ;; metadata event lets every span start with a comma.
 (define-library (snail-scheme chromium-trace)
-  (export trace with-trace-to)
+  (export chromium-trace with-chromium-trace-to)
   (import (scheme base) (scheme file) (scheme time) (scheme write))
   (begin
 
@@ -9,8 +9,8 @@
 
     (define trace-output-port (make-parameter #f))
 
-    (define (with-trace-to filename thunk)
-      (if (not (procedure? thunk)) (error "with-trace-to: expected a procedure" thunk))
+    (define (with-chromium-trace-to filename thunk)
+      (if (not (procedure? thunk)) (error "with-chromium-trace-to: expected a procedure" thunk))
       (let ((port (open-output-file filename)))
         (initialize-trace-file port)
         (parameterize ((trace-output-port port))
@@ -19,17 +19,17 @@
               (finish-trace-file port)
               (apply values results))))))
 
-    (define (trace name procedure)
-      (if (not (string? name)) (error "trace: expected a string name" name))
-      (if (not (procedure? procedure)) (error "trace: expected a procedure" procedure))
+    (define (chromium-trace name procedure)
+      (if (not (string? name)) (error "chromium-trace: expected a string name" name))
+      (if (not (procedure? procedure)) (error "chromium-trace: expected a procedure" procedure))
       (lambda arguments
         (let ((port (trace-output-port)))
-          (if (not port) (error "trace: no active with-trace-to scope"))
-          (call-with-trace-span name port procedure arguments))))
+          (if (not port) (error "chromium-trace: no active with-chromium-trace-to scope"))
+          (call-with-chromium-trace-span name port procedure arguments))))
 
     ;; Capture the destination at invocation and emit only after normal return.
     ;; Aborted calls produce no span; abandoning a file scope skips finalization.
-    (define (call-with-trace-span name port procedure arguments)
+    (define (call-with-chromium-trace-span name port procedure arguments)
       (let ((start (current-jiffy)))
         (call-with-values (lambda () (apply procedure arguments))
           (lambda results
@@ -103,30 +103,30 @@
 
       (define (test-trace-unbound)
         (let* ((called? #f)
-               (procedure (trace "unbound" (lambda () (set! called? #t)))))
+               (procedure (chromium-trace "unbound" (lambda () (set! called? #t)))))
           (expect (guard (failure (else 'caught)) (procedure)) 'caught)
           (expect called? #f)
-          (expect (guard (failure (else 'caught)) (trace 'name values)) 'caught)
-          (expect (guard (failure (else 'caught)) (trace "name" 1)) 'caught)))
+          (expect (guard (failure (else 'caught)) (chromium-trace 'name values)) 'caught)
+          (expect (guard (failure (else 'caught)) (chromium-trace "name" 1)) 'caught)))
 
       (define (test-trace-values directory)
         (let ((path (trace-test-path directory "values"))
-              (procedure (trace "values" values)) (port #f))
+              (procedure (chromium-trace "values" values)) (port #f))
           (expect (call-with-values
                       (lambda ()
-                        (with-trace-to
+                        (with-chromium-trace-to
                          path (lambda () (set! port (trace-output-port)) (procedure 1 2 3))))
                     list) '(1 2 3))
           (expect (trace-output-port) #f)
           (expect (output-port-open? port) #f)
           (expect (trace-names path) '("values"))
           (expect (call-with-values
-                      (lambda () (with-trace-to path procedure)) list) '())
+                      (lambda () (with-chromium-trace-to path procedure)) list) '())
           (expect (trace-names path) '("values"))))
 
       (define (test-trace-empty-file directory)
         (let ((path (trace-test-path directory "empty")))
-          (expect (call-with-values (lambda () (with-trace-to path values)) list) '())
+          (expect (call-with-values (lambda () (with-chromium-trace-to path values)) list) '())
           (expect (length (trace-events path)) 1)
           (expect (event-field (car (trace-events path)) 'ph) "M")
           (expect (trace-names path) '())))
@@ -153,15 +153,15 @@
 
       (define (test-trace-errors directory)
         (let ((path (trace-test-path directory "error")) (port #f))
-          (with-trace-to
+          (with-chromium-trace-to
            path (lambda ()
                   (set! port (trace-output-port))
                   (expect (guard (failure (else 'caught))
-                            ((trace "failure"
-                                    (lambda ()
-                                      ((trace "completed" values))
-                                      (error "expected failure"))))) 'caught)
-                  ((trace "after" values))))
+                            ((chromium-trace "failure"
+                                             (lambda ()
+                                               ((chromium-trace "completed" values))
+                                               (error "expected failure"))))) 'caught)
+                  ((chromium-trace "after" values))))
           (expect (trace-names path) '("completed" "after"))
           (expect (trace-output-port) #f)
           (expect (output-port-open? port) #f)))
@@ -169,8 +169,8 @@
       (define (test-trace-open-failure directory)
         (let ((called? #f))
           (expect (guard (failure (else 'caught))
-                    (with-trace-to
-                     (string-append directory "/absent/trace.json")
+                    (with-chromium-trace-to
+                     (string-append directory "/absent/chromium-trace.json")
                      (lambda () (set! called? #t)))) 'caught)
           (expect called? #f)
           (expect (trace-output-port) #f)))
@@ -178,29 +178,29 @@
       (define (test-trace-nesting directory)
         (let ((outer (trace-test-path directory "outer"))
               (inner (trace-test-path directory "inner")))
-          (with-trace-to
+          (with-chromium-trace-to
            outer
-           (trace "outer"
-                  (lambda ()
-                    ((trace "before" values))
-                    (with-trace-to inner (trace "inner" values))
-                    ((trace "after" values)))))
+           (chromium-trace "outer"
+                           (lambda ()
+                             ((chromium-trace "before" values))
+                             (with-chromium-trace-to inner (chromium-trace "inner" values))
+                             ((chromium-trace "after" values)))))
           (expect (trace-names outer) '("before" "after" "outer"))
           (expect (trace-names inner) '("inner"))))
 
       (define (test-trace-escape directory)
         (let ((path (trace-test-path directory "escape")) (port #f))
-          (with-trace-to
+          (with-chromium-trace-to
            path
            (lambda ()
              (set! port (trace-output-port))
              (expect (call/cc
                       (lambda (escape)
-                        ((trace "escape"
-                                (lambda ()
-                                  ((trace "completed" values))
-                                  (escape 'escaped)))))) 'escaped)
-             ((trace "after" values))))
+                        ((chromium-trace "escape"
+                                         (lambda ()
+                                           ((chromium-trace "completed" values))
+                                           (escape 'escaped)))))) 'escaped)
+             ((chromium-trace "after" values))))
           (expect (trace-names path) '("completed" "after"))
           (expect (trace-output-port) #f)
           (expect (output-port-open? port) #f)))

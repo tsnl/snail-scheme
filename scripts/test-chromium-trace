@@ -59,7 +59,7 @@ def check_execution(command):
     assert not result.stderr, result.stderr
     failure = subprocess.run([*command, "unbound"], cwd=ROOT, text=True, capture_output=True)
     assert failure.returncode != 0 and not failure.stdout
-    assert "trace: no active with-trace-to scope" in failure.stderr, failure.stderr
+    assert "chromium-trace: no active with-chromium-trace-to scope" in failure.stderr, failure.stderr
 
 
 # ---- Host and compiled execution ----

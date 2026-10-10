@@ -41,8 +41,15 @@ def require(result, stdout=None, failure=False):
 
 def script(directory, body, **environment):
     path = directory / "build.scm"
+    with tempfile.NamedTemporaryFile(prefix="build-", suffix=".trace.json",
+                                     dir=directory, delete=False) as trace:
+        trace_file = trace.name
     path.write_text('(import (scheme base) (scheme file) (scheme write) (scheme process-context)\n'
-                    '        (snail-scheme compiler) (snail-scheme build))\n' + body + '\n')
+                    '        (snail-scheme compiler) (snail-scheme build)\n'
+                    '        (snail-scheme chromium-trace))\n'
+                    f'(define result (with-chromium-trace-to {quote(trace_file)}\n'
+                    f'  (lambda ()\n{body})))\n'
+                    '(if (integer? result) (exit result))\n')
     return invoke([CHIBI, "-I", ROOT / "src", path], directory, **environment)
 
 
@@ -52,15 +59,21 @@ def compile_source(source, output):
 
 def run_module(output):
     arguments = " ".join(map(quote, ARGUMENTS))
-    return f'(exit (run-wasm {quote(ROOT)} {quote(output)} (list {arguments})))'
+    return f'(run-wasm {quote(ROOT)} {quote(output)} (list {arguments}))'
 
 
 # ---- Library use and artifact ownership ----
 
 
 def check_import(directory):
-    require(script(directory, '(display "imported\\n")', CARGO="/nonexistent/cargo"), "imported\n")
-    if (directory / "build/traces").exists():
+    command = [CHIBI, "-I", ROOT / "src", "-e",
+               '(import (scheme base) (scheme write) (snail-scheme build))',
+               "-e", '(display "imported\\n")']
+    require(invoke(command, directory, CARGO="/nonexistent/cargo"), "imported\n")
+    command[-1] = compile_source(directory / "absent.scm", directory / "unbound.wasm")
+    failure = require(invoke(command, directory), "", failure=True)
+    assert "chromium-trace: no active with-chromium-trace-to scope" in failure.stderr
+    if list(directory.glob("*.trace.json")) or (directory / "build").exists():
         raise RuntimeError("importing build library performed traced work")
 
 
@@ -80,8 +93,8 @@ def check_build_and_run(directory, source):
 
 def check_explicit_stages(directory, source):
     wat, wasm = directory / "explicit.wat", directory / "explicit.wasm"
-    body = (f'(source-file->wat-file {quote(ROOT)} {quote(source)} {quote(wat)})\n'
-            f'(define runtime (build-runtime {quote(ROOT)}))\n'
+    body = (f'(define runtime (build-runtime {quote(ROOT)}))\n'
+            f'(source-file->wat-file {quote(ROOT)} {quote(source)} {quote(wat)})\n'
             f'(link-wasm {quote(wat)} runtime {quote(wasm)})\n' + run_module(wasm))
     require(script(directory, body), EXPECTED)
 
@@ -125,9 +138,29 @@ def check_failures(directory, source):
 def check_exit(directory):
     source, wasm = directory / "exit.scm", directory / "exit.wasm"
     source.write_text('(import (scheme process-context)) (exit 7)\n')
+    before = set(directory.glob("*.trace.json"))
     result = script(directory, compile_source(source, wasm) + '\n' + run_module(wasm))
     if result.returncode != 7:
         raise RuntimeError(f"exit status lost: {result}")
+    trace_file, = set(directory.glob("*.trace.json")) - before
+    assert "build.run" in [event['name'] for event in json.loads(trace_file.read_text())[1:]]
+
+
+def check_trace_ownership(directory, source):
+    output = directory / "trace-ownership.wasm"
+    trace_file = Path(str(output) + ".trace.json")
+    command = [CHIBI, "-I", ROOT / "src", ROOT / "tests/build-program.scm",
+               ROOT, source, output]
+    before = source.read_bytes()
+    trace_file.symlink_to(source)
+    result = require(invoke(command, directory), failure=True)
+    assert "trace file must not replace build input or output" in result.stderr
+    assert source.read_bytes() == before and not output.exists()
+    trace_file.unlink()
+    trace_file.mkdir()
+    require(invoke(command, directory), failure=True)
+    assert source.read_bytes() == before and not output.exists()
+    trace_file.rmdir()
 
 
 def check_generated_input(directory):
@@ -200,9 +233,14 @@ def check_interop(directory):
 
 def check_traces(directory):
     names = set()
-    for path in (directory / 'build/traces').glob('*.json'):
-        events = json.loads(path.read_text())
-        names.update(event['name'] for event in events if event['ph'] == 'B')
+    for path in directory.glob('*.trace.json'):
+        text = path.read_text()
+        if not text.rstrip().endswith(']'):
+            continue  # Failed workflows bypass ordinary-return finalization.
+        events = json.loads(text)
+        assert events[0]['ph'] == 'M'
+        assert all(event['ph'] == 'X' and event['dur'] >= 0 for event in events[1:])
+        names.update(event['name'] for event in events[1:])
     expected = {'build-wasm', 'build-runtime', 'build.cargo', 'build.link', 'build.run',
                 'source-file->wat-file', 'syntax-list->ir-library'}
     if not expected <= names:
@@ -224,6 +262,7 @@ def main():
         check_failures(directory, source)
         check_generated_input(directory)
         check_exit(directory)
+        check_trace_ownership(directory, source)
         check_interop(directory)
         check_project_libraries(directory)
         check_traces(directory)
