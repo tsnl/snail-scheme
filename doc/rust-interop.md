@@ -31,7 +31,7 @@ a `RefCell` borrow or a lock that the callback could reacquire. Existing roots
 remain in the GC table across callbacks. Scheme `apply` and `call-with-values`
 remain in Wasm so tail calls do not retain Rust frames.
 
-The [example](../examples/extension/README.md) lives in `src/interop_example.rs`
+The [example](../examples/rust-interop/README.md) lives in `src/interop_example.rs`
 and is built into the standard runtime. Its Scheme build script supplies an
 alist mapping callable Scheme names to the `"snail.rust"` Wasm import module.
 Those names are exposed through `(snail-scheme extensions)`. This naming scope

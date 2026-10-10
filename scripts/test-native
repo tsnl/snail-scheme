@@ -87,8 +87,8 @@ def check_semantics():
 
 
 def check_rust_callbacks():
-    require(scheme("examples/extension/build.scm"), EXPECTED)
-    llvm = translate(ROOT / "build/extension.wasm", "extension")
+    require(scheme("examples/rust-interop/build.scm"), EXPECTED)
+    llvm = translate(ROOT / "build/rust-interop.wasm", "extension")
     executable = custom_host(llvm, "extension", program=True)
     require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"), EXPECTED)
     print("passed native linked Rust roots and reentrant Scheme callbacks", flush=True)
