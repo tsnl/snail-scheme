@@ -25,6 +25,8 @@ REVISION = "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1"
 SUITE = ROOT / "benchmarks/r7rs-benchmarks"
 UPSTREAM = "https://github.com/ecraven/r7rs-benchmarks"
 SYSTEMS = ("snail-native", "chez", "guile", "chibi")
+# The pinned ray input renders 100 × 100 pixels. Chez, Guile, and Chibi agree.
+RAY_PIXELS_SHA256 = "2504547e212cb609b776f06ac18c74915dac54a988e42f9584d0509c03f044eb"
 
 
 # ---- Pinned sources and benchmark selection ----
@@ -246,13 +248,28 @@ def parse_result(output, system, benchmark):
 
 def sample_case(case, timeout):
     data = (Path(case["directory"]) / "input.txt").read_bytes()
+    if case["benchmark"] == "ray":
+        (Path(case["directory"]) / "outputs/ray.output").unlink(missing_ok=True)
     result = execute(case["command"], case["directory"], timeout, data)
     if result["status"] == "ok":
         try:
             result.update(parse_result(result["stdout"], case["system"], case["benchmark"]))
-        except ValueError as error:
+            if result["status"] == "ok" and case["benchmark"] == "ray":
+                result["pixels_sha256"] = check_ray_image(Path(case["directory"]))
+        except (ValueError, OSError) as error:
             result.update(status="invalid-output", diagnostic=str(error))
     return result
+
+
+def check_ray_image(directory):
+    # Upstream checks only the return symbol 'ok'; verify the actual rendered pixels.
+    words = (directory / "outputs/ray.output").read_text().split()
+    if words[:4] != ["P2", "100", "100", "255"] or len(words) != 10_004:
+        raise ValueError("ray output must be a complete 100 × 100 grayscale PGM")
+    checksum = digest(bytes(map(int, words[4:])))
+    if checksum != RAY_PIXELS_SHA256:
+        raise ValueError("ray pixels differ from the checked Chez/Guile/Chibi reference")
+    return checksum
 
 
 def measure_case(case, round_number, timeout):
@@ -406,7 +423,7 @@ def plot(report, output):
         duration_chart(
             series,
             output / "plots" / name,
-            title=f"R7RS · {name}",
+            title="Ray tracing · 33 spheres" if name == "ray" else f"R7RS · {name}",
             subtitle=mode + " · slowest to fastest",
             notes=[
                 runs + " · build/startup excluded",
@@ -572,6 +589,16 @@ def main():
 
 
 class ResultsTests(unittest.TestCase):
+    def test_ray_image_requires_reference_pixels(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "outputs").mkdir()
+            image = root / "outputs/ray.output"
+            for content in ["P2 100 100 255 0", "P2 100 100 255 " + "0 " * 10_000]:
+                image.write_text(content)
+                with self.subTest(content_length=len(content)), self.assertRaises(ValueError):
+                    check_ray_image(root)
+
     def test_checked_records(self):
         self.assertEqual(
             parse_result("+!CSVLINE!+chez,fib:40:5,0.1\n", "chez", "fib")["seconds"], 0.1

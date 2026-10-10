@@ -112,6 +112,33 @@ Suite reports stay under `build/`; only the published Fibonacci comparison is
 checked in. The full-program native suite is ready to run once its translator
 command is available.
 
+### Next showcase: ray tracing
+
+The upstream [`ray` workload](benchmarks/r7rs-benchmarks/src/ray.scm) renders
+33 spheres into a 100 × 100 grayscale image. It exercises floating-point math,
+vectors, allocation, scene traversal, and image-file output. Original inputs
+render the scene 50 times per sample; image writing is part of the timed work.
+
+```sh
+python3 benchmarks/r7rs.py --benchmarks ray --cpu 2
+```
+
+The runner checks every rendered pixel against the identical output produced
+by Chez, Guile, and Chibi; upstream's return-value check alone only verifies
+the symbol `ok`. Results include a pixel checksum, the timing chart appears at
+`build/r7rs-report/plots/ray.svg`, and each implementation's PGM image is under
+`build/r7rs-report/cases/ray/<system>/outputs/ray.output`.
+
+This is the next proposed README comparison, pending Snail execution. The
+current Snail build fails on the missing `(scheme inexact)` library before
+native translation; no Snail ray-tracing timing is published. To exercise the
+reference engines and image checks now:
+
+```sh
+python3 benchmarks/r7rs.py --systems chez guile chibi --benchmarks ray \
+  --count 1 --rounds 1
+```
+
 ## Language scope
 
 Snail is not fully R7RS compliant. Reusable, multi-shot continuations are outside
