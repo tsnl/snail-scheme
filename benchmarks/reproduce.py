@@ -291,69 +291,52 @@ def summary(report, values, out):
 
 
 def plot(report, values, out):
-    import matplotlib
+    if __package__:
+        from .plots import GRAY, ORANGE, duration_chart
+    else:
+        from plots import GRAY, ORANGE, duration_chart
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    plt.rcParams.update(
-        {
-            "font.family": "DejaVu Sans",
-            "font.size": 10,
-            "svg.hashsalt": "snail",
-            "svg.fonttype": "none",
+    labels = {
+        "llvm-tuned": "Snail native\ntuned",
+        "llvm-baseline": "Snail native\nbaseline",
+        "chez": "Chez Scheme\nsafe O2",
+        "guile": "Guile\nbytecode O2",
+        "guile-warm": "Guile\nsecond interval",
+        "chibi": "Chibi Scheme",
+    }
+    series = {
+        name: {
+            "label": labels[name],
+            "seconds": samples,
+            "color": ORANGE
+            if name == "llvm-tuned"
+            else "#f4b17d"
+            if name == "llvm-baseline"
+            else GRAY,
         }
+        for name, samples in values.items()
+    }
+    notes = [
+        f"Median of {report['rounds']} runs × {report['repetitions']} repetitions · whiskers: observed min–max · build/startup excluded",
+        "Snail: extracted native function + C harness. Other systems: complete Scheme program.",
+    ]
+    duration_chart(
+        list(series.values()),
+        out / "comparison",
+        title="Recursive Fibonacci",
+        subtitle="All implementations and controls · slowest to fastest",
+        notes=notes,
     )
-    fig, axes = plt.subplots(
-        1, 2, figsize=(12, 4.8), layout="constrained", gridspec_kw={"width_ratios": [1, 1]}
+    snail = statistics.median(values["llvm-tuned"])
+    speedups = {name: statistics.median(values[name]) / snail for name in ["chez", "guile"]}
+    series["llvm-tuned"]["label"] = "Snail Scheme\nnative · tuned"
+    duration_chart(
+        [series[name] for name in ["guile", "chez", "llvm-tuned"]],
+        out / "readme",
+        title="Recursive Fibonacci",
+        subtitle=f"Snail: {speedups['chez']:.2f}× faster than Chez · {speedups['guile']:.2f}× faster than Guile",
+        notes=notes,
     )
-    for axis, names, title in [
-        (axes[0], list(values), "All implementations"),
-        (axes[1], list(values)[:-1], "Detail · excluding Chibi"),
-    ]:
-        plot_panel(axis, names, values, title)
-    fig.suptitle("Recursive Fibonacci · execution time", fontsize=17, fontweight="bold")
-    fig.supxlabel(
-        f"{report['rounds']} rounds × {report['repetitions']} repetitions · "
-        "dots: samples · line: median · lower is better\n"
-        "Native translator · extracted function with C harness · build and startup excluded",
-        fontsize=10,
-    )
-    for extension in ["svg", "png"]:
-        fig.savefig(
-            out / f"comparison.{extension}",
-            dpi=180,
-            metadata={"Date": None} if extension == "svg" else {},
-        )
-    plt.close(fig)
-
-
-def plot_panel(axis, names, values, title):
-    for y, name in enumerate(names):
-        samples = [s * 1000 for s in values[name]]
-        color = "#087f8c" if name.startswith("llvm") else "#596579"
-        jitter = [(i - (len(samples) - 1) / 2) * 0.045 for i in range(len(samples))]
-        axis.scatter(samples, [y + j for j in jitter], color=color, s=22, alpha=0.7)
-        median = statistics.median(samples)
-        axis.vlines(median, y - 0.22, y + 0.22, color=color, linewidth=3)
-        axis.annotate(
-            f" {median:.2f}",
-            (max(samples), y),
-            xytext=(6, 0),
-            textcoords="offset points",
-            va="center",
-            fontsize=9,
-        )
-    axis.set(
-        yticks=range(len(names)),
-        yticklabels=[LABELS[n] for n in names],
-        xlabel="Milliseconds",
-        title=title,
-        xlim=(0, max(max(values[n]) for n in names) * 1250),
-    )
-    axis.invert_yaxis()
-    axis.grid(axis="x", alpha=0.2)
-    axis.spines[["top", "right", "left"]].set_visible(False)
 
 
 def render(report, out):
