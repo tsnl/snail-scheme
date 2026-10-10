@@ -34,6 +34,12 @@ the Rust runtime and extension crates into a Wasm module; Binaryen links and
 optimizes the modules. Scheme objects live in the engine's GC heap. Rust owns
 its ordinary linear-memory allocations.
 
+The Rust standard runtime builds once into
+`build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`. Later invocations
+ask Cargo to check freshness and reuse that module: changing Scheme source
+does not recompile or relink Rust. Changes to Rust sources or build settings
+rebuild it automatically. Wasm linking and optimization still run per program.
+
 Use `--emit-wat` to inspect the Scheme module before linking, `--extension PATH`
 to link a Rust library, and `--` before program arguments. See the
 [Rust extension example](examples/extension/README.md) and

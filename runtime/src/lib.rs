@@ -16,6 +16,20 @@ use snail_abi::export;
 use snail_awi::{Arguments, Kind, Root};
 use std::{cell::RefCell, time::Instant};
 
+// ---- Module initialization ----
+
+// Export a reactor initializer so wasm-ld does not wrap each exported function
+// in constructor/destructor calls. The linked Wasm entry calls it once, before
+// Scheme or Rust runs; extension bundles reexport this same initializer.
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn _initialize() {
+    unsafe extern "C" {
+        fn __wasm_call_ctors();
+    }
+    unsafe { __wasm_call_ctors() };
+}
+
 // ---- Foreign call boundaries ----
 
 fn arguments(raw: u32, name: &str, min: usize, max: usize) -> Arguments {
