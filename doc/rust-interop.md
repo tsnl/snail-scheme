@@ -241,3 +241,54 @@ have different host capabilities.
    with outer locals alive, temporary-root release, reentrancy policy, and injected
    allocation failures where recovery is promised. Keep actual OOM/abort tests in
    subprocesses. Decide separately whether cross-program Scheme calls are needed.
+
+## Proposed allocation capability
+
+Replace automatic instruction-entry polling with an owned allocation capability
+acquired at the Scheme-to-Rust call boundary, before entering a callable that
+may allocate. This is a proposed replacement for the current runtime policy,
+not an implemented API. Nonallocating operations
+need neither this capability nor a collection check.
+
+The VM must keep the procedure and its arguments reachable from explicit roots
+while acquiring the capability. Acquisition may collect. The allocating Rust
+operation consumes the capability, uses it for all of its constructors, and
+returns its results. The dispatcher publishes those results into roots before
+another capability can be acquired. Internal construction helpers may borrow
+that same capability; they must not acquire another one.
+
+This makes composite construction straightforward: a rest-argument list,
+command-line strings and their containing list, or a record and its supporting
+objects can be built without registering every intermediate Rust local as a
+root. The capability must not expose unrestricted VM access, collection, or
+callbacks. Merely owning a token does not prove the arguments were rooted or
+the results published; the dispatch boundary must enforce those invariants.
+
+Every individual allocation could be a safepoint only if all live Scheme values
+in Rust locals were registered as roots, or conservatively retained by another
+mechanism. That is deliberately outside this initial interface. Allocations
+through an acquired capability never collect, even when they cross the soft
+collection threshold. The heap may grow until the operation finishes. A hard
+quota must produce a defined failure; it cannot secretly retry after collection.
+Objects are managed from construction onward and unreachable temporary objects
+are reclaimed at a later collection, not leaked or transferred between heaps.
+
+Do not defer acquisition until the first allocation after arbitrary mutation.
+For example, a native operation can read a child, remove it from its rooted
+parent, and keep it only in a Rust local. Collecting at its next allocation would
+lose that child. Acquire the capability outside the Rust callable, before its
+body begins. Nested Rust helpers share that capability; they do not introduce
+new safepoints. A callable that sometimes boxes a numeric result is allocating
+under this contract, even on invocations that happen to return an immediate.
+
+The allocation audit must include closure creation, captured-local promotion,
+rest arguments, constant initialization, symbol interning, and boxed numeric
+results as well as user-visible constructors. `apply` and `call-with-values`
+transitions must publish the next procedure and arguments before acquisition.
+Stress tests should collect at every acquisition and verify that no collection
+occurs during a multi-object construction. Nonallocating execution must not poll.
+
+Object tracing is separate: `gc_mark` follows an object's Scheme-valued fields
+from the collector's worklist. It is not reference counting and is not a call
+that native procedures make to retain their intermediate local values. Custom
+extension payloads still need to describe any Scheme references they contain.
