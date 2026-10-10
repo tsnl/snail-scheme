@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""Compile an actor and exercise real linked Wasm in isolated Node workers."""
+
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+ARTIFACT = ROOT / "build/actor-tests/actor.wasm"
+
+
+def main():
+    subprocess.run([ROOT / "snail-scheme", "--actor", ROOT / "tests/programs/actor.sld",
+                    "-o", ARTIFACT], cwd=ROOT, check=True, timeout=240)
+    result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
+                             ROOT / "tests/check-actors.mjs", ARTIFACT],
+                            cwd=ROOT, capture_output=True, text=True, timeout=120)
+    if result.returncode:
+        raise RuntimeError(result.stdout + result.stderr)
+    print(result.stdout, end="")
+
+
+if __name__ == "__main__":
+    main()

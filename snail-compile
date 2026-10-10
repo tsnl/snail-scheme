@@ -2,5 +2,10 @@
 set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+actor_option=()
+if [[ ${1:-} == --actor ]]; then
+    actor_option=(--actor)
+    shift
+fi
 exec "${CHIBI:-chibi-scheme}" -I "$project_dir/src" \
-    "$project_dir/src/snail-scheme/compile.scm" "$project_dir" "$@"
+    "$project_dir/src/snail-scheme/compile.scm" "${actor_option[@]}" "$project_dir" "$@"

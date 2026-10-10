@@ -30,6 +30,13 @@ WasmGC, typed function references, tail calls, mutable globals, sign extension,
 and bulk memory are enabled explicitly. Do not enable every experimental
 Binaryen feature: it can produce modules unsupported by the selected engine.
 
+`--actor INPUT.sld -o OUTPUT.wasm` builds a library for the experimental Node
+worker host. It requires a single `define-library`. The compiler resolves its
+exports alongside the S-expression codec and emits same-instance AWI wrappers.
+The linked artifact has `actor_initialize` instead of a command `_start`.
+Initialization runs once; the host subsequently invokes exported handlers.
+See the [actor example](../examples/actors/README.md) and `scripts/test-actors`.
+
 ## Source to WebAssembly
 
 | Module | Responsibility |
@@ -43,6 +50,9 @@ Binaryen feature: it can produce modules unsupported by the selected engine.
 | `awi/src/lib.rs` | Rust ownership and checked conversions over AWI |
 | `runtime/src/lib.rs` | Rust ports, formatting, text search, clocks, process services |
 | `driver/src/main.rs` | Hosted compilation, Cargo, linking, execution/publication |
+| `actor-wire.sld` | Data-only S-expression calls and readable portable results |
+| `runtime/actor-instance.mjs` | WASI initialization and same-instance AWI ownership |
+| `runtime/actors.mjs`, `runtime/actor-worker.mjs` | Worker lifetimes and connection-owned promises |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
 and assignments. A library owns its body and dependencies. Expansion retains

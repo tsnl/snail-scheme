@@ -5,6 +5,14 @@
 
 A small, portable, easy to understand Scheme implementation.
 
+The planned platform direction is described in
+[Why Snail-Scheme?](doc/why-snail-scheme.md): actors, connections, and artifacts
+for games, distributed applications, and GPU computation. Its
+[three tutorial projects](doc/tutorials/README.md) specify future integration
+tests; their full APIs remain planned. The first runnable
+[library actor prototype](examples/actors/README.md) provides isolated WasmGC
+workers, exported Scheme handlers, and S-expression connections.
+
 ```bash
 nix-shell
 ./snail-scheme examples/fibonacci.scm

@@ -490,6 +490,24 @@
                     (reverse (cdr (reverse libraries))))
              (call ,(identifier "library" (cdr (car (reverse libraries)))))))
 
+    ;; A host borrows an argument-vector root and owns the returned result root.
+    ;; These handles are only for same-instance embedding, never actor messages.
+    (define (library-export binding module)
+      `(func (export ,(string-append "scheme:" (symbol->string (library:named-binding-name binding))))
+             (param $arguments i32) (result i32)
+             (call $awi_root
+                   (call $apply
+                         ,(read-binding (library:named-binding-definition binding)
+                                        (make-function module '() '()))
+                         (ref.cast (ref $vector) (call $awi_get (local.get $arguments)))))))
+
+    (define (library-exports root module)
+      (let loop ((bindings (library:library-exports root)))
+        (cond ((null? bindings) '())
+              ((ir:value-definition? (library:named-binding-definition (car bindings)))
+               (cons (library-export (car bindings) module) (loop (cdr bindings))))
+              (else (loop (cdr bindings))))))
+
     (define (primitive-slot definition library module)
       (let* ((foreign? (equal? (library:library-name library) '(snail-scheme extensions)))
              (names (if foreign? (map car (module-foreign module)) bootstrap-primitive-names))
@@ -594,7 +612,8 @@
               (map rust-wrapper (numbered (module-services module)))
               (map primitive-function (numbered (module-primitive-names module)))
               (map procedure-adapter (module-functions module)) procedures entries
-              (list (module-entry libraries module))))
+              (list (module-entry libraries module))
+              (library-exports (car (car (reverse libraries))) module)))
     )
 
   ;; ---- Tests ----

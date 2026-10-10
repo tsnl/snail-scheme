@@ -18,6 +18,7 @@ const HELP: &str = "Usage: snail-scheme INPUT.scm [OPTIONS] [-- ARG ...]
 Run a Scheme program in WebAssembly, or build a module with -o.
   -o, --output PATH        Build without running (a directory is also accepted)
   --emit-wat              Emit Scheme WAT before linking (stdout, or -o PATH)
+  --actor                 Build a library for worker hosting (requires -o)
   --native                Compile Wasm using SNAIL_WASM_NATIVE (INPUT -o OUTPUT)
   --extension PATH        Link a Rust crate with [package.metadata.snail] exports
   --release               Accepted for compatibility; builds are always optimized
@@ -52,6 +53,16 @@ const START: &str = r#"(module
   (func (export "_start") (call $initialize) (drop (call $main))))
 "#;
 
+const ACTOR_START: &str = r#"(module
+  (import "snail.awi" "snail_main" (func $main (result eqref)))
+  (import "snail.rust" "_initialize" (func $initialize))
+  (global $started (mut i32) (i32.const 0))
+  (func (export "actor_initialize")
+    (if (global.get $started) (then unreachable))
+    (global.set $started (i32.const 1))
+    (call $initialize) (drop (call $main))))
+"#;
+
 // ---- Arguments and execution modes ----
 
 #[derive(Default, Debug)]
@@ -60,6 +71,7 @@ struct Options {
     output: Option<PathBuf>,
     extensions: Vec<PathBuf>,
     emit: bool,
+    actor: bool,
     native: bool,
     keep: bool,
     help: bool,
@@ -97,6 +109,7 @@ fn parse_argument(
             options.output = Some(option_value(rest, "-o")?.into())
         }
         Some("--emit-wat") => options.emit = true,
+        Some("--actor") => options.actor = true,
         Some("--native") => options.native = true,
         Some("--extension") => options
             .extensions
@@ -129,6 +142,9 @@ fn validate_options(options: &Options) -> Result<()> {
     }
     if options.input.as_os_str().is_empty() {
         return Err("expected an input file".into());
+    }
+    if options.actor && (options.output.is_none() || options.native) {
+        return Err("--actor requires -o and supports Wasm hosting only".into());
     }
     if options.emit && options.native {
         return Err("--emit-wat and --native select different outputs".into());
@@ -259,12 +275,16 @@ fn source_file_to_wasm(
     project: &Project,
     input: &Path,
     extensions: &[Extension],
+    actor: bool,
 ) -> Result<()> {
     let mut command = Command::new(root.join("snail-compile"));
     command.env(
         "SNAIL_TRACE_DIR",
         snail_trace::directory().map_err(message)?,
     );
+    if actor {
+        command.arg("--actor");
+    }
     command.arg(input).arg(project.path("program.wat"));
     for extension in extensions {
         for name in &extension.exports {
@@ -412,8 +432,12 @@ fn build_runtime(root: &Path, project: &Project, extensions: &[Extension]) -> Re
     Ok(output)
 }
 
-fn merge_modules(project: &Project, runtime: &Path) -> Result<()> {
-    fs::write(project.path("start.wat"), START).map_err(message)?;
+fn merge_modules(project: &Project, runtime: &Path, actor: bool) -> Result<()> {
+    fs::write(
+        project.path("start.wat"),
+        if actor { ACTOR_START } else { START },
+    )
+    .map_err(message)?;
     assemble(&project.path("start.wat"), &project.path("start.wasm"))?;
     let mut command = tool("WASM_MERGE", "wasm-merge");
     command
@@ -450,10 +474,15 @@ fn optimize_module(project: &Project) -> Result<PathBuf> {
     Ok(output)
 }
 
-fn build_wasm(root: &Path, project: &Project, extensions: &[Extension]) -> Result<PathBuf> {
+fn build_wasm(
+    root: &Path,
+    project: &Project,
+    extensions: &[Extension],
+    actor: bool,
+) -> Result<PathBuf> {
     assemble(&project.path("program.wat"), &project.path("scheme.wasm"))?;
     let runtime = build_runtime(root, project, extensions)?;
-    merge_modules(project, &runtime)?;
+    merge_modules(project, &runtime, actor)?;
     optimize_module(project)
 }
 
@@ -502,11 +531,11 @@ fn execute(options: Options) -> Result<i32> {
         .iter()
         .map(|path| extension_metadata(path))
         .collect::<Result<Vec<_>>>()?;
-    source_file_to_wasm(root, &project, &input, &extensions)?;
+    source_file_to_wasm(root, &project, &input, &extensions, options.actor)?;
     if options.emit {
         return publish_wat(&project, output.as_deref());
     }
-    let wasm = build_wasm(root, &project, &extensions)?;
+    let wasm = build_wasm(root, &project, &extensions, options.actor)?;
     let artifact = if options.native {
         compile_native(&project, &wasm)?
     } else {
@@ -586,5 +615,14 @@ mod tests {
         assert!(arguments(&["source.scm", "--target", "unknown"]).is_err());
         assert!(arguments(&["--help"]).unwrap().help);
         assert!(arguments(&[]).is_err());
+    }
+
+    #[test]
+    fn actor_artifacts_require_wasm_output() {
+        assert!(arguments(&["actor.sld", "--actor"]).is_err());
+        assert!(arguments(&["actor.sld", "--actor", "-o", "out", "--native"]).is_err());
+        let options = arguments(&["actor.sld", "--actor", "-o", "actor.wasm"]).unwrap();
+        assert!(options.actor);
+        assert!(!options.native);
     }
 }

@@ -42,6 +42,14 @@ Runtime and extension dependencies become one Rust cdylib, sharing a single
 linear memory. Cargo builds it for `wasm32-wasip1`; Binaryen links it with the
 Scheme Wasm module and a command entry point.
 
+The [actor prototype](../examples/actors/README.md) uses `--actor` to select a
+library entry instead. `scheme:method:<export-name>` wrappers accept a borrowed
+argument-vector root and return an owned result root in that same instance.
+`scheme:wire:decode-call` and `scheme:wire:encode-result` expose its Scheme codec.
+The host initializes WASI and calls `actor_initialize` once before dispatch;
+initialization a second time traps. These embedding exports are trusted, local
+AWI operations. Connections transport S-expression text and never send handles.
+
 ## Root contract
 
 `runtime/awi.wat` owns a table of GC references and a free list of reusable slots.

@@ -36,6 +36,26 @@ The older parser inspection entry [`main.scm`](src/snail-scheme/main.scm) define
 `main` without invoking it. Chibi's `-r` invokes that procedure. Compiling a
 file containing only definitions correctly produces no printed output.
 
+## Functional tree composition and UI experiment
+
+[`react.sld`](src/snail-scheme/react.sld) is an independent Chibi-hosted prototype.
+`element` records a type, arbitrary data, and unexpanded children; `resolve`
+expands procedure-valued types and explicit fragments into a forest of element
+records and opaque leaves. HTML conventions do not participate in this core.
+
+[`ui.sld`](src/snail-scheme/ui.sld) stores model/update/view application values.
+`dispatch` produces a new application through its reducer. [`html.sld`](src/snail-scheme/html.sld)
+interprets trees as HTML and builds a matching action table. [`ui-server.sld`](src/snail-scheme/ui-server.sld)
+owns the current application in a local Chibi server, preparing a complete page
+before publishing a transition. These modules are separate from the compiler.
+
+[`examples/react.scm`](examples/react.scm) prints generic document and GUI trees.
+[`examples/ui.scm`](examples/ui.scm) renders one view as a static workbook or an
+interactive HTML page. [Tree semantics](doc/react.md) and the [UI guide](doc/ui.md)
+separate implemented behavior from the proposed browser/WASM host. Their Scheme
+tests join the existing Chibi suite; [`scripts/test-ui`](scripts/test-ui) exercises
+the real HTTP host, including stale actions and failed transitions.
+
 ## Reading source
 
 [`source.sld`](src/snail-scheme/source.sld) defines `loc`: filename, one-based
@@ -250,3 +270,28 @@ reports describe their original backend. The GC workload's forced-collection
 counters need engine instrumentation on WasmGC, which does not expose them.
 Record execution time separately from compilation and startup, verify answers,
 and retain raw samples and Chez/Chibi ratios when comparing backends.
+
+## The actor platform
+
+[`compiler.sld`](src/snail-scheme/compiler.sld) builds an actor facade from the
+entry library's resolved exports and the codec. This preserves renamed binding
+identity and dependency initialization. [`wasm.sld`](src/snail-scheme/wasm.sld)
+emits scalar AWI wrappers; the driver's `--actor` entry initializes the library
+once without invoking a Scheme main loop.
+
+[`actor-wire.sld`](src/snail-scheme/actor-wire.sld) reads calls with the existing
+reader and validates a limited portable datum subset. It never evaluates input.
+[`actor-instance.mjs`](runtime/actor-instance.mjs) owns WASI initialization and
+the AWI roots used during invocation. [`actor-worker.mjs`](runtime/actor-worker.mjs)
+keeps that instance in one subprocess. [`actors.mjs`](runtime/actors.mjs)
+separates worker lifetime from connection-owned pending calls. A fatal call
+discards its worker; siblings remain usable. `scripts/test-actors` executes the
+compiled artifact and checks isolation, root lifetimes, and shutdown behavior.
+The [counter example](examples/actors/README.md) is runnable now; browser hosting,
+typed record codecs, Scheme suspension, and GC policy controls remain future work.
+
+[Why Snail-Scheme?](doc/why-snail-scheme.md) defines the actor, connection, and
+artifact model. The [three tutorial projects](doc/tutorials/README.md) specify
+game frame isolates, distributed chat, and GPU tensor training as integration
+goals. [Reader generation](doc/generate-library.md) and
+[staged programs](doc/staged-programs.md) remain planned features.
