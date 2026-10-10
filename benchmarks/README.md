@@ -10,6 +10,11 @@ The final implementation takes 0.6874× Chibi's time and 10.58× Chez's time.
 The report retains scratch ablations, artifact/source hashes, samples, and validation
 scope; [MIR measurements](../doc/mir.md#acceptance) explain the remaining overhead.
 
+The [WasmGC experiment](../experiments/wasmgc/README.md) compares a bounded
+HIR-to-WASM numeric lowering against those native controls, native SSA, Chibi,
+and Chez. Its JS/C outer harnesses and dynamic GC-reference representation are
+documented separately from the production backend baseline.
+
 These four standalone Scheme programs provide fixed work and checked answers
 before type inference or other compiler optimizations are added. Each prints
 exactly three lines: its title, a deterministic checksum, and elapsed seconds.

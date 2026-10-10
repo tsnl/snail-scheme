@@ -1,0 +1,1282 @@
+{
+  "base_revision": "3891fc8e173b1e5622a0105f84fc2587f4363fa2",
+  "native_prototype_revision": "362b524",
+  "host": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "node": "v24.15.0",
+  "toolchains": {
+    "binaryen": "132",
+    "wasmtime": "48.0.0",
+    "chez": "10.4.1",
+    "chibi": "0.12",
+    "llvm": "22.1.8",
+    "bdwgc": "8.2.12"
+  },
+  "source_sha256": {
+    "experiments/wasmgc/README.md": "f6a71a224239bd10496b1e5470a016b8a8659dd9a078f297e1ff38916021db77",
+    "experiments/wasmgc/build.py": "b5047be580d889d8c6911e133020f4e04e79881bade5e568631ab83bf06d6ad8",
+    "experiments/wasmgc/check.mjs": "ebc72d0900593bccd73ab55b0a5bff03f1adab9e71f0fc8b331da099ccd13006",
+    "experiments/wasmgc/check.scm": "bad163e5a756db754b6737f1a077d22048888c6de8b2b0836bdceabe577cc7c7",
+    "experiments/wasmgc/compile.scm": "3a49c648f4d9c4ce722465665ce663ac5fbbd8593eb1d2a809c0cf9ce7669c6e",
+    "experiments/wasmgc/emit.py": "6bb25a6491474848c1fa0837b5720dd3500636f487c6b9c7590a1e83e3e655e4",
+    "experiments/wasmgc/measure.py": "62fce46710fe52bf83123dd434c5029d6a10516816586becdb9fbaa634f3b34a",
+    "experiments/wasmgc/numbers.wat": "31fbf255d31b992fbac5a712a9fe8ebb26a8e799c4e88fc1828dbb59726fabad",
+    "experiments/wasmgc/run.mjs": "37a6d29f8065d74e63a04e15703fb50857a54cbc443e9b523216efa2ea509f86",
+    "experiments/wasmgc/wasmtime-run.c": "70524f7f411cc5df82263d52e3648c5c2d6f2a60b32c8e921be3679675e03b92",
+    "experiments/wasm-llvm/README.md": "e7ebab4eccb0fd6d9a55b8fce69423d9eb4ef34ad271143456599fdedc227f5e",
+    "experiments/wasm-llvm/build.py": "1ef72db263b3146d65043e8c4689017697354fef93e72f00d71958bea6c9e915",
+    "experiments/wasm-llvm/check.py": "a870c7e7d829b9e9b975df654073bdec0540460e66ddfd1463053b1c6bb727a8",
+    "experiments/wasm-llvm/gc-test.wat": "7c66900da499d3efdd021ff3790ce9cae8b4e4ae13b21870cb15863a8ab173e5",
+    "experiments/wasm-llvm/runner.c": "4239dfe73e2d16ed4b7bd0f12d769e2228cdc1453366f2eb2e4fc0f95afa488d",
+    "experiments/wasm-llvm/semantics.c": "5198498b838a33340f5e376d7bd07551329f901f61f4e431d3067d4ee392dcee",
+    "experiments/wasm-llvm/semantics.wat": "568069bcda85a19476f67f67d88988ee64739f46a9a3a8174c468ded3a37b6a7",
+    "experiments/wasm-llvm/translate.py": "6c01e7467f2d90679828b10cae10f350b6f6619a691799b1045b77e2f38c92e8"
+  },
+  "artifacts": {
+    "vm": {
+      "command": [
+        "/tmp/snail-mir-memory-20261010/build/mir-memory/cargo/i686-unknown-linux-musl/release/snail-runner"
+      ],
+      "file_sha256": {
+        "/tmp/snail-mir-memory-20261010/build/mir-memory/cargo/i686-unknown-linux-musl/release/snail-runner": "546be3bcab59c09a12c50f9e132ab118e300edf90707cc4302cc97961534c101"
+      }
+    },
+    "ssa-fastcc": {
+      "command": [
+        "/tmp/snail-native-ssa-20261010/build/native-ssa/fast"
+      ],
+      "file_sha256": {
+        "/tmp/snail-native-ssa-20261010/build/native-ssa/fast": "72684c30874332203b149dacedac3d19c989e95e58cf0dd444c1160d868e11cf"
+      }
+    },
+    "chez": {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-mir-20261010/build/mir-benchmark/references/chez.so"
+      ],
+      "file_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-mir-20261010/build/mir-benchmark/references/chez.so": "d67880d538633049dbd2a740ff1943197336dc0202934b6a6b88025d36a12546"
+      }
+    },
+    "chibi": {
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "/tmp/snail-mir-20261010/build/mir-benchmark/references/chibi.scm"
+      ],
+      "file_sha256": {
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+        "/tmp/snail-mir-20261010/build/mir-benchmark/references/chibi.scm": "a24bb4afec3253f5b7664a18b089c67ab44ecc7e1fdcd381488cf831ab381dfc"
+      }
+    },
+    "v8-raw": {
+      "command": [
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--no-liftoff",
+        "--no-wasm-lazy-compilation",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wasm"
+      ],
+      "file_sha256": {
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node": "184337b84519164e0b3df6225fdb9b80b9ed782678e49c2e52e2cc0f1cf3983f",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs": "37a6d29f8065d74e63a04e15703fb50857a54cbc443e9b523216efa2ea509f86",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wasm": "3b2532cb8e522df6febe1e0e6390e2ec7c7c18ec0f7ecc60fdebb8fbb045c073"
+      }
+    },
+    "v8-opt": {
+      "command": [
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--no-liftoff",
+        "--no-wasm-lazy-compilation",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm"
+      ],
+      "file_sha256": {
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node": "184337b84519164e0b3df6225fdb9b80b9ed782678e49c2e52e2cc0f1cf3983f",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs": "37a6d29f8065d74e63a04e15703fb50857a54cbc443e9b523216efa2ea509f86",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm": "2436fcebbe45ef055be41a79306515281522091c8d0d754c180198a33dbc739e"
+      }
+    },
+    "v8-liftoff": {
+      "command": [
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+        "--liftoff-only",
+        "--no-wasm-lazy-compilation",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm"
+      ],
+      "file_sha256": {
+        "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node": "184337b84519164e0b3df6225fdb9b80b9ed782678e49c2e52e2cc0f1cf3983f",
+        "/tmp/snail-wasmgc-20261010/experiments/wasmgc/run.mjs": "37a6d29f8065d74e63a04e15703fb50857a54cbc443e9b523216efa2ea509f86",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm": "2436fcebbe45ef055be41a79306515281522091c8d0d754c180198a33dbc739e"
+      }
+    },
+    "wasmtime-opt": {
+      "command": [
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/wasmtime-run",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/wasmtime-run": "b17055ccb14502b9c29f9baff165832f1e30a7acb02bfb5809a98c4200162580",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm": "2436fcebbe45ef055be41a79306515281522091c8d0d754c180198a33dbc739e"
+      }
+    },
+    "wasm-llvm-bdwgc": {
+      "command": [
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu": "37c574f785245cabb0f35131c590bd17166717b7fa2ab4f77f3636204c81b87b"
+      }
+    },
+    "wastrel-o2": {
+      "command": [
+        "/tmp/snail-wastrel-20261010/cpu-bench"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wastrel-20261010/cpu-bench": "cdbca1e4b1bae2b9b5a58844df3ab2ed269327297ce14bc39d9970d7beeeb930"
+      }
+    },
+    "wastrel-o3": {
+      "command": [
+        "/tmp/snail-wastrel-20261010/cpu-bench-o3"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wastrel-20261010/cpu-bench-o3": "47bd7ca49e14a6d46248ad3bec02be0d4d7018ceba7657d92176f67abf520dfc"
+      }
+    },
+    "wastrel-o2-nozero": {
+      "command": [
+        "/tmp/snail-wastrel-20261010/cpu-bench-o2-nozero"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wastrel-20261010/cpu-bench-o2-nozero": "7fecda8fbc7cac8390544ba4e71b5e6db481ab64487fcfd4e3ba90a244cb8b23"
+      }
+    },
+    "wastrel-o3-nozero": {
+      "command": [
+        "/tmp/snail-wastrel-20261010/cpu-bench-o3-nozero"
+      ],
+      "file_sha256": {
+        "/tmp/snail-wastrel-20261010/cpu-bench-o3-nozero": "6a99e90b3a9fed8dd90e9a8cdc38877452fe7de50c8f007e54b15ba68c8fd8b8"
+      }
+    }
+  },
+  "build_commands": [
+    [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "src",
+      "experiments/wasmgc/compile.scm",
+      "/tmp/snail-wasmgc-20261010",
+      "benchmarks/cpu.scm",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.sexp"
+    ],
+    [
+      "python3",
+      "experiments/wasmgc/emit.py",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.sexp",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wat"
+    ],
+    [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wat",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "-g",
+      "-o",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wasm"
+    ],
+    [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wasm",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "-O3",
+      "-g",
+      "-o",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu-opt.wasm"
+    ],
+    [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "src",
+      "experiments/wasmgc/compile.scm",
+      "/tmp/snail-wasmgc-20261010",
+      "experiments/wasmgc/check.scm",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.sexp"
+    ],
+    [
+      "python3",
+      "experiments/wasmgc/emit.py",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.sexp",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wat"
+    ],
+    [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wat",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "-g",
+      "-o",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wasm"
+    ],
+    [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wasm",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "-O3",
+      "-g",
+      "-o",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check-opt.wasm"
+    ],
+    [
+      "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+      "--no-liftoff",
+      "experiments/wasmgc/check.mjs",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wasm"
+    ],
+    [
+      "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+      "--no-liftoff",
+      "experiments/wasmgc/check.mjs",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check-opt.wasm"
+    ],
+    [
+      "/nix/store/q1r7qkrnbhakljr4j228v2yi2874jkl9-nodejs-slim-24.15.0/bin/node",
+      "--liftoff-only",
+      "experiments/wasmgc/check.mjs",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/check-opt.wasm"
+    ],
+    [
+      "gcc",
+      "-O3",
+      "-std=c11",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "experiments/wasmgc/wasmtime-run.c",
+      "-I/nix/store/zk67k91by6w8h0al8dd764qhl3rgq2g6-wasmtime-48.0.0-dev/include",
+      "-L/nix/store/jrqxad974ahz55ka8dq2xr618mx51x4a-wasmtime-48.0.0-lib/lib",
+      "-Wl,-rpath,/nix/store/jrqxad974ahz55ka8dq2xr618mx51x4a-wasmtime-48.0.0-lib/lib",
+      "-lwasmtime",
+      "-o",
+      "/tmp/snail-wasmgc-20261010/build/wasmgc/wasmtime-run"
+    ]
+  ],
+  "native_build_commands": {
+    "commands": [
+      [
+        "clang",
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+        "-c",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/runner.c",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/runner-c.o"
+      ],
+      [
+        "python3",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/translate.py",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/cpu.wasm",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu.ll"
+      ],
+      [
+        "opt",
+        "-passes=verify",
+        "-disable-output",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu.ll"
+      ],
+      [
+        "clang",
+        "-Wno-unused-command-line-argument",
+        "-O3",
+        "-c",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu.ll",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu.o"
+      ],
+      [
+        "clang",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu.o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/runner-c.o",
+        "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-lgc",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/cpu"
+      ],
+      [
+        "python3",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/translate.py",
+        "/tmp/snail-wasmgc-20261010/build/wasmgc/check.wasm",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/check.ll"
+      ],
+      [
+        "opt",
+        "-passes=verify",
+        "-disable-output",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/check.ll"
+      ],
+      [
+        "clang",
+        "-Wno-unused-command-line-argument",
+        "-O3",
+        "-shared",
+        "-fPIC",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/check.ll",
+        "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-lgc",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/check.so"
+      ],
+      [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/gc-test.wat",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "-g",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.wasm"
+      ],
+      [
+        "python3",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/translate.py",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.wasm",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.ll"
+      ],
+      [
+        "opt",
+        "-passes=verify",
+        "-disable-output",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.ll"
+      ],
+      [
+        "clang",
+        "-Wno-unused-command-line-argument",
+        "-O3",
+        "-c",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.ll",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.o"
+      ],
+      [
+        "clang",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test.o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/runner-c.o",
+        "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-lgc",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test"
+      ],
+      [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/semantics.wat",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "-g",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.wasm"
+      ],
+      [
+        "python3",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/translate.py",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.wasm",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.ll"
+      ],
+      [
+        "opt",
+        "-passes=verify",
+        "-disable-output",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.ll"
+      ],
+      [
+        "clang",
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+        "-c",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/semantics.c",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics-c.o"
+      ],
+      [
+        "clang",
+        "-Wno-unused-command-line-argument",
+        "-O3",
+        "-c",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.ll",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.o"
+      ],
+      [
+        "clang",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics.o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics-c.o",
+        "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+        "-lgc",
+        "-o",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics"
+      ],
+      [
+        "python3",
+        "/tmp/snail-wasmgc-20261010/experiments/wasm-llvm/check.py",
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/check.so"
+      ],
+      [
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/gc-test",
+        "--gc-test"
+      ],
+      [
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics"
+      ],
+      [
+        "/tmp/snail-wasmgc-20261010/build/wasm-llvm/semantics",
+        "--trap"
+      ]
+    ],
+    "input_sha256": {
+      "build/wasmgc/cpu.wasm": "3b2532cb8e522df6febe1e0e6390e2ec7c7c18ec0f7ecc60fdebb8fbb045c073",
+      "build/wasmgc/check.wasm": "34cec1619e09dd5cd16236b556eeec1ae6ac3337d8a8b173716d912bf5bcd39e",
+      "build/wasm-llvm/gc-test.wasm": "2d3ebd52fd9ae865ca4ebe90bf55ea59bf8ab20c8cd6aa50fd7f8b99860c05a7",
+      "build/wasm-llvm/semantics.wasm": "06443809ae03b1674c43d0303b12fc2c2527f7e372b2557567c72d338a824799"
+    },
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "target_architectures": {
+    "vm": "i686",
+    "ssa-fastcc": "i686",
+    "wasm-llvm-bdwgc": "x86_64",
+    "wasm_engines": "x86_64"
+  },
+  "scope": "HIR-selected numeric function uses dynamic WasmGC refs and i31 fast paths. Same recursion, inputs, repetitions and weighted checksum. Wasm outer loops are JS/C with 256 host calls; native controls retain the Scheme VM harness.",
+  "wastrel_revision": "ad0b577df0773a1fc825b2a2455e23bf03ea9dcc",
+  "wastrel_source_patches": false,
+  "wastrel_compiler": "GCC 15.3.0 with LTO and BDWGC 8.2.12",
+  "wastrel_nozero": "Only zerocallusedregs removed from NIX_HARDENING_ENABLE at compile and LTO link time",
+  "wastrel_sandbox": "--expose-dir=/ avoids unavailable Linux namespace setup for this trusted benchmark",
+  "wrapper": "C compiled to WASM, merged with unchanged numeric functions after removing unused memory declaration/export. WASI clock_time_get/fd_write. Same 64 repetitions/checksum; outer loop also AOT compiled.",
+  "wrapper_sha256": {
+    "driver.c": "9c9c189c2f5816907469c3856036e7ca0d58651b007a396fb8ff420498e4d5a4",
+    "benchmark.wasm": "f643da3aa258efb051a4aecd56089165fce390e915cbd7ec3caf70ac04fb4179"
+  },
+  "repetitions": 64,
+  "rounds": 8,
+  "affinity": [
+    2
+  ],
+  "warmups": 1,
+  "clock": "Internal execution seconds; compilation and startup excluded",
+  "samples": [
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.324462,
+      "wall_seconds": 0.3249470629962161,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027082,
+      "wall_seconds": 0.027511731954291463,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.029364,
+      "wall_seconds": 0.06005567801184952,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.466,
+      "wall_seconds": 0.5861033370019868,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095476712,
+      "wall_seconds": 0.12734762101899832,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.08254612,
+      "wall_seconds": 0.11504338798113167,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.360828151,
+      "wall_seconds": 0.4023007999639958,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.072397084,
+      "wall_seconds": 0.07817811297718436,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046797206,
+      "wall_seconds": 0.0481888260692358,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.052750436,
+      "wall_seconds": 0.054231886053457856,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052609383,
+      "wall_seconds": 0.05405344197060913,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.049682541,
+      "wall_seconds": 0.05104175000451505,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.047863145,
+      "wall_seconds": 0.04924354702234268,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027099,
+      "wall_seconds": 0.027506007929332554,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.029224,
+      "wall_seconds": 0.059419447905384004,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.457,
+      "wall_seconds": 0.5763074699789286,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095556625,
+      "wall_seconds": 0.12765486107673496,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082533551,
+      "wall_seconds": 0.11413676291704178,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.388559501,
+      "wall_seconds": 0.4296013880521059,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.07396696,
+      "wall_seconds": 0.07991251698695123,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046972777,
+      "wall_seconds": 0.0484075469430536,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.05290833,
+      "wall_seconds": 0.05446896399371326,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.053176299,
+      "wall_seconds": 0.054728214046917856,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.049877944,
+      "wall_seconds": 0.05130509997252375,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.049353359,
+      "wall_seconds": 0.05078230705112219,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.315602,
+      "wall_seconds": 0.31611042306758463,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030139,
+      "wall_seconds": 0.0618845570133999,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.467,
+      "wall_seconds": 0.5871834050631151,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095460465,
+      "wall_seconds": 0.12754765606950969,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.08252538,
+      "wall_seconds": 0.11660462501458824,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.360320889,
+      "wall_seconds": 0.4014420739840716,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073029262,
+      "wall_seconds": 0.07882369903381914,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046972232,
+      "wall_seconds": 0.048416571924462914,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.052378985,
+      "wall_seconds": 0.05395843496080488,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052275423,
+      "wall_seconds": 0.05379928497131914,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.049392704,
+      "wall_seconds": 0.05081233708187938,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.048087326,
+      "wall_seconds": 0.04952918807975948,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.31888,
+      "wall_seconds": 0.31935385800898075,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027083,
+      "wall_seconds": 0.027498312992975116,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.458,
+      "wall_seconds": 0.5768805530387908,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095519146,
+      "wall_seconds": 0.12745570589322597,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082731321,
+      "wall_seconds": 0.11575710901524872,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.36086323,
+      "wall_seconds": 0.40149916196241975,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073541612,
+      "wall_seconds": 0.0795411029830575,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046829496,
+      "wall_seconds": 0.048299498041160405,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.052383458,
+      "wall_seconds": 0.05392465309705585,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052446263,
+      "wall_seconds": 0.053974287933669984,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.048729991,
+      "wall_seconds": 0.0502108329674229,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.053749517,
+      "wall_seconds": 0.055254927021451294,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.317638,
+      "wall_seconds": 0.318106961902231,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027168,
+      "wall_seconds": 0.02760477503761649,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030145,
+      "wall_seconds": 0.0614679038990289,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095741787,
+      "wall_seconds": 0.13138370600063354,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082624643,
+      "wall_seconds": 0.11469983006827533,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.361536864,
+      "wall_seconds": 0.4030734710395336,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073554028,
+      "wall_seconds": 0.07947506499476731,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046931804,
+      "wall_seconds": 0.04838310892228037,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.052516368,
+      "wall_seconds": 0.05408941104542464,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052641421,
+      "wall_seconds": 0.05420252098701894,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.048415151,
+      "wall_seconds": 0.04987111804075539,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.047306505,
+      "wall_seconds": 0.04873927601147443,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.315915,
+      "wall_seconds": 0.3164137799758464,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027102,
+      "wall_seconds": 0.027532752021215856,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030146,
+      "wall_seconds": 0.06023818196263164,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.451,
+      "wall_seconds": 0.570805235998705,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082615351,
+      "wall_seconds": 0.1144595630466938,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.360489441,
+      "wall_seconds": 0.40041004202794284,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073425511,
+      "wall_seconds": 0.07918534404598176,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.04696389,
+      "wall_seconds": 0.048340257024392486,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.05303972,
+      "wall_seconds": 0.05453610804397613,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052404845,
+      "wall_seconds": 0.05385866400320083,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.047556713,
+      "wall_seconds": 0.04891808796674013,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.048515194,
+      "wall_seconds": 0.04989807808306068,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.319906,
+      "wall_seconds": 0.3203692949609831,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027189,
+      "wall_seconds": 0.027613295009359717,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030306,
+      "wall_seconds": 0.06161271804012358,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.461,
+      "wall_seconds": 0.5824664459796622,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095579571,
+      "wall_seconds": 0.12731355300638825,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.365208859,
+      "wall_seconds": 0.4056321670068428,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073541779,
+      "wall_seconds": 0.07937315595336258,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.047063308,
+      "wall_seconds": 0.04849874903447926,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.052373766,
+      "wall_seconds": 0.05393157200887799,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.05238106,
+      "wall_seconds": 0.05390071193687618,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.050037077,
+      "wall_seconds": 0.05151147395372391,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.046722895,
+      "wall_seconds": 0.04819275997579098,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.319826,
+      "wall_seconds": 0.32032536796759814,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027096,
+      "wall_seconds": 0.027530593099072576,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030147,
+      "wall_seconds": 0.060372111038304865,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.46,
+      "wall_seconds": 0.5803425739286467,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.096750008,
+      "wall_seconds": 0.1309544239193201,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082632913,
+      "wall_seconds": 0.11449444002937526,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "wasmtime-opt",
+      "elapsed_seconds": 0.073469732,
+      "wall_seconds": 0.079205063986592,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "wasm-llvm-bdwgc",
+      "elapsed_seconds": 0.046839993,
+      "wall_seconds": 0.04822962102480233,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "wastrel-o2",
+      "elapsed_seconds": 0.053225507,
+      "wall_seconds": 0.054736697929911315,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "wastrel-o3",
+      "elapsed_seconds": 0.052527871,
+      "wall_seconds": 0.054005832062102854,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "wastrel-o2-nozero",
+      "elapsed_seconds": 0.048554875,
+      "wall_seconds": 0.04993909294717014,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "wastrel-o3-nozero",
+      "elapsed_seconds": 0.047927031,
+      "wall_seconds": 0.04933021904435009,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "vm",
+      "elapsed_seconds": 0.319213,
+      "wall_seconds": 0.3197137040551752,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "ssa-fastcc",
+      "elapsed_seconds": 0.027154,
+      "wall_seconds": 0.027572871069423854,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "chez",
+      "elapsed_seconds": 0.030278,
+      "wall_seconds": 0.06029951304662973,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "chibi",
+      "elapsed_seconds": 0.453,
+      "wall_seconds": 0.5718923939857632,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "v8-raw",
+      "elapsed_seconds": 0.095541459,
+      "wall_seconds": 0.12910724303219467,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "v8-opt",
+      "elapsed_seconds": 0.082738071,
+      "wall_seconds": 0.11468761903233826,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "v8-liftoff",
+      "elapsed_seconds": 0.363026527,
+      "wall_seconds": 0.4028736479813233,
+      "checksum": 269118144,
+      "round": 8
+    }
+  ],
+  "median_seconds": {
+    "vm": 0.3190465,
+    "ssa-fastcc": 0.0271005,
+    "chez": 0.0301455,
+    "chibi": 0.459,
+    "v8-raw": 0.095549042,
+    "v8-opt": 0.082619997,
+    "v8-liftoff": 0.36120004699999997,
+    "wasmtime-opt": 0.073505672,
+    "wasm-llvm-bdwgc": 0.046947847,
+    "wastrel-o2": 0.052633401999999996,
+    "wastrel-o3": 0.052487067,
+    "wastrel-o2-nozero": 0.049061347500000005,
+    "wastrel-o3-nozero": 0.0480071785
+  },
+  "ratios_to_chez": {
+    "vm": 10.58355310079448,
+    "ssa-fastcc": 0.898989898989899,
+    "chez": 1.0,
+    "chibi": 15.22615315718764,
+    "v8-raw": 3.169595528354149,
+    "v8-opt": 2.7407074687764346,
+    "v8-liftoff": 11.981889403061816,
+    "wasmtime-opt": 2.438363006087144,
+    "wasm-llvm-bdwgc": 1.5573749647542752,
+    "wastrel-o2": 1.745978736461495,
+    "wastrel-o3": 1.7411244464347913,
+    "wastrel-o2-nozero": 1.6274849480021896,
+    "wastrel-o3-nozero": 1.5925155827569621
+  },
+  "ratios_to_chibi": {
+    "vm": 0.6950904139433551,
+    "ssa-fastcc": 0.059042483660130714,
+    "chez": 0.0656764705882353,
+    "chibi": 1.0,
+    "v8-raw": 0.20816784749455336,
+    "v8-opt": 0.1799999934640523,
+    "v8-liftoff": 0.7869282069716774,
+    "wasmtime-opt": 0.16014307625272328,
+    "wasm-llvm-bdwgc": 0.10228289106753813,
+    "wastrel-o2": 0.11466972113289758,
+    "wastrel-o3": 0.11435090849673202,
+    "wastrel-o2-nozero": 0.10688746732026144,
+    "wastrel-o3-nozero": 0.10459080283224399
+  },
+  "wrapper_source": "typedef unsigned int u32;\ntypedef unsigned long long u64;\n\nstruct iovec { const char *data; u32 length; };\n__attribute__((import_module(\"fib\"), import_name(\"fibonacci\")))\nextern int fibonacci(int);\n__attribute__((import_module(\"wasi_snapshot_preview1\"), import_name(\"clock_time_get\")))\nextern u32 clock_time_get(u32 clock, u64 precision, u64 *time);\n__attribute__((import_module(\"wasi_snapshot_preview1\"), import_name(\"fd_write\")))\nextern u32 fd_write(u32 fd, const struct iovec *buffers, u32 count, u32 *written);\n\nstatic void print(const char *data, u32 length) {\n  struct iovec buffer = {data, length};\n  u32 written;\n  if (fd_write(1, &buffer, 1, &written) || written != length) __builtin_trap();\n}\n\nstatic void number(u64 value, u32 width) {\n  char digits[32];\n  u32 offset = sizeof(digits);\n  do { digits[--offset] = '0' + value % 10; value /= 10; }\n  while (value || sizeof(digits) - offset < width);\n  print(digits + offset, sizeof(digits) - offset);\n}\n\nstatic u64 now(void) {\n  u64 time;\n  if (clock_time_get(1, 1, &time)) __builtin_trap();\n  return time;\n}\n\n__attribute__((export_name(\"main\")))\nvoid benchmark(void) {\n  const int expected[] = {17711, 28657, 46368, 75025};\n  for (int n = 22; n <= 25; n++)\n    if (fibonacci(n) != expected[n - 22]) __builtin_trap();\n  u64 checksum = 0, started = now();\n  for (int repeat = 0; repeat < 64; repeat++)\n    for (int n = 22; n <= 25; n++)\n      checksum += (u64)(n + 1) * (u32)fibonacci(n);\n  u64 elapsed = now() - started;\n  if (checksum != 269118144) __builtin_trap();\n  print(\"checksum: \", 10); number(checksum, 1);\n  print(\"\\nelapsed: \", 10); number(elapsed / 1000000000, 1);\n  print(\".\", 1); number(elapsed % 1000000000, 9); print(\" s\\n\", 3);\n}\n",
+  "reproduction_notes": "# Throwaway Wastrel evaluation, 2026-10-10\n\nSource: https://codeberg.org/andywingo/wastrel.git\nPinned commit: ad0b577df0773a1fc825b2a2455e23bf03ea9dcc\nNo compiler source patches; all work is under /tmp.\n\n## Build\n\n```\ngit clone --depth 1 https://codeberg.org/andywingo/wastrel.git /tmp/snail-wastrel-20261010\ncd /tmp/snail-wastrel-20261010\nnix-shell -p guile autoconf automake pkg-config boehmgc --run './bootstrap.sh && ./configure && make -j4'\nmkdir -p build-tmp\nnix-shell -p guile pkg-config boehmgc --run 'TMPDIR=/tmp/snail-wastrel-20261010/build-tmp ./pre-inst-env bin/wastrel compile --gc=bdw --expose-dir=/ --preserve-builddir -o /tmp/snail-wastrel-20261010/cpu-bench /tmp/snail-wastrel-driver-20261010/benchmark.wasm'\n```\n\nThe normal filesystem sandbox fails with `unshare: Invalid argument` in this\nexecution environment. The documented `--expose-dir=/` option omits that\nnamespace setup. This benchmark only uses monotonic time and stdout.\n\nGuile 3.0.11, GCC 15.3.0, BDWGC 8.2.12. Default Wastrel optimized compilation\nuses -O2 and LTO. One module compilation took approximately 0.8 seconds,\nincluding nix-shell startup; this is a rough observation, not a timed build\ncomparison.\n\n## Inputs and outputs\n\nParent prepared `/tmp/snail-wastrel-driver-20261010/benchmark.wasm` by merging\na C-to-Wasm WASI benchmark wrapper with our existing WasmGC Fibonacci module.\nOnly the original module's unused linear-memory declaration/export was removed\nto retain one memory. Computational functions were unchanged. Wrapper source\nand intermediate Wasm remain in the driver directory. It warms Fibonacci\n22..25, then measures 64 repetitions of weighted Fibonacci 22..25 with\nclock_time_get(CLOCK_MONOTONIC). Expected checksum: 269118144.\n\nBinaries:\n\n- `cpu-bench`: standard -O2 + LTO + Nix defaults.\n- `cpu-bench-o3`: -O3 + LTO + Nix defaults.\n- `cpu-bench-o2-nozero`: -O2 + LTO, only Nix zerocallusedregs removed.\n- `cpu-bench-o3-nozero`: -O3 + LTO, only Nix zerocallusedregs removed.\n\nAll execute successfully with checksum 269118144. Initial unpinned serial\nsamples: standard O2 0.070803395 s, O2-nozero 0.063693695 s, O3-nozero\n0.066245857 s. Parent performs the controlled pinned interleaved comparison;\nthese preliminary samples should not be used for final ratios.\n\n`rebuild-nozero.py` reproduces the two clean variants; run it inside the same\nNix shell. `rebuild-nozero.log` records the original/filtered hardening\nenvironment and full compile/link commands. Removing only a compile-stage\n-fzero-call-used-regs flag was insufficient because GCC LTO linking reenabled\nit. The final script removes the `zerocallusedregs` token for both stages.\nOther hardening options are untouched. `*.fib.asm` show standard return paths\nwith six register-clearing XORs and clean variants without that sequence.\nGenerated C/header remain in `build-tmp/wastrel-JXZlcl/`.\n\n## Actual GC smoke test\n\n`quads-small.wat` is Wastrel's own `examples/quads.wat`, changing only the\nstarting depth from 10 to 7. Compiled with the standard CLI and --gc=bdw,\n`WASTREL_PRINT_STATS=1 ./quads-small` validated a live 21,845-node tree after\n60 allocations of 5,461-node garbage trees. Exit 0, two major collections,\npeak live data 1.294 MB. `ldd` confirms linkage to libgc.so.1. This validates\nactual allocation and collection separately from the CPU benchmark, whose\nhot path does not allocate.\n",
+  "assembly_observations": [
+    "Default Nix GCC adds register-clearing XORs on recursive return; nozero variants remove only zerocallusedregs at compile and LTO link.",
+    "Wastrel O3-nozero retains two subtraction-helper calls per non-leaf Fibonacci node; LLVM inlines the immediate paths.",
+    "Wastrel spills the first recursive result across the second call; LLVM retains it in a callee-saved register.",
+    "These observations do not individually attribute the small residual timing difference."
+  ]
+}
