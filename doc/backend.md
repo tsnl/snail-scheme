@@ -184,5 +184,8 @@ from 0.33860s, with representation checks preserved. Eight rotating rounds use
 the same source and checksum; compilation and process startup are excluded.
 V8 tiering during the timed workload remains included.
 
-See [BENCHMARKS.md](../BENCHMARKS.md) for the historical native CPU comparison,
-its scope, and reproduction against its recorded Git revision.
+The [complete native comparison](../benchmarks/results/2026-10-10-native-production.json)
+translates the exact Rust-linked module used by V8. Native takes 0.03821s, Chez
+0.02996s, V8 0.08358s, Guile 0.09426s, and Chibi 0.46050s. See
+[BENCHMARKS.md](../BENCHMARKS.md) for scope, reproduction, the remaining native
+compile-time cost, and the older bounded experiment's distinct measurements.

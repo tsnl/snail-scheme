@@ -1,6 +1,6 @@
 (define-library (snail-scheme wat)
   (export read-wat wat-number wat-name? wat-text)
-  (import (scheme base) (scheme char) (scheme write))
+  (import (scheme base) (scheme char))
   (begin
 
     ;; ---- Binaryen's folded text format ----
