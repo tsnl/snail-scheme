@@ -341,7 +341,7 @@ def table(report, rows, output):
         "# R7RS suite",
         "",
         (
-            f"Upstream `{REVISION}` · {report['rounds']} rounds · "
+            f"Upstream `{report['upstream_revision']}` · {report['rounds']} rounds · "
             f"{'original inputs' if report['count'] is None else 'SMOKE RUN: iteration count ' + str(report['count'])}"
         ),
         "",
@@ -351,7 +351,7 @@ def table(report, rows, output):
         "| --- | " + " | ".join("---:" for _ in report["systems"]) + " |",
     ]
     cells = {
-        (r["benchmark"], r["system"]): f"{r['median_seconds']:.6f}s"
+        (r["benchmark"], r["system"]): f"{r['median_seconds']:.6g}s"
         if r["median_seconds"] is not None
         else r["status"]
         for r in rows
@@ -412,7 +412,7 @@ def annotate_plot(axis, names, systems, lookup):
         for x, system in enumerate(systems):
             row = lookup[name, system]
             value = row["median_seconds"]
-            text = f"{value:.4f}s" if value is not None else row["status"]
+            text = f"{value:.3g}s" if value is not None else row["status"]
             axis.text(
                 x,
                 y,
