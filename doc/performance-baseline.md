@@ -1,5 +1,9 @@
 # Understanding the first backend's cost
 
+This is the historical baseline before the 32-bit fixed-layout runtime.
+The [runtime comparison](runtime-v3.md) records the new implementation and
+matching-target measurements; the instruction safepoints below are historical.
+
 The first backend compiles VM control flow to native code, but executes Scheme
 operations through a dynamically checked Rust runtime. Inlining the LLVM
 instruction handlers does not make the Rust implementations visible to LLVM.

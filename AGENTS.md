@@ -37,7 +37,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
   APIs distinct from implemented behavior in documentation and TODOs.
 
-Relevant checks are `make test`, `make check`, `cargo test --offline`,
+Relevant checks are `make test`, `make check`,
+`cargo test --offline --target i686-unknown-linux-musl`,
 `cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-cli`.
 Backend changes should execute both native and WASI cases; compilation alone
 does not test target behavior. See [doc/backend.md](doc/backend.md) for tools

@@ -58,16 +58,15 @@ def compile_fixture(name, opt):
 
 def cargo_arguments(target):
     command = ["cargo", "build", "--offline", "--quiet", "-p", "snail-runner"]
-    if target == "wasm":
-        command.extend(["--target", "wasm32-wasip1"])
-    return command
+    triple = "wasm32-wasip1" if target == "wasm" else "i686-unknown-linux-musl"
+    return [*command, "--target", triple]
 
 
 def link_fixture(llvm, target):
     environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm),
                    "CARGO_TARGET_DIR": str(TARGET_DIR)}
     checked(cargo_arguments(target), env=environment)
-    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "debug/snail-runner"
+    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "i686-unknown-linux-musl/debug/snail-runner"
     return TARGET_DIR / suffix
 
 

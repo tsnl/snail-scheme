@@ -1,0 +1,3 @@
+[target.i686-unknown-linux-musl]
+# Rust ships this target's musl libc; LLD links a self-contained ELF32 binary.
+linker = "rust-lld"

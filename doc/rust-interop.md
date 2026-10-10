@@ -14,20 +14,20 @@ The executable CLI generates a Cargo project and invokes `cargo build` or
 `cargo run`. The supported host pair is native and `wasm32-wasip1`, using the
 same Rust runtime and an adapter based on `std`. The generated entry exports
 `snail_program_abi`; the runner checks it against `PROGRAM_ABI` before executing
-the program. The current protocol version is 1.
+the program. The current protocol version is 2.
 
-The heap owns boxed `dyn SnailSchemeObject` payloads. Tagged `Value` words name
-objects through an ownership table; they are not durable Rust roots. Copying a
-word does not retain its object, and an address can be reused after collection.
-The trait and raw VM access exist for runtime implementation, without a safe
-public embedding or native-function registration facade.
+The heap owns fixed-layout builtin objects and one `Extension` kind for foreign
+payloads. Its C ABI tracing/destruction vtable is implemented; safe registration,
+checked host roots, and a public embedding facade remain proposed. Tagged
+32-bit words point directly to objects. Copying a word does not retain its
+object, and an address can be reused after collection.
 
-Automatic collection occurs at instruction entry. Allocation does not collect.
-During a call, arguments can leave the traced operand stack and live in Rust
-locals until the dispatcher publishes results or a new activation. Explicit
-`collect-garbage` runs only after consuming its inputs and publishing its
-result. Allowing arbitrary native code to collect or reenter Scheme inside
-this region would invalidate those assumptions.
+The internal builtin call boundary uses an owned allocation capability.
+Collection occurs before entry into an allocating Rust callable, with its
+procedure and arguments explicitly rooted. Allocation inside Rust never
+collects. Nonallocating callables do not poll. Returned values and invocation
+requests become roots before another allocating operation. Explicit collection
+runs only after consuming its inputs and publishing its result.
 
 See [backend.md](backend.md) for the executable implementation and
 [TOUR.md](../TOUR.md) for the module walkthrough.
@@ -73,11 +73,11 @@ value into traced VM storage before another safepoint. Expected failures return
 an owned `NativeError`; partial results are not published. Errors do not roll
 back mutations or IO.
 
-Do not initially expose generic `alloc(T: SnailSchemeObject)`. The trait's
-`Any` bound requires a static payload, while invocation-scoped values must not
-escape into one. Custom objects containing Scheme references need a separate
-checked traced-edge API. A future derive macro can enumerate those edges once
-their ownership contract is established.
+Do not expose the internal sealed builtin trait as a generic foreign allocator.
+Foreign payloads use `Extension`; its unsafe vtable contract is not yet a safe
+interface for invocation-scoped values. Custom objects containing Scheme
+references need a checked traced-edge API. A future derive macro can enumerate
+those edges once their ownership contract is established.
 
 ## Allocation, ownership, and failure
 
@@ -242,12 +242,13 @@ have different host capabilities.
    allocation failures where recovery is promised. Keep actual OOM/abort tests in
    subprocesses. Decide separately whether cross-program Scheme calls are needed.
 
-## Proposed allocation capability
+## Allocation capability
 
-Replace automatic instruction-entry polling with an owned allocation capability
-acquired at the Scheme-to-Rust call boundary, before entering a callable that
-may allocate. This is a proposed replacement for the current runtime policy,
-not an implemented API. Nonallocating operations
+The runtime implements an owned `Allocation` capability at the Scheme-to-Rust
+call boundary, before entering a builtin that may allocate. `Runtime` provides
+object and host services without VM control state; allocating entries own an
+`Allocation` and their internal helpers borrow it. This is an internal API,
+not yet the proposed public foreign-function API above. Nonallocating operations
 need neither this capability nor a collection check.
 
 The VM must keep the procedure and its arguments reachable from explicit roots
@@ -282,8 +283,9 @@ new safepoints. A callable that sometimes boxes a numeric result is allocating
 under this contract, even on invocations that happen to return an immediate.
 
 The allocation audit must include closure creation, captured-local promotion,
-rest arguments, constant initialization, symbol interning, and boxed numeric
-results as well as user-visible constructors. `apply` and `call-with-values`
+rest arguments, constant initialization, and boxed numeric results, as well as
+user-visible constructors. Immediate symbol interning uses Rust storage only.
+`apply` and `call-with-values`
 transitions must publish the next procedure and arguments before acquisition.
 Stress tests should collect at every acquisition and verify that no collection
 occurs during a multi-object construction. Nonallocating execution must not poll.

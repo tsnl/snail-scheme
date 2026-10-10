@@ -19,6 +19,12 @@ nix-shell --run 'benchmarks/run --target wasm --json build/baseline-wasm.json'
 nix-shell --run 'benchmarks/run cpu memory --repeat 2'
 ```
 
+Native means `i686-unknown-linux-musl`: a static 32-bit Linux executable. Install
+that Rust target and `wasm32-wasip1`; `rust-lld` links native output. The host must
+permit executing i386 programs. Chez remains the host-native reference. Earlier
+reports below used x86-64 native Snail, so compare matching targets when assessing
+the representation change.
+
 The runner compiles with Chibi, builds release executables through Cargo, verifies
 the frozen corpus, and checks every program's output. It also compiles the same
 benchmark with native Chez Scheme and reports the Snail/Chez elapsed-time ratio.
@@ -265,3 +271,44 @@ rotating execution samples and retains linked LLVM bitcode for inspection.
 See the [experiment and allocation-design boundaries](../doc/lto-experiment.md)
 for tool requirements, flags, timing scope, and the distinction from a future
 static builtin representation.
+
+## Fixed-layout runtime
+
+See the [v3 runtime report](../doc/runtime-v3.md) for the matched 32-bit
+before/after comparison and its raw samples. Historical native tables above
+use 64-bit GNU/Linux and must not be treated as the same target.
+
+## Chibi comparisons
+
+`benchmarks/chibi` compares saved native/WASI Snail executables with Chibi and
+Chez on the same CPU, memory, and I/O program bodies. First build the ordinary
+benchmark artifacts, then run the comparison:
+
+```sh
+benchmarks/run cpu memory io --target native --snail-only --samples 1
+benchmarks/run cpu memory io --target wasm --snail-only --samples 1
+benchmarks/chibi --snail-directory build/benchmarks --json build/chibi.json
+```
+
+Set `CHIBI`, `CHEZ`, and `NODE` if their executables are not on `PATH`. Optional
+`--lto-directory build/lto/bin` adds saved shared-LTO CPU/memory executables
+from `benchmarks/lto`. All builds finish before the comparison rotates execution
+order. Each implementation gets one warmup and four measured samples, with
+16 repetitions for CPU/memory and four for I/O. Timers exclude parsing,
+compilation, startup, and output. Every answer uses the existing checksum checks.
+
+The [recorded comparison](results/2026-10-09-chibi.json) uses Chibi 0.12's default
+execution settings and Chez 10.4.1 at safe optimization level 2. Chibi's R7RS
+clock measures wall time in milliseconds; the other clocks are monotonic.
+Chibi and Chez are host-native 64-bit builds, while Snail is 32-bit. The I/O
+adapter converts Chibi's substring-search cursors to character indices; its
+port/search implementation differs from Rust's. GC is omitted because Chibi
+does not supply the reclamation counter required by the canonical check.
+
+These initial fixed-layout results put ordinary native32 Snail 20.1× behind
+Chibi on CPU and 14.0× on memory, but 7.0× ahead on I/O. Shared LTO reduces the
+CPU/memory gaps to 15.2× and 10.7×. See the runtime report for the full table and
+any subsequent isolated fixes; these saved artifacts retain their original data.
+The subsequent [lazy-error fix](results/2026-10-09-lazy-errors.json) reduces
+ordinary native32's gaps to 14.8× Chibi on CPU and 11.1× on memory. Its report
+holds LLVM fixed and changes only three eager error constructions in Rust.
