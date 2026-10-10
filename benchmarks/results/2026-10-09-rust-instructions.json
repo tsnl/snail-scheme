@@ -1,0 +1,754 @@
+{
+  "revision": "26fc27a426252b387b208ba0aadb2a4442166204",
+  "source_sha256": {
+    ".cargo/config.toml": "eac33236e519ef99fb1a6d19d9bc8be4198ad980812090b9397caf8360e160a8",
+    "Cargo.lock": "98b1ab72af5d246e6d16464fde81414ebc1256c15df611b8f86a5f868f87ca5d",
+    "Cargo.toml": "44b3e976261b7f39d617aac238f45be171b9a1ad6e3b13bb3b6ee05208d7b31d",
+    "runner/Cargo.toml": "1e914e12fb3fb541e748cf7a4f601b42c5ccc3b20682c3858e18c79bae772476",
+    "runner/build.rs": "1f327d759dc3dc601403cef901521f3cfdd4ee032a3c64f1d4c80257905dfeb0",
+    "runner/src/main.rs": "8fe2d8f22393c114d5c41cdcdf121ea987102163e04b1aec9087c84a7b9d8719",
+    "runtime/Cargo.toml": "9d2540c9ebdccf764b6761bde5d9676e4898194f1af6b3498c93a2dc79208448",
+    "runtime/src/host.rs": "bc26ff7e69d011d539edbcf8317bf264e043712e07edd96cf5572858574e0427",
+    "runtime/src/instructions.rs": "4ea472aef7cc9dc23b400c55e8549ee2c4f4b7bd08a3a92bc427a0d12933b2d0",
+    "runtime/src/lib.rs": "79d175af09f9e2b56c5b302af4cd50b9ea51be0e9f299c6ec30eccf6e3583117",
+    "runtime/src/object.rs": "025339a67bd967ba94c95df7ffc6590609ce831c158feafe380b72af3b7b8c55",
+    "runtime/src/primitives.rs": "c44267c6c98c39e39c4f55a6855359414b732e446fb958b7b8db81e069bc5c8f",
+    "runtime/src/vm.rs": "07d6fc985c8256ebb19efef73f67bae4c5ddce34f9c4e8685dfbfed8a3b04137",
+    "snail-compile": "d839e708b0993eaaf3c8afc74ce5d94bbcd4076bdccfbaa040b9a504f11197e7",
+    "src/snail-scheme/bootstrap.sld": "2e162075df282f158d860af24b8557fba60202c183a3d6563d287ff45224fab7",
+    "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+    "src/snail-scheme/compiler.sld": "0dee704959078a32e4ea457ff52930667daeceee58fa84b4e102fa588b484189",
+    "src/snail-scheme/expand.sld": "b748595f86cdd48ab09b3ea1a6a8180297b889df947422b50b5bc6a6e26cdff2",
+    "src/snail-scheme/hir.sld": "8c489946f37f7a87ecbc4c00f0e6a869abd58c705b4706a2eca71c3d59d48243",
+    "src/snail-scheme/llvm.sld": "ff4468817be3f58496ec337798badc61eb4c654f0fd4e89be69c01f9cbcc89fb",
+    "src/snail-scheme/llvmlite.sld": "5af9ba6a6c2aa2de9ba61eaa6f1387e558f6f7d9447f6c19e0aaaf861535e7ae",
+    "src/snail-scheme/lower.sld": "d7365234fdf9b40c2828ca3f603e9f29a3bac8ea95a64c8248f04d9dd4656fc9",
+    "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8",
+    "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+    "src/snail-scheme/vm.sld": "ab0495ca7aa049d20e8fbf482819529c0861cc3326ecf54f90096cfea17b3543"
+  },
+  "corpus_manifest_sha256": "4f2c9069daf16b0bc7327a94f530a8bc32233872a6885a1aa42797b60f2fede4",
+  "experiment_sha256": {
+    "benchmarks/lto": "c5354853cb366aa0b819000b79e4abc626649e2f4aca2283bb03f8dc1d4d8d65",
+    "benchmarks/run": "2c552a2203ebe118d6cb3f0f19230ebaf31ac0d552d5fb618be49b986b7f6d2e",
+    "benchmarks/ablate": "77325f6c246f67c171f03b8d673bb14ea8b8bde61ba6033c577897285a3fa079"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "clang": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin",
+    "ld.lld": "LLD 22.1.8 (compatible with GNU linkers)",
+    "wasm-ld": "LLD 22.1.8",
+    "opt": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s",
+    "llc": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore"
+  },
+  "builds": [
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "",
+      "seconds": 1.2103510880260728,
+      "ir_sha256": "fedea6e3b17e0b0ab988dcd1da97c97ad78151a97e158d55e3be1ac9385a38ea",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "executable_bytes": 956292,
+      "language": "llvm",
+      "compiler_command": [
+        "chibi-scheme",
+        "-I",
+        "/tmp/snail-rust-instructions-20261009/src",
+        "/tmp/snail-rust-instructions-20261009/src/snail-scheme/compile.scm",
+        "/tmp/snail-rust-instructions-20261009",
+        "/tmp/snail-rust-instructions-20261009/benchmarks/cpu.scm",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/cpu.ll"
+      ]
+    },
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 4.4079572560149245,
+      "ir_sha256": "fedea6e3b17e0b0ab988dcd1da97c97ad78151a97e158d55e3be1ac9385a38ea",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "executable_bytes": 791288,
+      "linked_ir_sha256": {
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/linked/native/cpu/snail_runner-eba6ada0a35c19a8.0.0.preopt.bc": "23613879c9d69a6aec82eb2797e1bb62208bc5b9eef449dff7d603f5126a8c37",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/linked/native/cpu/snail_runner-eba6ada0a35c19a8.0.4.opt.bc": "44b5baee52d4b61a1ce55ed100e588eaefd1186931fcf65f4f522205cf403ad3"
+      },
+      "language": "llvm",
+      "compiler_command": [
+        "chibi-scheme",
+        "-I",
+        "/tmp/snail-rust-instructions-20261009/src",
+        "/tmp/snail-rust-instructions-20261009/src/snail-scheme/compile.scm",
+        "/tmp/snail-rust-instructions-20261009",
+        "/tmp/snail-rust-instructions-20261009/benchmarks/cpu.scm",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/cpu.ll"
+      ]
+    },
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "",
+      "seconds": 1.172429080994334,
+      "ir_sha256": "6fa2488792999a493cd134701d6307fdff3b6e8700ec3da6b76f84fb13719bab",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "executable_bytes": 952736,
+      "language": "rust",
+      "compiler_command": [
+        "chibi-scheme",
+        "-D",
+        "snail-rust-numeric",
+        "-I",
+        "/tmp/snail-rust-instructions-20261009/src",
+        "/tmp/snail-rust-instructions-20261009/src/snail-scheme/compile.scm",
+        "/tmp/snail-rust-instructions-20261009",
+        "/tmp/snail-rust-instructions-20261009/benchmarks/cpu.scm",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/cpu.ll"
+      ]
+    },
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 4.393724902998656,
+      "ir_sha256": "6fa2488792999a493cd134701d6307fdff3b6e8700ec3da6b76f84fb13719bab",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "executable_bytes": 790724,
+      "linked_ir_sha256": {
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/linked/native/cpu/snail_runner-eba6ada0a35c19a8.0.0.preopt.bc": "5a08db4abe56576f6fa75afec6dadf63d969e72aa4a5d31ba8c61bcef5ba67f6",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/linked/native/cpu/snail_runner-eba6ada0a35c19a8.0.4.opt.bc": "049ccd6b746a7c52d42e512233f260ef228de60ae8bcfd8ab72860ffcc41ca03"
+      },
+      "language": "rust",
+      "compiler_command": [
+        "chibi-scheme",
+        "-D",
+        "snail-rust-numeric",
+        "-I",
+        "/tmp/snail-rust-instructions-20261009/src",
+        "/tmp/snail-rust-instructions-20261009/src/snail-scheme/compile.scm",
+        "/tmp/snail-rust-instructions-20261009",
+        "/tmp/snail-rust-instructions-20261009/benchmarks/cpu.scm",
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/cpu.ll"
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 454.534,
+      "checksum": 269118144,
+      "round": 1,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 398.661,
+      "checksum": 269118144,
+      "round": 1,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 537.6220000000001,
+      "checksum": 269118144,
+      "round": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 388.365,
+      "checksum": 269118144,
+      "round": 1,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 399.086,
+      "checksum": 269118144,
+      "round": 2,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 539.353,
+      "checksum": 269118144,
+      "round": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 384.702,
+      "checksum": 269118144,
+      "round": 2,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 459.737,
+      "checksum": 269118144,
+      "round": 2,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 540.6379999999999,
+      "checksum": 269118144,
+      "round": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 394.911,
+      "checksum": 269118144,
+      "round": 3,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 456.339,
+      "checksum": 269118144,
+      "round": 3,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 399.72200000000004,
+      "checksum": 269118144,
+      "round": 3,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 380.541,
+      "checksum": 269118144,
+      "round": 4,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 459.01599999999996,
+      "checksum": 269118144,
+      "round": 4,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 399.765,
+      "checksum": 269118144,
+      "round": 4,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 538.1700000000001,
+      "checksum": 269118144,
+      "round": 4,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 457.407,
+      "checksum": 269118144,
+      "round": 5,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 398.252,
+      "checksum": 269118144,
+      "round": 5,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 540.5450000000001,
+      "checksum": 269118144,
+      "round": 5,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 387.849,
+      "checksum": 269118144,
+      "round": 5,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 399.46500000000003,
+      "checksum": 269118144,
+      "round": 6,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 538.37,
+      "checksum": 269118144,
+      "round": 6,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 386.444,
+      "checksum": 269118144,
+      "round": 6,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 453.43,
+      "checksum": 269118144,
+      "round": 6,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 535.658,
+      "checksum": 269118144,
+      "round": 7,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 386.514,
+      "checksum": 269118144,
+      "round": 7,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 455.976,
+      "checksum": 269118144,
+      "round": 7,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 398.918,
+      "checksum": 269118144,
+      "round": 7,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "406b41e303763ae34fb082e968bf592b60d0a0679ea36e6a7108f10391aab53f",
+      "program": "cpu",
+      "implementation": "rust-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 385.667,
+      "checksum": 269118144,
+      "round": 8,
+      "position": 1,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "5a48d9cc4d7a483ad88c36b4bdd7f2ccdcef5b040b7230ba1c89923da9d57491",
+      "program": "cpu",
+      "implementation": "llvm-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 453.98100000000005,
+      "checksum": 269118144,
+      "round": 8,
+      "position": 2,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/baseline/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "26f36750ef707d1f53d6bfa884ad9906945b4df9a9d7a244bdcc5dd4d8702814",
+      "program": "cpu",
+      "implementation": "llvm-cross-lto",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 398.327,
+      "checksum": 269118144,
+      "round": 8,
+      "position": 3,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/llvm/bin/native/cross-lto/cpu",
+        "64"
+      ]
+    },
+    {
+      "source_sha256": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "executable_sha256": "cebad9aa7104b7ae6ccbe87e518dffd3cac89b25a16708157ff7f1567093befe",
+      "program": "cpu",
+      "implementation": "rust-baseline",
+      "target": "native",
+      "repetitions": 64,
+      "elapsed_ms": 543.4440000000001,
+      "checksum": 269118144,
+      "round": 8,
+      "position": 4,
+      "command": [
+        "/tmp/snail-rust-instructions-20261009/build/rust-instructions/rust/bin/native/baseline/cpu",
+        "64"
+      ]
+    }
+  ],
+  "harness_sha256": "073c5a91988e16f9ec14fb46153e864d2f93ce1e147939e93b90631492629919",
+  "method": "native i686; 64 repetitions; one warmup per variant; rotated order",
+  "inlining": {
+    "llvm": {
+      "0.0.preopt": {
+        "numeric_calls": 0,
+        "program_ir_sha256": "48249fcc31623f417644f9736708117568db2e57247a86ef576ab13a44948dd1",
+        "module_sha256": "4f36c1279e6115850dbc35695d728c1eda46e1a18a0886ecaaf22d2a5243e4c1"
+      },
+      "0.4.opt": {
+        "numeric_calls": 0,
+        "program_ir_sha256": "f4731242aa9652f62e2355e7306a214cb151b795780c089bda651c899ea3d356",
+        "module_sha256": "d3f8260e908dfe9992aca4b8f6fcd555af57e46ab168ba595e6f87abb7d684b9"
+      },
+      "assembly_sha256": "995b123c86cb49d05f5fe556846d7841b8e1eb4a978d9e251f7a310e1134e355"
+    },
+    "rust": {
+      "0.0.preopt": {
+        "numeric_calls": 43,
+        "program_ir_sha256": "68b9cb2ed0db2e2f0a87c930fc2526e4eeedfba77c85188dbb37019e3899293b",
+        "module_sha256": "4c9c576c346eae0956cc0f31ae3cdd42ea6b089aa6b551abb25be1991326fdba"
+      },
+      "0.4.opt": {
+        "numeric_calls": 0,
+        "program_ir_sha256": "d9a9d727746d971568679fb121e07c67deeebb81a92f9a4f16ec65f79d8db1f5",
+        "module_sha256": "b25e096d093aa5e165df89ed8155ee937f5ddb2ed1b84442ccf6eb48431fb78e"
+      },
+      "assembly_sha256": "4563ff3915aa60c7431cc2b3de93fa80afc4e1c425421c83fb6754d6705e1d63"
+    }
+  },
+  "measurement_harness_sha256": "8fac52a43510fde28854c0058842197f3086ab7af335564c413cc3ebff634b67",
+  "median_ms": {
+    "llvm-baseline": 456.1575,
+    "llvm-cross-lto": 399.002,
+    "rust-baseline": 538.8615,
+    "rust-cross-lto": 386.47900000000004
+  },
+  "host": {
+    "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+    "snail_gc_stress": false
+  },
+  "validation": {
+    "hosted_tests": "make test: passed",
+    "format_and_style": [
+      "make check: passed",
+      "cargo fmt --all -- --check: passed"
+    ],
+    "rust_tests": "cargo test --offline --target i686-unknown-linux-musl: 47 passed",
+    "ordinary_linking": "scripts/test-backend: all native/WASI fixtures passed with Rust numeric declarations; GC stress",
+    "shared_lto": "backend-numeric, backend-numeric-rebinding, backend-errors, backend-continuations: native/WASI passed; GC stress",
+    "cli": "scripts/test-cli: native/WASI and ABI checks passed",
+    "selector_equivalence": "cmp: both generated LLVM/Rust CPU modules byte-identical before/after opt-in feature spelling"
+  }
+}

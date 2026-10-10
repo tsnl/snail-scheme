@@ -14,6 +14,7 @@
 //! the exclusive access/lifetime contracts below; forged values are unsupported.
 
 mod host;
+mod instructions;
 mod object;
 mod primitives;
 
