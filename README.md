@@ -21,8 +21,7 @@ Install Rust/Cargo, then run from the repository root
 ```sh
 nix-shell
 rustup target add wasm32-wasip1
-./snail-scheme examples/fibonacci.scm
-./snail-scheme examples/fibonacci.scm -o build/fibonacci.wasm
+chibi-scheme -I src build.scm
 ```
 
 [Tour](TOUR.md) · [Build, tests, and limitations](doc/backend.md) ·

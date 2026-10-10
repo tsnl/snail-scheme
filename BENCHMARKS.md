@@ -70,8 +70,8 @@ export SNAIL_WASM_NATIVE=/path/to/native-translator
 python3 benchmarks/r7rs.py --cpu 2
 ```
 
-The native command must accept `INPUT.wasm -o OUTPUT`; the runner invokes it
-through `snail-scheme --native`. Default participants are Snail native, Chez,
+The native command must accept `INPUT.wasm -o OUTPUT`; the runner first calls
+`build-wasm` from a Scheme build script, then invokes the translator. Default participants are Snail native, Chez,
 Guile, and Chibi. Missing tools or an unset native command produce explicit
 `unavailable` entries. No substitute backend is selected.
 
