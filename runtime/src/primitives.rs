@@ -24,6 +24,7 @@ macro_rules! builtins {
 
             pub(crate) fn from_name(name: &str) -> Result<Self, String> {
                 match name {
+                    "call/cc" => Ok(Self::CallWithCurrentContinuation),
                     $($name => Ok(Self::$variant),)*
                     _ => Err(format!("unknown primitive: {name}")),
                 }
@@ -114,6 +115,7 @@ builtins! {
     GcStatistics => ("gc-statistics", true),
     Values => ("values", false),
     CallWithValues => ("call-with-values", false),
+    CallWithCurrentContinuation => ("call-with-current-continuation", true),
     Apply => ("apply", false),
     Error => ("error", false),
     OpenInputFile => ("open-input-file", true),
@@ -143,9 +145,7 @@ builtins! {
 
 pub(crate) enum PrimitiveResult {
     Value(Value),
-    Values(Vec<Value>),
     Invoke(Value, Vec<Value>),
-    CallWithValues(Value, Value),
     Exit(i32),
     Collect,
 }
@@ -192,11 +192,7 @@ pub(crate) fn invoke(
             arity(name, args, 0, 0)?;
             return Ok(PrimitiveResult::Collect);
         }
-        Values => return Ok(PrimitiveResult::Values(args.to_vec())),
-        CallWithValues => {
-            arity(name, args, 2, 2)?;
-            return Ok(PrimitiveResult::CallWithValues(args[0], args[1]));
-        }
+        Values | CallWithValues => return Err(format!("{name} requires VM control")),
         Apply => {
             arity(name, args, 2, usize::MAX)?;
             let mut arguments = args[1..args.len() - 1].to_vec();
@@ -241,6 +237,10 @@ pub(crate) fn invoke_allocating(
         GcStatistics => {
             arity(op.name(), args, 0, 0)?;
             gc_statistics(&mut vm)?
+        }
+        CallWithCurrentContinuation => {
+            arity(op.name(), args, 1, 1)?;
+            return Err("call-with-current-continuation requires VM control".into());
         }
         OpenInputFile | OpenOutputFile | ReadString | OpenOutputString | GetOutputString
         | CommandLine | CurrentJiffy => return host::invoke_allocating(&mut vm, op, args),
@@ -425,7 +425,9 @@ fn predicate(vm: &Runtime, op: Builtin, value: Value) -> Value {
         Builtin::IsVector => vm.heap.find::<Vector>(value).is_some(),
         Builtin::IsBytevector => vm.heap.find::<Bytevector>(value).is_some(),
         Builtin::IsProcedure => {
-            vm.heap.find::<Closure>(value).is_some() || vm.heap.find::<Primitive>(value).is_some()
+            vm.heap.find::<Closure>(value).is_some()
+                || vm.heap.find::<Primitive>(value).is_some()
+                || vm.heap.find::<Continuation>(value).is_some()
         }
         _ => unreachable!(),
     })
@@ -1053,6 +1055,8 @@ fn print_opaque(vm: &Runtime, value: Value, output: &mut String) -> Result<(), S
         output.push_str(&format!("#<procedure {}>", name.name()));
     } else if vm.heap.find::<Closure>(value).is_some() {
         output.push_str("#<procedure>");
+    } else if vm.heap.find::<Continuation>(value).is_some() {
+        output.push_str("#<continuation>");
     } else if vm.heap.find::<Cell>(value).is_some() {
         output.push_str("#<cell>");
     } else if vm.heap.find::<host::Port>(value).is_some() {
@@ -1104,6 +1108,23 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn continuation_alias_and_procedure_predicate_share_the_vm_contract() {
+        let op = Builtin::from_name("call/cc").unwrap();
+        assert_eq!(
+            op,
+            Builtin::from_name("call-with-current-continuation").unwrap()
+        );
+        assert!(op.may_allocate());
+        let mut vm = vm();
+        let saved = vm.allocation().alloc(Continuation {
+            stack: vec![],
+            frames: 0,
+        });
+        assert_eq!(call(&mut vm, "procedure?", &[saved]).unwrap(), Value::TRUE);
+        assert_eq!(format_value(&vm, saved, false).unwrap(), "#<continuation>");
     }
 
     fn integer(value: i64) -> Value {

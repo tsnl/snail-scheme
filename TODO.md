@@ -47,8 +47,10 @@
   - [x] Keep ordinary builtin access static; reserve a shared extension-object
     vtable mechanism for foreign payloads and use `gc_mark` for tracing
   - [ ] Preserve an explicit runtime-provided allocation ABI for generated LLVM
-  - [ ] Remove avoidable host allocation and frame handling from ordinary calls;
-    profile against Chibi as well as Chez before adding type inference
+  - [x] Use the chapter-4 reusable stack and shared assignment cells; implement
+    multi-shot stack snapshots on native and WASI ([implementation](doc/stack-vm.md))
+  - [x] Profile the stack baseline against Chibi and Chez before type inference
+    ([measurements](doc/stack-vm.md#matched-execution-measurements))
 - [ ] Rust interop and embedding ([design](doc/rust-interop.md))
   - [ ] Scoped native-call context, checked conversions, and GC-free allocating calls
   - [ ] Static Rust library exporting Scheme-callable functions, tested on native and WASI
@@ -74,4 +76,8 @@
   - [x] Report imported-source parsing separately from expansion in compiler timings
   - [x] Remove repeated handler-name construction and quadratic dense-label deduplication
   - [ ] Reprofile remaining imported-source parsing and LLVM output costs
+  - [ ] Reduce compiler-sized stack LLVM expansion and native register-allocation
+    cost; measure changes without weakening the native/WASI control-flow checks
+  - [ ] Resolve default Node/V8 optimizer exhaustion on the compiled WASI
+    compiler; baseline-tier execution succeeds ([diagnosis](doc/stack-vm.md#wasi-compiler-host-limitation))
 - [ ] Switch the compiler's build to self-hosting after capability validation

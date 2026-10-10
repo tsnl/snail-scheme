@@ -1,5 +1,9 @@
 # Fixed-layout Rust runtime
 
+This report records the ABI 2 baseline at `03d02cf`. The later
+[chapter-4 stack implementation](stack-vm.md) supersedes its per-call vectors
+and capture-time boxing; the measurements below remain historical results.
+
 The runtime ports the object model from `origin/v3` at
 `041877ac4e421cab432f198ae563ce8e55743a05`, especially
 `inc/ss-core/object.0.hh`, `object.1.hh`, and `src/ss-core/object.cc`.

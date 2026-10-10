@@ -16,12 +16,20 @@ SUCCESSES = {
     "llvmlite": "",
     "backend-bootstrap": "bootstrap checks passed\n",
     "backend-semantics": "backend checks passed\n",
+    "backend-continuations": "continuation checks passed\n",
 }
 ERRORS = {
-    "arity": "procedure expected 1 arguments, received 0",
-    "uninitialized": "read of an uninitialized binding",
-    "values": "expected one value, received 2",
-    "overflow": "integer overflow",
+    "backend-errors": {
+        "arity": "procedure expected 1 arguments, received 0",
+        "uninitialized": "read of an uninitialized binding",
+        "values": "expected one value, received 2",
+        "overflow": "integer overflow",
+    },
+    "backend-continuations": {
+        "empty-result": "expected one value, received 0",
+        "many-results": "expected one value, received 2",
+        "callcc-arity": "call-with-current-continuation: wrong number of arguments",
+    },
 }
 
 
@@ -94,9 +102,8 @@ def check_fixture(name, executable, target, node):
     command = execution_command(executable, target, node)
     if name in SUCCESSES:
         require_result(execute(command, []), SUCCESSES[name], "")
-    else:
-        for argument, diagnostic in ERRORS.items():
-            require_result(execute(command, [argument]), "", diagnostic)
+    for argument, diagnostic in ERRORS.get(name, {}).items():
+        require_result(execute(command, [argument]), "", diagnostic)
     print(f"passed {target}: {name} (GC stress)", flush=True)
 
 
