@@ -57,7 +57,7 @@ For native execution on x86-64 Linux, translate that same linked Wasm artifact:
 ```
 
 The Wasm-to-LLVM converter is Scheme compiler source. It translates the complete
-module, including Rust; Clang/LLD and BDWGC produce the executable. `WASM_DIS`
+module, including Rust; Clang/LLD and BDWGC produce the executable. `WASM_OPT`
 and `CLANG` select tools. See [native execution](doc/native.md) for supported
 features, GC ownership, and checks.
 
