@@ -43,7 +43,8 @@ def checked(command):
 
 def compile_fixture(name):
     output = BUILD / f"{name}.wasm"
-    checked([ROOT / "snail-scheme", ROOT / "tests/programs" / f"{name}.scm", "-o", output])
+    checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+             ROOT / "tests/build-program.scm", ROOT, ROOT / "tests/programs" / f"{name}.scm", output])
     return output
 
 

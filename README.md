@@ -1,72 +1,67 @@
 # `snail-scheme`
 
-> 🚧 Rewrite WIP, for latest mature implementation see
-> branch [`v3`](https://github.com/tsnl/snail-scheme/tree/v3).
+> Rewrite in progress; the previous implementation lives on branch `v3`.
 
-A small, portable, easy to understand Scheme implementation.
+A small Scheme compiler library, hosted by Chibi. Ordinary Scheme scripts choose
+what to compile, where to write it, and whether to run it. There is no compiler
+CLI mode parser or separate Rust driver.
 
-```bash
+```sh
 nix-shell
-./snail-scheme examples/fibonacci.scm
-./snail-scheme examples/fibonacci.scm -o build/fibonacci.wasm
-./snail-scheme examples/fibonacci.scm --emit-wat -o build/fibonacci.wat
+chibi-scheme -I src build.scm
 make test
+scripts/test-build
+scripts/test-backend
 ```
 
-Use `nix-shell` (or direnv) to load the development tools. Run `make format`
-to indent the Scheme sources and tests with Emacs's `scheme-mode` and format
-`shell.nix` with nixfmt.
-Run `make check` to verify formatting without changing files; it exits with a
-nonzero status when formatting is needed. It also enforces a 100-column limit in
-`expand.sld` and `ir.sld`. Plain `make` also runs this check.
+The checked-in [build.scm](build.scm) compiles and runs Fibonacci:
 
-Scheme indentation uses spaces and preserves existing line breaks. Use `;;` for
-comments on their own lines and `;` for trailing comments, following Emacs's Lisp
-indentation conventions. `scripts/format-scheme` runs Emacs in batch mode without
-loading personal configuration; set `EMACS` to use another executable. With no
-arguments it reads stdin and writes stdout, as used by the project's Zed settings.
-Use `--write FILE ...` to format files or `--check FILE ...` to check them.
+```scheme
+(import (scheme base) (snail-scheme build))
+(build-wasm "." "examples/fibonacci.scm" "build/fibonacci.wasm")
+(run-wasm "." "build/fibonacci.wasm" '())
+```
 
-`./snail-scheme INPUT.scm` compiles and runs a WasmGC program; `-o PATH`
-builds the `.wasm` artifact without running it. The Scheme compiler expands
-source into a small resolved IR and emits WebAssembly directly. Cargo builds
-the Rust runtime and extension crates into a Wasm module; Binaryen links and
-optimizes the modules. Scheme objects live in the engine's GC heap. Rust owns
-its ordinary linear-memory allocations.
+Copy or edit that script, or write your own. A build script is free to read
+`command-line`, import project libraries, generate several artifacts, or skip
+execution. Run it with `chibi-scheme -I /path/to/snail-scheme/src your-build.scm`.
+The root argument above identifies the Snail checkout; input and output paths
+are relative to the script's working directory. `run-wasm` returns the program's
+exit code; the script decides whether to pass it to `exit`.
 
-The Rust standard runtime builds once into
-`build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`. Later invocations
-ask Cargo to check freshness and reuse that module: changing Scheme source
-does not recompile or relink Rust. Changes to Rust sources or build settings
-rebuild it automatically. Wasm linking and optimization still run per program.
+For explicit stages, import `(snail-scheme compiler)` as well:
 
-Use `--emit-wat` to inspect the Scheme module before linking, `--extension PATH`
-to link a Rust library, and `--` before program arguments. See the
-[Rust extension example](examples/extension/README.md) and
-[application Wasm interface](doc/rust-interop.md). Chromium traces are always
-written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
+```scheme
+(define runtime (build-runtime "."))
+(source-file->wat-file "." "examples/fibonacci.scm" "build/fibonacci.wat")
+(link-wasm "build/fibonacci.wat" runtime "build/fibonacci.wasm")
+```
 
-The required tools are Chibi, Cargo/rustc with `wasm32-wasip1`, Binaryen with
-WasmGC and tail-call support, and a compatible Node. Set `CHIBI`, `CARGO`,
-`WASM_AS`, `WASM_MERGE`, `WASM_OPT`, or `NODE` to select their executables.
-The compiler remains hosted by Chibi. Its own sources can be compiled; changing
-the build to self-hosting is a later milestone.
+The compiler emits WasmGC. Binaryen assembles, links, and optimizes it with the
+Rust runtime. There is **one root Cargo crate**, containing the runtime and its
+AWI/tracing modules under `src/`. Cargo reuses the precompiled runtime across
+Scheme programs and rebuilds it when Rust inputs change. All current Rust
+services are built into that runtime; independent extension packaging is deferred.
+See the [Rust callback example](examples/extension/README.md).
 
-WebAssembly is the portable output. Native translation is an optional execution
-step: `--native` invokes `SNAIL_WASM_NATIVE`, an external tool accepting
-`INPUT.wasm -o OUTPUT`. Our separate Wasm-to-LLVM translator remains an
-experiment and does not yet accept the full linked Rust program.
+Chibi, Cargo/rustc with `wasm32-wasip1`, Binaryen with WasmGC/tail-call support,
+and a compatible Node are required. `CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`,
+and `NODE` override build tools. Chromium traces are always written under
+`build/traces/`; `SNAIL_TRACE_DIR` overrides the destination.
 
-This is an R7RS-inspired implementation, not a claim of full R7RS compliance.
-The Wasm backend currently diagnoses `call/cc` and
-`call-with-current-continuation` as unsupported. Single-shot, delimited
-continuations and coroutines are planned; reusable multi-shot continuations are
-not a goal. Rust callback boundaries and cancellation require explicit lifetime
-and unwinding rules. See [future work](TODO.md).
+The compiler stays Chibi-hosted. Running build scripts with Snail itself and
+switching the build to self-hosting are later milestones. Native translation
+of the linked Wasm is being integrated separately; the currently landed bounded
+Wasm-to-LLVM experiment is not a general native build route.
 
-Start with [TOUR.md](TOUR.md), [the backend guide](doc/backend.md), or
-[the benchmark suite](benchmarks/README.md). [Tracing](doc/tracing.md) describes
-the Scheme procedure decorator and Rust scopes.
+This is R7RS-inspired, not fully R7RS compliant. `call/cc` is currently
+unsupported. Single-shot delimited continuations are planned; reusable
+multi-shot continuations are not a goal. See [TODO.md](TODO.md).
+
+Use `make format` and `make check` for Scheme formatting and `cargo fmt` for
+Rust. Unit tests live in implementation modules; integration programs and
+runners live in `tests/` and `scripts/`. See [TOUR.md](TOUR.md),
+[doc/backend.md](doc/backend.md), and [BENCHMARKS.md](BENCHMARKS.md).
 
 The libraries in `src/snail-scheme/` separate source locations (`source.sld`),
 the character reader (`reader.sld`), general parser combinators (`parser.sld`),
@@ -74,8 +69,8 @@ syntax records and accessors (`syntax.sld`), syntax parsing (`syntax-parser.sld`
 pattern matching and dispatch (`pattern.sld`), macro expansion (`expand.sld`),
 and resolved IR records (`ir.sld`).
 `pmap` transforms parser values;
-ordinary Scheme `map` operates on lists. The historical parser inspection CLI
-lives in `cli.sld` and `main.scm`; the compiler command lives in `driver/`.
+ordinary Scheme `map` operates on lists. The historical parser inspection code lives in `cli.sld` and `main.scm`;
+compiler build operations live in `(snail-scheme build)`.
 Character predicates live in `common.sld`. Syntax rules match the input directly,
 using `tuple`, `repeat`, and `pmap` to assemble spellings from character results.
 Direct reader access stays in the parser primitives. Separate `s-number` and
@@ -96,124 +91,4 @@ symbols, except `_`, whose parser runs but whose value is discarded.
 file, then check `parse-result-ok?` before extracting `parse-result-value`.
 The result contains a list of syntax objects; trailing intertoken space and EOF
 are handled by `s-file`. Source locations and the reader in a failed parse result
-retain the filename. The historical `src/snail-scheme/main.scm` defines a parser
-inspection procedure named `main`; it does not call that procedure itself.
-Chibi's `-r` supplies the invocation:
-
-```sh
-chibi-scheme -I src -r src/snail-scheme/main.scm examples/fibonacci.scm
-```
-
-Compiling this definition-only file produces no output when run. The actual
-compiler entry is `src/snail-scheme/compile.scm`, which invokes `compiler-main`
-at top level; see [compiling the compiler](doc/backend.md#compiling-the-compiler).
-
-`make test` enables Chibi's `snail-tests` feature and runs
-`tests/snail-scheme/test.scm`. Each tested implementation module keeps its unit
-tests in a final `Tests` section and exports one `test-<module>` entry point.
-Individual cases and helpers stay private. Normal imports omit the test code
-and its dependencies. Integration fixtures and shared assertions remain in `tests/`.
-
-`pattern-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
-callbacks. It matches the whole input form; list literal identifiers explicitly
-to dispatch on a head, or use `_` to ignore it:
-
-```scheme
-(import (scheme base) (snail-scheme pattern))
-
-(define dispatch
-  (pattern-dispatch '... '(define)
-    (list
-      (cons '(define name value)
-        (lambda (captures)
-          (map cdr captures))))))
-
-(dispatch '(define x 42))                    ; => (x 42)
-```
-
-Dispatch returns the first callback value other than `#f`. A callback returning
-`#f` declines its branch and dispatch tries the next pattern. If no callback
-accepts, dispatch returns `#f`. Only `#f` is false in Scheme: `'()`, `0`, and `""`
-all select their branch.
-Callbacks receive an association list of `(name . capture)` entries in pattern
-traversal order. Use `(cdr (assq 'name captures))` to retrieve a capture.
-A singleton capture is the original datum, including an unchanged list tail or
-opaque record. Repeated captures contain lists nested once per ellipsis, preserving
-empty and ragged repetitions. The pattern library does not depend on syntax objects;
-source locations and lexical identity belong to the reader and expander.
-`pattern-dispatch` takes an ellipsis symbol, a literal list, and pattern/callback
-pairs. Dispatch separates patterns and callbacks, parses the patterns independently,
-and walks the parallel lists with `dispatch-against-pattern-list`.
-Literal identifiers match by symbol spelling. The private dispatcher builder takes
-explicit ellipsis, literal-list, and lookup arguments. Lookup maps literal symbols
-and input datums to identities compared with `eqv?`; the public wrapper supplies
-`(lambda (x) x)`.
-Parsing classifies literal symbols without calling lookup. Matching resolves
-literal symbols and input datums through lookup and constructs private match-result
-records. A final pass flattens successful results into the callback alist.
-
-Patterns support unique variables, wildcards, constants, dotted lists, vectors,
-custom ellipses, and one repeated segment per sequence level. Bytevectors match
-as constants. Invalid patterns, including duplicate variables, are rejected when
-constructing the dispatcher. Successful matches can have an empty capture list.
-List and vector patterns are parsed into a prefix, an optional repeated item, and
-a suffix; lists additionally carry an optional improper-tail pattern. Matching
-consumes the prefix, reserves and matches the suffix and tail, then matches the
-repeated item against the remaining elements. Flattening preserves pattern order,
-original datums, and empty and ragged repetition captures.
-The binding-aware semantics of `syntax-rules` expansion,
-including shadowed literals and exported auxiliary keywords, are documented in
-[the macro design](doc/ir.md#literal-binding-identity).
-
-`(snail-scheme expand)` provides `syntax-list->ir-library`, `syntax->ir-library`, and
-`macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
-macros, and constructs fully expanded Scheme IR for the supported core forms.
-Library loading uses an explicit function parameter. Scope environments are
-transient association lists passed through recursive descent.
-
-`(snail-scheme ir)` defines the immutable records in
-[the IR design](doc/ir.md#ir-records). A `value-definition` holds a binding's
-identity and definition location; a `name` refers to it and retains the reference
-location. A `value-binding` pairs that identity with an initializer.
-`(snail-scheme library)` independently owns library containers and resolved
-interfaces; each container holds an IR body, and scripts are unnamed libraries.
-IR carries no types or closure capture lists. `wasm.sld` analyzes captures and
-initialization and emits structured WebAssembly directly. Type inference remains
-later work. The compiler command runs expansion before Wasm emission.
-
-## Reader
-
-The syntax parser handles lists, vectors, and bytevectors with matched `()`, `[]`,
-or `{}`, quote abbreviations, booleans, characters, strings, numbers, identifiers
-(including `|...|`, `#%-` names, and `→`), and line, nested block, and datum comments.
-`s-list` tries proper lists first, then improper lists with at least one element
-and a required dotted tail. `s-vector` parses `#`-prefixed proper lists.
-Lists use `(make-list-syntax elements improper-tail loc)`; vectors have their
-own record, `(make-vector-syntax elements loc)`, recognized by `vector-syntax?`.
-Both store lists of child syntax objects and preserve their source locations.
-Vector locations start at the `#` prefix; list locations start at the opening fence.
-`s-bytevector` validates
-each byte and constructs an atom containing a bytevector, located at the prefix.
-The matcher compares bytevector datums as ordinary constants.
-The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,
-including bytevectors, and symbols; `s-expr` also handles compound forms and leading
-intertoken space. Other grammar rules are private; their unit tests live in the module.
-The standalone literal predicates assert a string argument and recognize complete
-spellings; the syntax rules do not call them. Numeric rules recognize radix and exactness prefixes,
-integers, ratios, decimals, exponents, and complex numbers before `string->number`
-constructs the value; representation and precision still follow the host Scheme.
-Bytevector literals use `#u8(...)` with exact integer elements from 0 through 255;
-`(bytevector ...)` is an ordinary application. String line continuations,
-datum labels, and case directives are still pending. The input stream
-remains backed by a character list.
-
-## Agent skills
-
-The `.agents/skills/` submodule references [tsnl/skills](https://github.com/tsnl/skills).
-Run `git submodule update --init .agents/skills` after cloning. Codex discovers
-the skill folders there; `.claude/skills` symlinks to the same checkout for
-Claude Code. See the
-[skills README](https://github.com/tsnl/skills#use-with-codex-and-claude-code)
-for setup and update instructions.
-The [simplify skill](https://github.com/tsnl/skills/blob/main/simplify/SKILL.md)
-guides explanation-driven simplification of recently written modules.
+retain the filename.

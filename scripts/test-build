@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Exercise ordinary Scheme build scripts, publication, runtime reuse and Rust AWI."""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/build-tests"
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+NODE = os.environ.get("NODE", "node")
+ARGUMENTS = ["space in argument", "", "--help", "$(literal)`text`"]
+EXPECTED = '("space in argument" "" "--help" "$(literal)`text`")\n'
+SOURCE = '(import (scheme base) (scheme write) (scheme process-context))\n(write (cdr (command-line))) (newline)\n'
+
+
+# ---- Scheme scripts and subprocesses ----
+
+
+def quote(value):
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def invoke(command, directory, **environment):
+    return subprocess.run([str(arg) for arg in command], cwd=directory, text=True,
+                          capture_output=True, timeout=240,
+                          env={**os.environ, **environment})
+
+
+def require(result, stdout=None, failure=False):
+    if (bool(result.returncode) != failure or
+            (stdout is not None and result.stdout != stdout)):
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
+    return result
+
+
+def script(directory, body, **environment):
+    path = directory / "build.scm"
+    path.write_text('(import (scheme base) (scheme write) (scheme process-context)\n'
+                    '        (snail-scheme compiler) (snail-scheme build))\n' + body + '\n')
+    return invoke([CHIBI, "-I", ROOT / "src", path], directory, **environment)
+
+
+def compile_source(source, output):
+    return f'(build-wasm {quote(ROOT)} {quote(source)} {quote(output)})'
+
+
+def run_module(output):
+    arguments = " ".join(map(quote, ARGUMENTS))
+    return f'(exit (run-wasm {quote(ROOT)} {quote(output)} (list {arguments})))'
+
+
+# ---- Library use and artifact ownership ----
+
+
+def check_import(directory):
+    require(script(directory, '(display "imported\\n")', CARGO="/nonexistent/cargo"), "imported\n")
+    if (directory / "build/traces").exists():
+        raise RuntimeError("importing build library performed traced work")
+
+
+def check_build_and_run(directory, source):
+    output = directory / "portable 'program.wasm"
+    require(script(directory, compile_source(source, output)), "")
+    runtime = ROOT / "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"
+    stamp = runtime.stat().st_mtime_ns
+    source.write_text(SOURCE + '; Changed Scheme source, unchanged Rust.\n')
+    require(script(directory, compile_source(source, output) + '\n' + run_module(output)), EXPECTED)
+    if runtime.stat().st_mtime_ns != stamp:
+        raise RuntimeError("Scheme edit rebuilt the Rust runtime")
+    require(invoke([NODE, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output, *ARGUMENTS], directory), EXPECTED)
+
+
+def check_explicit_stages(directory, source):
+    wat, wasm = directory / "explicit.wat", directory / "explicit.wasm"
+    body = (f'(source-file->wat-file {quote(ROOT)} {quote(source)} {quote(wat)})\n'
+            f'(define runtime (build-runtime {quote(ROOT)}))\n'
+            f'(link-wasm {quote(wat)} runtime {quote(wasm)})\n' + run_module(wasm))
+    require(script(directory, body), EXPECTED)
+
+
+def check_failures(directory, source):
+    output = directory / "existing.wasm"
+    output.write_text("previous successful build")
+    require(script(directory, compile_source(source, output), WASM_OPT="/nonexistent/wasm-opt"), failure=True)
+    if output.read_text() != "previous successful build":
+        raise RuntimeError("failed build replaced existing output")
+    require(script(directory, compile_source(source, source)), failure=True)
+    alias = directory / "source-alias.scm"
+    alias.symlink_to(source)
+    require(script(directory, compile_source(source, alias)), failure=True)
+    if list(directory.glob('.snail-build-*')):
+        raise RuntimeError("failed build leaked its intermediate directory")
+
+
+def check_exit(directory):
+    source, wasm = directory / "exit.scm", directory / "exit.wasm"
+    source.write_text('(import (scheme process-context)) (exit 7)\n')
+    result = script(directory, compile_source(source, wasm) + '\n' + run_module(wasm))
+    if result.returncode != 7:
+        raise RuntimeError(f"exit status lost: {result}")
+
+
+# ---- Built-in Rust calls, roots and tracing ----
+
+
+def check_interop(directory):
+    output = directory / "interop.wasm"
+    names = '(rust-triple rust-remember rust-recalled rust-call rust-forget rust-root-stress)'
+    foreign = f'(map (lambda (name) (cons name "snail.rust")) \'{names})'
+    body = f'(build-wasm {quote(ROOT)} {quote(ROOT / "examples/extension.scm")} {quote(output)} {foreign})'
+    require(script(directory, body), "")
+    expected = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
+    require(invoke([NODE, "--no-warnings", ROOT / "tests/check-awi-roots.mjs", output, "3"], directory), expected)
+
+
+def check_traces(directory):
+    names = set()
+    for path in (directory / 'build/traces').glob('*.json'):
+        events = json.loads(path.read_text())
+        names.update(event['name'] for event in events if event['ph'] == 'B')
+    expected = {'build-wasm', 'build-runtime', 'build.cargo', 'build.link', 'build.run',
+                'source-file->wat-file', 'syntax-list->ir-library'}
+    if not expected <= names:
+        raise RuntimeError(f"missing build traces: {expected - names}")
+
+
+# ---- Test entry point ----
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
+        directory = Path(name)
+        source = directory / "quoted 'source.scm"
+        source.write_text(SOURCE)
+        check_import(directory)
+        check_build_and_run(directory, source)
+        check_explicit_stages(directory, source)
+        check_failures(directory, source)
+        check_exit(directory)
+        check_interop(directory)
+        check_traces(directory)
+    print("Scheme build library and Rust AWI checks passed")
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"build test failed: {error}", file=sys.stderr)
+        sys.exit(1)

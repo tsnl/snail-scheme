@@ -67,7 +67,7 @@ from the new backend.
 With the tools described in `doc/backend.md` available:
 
 ```sh
-./snail-scheme benchmarks/cpu.scm -o build/cpu.wasm
+chibi-scheme -I src benchmarks/build.scm
 scheme --script benchmarks/chez.scm benchmarks/cpu.scm build/cpu-chez.so
 chibi-scheme benchmarks/chibi.scm benchmarks/cpu.scm build/cpu-chibi.scm
 taskset -c 2 node scripts/run-wasi.mjs build/cpu.wasm 64

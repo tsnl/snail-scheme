@@ -5,40 +5,32 @@ Rust provides host services and extensions through a named application Wasm
 interface (AWI). Compiling the compiler sources does not switch the build host.
 
 ```text
-snail-scheme driver
-  -> Chibi: reader -> syntax parser -> expander -> library-grouped IR -> WAT
-  -> Binaryen: assemble Scheme WasmGC
-  -> Cargo: runtime + extension crates -> one Rust Wasm module
-  -> Binaryen: link and optimize -> portable .wasm
-  -> Node/WASI + host shim, or an optional separate native translator
+ordinary Scheme build.scm (run by Chibi)
+  -> compiler library: reader -> syntax parser -> expander -> library-grouped IR -> WAT
+  -> build library: Cargo builds the reusable Rust Wasm runtime
+  -> Binaryen: assemble, link and optimize -> portable .wasm
+  -> build script chooses execution or further artifact generation
 ```
 
 ## Entering the compiler
 
-[`driver/src/main.rs`](driver/src/main.rs) owns modes, temporary artifacts,
-subprocesses, and publication. A source path runs; `-o` builds without running;
-`--emit-wat` stops before assembly. Arguments after `--` pass literally through
-`Command`. Each invocation owns its temporary project. Completed artifacts are
-staged and renamed into place so a failed build does not truncate prior output.
-The standard Rust runtime uses its existing crate and a stable build directory;
-Cargo tracks freshness and reuses the completed Wasm module across programs.
-The driver locks the runtime build through copying the result into its private
-project. Extension builds retain their combined runtime-plus-extensions crate.
+[build.scm](build.scm) is an ordinary Scheme script. It imports
+[`build.sld`](src/snail-scheme/build.sld), which provides `build-runtime`,
+`link-wasm`, `build-wasm`, and `run-wasm`. The script owns arguments and control
+flow; importing compiler libraries has no build or execution side effects.
+`run-command` passes an argv list directly to Chibi's process API without a shell.
+Build intermediates have private directories, and only completed Wasm artifacts
+replace existing outputs. Cargo tracks Rust dependencies and reuses the runtime.
 
-[`snail-compile`](snail-compile) invokes Chibi on
-[`compile.scm`](src/snail-scheme/compile.scm), whose top-level call enters
-[`compiler.sld`](src/snail-scheme/compiler.sld). `source-file->wasm-file` parses,
-expands, and emits WAT. The loader maps `(scheme ...)` to `bootstrap/scheme/` and
-project libraries to `src/`. Library and binding semantics stay in the expander.
+[`compiler.sld`](src/snail-scheme/compiler.sld) exports
+`source-file->wat-file`: source filename to unlinked WasmGC text. The loader
+maps `(scheme ...)` to `bootstrap/scheme/` and compiler libraries to `src/`.
+The frontend does not launch processes. The Chibi-specific build module is a
+host adapter; compiling it for self-hosted execution is future work.
 
-[`trace.sld`](src/snail-scheme/trace.sld) and
-[`trace/src/lib.rs`](trace/src/lib.rs) centralize coarse Chromium trace spans.
-They are always enabled; `build/traces/` is the default directory and
-`SNAIL_TRACE_DIR` overrides it. [Tracing](doc/tracing.md) describes decorators.
-
-The older parser inspection entry [`main.scm`](src/snail-scheme/main.scm) defines
-`main` without invoking it. Chibi's `-r` invokes that procedure. Compiling a
-file containing only definitions correctly produces no printed output.
+[`trace.sld`](src/snail-scheme/trace.sld) and [`src/trace.rs`](src/trace.rs)
+centralize always-on Chromium trace spans. `build/traces/` is the default;
+`SNAIL_TRACE_DIR` overrides it. See [Tracing](doc/tracing.md).
 
 ## Reading source
 
@@ -188,34 +180,34 @@ initialized and immutable travel by value; mutable or early captures use cells.
 Recursive initialization preserves unreadable cells until each initializer
 finishes. Single/multiple-value contexts are checked explicitly.
 
-[`runtime/wasmgc.wat`](runtime/wasmgc.wat) defines the value representations and
+[`src/runtime/wasmgc.wat`](src/runtime/wasmgc.wat) defines the value representations and
 checked primitives. Small integers are immediate `i31ref`; larger integers and
 floats are boxes. Other values use structs and arrays. Type equivalence is
 structural, so atom and text categories carry explicit tags. The engine owns
 GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 
-[`runtime/awi.wat`](runtime/awi.wat) exposes separately named scalar functions
+[`src/runtime/awi.wat`](src/runtime/awi.wat) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
-The [`snail-awi` SDK](awi/src/lib.rs) expresses that ownership through `Root`:
+The [`snail-awi` SDK](src/awi.rs) expresses that ownership through `Root`:
 clone retains, drop releases, return transfers. Raw handles are unsafe and bound
-to their instance. The [`snail-abi` macro](abi/src/lib.rs) emits scalar export
-wrappers; it does not infer Scheme types or hide conversions.
+to their instance. Rust uses ordinary `extern "C"` functions and explicit Wasm export names;
+there is no procedural-macro crate or implicit argument conversion.
 
-[`runtime/src/lib.rs`](runtime/src/lib.rs) implements Rust services: ports,
+[`src/lib.rs`](src/lib.rs) implements Rust services: ports,
 printing, numeric text conversion, substring search, Unicode classification,
 process arguments, clocks, traces, and diagnostics.
-[`host.rs`](runtime/src/host.rs) owns port data and UTF-8 stream handling.
+[`host.rs`](src/host.rs) owns port data and UTF-8 stream handling.
 Rust-owned external resources need explicit close. The additional JS
-[`host.mjs`](runtime/host.mjs) registers WasmGC wrappers with
+[`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
 `FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;
 [`run-wasi.mjs`](scripts/run-wasi.mjs) supplies the Node WASIp1 runner.
 
-[`examples/extension`](examples/extension/README.md) demonstrates Rust retaining
-Scheme values, calling Scheme callbacks, and returning rooted values. The driver
-puts runtime and extension dependencies in one generated Cargo cdylib, sharing
-one linear memory, then links it with the Scheme module. This avoids merging
-WASI imports whose pointers address different memories.
+[`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
+Scheme values, invoking callbacks, and returning rooted values. It is compiled
+into the standard runtime; [its build script](examples/extension/build.scm)
+provides the Scheme name-to-Wasm-module declarations. All Rust code in a program
+shares the runtime's one linear memory.
 
 ## Continuations and native translation
 
@@ -229,7 +221,7 @@ The [bounded Wasm-to-LLVM experiment](experiments/wasm-llvm/README.md) is a
 separate executor, independent of Scheme IR. It lowers references to native
 pointers and uses BDWGC. It does not yet translate full linked Rust programs.
 Wastrel is a useful performance reference; its tested revision lacks stack
-switching. `--native` invokes an explicitly configured external translator.
+switching. Native library integration is being developed separately.
 Both native and JavaScript hosts can implement the same finalization import.
 
 ## Tests and measurements
@@ -241,8 +233,8 @@ The compiler advertises `snail-scheme`, not its host's test features, so its own
 sources compile without importing host-only test modules.
 
 Rust unit tests remain in implementation modules. `scripts/test-backend`
-executes linked Wasm semantic and diagnostic fixtures; `scripts/test-cli`
-checks modes, traces, publication, arguments, extension linking, callbacks, and
+executes linked Wasm semantic and diagnostic fixtures; `scripts/test-build`
+checks library imports, traces, publication, literal arguments, Rust callbacks, and
 root ownership. Native adapter checks require `SNAIL_WASM_NATIVE` and fail
 clearly if none is configured; they are not counted as native passes.
 

@@ -2,7 +2,7 @@
 // input/output/error ports own three roots; all temporary roots must be released.
 import { readFile } from 'node:fs/promises';
 import { WASI } from 'node:wasi';
-import { createFinalizers } from '../runtime/host.mjs';
+import { createFinalizers } from '../src/runtime/host.mjs';
 
 const [filename, expected] = process.argv.slice(2);
 const wasi = new WASI({ version: 'preview1', args: [filename],
