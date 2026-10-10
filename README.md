@@ -1,6 +1,6 @@
 # `snail-scheme`
 
-> Rewrite in progress; the previous implementation lives on branch `v3`.
+> 🚧 Work in progress, claims may change; the previous implementation lives on branch `v3`.
 
 A small Scheme compiler library, hosted by Chibi. Ordinary Scheme scripts choose
 what to compile, where to write it, and whether to run it. There is no compiler
