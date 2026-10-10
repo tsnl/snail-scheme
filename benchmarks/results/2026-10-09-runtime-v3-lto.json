@@ -1,0 +1,1653 @@
+{
+  "revision": "41b92a6782fa0d15d62210933316c745b1c82eec",
+  "source_sha256": {
+    ".cargo/config.toml": "eac33236e519ef99fb1a6d19d9bc8be4198ad980812090b9397caf8360e160a8",
+    "Cargo.lock": "32f9e8399acc11a5b8d495f6617152408d9499049d410c76c0d4033b61491b4c",
+    "Cargo.toml": "a32444c97627b5e70bf46e99728ea08ab0e17b3414302d0ae99c52299e9d73a3",
+    "runner/Cargo.toml": "e69f14427765730e8a1d9e2e59dd7a88d37c99595bbbe59fb30bb398ade26696",
+    "runner/build.rs": "d7add202992d5a2c09f6e6c6cd7844371eca700b33f6042a7181c5dbc2962537",
+    "runner/src/main.rs": "cce25cb4a4c23bb0fcf03a94b3caa34ad0c6a62b2b6e3147068e6042a1540d7e",
+    "runtime/Cargo.toml": "9a745f0f09df9d1a2a37dd79b6485ceed747133f130950eb1a6331009ad4a9ff",
+    "runtime/src/host.rs": "a776e644e98e8ce0679b7947739c13c84d443eb28b514229f4e9c8bd0cee5a89",
+    "runtime/src/lib.rs": "99e19862a73a60bbf42dde056a836bdaf714e1bcb9d6ef132215ac03d3e8b4e9",
+    "runtime/src/object.rs": "34d8d901c4401755fe37293e89bc8078667d8015f3a25a2722289c2a56b927ca",
+    "runtime/src/primitives.rs": "04fb9f4c15ca54fdd49132824dd8bd71db87b4c02925990d3d8d2d373c5b1298",
+    "runtime/src/vm.rs": "7ede09c5972a1a7bb182f4b4aeff01641c3dc433624eb25eee0d18a099104032",
+    "snail-compile": "d839e708b0993eaaf3c8afc74ce5d94bbcd4076bdccfbaa040b9a504f11197e7",
+    "src/snail-scheme/bootstrap.sld": "8ade5e63af09781a58b5f0c9b8d8f4725ba6b9a43c454aac32898768ef525e6a",
+    "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+    "src/snail-scheme/compiler.sld": "a0e9f539ef79c9bf2b2cc8fbae4bd5f645abad884206f380793c930868690bc4",
+    "src/snail-scheme/expand.sld": "05c3b33c959c4b6036739b1352076c1f12b9d3ab7d452f78dd91c6aa9a825c20",
+    "src/snail-scheme/hir.sld": "8c489946f37f7a87ecbc4c00f0e6a869abd58c705b4706a2eca71c3d59d48243",
+    "src/snail-scheme/llvm.sld": "0d0c11ad0c8ef175a456d4d9d2d8f825dadc1fb49acccd7c0d18ab9691d31dce",
+    "src/snail-scheme/llvmlite.sld": "8b7bf7341634bd6395ca0a6d1b04dacb19c6b3435dd235d08d524d7e6e6a2f38",
+    "src/snail-scheme/lower.sld": "e801d38a35e4a0f975dbccdcf6b15fc33773f47ba084fc27945c7472916c631b",
+    "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "f24864623a42e31d72f4746bb023e6401e31b71185dbef911dd4c8a0a887777e",
+    "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "38539424d45df942691c4c614ec083ab6b2f7e37dad92684fa669be51fb05daa",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/vm.sld": "3ef0323a1a040f862093423810e80c5cd8b42df3c4def5c54710fc18cb120aa0"
+  },
+  "corpus_manifest_sha256": "4f2c9069daf16b0bc7327a94f530a8bc32233872a6885a1aa42797b60f2fede4",
+  "experiment_sha256": {
+    "benchmarks/lto": "67e1c6768990ac8a73918d99b45c90b18a5e2a9bf57f5e996d55af52387ee409",
+    "benchmarks/run": "e96d4f14a0d0de0c36b1e73d1de7fb938c322977418de089e6cc0634b8eaa0b6",
+    "benchmarks/ablate": "36350fe10c559cee56ebe2e3ecbee528842c13f1f2aeb3df1b2cfc76864912ee"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "clang": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin",
+    "ld.lld": "LLD 22.1.8 (compatible with GNU linkers)",
+    "wasm-ld": "LLD 22.1.8",
+    "opt": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s",
+    "llc": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore"
+  },
+  "chez": {
+    "command": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "version": "10.4.1",
+    "optimize_level": 2
+  },
+  "builds": [
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "",
+      "seconds": 1.0405427539953962,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "executable_bytes": 928424
+    },
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "rust-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clto=fat",
+      "seconds": 3.1526183129753917,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "b3e1328aa55f860e044664a20888fc6629eb65ab0b958b701d4cc381347db7bf",
+      "executable_bytes": 821120
+    },
+    {
+      "program": "cpu",
+      "target": "native",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 9.009863225044683,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "executable_bytes": 939592,
+      "linked_ir_sha256": {
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/native/cpu/snail_runner-a05b60eb53e2cc27.0.0.preopt.bc": "b52267fc32e31063683b400079af465bf0b6f2d22842b8e2d5fe202caf58b718",
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/native/cpu/snail_runner-a05b60eb53e2cc27.0.4.opt.bc": "d083af09054237d1c2a52d903323bd2b5545fc79dd327f2da0fa63d9bbcd069f"
+      }
+    },
+    {
+      "program": "cpu",
+      "target": "wasm",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "",
+      "seconds": 0.7937489500036463,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "executable_bytes": 448164
+    },
+    {
+      "program": "cpu",
+      "target": "wasm",
+      "variant": "rust-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clto=fat",
+      "seconds": 1.4944052579812706,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "f87d4057ed7a59bd90c534fbff4732822d63c2425ea1004ce3aa96650072d845",
+      "executable_bytes": 416675
+    },
+    {
+      "program": "cpu",
+      "target": "wasm",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=wasm-ld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 36.82331557199359,
+      "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "executable_bytes": 713881,
+      "linked_ir_sha256": {
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/wasm/cpu/snail_runner-2f7395ef2aa30758.wasm.0.0.preopt.bc": "7a8f7a260d351db7d76f3a8f502459dcf6c32647888cbbad6a6c694186ab9896",
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/wasm/cpu/snail_runner-2f7395ef2aa30758.wasm.0.4.opt.bc": "53de68f421e30bf3e7041f147268aea3a8370f56ea45f21995597d31167af5e3"
+      }
+    },
+    {
+      "program": "memory",
+      "target": "native",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "",
+      "seconds": 1.0876447060145438,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "executable_bytes": 954632
+    },
+    {
+      "program": "memory",
+      "target": "native",
+      "variant": "rust-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clto=fat",
+      "seconds": 3.244422687974293,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "3cfab20095c6aedda62f3199b0191a01f1177866e82d48987c08145d5d9f6f41",
+      "executable_bytes": 847328
+    },
+    {
+      "program": "memory",
+      "target": "native",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 11.637816289032344,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "executable_bytes": 992296,
+      "linked_ir_sha256": {
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/native/memory/snail_runner-a05b60eb53e2cc27.0.0.preopt.bc": "8f2a60410ac343aef4ca19c939e0689102a50f0839da61809dd13831f4145f1a",
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/native/memory/snail_runner-a05b60eb53e2cc27.0.4.opt.bc": "85a0902e5c7b841ad06a809c504f01806619de66fb4a20feff41e5d56ef6f537"
+      }
+    },
+    {
+      "program": "memory",
+      "target": "wasm",
+      "variant": "baseline",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "",
+      "seconds": 0.923814435955137,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "executable_bytes": 472432
+    },
+    {
+      "program": "memory",
+      "target": "wasm",
+      "variant": "rust-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clto=fat",
+      "seconds": 1.674555726989638,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "84abaaa5ccee560602d0fb1bea936e7e680c6702c9a3a05947466901855e7fd5",
+      "executable_bytes": 440943
+    },
+    {
+      "program": "memory",
+      "target": "wasm",
+      "variant": "cross-lto",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "flags": "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat -Clinker=wasm-ld -Clink-arg=--save-temps -Clink-arg=--lto-O3",
+      "seconds": 55.84474474500166,
+      "ir_sha256": "7e2c63479c2026763f6beecba42642390f419c815451bbf23e8085328807ecd8",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "executable_bytes": 790470,
+      "linked_ir_sha256": {
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/wasm/memory/snail_runner-2f7395ef2aa30758.wasm.0.0.preopt.bc": "3084bb899626b033d5a2d4104cc0c9f7c2a9bb703bd78172a51ea32892328899",
+        "/tmp/snail-runtime-v3-20261009/build/lto/linked/wasm/memory/snail_runner-2f7395ef2aa30758.wasm.0.4.opt.bc": "f7237aa43d44dae9293bf06519f85e86d461c17a99dfd01cde526ff9b663582c"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2352.978,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b3e1328aa55f860e044664a20888fc6629eb65ab0b958b701d4cc381347db7bf",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2047.082,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1751.059,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.363,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b3e1328aa55f860e044664a20888fc6629eb65ab0b958b701d4cc381347db7bf",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1991.158,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1774.361,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.221,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2347.501,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1778.028,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.337,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2306.933,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b3e1328aa55f860e044664a20888fc6629eb65ab0b958b701d4cc381347db7bf",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2039.126,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.033,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "946fdfde14bb5b101b78ae4b259ec49d90b5495bd2b7fc9a6a94e1d1ceb734d9",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2310.294,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b3e1328aa55f860e044664a20888fc6629eb65ab0b958b701d4cc381347db7bf",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2030.53,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "b7391a2b7a77b387bc70c16e88b4ea0c92d9be16d34baa17a3fd5faff716eddd",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1774.532,
+      "checksum": 67279536,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/cpu",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1760.986,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "f87d4057ed7a59bd90c534fbff4732822d63c2425ea1004ce3aa96650072d845",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1597.276,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1273.731,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.199,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "f87d4057ed7a59bd90c534fbff4732822d63c2425ea1004ce3aa96650072d845",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1602.905,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1262.712,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.072,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1790.853,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1268.53,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.336,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1833.425,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "f87d4057ed7a59bd90c534fbff4732822d63c2425ea1004ce3aa96650072d845",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1586.693,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "f8e0cab96d673effdf913b3281ee67fb59cf525f764fd91d3bd7416bdb7b1129",
+      "program": "cpu",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.233,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/cpu.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "57eedffc8e6eff05a97660e4f020f334bcd53515ab4a047cfca64de82c1de7e1",
+      "program": "cpu",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1783.113,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "f87d4057ed7a59bd90c534fbff4732822d63c2425ea1004ce3aa96650072d845",
+      "program": "cpu",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1578.727,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+      "executable_sha256": "91733c5a059f070deaa73fb072f4de32f215d11781225542dc176514b78fa90f",
+      "program": "cpu",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1306.195,
+      "checksum": 67279536,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/cpu.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2144.081,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "3cfab20095c6aedda62f3199b0191a01f1177866e82d48987c08145d5d9f6f41",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1807.505,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1646.442,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.216,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "3cfab20095c6aedda62f3199b0191a01f1177866e82d48987c08145d5d9f6f41",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1844.742,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1615.767,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.297,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2105.911,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1639.025,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.318,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2144.985,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "3cfab20095c6aedda62f3199b0191a01f1177866e82d48987c08145d5d9f6f41",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1844.374,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.201,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "c8b604dcc50b6d4c05ab7c3a503a3af95dcf0b23cf9e73fb72af04f8979f2fea",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 2155.519,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/baseline/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "3cfab20095c6aedda62f3199b0191a01f1177866e82d48987c08145d5d9f6f41",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1841.697,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/rust-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "42babc21f0a3ba6d37299783654cebdf1308763e001a21556536de11eaec83ed",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 1641.876,
+      "checksum": 7278954048,
+      "comparison_target": "native",
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/native/cross-lto/memory",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1602.367,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "84abaaa5ccee560602d0fb1bea936e7e680c6702c9a3a05947466901855e7fd5",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1444.945,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1186.303,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 7.805,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 1,
+      "position": 4,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "84abaaa5ccee560602d0fb1bea936e7e680c6702c9a3a05947466901855e7fd5",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1458.48,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1178.199,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.335,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 3,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1614.469,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 2,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1182.403,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 1,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.325,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 2,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1602.187,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "84abaaa5ccee560602d0fb1bea936e7e680c6702c9a3a05947466901855e7fd5",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1481.814,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 3,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "adapter_sha256": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "chez_version": "10.4.1",
+      "optimize_level": 2,
+      "executable_sha256": "7d72f0246cb5557c085b3d8efd30ca456b3e12910f4fc7666e98a31d73666379",
+      "program": "memory",
+      "implementation": "chez",
+      "target": "native",
+      "repetitions": 16,
+      "elapsed_ms": 8.266,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 1,
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-runtime-v3-20261009/build/benchmarks/chez/memory.so",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "188b5c2c19f16a3ffb695437ba7648f3ad3708a4c9dfa9631c4deff267e7dd1d",
+      "program": "memory",
+      "implementation": "baseline",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1603.883,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 2,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/baseline/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "84abaaa5ccee560602d0fb1bea936e7e680c6702c9a3a05947466901855e7fd5",
+      "program": "memory",
+      "implementation": "rust-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1460.399,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 3,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/rust-lto/memory.wasm",
+        "16"
+      ]
+    },
+    {
+      "source_sha256": "2993eaad6feb402eef30d35aae3836e276aa31ede546a456073d9a988af2c267",
+      "executable_sha256": "7815c2ecb39fb2554a67e44a346ef92a9317d591123264bcc68459719a8c99c3",
+      "program": "memory",
+      "implementation": "cross-lto",
+      "target": "wasm",
+      "repetitions": 16,
+      "elapsed_ms": 1189.381,
+      "checksum": 7278954048,
+      "comparison_target": "wasm",
+      "sample": 4,
+      "position": 4,
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/lto/bin/wasm/cross-lto/memory.wasm",
+        "16"
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "program": "cpu",
+      "target": "native",
+      "median_ms": {
+        "baseline": 2328.8975,
+        "rust-lto": 2034.828,
+        "cross-lto": 1774.4465,
+        "chez": 7.279
+      },
+      "baseline_over_variant": {
+        "baseline": 1.0,
+        "rust-lto": 1.1445181116045189,
+        "cross-lto": 1.3124641965818638
+      },
+      "variant_over_chez": {
+        "baseline": 319.94745157301827,
+        "rust-lto": 279.54774007418604,
+        "cross-lto": 243.77613683198243
+      }
+    },
+    {
+      "program": "cpu",
+      "target": "wasm",
+      "median_ms": {
+        "baseline": 1786.9830000000002,
+        "rust-lto": 1591.9845,
+        "cross-lto": 1271.1305,
+        "chez": 7.215999999999999
+      },
+      "baseline_over_variant": {
+        "baseline": 1.0,
+        "rust-lto": 1.122487687537159,
+        "cross-lto": 1.405821825532469
+      },
+      "variant_over_chez": {
+        "baseline": 247.64176829268297,
+        "rust-lto": 220.61869456762753,
+        "cross-lto": 176.15444844789357
+      }
+    },
+    {
+      "program": "memory",
+      "target": "native",
+      "median_ms": {
+        "baseline": 2144.5330000000004,
+        "rust-lto": 1843.0355,
+        "cross-lto": 1640.4505,
+        "chez": 8.256499999999999
+      },
+      "baseline_over_variant": {
+        "baseline": 1.0,
+        "rust-lto": 1.1635874620971762,
+        "cross-lto": 1.307282968916161
+      },
+      "variant_over_chez": {
+        "baseline": 259.73875128686495,
+        "rust-lto": 223.22237025373948,
+        "cross-lto": 198.68594440743658
+      }
+    },
+    {
+      "program": "memory",
+      "target": "wasm",
+      "median_ms": {
+        "baseline": 1603.125,
+        "rust-lto": 1459.4395,
+        "cross-lto": 1184.353,
+        "chez": 8.2955
+      },
+      "baseline_over_variant": {
+        "baseline": 1.0,
+        "rust-lto": 1.098452522355329,
+        "cross-lto": 1.353587148426187
+      },
+      "variant_over_chez": {
+        "baseline": 193.25236574046167,
+        "rust-lto": 175.93146886866373,
+        "cross-lto": 142.77053824362605
+      }
+    }
+  ],
+  "complete": true,
+  "phase_driver": "import json\nimport os\nfrom pathlib import Path\nimport runpy\nimport sys\nfrom types import SimpleNamespace\n\nROOT = Path(__file__).resolve().parents[2]\nL = runpy.run_path(str(ROOT / 'benchmarks/lto'), run_name='lto_helpers')\nB = L['BENCH']\nFROZEN = ROOT / 'build/runtime-v3/lto-frozen.json'\nOUTPUT = ROOT / 'benchmarks/results/2026-10-09-runtime-v3-lto.json'\n\n\ndef build():\n    L['validate_environment']()\n    L['BUILD'].mkdir(parents=True, exist_ok=True)\n    B['verify_corpus']()\n    chez = B['chez_runtime'](SimpleNamespace(snail_only=False, chez=os.environ['CHEZ']))\n    report = {**L['provenance'](), 'chez': chez, 'builds': [], 'samples': [], 'summaries': [],\n              'complete': False, 'phase_driver': Path(__file__).read_text()}\n    groups = {name: L['build_program'](name, ('native', 'wasm'), chez, report['builds'])\n              for name in ('cpu', 'memory')}\n    if report['source_sha256'] != L['ABLATE']['source_state']():\n        raise RuntimeError('sources changed during LTO builds')\n    saved = {name: {target: [{'implementation': x.implementation, 'target': x.target,\n                             'path': str(x.path), 'command': list(x.command)} for x in group]\n                    for target, group in targets.items()} for name, targets in groups.items()}\n    FROZEN.write_text(json.dumps({'report': report, 'groups': saved}, indent=2) + '\\n')\n    print('LTO FROZEN', FROZEN, flush=True)\n\n\ndef measure():\n    saved = json.loads(FROZEN.read_text())\n    groups = {name: {target: [B['Executable'](x['implementation'], x['target'], Path(x['path']),\n                                             tuple(x['command'])) for x in group]\n                    for target, group in targets.items()} for name, targets in saved['groups'].items()}\n    arguments = SimpleNamespace(samples=4, json=OUTPUT)\n    L['measure_programs'](groups, arguments, saved['report'])\n    saved['report']['complete'] = True\n    L['save_report'](OUTPUT, saved['report'])\n\n\n(build if sys.argv[1] == 'build' else measure)()\n",
+  "host": {
+    "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+    "snail_gc_stress": false,
+    "wasm_runtime": {
+      "command": "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+      "version": "v24.15.0"
+    },
+    "chez_runtime": {
+      "command": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "version": "10.4.1",
+      "optimize_level": 2
+    }
+  }
+}

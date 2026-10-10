@@ -19,7 +19,7 @@ const HELP: &str = "Usage: snail-scheme INPUT.scm [OPTIONS] [-- ARG ...]
 Run a Scheme program, or build an executable with -o.
   -o, --output, --out PATH  Build and copy the executable without running it
   --emit-llvm              Emit LLVM text instead (stdout, or -o PATH)
-  --target TARGET          native (default) or wasm32-wasip1
+  --target TARGET          native (32-bit Linux, default) or wasm32-wasip1
   --release                Optimize the runtime when running (builds use release)
   --dump-vm PATH           Also write the readable stack-VM program
   --timing                 Report compiler stages and Cargo time on stderr
@@ -99,7 +99,7 @@ fn parse_argument(
 
 fn target(value: &OsString) -> Result<bool> {
     match value.to_str() {
-        Some("native") => Ok(false),
+        Some("native" | "i686-unknown-linux-musl") => Ok(false),
         Some("wasm32-wasip1") => Ok(true),
         _ => Err("--target must be native or wasm32-wasip1".into()),
     }
@@ -304,10 +304,14 @@ fn configure_target(
     if options.release || matches!(action, Action::Build(_)) {
         command.arg("--release");
     }
+    command.args(["--target", target_triple(options.wasm)]);
     if options.wasm {
-        command
-            .args(["--target", "wasm32-wasip1", "--config"])
-            .arg(wasm_runner(root)?);
+        command.arg("--config").arg(wasm_runner(root)?);
+    } else {
+        command.args([
+            "--config",
+            "target.i686-unknown-linux-musl.linker=\"rust-lld\"",
+        ]);
     }
     if matches!(action, Action::Run) {
         command.arg("--").args(&options.arguments);
@@ -326,15 +330,20 @@ fn require_success(command: &mut Command, stage: &str) -> Result<()> {
     }
 }
 
-fn artifact(project: &Project, wasm: bool) -> PathBuf {
+fn target_triple(wasm: bool) -> &'static str {
     if wasm {
-        project.path("target/wasm32-wasip1/release/snail-program.wasm")
+        "wasm32-wasip1"
     } else {
-        project.path(&format!(
-            "target/release/snail-program{}",
-            env::consts::EXE_SUFFIX
-        ))
+        "i686-unknown-linux-musl"
     }
+}
+
+fn artifact(project: &Project, wasm: bool) -> PathBuf {
+    let extension = if wasm { ".wasm" } else { "" };
+    project.path(&format!(
+        "target/{}/release/snail-program{extension}",
+        target_triple(wasm)
+    ))
 }
 
 // Publish only a completed artifact. Failed compilation leaves an existing

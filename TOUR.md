@@ -232,7 +232,7 @@ Reference, assignment, capture, push, and test handlers implement actual word
 loads, stores, and tag tests. Closure construction and control transfers call
 Rust services for their variable-sized work.
 
-`handler-entry` establishes the automatic collection safepoint.
+`handler-entry` checks whether the VM has stopped; it does not collect.
 `checked-pointer-block` branches around failed Rust services. A handler loads a
 source word before requesting storage that might move its source, then publishes
 the result before another instruction can collect. LLVM uses `ptr` to copy one
@@ -290,35 +290,29 @@ do not need a generated Scheme program.
 ## Values, objects, and collection
 
 [`runtime/src/object.rs`](runtime/src/object.rs) keeps representation and
-ownership together. `Value` is one `usize`. Odd words encode signed fixnums;
-other tags encode characters and singleton values. Aligned heap addresses encode
-boxed objects. The immediate integer range is `-2^62` through `2^62 - 1` on a
-64-bit target and `-2^30` through `2^30 - 1` on a 32-bit target. `Heap::integer`
-boxes values outside that range, preserving all `i64` integers on both targets.
-Floating-point numbers are boxed `f64` values. `Number` is a temporary decoded
-arithmetic value, not the stored Scheme representation.
+ownership together. `Value` is a 32-bit `usize`; other pointer widths are
+rejected. Its tags preserve v3: odd fixnums, immediate symbol IDs, zero null,
+halfword characters/singletons, and aligned nonzero heap pointers. Fixnums range
+from `-2^30` through `2^30 - 1`; boxed integers preserve the remaining `i64`
+range. All floats are boxed `f64`: v3's immediate float32 encoding cannot fit a
+32-bit word. `Number` is a decoded arithmetic value, not a heap object.
 
-The concrete types include `Pair`, `Vector`, `Cell`, `Closure`, `Record`,
-`RecordType`, strings, symbols, primitives, numbers, and ports. Each implements
-`SnailSchemeObject::mark`, which visits its strong Scheme references. The small
-`object!` macro supplies those implementations; there is no closed object enum
-standing in for dynamic dispatch. An aligned allocation header owns a
-`Box<dyn SnailSchemeObject>` and its mark bit, keeping the trait object's metadata
-out of the tagged word.
+One `Boxed<T>` allocation contains an aligned kind/mark header and concrete
+payload. Pairs, cells, text, and vectors keep v3's field model, adapted for Rust
+ownership; additional kinds cover closures, records, ports, and primitive IDs.
+`find`, `get`, and `get_mut` check the tag and kind before direct field access.
+There is no hash lookup, `Any`, or virtual dispatch for builtin objects.
 
-The heap owns headers in an address-keyed map. `find`, `get`, and `get_mut` look
-up that ownership before performing a checked Rust downcast. They never turn an
-untrusted integer address directly into a Rust reference. Returned references
-borrow the heap. An unrooted value is invalid across collection; allocation can
-reuse its old address, so this safety check does not promise permanent identity
-for stale values.
+The ownership vector is used for sweeping. `gc_mark` statically follows each
+kind's Scheme fields using a worklist; `destroy_object` releases its own Rust
+storage without recursively freeing children. Cycles therefore work naturally.
+Only `Extension` delegates tracing and destruction through a C ABI vtable.
+Its callbacks must report live same-VM edges and cannot allocate managed
+objects, collect, reenter Scheme, or unwind. All internal pointer access requires
+live same-heap words; a copied value is not a durable host root.
 
-`Heap::allocate` does not collect. `Heap::collect` uses an explicit worklist and
-marks an object before following its children; `sweep` drops unreachable objects
-and resets surviving mark bits. This handles cycles without moving objects or
-recursing through the host stack. Collection scheduling uses the allocation
-count since the last sweep and a budget fixed at that sweep, so each allocation
-does not move the threshold farther away. Statistics count objects, not bytes.
+Allocation never collects. Collection scheduling uses allocations since the
+last sweep and a budget fixed at that sweep. Statistics count objects, not bytes.
 
 ## Activations, continuations, and Rust services
 
@@ -340,40 +334,47 @@ Primitive outcomes distinguish one value, multiple values, and control requests.
 
 `slot`, `capture_slot`, `single_slot`, `result_slot`, and `push_slot` are the
 checked storage services used by LLVM instruction bodies. Capturing a direct
-local allocates and publishes its shared cell without collecting. Later captures
-reuse it. A capture selects the cell itself; a lexical reference selects either
+local acquires an allocation capability before constructing and publishing its
+shared cell. Later captures reuse it without polling. A capture selects the cell itself; a lexical reference selects either
 the direct value or the cell's contents. Slot pointers are
-short-lived: growing the underlying vector can invalidate them. These services
-do not collect, and generated code must finish its loads and stores before the
-next safepoint.
+short-lived: growing the underlying vector can invalidate them. Ordinary slot services
+do not collect; generated code finishes its loads and stores before an
+allocating operation.
 
-`safepoint` checks collection pressure or `SNAIL_GC_STRESS`. `collect` gathers
-roots, runs the heap collector, removes dead weak symbol entries, and records
-the elapsed monotonic time. `roots`, `Activation::roots`, and `Frame::roots`
-account for globals, constants, results, pending arguments, current and saved
-activations, multiple-value consumers, and current ports. Symbols kept only by
-the intern table can die; a live symbol keeps its identity.
+`Runtime` owns the heap, ports, argv, and permanent symbol-name table. Rust
+callables receive its read/mutation services without access to VM control state.
+`Allocation` adds managed constructors and borrows those same services. Only
+the VM creates this owned capability after checking pressure or `SNAIL_GC_STRESS`.
+Arguments and procedures passed through a returned dispatch action are included
+as extra roots before acquisition. Allocations inside the callable never poll,
+and capability destruction never collects.
+
+`collect_with`, `roots`, `Activation::roots`, and `Frame::roots` account for
+all active/saved Scheme values and current ports. Immediate symbols need no
+tracing; their backing names survive until the runtime is dropped.
 
 The explicit `collect-garbage` primitive requests a `Collect` action. The VM
 publishes its unspecified result and collects only after the consumed inputs
 are no longer needed. `gc_statistics` reports collection count, cumulative and
 maximum collection nanoseconds, allocation and reclamation counts, live objects,
 and peak live objects. The measured collection interval includes root gathering
-and weak-table cleanup.
+and tracing/sweeping.
 
 [`runtime/src/lib.rs`](runtime/src/lib.rs) is the C ABI boundary.
 `boundary` records errors and contains unwinds where the build supports
 unwinding; stopped machines make later services return their stopped values.
-`handler` additionally performs the entry safepoint. The `snail_rt_*` functions
+Ordinary instruction entry only checks the stopped state. The `snail_rt_*` functions
 expose the VM services, while `snail_const_*` and `snail_global_primitive` build
 startup data. Release builds abort on unexpected Rust panics. Scheme errors use
 the VM's explicit error state.
 
 [`runtime/src/primitives.rs`](runtime/src/primitives.rs) dispatches builtins.
-`numeric_arguments` decodes numbers before checked arithmetic;
+A closed `Builtin` inventory records names and allocation effects; dispatch
+uses enum IDs instead of copied strings. Numeric operations decode arguments
+while traversing them, without allocating a temporary number vector;
 `compare_integer_float` avoids first rounding a large exact integer to `f64`.
 The pair, vector, bytevector, string, character, and record operations validate
-types and indices before use. `Vm::string` borrows text for reads;
+types and indices before use. `Runtime::string` borrows text for reads;
 `string_byte_offset` translates Unicode-scalar indices for substring and search.
 Constructors own their output before allocating it in the heap. Record descriptors
 are generative identities, and `constructor_fields` establishes field order by
@@ -451,6 +452,12 @@ benchmark executions with the Chez reference. The default build is unchanged.
 question: whether equivalent checked fixnum helpers written in Rust and through
 `llvmlite` inline into LLVM callers. It executes both on native/WASI and retains
 the linked IR and assembly. This diagnostic does not change runtime primitives.
+
+[`benchmarks/chibi`](benchmarks/chibi) compares saved Snail executables with
+Chibi and Chez, rotating execution order and checking equal fixed work. Its
+[`Scheme adapter`](benchmarks/chibi.scm) keeps the workload bodies unchanged and
+converts Chibi substring-search cursors to character indices. The report records
+Chibi's millisecond wall clock and the native pointer-width difference explicitly.
 
 [`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
 shared. `copy-program` replaces their imports with the required compatibility

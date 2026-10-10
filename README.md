@@ -36,9 +36,13 @@ the stack instructions. Program arguments follow `--`. `--timing` and
 [the backend guide](doc/backend.md) for tools, modes, and limitations.
 
 Cargo/rustc, LLVM `opt` and `llc`, and a WASI-capable Node are needed in addition
-to the Scheme development tools. Set `CHIBI` to select the hosted compiler's
-Scheme executable. The build still uses Chibi; compiling the compiler's sources
-is supported without switching the default to self-hosting. Start with
+to the Scheme development tools. Install the Rust targets with
+`rustup target add i686-unknown-linux-musl wasm32-wasip1`. Native output is a
+static 32-bit Linux executable; the host must support running i386 programs.
+The runtime deliberately supports only 32-bit pointers. Set `CHIBI` to select
+the hosted compiler's Scheme executable. The build still uses Chibi; compiling
+the compiler's sources is supported without switching the default to
+self-hosting. Start with
 [TOUR.md](TOUR.md) for the control flow and a guide to every module, or
 [the benchmark suite](benchmarks/README.md) for the performance baseline.
 

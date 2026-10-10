@@ -30,18 +30,6 @@ impl Local {
             Self::Captured(cell) => Ok(&mut heap.get_mut::<Cell>(*cell)?.0),
         }
     }
-
-    fn capture(&mut self, heap: &mut Heap) -> *mut Value {
-        // Allocation cannot collect or resize the activation's local storage.
-        // Publish the cell here before the next generated-code safepoint.
-        if let Self::Direct(value) = self {
-            *self = Self::Captured(heap.allocate(Cell(*value)));
-        }
-        match self {
-            Self::Captured(cell) => cell,
-            Self::Direct(_) => unreachable!(),
-        }
-    }
 }
 
 #[derive(Default, Debug)]
@@ -78,17 +66,151 @@ enum Dispatch {
     Return,
 }
 
-pub struct Vm {
+// ---- Rust runtime services and allocation capability ----
+
+/// Sibling modules can read/mutate heap fields but cannot mint this authority.
+/// It gates low-level allocation/collection without forwarding every accessor.
+/// Only this module creates it; Allocation keeps its copy private from callables.
+pub(crate) struct HeapAccess(());
+
+impl HeapAccess {
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self(())
+    }
+}
+
+/// A Rust callable can access object fields and host services, but not VM roots
+/// or collection. Only an owned Allocation permits managed construction.
+pub(crate) struct Runtime {
     pub(crate) heap: Heap,
     pub(crate) host: Host,
     pub(crate) argv: Vec<String>,
+    symbols: HashMap<std::rc::Rc<str>, Value>,
+    symbol_names: Vec<std::rc::Rc<str>>,
+}
+
+impl Runtime {
+    fn new(argv: Vec<String>) -> Self {
+        let access = HeapAccess(());
+        let mut heap = Heap::new(&access);
+        let input = heap.allocate(Port::Stdin, &access);
+        let output = heap.allocate(Port::Stdout, &access);
+        let error = heap.allocate(Port::Stderr, &access);
+        Self {
+            heap,
+            host: Host::new(input, output, error),
+            argv,
+            symbols: HashMap::new(),
+            symbol_names: Vec::new(),
+        }
+    }
+
+    // Symbol IDs and backing names live as long as the VM, like v3's intern table.
+    // Interning allocates Rust storage, never a managed object or a safepoint.
+    pub(crate) fn intern(&mut self, name: &str) -> Value {
+        if let Some(value) = self.symbols.get(name) {
+            return *value;
+        }
+        let value = Value::symbol(self.symbol_names.len());
+        let name: std::rc::Rc<str> = name.into();
+        self.symbol_names.push(name.clone());
+        self.symbols.insert(name, value);
+        value
+    }
+
+    pub(crate) fn symbol_name(&self, value: Value) -> Result<&str, String> {
+        value
+            .as_symbol()
+            .and_then(|index| self.symbol_names.get(index))
+            .map(|name| name.as_ref())
+            .ok_or_else(|| "expected a symbol".into())
+    }
+
+    pub(crate) fn string(&self, value: Value) -> Result<&str, String> {
+        Ok(self.heap.get::<Text>(value)?.as_str())
+    }
+
+    pub(crate) fn list_values(&self, mut list: Value) -> Result<Vec<Value>, String> {
+        let mut values = Vec::new();
+        let mut seen = HashSet::new();
+        while list != Value::NIL {
+            if !seen.insert(list) {
+                return Err("expected a proper list, got a cycle".into());
+            }
+            let Pair(car, cdr) = self.heap.get::<Pair>(list)?;
+            values.push(*car);
+            list = *cdr;
+        }
+        Ok(values)
+    }
+
+    pub(crate) fn gc_statistics(&self) -> GcStatistics {
+        self.heap.statistics()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(argv: Vec<String>) -> Self {
+        Self::new(argv)
+    }
+
+    /// Unit tests construct an isolated allocation burst with collection disabled.
+    #[cfg(test)]
+    pub(crate) fn allocation(&mut self) -> Allocation<'_> {
+        Allocation {
+            runtime: self,
+            access: HeapAccess(()),
+        }
+    }
+}
+
+/// One GC-free Rust operation. The VM creates this only after its boundary poll;
+/// construction and destruction of managed values never poll inside the call.
+/// No Drop implementation: ending a burst must not collect unrooted results.
+pub(crate) struct Allocation<'a> {
+    runtime: &'a mut Runtime,
+    access: HeapAccess,
+}
+
+impl std::ops::Deref for Allocation<'_> {
+    type Target = Runtime;
+    fn deref(&self) -> &Runtime {
+        self.runtime
+    }
+}
+impl std::ops::DerefMut for Allocation<'_> {
+    fn deref_mut(&mut self) -> &mut Runtime {
+        self.runtime
+    }
+}
+impl Allocation<'_> {
+    pub(crate) fn alloc(&mut self, object: impl SnailSchemeObject) -> Value {
+        self.runtime.heap.allocate(object, &self.access)
+    }
+    pub(crate) fn integer(&mut self, value: i64) -> Value {
+        self.runtime.heap.integer(value, &self.access)
+    }
+    pub(crate) fn float(&mut self, value: f64) -> Value {
+        self.alloc(Float(value))
+    }
+    pub(crate) fn list(&mut self, values: &[Value]) -> Value {
+        values
+            .iter()
+            .rev()
+            .fold(Value::NIL, |tail, value| self.alloc(Pair(*value, tail)))
+    }
+}
+
+// ---- Scheme roots and execution ----
+
+pub struct Vm {
+    runtime: Runtime,
     globals: Vec<Value>,
     constants: Vec<Value>,
     operands: Vec<Value>,
     results: Vec<Value>,
     activation: Activation,
     frames: Vec<Frame>,
-    symbols: HashMap<String, Value>,
     error: Option<String>,
     halted: bool,
     exit_code: i32,
@@ -98,21 +220,14 @@ pub struct Vm {
 
 impl Vm {
     pub fn new(global_count: u32, constant_count: u32, argv: Vec<String>) -> Self {
-        let mut heap = Heap::default();
-        let input = heap.allocate(Port::Stdin);
-        let output = heap.allocate(Port::Stdout);
-        let error = heap.allocate(Port::Stderr);
         Self {
-            heap,
-            host: Host::new(input, output, error),
-            argv,
+            runtime: Runtime::new(argv),
             globals: vec![Value::UNINITIALIZED; global_count as usize],
             constants: vec![Value::UNINITIALIZED; constant_count as usize],
             operands: Vec::new(),
             results: vec![Value::UNSPECIFIED],
             activation: Activation::default(),
             frames: Vec::new(),
-            symbols: HashMap::new(),
             error: None,
             halted: false,
             exit_code: 0,
@@ -151,20 +266,30 @@ impl Vm {
         self.halted = true;
     }
 
-    /// The only automatic collection site. Call before removing handler inputs.
-    pub(crate) fn safepoint(&mut self) {
-        if self.stress_gc || self.heap.should_collect() {
-            self.collect();
+    /// All extra roots are Scheme call operands, never arbitrary Rust locals.
+    /// Returned Invoke/CallWithValues actions reach this boundary only after the
+    /// previous Rust callable has unwound. Its complete procedure/args are roots.
+    pub(crate) fn allocation(&mut self, extra: impl IntoIterator<Item = Value>) -> Allocation<'_> {
+        if self.stress_gc || self.runtime.heap.should_collect() {
+            self.collect_with(extra);
+        }
+        Allocation {
+            runtime: &mut self.runtime,
+            access: HeapAccess(()),
         }
     }
 
     pub fn collect(&mut self) {
+        self.collect_with([]);
+    }
+
+    fn collect_with(&mut self, extra: impl IntoIterator<Item = Value>) {
         let started = std::time::Instant::now();
-        self.heap.collect(self.roots());
-        // Weak interned names disappear before any allocation can reuse addresses.
-        self.symbols.retain(|_, value| self.heap.contains(*value));
+        let mut roots = self.roots();
+        roots.extend(extra);
+        self.runtime.heap.collect(roots, &HeapAccess(()));
         let nanoseconds = started.elapsed().as_nanos().min(u64::MAX as u128) as u64;
-        self.heap.record_collection_time(nanoseconds);
+        self.runtime.heap.record_collection_time(nanoseconds);
     }
 
     fn roots(&self) -> Vec<Value> {
@@ -178,7 +303,11 @@ impl Vm {
             roots.extend_from_slice(values);
         }
         self.activation.roots(&mut roots);
-        roots.extend([self.host.input, self.host.output, self.host.error]);
+        roots.extend([
+            self.runtime.host.input,
+            self.runtime.host.output,
+            self.runtime.host.error,
+        ]);
         for frame in &self.frames {
             frame.roots(&mut roots);
         }
@@ -186,52 +315,7 @@ impl Vm {
     }
 
     pub fn gc_statistics(&self) -> GcStatistics {
-        self.heap.statistics()
-    }
-    pub(crate) fn integer(&mut self, value: i64) -> Value {
-        self.heap.integer(value)
-    }
-    pub(crate) fn float(&mut self, value: f64) -> Value {
-        self.alloc(Float(value))
-    }
-
-    /// Allocation never collects; safepoints are explicit VM operations.
-    pub(crate) fn alloc(&mut self, object: impl SnailSchemeObject) -> Value {
-        self.heap.allocate(object)
-    }
-
-    pub(crate) fn intern(&mut self, name: &str) -> Value {
-        if let Some(value) = self.symbols.get(name) {
-            return *value;
-        }
-        let value = self.alloc(Symbol(name.to_owned()));
-        self.symbols.insert(name.to_owned(), value);
-        value
-    }
-
-    pub(crate) fn list(&mut self, values: &[Value]) -> Value {
-        values
-            .iter()
-            .rev()
-            .fold(Value::NIL, |tail, value| self.alloc(Pair(*value, tail)))
-    }
-
-    pub(crate) fn list_values(&self, mut list: Value) -> Result<Vec<Value>, String> {
-        let mut values = Vec::new();
-        let mut seen = HashSet::new();
-        while list != Value::NIL {
-            if !seen.insert(list) {
-                return Err("expected a proper list, got a cycle".into());
-            }
-            let Pair(car, cdr) = self.heap.get::<Pair>(list)?;
-            values.push(*car);
-            list = *cdr;
-        }
-        Ok(values)
-    }
-
-    pub(crate) fn string(&self, value: Value) -> Result<&str, String> {
-        Ok(&self.heap.get::<Text>(value)?.0)
+        self.runtime.gc_statistics()
     }
 
     pub(crate) fn single(&self) -> Result<Value, String> {
@@ -243,7 +327,8 @@ impl Vm {
 
     fn free_cell(&self, index: u32) -> Result<Value, String> {
         let closure = self.activation.closure.ok_or("no active closure")?;
-        self.heap
+        self.runtime
+            .heap
             .get::<Closure>(closure)?
             .captures
             .get(index as usize)
@@ -260,41 +345,50 @@ impl Vm {
                 .locals
                 .get_mut(index as usize)
                 .ok_or("invalid lexical slot")?
-                .slot(&mut self.heap),
+                .slot(&mut self.runtime.heap),
             1 => {
                 let cell = self.free_cell(index)?;
-                Ok(&mut self.heap.get_mut::<Cell>(cell)?.0)
+                Ok(&mut self.runtime.heap.get_mut::<Cell>(cell)?.0)
             }
             2 => self
                 .globals
                 .get_mut(index as usize)
                 .map(|v| v as *mut Value)
-                .ok_or("invalid global slot".into()),
+                .ok_or_else(|| "invalid global slot".into()),
             3 => self
                 .constants
                 .get_mut(index as usize)
                 .map(|v| v as *mut Value)
-                .ok_or("invalid constant slot".into()),
+                .ok_or_else(|| "invalid constant slot".into()),
             _ => Err("invalid slot kind".into()),
         }
     }
 
     pub(crate) fn capture_slot(&mut self, index: u32, free: bool) -> Result<*mut Value, String> {
         if !free {
-            return Ok(self
+            let local = self
                 .activation
                 .locals
-                .get_mut(index as usize)
-                .ok_or("invalid lexical slot")?
-                .capture(&mut self.heap));
+                .get(index as usize)
+                .ok_or("invalid lexical slot")?;
+            if let Local::Direct(value) = local {
+                let value = *value;
+                let cell = self.allocation([]).alloc(Cell(value));
+                self.activation.locals[index as usize] = Local::Captured(cell);
+            }
+            return match &mut self.activation.locals[index as usize] {
+                Local::Captured(cell) => Ok(cell),
+                Local::Direct(_) => unreachable!(),
+            };
         }
         let closure = self.activation.closure.ok_or("no active closure")?;
-        self.heap
+        self.runtime
+            .heap
             .get_mut::<Closure>(closure)?
             .captures
             .get_mut(index as usize)
             .map(|v| v as *mut Value)
-            .ok_or("invalid lexical slot".into())
+            .ok_or_else(|| "invalid lexical slot".into())
     }
 
     pub(crate) fn single_slot(&mut self) -> Result<*mut Value, String> {
@@ -331,7 +425,7 @@ impl Vm {
             .checked_sub(captures as usize)
             .ok_or("not enough closure captures")?;
         let captures = self.operands.split_off(start);
-        let closure = self.alloc(Closure {
+        let closure = self.allocation(captures.iter().copied()).alloc(Closure {
             entry,
             required: required as usize,
             has_rest,
@@ -387,7 +481,7 @@ impl Vm {
                     }
                 }
             };
-            if let Some(closure) = self.heap.find::<Closure>(procedure) {
+            if let Some(closure) = self.runtime.heap.find::<Closure>(procedure) {
                 let (entry, required, has_rest, locals) = (
                     closure.entry,
                     closure.required,
@@ -396,9 +490,17 @@ impl Vm {
                 );
                 return self
                     .enter_closure(procedure, &arguments, entry, required, has_rest, locals);
-            } else if let Some(Primitive(name)) = self.heap.find::<Primitive>(procedure) {
-                let name = name.clone();
-                match primitives::primitive(self, &name, &arguments)? {
+            } else if let Some(Primitive(builtin)) = self.runtime.heap.find::<Primitive>(procedure)
+            {
+                let builtin = *builtin;
+                let result = if builtin.may_allocate() {
+                    let allocation = self
+                        .allocation(std::iter::once(procedure).chain(arguments.iter().copied()));
+                    primitives::invoke_allocating(allocation, builtin, &arguments)?
+                } else {
+                    primitives::invoke(&mut self.runtime, builtin, &arguments)?
+                };
+                match result {
                     PrimitiveResult::Value(value) => {
                         self.set_result(value);
                         action = Dispatch::Return;
@@ -459,7 +561,9 @@ impl Vm {
             locals.push(Local::Direct(*value));
         }
         if has_rest {
-            let rest = self.list(&arguments[required..]);
+            let rest = self
+                .allocation(std::iter::once(procedure).chain(arguments.iter().copied()))
+                .list(&arguments[required..]);
             locals.push(Local::Direct(rest));
         }
         while locals.len() < local_count {
@@ -498,12 +602,26 @@ impl Vm {
     }
 
     pub(crate) fn global_primitive(&mut self, index: u32, name: String) -> Result<(), String> {
-        let value = self.alloc(Primitive(name));
+        let builtin = primitives::Builtin::from_name(&name)?;
+        let value = self.allocation([]).alloc(Primitive(builtin));
         *self
             .globals
             .get_mut(index as usize)
             .ok_or("invalid global slot")? = value;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+impl Vm {
+    fn alloc(&mut self, object: impl SnailSchemeObject) -> Value {
+        self.runtime.allocation().alloc(object)
+    }
+    fn list(&mut self, values: &[Value]) -> Value {
+        self.runtime.allocation().list(values)
+    }
+    fn safepoint(&mut self) {
+        let _allocation = self.allocation([]);
     }
 }
 
@@ -549,6 +667,66 @@ mod tests {
     }
 
     #[test]
+    fn instruction_entries_and_nonallocating_calls_do_not_poll() {
+        let mut vm = machine(0);
+        let car = vm.alloc(Primitive(primitives::Builtin::from_name("car").unwrap()));
+        let pair = vm.alloc(Pair(integer(7), Value::NIL));
+        vm.results = vec![car];
+        vm.operands.push(pair);
+        assert_eq!(unsafe { crate::snail_rt_enter(&mut vm) }, 1);
+        assert_eq!(vm.call(1, 900, false).unwrap(), 900);
+        assert_eq!(vm.single().unwrap(), integer(7));
+        assert_eq!(vm.gc_statistics().collections, 0);
+    }
+
+    #[test]
+    fn allocating_call_roots_arguments_before_entering_rust() {
+        let mut vm = machine(0);
+        let cons = vm.alloc(Primitive(primitives::Builtin::from_name("cons").unwrap()));
+        let text = vm.alloc(Text::new("rooted argument".into()));
+        vm.results = vec![cons];
+        vm.operands.extend([text, Value::NIL]);
+        assert_eq!(vm.call(2, 900, false).unwrap(), 900);
+        assert_eq!(vm.gc_statistics().collections, 1);
+        vm.collect();
+        let pair = vm.runtime.heap.get::<Pair>(vm.single().unwrap()).unwrap();
+        assert_eq!(vm.runtime.string(pair.0).unwrap(), "rooted argument");
+    }
+
+    #[test]
+    fn allocation_burst_keeps_detached_rust_temporaries_until_publication() {
+        let mut vm = machine(0);
+        let child = vm.alloc(Text::new("temporary".into()));
+        let parent = vm.alloc(Pair(child, Value::NIL));
+        vm.results = vec![parent];
+        let collections = vm.gc_statistics().collections;
+        let mut allocation = vm.allocation([]);
+        let child = allocation.heap.get::<Pair>(parent).unwrap().0;
+        allocation.heap.get_mut::<Pair>(parent).unwrap().0 = Value::NIL;
+        for _ in 0..2048 {
+            allocation.alloc(Pair(Value::NIL, Value::NIL));
+        }
+        let result = allocation.alloc(Pair(child, Value::NIL));
+        assert_eq!(allocation.gc_statistics().collections, collections + 1);
+        vm.set_result(result);
+        vm.collect();
+        let pair = vm.runtime.heap.get::<Pair>(result).unwrap();
+        assert_eq!(vm.runtime.string(pair.0).unwrap(), "temporary");
+    }
+
+    #[test]
+    fn interned_symbols_are_immediate_and_keep_their_names() {
+        let mut vm = machine(0);
+        let allocated = vm.gc_statistics().allocated;
+        let symbol = vm.runtime.intern("permanent symbol");
+        assert!(symbol.as_symbol().is_some());
+        assert_eq!(vm.gc_statistics().allocated, allocated);
+        vm.collect();
+        assert_eq!(vm.runtime.intern("permanent symbol"), symbol);
+        assert_eq!(vm.runtime.symbol_name(symbol).unwrap(), "permanent symbol");
+    }
+
+    #[test]
     fn ordinary_locals_do_not_allocate_managed_objects() {
         let mut vm = machine(0);
         let function = closure(&mut vm, 10, 1, false, 2);
@@ -566,27 +744,29 @@ mod tests {
     fn saved_caller_locals_keep_heap_values_alive() {
         let mut vm = machine(0);
         let outer = closure(&mut vm, 10, 1, false, 1);
-        let retained = vm.alloc(Text("saved caller local".into()));
+        let retained = vm.alloc(Text::new("saved caller local".into()));
         call(&mut vm, outer, &[retained], false);
         let inner = closure(&mut vm, 20, 0, false, 0);
         call(&mut vm, inner, &[], false);
         vm.collect();
         assert_eq!(vm.return_values().unwrap(), 900);
         let retained = slot_value(&mut vm, 0, 0);
-        assert_eq!(vm.string(retained).unwrap(), "saved caller local");
+        assert_eq!(vm.runtime.string(retained).unwrap(), "saved caller local");
     }
 
     #[test]
     fn explicit_collection_keeps_caller_operands_and_records_statistics() {
         let mut vm = machine(0);
         vm.set_gc_stress(false);
-        let retained = vm.alloc(Text("pending caller argument".into()));
+        let retained = vm.alloc(Text::new("pending caller argument".into()));
         vm.operands.push(retained);
-        vm.alloc(Text("garbage".into()));
-        let collect = vm.alloc(Primitive("collect-garbage".into()));
+        vm.alloc(Text::new("garbage".into()));
+        let collect = vm.alloc(Primitive(
+            primitives::Builtin::from_name("collect-garbage").unwrap(),
+        ));
         assert_eq!(call(&mut vm, collect, &[], false), 900);
         assert_eq!(
-            vm.string(vm.operands[0]).unwrap(),
+            vm.runtime.string(vm.operands[0]).unwrap(),
             "pending caller argument"
         );
         let stats = vm.gc_statistics();
@@ -612,7 +792,7 @@ mod tests {
         assert_eq!(vm.return_values().unwrap(), 900);
         assert_eq!(vm.max_frames(), 1);
         vm.collect();
-        assert!(vm.heap.live_objects() <= 5);
+        assert!(vm.runtime.heap.live_objects() <= 5);
     }
 
     #[test]
@@ -627,7 +807,7 @@ mod tests {
         let cell = capture(&mut vm, 0, false);
         assert_eq!(capture(&mut vm, 0, false), cell);
         assert_eq!(vm.gc_statistics().allocated, allocated + 1);
-        assert_eq!(vm.heap.get::<Cell>(cell).unwrap().0, integer(7));
+        assert_eq!(vm.runtime.heap.get::<Cell>(cell).unwrap().0, integer(7));
         vm.operands.push(cell);
         vm.close(20, 0, false, 0, 1).unwrap();
         let inner = vm.single().unwrap();
@@ -649,7 +829,7 @@ mod tests {
     fn tail_replacement_leaves_escaped_captures_and_forwarded_cells_alive() {
         let mut vm = machine(1);
         let outer = closure(&mut vm, 10, 1, false, 1);
-        let retained = vm.alloc(Text("escaped binding".into()));
+        let retained = vm.alloc(Text::new("escaped binding".into()));
         call(&mut vm, outer, &[retained], false);
         let cell = capture(&mut vm, 0, false);
         vm.operands.push(cell);
@@ -662,7 +842,7 @@ mod tests {
         vm.collect();
         assert_eq!(capture(&mut vm, 0, true), cell);
         let retained = slot_value(&mut vm, 0, 1);
-        assert_eq!(vm.string(retained).unwrap(), "escaped binding");
+        assert_eq!(vm.runtime.string(retained).unwrap(), "escaped binding");
         let forwarded_cell = capture(&mut vm, 0, true);
         vm.operands.push(forwarded_cell);
         vm.close(30, 0, false, 0, 1).unwrap();
@@ -673,13 +853,13 @@ mod tests {
         vm.collect();
         assert_eq!(capture(&mut vm, 0, true), cell);
         let retained = slot_value(&mut vm, 0, 1);
-        assert_eq!(vm.string(retained).unwrap(), "escaped binding");
+        assert_eq!(vm.runtime.string(retained).unwrap(), "escaped binding");
     }
 
     #[test]
     fn primitive_calls_preserve_pending_outer_arguments() {
         let mut vm = machine(0);
-        let plus = vm.alloc(Primitive("+".into()));
+        let plus = vm.alloc(Primitive(primitives::Builtin::from_name("+").unwrap()));
         vm.operands.push(integer(99));
         assert_eq!(call(&mut vm, plus, &[integer(2), integer(3)], false), 900);
         assert_eq!(vm.operands, vec![integer(99)]);
@@ -690,7 +870,7 @@ mod tests {
     fn apply_builds_a_rest_list_without_host_calls() {
         let mut vm = machine(0);
         let function = closure(&mut vm, 10, 1, true, 2);
-        let apply = vm.alloc(Primitive("apply".into()));
+        let apply = vm.alloc(Primitive(primitives::Builtin::from_name("apply").unwrap()));
         let rest = vm.list(&[integer(2), integer(3)]);
         let allocated = vm.gc_statistics().allocated;
         assert_eq!(
@@ -700,7 +880,10 @@ mod tests {
         assert_eq!(vm.gc_statistics().allocated, allocated + 2);
         vm.safepoint();
         let rest = slot_value(&mut vm, 1, 0);
-        assert_eq!(vm.list_values(rest).unwrap(), vec![integer(2), integer(3)]);
+        assert_eq!(
+            vm.runtime.list_values(rest).unwrap(),
+            vec![integer(2), integer(3)]
+        );
     }
 
     #[test]
@@ -708,18 +891,20 @@ mod tests {
         let mut vm = machine(0);
         let producer = closure(&mut vm, 10, 0, false, 0);
         let consumer = closure(&mut vm, 20, 2, false, 2);
-        let cwv = vm.alloc(Primitive("call-with-values".into()));
+        let cwv = vm.alloc(Primitive(
+            primitives::Builtin::from_name("call-with-values").unwrap(),
+        ));
         assert_eq!(call(&mut vm, cwv, &[producer, consumer], false), 10);
-        let first = vm.alloc(Text("first".into()));
-        let second = vm.alloc(Text("second".into()));
+        let first = vm.alloc(Text::new("first".into()));
+        let second = vm.alloc(Text::new("second".into()));
         vm.results = vec![first, second];
         vm.safepoint();
         assert_eq!(vm.return_values().unwrap(), 20);
         vm.safepoint();
         let first = slot_value(&mut vm, 0, 0);
         let second = slot_value(&mut vm, 1, 0);
-        assert_eq!(vm.string(first).unwrap(), "first");
-        assert_eq!(vm.string(second).unwrap(), "second");
+        assert_eq!(vm.runtime.string(first).unwrap(), "first");
+        assert_eq!(vm.runtime.string(second).unwrap(), "second");
         assert_eq!(vm.return_values().unwrap(), 900);
     }
 
@@ -727,14 +912,14 @@ mod tests {
     fn collection_traces_live_cycles_and_reclaims_dead_cycles() {
         let mut vm = machine(0);
         let live = vm.alloc(Pair(integer(1), Value::NIL));
-        *vm.heap.get_mut::<Pair>(live).unwrap() = Pair(integer(1), live);
+        *vm.runtime.heap.get_mut::<Pair>(live).unwrap() = Pair(integer(1), live);
         let dead = vm.alloc(Pair(integer(2), Value::NIL));
-        *vm.heap.get_mut::<Pair>(dead).unwrap() = Pair(integer(2), dead);
+        *vm.runtime.heap.get_mut::<Pair>(dead).unwrap() = Pair(integer(2), dead);
         vm.results = vec![live];
         vm.collect();
-        assert_eq!(vm.heap.live_objects(), 4);
-        assert!(matches!(vm.heap.get::<Pair>(live), Ok(Pair(_, tail)) if *tail == live));
-        assert!(!vm.heap.contains(dead));
+        assert_eq!(vm.runtime.heap.live_objects(), 4);
+        assert!(matches!(vm.runtime.heap.get::<Pair>(live), Ok(Pair(_, tail)) if *tail == live));
+        assert!(!vm.runtime.heap.contains(dead));
     }
 
     #[test]
@@ -747,7 +932,7 @@ mod tests {
         }
         // Only the three ports survive each collection. The remaining objects
         // were allocated since the most recent, independently triggered cycle.
-        assert!(vm.heap.live_objects() < 1027);
+        assert!(vm.runtime.heap.live_objects() < 1027);
     }
 
     #[test]

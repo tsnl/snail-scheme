@@ -165,16 +165,15 @@ def compile_program(name):
 
 def cargo_command(target):
     command = ["cargo", "build", "--release", "--offline", "--quiet", "-p", "snail-runner"]
-    if target == "wasm":
-        command.extend(["--target", "wasm32-wasip1"])
-    return command
+    triple = "wasm32-wasip1" if target == "wasm" else "i686-unknown-linux-musl"
+    return [*command, "--target", triple]
 
 
 def build_executable(name, module, target):
     cargo = BUILD / "cargo"
     environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path), "CARGO_TARGET_DIR": str(cargo)}
     checked(cargo_command(target), env=environment)
-    artifact = "wasm32-wasip1/release/" if target == "wasm" else "release/"
+    artifact = "wasm32-wasip1/release/" if target == "wasm" else "i686-unknown-linux-musl/release/"
     artifact += "snail-runner.wasm" if target == "wasm" else "snail-runner"
     return save_executable(name, target, cargo / artifact, module.inputs)
 

@@ -31,7 +31,7 @@
 - [x] Executable backend baseline
   - [x] Lower expanded HIR to Dybvig-style stack VM instructions
   - [x] Emit LLVM instruction handlers and unrolled control flow from Scheme
-  - [x] Rust runtime with tagged words, boxed object traits, and precise nonmoving GC
+  - [x] Rust runtime with tagged words, fixed object layouts, and precise nonmoving GC
   - [x] Link generated LLVM objects through Cargo for native and WASI executables
   - [x] Run an entry-point file by default; `-o` builds without running
   - [x] Invoke Cargo automatically and expose compiler/runtime/GC timings
@@ -39,14 +39,16 @@
 - [ ] Runtime representation and collection boundaries
   - [x] Measure native/WASI cross-language LTO against Rust-only LTO and Chez
     ([experiment](doc/lto-experiment.md))
-  - [ ] Replace instruction safepoints with owned allocation capabilities;
+  - [x] Replace instruction safepoints with owned allocation capabilities;
     root call inputs before acquisition and results before the next acquisition
-    ([allocation contract](doc/rust-interop.md#proposed-allocation-capability))
-  - [ ] Port `v3` builtin layouts to 32-bit values, documenting unavoidable changes
+    ([allocation contract](doc/rust-interop.md#allocation-capability))
+  - [x] Port `v3` builtin layouts to 32-bit values, documenting unavoidable changes
     to immediate float32 values and C++-specific header/container representation
-  - [ ] Keep ordinary builtin access static; reserve a shared extension-object
+  - [x] Keep ordinary builtin access static; reserve a shared extension-object
     vtable mechanism for foreign payloads and use `gc_mark` for tracing
   - [ ] Preserve an explicit runtime-provided allocation ABI for generated LLVM
+  - [ ] Remove avoidable host allocation and frame handling from ordinary calls;
+    profile against Chibi as well as Chez before adding type inference
 - [ ] Rust interop and embedding ([design](doc/rust-interop.md))
   - [ ] Scoped native-call context, checked conversions, and GC-free allocating calls
   - [ ] Static Rust library exporting Scheme-callable functions, tested on native and WASI

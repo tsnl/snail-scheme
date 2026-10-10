@@ -64,10 +64,11 @@ fn target_metadata(output: &Path, target: &str) -> String {
 }
 
 fn prepare_module(input: &Path, output: &Path, target: &str) -> PathBuf {
-    assert!(matches!(
-        env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap().as_str(),
-        "32" | "64"
-    ));
+    assert_eq!(
+        env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap(),
+        "32",
+        "the runtime requires 32-bit pointers; use --target i686-unknown-linux-musl or wasm32-wasip1"
+    );
     let metadata = target_metadata(output, target);
     assert!(metadata.contains("target datalayout =") && metadata.contains("target triple ="));
     let module = output.join("scheme.target.ll");

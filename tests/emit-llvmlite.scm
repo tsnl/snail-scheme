@@ -47,7 +47,7 @@
          (halt (ir:function "snail_halt" ir:void (list (cons ir:ptr "vm"))))
          (invalid (ir:function "snail_invalid_pc" ir:void
                                (list (cons ir:ptr "vm") (cons ir:i32 "pc")))))
-    (ir:module (list (count-definition "snail_program_abi" 1)
+    (ir:module (list (count-definition "snail_program_abi" 2)
                      (count-definition "snail_global_count" 0)
                      (count-definition "snail_constant_count" 0)
                      (ir:declare halt) (ir:declare invalid)

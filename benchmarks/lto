@@ -17,7 +17,7 @@ BENCH = runpy.run_path(str(ROOT / "benchmarks/run"), run_name="benchmark_helpers
 ABLATE = runpy.run_path(str(ROOT / "benchmarks/ablate"), run_name="ablation_helpers")
 BUILD = ROOT / "build/lto"
 VARIANTS = ("baseline", "rust-lto", "cross-lto")
-TRIPLES = {"native": "x86_64-unknown-linux-gnu", "wasm": "wasm32-wasip1"}
+TRIPLES = {"native": "i686-unknown-linux-musl", "wasm": "wasm32-wasip1"}
 
 # ---- Configuration and bitcode assembly ----
 
@@ -51,8 +51,7 @@ def rustflags(variant, target):
         return "-Cembed-bitcode=yes -Clto=fat"
     shared = "-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat "
     if target == "native":
-        return shared + ("-Clinker=clang -Clink-arg=-fuse-ld=lld "
-                         "-Clink-arg=-Wl,--save-temps -Clink-arg=-Wl,--lto-O3")
+        return shared + "-Clinker=rust-lld -Clink-arg=--save-temps -Clink-arg=--lto-O3"
     return shared + "-Clinker=wasm-ld -Clink-arg=--save-temps -Clink-arg=--lto-O3"
 
 
@@ -72,7 +71,7 @@ def validate_environment():
         raise RuntimeError(f"unset experiment overrides first: {', '.join(sorted(conflicts))}")
     host = ABLATE["checked_text"](["rustc", "-vV"])
     if "host: x86_64-unknown-linux-gnu" not in host:
-        raise RuntimeError("this experiment currently specifies x86-64 Linux and WASIp1")
+        raise RuntimeError("this experiment builds i686 Linux and WASIp1 on an x86-64 Linux host")
 
 
 # ---- Freeze each executable before the next Cargo build ----
