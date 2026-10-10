@@ -25,8 +25,16 @@
 
 // ---- Traps and collection ----
 
+#ifdef SNAIL_NATIVE_CLI
+extern int snail_cli_main(void);
+extern void snail_cli_report_failure(void);
+#endif
+
 _Noreturn void native_trap(void) {
     fputs("WebAssembly trap\n", stderr);
+#ifdef SNAIL_NATIVE_CLI
+    snail_cli_report_failure();
+#endif
     exit(1);
 }
 
@@ -216,7 +224,11 @@ TRUNCATIONS(double, f64)
 // ---- AWI finalization ----
 
 extern void drop_resource(uint32_t kind, uint32_t id)
+#ifdef SNAIL_NATIVE_CLI
+    __asm__("snail:drop-resource");
+#else
     __asm__("wasm.snail:drop-resource") __attribute__((weak));
+#endif
 
 typedef struct Resource { uint32_t kind, id; struct Resource *next; } Resource;
 static Resource *pending_resources;
@@ -231,7 +243,10 @@ static void finalize_resource(void *object, void *data) {
 
 void native_register_finalizer(uint64_t reference, uint32_t kind, uint32_t id) {
     Resource *resource = malloc(sizeof(Resource)), *old = NULL;
-    if (!resource || !drop_resource) native_trap();
+    if (!resource) native_trap();
+#ifndef SNAIL_NATIVE_CLI
+    if (!drop_resource) native_trap();
+#endif
     *resource = (Resource){kind, id, NULL};
     // The held data contains only scalar IDs, never the watched wrapper.
     GC_register_finalizer_no_order(object_words(reference), finalize_resource,
@@ -553,7 +568,9 @@ uint32_t wasi_path_filestat_get(uint32_t fd, uint32_t flags, uint32_t address,
 // ---- Process initialization ----
 
 extern void native_module_init(void);
+#ifndef SNAIL_NATIVE_CLI
 extern void module_start(void) __asm__("wasm._start");
+#endif
 
 void native_host_init(int argc, char **argv) {
     (void)argc;
@@ -563,15 +580,22 @@ void native_host_init(int argc, char **argv) {
     GC_INIT();
     const char *interval = getenv("SNAIL_NATIVE_GC_INTERVAL");
     if (interval) collection_interval = strtoull(interval, NULL, 10);
+#ifndef SNAIL_NATIVE_CLI
     initialize_descriptors();
+#endif
 }
 
 #ifndef SNAIL_NATIVE_LIBRARY
 int main(int argc, char **argv) {
     native_host_init(argc, argv);
     native_module_init();
+#ifdef SNAIL_NATIVE_CLI
+    int status = snail_cli_main();
+#else
     module_start();
+    int status = 0;
+#endif
     native_poll_finalizers();
-    return 0;
+    return status;
 }
 #endif

@@ -23,7 +23,7 @@
 ;; hot reload.
 (module
 
-  ;; ---- Surface operations ----
+  ;; ---- Operations provided by the platform ----
 
   ;; [options] -> surface-ref. Create a native window after resumed; options
   ;; describe title and initial logical size. The runtime owns the window and
@@ -46,7 +46,7 @@
   (import "snail.gui" "request-redraw"
     (func (param $arguments i32) (result i32)))
 
-  ;; ---- Application handlers ----
+  ;; ---- Handlers required from the application ----
 
   ;; [] -> unspecified. The runtime is ready to create/use surfaces. Initialize
   ;; or recreate presentation resources as needed; repeated lifecycle
