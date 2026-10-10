@@ -21,11 +21,13 @@
 (define (load-once next)
   (mir:let* ((slot (mir:offset mir:state (integer 36))))
             (mir:sequence
-             (list (mir:store (integer 41) slot)
-                   (mir:let* ((before (mir:load 'i32 slot)))
+             (list (mir:store (integer 41) slot 'state)
+                   (mir:let* ((before (mir:load 'i32 slot 'state)))
                              (mir:sequence
                               (list (mir:store (integer 99) slot)
-                                    (expect-equal (direct add before before) 82 4 next))))))))
+                                    (expect-equal (direct add before before) 82 4
+                                                  (expect-equal (mir:load 'i32 slot 'state)
+                                                                99 5 next)))))))))
 
 (define (foreign-body)
   (mir:let* ((pointer (direct select (integer 0)))
