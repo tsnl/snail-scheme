@@ -12,5 +12,7 @@ pkgs.mkShell {
     nixfmt
     emacs-nox
     ripgrep
+    binaryen
+    nodejs
   ];
 }

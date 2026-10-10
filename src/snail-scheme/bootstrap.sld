@@ -1,5 +1,5 @@
-;; The native boundary used by the initial, unoptimized backend. Higher-level
-;; procedures and derived syntax live in bootstrap/scheme rather than Rust.
+;; Core value bindings implemented by WasmGC helpers and AWI Rust services.
+;; Higher-level procedures and derived syntax live in bootstrap/scheme.
 (define-library (snail-scheme bootstrap)
   (export bootstrap-primitive-names)
   (import (scheme base))

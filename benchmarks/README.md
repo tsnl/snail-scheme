@@ -3,7 +3,65 @@
 For compiler latency, parser ablations, and the distinction between Chibi and
 the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
 
-The latest [MIR memory comparison](results/2026-10-10-mir-memory.json) records
+## Production WasmGC CPU baseline
+
+The [October 10 production report](results/2026-10-10-wasmgc-production.json)
+compiles the complete canonical `cpu.scm` through IR → WasmGC, merges the Rust
+WASI runtime, and executes it in Node 24.15.0. This replaces the custom outer
+JavaScript loop used by the earlier bounded experiment. Eight rotating rounds
+on CPU 2 use 64 repetitions and check checksum `269118144` on every execution:
+
+| Implementation / optimizer setting | Median seconds | Time / Chez |
+| --- | ---: | ---: |
+| WasmGC, Binaryen `-O3` | 0.338602 | 11.09× |
+| WasmGC, inline threshold 40 | 0.127694 | 4.18× |
+| WasmGC, second optimization pass with threshold 40 | 0.102202 | 3.35× |
+| WasmGC, threshold 40 plus `--converge` | **0.086272** | **2.83×** |
+| Chez 10.4.1, safe optimization level 2 | 0.030527 | 1.00× |
+| Chibi 0.12 | 0.481500 | 15.77× |
+
+The converged configuration takes **0.179× Chibi's time** (5.58× faster), and is
+**3.92× faster** than the initial production WasmGC output. This is an optimizer
+configuration change: `--always-inline-max-function-size=40 --converge` alongside
+`-O3 --closed-world`. It preserves numeric representation checks and error paths.
+The initial Fibonacci worker already used direct calls and avoided argument
+vectors, but retained many tiny single-value and initialization helper calls.
+Inlining exposes their surrounding operations to further optimization. This
+ablation establishes the benefit of the configuration; it does not separately
+attribute every part of the speedup to one helper.
+
+For this module, one optimizer invocation took 0.265 seconds with threshold 40,
+and 0.616 seconds with convergence. These are preliminary single compile-time
+samples. The default module is 200,816 bytes with 543 defined functions; the
+converged module is 222,711 bytes with 337. A preliminary threshold-80 experiment
+regressed, so a larger inlining threshold is not assumed to be better.
+
+Compilation and process startup are outside the program's timer. Each execution
+starts a fresh Node process; its default V8 tiering remains enabled. The canonical
+untimed checks exercise Fibonacci through input 12, but any subsequent tier-up
+during the workload is included. One full fresh-process warmup per variant is
+discarded before measurement. Chez and Chibi execute the same source through the
+existing adapters, with unchanged timing boundaries; Chibi's clock has millisecond
+resolution. The report retains raw samples, commands, tool versions, frozen
+artifact hashes, the compiler/runtime source snapshot, and optimizer controls.
+This measures CPU Fibonacci, not allocation-heavy workloads or native output
+from the new backend.
+
+With the tools described in `doc/backend.md` available:
+
+```sh
+./snail-scheme benchmarks/cpu.scm -o build/cpu.wasm
+scheme --script benchmarks/chez.scm benchmarks/cpu.scm build/cpu-chez.so
+chibi-scheme benchmarks/chibi.scm benchmarks/cpu.scm build/cpu-chibi.scm
+taskset -c 2 node scripts/run-wasi.mjs build/cpu.wasm 64
+taskset -c 2 scheme --program build/cpu-chez.so 64
+taskset -c 2 chibi-scheme build/cpu-chibi.scm 64
+```
+
+The scripts and native-target instructions below describe historical LLVM/MIR
+measurements; they are not the current WasmGC build interface.
+
+The historical [MIR memory comparison](results/2026-10-10-mir-memory.json) records
 eight rotating CPU2 rounds with compilation/startup excluded: immediate literals
 and alias scopes reduce Fibonacci runtime from 0.336965 s to 0.318272 s (5.5%).
 The final implementation takes 0.6874× Chibi's time and 10.58× Chez's time.

@@ -3,7 +3,7 @@
 Timing is always enabled. Each participating process writes a separate Chromium
 trace JSON file under `build/traces/`, relative to its working directory.
 `SNAIL_TRACE_DIR` selects another directory. The CLI resolves that path before
-launching its children, so compiler, Cargo build script, and executable use the
+launching its children, so compiler, driver, and executable use the
 same destination. Files remain after temporary build projects are removed.
 Standalone Cargo build scripts and tests can run from their crate directories;
 set an absolute override to collect those files in one place.
@@ -17,12 +17,12 @@ own clock origin; files are not automatically merged or aligned across processes
 Rust assigns separate thread lanes. The Chibi adapter supports the compiler's
 single Scheme execution thread.
 
-The default spans cover source reading, parsing, expansion, HIR lowering, LLVM
-writing, Cargo, LLVM optimization/code generation, execution, and collection.
-Imported sources appear within expansion. Use a viewer's inclusive/exclusive
-durations to separate their costs. There are no per-instruction or per-primitive
-spans. `--runtime-stats` reports elapsed/GC time in seconds alongside object counters;
-`--timing` has been removed.
+The default spans cover source reading, parsing, expansion, WAT emission, Cargo,
+Wasm assembly/linking/optimization, and execution. Imported sources appear
+within expansion. Use a viewer's inclusive/exclusive durations to separate
+costs. There are no per-instruction or per-primitive spans. WasmGC does not
+expose portable collector timings; the old `--runtime-stats` and `--timing`
+flags are retired.
 
 ## Scheme procedures
 
@@ -66,8 +66,7 @@ fn operation() {
 
 `trace/src/lib.rs` owns destination selection, exclusive file creation, JSON
 escaping, monotonic clocks, thread lanes, and serialized writes. Keep guards on
-the creating thread. `Span::elapsed()` also supplies the existing runtime and
-GC statistics without separate profiling clocks. Explicit process exit/abort
+the creating thread. `Span::elapsed()` measures a Rust scope without separate profiling clocks. Explicit process exit/abort
 bypasses destructors; the runner returns from its traced scope before exiting.
 
 The WASI launcher preopens the host trace directory at `/snail-traces` and sets
@@ -88,13 +87,7 @@ in the middle of a write can still leave a partial file.
 | --- | --- | --- |
 | `reader.sld` | `file->reader` | Filename → character reader |
 | `syntax-parser.sld` | `reader->syntax-list` | Reader → located syntax list |
-| `expand.sld` | `syntax-list->hir-library` | Syntax list → unnamed HIR library |
-| `expand.sld` | `syntax->hir-library` | Library syntax → resolved HIR library |
-| `lower.sld` | `hir-library->mir-library` | HIR library graph → MIR library graph |
-| `mir.sld` | `write-mir-library` | MIR libraries → readable dump on a port |
-| `llvm.sld` | `write-mir-library-as-llvm` | MIR library graph → LLVM text on a port |
-| `compiler.sld` | `source-file->llvm-file` | Source filename → LLVM output file |
-
-The compiler's private `mir-library->llvm-file` and `mir-library->dump-file`
-helpers name their output formats explicitly. No generic `write-program`
-callback obscures which representation a writer consumes.
+| `expand.sld` | `syntax-list->ir-library` | Syntax list → unnamed IR library |
+| `expand.sld` | `syntax->ir-library` | Library syntax → resolved IR library |
+| `wasm.sld` | `write-ir-library-as-wasm` | IR library graph → WAT on a port |
+| `compiler.sld` | `source-file->wasm-file` | Source filename → WAT output file |

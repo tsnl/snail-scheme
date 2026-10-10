@@ -1,8 +1,8 @@
 # WasmGC numeric prototype
 
 This experiment lowers closed numeric functions from the production frontend's
-HIR into ordinary WebAssembly functions. It does not change the production
-compiler. `compile.scm` selects the supported HIR subset; `emit.py` serializes
+IR into ordinary WebAssembly functions. It does not change the production
+compiler. `compile.scm` selects the supported IR subset; `emit.py` serializes
 structured WAT using the representations in `numbers.wat`.
 
 Arguments and results inside recursive functions are dynamic `eqref` values.
@@ -12,12 +12,11 @@ Arithmetic checks representations and overflow, and mixed comparisons preserve
 large exact integers. Tail recursion emits `return_call`. There is no manual
 operand stack, allocator, collector, or root publication in this module.
 
-The proposed production boundary is Scheme → HIR → WASM, with WASM replacing
-MIR. A native WASM → LLVM compiler would be independent of Scheme and HIR.
-These experiments test that boundary; the landed compiler still uses MIR/LLVM.
-The agreed next direction is HIR → WASM, with Wastrel providing native output.
-Rename HIR to IR as part of retiring MIR; the production migration is separate
-from these experiments.
+The production compiler now emits WasmGC directly from IR. This bounded
+experiment remains a separate numerical control: it compiles selected functions
+with a small outer harness, whereas production compiles the complete program
+and links Rust through AWI. The native Wasm → LLVM experiment is independent
+of Scheme and IR; it does not yet execute full production modules.
 
 ## Build and check
 
@@ -53,7 +52,7 @@ checks collection with native register, stack, caller-frame and global roots.
 ## Measurement contract
 
 `benchmarks/cpu.scm` is unchanged. Its expanded recursive Fibonacci function is
-selected by HIR structure, not by name or benchmark input. The outer JS and C
+selected by IR structure, not by name or benchmark input. The outer JS and C
 drivers run inputs 22, 23, 24, 25 in order, weight each answer by `n + 1`, and
 repeat 64 times. Every run must produce checksum `269118144`.
 

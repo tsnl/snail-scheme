@@ -28,10 +28,10 @@ def parse(text):
     def read(token):
         if token == "(":
             out = []
-            for token in tokens:
-                if token == ")":
+            for nested in tokens:
+                if nested == ")":
                     return out
-                out.append(read(token))
+                out.append(read(nested))
             raise ValueError("unterminated WAT list")
         return json.loads(token) if token.startswith('"') else token
 
@@ -42,6 +42,8 @@ def parse(text):
 
 
 def llvm_type(type):
+    if isinstance(type, list) and type[0] == "tuple":
+        return "{ " + ", ".join(llvm_type(t) for t in type[1:]) + " }"
     if isinstance(type, list) and type[0] == "ref":
         return "i64"
     if type in ("eqref", "i31ref", "structref", "anyref", "nullref"):
@@ -51,6 +53,12 @@ def llvm_type(type):
     if type == "f64":
         return "double"
     raise ValueError(f"unsupported value type: {type}")
+
+
+def zero(type):
+    if type.startswith("{"):
+        return "zeroinitializer"
+    return "0.0" if type == "double" else "0"
 
 
 def named(prefix, name):
@@ -97,6 +105,10 @@ class Module:
         self.globals = {}
         self.exports = []
         self.imports = {}
+        self.function_types = {}
+        self.continuations = {}
+        self.tags = {}
+        self.continuation_entries = set()
         for entry in node[1:]:
             op = entry[0]
             if op == "type":
@@ -115,7 +127,11 @@ class Module:
                             )
                         )
                     self.structs[entry[1]] = (len(self.structs) + 1, fields)
-                elif definition[0] != "func":
+                elif definition[0] == "func":
+                    self.function_types[entry[1]] = definition
+                elif definition[0] == "cont":
+                    self.continuations[entry[1]] = definition[1]
+                else:
                     raise ValueError(f"unsupported type: {definition[0]}")
             elif op == "func":
                 self.functions[entry[1]] = signature(entry)
@@ -128,13 +144,21 @@ class Module:
             elif op == "import":
                 if (
                     entry[1] != "env"
-                    or entry[2] not in ("collect", "observe")
+                    or entry[2]
+                    not in ("collect", "observe", "foreign_enter", "foreign_leave")
                     or entry[3][0] != "func"
                 ):
                     raise ValueError(f"unsupported import: {entry[1:3]}")
                 function = signature(entry[3])
                 function["symbol"] = "native_" + entry[2]
                 self.imports[entry[3][1]] = function
+            elif op == "tag":
+                tag = signature(entry)
+                if [t for _, t in tag["params"]] != ["i64"] or tag["result"] != "i64":
+                    raise ValueError("prototype control tags require i64 -> i64")
+                if len(self.tags) == 64:
+                    raise ValueError("prototype supports at most 64 control tags")
+                self.tags[entry[1]] = len(self.tags)
             elif op == "memory":
                 pass  # Declaration only; memory operations fail below.
             else:
@@ -162,15 +186,12 @@ class Function:
         self.serial = 0
         self.block = "entry"
         self.locals = {}
+        self.targets = []
         self.lines.append("entry:")
         for index, (name, type) in enumerate(signature["params"] + signature["locals"]):
             pointer = self.value("ptr", f"alloca {type}, align 8")
             self.locals[name] = (type, pointer)
-            initial = (
-                f"%arg{index}"
-                if index < len(signature["params"])
-                else ("0.0" if type == "double" else "0")
-            )
+            initial = f"%arg{index}" if index < len(signature["params"]) else zero(type)
             self.line(f"store {type} {initial}, ptr {pointer}, align 8")
 
     def fresh(self, prefix="v"):
@@ -249,6 +270,120 @@ class Function:
             raise ValueError("invalid if result")
         values = ", ".join(f"[{value[1]}, %{block}]" for value, block in incoming)
         return type, self.value(type, f"phi {type} {values}")
+
+    # ---- Structured branch results ----
+
+    def tuple(self, values):
+        type = "{ " + ", ".join(t for t, _ in values) + " }"
+        word = "poison"
+        for index, (field_type, value) in enumerate(values):
+            word = self.value(
+                type, f"insertvalue {type} {word}, {field_type} {value}, {index}"
+            )
+        return type, word
+
+    def target(self, name):
+        for target in reversed(self.targets):
+            if target["name"] == name:
+                return target
+        raise ValueError(f"unknown block label: {name}")
+
+    def branch(self, target, value):
+        expected = target["type"]
+        if (value[0] if value else "void") != expected:
+            raise ValueError(
+                f"branch result mismatch: expected {expected}, got {value}"
+            )
+        target["incoming"].append((value, self.block))
+        self.finish(f"br label %{target['label']}")
+
+    def structured_block(self, args):
+        name = args.pop(0) if args and isinstance(args[0], str) else None
+        results = next((arg[1:] for arg in args if arg[0] == "result"), [])
+        type = (
+            llvm_type(["tuple", *results])
+            if len(results) > 1
+            else llvm_type(results[0])
+            if results
+            else "void"
+        )
+        target = {
+            "name": name,
+            "label": self.fresh("block"),
+            "type": type,
+            "incoming": [],
+        }
+        self.targets.append(target)
+        result = self.sequence(
+            [arg for arg in args if arg[0] not in ("result", "type")]
+        )
+        if self.block is not None:
+            self.branch(target, result)
+        self.targets.pop()
+        if not target["incoming"]:
+            return None
+        self.label(target["label"])
+        if type == "void":
+            return None
+        incoming = ", ".join(
+            f"[{value[1]}, %{block}]" for value, block in target["incoming"]
+        )
+        return type, self.value(type, f"phi {type} {incoming}")
+
+    # ---- Single-shot delimited continuations ----
+
+    def continuation_type(self, name):
+        definition = self.module.function_types[self.module.continuations[name]]
+        function = signature(["func", "$entry", *definition[1:]])
+        if [t for _, t in function["params"]] != ["i64"] or function["result"] != "i64":
+            raise ValueError("prototype continuations require i64 -> i64")
+
+    def resume(self, args):
+        self.continuation_type(args[0])
+        handlers = [arg for arg in args[1:] if arg[0] == "on"]
+        operands = [self.emit(arg) for arg in args[1:] if arg[0] != "on"]
+        if [t for t, _ in operands] != ["i64", "i64"]:
+            raise ValueError("resume requires one i64 argument and a continuation")
+        mask = sum(1 << self.module.tags[tag] for tag in {h[1] for h in handlers})
+        token, tag, payload = self.continuation_event(
+            operands[1][1], operands[0][1], mask
+        )
+        done, suspended = self.fresh("done"), self.fresh("suspended")
+        finished = self.value("i1", f"icmp eq i64 {token}, 0")
+        self.finish(f"br i1 {finished}, label %{done}, label %{suspended}")
+        self.label(suspended)
+        self.resume_handlers(handlers, tag, payload, token)
+        self.label(done)
+        return "i64", payload
+
+    def continuation_event(self, token, argument, mask):
+        # C Event: null token means normal return; otherwise tag/payload suspend.
+        type = "{ i64, i32, i64 }"
+        event = self.value("ptr", f"alloca {type}, align 8")
+        self.line(
+            f"call void @native_cont_resume(i64 {token}, i64 {argument}, i64 {mask}, ptr {event})"
+        )
+        result = self.value(type, f"load {type}, ptr {event}, align 8")
+        return tuple(
+            self.value(t, f"extractvalue {type} {result}, {i}")
+            for i, t in enumerate(("i64", "i32", "i64"))
+        )
+
+    def resume_handlers(self, handlers, tag, payload, token):
+        for _, handled_tag, label in handlers:
+            if label == "switch":
+                raise ValueError("switch handlers are outside the prototype")
+            matches = self.value(
+                "i1", f"icmp eq i32 {tag}, {self.module.tags[handled_tag]}"
+            )
+            yes, no = self.fresh("handler"), self.fresh("handler")
+            self.finish(f"br i1 {matches}, label %{yes}, label %{no}")
+            self.label(yes)
+            self.branch(
+                self.target(label), self.tuple([("i64", payload), ("i64", token)])
+            )
+            self.label(no)
+        self.trap()  # Runtime must only return tags selected by this resume.
 
     # ---- GC references and fixed structs ----
 
@@ -393,9 +528,46 @@ class Function:
         if op == "if":
             return self.structured_if(args)
         if op == "block":
-            if args and isinstance(args[0], str) and args[0].startswith("$"):
-                args = args[1:]
-            return self.sequence([arg for arg in args if arg[0] != "result"])
+            return self.structured_block(args)
+        if op == "br":
+            values = [self.emit(arg) for arg in args[1:]]
+            self.branch(
+                self.target(args[0]),
+                self.tuple(values)
+                if len(values) > 1
+                else values[0]
+                if values
+                else None,
+            )
+            return None
+        if op == "tuple.make":
+            return self.tuple([self.emit(arg) for arg in args])
+        if op == "tuple.extract":
+            type, value = self.emit(args[2])
+            field_type = type[2:-2].split(", ")[int(args[1])]
+            return field_type, self.value(
+                field_type, f"extractvalue {type} {value}, {args[1]}"
+            )
+        if op == "ref.func":
+            function = self.module.functions[args[0]]
+            if [t for _, t in function["params"]] != ["i64"] or function[
+                "result"
+            ] != "i64":
+                raise ValueError("prototype function references require i64 -> i64")
+            self.module.continuation_entries.add(args[0])
+            return "i64", f"ptrtoint (ptr @{named('cont_entry_', args[0])} to i64)"
+        if op == "cont.new":
+            self.continuation_type(args[0])
+            _, entry = self.emit(args[1])
+            return "i64", self.value("i64", f"call i64 @native_cont_new(i64 {entry})")
+        if op == "resume":
+            return self.resume(args)
+        if op == "suspend":
+            _, payload = self.emit(args[1])
+            return "i64", self.value(
+                "i64",
+                f"call i64 @native_cont_suspend(i32 {self.module.tags[args[0]]}, i64 {payload})",
+            )
         if op == "unreachable":
             self.trap()
             return None
@@ -555,6 +727,14 @@ def emit_module(module):
         "declare noalias ptr @GC_malloc(i64)",
         "declare void @llvm.trap() cold noreturn nounwind",
     ]
+    if module.continuations:
+        out.extend(
+            [
+                "declare i64 @native_cont_new(i64)",
+                "declare void @native_cont_resume(i64, i64, i64, ptr)",
+                "declare i64 @native_cont_suspend(i32, i64)",
+            ]
+        )
     for function in module.imports.values():
         out.append(
             f"declare {function['result']} @{function['symbol']}("
@@ -585,6 +765,10 @@ def emit_module(module):
     init.finish("ret void")
     out.append("define void @wasm_init() {\n" + "\n".join(init.lines) + "\n}")
     out.extend(definition(module, function) for function in module.functions.values())
+    for name in sorted(module.continuation_entries):
+        out.append(
+            f"define internal i64 @{named('cont_entry_', name)}(i64 %input) {{\nentry:\n  %result = call fastcc i64 @{named('fn_', name)}(i64 %input)\n  ret i64 %result\n}}"
+        )
     for export, target in module.exports:
         if target[0] == "func":
             function = module.functions[target[1]]

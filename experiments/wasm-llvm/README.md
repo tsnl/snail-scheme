@@ -7,8 +7,8 @@ types. The translator then records declarations and emits functions: two passes,
 one module, no intermediate compiler IR.
 
 This is a feasibility and performance experiment, not a general Wasm compiler.
-The production Snail compiler is unchanged. In the proposed architecture, Snail
-would emit WASM in place of MIR; this native translator would remain independent.
+It consumes Wasm independently of Snail's frontend and does not participate in
+production compiler builds.
 
 ## Representations and collection
 
@@ -89,22 +89,26 @@ for every optimization or every Wasm feature.
 
 Input must be valid Wasm. Supported declarations are simple struct/function
 types, functions, globals, selected test imports, and an unused memory
-declaration. Supported instructions are the explicit cases in `translate.py`:
+declaration. The bounded [stack-switching experiment](../wasm-stack-switching/README.md)
+also supports standard continuation types, `cont.new`, `resume`, and `suspend`
+for `i64 -> i64` entries and tags. Its explicit resume handlers lower to LLVM
+branches with aggregate payload/continuation results. Supported instructions are the explicit cases in `translate.py`:
 structured conditionals/blocks, locals/globals, direct calls, matching-signature
 tail calls, basic numeric operations, i31, references, and fixed structs.
 Unsupported encountered declarations/instructions fail. Unreachable expressions
 after a terminating instruction need not be translated.
 
 There are no arrays, tables, indirect calls, recursive type groups, subtyping,
-branches to block labels, general loops, exceptions, module instances, or linear
+general loops, exceptions, module instances, or linear
 memory operations. Terminating expressions nested inside operands are outside
 the subset; the emitter rejects attempts to continue a terminated LLVM block.
 The unused memory export is not materialized. This cannot
 yet translate the separate Rust interop module, which uses linear memory and a
 reference table. Imports are limited to the collector test's `env.collect` and
-`env.observe`; exports receive C ABI wrappers. Sanitized symbol collisions fail.
+`env.observe`, plus explicit `env.foreign_enter`/`env.foreign_leave` boundary
+markers in the continuation proof; exports receive C ABI wrappers. Sanitized symbol collisions fail.
 
-The next production direction is to use an existing translator. In particular,
+An off-the-shelf translator remains an optional native execution path. In particular,
 [Wastrel](https://codeberg.org/andywingo/wastrel) compiles WasmGC through C and
 [already offers BDWGC selection](https://wingolog.org/archives/2026/04/09/wastrel-milestone-full-hoot-support-with-generational-gc-as-a-treat).
 It has been used for a full Hoot Scheme REPL. Our subsequent throwaway checkout
@@ -115,8 +119,8 @@ measured Wastrel at 0.04801 seconds (`-O3` + LTO, Nix register clearing disabled
 versus 0.04695 for this translator and 0.03015 for Chez. Default Wastrel with
 Nix's GCC `-O2` + LTO measured 0.05263 seconds. Wastrel also passed a separate
 allocating-tree test with actual BDWGC collections. Preserve this translator as
-an experimental reference; future native backend improvements should target
-Wastrel.
+an experimental reference. The independent continuation experiment above now extends
+its instruction subset; it is still far short of a general Wasm compiler.
 Its current C backend is GCC-oriented: its author reports that Clang rejects
 the heterogeneous tail-call signatures it emits. See the
 [representation design](https://wingolog.org/archives/2026/02/09/six-thoughts-on-generating-c)
