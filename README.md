@@ -37,6 +37,19 @@ For explicit stages, import `(snail-scheme compiler)` as well:
 (link-wasm "build/fibonacci.wat" runtime "build/fibonacci.wasm")
 ```
 
+For native execution on x86-64 Linux, translate that same linked Wasm artifact:
+
+```scheme
+(import (snail-scheme native))
+(wasm-file->native-file "." "build/fibonacci.wasm" "build/fibonacci")
+(run-command "fibonacci" '("build/fibonacci"))
+```
+
+The Wasm-to-LLVM converter is Scheme compiler source. It translates the complete
+module, including Rust; Clang/LLD and BDWGC produce the executable. `WASM_DIS`
+and `CLANG` select tools. See [native execution](doc/native.md) for supported
+features, GC ownership, and checks.
+
 The compiler emits WasmGC. Binaryen assembles, links, and optimizes it with the
 Rust runtime. There is **one root Cargo crate**, containing the runtime and its
 AWI/tracing modules under `src/`. Cargo reuses the precompiled runtime across
@@ -50,9 +63,7 @@ and `NODE` override build tools. Chromium traces are always written under
 `build/traces/`; `SNAIL_TRACE_DIR` overrides the destination.
 
 The compiler stays Chibi-hosted. Running build scripts with Snail itself and
-switching the build to self-hosting are later milestones. Native translation
-of the linked Wasm is being integrated separately; the currently landed bounded
-Wasm-to-LLVM experiment is not a general native build route.
+switching the build to self-hosting are later milestones.
 
 This is R7RS-inspired, not fully R7RS compliant. `call/cc` is currently
 unsupported. Single-shot delimited continuations are planned; reusable

@@ -14,5 +14,8 @@ pkgs.mkShell {
     ripgrep
     binaryen
     nodejs
+    llvmPackages.clang
+    llvmPackages.lld
+    boehmgc
   ];
 }

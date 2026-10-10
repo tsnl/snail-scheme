@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Execute full linked Rust/Scheme modules and independent native Wasm invariants."""
+
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/native-tests"
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+EXPECTED = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
+
+
+# ---- Compilation and execution ----
+
+
+def invoke(arguments, **environment):
+    return subprocess.run([str(value) for value in arguments], cwd=ROOT,
+                          text=True, capture_output=True, timeout=300,
+                          env={**os.environ, "BINARYEN_CORES": "1", **environment})
+
+
+def require(result, stdout="", failure=False):
+    if bool(result.returncode) != failure or result.stdout != stdout:
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
+    if not failure and result.stderr:
+        raise RuntimeError(result.stderr)
+    return result
+
+
+def scheme(script, *arguments, **environment):
+    return invoke([CHIBI, "-I", ROOT / "src", ROOT / script, *arguments], **environment)
+
+
+def translate(wasm, name):
+    wat, llvm = BUILD / f"{name}.wat", BUILD / f"{name}.ll"
+    require(invoke([os.environ.get("WASM_DIS", "wasm-dis"), wasm, "-o", wat]))
+    require(scheme("tests/translate-native.scm", wat, llvm))
+    return llvm
+
+
+def collector_flags():
+    flags = ["-lgc", "-lm"]
+    if "BDWGC_INCLUDE" in os.environ:
+        flags += ["-I", os.environ["BDWGC_INCLUDE"]]
+    if "BDWGC_LIB" in os.environ:
+        library = os.environ["BDWGC_LIB"]
+        flags += ["-L", library, f"-Wl,-rpath,{library}"]
+    return flags
+
+
+def custom_host(llvm, name, program=False):
+    output = BUILD / name
+    defines = ["-DSNAIL_NATIVE_LIBRARY"] + (["-DSNAIL_NATIVE_PROGRAM"] if program else [])
+    command = [os.environ.get("CLANG", "clang"), "-O3", "-flto", "-fuse-ld=lld", *defines,
+               llvm, ROOT / "src/native.c", ROOT / "tests/native-runner.c",
+               *collector_flags(), "-o", output]
+    require(invoke(command))
+    return output
+
+
+# ---- ABI, traps, roots and finalizer scheduling ----
+
+
+def check_semantics():
+    wasm = BUILD / "semantics.wasm"
+    features = ["--enable-gc", "--enable-reference-types", "--enable-tail-call",
+                "--enable-bulk-memory", "--enable-sign-ext", "--enable-mutable-globals"]
+    require(invoke([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/native-semantics.wat",
+                    *features, "-o", wasm]))
+    require(invoke([os.environ.get("NODE", "node"), ROOT / "tests/check-native-semantics.mjs", wasm]))
+    executable = custom_host(translate(wasm, "semantics"), "semantics")
+    require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"))
+    for kind in range(12):
+        result = require(invoke([executable, kind]), failure=True)
+        if result.returncode != 1 or result.stderr != "WebAssembly trap\n":
+            raise RuntimeError(f"native trap {kind}: {result.stderr}")
+    output = BUILD / "published"
+    require(scheme("tests/build-native.scm", ROOT, wasm, output))
+    require(invoke([output]))
+    before = output.read_bytes()
+    require(scheme("tests/build-native.scm", ROOT, wasm, output, CLANG="/missing/clang"), failure=True)
+    if output.read_bytes() != before:
+        raise RuntimeError("failed native compilation replaced the output")
+    print("passed native Wasm ABI, 12 traps, forced GC, and atomic publication", flush=True)
+
+
+def check_rust_callbacks():
+    require(scheme("examples/extension/build.scm"), EXPECTED)
+    llvm = translate(ROOT / "build/extension.wasm", "extension")
+    executable = custom_host(llvm, "extension", program=True)
+    require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"), EXPECTED)
+    print("passed native linked Rust roots and reentrant Scheme callbacks", flush=True)
+
+
+def check_resources():
+    wasm = BUILD / "resources.wasm"
+    require(scheme("tests/build-program.scm", ROOT,
+                   ROOT / "tests/programs/backend-native-resources.scm", wasm))
+    executable = custom_host(translate(wasm, "resources"), "resources", program=True)
+    require(invoke([executable, "finalizers"], SNAIL_NATIVE_GC_INTERVAL="1"),
+            "native resource checks passed\n")
+    print("passed native Rust resource cleanup outside active Wasm calls", flush=True)
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    check_semantics()
+    check_rust_callbacks()
+    check_resources()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"native test failed: {error}", file=sys.stderr)
+        sys.exit(1)

@@ -50,11 +50,9 @@ def compile_fixture(name):
 
 def execution_command(wasm, native):
     if native:
-        compiler = os.environ.get("SNAIL_WASM_NATIVE")
-        if not compiler:
-            raise RuntimeError("native checks require SNAIL_WASM_NATIVE")
         output = wasm.with_suffix("")
-        checked([compiler, wasm, "-o", output])
+        checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+                 ROOT / "tests/build-native.scm", ROOT, wasm, output])
         return [str(output)]
     return [os.environ.get("NODE", "node"), "--no-warnings",
             str(ROOT / "scripts/run-wasi.mjs"), str(wasm)]
