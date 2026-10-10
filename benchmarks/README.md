@@ -1,7 +1,24 @@
 # Baseline workloads
 
+See [BENCHMARKS.md](../BENCHMARKS.md) for the current native LLVM comparison
+against Chez, Guile, and Chibi. **Runtime comparisons exclude compilation time
+and process startup**; the report explains Guile's runtime JIT timing separately.
+
 For compiler latency, parser ablations, and the distinction between Chibi and
 the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
+
+## Native LLVM CPU experiment
+
+The [LLVM code-generation ablation](results/2026-10-10-llvm-codegen.json)
+measures the bounded Wasm-to-LLVM Fibonacci fixture with x86-64 and BDWGC:
+unchanged output **0.046632s**, static boolean objects **0.035495s**, cold
+out-of-line numeric fallbacks **0.029078s**, and both changes **0.026140s**.
+Eight rotating CPU2 rounds check the same work and exclude compilation/startup.
+All 43 numeric and tail-call checks pass with the combined changes.
+See the [experiment](../experiments/wasm-llvm/README.md#llvm-code-generation-ablation)
+for reproduction and scope. The transformations are explicit LLVM-level
+prototypes; the general translator and full production pipeline do not yet
+implement them.
 
 ## Production WasmGC CPU baseline
 
