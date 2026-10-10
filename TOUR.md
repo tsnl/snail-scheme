@@ -228,6 +228,8 @@ MIR loads, stores, conditionals and calls. No VM opcode survives this boundary.
 Known immutable numeric bindings receive explicit checked fast paths; known
 procedure/number/integer predicates call their Rust implementations directly.
 All other applications retain the same general Scheme calling convention.
+This module also encodes immediate literals and marks accesses to VM state versus
+separately allocated Scheme storage. Lowering preserves pooled composite children.
 
 [`mir.sld`](src/snail-scheme/mir.sld) defines five instructions: `if`,
 `call-direct`, `call-indirect`, `load`, and `store`. Instructions are their own
@@ -235,6 +237,9 @@ SSA value references. Ordered regions express sequencing, and calls carry their
 ABI convention and tail bit. Its body record groups each library's code and
 data. `write-mir-library` prints those libraries with indexed producers and
 their references.
+Memory accesses can carry a proven region; unclassified accesses and foreign calls
+remain conservative. The LLVM emitter translates regions into scoped alias metadata
+through llvmlite's immutable metadata objects.
 See [the design and examples](doc/mir.md) for the complete contract.
 
 ## Emitting and assembling LLVM

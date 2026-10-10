@@ -48,6 +48,7 @@
         (display "; Structured MIR with explicit Rust ABI calls.\n" port)
         (write-count "program_abi" 3 port)
         (write-declarations body port)
+        (for-each (lambda (metadata) (ir:write-definition metadata port)) memory-metadata)
         (write-data constants primitives port)
         (write-count "global_count" (length (mir:body-globals body)) port)
         (write-count "constant_count" (length (mir:body-constants body)) port)

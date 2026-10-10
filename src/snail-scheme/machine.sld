@@ -2,7 +2,7 @@
 ;; The downward-growing stack holds arguments, locals, and three-word frames.
 ;; No MIR operation knows about Scheme: representation changes are foreign calls.
 (define-library (snail-scheme machine)
-  (export create-machine machine-definitions machine-instruction
+  (export immediate-word create-machine machine-definitions machine-instruction
           machine-apply-code machine-return-code machine-stop-code machine-consume-code)
   (import (scheme base) (scheme cxr) (prefix (snail-scheme mir) mir:))
   (begin
@@ -16,6 +16,20 @@
       '(a c s f count end capacity globals constants argc entry locals frames max-frames stopped))
     (define (integer value) (mir:literal 'i32 value))
     (define (word value) (mir:literal 'word value))
+    ;; A false result means pooled storage. Scheme zero is true, so NIL is safe.
+    ;; Composite constants still refer to pooled children by constant-table index.
+    (define (immediate-word datum)
+      (cond ((and (exact-integer? datum) (<= -1073741824 datum 1073741823))
+             (+ (* datum 2) 1))
+            ((boolean? datum) (if datum 84 20))
+            ((null? datum) 0)
+            ((char? datum) (+ (* (char->integer datum) 64) 12))
+            (else #f)))
+    ;; These addresses belong to live allocations separate from State: the Scheme
+    ;; stack, global/constant vectors, or heap cells/captures. A resize still kills
+    ;; old stack pointers. Opaque runtime calls can touch State and this storage.
+    (define (load-word address) (mir:load 'word address 'external))
+    (define (store-word value address) (mir:store value address 'external))
     (define (register-type name)
       (cond ((memq name '(end globals constants)) 'ptr)
             ((memq name '(a c)) 'word) (else 'i32)))
@@ -24,8 +38,8 @@
         (cond ((null? names) (error "unknown machine register" name))
               ((eq? name (car names)) (mir:offset mir:state (integer (* 4 index))))
               (else (loop (cdr names) (+ index 1))))))
-    (define (read-register name) (mir:load (register-type name) (register-address name)))
-    (define (write-register name value) (mir:store value (register-address name)))
+    (define (read-register name) (mir:load (register-type name) (register-address name) 'state))
+    (define (write-register name value) (mir:store value (register-address name) 'state))
     (define (single-result result)
       (mir:sequence (list (write-register 'a result) (write-register 'count (integer 1)))))
     (define (stack-slot depth)
@@ -80,7 +94,7 @@
         ((free) (runtime-call 'free (list (integer index))))
         (else (mir:offset (read-register kind) (integer (* 4 index))))))
     (define (read-value pointer next)
-      (mir:let* ((item (mir:load 'word pointer)))
+      (mir:let* ((item (load-word pointer)))
                 (mir:conditional (mir:compare 'eq item (word 44))
                                  (raise-error 'uninitialized)
                                  (mir:sequence (list (single-result item) next)))))
@@ -92,14 +106,14 @@
        (mir:let* ((slot (runtime-call 'cell (list (read-register 'a)))))
                  (nonnull slot (read-value slot next)))))
     (define (store-binding pointer item next)
-      (nonnull pointer (mir:sequence (list (mir:store item pointer)
+      (nonnull pointer (mir:sequence (list (store-word item pointer)
                                            (single-result (word 36)) next))))
     (define (assignment kind index boxed? next)
       (single-value
        (mir:let* ((item (read-register 'a)) (slot (binding-slot kind index)))
                  (nonnull slot
                           (if boxed?
-                              (mir:let* ((cell (runtime-call 'cell (list (mir:load 'word slot)))))
+                              (mir:let* ((cell (runtime-call 'cell (list (load-word slot)))))
                                         (store-binding cell item next))
                               (store-binding slot item next))))))
 
@@ -114,7 +128,7 @@
     (define (argument next)
       (single-value
        (mir:let* ((top (mir:binop 'add (read-register 's) (integer 1))))
-                 (reserve top (mir:sequence (list (mir:store (read-register 'a) (stack-slot top))
+                 (reserve top (mir:sequence (list (store-word (read-register 'a) (stack-slot top))
                                                   (write-register 's top) next))))))
     (define (increment-frame-count)
       (mir:let* ((count (mir:binop 'add (read-register 'frames) (integer 1)))
@@ -127,10 +141,10 @@
       (mir:let* ((top (mir:binop 'add (read-register 's) (integer 3))))
                 (reserve top
                          (mir:sequence
-                          (list (mir:store (read-register 'c) (stack-slot (mir:binop 'sub top (integer 2))))
-                                (mir:store (pack-integer (read-register 'f))
-                                           (stack-slot (mir:binop 'sub top (integer 1))))
-                                (mir:store (pack-integer (mir:code-reference resume)) (stack-slot top))
+                          (list (store-word (read-register 'c) (stack-slot (mir:binop 'sub top (integer 2))))
+                                (store-word (pack-integer (read-register 'f))
+                                            (stack-slot (mir:binop 'sub top (integer 1))))
+                                (store-word (pack-integer (mir:code-reference resume)) (stack-slot top))
                                 (write-register 's top) (increment-frame-count) next)))))
     (define (shift argc next)
       (mir:let* ((top (mir:binop 'add (read-register 'f) (integer argc))))
@@ -167,8 +181,8 @@
       (let* ((done (mir:sequence '()))
              (fallback (checked-service 'numeric (list (integer global)) done)))
         (mir:let* ((top (read-register 's))
-                   (left (mir:load 'word (stack-slot (mir:binop 'sub top (integer 1)))))
-                   (right (mir:load 'word (stack-slot top)))
+                   (left (load-word (stack-slot (mir:binop 'sub top (integer 1)))))
+                   (right (load-word (stack-slot top)))
                    (left-fixnum (mir:call-direct fixnum-predicate (list left)))
                    (right-fixnum (mir:call-direct fixnum-predicate (list right))))
                   (mir:conditional
@@ -178,7 +192,7 @@
                        (fixnum-comparison operation left right top done)) fallback))))
 
     (define (predicate operation next)
-      (mir:let* ((top (read-register 's)) (item (mir:load 'word (stack-slot top)))
+      (mir:let* ((top (read-register 's)) (item (load-word (stack-slot top)))
                  (answer (mir:call-direct (cdr (assq operation predicate-functions)) (list item))))
                 (mir:sequence
                  (list (single-result (mir:call-direct boolean-constructor (list answer)))
@@ -207,7 +221,7 @@
                 (mir:conditional
                  (mir:compare 'ult depth top)
                  (mir:let* ((next (mir:binop 'add depth (integer 1))))
-                           (mir:sequence (list (mir:store (word 44) (stack-slot next))
+                           (mir:sequence (list (store-word (word 44) (stack-slot next))
                                                (write-register 's next) (transfer (machine-pad-code machine)))))
                  (mir:sequence (list (write-register 's top) (single-result (word 36))
                                      (mir:tail-call (read-register 'entry)))))))
@@ -234,9 +248,9 @@
     ;; preserves -1 (stop) and -2 (values receiver) as well as ordinary addresses.
     (define (return-body)
       (mir:let* ((base (read-register 'f))
-                 (closure (mir:load 'word (stack-slot (mir:binop 'sub base (integer 2)))))
-                 (frame (unpack-integer (mir:load 'word (stack-slot (mir:binop 'sub base (integer 1))))))
-                 (resume (unpack-integer (mir:load 'word (stack-slot base)))))
+                 (closure (load-word (stack-slot (mir:binop 'sub base (integer 2)))))
+                 (frame (unpack-integer (load-word (stack-slot (mir:binop 'sub base (integer 1))))))
+                 (resume (unpack-integer (load-word (stack-slot base)))))
                 (mir:sequence
                  (list (write-register 'c closure) (write-register 'f frame)
                        (write-register 's (mir:binop 'sub base (integer 3)))
@@ -246,7 +260,7 @@
     ;; The consumer remains below the producer frame, so a snapshot retains it.
     (define (produce-values machine)
       (mir:sequence
-       (list (single-result (mir:load 'word (local-slot 0)))
+       (list (single-result (load-word (local-slot 0)))
              (frame (machine-consume-code machine) (apply-procedure machine (integer 0))))))
     (define (consume-values machine)
       (checked-service 'receive '() (transfer (machine-apply-code machine))))
@@ -254,10 +268,10 @@
     ;; Capture excludes its argument, but that slot roots the procedure during GC.
     ;; Reload the slot address after capture; the service may resize storage.
     (define (capture-continuation machine)
-      (mir:let* ((procedure (mir:load 'word (local-slot 0))))
+      (mir:let* ((procedure (load-word (local-slot 0))))
                 (checked-service
                  'capture '()
-                 (mir:sequence (list (mir:store (read-register 'a) (local-slot 0))
+                 (mir:sequence (list (store-word (read-register 'a) (local-slot 0))
                                      (single-result procedure) (apply-procedure machine (integer 1)))))))
 
     (define (machine-definitions machine)
@@ -273,6 +287,8 @@
     ;; Common next expressions remain shared objects rather than copied trees.
     (define (machine-instruction machine operation operands next)
       (case operation
+        ((immediate) (mir:sequence (list (single-result (word (car operands))) next)))
+        ((unspecified) (mir:sequence (list (single-result (word 36)) next)))
         ((constant) (reference 'constants (car operands) next))
         ((refer-local) (reference 'local (car operands) next))
         ((refer-free) (reference 'free (car operands) next))
@@ -296,4 +312,19 @@
         ((procedure-predicate number-predicate integer-predicate) (predicate operation next))
         ((apply) (apply-procedure machine (integer (car operands))))
         ((return) (transfer (machine-return-code machine)))
-        (else (error "unknown machine elaboration operation" operation))))))
+        (else (error "unknown machine elaboration operation" operation)))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-machine)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (test-machine)
+        (expect (map immediate-word '(-1073741824 -1 0 1073741823 #f #t ()))
+                '(-2147483647 -1 1 2147483647 20 84 0))
+        (expect (map immediate-word '(-1073741825 1073741824 1.0 name (1) #(2) "text"))
+                '(#f #f #f #f #f #f #f))
+        (expect (map (lambda (code) (immediate-word (integer->char code))) '(0 955 1114111))
+                '(12 61132 71303116)))))))

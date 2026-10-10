@@ -294,6 +294,12 @@
         (add-constant! builder 'float datum))
        (else (error "unsupported literal in baseline runtime" datum))))
 
+    (define (lower-literal node builder next)
+      (let ((immediate (immediate-word (hir:literal-value node))))
+        (emit! builder (if immediate 'immediate 'constant)
+               (list (if immediate immediate (literal-constant! builder (hir:literal-value node))))
+               next (hir:literal-loc node))))
+
     (define (lower-items items environment builder next tail?)
       (if (null? items) next
           (let ((rest (lower-items (cdr items) environment builder next tail?)))
@@ -304,9 +310,7 @@
 
     (define (lower node environment builder next tail?)
       (cond
-       ((hir:literal? node)
-        (emit! builder 'constant (list (literal-constant! builder (hir:literal-value node)))
-               next (hir:literal-loc node)))
+       ((hir:literal? node) (lower-literal node builder next))
        ((hir:name? node)
         (lower-reference node environment builder next))
        ((hir:lambda? node)
@@ -429,7 +433,7 @@
              (no (if (hir:conditional-opt-alternate conditional)
                      (lower (hir:conditional-opt-alternate conditional)
                             environment builder next tail?)
-                     (emit! builder 'constant (list (add-constant! builder 'unspecified #f))
+                     (emit! builder 'unspecified '()
                             next (hir:conditional-loc conditional))))
              (test (emit! builder 'test (list yes no) #f (hir:conditional-loc conditional))))
         (lower (hir:conditional-test conditional) environment builder test #f))))
@@ -563,10 +567,10 @@
                (entries (map mir:body-entry bodies)))
           (expect (map mir:body-globals bodies) '((shared-name) (shared-name) (shared-name) (shared-name)))
           (expect (map (lambda (items) (map mir:constant-kind items)) constants)
-                  '((symbol nil pair) (integer integer vector) (string) (integer)))
+                  '((symbol nil pair) (integer integer vector) (string) ()))
           (expect (map (lambda (index) (test-constant-datum (apply append constants) index))
-                       '(2 5 6 7))
-                  '((base) #(11 12) "right" 42))
+                       '(2 5 6))
+                  '((base) #(11 12) "right"))
           (for-each (lambda (body next)
                       (expect (test-code-targets (test-entry-body body)) (list next)))
                     (list (car bodies) (cadr bodies) (caddr bodies)) (cdr entries))

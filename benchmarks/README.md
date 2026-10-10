@@ -3,9 +3,16 @@
 For compiler latency, parser ablations, and the distinction between Chibi and
 the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
 
+The latest [MIR memory comparison](results/2026-10-10-mir-memory.json) records
+eight rotating CPU2 rounds with compilation/startup excluded: immediate literals
+and alias scopes reduce Fibonacci runtime from 0.336965 s to 0.318272 s (5.5%).
+The final implementation takes 0.6874× Chibi's time and 10.58× Chez's time.
+The report retains scratch ablations, artifact/source hashes, samples, and validation
+scope; [MIR measurements](../doc/mir.md#acceptance) explain the remaining overhead.
+
 These four standalone Scheme programs provide fixed work and checked answers
 before type inference or other compiler optimizations are added. Each prints
-exactly three lines: its title, a deterministic checksum, and elapsed milliseconds.
+exactly three lines: its title, a deterministic checksum, and elapsed seconds.
 The GC program also reports collection count and cumulative pause time on its
 third line. Timing uses the runtime's monotonic nanosecond clock and excludes
 the compiler, process startup, initial checks, and final console output. The

@@ -57,8 +57,11 @@
     (define (conditional test yes no)
       (instruction (if (terminates? yes) (expression-type no) (expression-type yes))
                    'if (list test yes no)))
-    (define (load type address) (instruction type 'load (list address)))
-    (define (store value address) (instruction 'void 'store (list value address)))
+    ;; Optional memory regions assert disjoint live storage, not pointer lifetime.
+    ;; Omitted regions remain conservative; calls retain their ordinary effects.
+    (define (load type address . region) (instruction type 'load (cons address region)))
+    (define (store value address . region)
+      (instruction 'void 'store (cons value (cons address region))))
     (define (call-direct callee arguments . tail)
       (instruction (if (and (pair? tail) (car tail)) 'never
                        (if (code? callee) 'void (foreign-result callee)))

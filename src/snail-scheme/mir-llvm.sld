@@ -6,7 +6,8 @@
 ;; state. Reentering a continuation executes its effects again. Separate resume
 ;; bodies instantiate fresh LLVM values; neither table crosses that boundary.
 (define-library (snail-scheme mir-llvm)
-  (export emit-mir-body emission-blocks emission-incoming foreign-function llvm-type)
+  (export emit-mir-body emission-blocks emission-incoming foreign-function llvm-type
+          memory-metadata)
   (import (scheme base) (scheme cxr) (scheme write) (prefix (snail-scheme mir) mir:)
           (prefix (snail-scheme llvmlite) llvm:))
   (begin
@@ -126,6 +127,23 @@
     (define (code-value code builder)
       (llvm:integer llvm:i32 (cdr (assq code (builder-codes builder)))))
 
+    ;; These are elaboration's two proven disjoint regions. Runtime calls remain
+    ;; unannotated: State is inside Vm, and a call may modify either allocation.
+    (define memory-metadata
+      (let ((domain (llvm:metadata-reference 0)) (state (llvm:metadata-reference 1))
+            (external (llvm:metadata-reference 2)))
+        (list (llvm:metadata domain (list domain "memory") #t)
+              (llvm:metadata state (list state domain "state") #t)
+              (llvm:metadata external (list external domain "external") #t)
+              (llvm:metadata (llvm:metadata-reference 3) (list state) #f)
+              (llvm:metadata (llvm:metadata-reference 4) (list external) #f))))
+    (define (memory-instruction instruction region)
+      (let ((scopes (and (pair? region) (assq (car region) '((state 3 4) (external 4 3))))))
+        (if (not scopes) instruction
+            (llvm:with-metadata instruction
+                                (list (cons "alias.scope" (llvm:metadata-reference (cadr scopes)))
+                                      (cons "noalias" (llvm:metadata-reference (caddr scopes))))))))
+
     ;; Only five instruction cases; literals and references are operands. Calls
     ;; own all arithmetic and representation semantics, including their effects.
     (define (emit-instruction! node cursor builder)
@@ -139,9 +157,12 @@
           ((call-direct call-indirect) (emit-call! node cursor builder))
           ((load) (let ((address (emit! (car args) cursor builder))
                         (result (fresh-value builder (mir:expression-type node))))
-                    (append-instruction! cursor (llvm:load result address)) result))
-          ((store) (let ((values (emit-operands! args cursor builder)))
-                     (append-instruction! cursor (llvm:store (car values) (cadr values))) #f))
+                    (append-instruction! cursor
+                                         (memory-instruction (llvm:load result address) (cdr args))) result))
+          ((store) (let ((values (emit-operands! (list (car args) (cadr args)) cursor builder)))
+                     (append-instruction! cursor
+                                          (memory-instruction (llvm:store (car values) (cadr values))
+                                                              (cddr args))) #f))
           (else (error "unknown MIR instruction" (mir:expression-operation node))))))
 
     ;; ---- Structured value joins ----
@@ -257,6 +278,17 @@
           (expect (occurrences text "call i32 @identity") 1)
           (expect (occurrences text "call i32 @choose") 1)))
       (define (test-mir-llvm)
+        (run-test test-memory-regions)
         (run-test test-value-join)
         (run-test test-shared-terminal-region)
-        (run-test test-shared-value-dominance))))))
+        (run-test test-shared-value-dominance))
+      (define (test-memory-regions)
+        (let* ((body (mir:sequence (list (mir:load 'i32 mir:vm 'state)
+                                         (mir:load 'i32 mir:vm 'external)
+                                         (mir:load 'i32 mir:vm)
+                                         (mir:load 'i32 mir:vm 'unknown)
+                                         (mir:call-direct choose (list mir:vm) #t))))
+               (text (module-text (cdr (test-emission body)))))
+          (expect (occurrences text "!alias.scope") 2)
+          (expect (occurrences text "!noalias") 2)
+          (expect (occurrences text "load i32") 4)))))))
