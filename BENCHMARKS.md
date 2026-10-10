@@ -112,9 +112,9 @@ status. Interrupted runs retain incomplete JSON and cannot produce a final plot.
 Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
 score that silently drops failed benchmarks.
 
-Suite reports stay under `build/`; only the published Fibonacci comparison is
-checked in. The full-program native suite is ready to run once its translator
-command is available.
+Suite reports stay under `build/`; published Fibonacci and compiler comparisons
+are checked in. The full-program native suite is ready to run once its
+translator command is available.
 
 ### Next showcase: ray tracing
 
@@ -168,6 +168,15 @@ This visual showcase is separate from the upstream `ray` timing workload and
 has no published Snail timing yet.
 
 ## Compile the compiler
+
+![Compiler self-compilation times](benchmarks/results/2026-10-10-compiler-self/compiler-self.svg)
+
+Three measured rounds on October 10 at commit `dcd5de7` give medians of
+**2.184 seconds for Snail Wasm/V8** and **18.849 seconds for Chibi**, on CPU 0
+of an Intel Core Ultra 7 270K Plus. All preliminary and measured outputs match.
+These are compiled-Wasm results; native remains unavailable. The
+[raw measurements](benchmarks/results/2026-10-10-compiler-self/results.json)
+retain every sample, tool version, command, and source/artifact hash.
 
 [`compile-self.py`](benchmarks/compile-self.py) runs Snail's compiler on its own
 full Scheme source and imported libraries. It first freezes the sources and
