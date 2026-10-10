@@ -271,7 +271,7 @@ def summary(report, values, out):
     lines = [
         "# Recursive Fibonacci",
         "",
-        SCOPE,
+        report["scope"],
         "",
         (
             f"{report['date']}; CPU {report['cpu']}; {report['rounds']} rounds; "

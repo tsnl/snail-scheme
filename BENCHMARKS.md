@@ -12,6 +12,8 @@ This is one call/arithmetic workload, not a claim about every Scheme program.
 
 ## Reproduce the comparison
 
+The runners currently require Linux for CPU affinity and process control.
+
 ```sh
 nix-shell benchmarks/shell.nix
 python3 benchmarks/reproduce.py --cpu 2
