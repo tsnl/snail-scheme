@@ -442,6 +442,11 @@ equal workloads in alternating pairs, and saves raw samples with median
 speedups. These comparisons isolate individual runtime changes before the
 next optimization milestone.
 
+[`benchmarks/lto`](benchmarks/lto) instead holds runtime sources fixed and
+compares ordinary release, Rust-only LTO, and shared Scheme/Rust LTO. It saves
+linked bitcode, builds every variant before timing, then rotates native/WASI
+benchmark executions with the Chez reference. The default build is unchanged.
+
 [`benchmarks/chez.scm`](benchmarks/chez.scm) keeps the canonical workload sources
 shared. `copy-program` replaces their imports with the required compatibility
 definitions; `compile-benchmark` calls Chez's native `compile-program` at safe
