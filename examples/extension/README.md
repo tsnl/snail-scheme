@@ -1,15 +1,14 @@
-Run from the repository root:
+Run this ordinary build script from the repository root:
 
 ```sh
-./snail-scheme examples/extension.scm --extension examples/extension
-./snail-scheme examples/extension.scm --extension examples/extension -o extension.wasm
+chibi-scheme -I src examples/extension/build.scm
 ```
 
-The driver reads `package.metadata.snail.exports`, adds this Rust crate and the
-runtime as dependencies of a generated Cargo `cdylib`, and builds it for
-`wasm32-wasip1`. That Wasm module links with the Scheme module through the AWI.
-The final artifact contains one Rust linear memory. No native Rust linking is
-required to execute it.
+The callable Rust functions are in [`src/interop_example.rs`](../../src/interop_example.rs),
+compiled into the single standard runtime crate. The build script explicitly
+declares their Scheme names and emits `build/extension.wasm`, then runs it.
+There is no separate extension crate or package discovery step. Future extension
+packaging is deferred while the runtime and library APIs settle.
 
 Import `(snail-scheme extensions)` to access the declared Scheme names. Each
 function is exported as `snail:<Scheme-name>` and receives a borrowed argument

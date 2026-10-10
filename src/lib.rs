@@ -8,12 +8,13 @@
 // Native builds run pure helper tests; the callable surface exists in Wasm only.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+pub mod awi;
 mod host;
+mod interop_example;
+pub mod trace;
 
+use crate::awi::{Arguments, Kind, Root};
 use host::Port;
-#[cfg(target_arch = "wasm32")]
-use snail_abi::export;
-use snail_awi::{Arguments, Kind, Root};
 use std::{cell::RefCell, time::Instant};
 
 // ---- Module initialization ----
@@ -51,8 +52,8 @@ fn fail_message(message: &str) -> ! {
     std::process::exit(1)
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:fail"))]
-fn core_failure(code: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:fail"))]
+pub extern "C" fn core_failure(code: u32) -> u32 {
     fail_message(match code {
         1 => "expected a number",
         2 => "exact integer overflow",
@@ -119,14 +120,14 @@ fn selected_port(args: &Arguments, index: usize, current: usize) -> Result<Root,
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:open-input-file"))]
-fn open_input_file(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:open-input-file"))]
+pub extern "C" fn open_input_file(raw: u32) -> u32 {
     let args = arguments(raw, "open-input-file", 1, 1);
     finish(open_file(&args, true))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:open-output-file"))]
-fn open_output_file(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:open-output-file"))]
+pub extern "C" fn open_output_file(raw: u32) -> u32 {
     let args = arguments(raw, "open-output-file", 1, 1);
     finish(open_file(&args, false))
 }
@@ -141,22 +142,28 @@ fn open_file(args: &Arguments, input: bool) -> Result<Root, String> {
     HOST.with_borrow_mut(|host| host.add_port(port))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:open-output-string"))]
-fn open_output_string(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:open-output-string")
+)]
+pub extern "C" fn open_output_string(raw: u32) -> u32 {
     arguments(raw, "open-output-string", 0, 0);
     finish(HOST.with_borrow_mut(|host| host.add_port(Port::output_string())))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:get-output-string"))]
-fn get_output_string(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:get-output-string")
+)]
+pub extern "C" fn get_output_string(raw: u32) -> u32 {
     let args = arguments(raw, "get-output-string", 1, 1);
     finish(
         HOST.with_borrow_mut(|host| Ok(Root::string(host.port(&args.get(0)?)?.captured_output()?))),
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:close-port"))]
-fn close_port(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:close-port"))]
+pub extern "C" fn close_port(raw: u32) -> u32 {
     let args = arguments(raw, "close-port", 1, 1);
     finish(HOST.with_borrow_mut(|host| {
         host.port(&args.get(0)?)?.close()?;
@@ -166,8 +173,8 @@ fn close_port(raw: u32) -> u32 {
 
 /// Host finalization releases the Rust payload after its GC wrapper dies.
 /// Resource IDs are never reused, so repeated/late notices cannot close a new port.
-#[cfg_attr(target_arch = "wasm32", export("snail:drop-resource"))]
-fn drop_resource(kind: u32, id: u32) {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:drop-resource"))]
+pub extern "C" fn drop_resource(kind: u32, id: u32) {
     if kind != PORT_KIND {
         return;
     }
@@ -183,8 +190,8 @@ fn drop_resource(kind: u32, id: u32) {
 
 // ---- Reading and writing ----
 
-#[cfg_attr(target_arch = "wasm32", export("snail:read-char"))]
-fn read_char(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:read-char"))]
+pub extern "C" fn read_char(raw: u32) -> u32 {
     let args = arguments(raw, "read-char", 0, 1);
     finish(HOST.with_borrow_mut(|host| {
         let port = if args.len() == 0 {
@@ -200,8 +207,8 @@ fn read_char(raw: u32) -> u32 {
     }))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:read-string"))]
-fn read_string(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:read-string"))]
+pub extern "C" fn read_string(raw: u32) -> u32 {
     let args = arguments(raw, "read-string", 1, 2);
     finish(read_port_string(&args))
 }
@@ -218,13 +225,13 @@ fn read_port_string(args: &Arguments) -> Result<Root, String> {
     })
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:display"))]
-fn display(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:display"))]
+pub extern "C" fn display(raw: u32) -> u32 {
     finish(output(&arguments(raw, "display", 1, 2), true))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:write"))]
-fn write(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:write"))]
+pub extern "C" fn write(raw: u32) -> u32 {
     finish(output(&arguments(raw, "write", 1, 2), false))
 }
 
@@ -235,8 +242,8 @@ fn output(args: &Arguments, display: bool) -> Result<Root, String> {
     Ok(Root::unspecified())
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:newline"))]
-fn newline(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:newline"))]
+pub extern "C" fn newline(raw: u32) -> u32 {
     let args = arguments(raw, "newline", 0, 1);
     finish(write_newline(&args))
 }
@@ -247,16 +254,25 @@ fn write_newline(args: &Arguments) -> Result<Root, String> {
     Ok(Root::unspecified())
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:%current-input-port"))]
-fn current_input(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%current-input-port")
+)]
+pub extern "C" fn current_input(raw: u32) -> u32 {
     current_port(raw, "%current-input-port", 0)
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:%current-output-port"))]
-fn current_output(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%current-output-port")
+)]
+pub extern "C" fn current_output(raw: u32) -> u32 {
     current_port(raw, "%current-output-port", 1)
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:%current-error-port"))]
-fn current_error(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%current-error-port")
+)]
+pub extern "C" fn current_error(raw: u32) -> u32 {
     current_port(raw, "%current-error-port", 2)
 }
 
@@ -265,16 +281,25 @@ fn current_port(raw: u32, name: &str, index: usize) -> u32 {
     HOST.with_borrow(|host| host.current[index].clone().into_handle())
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:%set-current-input-port!"))]
-fn set_current_input(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%set-current-input-port!")
+)]
+pub extern "C" fn set_current_input(raw: u32) -> u32 {
     set_current_port(raw, "%set-current-input-port!", 0)
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:%set-current-output-port!"))]
-fn set_current_output(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%set-current-output-port!")
+)]
+pub extern "C" fn set_current_output(raw: u32) -> u32 {
     set_current_port(raw, "%set-current-output-port!", 1)
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:%set-current-error-port!"))]
-fn set_current_error(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:%set-current-error-port!")
+)]
+pub extern "C" fn set_current_error(raw: u32) -> u32 {
     set_current_port(raw, "%set-current-error-port!", 2)
 }
 
@@ -297,8 +322,8 @@ fn set_current_port(raw: u32, name: &str, index: usize) -> u32 {
 
 // ---- Process, clocks, tracing, and diagnostics ----
 
-#[cfg_attr(target_arch = "wasm32", export("snail:command-line"))]
-fn command_line(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:command-line"))]
+pub extern "C" fn command_line(raw: u32) -> u32 {
     arguments(raw, "command-line", 0, 0);
     let mut list = Root::nil();
     for argument in std::env::args().collect::<Vec<_>>().into_iter().rev() {
@@ -307,8 +332,8 @@ fn command_line(raw: u32) -> u32 {
     list.into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:exit"))]
-fn exit(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:exit"))]
+pub extern "C" fn exit(raw: u32) -> u32 {
     let args = arguments(raw, "exit", 0, 1);
     std::process::exit(exit_status(&args).unwrap_or_else(|error| fail_message(&error)))
 }
@@ -324,8 +349,8 @@ fn exit_status(args: &Arguments) -> Result<i32, String> {
     i32::try_from(value.as_integer()?).map_err(|_| "exit status out of range".into())
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:current-jiffy"))]
-fn current_jiffy(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:current-jiffy"))]
+pub extern "C" fn current_jiffy(raw: u32) -> u32 {
     arguments(raw, "current-jiffy", 0, 0);
     let nanos = HOST.with_borrow(|host| host.started.elapsed().as_nanos());
     finish(
@@ -335,32 +360,35 @@ fn current_jiffy(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:jiffies-per-second"))]
-fn jiffies_per_second(raw: u32) -> u32 {
+#[cfg_attr(
+    target_arch = "wasm32",
+    unsafe(export_name = "snail:jiffies-per-second")
+)]
+pub extern "C" fn jiffies_per_second(raw: u32) -> u32 {
     arguments(raw, "jiffies-per-second", 0, 0);
     Root::integer(1_000_000_000).into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:%trace-begin"))]
-fn trace_begin(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:%trace-begin"))]
+pub extern "C" fn trace_begin(raw: u32) -> u32 {
     let args = arguments(raw, "%trace-begin", 1, 1);
     let name = args
         .get(0)
         .and_then(|value| string_text(&value))
         .unwrap_or_else(|error| fail_message(&error));
-    snail_trace::begin(&name);
+    trace::begin(&name);
     Root::unspecified().into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:%trace-end"))]
-fn trace_end(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:%trace-end"))]
+pub extern "C" fn trace_end(raw: u32) -> u32 {
     arguments(raw, "%trace-end", 0, 0);
-    snail_trace::end();
+    trace::end();
     Root::unspecified().into_handle()
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:error"))]
-fn error(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:error"))]
+pub extern "C" fn error(raw: u32) -> u32 {
     let args = arguments(raw, "error", 1, usize::MAX);
     let texts = (0..args.len())
         .map(|i| args.get(i).and_then(|value| format_value(value, true)))
@@ -368,14 +396,14 @@ fn error(raw: u32) -> u32 {
     fail_message(&texts.unwrap_or_else(|error| fail_message(&error)).join(" "))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:collect-garbage"))]
-fn collect_garbage(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:collect-garbage"))]
+pub extern "C" fn collect_garbage(raw: u32) -> u32 {
     arguments(raw, "collect-garbage", 0, 0);
     fail_message("collect-garbage is not exposed by the portable WebAssembly GC API")
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:gc-statistics"))]
-fn gc_statistics(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:gc-statistics"))]
+pub extern "C" fn gc_statistics(raw: u32) -> u32 {
     arguments(raw, "gc-statistics", 0, 0);
     fail_message("gc-statistics are provided by the WebAssembly engine, not AWI")
 }
@@ -389,12 +417,12 @@ fn string_text(value: &Root) -> Result<String, String> {
 
 // ---- Numeric text ----
 
-#[cfg_attr(target_arch = "wasm32", export("snail:string->number"))]
-fn string_to_number(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:string->number"))]
+pub extern "C" fn string_to_number(raw: u32) -> u32 {
     finish(parse_number(&arguments(raw, "string->number", 1, 2)))
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:number->string"))]
-fn number_to_string(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:number->string"))]
+pub extern "C" fn number_to_string(raw: u32) -> u32 {
     finish(format_number(&arguments(raw, "number->string", 1, 2)))
 }
 
@@ -496,8 +524,8 @@ fn float_text(number: f64) -> String {
 
 // ---- Unicode and substring search ----
 
-#[cfg_attr(target_arch = "wasm32", export("snail:char-alphabetic?"))]
-fn char_alphabetic(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:char-alphabetic?"))]
+pub extern "C" fn char_alphabetic(raw: u32) -> u32 {
     let args = arguments(raw, "char-alphabetic?", 1, 1);
     finish(
         args.get(0)
@@ -505,8 +533,8 @@ fn char_alphabetic(raw: u32) -> u32 {
             .map(|c| Root::boolean(c.is_alphabetic())),
     )
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:char-numeric?"))]
-fn char_numeric(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:char-numeric?"))]
+pub extern "C" fn char_numeric(raw: u32) -> u32 {
     let args = arguments(raw, "char-numeric?", 1, 1);
     finish(
         args.get(0)
@@ -514,8 +542,8 @@ fn char_numeric(raw: u32) -> u32 {
             .map(|c| Root::boolean(c.is_numeric())),
     )
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:char-whitespace?"))]
-fn char_whitespace(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:char-whitespace?"))]
+pub extern "C" fn char_whitespace(raw: u32) -> u32 {
     let args = arguments(raw, "char-whitespace?", 1, 1);
     finish(
         args.get(0)
@@ -523,8 +551,8 @@ fn char_whitespace(raw: u32) -> u32 {
             .map(|c| Root::boolean(c.is_whitespace())),
     )
 }
-#[cfg_attr(target_arch = "wasm32", export("snail:char-ci=?"))]
-fn char_ci_equal(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:char-ci=?"))]
+pub extern "C" fn char_ci_equal(raw: u32) -> u32 {
     finish(compare_folded_chars(&arguments(
         raw,
         "char-ci=?",
@@ -544,8 +572,8 @@ fn compare_folded_chars(args: &Arguments) -> Result<Root, String> {
     Ok(Root::boolean(equal))
 }
 
-#[cfg_attr(target_arch = "wasm32", export("snail:string-contains"))]
-fn string_contains(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:string-contains"))]
+pub extern "C" fn string_contains(raw: u32) -> u32 {
     finish(find_substring(&arguments(raw, "string-contains", 2, 3)))
 }
 

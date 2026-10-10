@@ -1,13 +1,13 @@
-//! A Rust library compiled into the program's Wasm runtime via --extension.
+//! Example callable Rust functions, compiled into the standard Wasm runtime.
 //! Roots can outlive a call. Dropping the owner releases its WasmGC table slot.
 
-use snail_awi::{Arguments, Root};
+use crate::awi::{Arguments, Root};
 use std::cell::RefCell;
 
 // ---- AWI exports ----
 
-#[snail_abi::export("snail:rust-triple")]
-fn triple(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-triple"))]
+pub extern "C" fn triple(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-triple", 1, 1).expect("one argument");
     let value = args.get(0).unwrap().as_integer().expect("an integer");
@@ -16,16 +16,16 @@ fn triple(raw: u32) -> u32 {
 
 thread_local! { static REMEMBERED: RefCell<Option<Root>> = const { RefCell::new(None) }; }
 
-#[snail_abi::export("snail:rust-remember")]
-fn remember(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-remember"))]
+pub extern "C" fn remember(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-remember", 1, 1).expect("one argument");
     REMEMBERED.with_borrow_mut(|slot| *slot = Some(args.get(0).unwrap()));
     Root::unspecified().into_handle()
 }
 
-#[snail_abi::export("snail:rust-recalled")]
-fn recalled(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-recalled"))]
+pub extern "C" fn recalled(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-recalled", 0, 0).expect("no arguments");
     REMEMBERED
@@ -37,8 +37,8 @@ fn recalled(raw: u32) -> u32 {
         .into_handle()
 }
 
-#[snail_abi::export("snail:rust-call")]
-fn call(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-call"))]
+pub extern "C" fn call(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-call", 2, 2)
         .expect("a procedure and an argument");
@@ -51,16 +51,16 @@ fn call(raw: u32) -> u32 {
         .into_handle()
 }
 
-#[snail_abi::export("snail:rust-forget")]
-fn forget(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-forget"))]
+pub extern "C" fn forget(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-forget", 0, 0).expect("no arguments");
     REMEMBERED.with_borrow_mut(|slot| *slot = None);
     Root::unspecified().into_handle()
 }
 
-#[snail_abi::export("snail:rust-root-stress")]
-fn root_stress(raw: u32) -> u32 {
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:rust-root-stress"))]
+pub extern "C" fn root_stress(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
     args.check("rust-root-stress", 1, 1).expect("one argument");
     let original = args.get(0).unwrap();
