@@ -364,6 +364,15 @@ nesting native Rust calls. Explicit `collect-garbage` requests collection only
 after the native operation returns. `gc_statistics` includes root gathering,
 tracing, and sweeping in its collection timings.
 
+The experimental [`runtime/src/instructions.rs`](runtime/src/instructions.rs)
+implements the seven binary numeric VM handlers in Rust with the same raw-pointer
+ABI, fixnum checks, result publication, and rooted fallback as the LLVM versions.
+Chibi's `snail-rust-numeric` feature opts into Rust declarations; the compiler
+retains LLVM definitions by default for a matched comparison.
+[`benchmarks/rust-instructions`](benchmarks/rust-instructions) compares ordinary
+linking with shared LTO; [the experiment report](doc/rust-instruction-experiment.md)
+records its results and limits.
+
 [`runtime/src/lib.rs`](runtime/src/lib.rs) provides ABI 3. `boundary` records
 errors and contains unwinds where supported; stopped machines return stopped
 values. Release builds abort on unexpected Rust panics. Startup services build
