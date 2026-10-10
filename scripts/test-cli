@@ -66,8 +66,13 @@ def trace_names(directory):
 
 def check_modes(directory, source):
     require(cli(directory, source, "--", *ARGUMENTS), EXPECTED)
+    runtime = ROOT / "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"
+    runtime_stamp = runtime.stat().st_mtime_ns
+    source.write_text(SOURCE + "\n; Only the Scheme source changed.\n")
     output = directory / "portable program.wasm"
     require(cli(directory, source, "-o", output), "")
+    if runtime.stat().st_mtime_ns != runtime_stamp:
+        raise RuntimeError("unchanged runtime was rebuilt for another Scheme invocation")
     if not output.read_bytes().startswith(b"\0asm"):
         raise RuntimeError("output must be a WebAssembly module")
     command = [os.environ.get("NODE", "node"), "--no-warnings", ROOT / "scripts/run-wasi.mjs"]

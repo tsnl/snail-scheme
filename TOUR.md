@@ -20,6 +20,10 @@ subprocesses, and publication. A source path runs; `-o` builds without running;
 `--emit-wat` stops before assembly. Arguments after `--` pass literally through
 `Command`. Each invocation owns its temporary project. Completed artifacts are
 staged and renamed into place so a failed build does not truncate prior output.
+The standard Rust runtime uses its existing crate and a stable build directory;
+Cargo tracks freshness and reuses the completed Wasm module across programs.
+The driver locks the runtime build through copying the result into its private
+project. Extension builds retain their combined runtime-plus-extensions crate.
 
 [`snail-compile`](snail-compile) invokes Chibi on
 [`compile.scm`](src/snail-scheme/compile.scm), whose top-level call enters

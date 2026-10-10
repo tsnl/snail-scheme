@@ -38,14 +38,6 @@ const FEATURES: &[&str] = &[
     "--enable-bulk-memory",
 ];
 
-// An explicit reactor initializer prevents wasm-ld from wrapping each export in
-// constructor/destructor calls. The Wasm entry module invokes it exactly once.
-const RUST_START: &str = r#"pub use runtime::*;
-unsafe extern "C" { fn __wasm_call_ctors(); }
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn _initialize() { unsafe { __wasm_call_ctors(); } }
-"#;
-
 const START: &str = r#"(module
   (import "snail.awi" "snail_main" (func $main (result eqref)))
   (import "snail.rust" "_initialize" (func $initialize))
@@ -371,7 +363,7 @@ fn write_manifest(root: &Path, project: &Project, extensions: &[Extension]) -> R
         toml_string(&name),
         quoted_path(&root.join("runtime"))?
     );
-    let mut source = String::from(RUST_START);
+    let mut source = String::from("pub use runtime::*;\n");
     for (index, extension) in extensions.iter().enumerate() {
         manifest.push_str(&format!(
             "extension_{index} = {{ package = {}, path = {} }}\n",
@@ -385,9 +377,39 @@ fn write_manifest(root: &Path, project: &Project, extensions: &[Extension]) -> R
     Ok(name.replace('-', "_"))
 }
 
-fn build_runtime(root: &Path, project: &Project, extensions: &[Extension]) -> Result<PathBuf> {
-    let name = write_manifest(root, project, extensions)?;
-    let target = root.join("build/wasm-runtime");
+fn runtime_build_lock(target: &Path) -> Result<fs::File> {
+    fs::create_dir_all(target).map_err(message)?;
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(target.join("runtime.lock"))
+        .map_err(message)?;
+    lock.lock().map_err(message)?;
+    Ok(lock)
+}
+
+fn runtime_manifest(
+    root: &Path,
+    project: &Project,
+    extensions: &[Extension],
+) -> Result<(PathBuf, String)> {
+    // The standard library has a stable crate identity, so Cargo can reuse its
+    // linked Wasm, including LTO. Scheme source changes do not rebuild Rust.
+    if extensions.is_empty() {
+        Ok((
+            root.join("runtime/Cargo.toml"),
+            String::from("snail_runtime"),
+        ))
+    } else {
+        Ok((
+            project.path("Cargo.toml"),
+            write_manifest(root, project, extensions)?,
+        ))
+    }
+}
+
+fn compile_runtime(root: &Path, manifest: &Path, target: &Path) -> Result<()> {
     let mut command = tool("CARGO", "cargo");
     command.current_dir(root).args([
         "build",
@@ -396,13 +418,25 @@ fn build_runtime(root: &Path, project: &Project, extensions: &[Extension]) -> Re
         "--release",
         "--target",
         "wasm32-wasip1",
+        "--config",
+        "profile.release.lto=true",
+        "--config",
+        "profile.release.codegen-units=1",
     ]);
     command
         .arg("--manifest-path")
-        .arg(project.path("Cargo.toml"))
+        .arg(manifest)
         .arg("--target-dir")
-        .arg(&target);
-    require_success(&mut command, "driver.cargo-build")?;
+        .arg(target);
+    require_success(&mut command, "driver.cargo-build")
+}
+
+fn build_runtime(root: &Path, project: &Project, extensions: &[Extension]) -> Result<PathBuf> {
+    let (manifest, name) = runtime_manifest(root, project, extensions)?;
+    let target = root.join("build/wasm-runtime");
+    // Cargo's lock ends when it exits; protect the private copy as well.
+    let _lock = runtime_build_lock(&target)?;
+    compile_runtime(root, &manifest, &target)?;
     let output = project.path("rust.wasm");
     fs::copy(
         target.join(format!("wasm32-wasip1/release/{name}.wasm")),

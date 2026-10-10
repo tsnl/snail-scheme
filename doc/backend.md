@@ -17,9 +17,20 @@ rustup target add wasm32-wasip1
 
 `-o` builds without running. Arguments after `--` pass literally to the program.
 All normal builds optimize the linked Wasm. `--keep-build` retains intermediate
-files. The driver invokes Cargo automatically and uses one generated Rust
-cdylib containing runtime and extension dependencies: their pointers all address
-one linear memory. Independently merging arbitrary WASI modules would require
+files. The driver invokes Cargo automatically. Ordinary programs reuse the
+runtime cdylib at `build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`;
+Cargo checks freshness, so Scheme-only changes do not rebuild or relink Rust.
+To prebuild it, use the same settings as the driver:
+
+```sh
+cargo build --offline --release --target wasm32-wasip1 \
+  --manifest-path runtime/Cargo.toml --target-dir build/wasm-runtime \
+  --config profile.release.lto=true --config profile.release.codegen-units=1
+```
+
+Extension builds still use one generated Rust cdylib containing runtime and
+extension dependencies: their pointers all address one linear memory.
+Independently merging arbitrary WASI modules would require
 preserving which module's memory each pointer-taking WASI import accesses.
 
 Tool overrides are `CHIBI`, `CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and
