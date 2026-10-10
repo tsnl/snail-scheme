@@ -15,7 +15,7 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = runpy.run_path(str(ROOT / "benchmarks" / "run"), run_name="benchmark_helpers")
 SAVED = ROOT / "build" / "benchmarks" / "ablations"
-SOURCE_PATHS = ("Cargo.toml", "Cargo.lock", "runtime", "runner", "src", "snail-compile")
+SOURCE_PATHS = ("Cargo.toml", "Cargo.lock", ".cargo", "runtime", "runner", "src", "snail-compile")
 REPETITIONS = {"cpu": 16, "memory": 16, "io": 4, "gc": 16}
 
 
@@ -166,7 +166,7 @@ def summarize(program, target, samples, arguments):
         raise RuntimeError("timing rounded to zero")
     result = {"program": program, "target": target, "repetitions": REPETITIONS[program],
               "before_median_ms": before, "after_median_ms": after, "speedup": before / after}
-    print(f"{target}/{program}: {before:.3f} -> {after:.3f} ms, {before / after:.3f}x",
+    print(f"{target}/{program}: {before / 1000:.6f} -> {after / 1000:.6f} s, {before / after:.3f}x",
           file=sys.stderr, flush=True)
     return result
 

@@ -5,6 +5,12 @@
 
 A small, portable, easy to understand Scheme implementation.
 
+The planned platform direction is described in
+[Why Snail-Scheme?](doc/why-snail-scheme.md): actors, connections, and artifacts
+for games, distributed applications, and GPU computation. Its
+[three tutorial projects](doc/tutorials/README.md) specify future integration
+tests; their actor APIs are not implemented yet.
+
 ```bash
 nix-shell
 ./snail-scheme examples/fibonacci.scm --release
@@ -30,15 +36,25 @@ Use `--write FILE ...` to format files or `--check FILE ...` to check them.
 `./snail-scheme INPUT.scm` compiles and runs through Cargo; `-o PATH` builds an
 executable without running it. The Rust driver generates a temporary Cargo
 project linking Scheme-emitted LLVM with the Rust runtime. Add `--target
-wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-vm PATH` for
-the stack instructions. Program arguments follow `--`. `--timing` and
-`--runtime-stats` report diagnostics on stderr. See `--help` and
+wasm32-wasip1` for WASI, `--emit-llvm` to inspect LLVM, or `--dump-mir PATH` for
+structured MIR (`--dump-vm` remains a compatibility alias). Release runs and
+`-o` builds use shared Scheme/Rust LTO; `SNAIL_SHARED_LTO=0` selects ordinary
+linking for comparison. Debug runs use ordinary linking. Program arguments
+follow `--`. Chromium traces are always
+written to `build/traces/`; `SNAIL_TRACE_DIR` overrides the directory.
+`--runtime-stats` reports counters on stderr. See [tracing](doc/tracing.md) for
+Scheme procedure decorators and Rust scopes. See `--help` and
 [the backend guide](doc/backend.md) for tools, modes, and limitations.
 
 Cargo/rustc, LLVM `opt` and `llc`, and a WASI-capable Node are needed in addition
-to the Scheme development tools. Set `CHIBI` to select the hosted compiler's
-Scheme executable. The build still uses Chibi; compiling the compiler's sources
-is supported without switching the default to self-hosting. Start with
+to the Scheme development tools. Install the Rust targets with
+`rustup target add i686-unknown-linux-musl wasm32-wasip1`. Native output is a
+static 32-bit Linux executable; the host must support running i386 programs.
+The runtime deliberately supports only 32-bit pointers. Set `CHIBI` to select
+the hosted compiler's Scheme executable. The build still uses Chibi. Native and
+WASI compiled compilers can compile Fibonacci, and the native compiler can compile
+its own sources; see [the backend guide](doc/backend.md#compiling-the-compiler).
+Start with
 [TOUR.md](TOUR.md) for the control flow and a guide to every module, or
 [the benchmark suite](benchmarks/README.md) for the performance baseline.
 
@@ -58,14 +74,15 @@ Direct reader access stays in the parser primitives. Separate `s-number` and
 also require a delimiter or EOF after their spelling.
 
 `chain` takes an initial parser followed by binders that receive each successful
-value and return the next parser. `pmap` uses `chain` to transform a successful
-value. `tuple` collects positional values; `named-tuple` accepts `(symbol . parser)`
+value and return the next parser. `pmap` transforms a successful result directly.
+`tuple` threads the reader through its parsers and collects positional values;
+`named-tuple` accepts `(symbol . parser)`
 pairs, conventionally written with quasiquote, and returns an association list.
 Use `(cdr (assq 'name fields))` to retrieve a named value. Keys must be unique
 symbols, except `_`, whose parser runs but whose value is discarded.
 
 `string->reader` and `list->reader` take a filename followed by their contents;
-`file->reader` loads a file by path. Apply `((s-file) reader)` to parse a complete
+`file->reader` loads a file by path. Apply `(s-file reader)` to parse a complete
 file, then check `parse-result-ok?` before extracting `parse-result-value`.
 The result contains a list of syntax objects; trailing intertoken space and EOF
 are handled by `s-file`. Source locations and the reader in a failed parse result
@@ -81,9 +98,11 @@ Compiling this definition-only file produces no output when run. The actual
 compiler entry is `src/snail-scheme/compile.scm`, which invokes `compiler-main`
 at top level; see [compiling the compiler](doc/backend.md#compiling-the-compiler).
 
-`make test` runs `tests/snail-scheme/test.scm`, which loads the CLI, reader,
-parser, syntax, and pattern test libraries from the same directory. Test helpers also
-live there; production libraries do not load test code.
+`make test` enables Chibi's `snail-tests` feature and runs
+`tests/snail-scheme/test.scm`. Each tested implementation module keeps its unit
+tests in a final `Tests` section and exports one `test-<module>` entry point.
+Individual cases and helpers stay private. Normal imports omit the test code
+and its dependencies. Integration fixtures and shared assertions remain in `tests/`.
 
 `pattern-dispatch` builds an ordered dispatcher from raw patterns (host datums) and
 callbacks. It matches the whole input form; list literal identifiers explicitly
@@ -136,7 +155,7 @@ The binding-aware semantics of `syntax-rules` expansion,
 including shadowed literals and exported auxiliary keywords, are documented in
 [the macro design](doc/hir.md#literal-binding-identity).
 
-`(snail-scheme expand)` provides `expand-program`, `expand-library`, and
+`(snail-scheme expand)` provides `syntax-list->hir-library`, `syntax->hir-library`, and
 `macroexpand-1`. It resolves imports and lexical bindings, expands `syntax-rules`
 macros, and constructs fully expanded Scheme HIR for the supported core forms.
 Library loading uses an explicit function parameter. Scope environments are
@@ -145,10 +164,16 @@ transient association lists passed through recursive descent.
 `(snail-scheme hir)` defines the immutable records in
 [the HIR design](doc/hir.md#hir-records). A `value-definition` holds a binding's
 identity and definition location; a `name` refers to it and retains the reference
-location. A `value-binding` pairs that identity with an initializer. Library
-declarations and core expressions have separate records. HIR carries no types or
+location. A `value-binding` pairs that identity with an initializer.
+`(snail-scheme library)` independently owns library containers and resolved
+interfaces; each container holds HIR or MIR code, and scripts are unnamed libraries.
+HIR carries no types or
 closure capture lists; `lower.sld` computes storage and captures while translating
-to stack instructions. Type inference remains later work.
+to [structured MIR](doc/mir.md). MIR has five instruction forms: conditionals,
+direct and indirect calls, loads, and stores. Representation operations are
+explicit Rust calls, and `machine.sld` expresses the Scheme stack convention
+using those forms. Shared LTO optimizes generated LLVM together with Rust.
+Type inference remains later work.
 This is an initial core and library implementation, not complete R7RS support.
 The compiler command runs this expansion before lowering and LLVM emission.
 
@@ -162,12 +187,13 @@ and a required dotted tail. `s-vector` parses `#`-prefixed proper lists.
 Lists use `(make-list-syntax elements improper-tail loc)`; vectors have their
 own record, `(make-vector-syntax elements loc)`, recognized by `vector-syntax?`.
 Both store lists of child syntax objects and preserve their source locations.
-Vector locations start at the `#` prefix; list locations start at the opening fence. `s-bytevector` validates
+Vector locations start at the `#` prefix; list locations start at the opening fence.
+`s-bytevector` validates
 each byte and constructs an atom containing a bytevector, located at the prefix.
 The matcher compares bytevector datums as ordinary constants.
 The parsing API is `s-file`, `s-expr`, and `s-atom`. `s-atom` parses literals,
 including bytevectors, and symbols; `s-expr` also handles compound forms and leading
-intertoken space. Other rules remain temporarily exported for the external tests.
+intertoken space. Other grammar rules are private; their unit tests live in the module.
 The standalone literal predicates assert a string argument and recognize complete
 spellings; the syntax rules do not call them. Numeric rules recognize radix and exactness prefixes,
 integers, ratios, decimals, exponents, and complex numbers before `string->number`

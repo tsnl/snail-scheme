@@ -1,5 +1,6 @@
-//! Specialize the Scheme-written instruction functions, then let Cargo link the
-//! resulting object with Rust. No Rust bitcode or handwritten LLVM is required.
+//! Compile generated LLVM and let Cargo link it with the Rust runtime. The
+//! driver's shared LTO mode leaves Scheme as bitcode to optimize together
+//! with Rust. Ordinary builds emit a native/WASM object directly.
 
 use std::{
     env, fs,
@@ -8,21 +9,52 @@ use std::{
 };
 
 fn main() {
+    let _trace = snail_trace::span("build.llvm-to-object");
     watch_environment();
     let input = input_path();
     let output = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let target = env::var("TARGET").unwrap();
     println!("cargo:rerun-if-changed={}", input.display());
-    let module = prepare_module(&input, &output, &target);
-    let optimized = optimize(&module, &output);
-    let object = assemble(&optimized, &output, &target);
+    let module = llvm_ir_with_target_layout(&input, &output, &target);
+    let optimized = optimize_llvm_ir(&module, &output);
+    let object = if shared_lto() {
+        llvm_ir_to_bitcode(&optimized, &output)
+    } else {
+        llvm_ir_to_object(&optimized, &output, &target)
+    };
     println!("cargo:rustc-link-arg={}", object.display());
 }
 
 fn watch_environment() {
-    for name in ["SNAIL_LLVM_IR", "LLVM_LLC", "LLVM_OPT"] {
+    for name in ["SNAIL_LLVM_IR", "LLVM_LLC", "LLVM_OPT", "SNAIL_SHARED_LTO"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
+}
+
+fn shared_lto() -> bool {
+    env::var("SNAIL_SHARED_LTO").as_deref() == Ok("1")
+        && env::var("PROFILE").as_deref() == Ok("release")
+}
+
+fn llvm_ir_to_bitcode(input: &Path, output: &Path) -> PathBuf {
+    let flags = env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
+    assert!(
+        flags
+            .split('\x1f')
+            .any(|flag| matches!(flag, "-Clinker-plugin-lto" | "linker-plugin-lto")),
+        "SNAIL_SHARED_LTO=1 requires Rust linker-plugin LTO; use the snail-scheme driver"
+    );
+    let object = output.join("scheme.o");
+    run(
+        Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
+            .args(["-passes=verify"])
+            .arg(input)
+            .arg("-o")
+            .arg(&object),
+    );
+    // LLD recognizes bitcode regardless of extension. Its final WASM CFG repair
+    // must remain enabled: shared optimization can introduce new control flow.
+    object
 }
 
 fn input_path() -> PathBuf {
@@ -47,6 +79,7 @@ fn run(command: &mut Command) {
 // Ask the same rustc that Cargo uses for the target's actual LLVM layout. The
 // tiny no_std probe needs only core, already required by the target runtime.
 fn target_metadata(output: &Path, target: &str) -> String {
+    let _trace = snail_trace::span("build.target-layout");
     let source = output.join("target_layout.rs");
     let ir = output.join("target_layout.ll");
     fs::write(&source, "#![no_std]\n").unwrap();
@@ -63,11 +96,12 @@ fn target_metadata(output: &Path, target: &str) -> String {
         .collect()
 }
 
-fn prepare_module(input: &Path, output: &Path, target: &str) -> PathBuf {
-    assert!(matches!(
-        env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap().as_str(),
-        "32" | "64"
-    ));
+fn llvm_ir_with_target_layout(input: &Path, output: &Path, target: &str) -> PathBuf {
+    assert_eq!(
+        env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap(),
+        "32",
+        "the runtime requires 32-bit pointers; use --target i686-unknown-linux-musl or wasm32-wasip1"
+    );
     let metadata = target_metadata(output, target);
     assert!(metadata.contains("target datalayout =") && metadata.contains("target triple ="));
     let module = output.join("scheme.target.ll");
@@ -75,7 +109,8 @@ fn prepare_module(input: &Path, output: &Path, target: &str) -> PathBuf {
     module
 }
 
-fn optimize(input: &Path, output: &Path) -> PathBuf {
+fn optimize_llvm_ir(input: &Path, output: &Path) -> PathBuf {
+    let _trace = snail_trace::span("build.optimize-llvm");
     let optimized = output.join("scheme.optimized.ll");
     run(
         Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
@@ -84,19 +119,11 @@ fn optimize(input: &Path, output: &Path) -> PathBuf {
             .arg("-o")
             .arg(&optimized),
     );
-    let text = fs::read_to_string(&optimized).unwrap();
-    // A compiled compiler contains handler names in its string constants.
-    // Only remaining function definitions indicate failed specialization.
-    assert!(
-        !text
-            .lines()
-            .any(|line| line.starts_with("define ") && line.contains("@snail_vm_")),
-        "VM instruction functions were not fully inlined"
-    );
     optimized
 }
 
-fn assemble(input: &Path, output: &Path, target: &str) -> PathBuf {
+fn llvm_ir_to_object(input: &Path, output: &Path, target: &str) -> PathBuf {
+    let _trace = snail_trace::span("build.llvm-to-object-code");
     let object = output.join("scheme.o");
     let mut command = Command::new(env::var_os("LLVM_LLC").unwrap_or_else(|| "llc".into()));
     command.arg("-filetype=obj");
@@ -113,6 +140,7 @@ fn assemble(input: &Path, output: &Path, target: &str) -> PathBuf {
 }
 
 fn verify_reducible(input: &Path) {
+    let _trace = snail_trace::span("build.verify-reducible");
     let report = Command::new(env::var_os("LLVM_OPT").unwrap_or_else(|| "opt".into()))
         .args(["-passes=print<cycles>", "-disable-output"])
         .arg(input)

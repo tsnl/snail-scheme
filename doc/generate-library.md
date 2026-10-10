@@ -3,6 +3,10 @@
 `generate-library` is a planned feature. It is not implemented, and the examples
 in this document do not run in the current compiler. This note records the
 intended shape and staging model; it does not commit to a generator result API.
+The [platform design](why-snail-scheme.md) relates this authoring feature to
+library-based compilers, actors, connections, and artifact production. The
+[chat document extension](tutorials/02-chat/README.md#6-publish-the-application-as-an-interactive-document)
+specifies its intended integration test.
 
 ## A Scheme wrapper for another source format
 
@@ -99,6 +103,14 @@ when they name the same library. Loading a library to run generator code must no
 accidentally execute its generated runtime counterpart. Generation cycles need
 diagnostics that identify the stage and dependency path.
 
+The [build-actor proposal](staged-programs.md#build-evaluation-is-an-actor-invocation)
+treats evaluation of an application builder as another actor invocation. It does
+not merge that evaluation with library generation. A generator returns located
+implementation syntax; a build handler evaluates prepared Scheme and returns an
+application description or requests artifact production. Compiling one of those
+artifacts may invoke generators and transformers again. Stages are relative to
+the artifact being prepared, and retain their separate imports and contracts.
+
 ## Paths, dependencies, and source locations
 
 Source paths written in the wrapper should resolve relative to that wrapper,
@@ -150,7 +162,14 @@ server library together with browser and shader artifacts. It keeps compiler
 phases distinct from runtime targets and identifies the additional artifact and
 procedural-transformer APIs that this would require. These are also planned.
 
-The [application-engine plan](application-engines.md) describes the separate
-runtime contract: an engine invokes exported behavior, while ordinary runtime
-functions provide explicit state retention. Generating a library does not grant
-its globals persistence or implement the engine's reload protocol.
+Its [build-target proposal](staged-programs.md#build-targets-artifacts-and-applications)
+uses `define-target` to select a compilation root and host contract, producing
+one primary artifact per configuration. `generate-library` continues to produce
+a library's syntax; it does not itself select an application entry point or turn
+ordinary library exports into filesystem paths.
+
+The [actor model](why-snail-scheme.md) describes the separate runtime contract:
+connections invoke exported functions in isolated actors, while ordinary runtime
+functions expose state/resource services. Globals live for their actor's lifetime.
+Generating a library does not make them durable across actor replacement or
+implement the runtime's reload protocol.

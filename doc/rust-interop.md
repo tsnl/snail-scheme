@@ -8,29 +8,36 @@ in the current runtime.
 
 ## What exists today
 
-The compiler emits LLVM instruction handlers and a whole-program entry point.
+The compiler elaborates HIR to structured MIR and emits a whole-program LLVM
+entry point with ordinary C ABI calls into Rust.
 Cargo compiles that IR for the target and links the object with `snail-runtime`.
 The executable CLI generates a Cargo project and invokes `cargo build` or
 `cargo run`. The supported host pair is native and `wasm32-wasip1`, using the
 same Rust runtime and an adapter based on `std`. The generated entry exports
 `snail_program_abi`; the runner checks it against `PROGRAM_ABI` before executing
-the program. The current protocol version is 1.
+the program. The current protocol version is 3.
 
-The heap owns boxed `dyn SnailSchemeObject` payloads. Tagged `Value` words name
-objects through an ownership table; they are not durable Rust roots. Copying a
-word does not retain its object, and an address can be reused after collection.
-The trait and raw VM access exist for runtime implementation, without a safe
-public embedding or native-function registration facade.
+The heap owns fixed-layout builtin objects and one `Extension` kind for foreign
+payloads. Its C ABI tracing/destruction vtable is implemented; safe registration,
+checked host roots, and a public embedding facade remain proposed. Tagged
+32-bit words point directly to objects. Copying a word does not retain its
+object, and an address can be reused after collection.
 
-Automatic collection occurs at instruction entry. Allocation does not collect.
-During a call, arguments can leave the traced operand stack and live in Rust
-locals until the dispatcher publishes results or a new activation. Explicit
-`collect-garbage` runs only after consuming its inputs and publishing its
-result. Allowing arbitrary native code to collect or reenter Scheme inside
-this region would invalidate those assumptions.
+The internal builtin call boundary uses an owned allocation capability.
+Collection occurs before entry into an allocating Rust callable, with its
+procedure and arguments explicitly rooted. Allocation inside Rust never
+collects. Nonallocating callables do not poll. Returned values and invocation
+requests become roots before another allocating operation. Explicit collection
+runs only after consuming its inputs and publishing its result.
 
 See [backend.md](backend.md) for the executable implementation and
 [TOUR.md](../TOUR.md) for the module walkthrough.
+
+The implemented `snail-abi` proc macro exports fixed scalar Rust functions
+(`i32`/`u32` arguments, `i32`/`u32`/unit results) through named C ABI wrappers.
+Direct and function-pointer MIR calls execute on native and WASI; shared LTO
+inlines small helpers. This proof does not yet register user-defined Scheme
+procedures or provide managed-value conversion and rooting.
 
 ## First API: scoped leaf calls
 
@@ -73,11 +80,11 @@ value into traced VM storage before another safepoint. Expected failures return
 an owned `NativeError`; partial results are not published. Errors do not roll
 back mutations or IO.
 
-Do not initially expose generic `alloc(T: SnailSchemeObject)`. The trait's
-`Any` bound requires a static payload, while invocation-scoped values must not
-escape into one. Custom objects containing Scheme references need a separate
-checked traced-edge API. A future derive macro can enumerate those edges once
-their ownership contract is established.
+Do not expose the internal sealed builtin trait as a generic foreign allocator.
+Foreign payloads use `Extension`; its unsafe vtable contract is not yet a safe
+interface for invocation-scoped values. Custom objects containing Scheme
+references need a checked traced-edge API. A future derive macro can enumerate
+those edges once their ownership contract is established.
 
 ## Allocation, ownership, and failure
 
@@ -102,6 +109,14 @@ mutable growth, roots, and marking scratch. A buffer constructed outside the
 runtime cannot be retrospectively bounded by charging for its admission.
 Fallible constructors should leave room for a quota, but `Result` alone does
 not make underlying `Box`, `Vec`, or `HashMap` allocation recoverable.
+
+The proposed [microprocess memory policy](why-snail-scheme.md#resource-lifetimes-are-a-programming-tool)
+makes collection permission and release recovery explicit at spawn. Strict
+`no-gc` remains strict in release builds; `expect-no-gc` traps in debug and can
+opt into recovery. Any collection fallback must return to a valid safepoint with
+published roots. It cannot run inside the scoped leaf-call allocation API.
+[Allocation proofs](tutorials/01-game/requirements.md) require byte-cost summaries
+for native operations as well as generated Scheme code.
 
 Unrestricted allocation, no native safepoints, a fixed heap bound, and guaranteed
 success cannot all be promised. Begin with allocation under the soft threshold
@@ -206,11 +221,14 @@ retain rooted results between calls, and receive normal completion, VM failure,
 or an exit request without the library terminating its process. Define explicit
 idle, running, failed, and exited states.
 
-The [application-engine proposal](application-engines.md) uses that boundary for
-Rust hosts invoking Scheme behavior through explicit contracts. Its per-message
-workers and runtime state services are later requirements, not properties of
-today's `Vm`. Retaining a rooted value within one VM does not transfer it into a
-different worker's heap or make it durable storage.
+The [platform design](why-snail-scheme.md) uses that boundary for isolated Scheme
+actors with explicit native state/resource services. Their globals live for the
+actor's lifetime; short-lived frame actors supply disposable heaps. Those are
+later requirements, not properties of today's `Vm`. Retaining a rooted value
+within one VM does not transfer it into another worker or make it durable storage.
+Every actor message must encode/decode even locally. Scoped native calls executing
+within one invocation are a different boundary; their borrows must not escape
+into a service or become a pointer-based actor delivery shortcut.
 
 Start with one generated whole-program image per instance. Namespace generated
 symbols so multiple program crates can coexist, but do not mistake that for
@@ -247,3 +265,56 @@ have different host capabilities.
    with outer locals alive, temporary-root release, reentrancy policy, and injected
    allocation failures where recovery is promised. Keep actual OOM/abort tests in
    subprocesses. Decide separately whether cross-program Scheme calls are needed.
+
+## Allocation capability
+
+The runtime implements an owned `Allocation` capability at the Scheme-to-Rust
+call boundary, before entering a builtin that may allocate. `Runtime` provides
+object and host services without VM control state; allocating entries own an
+`Allocation` and their internal helpers borrow it. This is an internal API,
+not yet the proposed public foreign-function API above. Nonallocating operations
+need neither this capability nor a collection check.
+
+The VM must keep the procedure and its arguments reachable from explicit roots
+while acquiring the capability. Acquisition may collect. The allocating Rust
+operation consumes the capability, uses it for all of its constructors, and
+returns its results. The dispatcher publishes those results into roots before
+another capability can be acquired. Internal construction helpers may borrow
+that same capability; they must not acquire another one.
+
+This makes composite construction straightforward: a rest-argument list,
+command-line strings and their containing list, or a record and its supporting
+objects can be built without registering every intermediate Rust local as a
+root. The capability must not expose unrestricted VM access, collection, or
+callbacks. Merely owning a token does not prove the arguments were rooted or
+the results published; the dispatch boundary must enforce those invariants.
+
+Every individual allocation could be a safepoint only if all live Scheme values
+in Rust locals were registered as roots, or conservatively retained by another
+mechanism. That is deliberately outside this initial interface. Allocations
+through an acquired capability never collect, even when they cross the soft
+collection threshold. The heap may grow until the operation finishes. A hard
+quota must produce a defined failure; it cannot secretly retry after collection.
+Objects are managed from construction onward and unreachable temporary objects
+are reclaimed at a later collection, not leaked or transferred between heaps.
+
+Do not defer acquisition until the first allocation after arbitrary mutation.
+For example, a native operation can read a child, remove it from its rooted
+parent, and keep it only in a Rust local. Collecting at its next allocation would
+lose that child. Acquire the capability outside the Rust callable, before its
+body begins. Nested Rust helpers share that capability; they do not introduce
+new safepoints. A callable that sometimes boxes a numeric result is allocating
+under this contract, even on invocations that happen to return an immediate.
+
+The allocation audit must include closure creation, captured-local promotion,
+rest arguments, constant initialization, and boxed numeric results, as well as
+user-visible constructors. Immediate symbol interning uses Rust storage only.
+`apply` and `call-with-values`
+transitions must publish the next procedure and arguments before acquisition.
+Stress tests should collect at every acquisition and verify that no collection
+occurs during a multi-object construction. Nonallocating execution must not poll.
+
+Object tracing is separate: `gc_mark` follows an object's Scheme-valued fields
+from the collector's worklist. It is not reference counting and is not a call
+that native procedures make to retain their intermediate local values. Custom
+extension payloads still need to describe any Scheme references they contain.

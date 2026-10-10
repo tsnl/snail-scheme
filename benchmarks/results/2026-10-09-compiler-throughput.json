@@ -1,0 +1,1065 @@
+{
+  "date": "2026-10-09",
+  "baseline_commit": "ef7861d8393f1505ff6e1b4dc4c6a9799654aa11",
+  "changes": [
+    "Fixed LLVM spellings for hyphenated VM operations; no per-call character-list reconstruction.",
+    "Private dense-label bitmap with sparse-list fallback for ordered dispatch destinations; phi predecessors unchanged.",
+    "Direct immutable named-tuple collection preserving parser capture, descriptor-name timing, callback order, failure identity, and reentrancy.",
+    "Per-expansion import-loader timing counter; expand excludes import-parse; no timing work when disabled.",
+    "Runtime radix-prefix recognition discovered necessary during full compiler capability validation; borrowing, no string clone."
+  ],
+  "host": {
+    "system": "Linux-7.2.3-x86_64-with-glibc2.42",
+    "cpu": "Intel Core Ultra 7 270K Plus",
+    "chibi": "0.12.0 magnesium",
+    "rustc": "1.95.0 (59807616e 2026-04-14)",
+    "llvm": "22.1.8",
+    "node": "24.15.0"
+  },
+  "methodology": [
+    "All reported latency runs sequential in fresh processes, with no overlapping test/build workloads.",
+    "Authoritative Chibi ablation copies each compiler variant to one common active source path. Input root is a separate frozen archive of baseline src/bootstrap/examples, held fixed across variants.",
+    "Five alternating parser pairs measure s-file on the same 16801-character base.sld, excluding startup/file read/grammar initialization; parser-time verifies host-reader agreement.",
+    "Three rotating full compiler samples for four variants use the normal compile.scm entry with --timing; wall time includes startup and LLVM file output, excludes Cargo. All twelve outputs have the same SHA256 and LLVM verification passed.",
+    "Stage medians need not add to median wall time. Baseline expand includes imported-source loading/parsing; final expand excludes invocation-local loader intervals before rounding.",
+    "Early emitter/parser prototypes use separate source paths and sometimes instrumented saved-VM input. Treat these as exploratory diagnostics rather than controlled attribution of final gains.",
+    "A contended exploratory parser batch and overlapping tail of phase-lifetime probes were excluded. Final ablations reran sequentially at a common active path.",
+    "First native batch rotates baseline/emitter-only/all-Scheme-changes executables for three samples, before the radix fix. Final native batch alternates baseline and final-runtime executables for three pairs; keep batches separate.",
+    "Native runs compile the same frozen Fibonacci source/library paths to LLVM and exclude building the compiler and any Cargo build of the emitted output. Baseline binary SHA matches the prior numeric-start report.",
+    "Full compiler-source runs under native/WASI and current-source native run are single capability checks, not before/after timing ablations. All match their corresponding Chibi output byte-for-byte.",
+    "WASI timings include Node startup. The compiler build remains Chibi hosted."
+  ],
+  "parse_characters": 16801,
+  "vm_instructions": 28262,
+  "dispatch_destinations": 4349,
+  "source_hashes_before": {
+    "Cargo.lock": "32f9e8399acc11a5b8d495f6617152408d9499049d410c76c0d4033b61491b4c",
+    "Cargo.toml": "a32444c97627b5e70bf46e99728ea08ab0e17b3414302d0ae99c52299e9d73a3",
+    "bootstrap/scheme/base.sld": "be1d03fea16c724dd7ec877057a4392c00a0579af71c3cd3de7719f21d7c304a",
+    "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "c21a93aecaba05c92173b86318b06547bd3ad4bf7761a5d1e9440c7ea371e955",
+    "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "182a85740b04dcb8500cf1c4e56126153ed593f2d696258df49e4cdcf374939e",
+    "runner/Cargo.toml": "e69f14427765730e8a1d9e2e59dd7a88d37c99595bbbe59fb30bb398ade26696",
+    "runner/build.rs": "4faa31a78b7a372aa6142a3ccea8bcde5cf7fe3832cc897e206057c02ccce7dc",
+    "runner/src/main.rs": "cce25cb4a4c23bb0fcf03a94b3caa34ad0c6a62b2b6e3147068e6042a1540d7e",
+    "runtime/Cargo.toml": "9a745f0f09df9d1a2a37dd79b6485ceed747133f130950eb1a6331009ad4a9ff",
+    "runtime/src/host.rs": "6f0fbdc0b75512221602d7a360fb43961b8863a4e94e58323b38e5f9b4a10bbd",
+    "runtime/src/lib.rs": "970f296065299100246bc9b1983e0d053a8abb3f154ac8bb68121a69392ed2f7",
+    "runtime/src/object.rs": "cc6ec606a8b5ccb8e0aeff6d261fc1a2dbfd23ec4eb791fdff80daa1fa43385c",
+    "runtime/src/primitives.rs": "726de181bf14ea229d9ca18d61a06337c1d397634e35b866865a788829cd65ac",
+    "runtime/src/vm.rs": "99028702ccb9a481ee203fff4aef30ca7f5f8bf4aecc11721c63e466c922ec0c",
+    "src/snail-scheme/bootstrap.sld": "8ade5e63af09781a58b5f0c9b8d8f4725ba6b9a43c454aac32898768ef525e6a",
+    "src/snail-scheme/cli.sld": "adcbd8930b6f93b3af535e587ff014773d97adb8cfb10b7a9cb7566d5814482b",
+    "src/snail-scheme/common.sld": "98b4f01962a9f13f6a9fad14e1ea4702894067e751524d1e9b3fdb008d2b4cb7",
+    "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+    "src/snail-scheme/compiler.sld": "f4f7b372f9c67edf931bdc5842d8093b5d3202ee53f280d80560235f7d9b9b74",
+    "src/snail-scheme/expand.sld": "a8c90e6509be7472f1256520e65e1bcb61a71aee001c8ffdbc6f51b8eedcf845",
+    "src/snail-scheme/hir.sld": "2f80c96dd1211755483c9f88c33bbd1141a985c57ab9f17f7659d746912b50a3",
+    "src/snail-scheme/llvm.sld": "2ee4881f3dffdad002e85be46361e4ddb84ed730b7b56ce4933380f89e6232b6",
+    "src/snail-scheme/lower.sld": "e801d38a35e4a0f975dbccdcf6b15fc33773f47ba084fc27945c7472916c631b",
+    "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+    "src/snail-scheme/parser.sld": "f5a0389218faaeaf19d70ec3e45beadc95917824b497063626705fb3892b10f9",
+    "src/snail-scheme/pattern.sld": "bf5390ab69ec760e00be8ee260917181f2e1c487d0dabe0ab8cb2510da2f2549",
+    "src/snail-scheme/reader.sld": "c3404a6cbbfe0b085d9c10b8755f99134d6862d283107434dcd1be01ec0770dc",
+    "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+    "src/snail-scheme/source.sld": "6d6a83381780c7c9c254fb12d5f9d4ce40a70b63f6d3e0995bdcc94d79638359",
+    "src/snail-scheme/syntax-parser.sld": "b88f03518547a3e6a63b0ce1e144bb3a45c79884b3add18b3b7824612327b857",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/vm.sld": "3ef0323a1a040f862093423810e80c5cd8b42df3c4def5c54710fc18cb120aa0"
+  },
+  "source_hashes_after": {
+    "Cargo.lock": "32f9e8399acc11a5b8d495f6617152408d9499049d410c76c0d4033b61491b4c",
+    "Cargo.toml": "a32444c97627b5e70bf46e99728ea08ab0e17b3414302d0ae99c52299e9d73a3",
+    "bootstrap/scheme/base.sld": "be1d03fea16c724dd7ec877057a4392c00a0579af71c3cd3de7719f21d7c304a",
+    "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "c21a93aecaba05c92173b86318b06547bd3ad4bf7761a5d1e9440c7ea371e955",
+    "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "182a85740b04dcb8500cf1c4e56126153ed593f2d696258df49e4cdcf374939e",
+    "runner/Cargo.toml": "e69f14427765730e8a1d9e2e59dd7a88d37c99595bbbe59fb30bb398ade26696",
+    "runner/build.rs": "4faa31a78b7a372aa6142a3ccea8bcde5cf7fe3832cc897e206057c02ccce7dc",
+    "runner/src/main.rs": "cce25cb4a4c23bb0fcf03a94b3caa34ad0c6a62b2b6e3147068e6042a1540d7e",
+    "runtime/Cargo.toml": "9a745f0f09df9d1a2a37dd79b6485ceed747133f130950eb1a6331009ad4a9ff",
+    "runtime/src/host.rs": "6f0fbdc0b75512221602d7a360fb43961b8863a4e94e58323b38e5f9b4a10bbd",
+    "runtime/src/lib.rs": "970f296065299100246bc9b1983e0d053a8abb3f154ac8bb68121a69392ed2f7",
+    "runtime/src/object.rs": "cc6ec606a8b5ccb8e0aeff6d261fc1a2dbfd23ec4eb791fdff80daa1fa43385c",
+    "runtime/src/primitives.rs": "c954694956dbdaf2fbe104a9838b91f9af989d6fb2e4e62b4f33100be796ec16",
+    "runtime/src/vm.rs": "99028702ccb9a481ee203fff4aef30ca7f5f8bf4aecc11721c63e466c922ec0c",
+    "src/snail-scheme/bootstrap.sld": "8ade5e63af09781a58b5f0c9b8d8f4725ba6b9a43c454aac32898768ef525e6a",
+    "src/snail-scheme/cli.sld": "adcbd8930b6f93b3af535e587ff014773d97adb8cfb10b7a9cb7566d5814482b",
+    "src/snail-scheme/common.sld": "98b4f01962a9f13f6a9fad14e1ea4702894067e751524d1e9b3fdb008d2b4cb7",
+    "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+    "src/snail-scheme/compiler.sld": "a0e9f539ef79c9bf2b2cc8fbae4bd5f645abad884206f380793c930868690bc4",
+    "src/snail-scheme/expand.sld": "a8c90e6509be7472f1256520e65e1bcb61a71aee001c8ffdbc6f51b8eedcf845",
+    "src/snail-scheme/hir.sld": "2f80c96dd1211755483c9f88c33bbd1141a985c57ab9f17f7659d746912b50a3",
+    "src/snail-scheme/llvm.sld": "73a4d432a8be6509987f48d7bef367960e718b78ad4826602a7b928de7505b46",
+    "src/snail-scheme/lower.sld": "e801d38a35e4a0f975dbccdcf6b15fc33773f47ba084fc27945c7472916c631b",
+    "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+    "src/snail-scheme/parser.sld": "d11c32aeb3c52a703aec02374e162e1a858df88105ffcbbe67e340eae434a63a",
+    "src/snail-scheme/pattern.sld": "bf5390ab69ec760e00be8ee260917181f2e1c487d0dabe0ab8cb2510da2f2549",
+    "src/snail-scheme/reader.sld": "c3404a6cbbfe0b085d9c10b8755f99134d6862d283107434dcd1be01ec0770dc",
+    "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+    "src/snail-scheme/source.sld": "6d6a83381780c7c9c254fb12d5f9d4ce40a70b63f6d3e0995bdcc94d79638359",
+    "src/snail-scheme/syntax-parser.sld": "b88f03518547a3e6a63b0ce1e144bb3a45c79884b3add18b3b7824612327b857",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/vm.sld": "3ef0323a1a040f862093423810e80c5cd8b42df3c4def5c54710fc18cb120aa0"
+  },
+  "source_patch": "diff --git a/runtime/src/primitives.rs b/runtime/src/primitives.rs\nindex 9f089d1..bee684b 100644\n--- a/runtime/src/primitives.rs\n+++ b/runtime/src/primitives.rs\n@@ -489,8 +489,8 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri\n         return Err(\"unsupported numeric radix\".into());\n     }\n     if name == \"string->number\" {\n-        let text = vm.string(args[0])?;\n-        match i64::from_str_radix(text, radix as u32) {\n+        let (text, radix) = strip_radix_prefix(vm.string(args[0])?, radix as u32);\n+        match i64::from_str_radix(text, radix) {\n             Ok(n) => return Ok(vm.integer(n)),\n             Err(error)\n                 if matches!(\n@@ -527,6 +527,18 @@ fn convert_number(vm: &mut Vm, name: &str, args: &[Value]) -> Result<Value, Stri\n     Ok(vm.alloc(Text(text)))\n }\n \n+fn strip_radix_prefix(text: &str, radix: u32) -> (&str, u32) {\n+    let radix = match text.as_bytes().get(..2) {\n+        Some([b'#', b'b' | b'B']) => 2,\n+        Some([b'#', b'o' | b'O']) => 8,\n+        Some([b'#', b'd' | b'D']) => 10,\n+        Some([b'#', b'x' | b'X']) => 16,\n+        _ => return (text, radix),\n+    };\n+    // A prefix overrides the supplied radix. Two ASCII bytes end on a UTF-8 boundary.\n+    (&text[2..], radix)\n+}\n+\n pub(crate) fn parse_float(text: &str) -> Option<f64> {\n     match text {\n         \"+inf.0\" => Some(f64::INFINITY),\n@@ -920,6 +932,53 @@ mod tests {\n         }\n     }\n \n+    #[test]\n+    fn numeric_reader_honors_radix_prefixes() {\n+        let mut vm = vm();\n+        for (text, expected) in [\n+            (\"#b+11\", 3),\n+            (\"#B10\", 2),\n+            (\"#o17\", 15),\n+            (\"#O10\", 8),\n+            (\"#d19\", 19),\n+            (\"#D10\", 10),\n+            (\"#x10ffff\", 1_114_111),\n+            (\"#X-ff\", -255),\n+            (\"#x7fffffffffffffff\", i64::MAX),\n+            (\"#x-8000000000000000\", i64::MIN),\n+        ] {\n+            let text = vm.alloc(Text(text.into()));\n+            let value = convert_number(&mut vm, \"string->number\", &[text, integer(2)]).unwrap();\n+            assert_eq!(value.integer(&vm.heap).unwrap(), expected);\n+        }\n+        let text = vm.alloc(Text(\"#d1.5\".into()));\n+        let value = convert_number(&mut vm, \"string->number\", &[text, integer(16)]).unwrap();\n+        assert_eq!(vm.heap.get::<Float>(value).unwrap().0, 1.5);\n+        assert!(convert_number(&mut vm, \"string->number\", &[text, integer(3)]).is_err());\n+    }\n+\n+    #[test]\n+    fn numeric_reader_rejects_malformed_radix_prefixes() {\n+        let mut vm = vm();\n+        for text in [\n+            \"#\", \"#x\", \"#xg\", \"#x1.5\", \"#b102\", \"#x#d10\", \"#e10\", \"+#x1\", \" #x1\", \"#\u03bb\", \"\u03bb\",\n+        ] {\n+            let text = vm.alloc(Text(text.into()));\n+            assert_eq!(\n+                convert_number(&mut vm, \"string->number\", &[text]).unwrap(),\n+                Value::FALSE\n+            );\n+        }\n+        for text in [\"#x8000000000000000\", \"#x-8000000000000001\"] {\n+            let text = vm.alloc(Text(text.into()));\n+            assert!(\n+                convert_number(&mut vm, \"string->number\", &[text])\n+                    .unwrap_err()\n+                    .contains(\"overflow\")\n+            );\n+        }\n+    }\n+\n     #[test]\n     fn integer_arithmetic_rejects_overflow_and_zero_division() {\n         assert!(arithmetic(\"+\", &[Number::Integer(i64::MAX), Number::Integer(1)]).is_err());\ndiff --git a/src/snail-scheme/compiler.sld b/src/snail-scheme/compiler.sld\nindex 0226fcf..dde073a 100644\n--- a/src/snail-scheme/compiler.sld\n+++ b/src/snail-scheme/compiler.sld\n@@ -27,14 +27,30 @@\n     (define (compile-file root input output . optional-dump)\n       (let* ((forms (time-stage 'parse (lambda () (read-source input))))\n              (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))\n-             (hir (time-stage 'expand\n-                              (lambda () (expand-program forms (library-loader root) (list core)))))\n+             (hir (expand-source forms (library-loader root) core))\n              (program (time-stage 'lower (lambda () (lower-program hir)))))\n         (time-stage 'llvm (lambda () (write-program output program write-llvm-program)))\n         (if (pair? optional-dump)\n             (time-stage 'vm-dump\n                         (lambda () (write-program (car optional-dump) program write-vm-program))))))\n \n+    ;; Keep import timing local to this expansion. Loader calls read and parse\n+    ;; syntax; recursive imports and expansion of library bodies happen outside\n+    ;; those calls, so the intervals do not overlap. Subtract before rounding.\n+    (define (expand-source forms loader core)\n+      (if (not (timing-port)) (expand-program forms loader (list core))\n+          (let ((import-ticks 0))\n+            (define (timed-loader name)\n+              (let* ((start (current-jiffy)) (form (loader name)))\n+                (set! import-ticks (+ import-ticks (- (current-jiffy) start)))\n+                form))\n+            (let* ((start (current-jiffy))\n+                   (hir (expand-program forms timed-loader (list core)))\n+                   (elapsed (- (current-jiffy) start)))\n+              (report-timing 'import-parse import-ticks)\n+              (report-timing 'expand (- elapsed import-ticks))\n+              hir))))\n+\n     (define (write-program path program writer)\n       (call-with-output-file path (lambda (port) (writer program port))))\n \ndiff --git a/src/snail-scheme/llvm.sld b/src/snail-scheme/llvm.sld\nindex 21fbbb8..139a38d 100644\n--- a/src/snail-scheme/llvm.sld\n+++ b/src/snail-scheme/llvm.sld\n@@ -293,8 +293,18 @@\n             (length (utf8-bytes (symbol->string (cdr primitive)))) \")\"))\n \n     (define (handler-name operation)\n-      (list->string (map (lambda (character) (if (char=? character #\\-) #\\_ character))\n-                         (string->list (symbol->string operation)))))\n+      ;; These instruction names have fixed LLVM spellings; the others already\n+      ;; match. Avoid rebuilding character lists at every instruction site.\n+      (case operation\n+        ((refer-local) \"refer_local\")\n+        ((refer-free) \"refer_free\")\n+        ((refer-global) \"refer_global\")\n+        ((set-local) \"set_local\")\n+        ((set-free) \"set_free\")\n+        ((set-global) \"set_global\")\n+        ((capture-local) \"capture_local\")\n+        ((capture-free) \"capture_free\")\n+        (else (symbol->string operation))))\n \n     (define (write-handler-call prefix instruction port)\n       (display (string-append \"  \" prefix \" @snail_vm_\"\n@@ -343,13 +353,26 @@\n \n     ;; Only procedure entries and non-tail return addresses need dynamic lookup.\n     ;; A return address needs a case even when no static branch targets it.\n+    ;; Lowering produces dense labels. A private bitmap keeps their discovery\n+    ;; linear; sparse hand-built programs use the existing list membership test.\n+    ;; The table is fresh for every emission, and first-occurrence order is kept.\n     (define (dispatch-targets program)\n-      (let loop ((instructions (vm-program-instructions program))\n-                 (targets (list (vm-program-entry program))))\n-        (if (null? instructions) (reverse targets)\n-            (let ((target (instruction-destination (car instructions))))\n-              (loop (cdr instructions)\n-                    (if (and target (not (memv target targets))) (cons target targets) targets))))))\n+      (let* ((instructions (vm-program-instructions program))\n+             (seen (make-vector (length instructions) #f)))\n+        (remember-destination! seen '() (vm-program-entry program))\n+        (let loop ((instructions instructions) (targets (list (vm-program-entry program))))\n+          (if (null? instructions) (reverse targets)\n+              (let ((target (instruction-destination (car instructions))))\n+                (loop (cdr instructions)\n+                      (if (remember-destination! seen targets target)\n+                          (cons target targets) targets)))))))\n+\n+    (define (remember-destination! seen targets target)\n+      (and target\n+           (if (< target (vector-length seen))\n+               (and (not (vector-ref seen target))\n+                    (begin (vector-set! seen target #t) #t))\n+               (not (memv target targets)))))\n \n     (define (instruction-destination instruction)\n       (let ((args (instruction-operands instruction)))\ndiff --git a/src/snail-scheme/parser.sld b/src/snail-scheme/parser.sld\nindex 644a487..512fa7c 100644\n--- a/src/snail-scheme/parser.sld\n+++ b/src/snail-scheme/parser.sld\n@@ -236,23 +236,25 @@\n \n     ;; Fields are (symbol . parser) pairs. `_` runs its parser but omits its value.\n     (define (named-tuple . fields)\n-      (define (keep-named entries)\n-        (cond\n-         ((null? entries) '())\n-         ((eq? (caar entries) '_) (keep-named (cdr entries)))\n-         (else (cons (car entries) (keep-named (cdr entries))))))\n       (let validate ((fields fields) (keys '()))\n         (if (pair? fields)\n             (let ((field (car fields)))\n               (assert (and (pair? field) (symbol? (car field)) (procedure? (cdr field))))\n               (assert (or (eq? (car field) '_) (not (memq (car field) keys))))\n               (validate (cdr fields) (cons (car field) keys)))))\n-      (pmap\n-       (apply tuple\n-              (map (lambda (field)\n-                     (pmap (cdr field) (lambda (value) (cons (car field) value))))\n-                   fields))\n-       keep-named))\n+      ;; As with the former pmap callbacks, capture each parser now but read its\n+      ;; field name after it succeeds. No caller-owned list is modified.\n+      (let ((captured (map (lambda (field) (cons field (cdr field))) fields)))\n+        (lambda (reader) (parse-named-fields captured reader '()))))\n+\n+    (define (parse-named-fields fields reader reversed-fields)\n+      (if (null? fields) (parse-result-ok (reverse reversed-fields) reader)\n+          (let* ((field (car fields)) (result ((cdr field) reader)))\n+            (if (parse-result-err? result) result\n+                (parse-named-fields\n+                 (cdr fields) (parse-result-input result)\n+                 (if (eq? (caar field) '_) reversed-fields\n+                     (cons (cons (caar field) (parse-result-value result)) reversed-fields)))))))\n \n     (define (optional parser)\n       (choice\n",
+  "summaries_seconds": {
+    "parse": {
+      "before": 0.513,
+      "selected": 0.499,
+      "reduction_percent": 2.729044834307992
+    },
+    "compile": {
+      "before": 10.567427531001158,
+      "selected-named": 10.233395909017418,
+      "selected-emitter": 6.956642227014527,
+      "selected": 6.525416844000574,
+      "reduction_percent": 38.24971285719945
+    },
+    "native_before_radix_fix": {
+      "before": 2.658012578031048,
+      "emitter": 2.630091533996165,
+      "after": 2.446769325993955,
+      "reduction_percent": 7.947413559403616
+    },
+    "native_final": {
+      "before": 2.6617914520320483,
+      "after": 2.4958809629897587,
+      "reduction_percent": 6.233038614487663
+    }
+  },
+  "current_stage_medians_us": {
+    "parse": 4000,
+    "import-parse": 3918000,
+    "expand": 613000,
+    "lower": 80000,
+    "llvm": 1491000
+  },
+  "host_samples": [
+    {
+      "kind": "parse",
+      "sample": 1,
+      "variant": "before",
+      "microseconds": 513000
+    },
+    {
+      "kind": "parse",
+      "sample": 1,
+      "variant": "selected",
+      "microseconds": 491000
+    },
+    {
+      "kind": "parse",
+      "sample": 2,
+      "variant": "selected",
+      "microseconds": 508000
+    },
+    {
+      "kind": "parse",
+      "sample": 2,
+      "variant": "before",
+      "microseconds": 521000
+    },
+    {
+      "kind": "parse",
+      "sample": 3,
+      "variant": "before",
+      "microseconds": 524000
+    },
+    {
+      "kind": "parse",
+      "sample": 3,
+      "variant": "selected",
+      "microseconds": 499000
+    },
+    {
+      "kind": "parse",
+      "sample": 4,
+      "variant": "selected",
+      "microseconds": 484000
+    },
+    {
+      "kind": "parse",
+      "sample": 4,
+      "variant": "before",
+      "microseconds": 512000
+    },
+    {
+      "kind": "parse",
+      "sample": 5,
+      "variant": "before",
+      "microseconds": 513000
+    },
+    {
+      "kind": "parse",
+      "sample": 5,
+      "variant": "selected",
+      "microseconds": 499000
+    },
+    {
+      "kind": "compile",
+      "sample": 1,
+      "variant": "before",
+      "seconds": 10.458807746006642,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4616000,
+        "lower": 74000,
+        "llvm": 5215000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 1,
+      "variant": "selected-named",
+      "seconds": 10.282419598021079,
+      "phases_us": {
+        "parse": 5000,
+        "expand": 4597000,
+        "lower": 79000,
+        "llvm": 5182000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 1,
+      "variant": "selected-emitter",
+      "seconds": 6.956642227014527,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4805000,
+        "lower": 77000,
+        "llvm": 1747000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 1,
+      "variant": "selected",
+      "seconds": 6.704159066022839,
+      "phases_us": {
+        "parse": 4000,
+        "import-parse": 4045000,
+        "expand": 628000,
+        "lower": 83000,
+        "llvm": 1542000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 2,
+      "variant": "selected-named",
+      "seconds": 10.169797670969274,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4549000,
+        "lower": 78000,
+        "llvm": 5127000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 2,
+      "variant": "selected-emitter",
+      "seconds": 6.991012601007242,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4887000,
+        "lower": 80000,
+        "llvm": 1695000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 2,
+      "variant": "selected",
+      "seconds": 6.392475676955655,
+      "phases_us": {
+        "parse": 4000,
+        "import-parse": 3841000,
+        "expand": 599000,
+        "lower": 77000,
+        "llvm": 1475000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 2,
+      "variant": "before",
+      "seconds": 10.711736190016381,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4525000,
+        "lower": 72000,
+        "llvm": 5552000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 3,
+      "variant": "selected-emitter",
+      "seconds": 6.624770155991428,
+      "phases_us": {
+        "parse": 4000,
+        "expand": 4573000,
+        "lower": 74000,
+        "llvm": 1655000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 3,
+      "variant": "selected",
+      "seconds": 6.525416844000574,
+      "phases_us": {
+        "parse": 4000,
+        "import-parse": 3918000,
+        "expand": 613000,
+        "lower": 80000,
+        "llvm": 1491000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 3,
+      "variant": "before",
+      "seconds": 10.567427531001158,
+      "phases_us": {
+        "parse": 5000,
+        "expand": 4591000,
+        "lower": 71000,
+        "llvm": 5344000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    },
+    {
+      "kind": "compile",
+      "sample": 3,
+      "variant": "selected-named",
+      "seconds": 10.233395909017418,
+      "phases_us": {
+        "parse": 5000,
+        "expand": 4479000,
+        "lower": 77000,
+        "llvm": 5256000
+      },
+      "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+    }
+  ],
+  "targets_before_radix_fix": [
+    {
+      "stage": "host-fibonacci",
+      "seconds": 1.1680082749808207,
+      "exit": 0,
+      "phases_us": {
+        "parse": 23000,
+        "import-parse": 611000,
+        "expand": 47000,
+        "lower": 2000,
+        "llvm": 85000
+      }
+    },
+    {
+      "stage": "compile-emitter",
+      "seconds": 7.904250309045892,
+      "exit": 0,
+      "phases_us": {
+        "parse": 4000,
+        "import-parse": 3897000,
+        "expand": 596000,
+        "lower": 81000,
+        "llvm": 2887000
+      }
+    },
+    {
+      "stage": "verify-emitter",
+      "seconds": 0.07820006099063903,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "build-emitter",
+      "seconds": 29.66294199199183,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "compile-after",
+      "seconds": 9.02224943897454,
+      "exit": 0,
+      "phases_us": {
+        "parse": 4000,
+        "import-parse": 3825000,
+        "expand": 620000,
+        "lower": 68000,
+        "llvm": 4105000
+      }
+    },
+    {
+      "stage": "verify-after",
+      "seconds": 0.08161535300314426,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "build-after",
+      "seconds": 29.8933256509481,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "native-before-1",
+      "seconds": 2.657805713999551,
+      "exit": 0,
+      "phases_us": {
+        "parse": 64328,
+        "expand": 2324336,
+        "lower": 108851,
+        "llvm": 155176
+      }
+    },
+    {
+      "stage": "native-emitter-1",
+      "seconds": 2.624284997000359,
+      "exit": 0,
+      "phases_us": {
+        "parse": 63923,
+        "expand": 2332814,
+        "lower": 108071,
+        "llvm": 112773
+      }
+    },
+    {
+      "stage": "native-after-1",
+      "seconds": 2.5006722019752488,
+      "exit": 0,
+      "phases_us": {
+        "parse": 60447,
+        "import-parse": 1703508,
+        "expand": 509773,
+        "lower": 109036,
+        "llvm": 111417
+      }
+    },
+    {
+      "stage": "native-emitter-2",
+      "seconds": 2.633410309033934,
+      "exit": 0,
+      "phases_us": {
+        "parse": 64017,
+        "expand": 2340427,
+        "lower": 108367,
+        "llvm": 113501
+      }
+    },
+    {
+      "stage": "native-after-2",
+      "seconds": 2.446769325993955,
+      "exit": 0,
+      "phases_us": {
+        "parse": 59724,
+        "import-parse": 1665693,
+        "expand": 498339,
+        "lower": 107236,
+        "llvm": 109342
+      }
+    },
+    {
+      "stage": "native-before-2",
+      "seconds": 2.658012578031048,
+      "exit": 0,
+      "phases_us": {
+        "parse": 62842,
+        "expand": 2323116,
+        "lower": 108866,
+        "llvm": 155977
+      }
+    },
+    {
+      "stage": "native-after-3",
+      "seconds": 2.4356708120321855,
+      "exit": 0,
+      "phases_us": {
+        "parse": 60430,
+        "import-parse": 1655791,
+        "expand": 496613,
+        "lower": 106574,
+        "llvm": 108990
+      }
+    },
+    {
+      "stage": "native-before-3",
+      "seconds": 2.692777541000396,
+      "exit": 0,
+      "phases_us": {
+        "parse": 63531,
+        "expand": 2327098,
+        "lower": 108891,
+        "llvm": 186061
+      }
+    },
+    {
+      "stage": "native-emitter-3",
+      "seconds": 2.630091533996165,
+      "exit": 0,
+      "phases_us": {
+        "parse": 64205,
+        "expand": 2335734,
+        "lower": 108224,
+        "llvm": 113666
+      }
+    },
+    {
+      "stage": "build-wasm",
+      "seconds": 39.43196999200154,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "wasm-fibonacci",
+      "seconds": 5.394543651025742,
+      "exit": 0,
+      "phases_us": {
+        "parse": 89232,
+        "import-parse": 2606636,
+        "expand": 827233,
+        "lower": 180185,
+        "llvm": 184274
+      }
+    },
+    {
+      "stage": "native-compiler-sources",
+      "seconds": 6.74837635300355,
+      "exit": 1,
+      "phases_us": {
+        "parse": 16882
+      }
+    }
+  ],
+  "targets_final": [
+    {
+      "stage": "radix-build-native",
+      "seconds": 0.7039858929929323,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "radix-native-compiler-sources",
+      "seconds": 38.028239343024325,
+      "exit": 0,
+      "phases_us": {
+        "parse": 16867,
+        "import-parse": 17131920,
+        "expand": 12240281,
+        "lower": 6254043,
+        "llvm": 2378459
+      }
+    },
+    {
+      "stage": "radix-fib-before-1",
+      "seconds": 2.6617914520320483,
+      "exit": 0,
+      "phases_us": {
+        "parse": 62100,
+        "expand": 2327011,
+        "lower": 109620,
+        "llvm": 156108
+      }
+    },
+    {
+      "stage": "radix-fib-after-1",
+      "seconds": 2.50270269298926,
+      "exit": 0,
+      "phases_us": {
+        "parse": 60651,
+        "import-parse": 1704735,
+        "expand": 509597,
+        "lower": 109010,
+        "llvm": 111881
+      }
+    },
+    {
+      "stage": "radix-fib-after-2",
+      "seconds": 2.4958809629897587,
+      "exit": 0,
+      "phases_us": {
+        "parse": 60870,
+        "import-parse": 1701915,
+        "expand": 506492,
+        "lower": 108685,
+        "llvm": 111134
+      }
+    },
+    {
+      "stage": "radix-fib-before-2",
+      "seconds": 2.6976145419757813,
+      "exit": 0,
+      "phases_us": {
+        "parse": 63804,
+        "expand": 2332135,
+        "lower": 109236,
+        "llvm": 185641
+      }
+    },
+    {
+      "stage": "radix-fib-before-3",
+      "seconds": 2.6559596480219625,
+      "exit": 0,
+      "phases_us": {
+        "parse": 63071,
+        "expand": 2321551,
+        "lower": 108697,
+        "llvm": 155913
+      }
+    },
+    {
+      "stage": "radix-fib-after-3",
+      "seconds": 2.4434157030191272,
+      "exit": 0,
+      "phases_us": {
+        "parse": 61056,
+        "import-parse": 1661699,
+        "expand": 496532,
+        "lower": 106540,
+        "llvm": 109736
+      }
+    },
+    {
+      "stage": "radix-build-wasm",
+      "seconds": 0.6370910669793375,
+      "exit": 0,
+      "phases_us": {}
+    },
+    {
+      "stage": "radix-wasm-fibonacci",
+      "seconds": 5.359702061978169,
+      "exit": 0,
+      "phases_us": {
+        "parse": 90866,
+        "import-parse": 2565735,
+        "expand": 808443,
+        "lower": 175856,
+        "llvm": 181398
+      }
+    },
+    {
+      "stage": "radix-wasm-compiler-sources",
+      "seconds": 55.16675861302065,
+      "exit": 0,
+      "phases_us": {
+        "parse": 24755,
+        "import-parse": 23665208,
+        "expand": 18313986,
+        "lower": 9896500,
+        "llvm": 3155745
+      }
+    }
+  ],
+  "target_outputs": {
+    "fibonacci_llvm_sha256": "265905b09739ac5df587ea275444e30fa6b5f9e0eaf470dd6b87d37af8460d6a",
+    "compiler_sources_llvm_sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338",
+    "executables": {
+      "before": "0287a35d976f0f81d5801cda9254b87462c0be1d9eb22164b0c181c12ad80513",
+      "after": "6e3d089cebb02d5f9cc45f9484af31a0fe11dc18dfe9e645f97345e6e27cc6c8",
+      "wasm": "d7ecfc97575160092adfe71cc131f206c9ec32df17ec9ca7be79c3ccc5829cce"
+    }
+  },
+  "current_native_compiler_compiles_own_sources": {
+    "seconds": 38.54763732600259,
+    "phases_us": {
+      "parse": 17639,
+      "import-parse": 17348692,
+      "expand": 12262036,
+      "lower": 6484560,
+      "llvm": 2427921
+    },
+    "sha256": "131bb6255a2b4a646369f99e36a0ce891d5122c339ae8eb67177d9e17820a039"
+  },
+  "radix_failure": {
+    "before_and_optimized_compilers": "Both failed parsing #x10ffff in syntax-parser.sld while compiling the full frozen corpus before runtime correction.",
+    "diagnostic": "compiler: parse 16882 us\nsnail-scheme: cannot parse Scheme source /tmp/snail-compile-throughput-20261009/build/throughput/before/src/snail-scheme/syntax-parser.sld #<record <loc>>\n",
+    "standards_reference": "https://small.r7rs.org/attachment/r7rs.pdf section 6.2.7",
+    "scope": "Recognize radix prefixes only; existing numeric domain and overflow-error behavior unchanged."
+  },
+  "exploratory": {
+    "full_compiler_prototypes": [
+      {
+        "sample": 1,
+        "variant": "before",
+        "seconds": 10.995037968968973,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4771000,
+          "lower": 79000,
+          "llvm": 5576000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "numeric",
+        "seconds": 31.617925958009437,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4675000,
+          "lower": 76000,
+          "llvm": 26322000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "bitmap",
+        "seconds": 9.768402023997623,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4446000,
+          "lower": 73000,
+          "llvm": 4688000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "handlers",
+        "seconds": 7.5888650749693625,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4839000,
+          "lower": 78000,
+          "llvm": 2116000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "emitter-all",
+        "seconds": 29.055792288971134,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4402000,
+          "lower": 80000,
+          "llvm": 24035000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "numeric",
+        "seconds": 33.5514137709979,
+        "phases_us": {
+          "parse": 5000,
+          "expand": 4656000,
+          "lower": 78000,
+          "llvm": 28263000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "bitmap",
+        "seconds": 9.703264221956488,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4429000,
+          "lower": 72000,
+          "llvm": 4642000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "handlers",
+        "seconds": 7.459986252011731,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4695000,
+          "lower": 74000,
+          "llvm": 2123000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "emitter-all",
+        "seconds": 30.460559653001837,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4436000,
+          "lower": 75000,
+          "llvm": 25392000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "before",
+        "seconds": 10.920940847019665,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4746000,
+          "lower": 78000,
+          "llvm": 5535000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 3,
+        "variant": "bitmap",
+        "seconds": 9.885219866002444,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4491000,
+          "lower": 79000,
+          "llvm": 4751000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 3,
+        "variant": "handlers",
+        "seconds": 7.316132553038187,
+        "phases_us": {
+          "parse": 5000,
+          "expand": 4620000,
+          "lower": 72000,
+          "llvm": 2058000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 3,
+        "variant": "emitter-all",
+        "seconds": 31.038519781955983,
+        "phases_us": {
+          "parse": 3000,
+          "expand": 4314000,
+          "lower": 73000,
+          "llvm": 26103000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 3,
+        "variant": "before",
+        "seconds": 10.384293691022322,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4451000,
+          "lower": 70000,
+          "llvm": 5316000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 3,
+        "variant": "numeric",
+        "seconds": 33.79260043299291,
+        "phases_us": {
+          "parse": 4000,
+          "expand": 4573000,
+          "lower": 73000,
+          "llvm": 28599000
+        },
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      }
+    ],
+    "full_compiler_variants": {
+      "numeric": "Explicit number->string before display, replacing recursive line writer with direct loop.",
+      "bitmap": "Prototype bitmap sized from maximum label; final design instead bounds by instruction count and falls back for sparse labels.",
+      "handlers": "Fixed handler-name mapping.",
+      "emitter-all": "All three early variants including rejected numeric output."
+    },
+    "parser_prototypes": [
+      {
+        "sample": 1,
+        "variant": "before",
+        "microseconds": 507000
+      },
+      {
+        "sample": 1,
+        "variant": "tags",
+        "microseconds": 509000
+      },
+      {
+        "sample": 1,
+        "variant": "skip",
+        "microseconds": 679000
+      },
+      {
+        "sample": 1,
+        "variant": "tags-skip",
+        "microseconds": 480000
+      },
+      {
+        "sample": 2,
+        "variant": "tags",
+        "microseconds": 502000
+      },
+      {
+        "sample": 2,
+        "variant": "skip",
+        "microseconds": 677000
+      },
+      {
+        "sample": 2,
+        "variant": "tags-skip",
+        "microseconds": 510000
+      },
+      {
+        "sample": 2,
+        "variant": "before",
+        "microseconds": 513000
+      },
+      {
+        "sample": 3,
+        "variant": "skip",
+        "microseconds": 679000
+      },
+      {
+        "sample": 3,
+        "variant": "tags-skip",
+        "microseconds": 487000
+      },
+      {
+        "sample": 3,
+        "variant": "before",
+        "microseconds": 511000
+      },
+      {
+        "sample": 3,
+        "variant": "tags",
+        "microseconds": 492000
+      },
+      {
+        "sample": 4,
+        "variant": "tags-skip",
+        "microseconds": 495000
+      },
+      {
+        "sample": 4,
+        "variant": "before",
+        "microseconds": 528000
+      },
+      {
+        "sample": 4,
+        "variant": "tags",
+        "microseconds": 486000
+      },
+      {
+        "sample": 4,
+        "variant": "skip",
+        "microseconds": 686000
+      },
+      {
+        "sample": 5,
+        "variant": "before",
+        "microseconds": 516000
+      },
+      {
+        "sample": 5,
+        "variant": "tags",
+        "microseconds": 491000
+      },
+      {
+        "sample": 5,
+        "variant": "skip",
+        "microseconds": 684000
+      },
+      {
+        "sample": 5,
+        "variant": "tags-skip",
+        "microseconds": 506000
+      }
+    ],
+    "parser_variants": {
+      "tags": "Direct immutable literal scanner for tag-val/tag-ci.",
+      "skip": "Dedicated whitespace skip loop.",
+      "tags-skip": "Both."
+    },
+    "phase_lifetime_first_five_samples": [
+      {
+        "sample": 1,
+        "variant": "before",
+        "seconds": 10.486287222011015,
+        "peak_rss_kib": 132840,
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "phases",
+        "seconds": 10.288997024006676,
+        "peak_rss_kib": 135180,
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "phases-numeric",
+        "seconds": 31.550678853003774,
+        "peak_rss_kib": 132672,
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 1,
+        "variant": "phases-all",
+        "seconds": 30.00788901699707,
+        "peak_rss_kib": 132740,
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      },
+      {
+        "sample": 2,
+        "variant": "phases",
+        "seconds": 10.588731823023409,
+        "peak_rss_kib": 135152,
+        "sha256": "838fe82916f2fbb5094cc23ee27843a23406bfe5ed429ce7fd6e7a53d91b3338"
+      }
+    ],
+    "limitations": "Exploratory paths differ; no speedup claimed from lifetime probes. Numeric formatting improved isolated emission but regressed normal compilation. Chibi allocation/GC interaction not yet explained."
+  },
+  "simplify": {
+    "accepted": "Keep semantic steps directly visible; fresh local ownership for timing/bitmap, no parser cache, exact failure propagation.",
+    "exceptions": "Complete handler dispatch, destination traversal, expansion timing operation, and test scenarios can exceed ten logic lines when splitting scatters their invariants.",
+    "stopping_reason": "Remaining code expresses tested ordering, identity and ownership contracts; additional scanner/output/lifetime changes did not justify added complexity."
+  },
+  "checks": [
+    "make test",
+    "make check",
+    "cargo test --offline (31 tests)",
+    "cargo fmt --all -- --check",
+    "scripts/test-backend: native and WASI execution under GC stress",
+    "scripts/test-cli: modes, timing counter reset, untimed output equivalence",
+    "Updated Chibi compile-profile harness reports expand-including-imports",
+    "Parser regression tests passed against baseline implementation as well",
+    "All 12 controlled Chibi compiler LLVM outputs identical and verified",
+    "Native/WASI full frozen compiler sources and Fibonacci output match Chibi",
+    "Native current compiler emits own current sources identically to Chibi"
+  ],
+  "reproduction_setup": [
+    "Create a worktree at the result commit and freeze git archive ef7861d src bootstrap examples into build/throughput/before.",
+    "Adjust root/node/before-executable paths in the scripts to match the machine. Final-measure creates variants and common active path automatically.",
+    "Build baseline generated compiler using Chibi and baseline Rust runtime with Cargo release, keeping its binary separately. Build final compiler LLVM with the final Chibi-hosted sources.",
+    "The original target script stops at the expected pre-fix full-source failure; final validation uses radix-check after rebuilding with corrected runtime. For a fresh reproduction build baseline/emitter/Scheme-only variants using the pre-fix runtime before running final checks.",
+    "Keep source input paths fixed because they affect LLVM output and Chibi behavior; do not overlap CPU-intensive work."
+  ],
+  "reproduction_scripts": {
+    "throughput-final-measure.py": "from pathlib import Path\nimport shutil,subprocess,time,hashlib,json,re\nroot=Path('/tmp/snail-compile-throughput-20261009');build=root/'build/throughput';frozen=build/'before';common=build/'active'\nfor name,files in [('selected-named',['parser.sld']),('selected-emitter',['llvm.sld']),('selected',['parser.sld','llvm.sld','compiler.sld'])]:\n    shutil.copytree(frozen/'src',build/name/'src',dirs_exist_ok=True)\n    for file in files: shutil.copy2(root/'src/snail-scheme'/file,build/name/'src/snail-scheme'/file)\nrows=[]\ndef activate(name):\n    shutil.copytree(build/name/'src',common/'src',dirs_exist_ok=True)\ndef save(row):\n    rows.append(row);(build/'final-timings.json').write_text(json.dumps(rows,indent=2)+'\\n');print(row,flush=True)\nfor sample in range(5):\n    for name in (['before','selected'] if sample%2==0 else ['selected','before']):\n        activate(name)\n        command=['chibi-scheme','-I',str(common/'src'),str(root/'benchmarks/parser-time.scm'),str(frozen/'bootstrap/scheme/base.sld')]\n        p=subprocess.run(command,capture_output=True,text=True,check=True,timeout=120)\n        save(dict(kind='parse',sample=sample+1,variant=name,microseconds=int(p.stdout)))\nfor sample in range(3):\n    names=['before','selected-named','selected-emitter','selected'];names=names[sample%4:]+names[:sample%4]\n    for name in names:\n        activate(name);src=common/'src';out=build/f'final-{name}-{sample}.ll'\n        command=['chibi-scheme','-I',str(src),str(src/'snail-scheme/compile.scm'),str(frozen),str(frozen/'src/snail-scheme/compile.scm'),str(out),'--timing']\n        start=time.monotonic();p=subprocess.run(command,capture_output=True,text=True,check=True,timeout=180)\n        save(dict(kind='compile',sample=sample+1,variant=name,seconds=time.monotonic()-start,phases_us={n:int(t) for n,t in re.findall(r'compiler: (\\S+) (\\d+) us',p.stderr)},sha256=hashlib.sha256(out.read_bytes()).hexdigest()))\nassert len({row['sha256'] for row in rows if row['kind']=='compile'})==1\nsubprocess.run(['opt','-passes=verify','-disable-output',str(build/'final-selected-2.ll')],check=True)\nprint('All twelve LLVM outputs match; final output verified.',flush=True)\n",
+    "throughput-targets.py": "import hashlib,json,os,re,shutil,subprocess,time\nfrom pathlib import Path\nroot=Path('/tmp/snail-compile-throughput-20261009');build=root/'build/throughput';frozen=build/'before'\nnode='/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node'\nbefore=Path('/tmp/snail-numeric-start-20261009/build/numeric-start/cargo/release/snail-runner')\nrows=[]\ndef run(name,args,env=None):\n print('start '+name,flush=True);start=time.monotonic()\n p=subprocess.run([str(a) for a in args],cwd=root,env=env or os.environ,capture_output=True,text=True,timeout=300)\n row=dict(stage=name,seconds=time.monotonic()-start,exit=p.returncode,phases_us={n:int(t) for n,t in re.findall(r'compiler: (\\S+) (\\d+) us',p.stderr)})\n (build/(name+'.stdout')).write_text(p.stdout);(build/(name+'.stderr')).write_text(p.stderr)\n rows.append(row);(build/'target-timings.json').write_text(json.dumps(rows,indent=2)+'\\n');print(row,flush=True)\n if p.returncode: raise RuntimeError(p.stderr)\n return p\ndef compile_input(name,source_root,source,out):\n return run(name,['chibi-scheme','-I',root/'src',root/'src/snail-scheme/compile.scm',source_root,source,out,'--timing'])\nshutil.copytree(root/'examples',frozen/'examples',dirs_exist_ok=True)\nshutil.copytree(frozen/'bootstrap',build/'selected-emitter/bootstrap',dirs_exist_ok=True)\nsource=frozen/'examples/fibonacci.scm';expected=build/'host-fibonacci.ll'\ncompile_input('host-fibonacci',frozen,source,expected)\nfor variant,source_root in [('emitter',build/'selected-emitter'),('after',root)]:\n ir=build/(variant+'-compiler.ll')\n compile_input('compile-'+variant,source_root,source_root/'src/snail-scheme/compile.scm',ir)\n run('verify-'+variant,['opt','-passes=verify','-disable-output',ir])\n env={**os.environ,'SNAIL_LLVM_IR':str(ir),'CARGO_TARGET_DIR':str(build/'cargo')}\n run('build-'+variant,['cargo','build','--offline','--quiet','--release','-p','snail-runner'],env)\n shutil.copy2(build/'cargo/release/snail-runner',build/(variant+'-compiler'))\nexecutables={'before':before,'emitter':build/'emitter-compiler','after':build/'after-compiler'}\nfor sample in range(3):\n names=['before','emitter','after'];names=names[sample%3:]+names[:sample%3]\n for variant in names:\n  out=build/f'native-{variant}-{sample}.ll'\n  run(f'native-{variant}-{sample+1}',[executables[variant],frozen,source,out,'--timing'])\n  assert out.read_bytes()==expected.read_bytes()\nenv={**os.environ,'SNAIL_LLVM_IR':str(build/'after-compiler.ll'),'CARGO_TARGET_DIR':str(build/'cargo')}\nrun('build-wasm',['cargo','build','--offline','--quiet','--release','-p','snail-runner','--target','wasm32-wasip1'],env)\nrun('wasm-fibonacci',[node,'--no-warnings',root/'scripts/run-wasi.mjs',build/'cargo/wasm32-wasip1/release/snail-runner.wasm',frozen,source,build/'wasm-fibonacci.ll','--timing'])\nassert (build/'wasm-fibonacci.ll').read_bytes()==expected.read_bytes()\nrun('native-compiler-sources',[executables['after'],frozen,frozen/'src/snail-scheme/compile.scm',build/'native-compiler-sources.ll','--timing'])\nassert (build/'native-compiler-sources.ll').read_bytes()==(build/'final-before-0.ll').read_bytes()\ndata=dict(fibonacci_llvm_sha256=hashlib.sha256(expected.read_bytes()).hexdigest(),compiler_sources_sha256=hashlib.sha256((build/'native-compiler-sources.ll').read_bytes()).hexdigest(),executables={k:hashlib.sha256(p.read_bytes()).hexdigest() for k,p in executables.items()})\n(build/'target-outputs.json').write_text(json.dumps(data,indent=2)+'\\n')\nprint('Native/WASI Fibonacci and native full compiler LLVM match Chibi.',flush=True)\n",
+    "throughput-radix-check.py": "import hashlib,json,os,re,subprocess,time\nfrom pathlib import Path\nroot=Path('/tmp/snail-compile-throughput-20261009');build=root/'build/throughput';frozen=build/'before'\nnode='/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node'\nbefore=Path('/tmp/snail-numeric-start-20261009/build/numeric-start/cargo/release/snail-runner')\nenv={**os.environ,'SNAIL_LLVM_IR':str(build/'after-compiler.ll'),'CARGO_TARGET_DIR':str(build/'cargo')}\nrows=[]\ndef run(name,args):\n print('start '+name,flush=True);start=time.monotonic()\n p=subprocess.run([str(a) for a in args],cwd=root,env=env,capture_output=True,text=True,timeout=300)\n row=dict(stage=name,seconds=time.monotonic()-start,exit=p.returncode,phases_us={n:int(t) for n,t in re.findall(r'compiler: (\\S+) (\\d+) us',p.stderr)})\n (build/(name+'.stdout')).write_text(p.stdout);(build/(name+'.stderr')).write_text(p.stderr)\n rows.append(row);(build/'radix-checks.json').write_text(json.dumps(rows,indent=2)+'\\n');print(row,flush=True)\n if p.returncode: raise RuntimeError(p.stderr)\n return p\nrun('radix-build-native',['cargo','build','--offline','--quiet','--release','-p','snail-runner'])\nafter=build/'cargo/release/snail-runner'\nrun('radix-native-compiler-sources',[after,frozen,frozen/'src/snail-scheme/compile.scm',build/'radix-native-compiler-sources.ll','--timing'])\nassert (build/'radix-native-compiler-sources.ll').read_bytes()==(build/'final-before-0.ll').read_bytes()\nsource=frozen/'examples/fibonacci.scm';expected=build/'host-fibonacci.ll'\nfor sample in range(3):\n for name,executable in ([('before',before),('after',after)] if sample%2==0 else [('after',after),('before',before)]):\n  out=build/f'radix-fib-{name}-{sample}.ll'\n  run(f'radix-fib-{name}-{sample+1}',[executable,frozen,source,out,'--timing'])\n  assert out.read_bytes()==expected.read_bytes()\nrun('radix-build-wasm',['cargo','build','--offline','--quiet','--release','-p','snail-runner','--target','wasm32-wasip1'])\nwasm=build/'cargo/wasm32-wasip1/release/snail-runner.wasm'\nfor name,source,expected in [('fibonacci',frozen/'examples/fibonacci.scm',build/'host-fibonacci.ll'),('compiler-sources',frozen/'src/snail-scheme/compile.scm',build/'final-before-0.ll')]:\n out=build/('radix-wasm-'+name+'.ll')\n run('radix-wasm-'+name,[node,'--no-warnings',root/'scripts/run-wasi.mjs',wasm,frozen,source,out,'--timing'])\n assert out.read_bytes()==expected.read_bytes()\ndef digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()\n(build/'target-outputs.json').write_text(json.dumps(dict(fibonacci_llvm_sha256=digest(build/'host-fibonacci.ll'),compiler_sources_llvm_sha256=digest(build/'radix-native-compiler-sources.ll'),executables={k:digest(p) for k,p in [('before',before),('after',after),('wasm',wasm)]}),indent=2)+'\\n')\nprint('Native and WASI compile full compiler sources and Fibonacci to identical LLVM.',flush=True)\n"
+  }
+}

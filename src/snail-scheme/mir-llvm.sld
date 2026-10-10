@@ -1,0 +1,294 @@
+;; Emit structured MIR directly. The only mutable objects are this traversal's
+;; fresh-name counter and unfinished LLVM blocks; MIR and llvmlite stay immutable.
+;; Producer results track SSA availability in the current dominance scope.
+;; Shared terminal regions track continuation blocks, not reusable computations.
+;; Their inputs must dominate every incoming edge or be reloaded from Scheme
+;; state. Reentering a continuation executes its effects again. Separate resume
+;; bodies instantiate fresh LLVM values; neither table crosses that boundary.
+(define-library (snail-scheme mir-llvm)
+  (export emit-mir-body emission-blocks emission-incoming foreign-function llvm-type
+          memory-metadata)
+  (import (scheme base) (scheme cxr) (scheme write) (prefix (snail-scheme mir) mir:)
+          (prefix (snail-scheme llvmlite) llvm:))
+  (begin
+
+    ;; ---- Traversal state ----
+
+    (define-record-type <emission>
+      (make-emission blocks incoming) emission?
+      (blocks emission-blocks) (incoming emission-incoming))
+    (define-record-type <builder>
+      (make-builder function vm state codes dispatch done prefix next bodies incoming references shared)
+      builder? (function builder-function) (vm builder-vm) (state builder-state)
+      (codes builder-codes) (dispatch builder-dispatch) (done builder-done) (prefix builder-prefix)
+      (next builder-next set-builder-next!) (bodies builder-bodies set-builder-bodies!)
+      (incoming builder-incoming set-builder-incoming!) (references builder-references)
+      (shared builder-shared set-builder-shared!))
+    (define-record-type <cursor>
+      (make-cursor block instructions values) cursor?
+      (block cursor-block set-cursor-block!)
+      (instructions cursor-instructions set-cursor-instructions!)
+      (values cursor-values set-cursor-values!))
+    (define (llvm-type type)
+      (case type ((word i32) llvm:i32) ((i1) llvm:i1) ((ptr) llvm:ptr)
+            ((void) llvm:void) (else (error "unknown MIR representation" type))))
+    (define (foreign-function descriptor)
+      (llvm:function (mir:foreign-name descriptor) (llvm-type (mir:foreign-result descriptor))
+                     (let loop ((types (mir:foreign-arguments descriptor)) (index 0))
+                       (if (null? types) '()
+                           (cons (cons (llvm-type (car types)) (llvm:indexed-name "arg" index))
+                                 (loop (cdr types) (+ index 1)))))))
+    (define (fresh-name builder)
+      (let ((index (builder-next builder)))
+        (set-builder-next! builder (+ index 1))
+        (llvm:indexed-name (builder-prefix builder) index)))
+    (define (fresh-block builder)
+      (llvm:block (builder-function builder) (fresh-name builder)))
+    (define (fresh-value builder type)
+      (and (not (eq? type 'void))
+           (llvm:local (builder-function builder) (llvm-type type) (fresh-name builder))))
+    (define (append-instruction! cursor instruction)
+      (set-cursor-instructions! cursor (cons instruction (cursor-instructions cursor))))
+    (define (finish-block! builder cursor terminator)
+      (set-builder-bodies! builder
+                           (cons (llvm:block-body (cursor-block cursor)
+                                                  (reverse (cursor-instructions cursor)) terminator)
+                                 (builder-bodies builder)))
+      (set-cursor-block! cursor #f)
+      (set-cursor-instructions! cursor '()))
+
+    ;; ---- Shared continuations ----
+
+    ;; Count graph edges once, including repeated edges. A shared terminal region
+    ;; needs a join block; caching it as an ordinary SSA value would skip effects.
+    (define (reference-counts root)
+      (let ((counts '()))
+        (define (visit node)
+          (let ((entry (assq node counts)))
+            (if entry (set-cdr! entry (+ 1 (cdr entry)))
+                (begin (set! counts (cons (cons node 1) counts))
+                       (for-each visit (mir:expression-children node))))))
+        (visit root)
+        counts))
+    (define (terminal? node) (eq? (mir:expression-type node) 'never))
+    (define (shared-terminal? node builder)
+      (let ((entry (assq node (builder-references builder))))
+        (and entry (> (cdr entry) 1) (terminal? node))))
+    (define (emit-shared! node cursor builder)
+      (let ((previous (assq node (builder-shared builder))))
+        (if previous (begin (finish-block! builder cursor (llvm:br (cdr previous))) #f)
+            (let ((block (fresh-block builder)))
+              (set-builder-shared! builder (cons (cons node block) (builder-shared builder)))
+              (finish-block! builder cursor (llvm:br block))
+              (set-cursor-block! cursor block)
+              (emit-expression! node cursor builder)))))
+
+    ;; ---- Ordered regions and SSA values ----
+
+    (define (emit-mir-body function entry body vm state codes dispatch done)
+      (let ((builder (make-builder function vm state codes dispatch done
+                                   (string-append "mir_" (block-prefix entry) "_")
+                                   0 '() '() (reference-counts body) '()))
+            (cursor (make-cursor entry '() '())))
+        (emit! body cursor builder)
+        (if (cursor-block cursor) (finish-block! builder cursor (llvm:br done)))
+        (make-emission (reverse (builder-bodies builder)) (reverse (builder-incoming builder)))))
+    (define (block-prefix block)
+      (let ((port (open-output-string)))
+        ;; Entry block names supplied by the wrapper are plain strings.
+        (display (llvm:block-name block) port)
+        (get-output-string port)))
+    (define (emit! node cursor builder)
+      (cond ((not (cursor-block cursor)) #f)
+            ((shared-terminal? node builder) (emit-shared! node cursor builder))
+            (else (emit-expression! node cursor builder))))
+    (define (emit-expression! node cursor builder)
+      (cond ((mir:region? node) (emit-region! (mir:region-instructions node) cursor builder))
+            ((assq node (cursor-values cursor)) => cdr)
+            (else
+             (let ((value (emit-instruction! node cursor builder)))
+               (if (cursor-block cursor)
+                   (set-cursor-values! cursor (cons (cons node value) (cursor-values cursor))))
+               value))))
+    (define (emit-region! instructions cursor builder)
+      (cond ((or (null? instructions) (not (cursor-block cursor))) #f)
+            ((null? (cdr instructions)) (emit! (car instructions) cursor builder))
+            (else (emit! (car instructions) cursor builder)
+                  (emit-region! (cdr instructions) cursor builder))))
+    (define (emit-operands! operands cursor builder)
+      (if (null? operands) '()
+          (let ((first (emit! (car operands) cursor builder)))
+            (cons first (emit-operands! (cdr operands) cursor builder)))))
+    (define (literal-value node)
+      (let ((type (mir:expression-type node)) (number (car (mir:expression-operands node))))
+        (if (eq? type 'ptr)
+            (if (= number 0) llvm:null-pointer (llvm:inttoptr (llvm:integer llvm:i32 number)))
+            (llvm:integer (llvm-type type) number))))
+    (define (code-value code builder)
+      (llvm:integer llvm:i32 (cdr (assq code (builder-codes builder)))))
+
+    ;; These are elaboration's two proven disjoint regions. Runtime calls remain
+    ;; unannotated: State is inside Vm, and a call may modify either allocation.
+    (define memory-metadata
+      (let ((domain (llvm:metadata-reference 0)) (state (llvm:metadata-reference 1))
+            (external (llvm:metadata-reference 2)))
+        (list (llvm:metadata domain (list domain "memory") #t)
+              (llvm:metadata state (list state domain "state") #t)
+              (llvm:metadata external (list external domain "external") #t)
+              (llvm:metadata (llvm:metadata-reference 3) (list state) #f)
+              (llvm:metadata (llvm:metadata-reference 4) (list external) #f))))
+    (define (memory-instruction instruction region)
+      (let ((scopes (and (pair? region) (assq (car region) '((state 3 4) (external 4 3))))))
+        (if (not scopes) instruction
+            (llvm:with-metadata instruction
+                                (list (cons "alias.scope" (llvm:metadata-reference (cadr scopes)))
+                                      (cons "noalias" (llvm:metadata-reference (caddr scopes))))))))
+
+    ;; Only five instruction cases; literals and references are operands. Calls
+    ;; own all arithmetic and representation semantics, including their effects.
+    (define (emit-instruction! node cursor builder)
+      (let ((args (mir:expression-operands node)))
+        (case (mir:expression-operation node)
+          ((literal) (literal-value node))
+          ((input) (if (eq? (car args) 'vm) (builder-vm builder) (builder-state builder)))
+          ((code-reference) (code-value (car args) builder))
+          ((foreign-address) (llvm:function-address (foreign-function (car args))))
+          ((if) (emit-if! node cursor builder))
+          ((call-direct call-indirect) (emit-call! node cursor builder))
+          ((load) (let ((address (emit! (car args) cursor builder))
+                        (result (fresh-value builder (mir:expression-type node))))
+                    (append-instruction! cursor
+                                         (memory-instruction (llvm:load result address) (cdr args))) result))
+          ((store) (let ((values (emit-operands! (list (car args) (cadr args)) cursor builder)))
+                     (append-instruction! cursor
+                                          (memory-instruction (llvm:store (car values) (cadr values))
+                                                              (cddr args))) #f))
+          (else (error "unknown MIR instruction" (mir:expression-operation node))))))
+
+    ;; ---- Structured value joins ----
+
+    (define (boolean-value value cursor builder)
+      (if (llvm:type=? (llvm:value-type value) llvm:i1) value
+          (let ((condition (fresh-value builder 'i1)))
+            (append-instruction! cursor (llvm:icmp condition 'ne value (llvm:integer llvm:i32 0)))
+            condition)))
+    (define (emit-if! node cursor builder)
+      (let* ((args (mir:expression-operands node))
+             (test (boolean-value (emit! (car args) cursor builder) cursor builder))
+             (yes (make-cursor (fresh-block builder) '() (cursor-values cursor)))
+             (no (make-cursor (fresh-block builder) '() (cursor-values cursor)))
+             (join (fresh-block builder)))
+        (finish-block! builder cursor (llvm:cbr test (cursor-block yes) (cursor-block no)))
+        (let* ((yes-value (emit! (cadr args) yes builder))
+               (no-value (emit! (caddr args) no builder))
+               (edges (append (join-edge! yes yes-value join builder)
+                              (join-edge! no no-value join builder))))
+          (merge-value! node edges join cursor builder))))
+    (define (join-edge! cursor value join builder)
+      (if (not (cursor-block cursor)) '()
+          (let ((edge (cons value (cursor-block cursor))))
+            (finish-block! builder cursor (llvm:br join))
+            (list edge))))
+    (define (merge-value! node edges join cursor builder)
+      (if (null? edges) #f
+          (let ((result (fresh-value builder (mir:expression-type node))))
+            (set-cursor-block! cursor join)
+            (if result (append-instruction! cursor (llvm:phi result edges)))
+            result)))
+
+    ;; ---- Foreign calls and Scheme transfers ----
+
+    (define (emit-call! node cursor builder)
+      (let* ((args (mir:expression-operands node)) (callee (car args)) (tail? (cadr args))
+             (indirect? (eq? (mir:expression-operation node) 'call-indirect))
+             (scheme? (or (mir:code? callee) (eq? (mir:foreign-convention callee) 'scheme))))
+        (if scheme?
+            (emit-transfer! (if indirect? (emit! (caddr args) cursor builder)
+                                (code-value callee builder)) cursor builder)
+            (emit-foreign! node callee tail? indirect? (cddr args) cursor builder))))
+    (define (emit-transfer! destination cursor builder)
+      (set-builder-incoming! builder
+                             (cons (cons destination (cursor-block cursor)) (builder-incoming builder)))
+      (finish-block! builder cursor (llvm:br (builder-dispatch builder)))
+      #f)
+    (define (emit-foreign! node descriptor tail? indirect? operands cursor builder)
+      (let* ((values (emit-operands! operands cursor builder))
+             (result (fresh-value builder (mir:foreign-result descriptor)))
+             (signature (foreign-function descriptor)))
+        (append-instruction! cursor
+                             (if indirect? (llvm:call-indirect result signature (car values) (cdr values))
+                                 (llvm:call result signature values)))
+        (if tail? (finish-block! builder cursor (llvm:ret result)))
+        result)))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-mir-llvm)
+    (import (snail-scheme test-utils))
+    (begin
+      (define choose (mir:foreign "choose" '(ptr) 'i32 'read))
+      (define identity (mir:foreign "identity" '(i32) 'i32 'pure))
+      (define (test-emission body)
+        (let* ((function (llvm:function "example" llvm:i32 (list (cons llvm:ptr "vm"))))
+               (entry (llvm:block function "entry")) (dispatch (llvm:block function "dispatch"))
+               (done (llvm:block function "done"))
+               (emission (emit-mir-body function entry body (llvm:parameter function 0)
+                                        llvm:null-pointer '() dispatch done)))
+          (cons emission
+                (llvm:module (list (llvm:declare (foreign-function choose))
+                                   (llvm:declare (foreign-function identity))
+                                   (llvm:define-function function 'external '()
+                                                         (emission-blocks emission)))))))
+      (define (module-text module)
+        (let ((port (open-output-string))) (llvm:write-module module port) (get-output-string port)))
+      (define (occurrences text fragment)
+        (let loop ((index 0) (count 0))
+          (if (> (+ index (string-length fragment)) (string-length text)) count
+              (loop (+ index 1)
+                    (+ count (if (string=? (substring text index (+ index (string-length fragment))) fragment)
+                                 1 0))))))
+      (define (test-value-join)
+        (let* ((body (mir:let* ((condition (mir:call-direct choose (list mir:vm)))
+                                (answer (mir:conditional condition (mir:literal 'i32 11) (mir:literal 'i32 22))))
+                               (mir:call-direct identity (list answer) #t)))
+               (text (module-text (cdr (test-emission body)))))
+          (expect (occurrences text "call i32 @choose") 1)
+          (expect (occurrences text "phi i32") 1)
+          (expect (occurrences text "call i32 @identity") 1)))
+      (define (test-shared-terminal-region)
+        (let* ((condition (mir:call-direct choose (list mir:vm)))
+               (tail (mir:call-direct identity (list (mir:literal 'i32 42)) #t))
+               (body (let loop ((depth 40) (tail tail))
+                       (if (= depth 0) tail
+                           (loop (- depth 1) (mir:conditional condition tail tail)))))
+               (output (test-emission (mir:sequence (list condition body))))
+               (text (module-text (cdr output))))
+          (expect (< (length (emission-blocks (car output))) 200) #t)
+          (expect (occurrences text "call i32 @choose") 1)
+          (expect (occurrences text "call i32 @identity") 1)))
+      (define (test-shared-value-dominance)
+        (let* ((body (mir:let* ((condition (mir:call-direct choose (list mir:vm)))
+                                (captured (mir:load 'i32 mir:vm)))
+                               (let ((tail (mir:call-direct identity (list captured) #t)))
+                                 (mir:conditional condition tail tail))))
+               (text (module-text (cdr (test-emission body)))))
+          (expect (occurrences text "load i32") 1)
+          (expect (occurrences text "call i32 @identity") 1)
+          (expect (occurrences text "call i32 @choose") 1)))
+      (define (test-mir-llvm)
+        (run-test test-memory-regions)
+        (run-test test-value-join)
+        (run-test test-shared-terminal-region)
+        (run-test test-shared-value-dominance))
+      (define (test-memory-regions)
+        (let* ((body (mir:sequence (list (mir:load 'i32 mir:vm 'state)
+                                         (mir:load 'i32 mir:vm 'external)
+                                         (mir:load 'i32 mir:vm)
+                                         (mir:load 'i32 mir:vm 'unknown)
+                                         (mir:call-direct choose (list mir:vm) #t))))
+               (text (module-text (cdr (test-emission body)))))
+          (expect (occurrences text "!alias.scope") 2)
+          (expect (occurrences text "!noalias") 2)
+          (expect (occurrences text "load i32") 4)))))))

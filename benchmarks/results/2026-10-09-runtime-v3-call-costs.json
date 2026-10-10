@@ -1,0 +1,208 @@
+{
+  "description": "Static Fibonacci hot-path cost audit of the ordinary non-LTO, pre-lazy-error-fix runtime.",
+  "status": "Static CFG/source counts, not dynamic allocation instrumentation or measured time attribution.",
+  "program": "benchmarks/cpu.scm",
+  "repetitions": 16,
+  "ir_path": "/tmp/snail-runtime-v3-20261009/build/benchmarks/cpu.ll",
+  "ir_sha256": "551451e66ddec706b232e4d1bbd2e6442a41823a84c11b4f4c6f6d4a2820e741",
+  "benchmark_source_sha256": "e71ec30481916a416fa260e5b0d2b361bfeb02ef0d3fd6416437cab84d7fd01b",
+  "pre_lazy_error_runtime_source_sha256": {
+    "runner/Cargo.toml": "e69f14427765730e8a1d9e2e59dd7a88d37c99595bbbe59fb30bb398ade26696",
+    "runner/build.rs": "d7add202992d5a2c09f6e6c6cd7844371eca700b33f6042a7181c5dbc2962537",
+    "runner/src/main.rs": "cce25cb4a4c23bb0fcf03a94b3caa34ad0c6a62b2b6e3147068e6042a1540d7e",
+    "runtime/Cargo.toml": "9a745f0f09df9d1a2a37dd79b6485ceed747133f130950eb1a6331009ad4a9ff",
+    "runtime/src/host.rs": "a776e644e98e8ce0679b7947739c13c84d443eb28b514229f4e9c8bd0cee5a89",
+    "runtime/src/lib.rs": "99e19862a73a60bbf42dde056a836bdaf714e1bcb9d6ef132215ac03d3e8b4e9",
+    "runtime/src/object.rs": "34d8d901c4401755fe37293e89bc8078667d8015f3a25a2722289c2a56b927ca",
+    "runtime/src/primitives.rs": "04fb9f4c15ca54fdd49132824dd8bd71db87b4c02925990d3d8d2d373c5b1298",
+    "runtime/src/vm.rs": "7ede09c5972a1a7bb182f4b4aeff01641c3dc433624eb25eee0d18a099104032"
+  },
+  "fibonacci_entry": 745,
+  "paths": {
+    "leaf": {
+      "blocks": [
+        745,
+        744,
+        743,
+        742,
+        741,
+        740,
+        739,
+        716,
+        715
+      ],
+      "vm_instructions": 9,
+      "instruction_counts": {
+        "refer_local": 2,
+        "push": 2,
+        "constant": 1,
+        "refer_global": 1,
+        "call": 1,
+        "test": 1,
+        "return": 1
+      },
+      "rust_abi_service_calls": 24,
+      "eager_error_string_constructions": 2
+    },
+    "recursive": {
+      "blocks": [
+        745,
+        744,
+        743,
+        742,
+        741,
+        740,
+        739,
+        738,
+        737,
+        736,
+        735,
+        734,
+        733,
+        732,
+        731,
+        730,
+        729,
+        728,
+        727,
+        726,
+        725,
+        724,
+        723,
+        722,
+        721,
+        720,
+        719,
+        718,
+        717
+      ],
+      "vm_instructions": 29,
+      "instruction_counts": {
+        "refer_local": 3,
+        "push": 10,
+        "constant": 3,
+        "refer_global": 6,
+        "call": 6,
+        "test": 1
+      },
+      "rust_abi_service_calls": 80,
+      "eager_error_string_constructions": 9
+    }
+  },
+  "per_input": [
+    {
+      "n": 22,
+      "leaves": 28657,
+      "internal": 28656,
+      "fib_invocations": 57313,
+      "argument_vectors": 200594,
+      "local_vectors": 57313,
+      "eager_error_strings": 315218,
+      "vm_instruction_entries": 1088937,
+      "rust_abi_service_calls": 2980248
+    },
+    {
+      "n": 23,
+      "leaves": 46368,
+      "internal": 46367,
+      "fib_invocations": 92735,
+      "argument_vectors": 324571,
+      "local_vectors": 92735,
+      "eager_error_strings": 510039,
+      "vm_instruction_entries": 1761955,
+      "rust_abi_service_calls": 4822192
+    },
+    {
+      "n": 24,
+      "leaves": 75025,
+      "internal": 75024,
+      "fib_invocations": 150049,
+      "argument_vectors": 525170,
+      "local_vectors": 150049,
+      "eager_error_strings": 825266,
+      "vm_instruction_entries": 2850921,
+      "rust_abi_service_calls": 7802520
+    },
+    {
+      "n": 25,
+      "leaves": 121393,
+      "internal": 121392,
+      "fib_invocations": 242785,
+      "argument_vectors": 849746,
+      "local_vectors": 242785,
+      "eager_error_strings": 1335314,
+      "vm_instruction_entries": 4612905,
+      "rust_abi_service_calls": 12624792
+    }
+  ],
+  "timed_fibonacci_subtree_totals": {
+    "leaves": 4343088,
+    "internal": 4343024,
+    "fib_invocations": 8686112,
+    "argument_vectors": 30401296,
+    "local_vectors": 8686112,
+    "eager_error_strings": 47773392,
+    "vm_instruction_entries": 165035488,
+    "rust_abi_service_calls": 451676032,
+    "source_level_allocation_requests": 86860800
+  },
+  "formulas": [
+    "For fib(n), leaves B=F(n+1), internal nodes I=B-1, invocations N=2B-1.",
+    "Every invocation calls < once. Each internal invocation additionally calls - twice, fib twice, and + once.",
+    "Argument Vecs = N root/recursive fib calls + N comparison calls + 3I arithmetic calls = 2N+3I. Includes each external root fib call.",
+    "Local Vecs = N, because every fib closure has one local slot and enter_closure allocates a fresh locals vector.",
+    "Eager error Strings = 2B+9I: leaves read one constant/one global; internal nodes read three constants/six globals.",
+    "Ordinary non-LTO Rust service calls = 24B+80I. Each reference/push makes three calls; call/test/return make two.",
+    "Four inputs (22,23,24,25), each repeated16 times; excludes minor surrounding benchmark loops and checks."
+  ],
+  "sites": [
+    {
+      "file": "runtime/src/vm.rs",
+      "function": "Vm::call",
+      "expression": "let arguments = self.operands.split_off(start);",
+      "cost": "A fresh Rust Vec for every nonempty call, followed by element copying and later deallocation."
+    },
+    {
+      "file": "runtime/src/vm.rs",
+      "function": "Vm::enter_closure",
+      "expression": "let mut locals = Vec::with_capacity(local_count);",
+      "cost": "A fresh Rust Vec for every Scheme activation with local slots."
+    },
+    {
+      "file": "runtime/src/vm.rs",
+      "function": "Vm::slot",
+      "expression": ".ok_or(\"invalid global slot\".into()) / .ok_or(\"invalid constant slot\".into())",
+      "cost": "Pre-fix code eagerly constructs String error values even for successful accesses. Root changed these to lazy closures after the frozen baseline."
+    },
+    {
+      "file": "src/snail-scheme/llvm.sld",
+      "function": "reference-handler / push-handler / handler-entry",
+      "cost": "Instruction handlers inline into generated LLVM, but ordinary non-LTO Rust slot/entry services remain separate ABI calls."
+    }
+  ],
+  "representative_ir": {
+    "745": "call void @snail_vm_refer_local(ptr %vm, i32 0)\n  br label %b744",
+    "743": "call void @snail_vm_constant(ptr %vm, i32 80)\n  br label %b742",
+    "741": "call void @snail_vm_refer_global(ptr %vm, i32 5)\n  br label %b740",
+    "740": "%next740 = call i32 @snail_vm_call(ptr %vm, i32 2, i32 739, i32 0)\n  br label %dispatch",
+    "739": "%truth739 = call i32 @snail_vm_test(ptr %vm)\n  %test739 = icmp ne i32 %truth739, 0\n  br i1 %test739, label %b716, label %b738",
+    "733": "%next733 = call i32 @snail_vm_call(ptr %vm, i32 2, i32 732, i32 0)\n  br label %dispatch",
+    "730": "%next730 = call i32 @snail_vm_call(ptr %vm, i32 1, i32 729, i32 0)\n  br label %dispatch",
+    "728": "call void @snail_vm_refer_local(ptr %vm, i32 0)\n  br label %b727",
+    "723": "%next723 = call i32 @snail_vm_call(ptr %vm, i32 2, i32 722, i32 0)\n  br label %dispatch",
+    "720": "%next720 = call i32 @snail_vm_call(ptr %vm, i32 1, i32 719, i32 0)\n  br label %dispatch",
+    "718": "call void @snail_vm_refer_global(ptr %vm, i32 0)\n  br label %b717",
+    "717": "%next717 = call i32 @snail_vm_call(ptr %vm, i32 2, i32 715, i32 1)\n  br label %dispatch",
+    "716": "call void @snail_vm_refer_local(ptr %vm, i32 0)\n  br label %b715",
+    "715": "%next715 = call i32 @snail_vm_return(ptr %vm)\n  br label %dispatch"
+  },
+  "limitations": [
+    "The expression counts establish source-level allocation demand. LLVM may optimize allocation operations; native assembly/profiling must establish surviving physical allocator calls.",
+    "Eager String counts refer specifically to the frozen pre-lazy-error-fix runtime hashes, not current source after that fix.",
+    "Rust ABI service counts apply to ordinary builds without cross-language LTO. Shared LTO can inline these boundaries.",
+    "Counts cover timed recursive Fibonacci subtrees and their incoming root calls, not the benchmark harness, untimed correctness checks, startup, formatting, or occasional collector bookkeeping.",
+    "Rust allocator activity is not included in Scheme GC object statistics. These counts do not imply a tracing-GC allocation per call.",
+    "No production code changed for this audit. A shared reusable Scheme value stack and frame offsets are the next investigation for eliminating per-call argument/local vectors without type inference."
+  ],
+  "reproduction_script": "from collections import Counter\nfrom pathlib import Path\nimport hashlib, json, re\nroot = Path.cwd()\nir_path = root / 'build/benchmarks/cpu.ll'\nir = ir_path.read_text()\nblocks = {int(n): text for n, text in re.findall(r'^b(\\d+):\\n(.*?)(?=^b\\d+:|^dispatch:)', ir, re.M|re.S)}\npaths = {\n 'leaf': [745,744,743,742,741,740,739,716,715],\n 'recursive': [745,744,743,742,741,740,739,738,737,736,735,734,733,732,731,730,729,728,727,726,725,724,723,722,721,720,719,718,717]\n}\npath_counts = {}\nfor name, path in paths.items():\n counts = Counter(re.search(r'@snail_vm_([a-z_]+)\\(', blocks[n])[1] for n in path)\n path_counts[name] = {'blocks': path, 'vm_instructions': len(path), 'instruction_counts': dict(counts), 'rust_abi_service_calls': sum(n * (2 if op in ('call','test','return') else 3) for op,n in counts.items()), 'eager_error_string_constructions': counts['constant'] + counts['refer_global']}\ndef fib(n):\n a,b = 0,1\n for _ in range(n): a,b=b,a+b\n return a\nrows=[]\nfor n in [22,23,24,25]:\n leaves = fib(n+1)\n internal = leaves-1\n calls = leaves+internal\n rows.append({'n':n, 'leaves':leaves, 'internal':internal, 'fib_invocations':calls, 'argument_vectors':2*calls+3*internal, 'local_vectors':calls, 'eager_error_strings':2*leaves+9*internal, 'vm_instruction_entries':9*leaves+29*internal, 'rust_abi_service_calls':24*leaves+80*internal})\ntotals = {k: sum(r[k] for r in rows)*16 for k in rows[0] if k!='n'}\ntotals['source_level_allocation_requests'] = totals['argument_vectors']+totals['local_vectors']+totals['eager_error_strings']\nprint(json.dumps({\"paths\":path_counts,\"per_input\":rows,\"totals\":totals},indent=2))\n"
+}

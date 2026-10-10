@@ -1,0 +1,602 @@
+{
+  "schema_version": 1,
+  "purpose": "Audit cross-language inlining in the preserved CPU benchmark LTO artifacts.",
+  "tool_versions": {
+    "opt": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s",
+    "llvm-dis": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2"
+  },
+  "evidence": {
+    "actual_artifacts": "Static call-site counts are extracted from llvm-dis output of the original saved linked preopt.bc and opt.bc. These are counts of source call sites, not runtime execution frequencies or attributable timing shares.",
+    "replay": "Inlining reasons, costs, and thresholds are diagnostic results from rerunning opt lto<O3> with matching target CPU and inline-cost-full on the saved preopt.bc. They were not captured during the original LLD invocation. Inline costs are LLVM heuristic units, not machine instruction counts. Full-cost diagnostics can differ from early-stopping cost/threshold reports.",
+    "target_cpu": "The Scheme module lacks the Rust module target-cpu attribute. Plain opt without -mcpu reports conflicting attributes; matching the target CPU reproduces successful boundary inlining and avoids misidentifying an actual production restriction."
+  },
+  "targets": {
+    "native": {
+      "artifacts": {
+        "pre": {
+          "path": "/tmp/snail-lto-20261009/build/lto/linked/native/cpu/snail_runner-790234b60e97314f.0.0.preopt.bc",
+          "sha256": "7ac81eea78bb4f170ad42703d751e93f68230c67a1ef08c3cef487ec48a6e590"
+        },
+        "post": {
+          "path": "/tmp/snail-lto-20261009/build/lto/linked/native/cpu/snail_runner-790234b60e97314f.0.4.opt.bc",
+          "sha256": "1c257b25bf7983ac6cf4714821a72c6557ba46e55bba5b6522c09d313567ae01"
+        }
+      },
+      "actual_call_sites": {
+        "pre": {
+          "snail_rt_call": {
+            "symbol": "snail_rt_call",
+            "ir_body_lines": 314,
+            "total_call_sites_including_intrinsics": 50,
+            "indirect_call_sites": 1,
+            "selected_direct_call_sites": {
+              "Vm::dispatch": 1,
+              "free": 4,
+              "malloc": 3
+            },
+            "other_direct_call_sites": 41
+          },
+          "dispatch": {
+            "symbol": "_ZN13snail_runtime2vm2Vm8dispatch17ha6210499abf1be2eE",
+            "ir_body_lines": 785,
+            "total_call_sites_including_intrinsics": 78,
+            "indirect_call_sites": 2,
+            "selected_direct_call_sites": {
+              "primitives::primitive": 1,
+              "Vm::collect": 1,
+              "free": 7,
+              "malloc": 4
+            },
+            "other_direct_call_sites": 63
+          },
+          "primitive": {
+            "symbol": "_ZN13snail_runtime10primitives9primitive17h56f2f6eee880f071E",
+            "ir_body_lines": 8957,
+            "total_call_sites_including_intrinsics": 1523,
+            "indirect_call_sites": 5,
+            "selected_direct_call_sites": {
+              "Heap::find (all instantiations)": 8,
+              "bcmp": 169,
+              "free": 34,
+              "malloc": 25
+            },
+            "other_direct_call_sites": 1282
+          },
+          "snail_program": {
+            "symbol": "snail_program",
+            "ir_body_lines": 45278,
+            "total_call_sites_including_intrinsics": 7145,
+            "indirect_call_sites": 0,
+            "selected_direct_call_sites": {
+              "snail_const_atom": 139,
+              "snail_const_pair": 18,
+              "snail_global_primitive": 96,
+              "snail_halt": 1,
+              "snail_invalid_pc": 1,
+              "snail_rt_call": 389,
+              "snail_rt_capture_slot": 109,
+              "snail_rt_close": 129,
+              "snail_rt_enter": 2211,
+              "snail_rt_push": 672,
+              "snail_rt_result": 898,
+              "snail_rt_return": 53,
+              "snail_rt_single": 717,
+              "snail_rt_slot": 898,
+              "snail_rt_uninitialized": 814
+            },
+            "other_direct_call_sites": 0
+          }
+        },
+        "post": {
+          "snail_rt_call": {
+            "symbol": "snail_rt_call",
+            "ir_body_lines": 306,
+            "total_call_sites_including_intrinsics": 48,
+            "indirect_call_sites": 1,
+            "selected_direct_call_sites": {
+              "Vm::dispatch": 1,
+              "free": 4,
+              "malloc": 3
+            },
+            "other_direct_call_sites": 39
+          },
+          "dispatch": {
+            "symbol": "_ZN13snail_runtime2vm2Vm8dispatch17ha6210499abf1be2eE",
+            "ir_body_lines": 799,
+            "total_call_sites_including_intrinsics": 82,
+            "indirect_call_sites": 2,
+            "selected_direct_call_sites": {
+              "primitives::primitive": 2,
+              "Vm::collect": 1,
+              "free": 7,
+              "malloc": 4
+            },
+            "other_direct_call_sites": 66
+          },
+          "primitive": {
+            "symbol": "_ZN13snail_runtime10primitives9primitive17h56f2f6eee880f071E",
+            "ir_body_lines": 9321,
+            "total_call_sites_including_intrinsics": 1576,
+            "indirect_call_sites": 7,
+            "selected_direct_call_sites": {
+              "Heap::find (all instantiations)": 8,
+              "bcmp": 171,
+              "free": 34,
+              "malloc": 25
+            },
+            "other_direct_call_sites": 1331
+          },
+          "snail_program": {
+            "symbol": "snail_program",
+            "ir_body_lines": 157524,
+            "total_call_sites_including_intrinsics": 19030,
+            "indirect_call_sites": 1,
+            "selected_direct_call_sites": {
+              "Vm::collect": 2213,
+              "free": 1851,
+              "malloc": 1332,
+              "snail_const_atom": 139,
+              "snail_const_pair": 18,
+              "snail_global_primitive": 96,
+              "snail_rt_call": 389,
+              "snail_rt_capture_slot": 109,
+              "snail_rt_close": 129,
+              "snail_rt_return": 53,
+              "snail_rt_single": 717,
+              "snail_rt_slot": 381
+            },
+            "other_direct_call_sites": 11602
+          }
+        }
+      },
+      "diagnostic_replay": {
+        "command_argv": [
+          "opt",
+          "/tmp/snail-lto-20261009/build/lto/linked/native/cpu/snail_runner-790234b60e97314f.0.0.preopt.bc",
+          "-passes=lto<O3>",
+          "-mcpu=x86-64",
+          "-inline-cost-full",
+          "-o",
+          "/tmp/snail-inline-20261009/build/audit/native-replay.bc",
+          "-pass-remarks-output=/tmp/snail-inline-20261009/build/audit/native-full-remarks.yaml",
+          "-pass-remarks-filter=inline"
+        ],
+        "remarks_path": "/tmp/snail-inline-20261009/build/audit/native-full-remarks.yaml",
+        "remarks_sha256": "2acf6172061812fc0a65a1883a2cf80bacbe7fca73109bb168074a936bed5bfb",
+        "inline_diagnostics": [
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_call",
+            "outcomes": [
+              {
+                "cost": 755,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 6
+              },
+              {
+                "cost": 840,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 113
+              },
+              {
+                "cost": 950,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 243
+              },
+              {
+                "cost": 865,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 27
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_rt_call",
+            "callee_pattern": "Vm8dispatch",
+            "outcomes": [
+              {
+                "cost": 2655,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "caller_pattern": "Vm8dispatch",
+            "callee_pattern": "primitives9primitive",
+            "outcomes": [
+              {
+                "cost": 1450,
+                "name": "TooCostly",
+                "threshold": 375,
+                "count": 1
+              },
+              {
+                "cost": 42350,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_enter",
+            "outcomes": [
+              {
+                "cost": 55,
+                "name": "Inlined",
+                "threshold": 250,
+                "count": 2211
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_slot",
+            "outcomes": [
+              {
+                "cost": 230,
+                "name": "Inlined",
+                "threshold": 250,
+                "count": 517
+              },
+              {
+                "cost": 1105,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 81
+              },
+              {
+                "cost": 520,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 300
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_single",
+            "outcomes": [
+              {
+                "cost": 425,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 717
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "wasm": {
+      "artifacts": {
+        "pre": {
+          "path": "/tmp/snail-lto-20261009/build/lto/linked/wasm/cpu/snail_runner-2f7395ef2aa30758.wasm.0.0.preopt.bc",
+          "sha256": "1bd4be134bf384ddf4f7c619ee952884bd3dfe1a658f23136f1393c17f02e64e"
+        },
+        "post": {
+          "path": "/tmp/snail-lto-20261009/build/lto/linked/wasm/cpu/snail_runner-2f7395ef2aa30758.wasm.0.4.opt.bc",
+          "sha256": "8e07e8b653799fa6864c8a5588eb153654789480839a96600d06622113a38f02"
+        }
+      },
+      "actual_call_sites": {
+        "pre": {
+          "snail_rt_call": {
+            "symbol": "snail_rt_call",
+            "ir_body_lines": 315,
+            "total_call_sites_including_intrinsics": 49,
+            "indirect_call_sites": 1,
+            "selected_direct_call_sites": {
+              "Vm::dispatch": 1,
+              "free": 4,
+              "malloc": 3
+            },
+            "other_direct_call_sites": 40
+          },
+          "dispatch": {
+            "symbol": "_ZN13snail_runtime2vm2Vm8dispatch17h80c1e154e86a5cf0E",
+            "ir_body_lines": 635,
+            "total_call_sites_including_intrinsics": 63,
+            "indirect_call_sites": 0,
+            "selected_direct_call_sites": {
+              "primitives::primitive": 1,
+              "Vm::collect": 1,
+              "Heap::find (all instantiations)": 2,
+              "free": 7,
+              "malloc": 4
+            },
+            "other_direct_call_sites": 48
+          },
+          "primitive": {
+            "symbol": "_ZN13snail_runtime10primitives9primitive17hae22ea439a9fb67eE",
+            "ir_body_lines": 8731,
+            "total_call_sites_including_intrinsics": 1532,
+            "indirect_call_sites": 4,
+            "selected_direct_call_sites": {
+              "Heap::find (all instantiations)": 9,
+              "free": 34,
+              "malloc": 24,
+              "memcmp": 169
+            },
+            "other_direct_call_sites": 1292
+          },
+          "snail_program": {
+            "symbol": "snail_program",
+            "ir_body_lines": 45278,
+            "total_call_sites_including_intrinsics": 7145,
+            "indirect_call_sites": 0,
+            "selected_direct_call_sites": {
+              "snail_const_atom": 139,
+              "snail_const_pair": 18,
+              "snail_global_primitive": 96,
+              "snail_halt": 1,
+              "snail_invalid_pc": 1,
+              "snail_rt_call": 389,
+              "snail_rt_capture_slot": 109,
+              "snail_rt_close": 129,
+              "snail_rt_enter": 2211,
+              "snail_rt_push": 672,
+              "snail_rt_result": 898,
+              "snail_rt_return": 53,
+              "snail_rt_single": 717,
+              "snail_rt_slot": 898,
+              "snail_rt_uninitialized": 814
+            },
+            "other_direct_call_sites": 0
+          }
+        },
+        "post": {
+          "snail_rt_call": {
+            "symbol": "snail_rt_call",
+            "ir_body_lines": 311,
+            "total_call_sites_including_intrinsics": 47,
+            "indirect_call_sites": 1,
+            "selected_direct_call_sites": {
+              "Vm::dispatch": 1,
+              "free": 4,
+              "malloc": 3
+            },
+            "other_direct_call_sites": 38
+          },
+          "dispatch": {
+            "symbol": "_ZN13snail_runtime2vm2Vm8dispatch17h80c1e154e86a5cf0E",
+            "ir_body_lines": 643,
+            "total_call_sites_including_intrinsics": 67,
+            "indirect_call_sites": 0,
+            "selected_direct_call_sites": {
+              "primitives::primitive": 2,
+              "Vm::collect": 1,
+              "Heap::find (all instantiations)": 2,
+              "free": 7,
+              "malloc": 4
+            },
+            "other_direct_call_sites": 51
+          },
+          "primitive": {
+            "symbol": "_ZN13snail_runtime10primitives9primitive17hae22ea439a9fb67eE",
+            "ir_body_lines": 9113,
+            "total_call_sites_including_intrinsics": 1582,
+            "indirect_call_sites": 5,
+            "selected_direct_call_sites": {
+              "Heap::find (all instantiations)": 10,
+              "free": 34,
+              "malloc": 24,
+              "memcmp": 171
+            },
+            "other_direct_call_sites": 1338
+          },
+          "snail_program": {
+            "symbol": "snail_program",
+            "ir_body_lines": 151661,
+            "total_call_sites_including_intrinsics": 19007,
+            "indirect_call_sites": 0,
+            "selected_direct_call_sites": {
+              "Vm::collect": 2212,
+              "free": 1848,
+              "malloc": 1331,
+              "snail_const_atom": 139,
+              "snail_const_pair": 18,
+              "snail_global_primitive": 96,
+              "snail_invalid_pc": 1,
+              "snail_rt_call": 389,
+              "snail_rt_capture_slot": 109,
+              "snail_rt_close": 129,
+              "snail_rt_return": 53,
+              "snail_rt_single": 717,
+              "snail_rt_slot": 381
+            },
+            "other_direct_call_sites": 11584
+          }
+        }
+      },
+      "diagnostic_replay": {
+        "command_argv": [
+          "opt",
+          "/tmp/snail-lto-20261009/build/lto/linked/wasm/cpu/snail_runner-2f7395ef2aa30758.wasm.0.0.preopt.bc",
+          "-passes=lto<O3>",
+          "-mcpu=generic",
+          "-inline-cost-full",
+          "-o",
+          "/tmp/snail-inline-20261009/build/audit/wasm-replay.bc",
+          "-pass-remarks-output=/tmp/snail-inline-20261009/build/audit/wasm-full-remarks.yaml",
+          "-pass-remarks-filter=inline"
+        ],
+        "remarks_path": "/tmp/snail-inline-20261009/build/audit/wasm-full-remarks.yaml",
+        "remarks_sha256": "787678c2f8a133fd8e5c277e8bce3c2fa37037918a436d75688497d78a5f2482",
+        "inline_diagnostics": [
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_call",
+            "outcomes": [
+              {
+                "cost": 785,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 6
+              },
+              {
+                "cost": 870,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 113
+              },
+              {
+                "cost": 985,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 243
+              },
+              {
+                "cost": 900,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 27
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_rt_call",
+            "callee_pattern": "Vm8dispatch",
+            "outcomes": [
+              {
+                "cost": 2305,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "caller_pattern": "Vm8dispatch",
+            "callee_pattern": "primitives9primitive",
+            "outcomes": [
+              {
+                "cost": 1485,
+                "name": "TooCostly",
+                "threshold": 375,
+                "count": 1
+              },
+              {
+                "cost": 42235,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_enter",
+            "outcomes": [
+              {
+                "cost": 55,
+                "name": "Inlined",
+                "threshold": 250,
+                "count": 2211
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_slot",
+            "outcomes": [
+              {
+                "cost": 215,
+                "name": "Inlined",
+                "threshold": 250,
+                "count": 517
+              },
+              {
+                "cost": 915,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 81
+              },
+              {
+                "cost": 515,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 300
+              }
+            ]
+          },
+          {
+            "caller_pattern": "snail_program",
+            "callee_pattern": "snail_rt_single",
+            "outcomes": [
+              {
+                "cost": 440,
+                "name": "TooCostly",
+                "threshold": 250,
+                "count": 717
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "source_inspection": {
+    "source_worktree": "/tmp/snail-lto-20261009",
+    "source_commit": "649929a17d5adba7b7b71fa9ac47c092cdf0b6bc",
+    "paths": [
+      "runtime/src/object.rs",
+      "runtime/src/vm.rs",
+      "runtime/src/primitives.rs"
+    ],
+    "findings": [
+      "Vm::call uses operands.split_off, yielding an argument-vector allocation and copy for nonzero argument counts in the inspected optimized native successful call path.",
+      "Heap::find uses a hash-map ownership lookup and Any downcast. Two indirect type-id calls survive in native Vm::dispatch. WASI retains the equivalent calls inside Heap::find helpers.",
+      "Vm::dispatch clones the primitive name before string dispatch.",
+      "Inlining snail_rt_enter leaves threshold checks and conditional Vm::collect calls."
+    ],
+    "caveats": [
+      "These structural findings identify retained work, not a measured division of runtime costs.",
+      "This LTO experiment preserved the existing dynamic runtime; it did not compare fixed-layout Rust builtin accessors with equivalent directly emitted LLVM.",
+      "Current source HEAD may contain documentation/experiment harness changes after the original benchmark commit 98f20132b44b8c0f4283d9149c0d6125da549722."
+    ]
+  },
+  "static_fixnum_probe": {
+    "contract": "Two u32 tagged operands; decoded i64 sum on valid in-range addition, i64::MIN on type/range failure. Experimental ABI, not production object layout.",
+    "tested_pairs_per_target": 65585,
+    "command": "NODE=/path/to/node scripts/check-static-codegen",
+    "source_sha256": {
+      "scripts/check-static-codegen": "03f976c0fd790ecf26b06dfbc777ed27841708eb00c5289ae02367d85c368353",
+      "tests/codegen-fixnum.rs": "7d686646c1a41f88f61c8b8a9dac111297680e27a590583f9c6a10677fefc49c",
+      "tests/emit-codegen-fixnum.scm": "5385f59cb37d48461feafd5a31d6f50d502c0367133468f8aac6a68825a0c1bc"
+    },
+    "targets": {
+      "x86_64-unknown-linux-gnu": {
+        "executable_sha256": "4390a9119ffe0b59b98ff3873fd741363821a080f916cb2d90c2e5e1ca4b0925",
+        "linked_ir_sha256": "aedc9b814b67ff5f5e617834670d7c3c0b68ac53a6ad5cacb0bb7d5a6461d58d",
+        "caller_bodies": {
+          "probe_via_rust": "define internal fastcc noundef range(i64 -9223372036854775808, 2147483647) i64 @probe_via_rust(i32 %a, i32 %b) unnamed_addr #92 {\nentry:\n  %0 = and i32 %a, 1\n  %1 = and i32 %0, %b\n  %2 = icmp eq i32 %1, 0\n  br i1 %2, label %probe_rust_add.exit, label %3\n\n3:                                                ; preds = %entry\n  %4 = ashr i32 %a, 1\n  %5 = ashr i32 %b, 1\n  %6 = add nsw i32 %5, %4\n  %7 = sext i32 %6 to i64\n  %8 = add nsw i64 %7, 1073741824\n  %9 = icmp ult i64 %8, 2147483648\n  %10 = select i1 %9, i64 %7, i64 -9223372036854775808\n  br label %probe_rust_add.exit\n\nprobe_rust_add.exit:                              ; preds = %3, %entry\n  %11 = phi i64 [ %10, %3 ], [ -9223372036854775808, %entry ]\n  ret i64 %11\n}",
+          "probe_via_llvm": "define internal fastcc range(i64 -9223372036854775808, 1073741824) i64 @probe_via_llvm(i32 %a, i32 %b) unnamed_addr #93 {\nentry:\n  %tags.i = and i32 %a, 1\n  %tag.i = and i32 %tags.i, %b\n  %valid.not.i = icmp eq i32 %tag.i, 0\n  br i1 %valid.not.i, label %fail.i, label %add.i\n\nadd.i:                                            ; preds = %entry\n  %ax.i = zext i32 %a to i64\n  %as.i = shl nuw i64 %ax.i, 32\n  %av.i = ashr i64 %as.i, 33\n  %bx.i = zext i32 %b to i64\n  %bs.i = shl nuw i64 %bx.i, 32\n  %bv.i = ashr i64 %bs.i, 33\n  %sum.i = add nsw i64 %bv.i, %av.i\n  %0 = add nsw i64 %sum.i, 1073741824\n  %fits.i = icmp ult i64 %0, 2147483648\n  br i1 %fits.i, label %probe_llvm_add.exit, label %fail.i\n\nfail.i:                                           ; preds = %add.i, %entry\n  br label %probe_llvm_add.exit\n\nprobe_llvm_add.exit:                              ; preds = %fail.i, %add.i\n  %common.ret.op.i = phi i64 [ -9223372036854775808, %fail.i ], [ %sum.i, %add.i ]\n  ret i64 %common.ret.op.i\n}"
+        },
+        "output": "checked 65585 input pairs"
+      },
+      "wasm32-wasip1": {
+        "executable_sha256": "dd1d50c0e76d0bb27a5486406d9aeb1d632aa61e4ab17cbc80b962a980473aea",
+        "linked_ir_sha256": "4c6db573235af9d9f1bf40ea82110c7eddeae5cb66b97b10bed23da684987035",
+        "caller_bodies": {
+          "probe_via_rust": "define internal fastcc noundef range(i64 -9223372036854775808, 2147483647) i64 @probe_via_rust(i32 %a, i32 %b) unnamed_addr #42 {\nentry:\n  %0 = and i32 %a, 1\n  %1 = and i32 %0, %b\n  %2 = icmp eq i32 %1, 0\n  br i1 %2, label %probe_rust_add.exit, label %3\n\n3:                                                ; preds = %entry\n  %4 = ashr i32 %a, 1\n  %5 = ashr i32 %b, 1\n  %6 = add nsw i32 %5, %4\n  %7 = sext i32 %6 to i64\n  %8 = add nsw i64 %7, 1073741824\n  %9 = icmp ult i64 %8, 2147483648\n  %10 = select i1 %9, i64 %7, i64 -9223372036854775808\n  br label %probe_rust_add.exit\n\nprobe_rust_add.exit:                              ; preds = %3, %entry\n  %11 = phi i64 [ %10, %3 ], [ -9223372036854775808, %entry ]\n  ret i64 %11\n}",
+          "probe_via_llvm": "define internal fastcc range(i64 -9223372036854775808, 1073741824) i64 @probe_via_llvm(i32 %a, i32 %b) unnamed_addr #42 {\nentry:\n  %tags.i = and i32 %a, 1\n  %tag.i = and i32 %tags.i, %b\n  %valid.not.i = icmp eq i32 %tag.i, 0\n  br i1 %valid.not.i, label %fail.i, label %add.i\n\nadd.i:                                            ; preds = %entry\n  %ax.i = zext i32 %a to i64\n  %as.i = shl nuw i64 %ax.i, 32\n  %av.i = ashr i64 %as.i, 33\n  %bx.i = zext i32 %b to i64\n  %bs.i = shl nuw i64 %bx.i, 32\n  %bv.i = ashr i64 %bs.i, 33\n  %sum.i = add nsw i64 %bv.i, %av.i\n  %0 = add nsw i64 %sum.i, 1073741824\n  %fits.i = icmp ult i64 %0, 2147483648\n  br i1 %fits.i, label %probe_llvm_add.exit, label %fail.i\n\nfail.i:                                           ; preds = %add.i, %entry\n  br label %probe_llvm_add.exit\n\nprobe_llvm_add.exit:                              ; preds = %fail.i, %add.i\n  %common.ret.op.i = phi i64 [ -9223372036854775808, %fail.i ], [ %sum.i, %add.i ]\n  ret i64 %common.ret.op.i\n}"
+        },
+        "output": "checked 65585 input pairs"
+      }
+    },
+    "limitations": [
+      "No runtime representation, allocator, or GC changes.",
+      "No boxed-object primitive comparison or runtime speed measurement.",
+      "LLVM probe decodes through zext/shl/ashr because llvmlite has no sext; IR shapes are therefore not identical."
+    ]
+  }
+}

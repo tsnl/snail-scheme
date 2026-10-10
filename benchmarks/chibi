@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Compare saved Snail executables, Chibi, and safe native Chez on identical work."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import platform
+import runpy
+import shutil
+from statistics import median
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+BENCH = runpy.run_path(str(ROOT / "benchmarks/run"), run_name="benchmark_helpers")
+BUILD = ROOT / "build/benchmarks/chibi"
+PROGRAMS = ("cpu", "memory", "io")
+COUNTS = {"cpu": 16, "memory": 16, "io": 4}
+
+# ---- Configuration and artifact identity ----
+
+
+def options():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--chibi", default=os.environ.get("CHIBI", "chibi-scheme"))
+    parser.add_argument("--chez", default=os.environ.get("CHEZ", "scheme"))
+    parser.add_argument("--snail-directory", type=Path, default=ROOT / "build/runtime-v3/bin")
+    parser.add_argument("--lto-directory", type=Path,
+                        help="optionally compare frozen cross-lto CPU/memory executables")
+    parser.add_argument("--samples", type=BENCH["positive_integer"], default=4)
+    parser.add_argument("--json", type=Path, default=BUILD / "results.json")
+    parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--no-build", action="store_true")
+    return parser.parse_args()
+
+
+def chibi_runtime(command):
+    executable = shutil.which(command)
+    if not executable:
+        raise RuntimeError("Chibi is required; set --chibi or CHIBI")
+    version = BENCH["checked"]([executable, "-V"], text=True, capture_output=True)
+    return {"command": executable, "version": (version.stdout + version.stderr).strip(),
+            "executable_sha256": BENCH["fingerprint"](Path(executable)),
+            "optimization": "CLI default; tail-call optimization enabled; no -O option",
+            "clock": "(scheme time): wall clock, rounded to milliseconds (1000 Hz)"}
+
+
+def chibi_metadata(name, chibi, path):
+    return {**BENCH["input_metadata"](name), "artifact_kind": "scheme-source",
+            "adapter_sha256": BENCH["fingerprint"](ROOT / "benchmarks/chibi.scm"),
+            "executable_sha256": BENCH["fingerprint"](path),
+            "chibi_version": chibi["version"],
+            "chibi_executable_sha256": chibi["executable_sha256"]}
+
+
+def chibi_program(name, chibi, no_build):
+    path = BUILD / f"{name}.scm"
+    sidecar = path.with_name(path.name + ".json")
+    if not no_build:
+        source = ROOT / "benchmarks" / f"{name}.scm"
+        BENCH["checked"]([chibi["command"], str(ROOT / "benchmarks/chibi.scm"),
+                          str(source), str(path)])
+        sidecar.write_text(json.dumps(chibi_metadata(name, chibi, path), indent=2) + "\n")
+    if json.loads(sidecar.read_text()) != chibi_metadata(name, chibi, path):
+        raise RuntimeError(f"Chibi benchmark inputs changed: {name}; rebuild")
+    return BENCH["Executable"]("chibi", "native", path, (chibi["command"], str(path)))
+
+
+def snail_program(name, target, directory):
+    suffix = ".wasm" if target == "wasm" else ""
+    path = directory.resolve() / target / (name + suffix)
+    BENCH["verify_artifact"](name, path)
+    command = tuple(BENCH["execution_command"](path, target))
+    return BENCH["Executable"]("snail", target, path, command)
+
+
+def prepare_programs(arguments, chibi, chez):
+    BUILD.mkdir(parents=True, exist_ok=True)
+    programs = {}
+    for name in PROGRAMS:
+        programs[name] = [chibi_program(name, chibi, arguments.no_build),
+                          BENCH["chez_executable"](name, chez, arguments.no_build),
+                          snail_program(name, "native", arguments.snail_directory),
+                          snail_program(name, "wasm", arguments.snail_directory)]
+        if arguments.lto_directory and name != "io":
+            programs[name].extend(lto_program(name, target, arguments.lto_directory)
+                                  for target in ("native", "wasm"))
+    return programs
+
+
+def lto_program(name, target, directory):
+    path = directory.resolve() / target / "cross-lto" / (name + (".wasm" if target == "wasm" else ""))
+    BENCH["verify_artifact"](name, path)
+    command = tuple(BENCH["execution_command"](path, target))
+    return BENCH["Executable"]("snail-shared-lto", target, path, command)
+
+# ---- Matched work and rotated execution ----
+
+
+def measure_program(name, executables, samples):
+    count = COUNTS[name]
+    for executable in executables:
+        BENCH["run_sample"](name, executable, count, report=False)
+    measurements = []
+    for sample in range(samples):
+        offset = sample % len(executables)
+        order = executables[offset:] + executables[:offset]
+        for position, executable in enumerate(order, 1):
+            result = BENCH["run_sample"](name, executable, count, report=False)
+            result.update(sample=sample + 1, position=position,
+                          command=[*executable.command, str(count)])
+            measurements.append(result)
+    return measurements
+
+
+def summarize(name, measurements):
+    groups = {(sample["implementation"], sample["target"]) for sample in measurements}
+    times = {f"{implementation}-{target}": median(
+        sample["elapsed_ms"] for sample in measurements
+        if (sample["implementation"], sample["target"]) == (implementation, target))
+        for implementation, target in sorted(groups)}
+    if min(times.values()) <= 0:
+        raise RuntimeError("Nonpositive timing; increase the fixed workload")
+    ratios = {f"{key}-over-chibi": value / times["chibi-native"]
+              for key, value in times.items() if key.startswith("snail-")}
+    ratios["chibi-over-chez"] = times["chibi-native"] / times["chez-native"]
+    return {"program": name, "repetitions": COUNTS[name], "median_ms": times, **ratios}
+
+
+def measure(programs, sample_count):
+    measurements, summaries = [], []
+    for name, executables in programs.items():
+        print(f"Comparing Chibi: {name}", file=sys.stderr, flush=True)
+        samples = measure_program(name, executables, sample_count)
+        summary = summarize(name, samples)
+        measurements.extend(samples)
+        summaries.append(summary)
+        display = {key: value for key, value in summary.items() if key != "median_ms"}
+        display["median_seconds"] = {key: value / 1000 for key, value in summary["median_ms"].items()}
+        print(json.dumps(display), file=sys.stderr, flush=True)
+    return measurements, summaries
+
+# ---- Reproducible report ----
+
+
+def write_report(arguments, chibi, chez, measurements, summaries):
+    node = os.environ.get("NODE", "node")
+    node_version = BENCH["checked"]([node, "--version"], text=True, capture_output=True).stdout.strip()
+    report = {"schema_version": 1, "host": platform.platform(), "chibi": chibi, "chez": chez,
+              "wasm_runtime": {"command": node, "version": node_version},
+              "warmup_runs": 1, "samples_per_implementation": arguments.samples,
+              "protocol": "Same fixed work; implementations rotate execution order. "
+                          "Reported elapsed time excludes startup, parsing, compilation, and output.",
+              "limitations": ["Chibi time is wall-clock milliseconds; other clocks are monotonic.",
+                              "GC omitted: Chibi lacks the canonical check's reclaimed counter.",
+                              "Native Snail is 32-bit; Chibi and Chez are host x86-64.",
+                              "I/O uses each implementation's existing substring-search adapter."],
+              "driver_sha256": BENCH["fingerprint"](Path(__file__)),
+              "measurements": measurements, "summaries": summaries}
+    arguments.json.parent.mkdir(parents=True, exist_ok=True)
+    arguments.json.write_text(json.dumps(report, indent=2) + "\n")
+
+
+def main():
+    arguments = options()
+    if "SNAIL_GC_STRESS" in os.environ:
+        raise RuntimeError("Unset SNAIL_GC_STRESS before comparing runtimes")
+    BENCH["verify_corpus"]()
+    chibi = chibi_runtime(arguments.chibi)
+    chez = BENCH["chez_runtime"](argparse.Namespace(chez=arguments.chez, snail_only=False))
+    programs = prepare_programs(arguments, chibi, chez)
+    if not arguments.prepare_only:
+        measurements, summaries = measure(programs, arguments.samples)
+        write_report(arguments, chibi, chez, measurements, summaries)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+        print(f"Chibi comparison failed: {error}", file=sys.stderr)
+        sys.exit(1)

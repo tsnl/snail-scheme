@@ -1,0 +1,233 @@
+{
+  "status": "passed",
+  "note": "Correctness/capability checks, not repeated timing benchmarks. Chibi remains the build host.",
+  "steps": [
+    {
+      "name": "emit-compiler",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/snail-compile",
+        "/tmp/snail-runtime-v3-20261009/src/snail-scheme/compile.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/compiler.ll"
+      ],
+      "seconds": 9.986098233959638,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "compiler-native",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "seconds": 45.20760910602985,
+      "status": 0,
+      "stdout": "",
+      "stderr": "   Compiling snail-runner v0.1.0 (/tmp/snail-runtime-v3-20261009/runner)\n   Compiling snail-runtime v0.1.0 (/tmp/snail-runtime-v3-20261009/runtime)\n    Finished `release` profile [optimized] target(s) in 45.19s\n"
+    },
+    {
+      "name": "compiler-wasm",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "seconds": 65.75885637599276,
+      "status": 0,
+      "stdout": "",
+      "stderr": "   Compiling snail-runner v0.1.0 (/tmp/snail-runtime-v3-20261009/runner)\n   Compiling snail-runtime v0.1.0 (/tmp/snail-runtime-v3-20261009/runtime)\n    Finished `release` profile [optimized] target(s) in 1m 05s\n"
+    },
+    {
+      "name": "host-core",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/snail-compile",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/core.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/host-core.ll"
+      ],
+      "seconds": 0.5121567099704407,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "native-core",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/compiler-native",
+        "/tmp/snail-runtime-v3-20261009",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/core.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/native-core.ll"
+      ],
+      "seconds": 0.10220980498706922,
+      "status": 0,
+      "stdout": "",
+      "stderr": "runtime: elapsed_ns=101131211 gc_collections=28 gc_ns=5362521 gc_max_ns=247389 allocated=201856 reclaimed=185783 live=16073 peak=18668 max_frames=117\n"
+    },
+    {
+      "name": "wasm-core",
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/compiler-wasm.wasm",
+        "/tmp/snail-runtime-v3-20261009",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/core.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/wasm-core.ll"
+      ],
+      "seconds": 8.176234530983493,
+      "status": 0,
+      "stdout": "",
+      "stderr": "runtime: elapsed_ns=168668955 gc_collections=28 gc_ns=5039778 gc_max_ns=349384 allocated=201856 reclaimed=185783 live=16073 peak=18668 max_frames=117\n"
+    },
+    {
+      "name": "host-fibonacci",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/snail-compile",
+        "/tmp/snail-runtime-v3-20261009/examples/fibonacci.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/host-fibonacci.ll"
+      ],
+      "seconds": 1.2173728779889643,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "native-fibonacci",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/compiler-native",
+        "/tmp/snail-runtime-v3-20261009",
+        "/tmp/snail-runtime-v3-20261009/examples/fibonacci.scm",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/native-fibonacci.ll",
+        "--timing"
+      ],
+      "seconds": 2.8144928740221076,
+      "status": 0,
+      "stdout": "",
+      "stderr": "compiler: parse 63500 us\ncompiler: import-parse 1631822 us\ncompiler: expand 503434 us\ncompiler: lower 106291 us\ncompiler: llvm 502002 us\nruntime: elapsed_ns=2813439935 gc_collections=306 gc_ns=196951564 gc_max_ns=1447303 allocated=7419284 reclaimed=7341712 live=77572 peak=85062 max_frames=1630\n"
+    },
+    {
+      "name": "fibonacci-native",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "i686-unknown-linux-musl"
+      ],
+      "seconds": 0.6627470530220307,
+      "status": 0,
+      "stdout": "",
+      "stderr": "   Compiling snail-runner v0.1.0 (/tmp/snail-runtime-v3-20261009/runner)\n    Finished `release` profile [optimized] target(s) in 0.64s\n"
+    },
+    {
+      "name": "run-fibonacci-native",
+      "command": [
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/fibonacci-native"
+      ],
+      "seconds": 0.07477932400070131,
+      "status": 0,
+      "stdout": "fib(25) = 75025\nelapsed jiffies = 73956969\njiffies per second = 1000000000\n",
+      "stderr": "runtime: elapsed_ns=74025436 gc_collections=0 gc_ns=0 gc_max_ns=0 allocated=163 reclaimed=0 live=163 peak=163 max_frames=26\n"
+    },
+    {
+      "name": "fibonacci-wasm",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "snail-runner",
+        "--target",
+        "wasm32-wasip1"
+      ],
+      "seconds": 0.5756935380049981,
+      "status": 0,
+      "stdout": "",
+      "stderr": "   Compiling snail-runner v0.1.0 (/tmp/snail-runtime-v3-20261009/runner)\n    Finished `release` profile [optimized] target(s) in 0.56s\n"
+    },
+    {
+      "name": "run-fibonacci-wasm",
+      "command": [
+        "/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-runtime-v3-20261009/scripts/run-wasi.mjs",
+        "/tmp/snail-runtime-v3-20261009/build/compiler-v3/fibonacci-wasm.wasm"
+      ],
+      "seconds": 0.09590623603435233,
+      "status": 0,
+      "stdout": "fib(25) = 75025\nelapsed jiffies = 65278407\njiffies per second = 1000000000\n",
+      "stderr": "runtime: elapsed_ns=69405993 gc_collections=0 gc_ns=0 gc_max_ns=0 allocated=163 reclaimed=0 live=163 peak=163 max_frames=26\n"
+    }
+  ],
+  "artifacts": {
+    "build/compiler-v3/fibonacci-native": "ce8fd23e28814f33e36356ce26eecc26f15137e2883a2ab8026fe011a1843eaf",
+    "build/compiler-v3/core.scm": "53fb13f9f007b9452fc34088b6a0260acbc6f704b4e5f6c6726bb881b6113ee9",
+    "build/compiler-v3/fibonacci-wasm.wasm": "35cffe5c90d70c3ea0d23e306f1afb309ea6ff93f8875b05818cf710d6bd00fc",
+    "build/compiler-v3/compiler-wasm.wasm": "33ad50ce639bd4fd6f8b1250721adacb2f11ea0c9aaae7529398930da4cbb56c",
+    "build/compiler-v3/compiler.ll": "064c72fe77add33b69bdf52d9e8eae44535f12704854ba7b53d44da54d2c473c",
+    "build/compiler-v3/wasm-core.ll": "ca76f1db7ae45ae329fa9b5d32ddaaee69c9307783893c556bb8745b6834be2d",
+    "build/compiler-v3/native-core.ll": "ca76f1db7ae45ae329fa9b5d32ddaaee69c9307783893c556bb8745b6834be2d",
+    "build/compiler-v3/host-core.ll": "ca76f1db7ae45ae329fa9b5d32ddaaee69c9307783893c556bb8745b6834be2d",
+    "build/compiler-v3/native-fibonacci.ll": "7a629d15a4d8d8c470e4d6e2cfec0dbd5b828725f80ade1c835437183796e170",
+    "build/compiler-v3/compiler-native": "ea2fe4fa7521f1a5ba5f90bce39f2a8ab306e9615cee827f8a6260e4b4f2ac05",
+    "build/compiler-v3/host-fibonacci.ll": "7a629d15a4d8d8c470e4d6e2cfec0dbd5b828725f80ade1c835437183796e170",
+    "build/compiler-v3/verify.py": "06eb28327819ec6a859eefc17f1212aafba9b0301b6092332d9c2d6c1f1a8f2a"
+  },
+  "source_sha256": {
+    ".cargo/config.toml": "eac33236e519ef99fb1a6d19d9bc8be4198ad980812090b9397caf8360e160a8",
+    "Cargo.lock": "32f9e8399acc11a5b8d495f6617152408d9499049d410c76c0d4033b61491b4c",
+    "Cargo.toml": "a32444c97627b5e70bf46e99728ea08ab0e17b3414302d0ae99c52299e9d73a3",
+    "runner/Cargo.toml": "e69f14427765730e8a1d9e2e59dd7a88d37c99595bbbe59fb30bb398ade26696",
+    "runner/build.rs": "d7add202992d5a2c09f6e6c6cd7844371eca700b33f6042a7181c5dbc2962537",
+    "runner/src/main.rs": "cce25cb4a4c23bb0fcf03a94b3caa34ad0c6a62b2b6e3147068e6042a1540d7e",
+    "runtime/Cargo.toml": "9a745f0f09df9d1a2a37dd79b6485ceed747133f130950eb1a6331009ad4a9ff",
+    "runtime/src/host.rs": "a776e644e98e8ce0679b7947739c13c84d443eb28b514229f4e9c8bd0cee5a89",
+    "runtime/src/lib.rs": "99e19862a73a60bbf42dde056a836bdaf714e1bcb9d6ef132215ac03d3e8b4e9",
+    "runtime/src/object.rs": "34d8d901c4401755fe37293e89bc8078667d8015f3a25a2722289c2a56b927ca",
+    "runtime/src/primitives.rs": "04fb9f4c15ca54fdd49132824dd8bd71db87b4c02925990d3d8d2d373c5b1298",
+    "runtime/src/vm.rs": "7ede09c5972a1a7bb182f4b4aeff01641c3dc433624eb25eee0d18a099104032",
+    "snail-compile": "d839e708b0993eaaf3c8afc74ce5d94bbcd4076bdccfbaa040b9a504f11197e7",
+    "src/snail-scheme/bootstrap.sld": "8ade5e63af09781a58b5f0c9b8d8f4725ba6b9a43c454aac32898768ef525e6a",
+    "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile.scm": "81d21ac11c3b4217432accc1112e4de005ca7e24a6c191baa46a0b4477060dd3",
+    "src/snail-scheme/compiler.sld": "a0e9f539ef79c9bf2b2cc8fbae4bd5f645abad884206f380793c930868690bc4",
+    "src/snail-scheme/expand.sld": "05c3b33c959c4b6036739b1352076c1f12b9d3ab7d452f78dd91c6aa9a825c20",
+    "src/snail-scheme/hir.sld": "8c489946f37f7a87ecbc4c00f0e6a869abd58c705b4706a2eca71c3d59d48243",
+    "src/snail-scheme/llvm.sld": "0d0c11ad0c8ef175a456d4d9d2d8f825dadc1fb49acccd7c0d18ab9691d31dce",
+    "src/snail-scheme/llvmlite.sld": "8b7bf7341634bd6395ca0a6d1b04dacb19c6b3435dd235d08d524d7e6e6a2f38",
+    "src/snail-scheme/lower.sld": "e801d38a35e4a0f975dbccdcf6b15fc33773f47ba084fc27945c7472916c631b",
+    "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "f24864623a42e31d72f4746bb023e6401e31b71185dbef911dd4c8a0a887777e",
+    "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "38539424d45df942691c4c614ec083ab6b2f7e37dad92684fa669be51fb05daa",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/vm.sld": "3ef0323a1a040f862093423810e80c5cd8b42df3c4def5c54710fc18cb120aa0"
+  },
+  "base_revision": "41b92a6782fa0d15d62210933316c745b1c82eec",
+  "verified_scope": [
+    "Chibi compiled the compiler sources for native32 and WASI.",
+    "Both generated compilers emitted core fixture LLVM byte-identical to Chibi.",
+    "Generated native32 compiler emitted Fibonacci LLVM byte-identical to Chibi, including library imports.",
+    "Both native32 and WASI executables built from that LLVM printed fib(25) = 75025.",
+    "No second-generation compiler build or switch away from the Chibi build host."
+  ],
+  "verification_script": "from pathlib import Path\nimport hashlib, json, os, subprocess, time\nroot=Path(__file__).resolve().parents[2]; out=root/'build/compiler-v3'\nnode='/nix/store/5a8ysg1jnj8jmzzyfcfw7rvpvnp5rfpa-nodejs-24.15.0/bin/node'\nreport={'status':'running','note':'Correctness/capability checks, not repeated timing benchmarks. Chibi remains the build host.','steps':[],'artifacts':{}}\ndef run(name,command,env=None):\n started=time.monotonic(); result=subprocess.run(list(map(str,command)),cwd=root,env={**os.environ,**(env or {})},capture_output=True,text=True,timeout=600)\n (out/(name+'.stdout')).write_text(result.stdout);(out/(name+'.stderr')).write_text(result.stderr)\n report['steps'].append({'name':name,'command':list(map(str,command)),'seconds':time.monotonic()-started,'status':result.returncode,'stdout':result.stdout,'stderr':result.stderr})\n print(name, result.returncode, round(report['steps'][-1]['seconds'],3),flush=True)\n assert result.returncode==0,result.stderr\n return result\n\ndef save():\n (out/'results.json').write_text(json.dumps(report,indent=2)+'\\n')\n\ndef build(name,module,target):\n run(name,['cargo','build','--offline','--release','-p','snail-runner','--target',target],{'SNAIL_LLVM_IR':str(module),'CARGO_TARGET_DIR':str(out/'cargo')})\n suffix='.wasm' if target=='wasm32-wasip1' else ''\n src=out/'cargo'/target/'release'/('snail-runner'+suffix);dst=out/(name+suffix);dst.write_bytes(src.read_bytes());dst.chmod(0o755)\n return dst\n\ntry:\n core=out/'core.scm';core.write_text('(import (snail-scheme core))\\n(display (+ 19 23))\\n(newline)\\n')\n run('emit-compiler',[root/'snail-compile',root/'src/snail-scheme/compile.scm',out/'compiler.ll'])\n native=build('compiler-native',out/'compiler.ll','i686-unknown-linux-musl')\n wasm=build('compiler-wasm',out/'compiler.ll','wasm32-wasip1')\n run('host-core',[root/'snail-compile',core,out/'host-core.ll'])\n run('native-core',[native,root,core,out/'native-core.ll'],{'SNAIL_RUNTIME_STATS':'1'})\n run('wasm-core',[node,'--no-warnings',root/'scripts/run-wasi.mjs',wasm,root,core,out/'wasm-core.ll'],{'SNAIL_RUNTIME_STATS':'1'})\n assert (out/'host-core.ll').read_bytes()==(out/'native-core.ll').read_bytes()==(out/'wasm-core.ll').read_bytes()\n run('host-fibonacci',[root/'snail-compile',root/'examples/fibonacci.scm',out/'host-fibonacci.ll'])\n run('native-fibonacci',[native,root,root/'examples/fibonacci.scm',out/'native-fibonacci.ll','--timing'],{'SNAIL_RUNTIME_STATS':'1'})\n assert (out/'host-fibonacci.ll').read_bytes()==(out/'native-fibonacci.ll').read_bytes()\n for name,target in [('native','i686-unknown-linux-musl'),('wasm','wasm32-wasip1')]:\n  exe=build('fibonacci-'+name,out/'native-fibonacci.ll',target)\n  command=[exe] if name=='native' else [node,'--no-warnings',root/'scripts/run-wasi.mjs',exe]\n  result=run('run-fibonacci-'+name,command,{'SNAIL_RUNTIME_STATS':'1'})\n  assert 'fib(25) = 75025' in result.stdout\n for path in out.iterdir():\n  if path.is_file() and path.suffix not in ['.json','.stderr','.stdout']:\n   report['artifacts'][str(path.relative_to(root))]=hashlib.sha256(path.read_bytes()).hexdigest()\n report['status']='passed'\nfinally: save()\n"
+}

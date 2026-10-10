@@ -1,8 +1,18 @@
 # Baseline workloads
 
+For compiler latency, parser ablations, and the distinction between Chibi and
+the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
+
+The latest [MIR memory comparison](results/2026-10-10-mir-memory.json) records
+eight rotating CPU2 rounds with compilation/startup excluded: immediate literals
+and alias scopes reduce Fibonacci runtime from 0.336965 s to 0.318272 s (5.5%).
+The final implementation takes 0.6874× Chibi's time and 10.58× Chez's time.
+The report retains scratch ablations, artifact/source hashes, samples, and validation
+scope; [MIR measurements](../doc/mir.md#acceptance) explain the remaining overhead.
+
 These four standalone Scheme programs provide fixed work and checked answers
 before type inference or other compiler optimizations are added. Each prints
-exactly three lines: its title, a deterministic checksum, and elapsed milliseconds.
+exactly three lines: its title, a deterministic checksum, and elapsed seconds.
 The GC program also reports collection count and cumulative pause time on its
 third line. Timing uses the runtime's monotonic nanosecond clock and excludes
 the compiler, process startup, initial checks, and final console output. The
@@ -16,9 +26,18 @@ nix-shell --run 'benchmarks/run --target wasm --json build/baseline-wasm.json'
 nix-shell --run 'benchmarks/run cpu memory --repeat 2'
 ```
 
+Native means `i686-unknown-linux-musl`: a static 32-bit Linux executable. Install
+that Rust target and `wasm32-wasip1`; `rust-lld` links native output. The host must
+permit executing i386 programs. Chez remains the host-native reference. Earlier
+reports below used x86-64 native Snail, so compare matching targets when assessing
+the representation change.
+
 The runner compiles with Chibi, builds release executables through Cargo, verifies
 the frozen corpus, and checks every program's output. It also compiles the same
 benchmark with native Chez Scheme and reports the Snail/Chez elapsed-time ratio.
+Release builds use shared Scheme/Rust LTO, matching the optimized CLI default.
+Set `SNAIL_SHARED_LTO=0` for the ordinary-link control; custom Rust flags require
+that opt-out so they cannot silently replace the shared-LTO settings.
 Set `CHEZ` or `--chez PATH` if Chez's `scheme` executable is not on `PATH`, and
 `NODE` for the WASI launcher if needed. Chez is required by default; use
 `--snail-only` to deliberately omit the comparison. Snail executables are copied to
@@ -45,6 +64,64 @@ program and target before recording samples. Three samples are recorded by defau
 Each invocation is a fresh process: warmup affects host caches, not a retained
 Scheme heap or a JIT compiler.
 
+## Reproduce the MIR migration comparison
+
+`benchmarks/mir` compares six frozen native CPU executables: the preceding
+LLVM-handler backend with ordinary/shared linking, MIR with the same two link
+pipelines, Chibi, and Chez. Its preparation mode verifies baseline source and
+executable hashes and records the current reference runtimes. Use the same
+Rust/LLVM tools for both source revisions, with `CHIBI` and `CHEZ` set as needed.
+The old harness remains available in Git history:
+
+```sh
+git worktree add --detach /tmp/snail-mir-baseline f251627
+(cd /tmp/snail-mir-baseline && taskset -c 3 benchmarks/rust-instructions --build-only)
+benchmarks/mir --prepare-controls /tmp/snail-mir-baseline
+taskset -c 3 benchmarks/mir --build-only
+benchmarks/mir --measure-only --samples 8
+```
+
+Preparation copies the two old LLVM-handler executables from that clean
+checkout, compiles the canonical workload with Chez at safe optimization level 2,
+and copies the canonical source verbatim for Chibi. The old harness also builds
+its historical Rust-handler variants; this comparison does not use those.
+`--build-only` then freezes the two MIR executables and verifies that shared LTO
+removed every tiny representation-helper call from the linked LLVM artifact.
+
+Run the final command on an otherwise idle host. It pins execution to CPU 2,
+warms every executable once, and rotates all six through eight rounds of the
+same 64 repetitions. Every run must report checksum `269118144`. Program-internal
+timing excludes compilation and process startup; emission and Cargo durations
+are recorded separately. Chibi's clock has millisecond resolution here.
+
+Artifacts, commands, tool versions, source/runtime hashes, raw samples, and the
+report remain under `build/mir-benchmark/`; the report is `results.json`.
+Measurement rejects changed sources, harnesses, executable bytes, or reference
+runtimes. Rebuild after editing compiler/runtime sources. The preparatory old
+checkout must remain clean at `f251627`; preparation never rewrites it.
+
+The [October 10 final report](results/2026-10-10-mir.json) records eight rotating
+rounds after the library-preserving HIR/MIR migration:
+
+| Native implementation | Median seconds, 64 repetitions |
+| --- | ---: |
+| Previous backend, ordinary linking | 0.448189 |
+| Previous backend, shared LTO | 0.392260 |
+| MIR, ordinary linking | 5.503267 |
+| MIR, shared LTO | 0.334274 |
+| Chibi 0.12 | 0.461500 |
+| Chez 10.4.1, safe level 2 | 0.029874 |
+
+MIR with shared LTO takes 14.8% less time than the matched previous shared-LTO
+backend. Snail/Chibi is **0.7243×** and Snail/Chez is **11.1896×**. The shared
+artifact contains no calls to the tiny representation helpers. Ordinary MIR
+retains those calls and is much slower; it remains a correctness/control build,
+while optimized CLI and normal benchmark builds default to shared LTO. These
+numbers describe this CPU workload, not allocation-heavy programs or WASI.
+The later streaming-serialization change reproduced byte-identical CPU LLVM and
+all six artifacts. The report retains those samples with explicit source-hash
+and artifact-hash revalidation, rather than claiming another timing run.
+
 ## Chez comparisons
 
 `chez.scm` reads each canonical benchmark with Chez's Scheme reader, validates
@@ -59,12 +136,15 @@ for the distinction between safe levels and level 3's unchecked operations.
 
 Each sample pair runs equal repetition counts in separate processes. Pair order
 alternates between Chez-first and Snail-first. The reported ratio is
-`median(Snail elapsed milliseconds) / median(Chez elapsed milliseconds)`;
+`median(Snail elapsed seconds) / median(Chez elapsed seconds)`;
 values above one mean Snail took longer. Both Snail native and Snail WASI compare
 against **native Chez on this host**. This is not a comparison of two WASM engines.
 The runner writes ratio summaries to stderr while preserving each Snail program's
 three-line stdout report. Chez output is checked with the same title/checksum/time
-parser and its raw measurements are saved in JSON.
+parser and its raw measurements are saved in JSON. Human-readable reports use
+seconds with six decimal places. JSON retains its explicitly named `_ms` fields
+for compatibility with saved reports; older executables reporting milliseconds
+are also accepted.
 
 Chez's CPU, memory, and GC loops may finish in less than a millisecond at the
 defaults. The clock uses monotonic nanoseconds, but reports round down to
@@ -253,3 +333,73 @@ helpers. Each remains independently readable and executable; a shared benchmark
 framework would add imports and hide the small measured operation. More elaborate
 statistics, concurrency, adaptive workloads, and production search algorithms
 would obscure this initial baseline.
+
+## Cross-language LTO
+
+`benchmarks/lto` compares ordinary release, Rust-only fat LTO, and shared
+Scheme/Rust linker LTO on native and WASI targets. It builds all variants before
+rotating execution samples and retains linked LLVM bitcode for inspection.
+See the [experiment and allocation-design boundaries](../doc/lto-experiment.md)
+for tool requirements, flags, timing scope, and the distinction from a future
+static builtin representation.
+
+## Fixed-layout runtime
+
+See the [v3 runtime report](../doc/runtime-v3.md) for the matched 32-bit
+before/after comparison and its raw samples. Historical native tables above
+use 64-bit GNU/Linux and must not be treated as the same target.
+
+The later [chapter-4 stack report](../doc/stack-vm.md) compares the reusable
+Scheme stack with the frozen ABI 2 runtime at `03d02cf`, keeping the same
+32-bit native and WASI targets. Its
+[raw measurements](results/2026-10-09-ch4-stack.json) retain six rotated samples
+per implementation, exact source/artifact hashes, and Chez and Chibi ratios.
+These measure ordinary release builds without LTO. Scheme/LLVM/Cargo compilation
+and process startup are excluded; Node may still optimize Wasm during a fresh
+process's timed execution.
+
+## Chibi comparisons
+
+`benchmarks/chibi` compares saved native/WASI Snail executables with Chibi and
+Chez on the same CPU, memory, and I/O program bodies. First build the ordinary
+benchmark artifacts, then run the comparison:
+
+```sh
+benchmarks/run cpu memory io --target native --snail-only --samples 1
+benchmarks/run cpu memory io --target wasm --snail-only --samples 1
+benchmarks/chibi --snail-directory build/benchmarks --json build/chibi.json
+```
+
+Set `CHIBI`, `CHEZ`, and `NODE` if their executables are not on `PATH`. Optional
+`--lto-directory build/lto/bin` adds saved shared-LTO CPU/memory executables
+from `benchmarks/lto`. All builds finish before the comparison rotates execution
+order. Each implementation gets one warmup and four measured samples, with
+16 repetitions for CPU/memory and four for I/O. Timers exclude parsing,
+compilation, startup, and output. Every answer uses the existing checksum checks.
+
+The [recorded comparison](results/2026-10-09-chibi.json) uses Chibi 0.12's default
+execution settings and Chez 10.4.1 at safe optimization level 2. Chibi's R7RS
+clock measures wall time in milliseconds; the other clocks are monotonic.
+Chibi and Chez are host-native 64-bit builds, while Snail is 32-bit. The I/O
+adapter converts Chibi's substring-search cursors to character indices; its
+port/search implementation differs from Rust's. GC is omitted because Chibi
+does not supply the reclamation counter required by the canonical check.
+
+These initial fixed-layout results put ordinary native32 Snail 20.1× behind
+Chibi on CPU and 14.0× on memory, but 7.0× ahead on I/O. Shared LTO reduces the
+CPU/memory gaps to 15.2× and 10.7×. See the runtime report for the full table and
+any subsequent isolated fixes; these saved artifacts retain their original data.
+The subsequent [lazy-error fix](results/2026-10-09-lazy-errors.json) reduces
+ordinary native32's gaps to 14.8× Chibi on CPU and 11.1× on memory. Its report
+holds LLVM fixed and changes only three eager error constructions in Rust.
+
+## Numeric VM instructions
+
+The [numeric instruction ablation](../doc/numeric-instructions.md) compares
+unchanged `e570708` with Rust dispatch cleanup and the new binary numeric VM
+instructions on Fibonacci. Five rotating rounds of 64 repetitions, pinned to
+one core, give 1.488415 s before and 0.449323 s after: 3.31× faster, 0.975×
+Chibi's time and 15.75× Chez's. These are native execution times, excluding
+compilation and startup. [Raw samples and artifact/source hashes](results/2026-10-09-numeric-instructions.json)
+retain the runtime-only ablation too. This experiment does not include IIFE
+inlining, allocator changes, type inference, or shared LTO.

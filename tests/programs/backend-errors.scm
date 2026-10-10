@@ -5,5 +5,8 @@
   ((arity) ((lambda (x) x)))
   ((uninitialized) (letrec ((x x)) x))
   ((values) (cons (values 1 2) '()))
+  ((numeric-type) (+ 1 #f))
+  ((numeric-values) (+ 1 (values 2 3)))
+  ((numeric-arity) (-))
   ((overflow) (+ 9223372036854775807 1))
   (else (error "unknown backend error case")))
