@@ -1,43 +1,67 @@
 # Programs that build programs
 
-**Implemented:** ordinary Scheme build scripts hosted by Chibi. **Planned:**
-running those same scripts with a self-hosted `snail-scheme` interpreter.
+`snail-scheme SCRIPT [ARGUMENT ...]` evaluates an ordinary Scheme script. The
+native CLI compiles that script through Wasm and LLVM into a temporary executable,
+runs it, and returns its status. Script statements execute in order. Compilation,
+artifact paths, and execution policy are procedures in Scheme libraries.
 
-The script owns build policy, including output paths. Importing the compiler
-library does not build anything; calling its procedures does.
+## Bootstrap and rebuild
 
-This is the repository's current complete `build.scm`:
+The checkout's complete `build.scm` chooses the interpreter's output filename:
 
 ```scheme
 {{#include ../../build.scm}}
 ```
 
-Run it from the checkout:
+Bootstrap with Chibi, then run the same script with the resulting interpreter:
 
 ```sh
 chibi-scheme -I src build.scm
+build/snail-scheme build.scm
+build/snail-scheme build.scm build/another-snail-scheme
 ```
 
-It builds and runs Fibonacci through the Rust/Wasm runtime. Chibi supplies process
-creation while Cargo and Binaryen remain external build tools. The existing
-`build-wasm`, `build-runtime`, `link-wasm`, and `run-wasm` procedures are in
-[`build.sld`](https://github.com/tsnl/snail-scheme/blob/main/src/snail-scheme/build.sld).
-The compiler itself is independently callable through
-`(snail-scheme compiler)` and `source-file->wat-file`.
+This first native platform targets **x86-64 Linux**. Enter `nix-shell` for Chibi,
+Rust, Binaryen, Clang/LLD, BDWGC, and mdBook. Cargo's dependencies and Rust target
+must be available before the offline build. `BDWGC_INCLUDE` and `BDWGC_LIB` can
+select a collector installation outside the compiler's normal search paths.
 
-## The self-hosting milestone
+`build-interpreter` compiles `main.scm`, selecting its `main` handler explicitly:
 
-The intended command is `snail-scheme SCRIPT [ARGUMENT ...]`: compile the script
-to temporary Wasm and execute it, evaluating its statements in order. Compilation,
-hot reload, output selection, and application composition remain library calls.
-A future root `build.scm` will build this interpreter and specify its artifacts.
-The resulting interpreter must then run `build.scm` and rebuild itself.
+```scheme
+{{#include ../../main.scm}}
+```
 
-The [native CLI platform](platforms/native-cli.md) is the first target for this
-milestone. Its Rust runtime must supply the build's effects, including process
-execution while Cargo and Binaryen remain external tools. The same native
-interpreter must rebuild itself before self-hosting is considered complete.
-The temporary Wasm execution mechanism and native linking remain library policy.
+The platform initializes one instance and calls this zero-argument handler once.
+Its returned integer is the command's exit status. The generated script adapter
+instead evaluates top-level statements and returns zero on normal completion;
+a helper named `main` inside a script does not become an entry point.
+
+The interpreter embeds its source checkout's absolute path. `SNAIL_ROOT` can
+select a compatible checkout. It still needs those compiler/runtime sources and
+external Cargo, Binaryen, Clang/LLD, and BDWGC tools; this is a self-hosting build
+interpreter, not a standalone compiler distribution. It does not need Chibi after
+the initial bootstrap. `scripts/test-self-host` verifies that by blocking Chibi,
+rebuilding the interpreter, and executing scripts with the replacement.
+
+## Build policy belongs to libraries
+
+`(snail-scheme compiler)` emits unlinked WAT. `(snail-scheme build)` assembles and
+links portable Wasm. `(snail-scheme native)` translates binary Wasm to LLVM and
+invokes the native linker. `(snail-scheme cli)` composes these operations with the
+native Rust runtime and a CLI entry adapter. Importing them performs no build.
+
+The CLI links Rust's native archive directly through the AWI. Rust provides file
+IO, binary input, process arguments, environment access, subprocesses, and artifact
+publication. The bootstrap build host implements the same operations using Chibi.
+The [native CLI interface](platforms/native-cli.md) documents every platform
+operation and the application's required handler inline.
+
+Build scripts choose every artifact path. A successful build atomically renames
+a completed artifact over the destination; a failed build preserves the previous
+output and reports retained intermediates. Tool arguments are literal strings.
+Build tools receive EOF on stdin, leaving the invoking script's input intact.
+Scripts inherit stdin/stdout/stderr, environment, working directory, and arguments.
 
 ## Stages are ordinary computations with explicit outputs
 
@@ -50,5 +74,6 @@ The temporary Wasm execution mechanism and native linking remain library policy.
 
 Running a reader does not run the document's embedded Scheme. Capturing a tensor
 graph does not train it. Build-time heaps and live connections do not become
-deployment state. A compiler is an ordinary library call unless the application
-deliberately places it behind an actor connection.
+deployment state. General reader generators, graph capture, hot reload, and actor
+connections remain planned; ordinary Scheme compiler calls are the first working
+stage of this design.

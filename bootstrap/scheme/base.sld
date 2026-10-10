@@ -16,6 +16,7 @@
    string->list list->string string->symbol symbol->string string->number number->string
    char->integer integer->char char=? char<? char<=? char>? char>=?
    bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
+   bytevector-copy bytevector-append utf8->string string->utf8 read-bytevector
    values call-with-values call-with-current-continuation call/cc apply error
    close-port close-input-port close-output-port call-with-port read-char read-string eof-object?
    open-output-string get-output-string newline

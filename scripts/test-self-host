@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Run the native interpreter, rebuild it without Chibi, then run its replacement."""
+
+import argparse
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/self-host-tests"
+ARGUMENTS = ["space in argument", "", "--help", "$(literal)`text`"]
+
+
+# ---- Literal scripts and native execution ----
+
+
+def quote(value):
+    return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+
+
+def invoke(command, directory=ROOT, input="", **environment):
+    return subprocess.run([str(value) for value in command], cwd=directory,
+                          input=input, text=True, capture_output=True, timeout=1800,
+                          env={**os.environ, "BINARYEN_CORES": "1", **environment})
+
+
+def require(result, stdout="", status=0):
+    if result.returncode != status or result.stdout != stdout:
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
+    if status == 0 and result.stderr:
+        raise RuntimeError(result.stderr)
+    return result
+
+
+def require_native(path):
+    with path.open("rb") as stream:
+        if stream.read(4) != b"\x7fELF":
+            raise RuntimeError(f"not a native ELF executable: {path}")
+
+
+def write_script(directory, name, source):
+    path = directory / name
+    path.write_text(source)
+    return path
+
+
+# ---- Program handlers and script statements ----
+
+
+def check_entry(directory):
+    source = write_script(directory, "entry.scm", """(import (scheme base) (scheme write))
+(display "initialize\\n")
+(define (main) (display "main\\n") 7)
+""")
+    command, script = directory / "command", directory / "script"
+    build = write_script(directory, "entry-build.scm",
+                         '(import (scheme base) (snail-scheme cli))\n' +
+                         f"(build-native {quote(ROOT)} {quote(source)} {quote(command)} 'main)\n" +
+                         f"(build-native {quote(ROOT)} {quote(source)} {quote(script)})\n")
+    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
+    require_native(command)
+    require_native(script)
+    require(invoke([command]), "initialize\nmain\n", 7)
+    require(invoke([script]), "initialize\n")
+    require(invoke([command], SNAIL_NATIVE_GC_INTERVAL="1"), "initialize\nmain\n", 7)
+    check_input_aliases(directory, source)
+    print("passed explicit main and ordinary script entry", flush=True)
+
+
+def check_input_aliases(directory, source):
+    alias = directory / "source-alias.scm"
+    alias.symlink_to(source)
+    runtime = ROOT / "build/native-runtime/release/libsnail_runtime.a"
+    stamp = runtime.stat().st_mtime_ns
+    calls = [f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})'
+             for output in (source, alias, runtime)]
+    calls.append(f'(build-interpreter {quote(ROOT)} {quote(ROOT / "main.scm")})')
+    body = '(import (scheme base) (snail-scheme cli))\n'
+    body += '\n'.join(f'(unless (guard (failure (else #t)) {call} #f) (error "accepted input alias"))'
+                      for call in calls)
+    build = write_script(directory, "aliases.scm", body)
+    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
+    if runtime.stat().st_mtime_ns != stamp or list(directory.glob('.snail-build-*')):
+        raise RuntimeError("input alias check rebuilt runtime or created intermediates")
+
+
+def check_script(interpreter, directory, **environment):
+    source = write_script(directory, "literal 'script.scm", """(import (scheme base) (scheme write) (scheme process-context))
+(display "first\\n")
+(define (main) (error "a script's helper must not become its entry"))
+(write (command-line)) (newline)
+(write (read-string 3)) (newline)
+(write (utf8->string (bytevector-append (string->utf8 "λ") (bytevector 0 255)) 0 2)) (newline)
+(write (bytevector-copy (bytevector 0 128 255) 1)) (newline)
+(display "last\\n")
+42
+""")
+    expected = ("first\n(" + " ".join(map(quote, [source.name, *ARGUMENTS])) +
+                ')\n"aλ😀"\n"λ"\n#u8(128 255)\nlast\n')
+    require(invoke([interpreter, source.name, *ARGUMENTS], directory, input="aλ😀z", **environment), expected)
+    exit_source = write_script(directory, "exit.scm", '(import (scheme process-context)) (exit 7)\n')
+    require(invoke([interpreter, exit_source], **environment), status=7)
+    result = invoke([interpreter], **environment)
+    if result.returncode == 0 or "usage: snail-scheme SCRIPT" not in result.stderr:
+        raise RuntimeError(f"missing interpreter usage diagnostic: {result}")
+    print("passed script order, stdin, argv, UTF-8, and exit status", flush=True)
+
+
+# ---- Failed publication and self-hosted replacement ----
+
+
+def check_failed_build(interpreter, directory, **environment):
+    output = directory / "keep-output"
+    output.write_text("last successful artifact")
+    source = write_script(directory, "broken.scm", "(")
+    build = write_script(directory, "failed-build.scm", '(import (scheme base) (snail-scheme cli))\n' +
+                         f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
+    result = invoke([interpreter, build], **environment)
+    if result.returncode == 0 or output.read_text() != "last successful artifact":
+        raise RuntimeError(f"failed build replaced output: {result}")
+    retained = [Path(path) for path in re.findall(r"build failed; intermediates retained: (.+)", result.stderr)]
+    if not retained or not all(path.is_dir() for path in retained):
+        raise RuntimeError(f"failure did not retain intermediates: {result.stderr}")
+    # All reported paths belong to this test invocation, never to another build.
+    for path in retained:
+        if path.parent == directory:
+            shutil.rmtree(path)
+    print("passed failed-build publication and retained diagnostics", flush=True)
+
+
+def check_self_host(interpreter, directory):
+    blocked = write_script(directory, "blocked-chibi", '#!/bin/sh\necho unexpected-Chibi >&2\nexit 99\n')
+    blocked.chmod(0o755)
+    tools = directory / "tools"
+    tools.mkdir()
+    (tools / "chibi-scheme").symlink_to(blocked)
+    environment = {"CHIBI": str(blocked), "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+    replacement = directory / "rebuilt-snail-scheme"
+    require(invoke([interpreter, ROOT / "build.scm", replacement], **environment))
+    require_native(replacement)
+    check_script(replacement, directory, **environment)
+    check_failed_build(replacement, directory, **environment)
+    print("passed native compiler self-hosting with Chibi unavailable", flush=True)
+
+
+# ---- Test entry point ----
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--interpreter", type=Path, help="reuse an already bootstrapped executable")
+    options = parser.parse_args()
+    BUILD.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
+        directory = Path(name)
+        check_entry(directory)
+        interpreter = options.interpreter.resolve() if options.interpreter else directory / "snail-scheme"
+        if not options.interpreter:
+            require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", ROOT / "build.scm", interpreter]))
+        require_native(interpreter)
+        check_self_host(interpreter, directory)
+    print("native self-hosting checks passed")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"self-host test failed: {error}", file=sys.stderr)
+        sys.exit(1)

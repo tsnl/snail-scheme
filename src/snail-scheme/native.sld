@@ -18,7 +18,7 @@
                 (if include (list "-I" include) '())
                 (if library (list "-L" library (string-append "-Wl,-rpath," library)) '()))))
 
-    (define (native-in-directory root input directory output)
+    (define (native-in-directory root input directory output runtime)
       (let ((wasm (string-append directory "/module.wasm"))
             (llvm (string-append directory "/module.ll")))
         (run-command "native.validate"
@@ -28,10 +28,14 @@
         (run-command "native.compile"
                      (append (list (tool-name "CLANG" "clang") "-O3" "-flto" "-fuse-ld=lld"
                                    llvm (string-append root "/src/native.c"))
+                             (if runtime (list "-DSNAIL_NATIVE_CLI" runtime "-ldl" "-lpthread") '())
                              (collector-flags) (list "-o" output)))))
 
-    (define-traced (wasm-file->native-file root input output)
+    (define-traced (wasm-file->native-file root input output . runtime)
+      (when (> (length runtime) 1) (error "expected one native runtime archive"))
+      (when (and (pair? runtime) (same-file? (car runtime) output))
+        (error "native output must not replace runtime archive" output))
       (when (same-file? input output) (error "native output must not replace input Wasm" output))
       (call-with-build-output output
                               (lambda (directory staging)
-                                (native-in-directory root input directory staging))))))
+                                (native-in-directory root input directory staging (and (pair? runtime) (car runtime))))))))

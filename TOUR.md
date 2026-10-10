@@ -1,35 +1,44 @@
 # A tour of Snail-Scheme
 
-The compiler is Scheme, hosted by Chibi. WebAssembly is its portable output;
-Rust provides host services and extensions through a named application Wasm
-interface (AWI). Compiling the compiler sources does not switch the build host.
+The compiler is an ordinary Scheme library. Chibi bootstraps the native CLI;
+the resulting `snail-scheme` interpreter can run its own build script. Wasm is
+the portable intermediate format. Rust provides runtime operations through the
+application Wasm interface (AWI), with matching native C symbols.
 
 ```text
-ordinary Scheme build.scm (run by Chibi)
-  -> compiler library: reader -> syntax parser -> expander -> library-grouped IR -> WAT
-  -> build library: Cargo builds the reusable Rust Wasm runtime
-  -> Binaryen: assemble, link and optimize -> portable .wasm
-  -> build script chooses execution or further artifact generation
+build.scm -> build-interpreter -> compile main.scm and its libraries
+  -> reader -> syntax parser -> expander -> library-grouped IR -> WasmGC
+  -> Binaryen validation -> binary Wasm reader -> LLVM
+  -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
+
+snail-scheme SCRIPT -> compile temporary native script -> run -> return status
 ```
 
 ## Entering the compiler
 
-[build.scm](build.scm) is an ordinary Scheme script. It imports
-[`build.sld`](src/snail-scheme/build.sld), which provides `build-runtime`,
-`link-wasm`, `build-wasm`, and `run-wasm`. The script owns arguments and control
-flow; importing compiler libraries has no build or execution side effects.
-`run-command` passes an argv list directly to Chibi's process API without a shell.
-Build intermediates have private directories, and only completed Wasm artifacts
-replace existing outputs. Failed builds report their retained directory; successful
-builds clean up. Cargo tracks Rust dependencies and reuses the runtime.
+[build.scm](build.scm) owns the interpreter's output path. [main.scm](main.scm)
+defines its zero-argument `main` handler: run the supplied script and return its
+status. [`cli.sld`](src/snail-scheme/cli.sld) composes source compilation, the
+native runtime archive, and explicit CLI entry adapters. A normal script has
+no special entry name: its forms execute once and normal completion returns zero.
+
+[`build.sld`](src/snail-scheme/build.sld) supplies portable Wasm assembly/linking,
+external tool invocation, and atomic artifact publication.
+[`build-host.sld`](src/snail-scheme/build-host.sld) selects the Chibi bootstrap
+adapter or named native Rust operations from [`build_host.rs`](src/build_host.rs).
+Both pass literal argv without a shell. Build tools receive EOF on stdin;
+executed scripts inherit it. Successful builds clean private intermediates;
+failed builds retain them and preserve the last published artifact. Cargo tracks
+Rust dependencies and reuses the runtime archive.
 
 [`compiler.sld`](src/snail-scheme/compiler.sld) exports
 `source-file->wat-file`: source filename to unlinked WasmGC text. The loader
 maps `(scheme ...)` to `bootstrap/scheme/`. Other imports search caller-provided
 library directories in order, then `src/`; one search policy covers transitive
 imports, and malformed first matches do not fall through.
-The frontend does not launch processes. The Chibi-specific build module is a
-host adapter; compiling it for self-hosted execution is future work.
+The frontend does not launch processes. An optional CLI entry selects a root
+module handler or the ordinary script adapter; build policy remains outside
+the frontend.
 
 [`trace.sld`](src/snail-scheme/trace.sld) and [`src/trace.rs`](src/trace.rs)
 centralize always-on Chromium trace spans. `build/traces/` is the default;
@@ -193,12 +202,13 @@ for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
 The [Rust AWI module](src/awi.rs) expresses that ownership through `Root`:
 clone retains, drop releases, return transfers. Raw handles are unsafe and bound
-to their instance. Rust uses ordinary `extern "C"` functions and explicit Wasm export names;
+to their instance. Native imports bind to the translated module's AWI exports.
+Rust uses ordinary `extern "C"` functions and the same explicit export names;
 there is no procedural-macro crate or implicit argument conversion.
 
 [`src/lib.rs`](src/lib.rs) implements Rust services: ports,
 printing, numeric text conversion, substring search, Unicode classification,
-process arguments, clocks, traces, and diagnostics.
+process arguments, environment, binary IO/UTF-8, clocks, traces, and diagnostics.
 [`host.rs`](src/host.rs) owns port data and UTF-8 stream handling.
 Rust-owned external resources need explicit close. The additional JS
 [`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
@@ -237,7 +247,9 @@ body is buffered to place all local and branch-result slots in its entry block.
 [`native.c`](src/native.c) provides Wasm mechanics, WASIp1, and BDWGC. It keeps
 Scheme GC objects in scanned allocations and Rust's linear memory in an
 unscanned reservation. The translated Rust uses the same AWI root table as in
-Wasm. Finalizers queue scalar resource IDs; cleanup calls Rust only after all
+Wasm. The CLI route instead links a native Rust archive;
+its OS operations bypass WASIp1 and use the same owned root handles. One native
+process currently owns one Scheme instance. Finalizers queue scalar resource IDs; cleanup calls Rust only after all
 guest frames return, when no Rust host-state borrow is active. See
 [native execution](doc/native.md) for the representation and host contract.
 
@@ -246,7 +258,7 @@ guest frames return, when no Rust host-state borrow is active. See
 [`doc/book/`](doc/book/index.md) is the mdBook source. Its first platforms are
 native CLI, native GUI, and browser GUI, with AWI as a separate extension reference.
 Function documentation lives inline in the included WAT interface files;
-platform contracts remain proposals. [`scripts/book`](scripts/book) builds or
+the native CLI contract is implemented and GUI contracts remain proposals. [`scripts/book`](scripts/book) builds or
 serves the book using `book.toml`; the three tutorial chapters define future
 integration milestones. Built HTML stays in the ignored `build/book/` directory.
 
@@ -262,7 +274,8 @@ checks library imports, traces, publication, literal arguments, Rust callbacks, 
 root ownership. `scripts/test-backend --target both` compiles each fixture once
 and runs that exact module through both backends. `scripts/test-native` adds
 cross-engine Wasm semantics, traps, bounded native stack use, forced collection,
-Rust callbacks, and resource finalization.
+Rust callbacks, and resource finalization. `scripts/test-self-host` exercises
+the native CLI, blocks Chibi during a rebuild, and runs the resulting replacement.
 
 [`benchmarks/`](benchmarks/README.md) contains CPU and allocation workloads.
 CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
