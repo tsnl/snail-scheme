@@ -64,6 +64,43 @@ also receive a Binaryen `-O3` variant. The existing native SSA control is i686,
 while this experiment and the Wasm engines are x86-64; this is not an isolated
 calling-convention or architecture comparison.
 
+## LLVM code-generation ablation
+
+The [follow-up report](../../benchmarks/results/2026-10-10-llvm-codegen.json)
+keeps x86-64, BDWGC, the checked numeric operations, and the workload fixed.
+It patches the bounded fixture's generated LLVM to isolate two differences
+from the older direct-LLVM prototype:
+
+| LLVM variant | Median seconds |
+| --- | ---: |
+| Unchanged translator output | 0.046632 |
+| Distinct static boolean objects | 0.035495 |
+| Numeric fallbacks marked `cold noinline` | 0.029078 |
+| Both changes | **0.026140** |
+
+Eight rotating CPU2 rounds exclude compilation/startup and verify checksum
+`269118144`. The combined variant passes all 43 native numeric/tail checks,
+including boxed integers, floating-point boundaries, overflow and type traps.
+No representation checks are removed and integer encoding remains unchanged.
+
+Distinct static objects let LLVM prove that true and false differ, simplifying
+the condition and subtraction guards. Keeping `compare`, `slow_0`, and `slow_1`
+out of line avoids embedding numeric fallback logic in Fibonacci. The measured
+effect combines `cold` and `noinline`; it does not isolate those attributes.
+Redundant tag checks remain, so their removal is not required for this result.
+
+Reproduce after the builders above with:
+
+```sh
+python3 experiments/wasm-llvm/ablate.py
+```
+
+This is deliberately a fixture-specific experiment, not a translator feature.
+It assumes one initialized module instance and recognizes the fixture's globals
+and numeric helper names. A general implementation must preserve Wasm instance
+identity and communicate optimization hints without depending on debug names.
+These numbers do not measure the complete newly landed production Wasm backend.
+
 ## Tests
 
 - `check.py` mirrors all 43 numeric and tail-call checks from the Wasm experiment,
