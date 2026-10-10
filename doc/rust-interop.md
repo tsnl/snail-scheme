@@ -42,6 +42,11 @@ Runtime and extension dependencies become one Rust cdylib, sharing a single
 linear memory. Cargo builds it for `wasm32-wasip1`; Binaryen links it with the
 Scheme Wasm module and a command entry point.
 
+Without extensions, the driver builds the existing runtime cdylib directly and
+reuses its Wasm artifact across programs. Cargo checks the Rust inputs on each
+invocation; Scheme edits do not cause Rust compilation or LTO. The runtime owns
+the `_initialize` export in both cases, and the linked entry calls it once.
+
 ## Root contract
 
 `runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
