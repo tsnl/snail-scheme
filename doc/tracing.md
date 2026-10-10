@@ -88,13 +88,13 @@ in the middle of a write can still leave a partial file.
 | --- | --- | --- |
 | `reader.sld` | `file->reader` | Filename → character reader |
 | `syntax-parser.sld` | `reader->syntax-list` | Reader → located syntax list |
-| `expand.sld` | `syntax-list->hir-program` | Syntax list → resolved HIR program |
+| `expand.sld` | `syntax-list->hir-library` | Syntax list → unnamed HIR library |
 | `expand.sld` | `syntax->hir-library` | Library syntax → resolved HIR library |
-| `lower.sld` | `hir-program->vm-program` | HIR program → stack VM program |
-| `vm.sld` | `write-vm-program` | VM program → readable dump on a port |
-| `llvm.sld` | `write-vm-program-as-llvm` | VM program → LLVM text on a port |
+| `lower.sld` | `hir-library->mir-library` | HIR library graph → MIR library graph |
+| `mir.sld` | `write-mir-library` | MIR libraries → readable dump on a port |
+| `llvm.sld` | `write-mir-library-as-llvm` | MIR library graph → LLVM text on a port |
 | `compiler.sld` | `source-file->llvm-file` | Source filename → LLVM output file |
 
-The compiler's private `vm-program->llvm-file` and `vm-program->dump-file`
+The compiler's private `mir-library->llvm-file` and `mir-library->dump-file`
 helpers name their output formats explicitly. No generic `write-program`
 callback obscures which representation a writer consumes.

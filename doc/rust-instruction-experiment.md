@@ -1,6 +1,11 @@
 # Rust numeric instruction experiment
 
-This branch moves the seven binary numeric VM instruction bodies to
+This historical experiment is preserved at commit `f251627`. The current MIR
+backend replaces instruction handlers with explicit foreign leaf calls; use
+`benchmarks/mir` for its matched comparisons. To reproduce this earlier experiment,
+check out `f251627` in a separate worktree and run the commands below there.
+
+The experiment moves the seven binary numeric VM instruction bodies to
 `runtime/src/instructions.rs`: add, subtract, equality, and four ordered
 comparisons. Lowering, binding proofs, operand evaluation, stack representation,
 and generic numeric fallback are unchanged. This is an experiment with the

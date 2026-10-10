@@ -22,14 +22,14 @@
   (eval (list 'set! name (list 'quote procedure)) env))
 (for-each
  (lambda (name) (replace! compiler-env name (observe 'stage name (eval name compiler-env))))
- '(source-file->syntax-list vm-program->llvm-file vm-program->dump-file))
+ '(source-file->syntax-list mir-library->llvm-file mir-library->dump-file))
 (for-each
  (lambda (module-and-name)
    (let* ((env (module-env (find-module (car module-and-name))))
           (name (cadr module-and-name)))
      (replace! env name (observe 'stage name (eval name env)))))
- '(((snail-scheme expand) syntax-list->hir-program)
-   ((snail-scheme lower) hir-program->vm-program)))
+ '(((snail-scheme expand) syntax-list->hir-library)
+   ((snail-scheme lower) hir-library->mir-library)))
 (define llvm-env (module-env (find-module '(snail-scheme llvm))))
 (for-each
  (lambda (name) (replace! llvm-env name (observe 'llvm name (eval name llvm-env))))

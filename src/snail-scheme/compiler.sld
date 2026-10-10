@@ -1,35 +1,35 @@
 ;; Join explicit representations: source files, located syntax, resolved HIR,
-;; stack instructions, and LLVM text. The current Scheme host runs this module.
+;; structured MIR, and LLVM text. The current Scheme host runs this module.
 (define-library (snail-scheme compiler)
   (export source-file->llvm-file compiler-main)
   (import (scheme base) (scheme file)
           (snail-scheme trace) (snail-scheme bootstrap)
           (snail-scheme reader) (snail-scheme syntax-parser)
           (snail-scheme expand) (snail-scheme lower)
-          (snail-scheme vm) (snail-scheme llvm))
+          (only (snail-scheme mir) write-mir-library) (snail-scheme llvm))
   (begin
     ;; ---- Compilation and output files ----
 
     (define (compiler-main arguments)
       (let ((operands (cdr arguments)))
         (if (or (not (memv (length operands) '(3 4))) (member "--timing" operands))
-            (error "usage: compile.scm ROOT INPUT OUTPUT [VM-DUMP]"))
+            (error "usage: compile.scm ROOT INPUT OUTPUT [MIR-DUMP]"))
         (apply source-file->llvm-file operands)))
 
     (define-traced (source-file->llvm-file root input output . optional-dump)
       (let* ((forms (source-file->syntax-list input))
              (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-             (hir (syntax-list->hir-program forms (library-loader root) (list core)))
-             (program (hir-program->vm-program hir)))
-        (vm-program->llvm-file program output)
+             (hir (syntax-list->hir-library forms (library-loader root) (list core)))
+             (program (hir-library->mir-library hir)))
+        (mir-library->llvm-file program output)
         (if (pair? optional-dump)
-            (vm-program->dump-file program (car optional-dump)))))
+            (mir-library->dump-file program (car optional-dump)))))
 
-    (define-traced (vm-program->llvm-file program path)
-      (call-with-output-file path (lambda (port) (write-vm-program-as-llvm program port))))
+    (define-traced (mir-library->llvm-file program path)
+      (call-with-output-file path (lambda (port) (write-mir-library-as-llvm program port))))
 
-    (define-traced (vm-program->dump-file program path)
-      (call-with-output-file path (lambda (port) (write-vm-program program port))))
+    (define-traced (mir-library->dump-file program path)
+      (call-with-output-file path (lambda (port) (write-mir-library program port))))
 
     ;; ---- Source and library loading ----
 

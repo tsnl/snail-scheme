@@ -6,12 +6,13 @@
 (define-library (snail-scheme llvmlite)
   (export
    void ptr i1 i8 i32 i64 int-type array-type type=? value-type
-   local integer null-pointer inttoptr indexed-name function parameter function-result
+   local integer null-pointer inttoptr indexed-name function function-name parameter function-result function-address
    block block-name block-owner block-body body-block body-instructions instruction-result
    value-name
    global-bytes global-array global-length utf8-bytes
-   call load store gep cast select icmp zext binop phi br cbr ret switch
-   declare define-function module write-module write-definition)
+   call call-indirect load store gep cast select icmp zext binop phi br cbr ret switch
+   declare define-function module write-module write-definition
+   write-function-start write-function-block write-function-end)
   (import (scheme base) (scheme cxr) (scheme write))
   (begin
 
@@ -97,6 +98,10 @@
       (let ((specification (list-ref (function-parameters function) index)))
         (local function (car specification) (cdr specification))))
 
+    (define (function-address function)
+      (require (function? function) "function address requires a function reference")
+      (make-value ptr 'function function #f))
+
     (define-record-type <block>
       (make-block owner name) block? (owner block-owner) (name block-name))
 
@@ -139,12 +144,21 @@
 
     (define (call result callee arguments)
       (require (function? callee) "call requires a function reference")
+      (check-call result callee arguments)
+      (instruction result 'call (cons callee arguments)))
+
+    (define (call-indirect result signature pointer arguments)
+      (require (function? signature) "indirect call requires an explicit signature")
+      (require-type pointer ptr)
+      (check-call result signature arguments)
+      (instruction result 'call-indirect (cons signature (cons pointer arguments))))
+
+    (define (check-call result callee arguments)
       (let ((parameters (function-parameters callee)))
         (require (= (length arguments) (length parameters)) "call arity mismatch")
         (for-each (lambda (argument parameter) (require-type argument (car parameter)))
                   arguments parameters))
-      (if result (require-result result (function-result callee)))
-      (instruction result 'call (cons callee arguments)))
+      (if result (require-result result (function-result callee))))
 
     (define (load result address)
       (require-result result (value-type result))
@@ -385,6 +399,7 @@
             ((local) (write-name "%" (value-data value) port))
             ((integer) (write-simple (value-data value) port))
             ((null) (display "null" port))
+            ((function) (write-name "@" (function-name (value-data value)) port))
             ((inttoptr) (display "inttoptr (" port) (write-typed (value-data value) port)
              (display " to ptr)" port)))))
 
@@ -394,17 +409,28 @@
     (define (write-label block port)
       (display "label " port) (write-name "%" (block-name block) port))
 
+    ;; Incremental serialization releases completed regions without mutating IR.
+    ;; The checked definition supplies the header; each later block checks its owner.
     (define (write-function definition port)
-      (let ((function (definition-function definition)) (bodies (definition-bodies definition)))
+      (write-function-start definition port)
+      (if (definition-bodies definition)
+          (begin
+            (for-each (lambda (body) (write-function-block (definition-function definition) body port))
+                      (definition-bodies definition))
+            (write-function-end port))))
+    (define (write-function-start definition port)
+      (let ((bodies (definition-bodies definition)))
         (text port (if bodies "define " "declare "))
         (if (not (eq? (definition-linkage definition) 'external))
             (text port (definition-linkage definition) " "))
-        (write-function-signature function (if bodies #t #f) port)
+        (write-function-signature (definition-function definition) (if bodies #t #f) port)
         (for-each (lambda (attribute) (text port " " attribute)) (definition-attributes definition))
-        (if bodies
-            (begin (display " {\n" port) (for-each (lambda (body) (write-body body port)) bodies)
-                   (display "}\n" port))
-            (newline port))))
+        (display (if bodies " {\n" "\n") port)))
+    (define (write-function-block function body port)
+      (require (and (body? body) (eq? (block-owner (body-block body)) function))
+               "body belongs to another function")
+      (write-body body port))
+    (define (write-function-end port) (display "}\n" port))
 
     (define (write-function-signature function names? port)
       (write-type (function-result function) port) (display " " port)
@@ -431,6 +457,7 @@
       (let ((args (instruction-operands item)) (result (instruction-result item)))
         (case (instruction-operation item)
           ((call) (write-call (car args) (cdr args) port))
+          ((call-indirect) (write-indirect-call (car args) (cadr args) (cddr args) port))
           ((load) (display "load " port) (write-type (value-type result) port)
            (display ", " port) (write-typed (car args) port))
           ((store) (display "store " port) (separated write-typed args port))
@@ -457,6 +484,11 @@
     (define (write-call callee arguments port)
       (display "call " port) (write-type (function-result callee) port) (display " " port)
       (write-name "@" (function-name callee) port) (display "(" port)
+      (separated write-typed arguments port) (display ")" port))
+
+    (define (write-indirect-call signature pointer arguments port)
+      (display "call " port) (write-type (function-result signature) port) (display " " port)
+      (write-value pointer port) (display "(" port)
       (separated write-typed arguments port) (display ")" port))
 
     (define (write-incoming edge port)
@@ -620,6 +652,49 @@
                              (define-function second 'external '()
                                (list (block-body entry '() (ret (word 1))))))) #t)))
 
+      (define (test-indirect-calls)
+        (let* ((callee (function "callee" i32 (list (cons i32 "x"))))
+               (caller (function "caller" i32 (list (cons ptr "target"))))
+               (value (local caller i32 "answer")) (entry (block caller "entry"))
+               (invoke (call-indirect value callee (parameter caller 0) (list (word 7)))))
+          (expect (module-text (module (list (define-function caller 'external '()
+                                               (list (block-body entry (list invoke) (ret value)))))))
+                  "define i32 @caller(ptr %target) {\nentry:\n  %answer = call i32 %target(i32 7)\n  ret i32 %answer\n}\n")
+          (expect (raises? (lambda () (call-indirect value callee (word 0) (list (word 7))))) #t)
+          (expect (raises? (lambda () (call-indirect value callee (function-address callee) '()))) #t)
+          (expect (value-type (function-address callee)) ptr)))
+
+      (define (test-streamed-serialization)
+        (let* ((function (function "choose" i32 (list (cons i1 "test"))))
+               (entry (block function "entry")) (other (block function "other"))
+               (join (block function "join")) (answer (local function i32 "answer"))
+               (bodies (list (block-body entry '() (cbr (parameter function 0) join other))
+                             (block-body other '() (br join))
+                             (block-body join (list (phi answer (list (cons (word 1) entry)
+                                                                      (cons (word 2) other))))
+                                         (ret answer))))
+               (expected (string-append "define private i32 @choose(i1 %test) nounwind {\n"
+                                        "entry:\n  br i1 %test, label %join, label %other\n"
+                                        "other:\n  br label %join\njoin:\n"
+                                        "  %answer = phi i32 [ 1, %entry ], [ 2, %other ]\n"
+                                        "  ret i32 %answer\n}\n"))
+               (port (open-output-string)))
+          (expect (module-text (module (list (define-function function 'private '(nounwind) bodies)))) expected)
+          (write-function-start (define-function function 'private '(nounwind) (list (car bodies))) port)
+          (for-each (lambda (body) (write-function-block function body port)) bodies)
+          (write-function-end port)
+          (expect (get-output-string port) expected)
+          (let ((declaration (open-output-string)))
+            (write-function-start (declare function) declaration)
+            (expect (get-output-string declaration) "declare i32 @choose(i1)\n"))))
+
+      (define (test-streamed-block-ownership)
+        (let* ((first (function "same" i32 '())) (second (function "same" i32 '()))
+               (foreign (block-body (block second "entry") '() (ret (word 1))))
+               (port (open-output-string)))
+          (expect (raises? (lambda () (write-function-block first foreign port))) #t)
+          (expect (get-output-string port) "")))
+
       (define (test-llvmlite)
         (run-test test-immutable-construction)
         (run-test test-global-bytes)
@@ -628,5 +703,8 @@
         (run-test test-invalid-pointer-instructions)
         (run-test test-pointer-reference-scopes)
         (run-test test-invalid-instructions)
-        (run-test test-reference-scopes))
+        (run-test test-reference-scopes)
+        (run-test test-indirect-calls)
+        (run-test test-streamed-serialization)
+        (run-test test-streamed-block-ownership))
       ))))

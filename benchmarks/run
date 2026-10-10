@@ -173,10 +173,20 @@ def cargo_command(target):
 def build_executable(name, module, target):
     cargo = BUILD / "cargo"
     environment = {**os.environ, "SNAIL_LLVM_IR": str(module.path), "CARGO_TARGET_DIR": str(cargo)}
+    if os.environ.get("SNAIL_SHARED_LTO") != "0":
+        if any(name in os.environ for name in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS")):
+            raise RuntimeError("shared LTO sets Rust flags; unset them or set SNAIL_SHARED_LTO=0")
+        environment.update(SNAIL_SHARED_LTO="1", RUSTFLAGS=shared_lto_flags(target))
     checked(cargo_command(target), env=environment)
     artifact = "wasm32-wasip1/release/" if target == "wasm" else "i686-unknown-linux-musl/release/"
     artifact += "snail-runner.wasm" if target == "wasm" else "snail-runner"
     return save_executable(name, target, cargo / artifact, module.inputs)
+
+
+def shared_lto_flags(target):
+    linker = "wasm-ld" if target == "wasm" else "rust-lld"
+    return ("-Cembed-bitcode=yes -Clinker-plugin-lto -Clto=fat "
+            f"-Clinker={linker} -Clink-arg=--lto-O3")
 
 
 def save_executable(name, target, artifact, inputs):

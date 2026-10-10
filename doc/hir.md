@@ -2,8 +2,9 @@
 
 HIR is fully expanded Scheme with resolved lexical references and source
 locations. `expand.sld` consumes the reader's syntax objects and constructs the
-immutable records in `hir.sld`. A separate inference/synthesis pass will consume
-HIR and lower it to another representation. Expansion does not choose machine
+immutable expression records in `hir.sld`, organized in the independent library
+containers from `library.sld`. The elaboration pass in `lower.sld` transforms each
+library body into structured MIR. Expansion does not choose machine
 representations, infer types, or build closure environments.
 
 The implementation currently covers a Scheme core, library declarations, and
@@ -60,13 +61,15 @@ expand_expression(form):
 
 finish_block(items):
     require a final item that is an expression
-    preceding = remove_compile_time_markers(all_but_last(items))
-    return Block(preceding, last(items))
+    return Block(remove_compile_time_markers(items))
 ```
 
-Only expression-producing sequences need a final result. Programs and library
-bodies retain their ordered items without this requirement. `build-block` applies
-the rule for lambda bodies, local macro-binding bodies, and expression-level
+Blocks store one nonempty, ordered sequence; its last item provides the result.
+Consumers walk that sequence directly rather than reconstructing it from a
+prefix and a separate result field. Only expression-producing sequences need a
+final result. Library bodies, including unnamed script bodies, retain their ordered items
+without this requirement. `build-block` applies the rule for lambda bodies, local macro-binding
+bodies, and expression-level
 `begin`. It checks the final item before removing macro-definition markers, so a
 trailing definition cannot silently turn an earlier expression into the result.
 
@@ -155,18 +158,13 @@ ordinary application requires a proper list of operator and operand expressions.
 
 ## HIR records
 
-The records are defined in [`hir.sld`](../src/snail-scheme/hir.sld). Every located
-node carries its own `loc`; compiler-provided definitions use `#f`. A definition
-and a reference to it have separate locations. Locations and spellings do not
-establish lexical identity.
+Executable records are defined in [`hir.sld`](../src/snail-scheme/hir.sld). Every
+located node carries its own `loc`; compiler-provided definitions use `#f`. A
+definition and a reference to it have separate locations. Locations and spellings
+do not establish lexical identity.
 
 | Record | Contents |
 | --- | --- |
-| `program` | Imports, ordered items, dependency names, location |
-| `library` | Name, retained declarations, exported bindings, dependency names, location |
-| `library-body` | Ordered items from one declaration-level `begin`, location |
-| `import-declaration` | Structured import sets and the resolved local bindings |
-| `export-declaration` | Export specifications with their resolved definitions |
 | `value-definition` | One binding identity, its source name, and definition location |
 | `value-binding` | A value definition, its initializer, and the definition form's location |
 | `name` | A reference to a value definition and the reference location |
@@ -175,7 +173,23 @@ establish lexical identity.
 | `lambda` | Required parameters, optional rest parameter, body block, location |
 | `conditional` | Test, consequent, optional alternate, location |
 | `assignment` | Target name, value expression, location |
-| `block` | Ordered items, mandatory final result expression, location |
+| `block` | Nonempty ordered items ending in a result expression, location |
+
+Compilation containers belong to [`library.sld`](../src/snail-scheme/library.sld),
+which imports neither HIR nor MIR. Its body payload belongs to the current pass;
+its interface bindings retain opaque identities, including macro identities.
+
+| Record | Contents |
+| --- | --- |
+| `library` | Name or `#f`, resolved imports, exported bindings, dependency names, body, location |
+| `import-declaration` | Resolved libraries, local bindings, original located import syntax, location |
+| `named-binding` | Visible name and original definition identity |
+
+A script is an unnamed library (`name = #f`), selected as the executable's root.
+There is no separate program record. Expansion supplies an ordered HIR item list
+as the body; lowering replaces it with a MIR body while retaining the library's
+organization. `library-dependency-order` visits each resolved library once by
+identity, placing dependencies before their importer and the root last.
 
 A `lambda` contains one `value-definition` per parameter. Its optional rest
 parameter is `#f` when absent. A `conditional` with no alternate likewise stores
@@ -197,19 +211,31 @@ For example, the initializer and final reference in this body share one object:
 (define parameter (make-value-definition 'x #f))
 (define initializer
   (make-lambda (list parameter) #f
-    (make-block '() (make-name parameter #f) #f) #f))
+    (make-block (list (make-name parameter #f)) #f) #f))
 (define body
   (make-block
-    (list (make-value-binding definition initializer #f))
-    (make-name definition #f)
+    (list (make-value-binding definition initializer #f)
+          (make-name definition #f))
     #f))
 ```
+
+The executable core has eight forms: names, literals, applications, lambdas,
+blocks, conditionals, assignments, and value bindings. Initialization remains
+distinct from assignment: a definition introduces a binding and its initializer,
+whereas `set!` makes an existing location mutable. Encoding both with an extra
+mode flag would move that distinction into every analysis. Blocks likewise
+express sequencing without introducing a procedure call or forcing intermediate results to be
+single values. Library containers and resolved interfaces belong to their own
+module; they are not additional executable forms.
 
 Scope environments are transient association lists passed through recursive
 descent. They are never fields of HIR records. Imported names and re-exports
 refer directly to the original definitions; renaming an import creates a new
-visible name, not a new identity. Each `library-import` also retains the resolved
-library record, making imported bodies reachable by later passes.
+visible name, not a new identity. Each import declaration retains the resolved libraries directly, making their
+bodies reachable by later passes even if an import exposes no value bindings.
+`only`, `except`, `prefix`, and `rename` are resolved during expansion and have
+no HIR node variants. The original located declaration remains available for
+diagnostics; lowering does not reinterpret its syntax.
 
 Macro definitions are immutable identities private to the expander. A separate
 transient alist maps those identities to compiled transformers. Import and export
@@ -259,8 +285,8 @@ when a macro produces it. In expression position, `begin` sequences expressions
 and cannot introduce definitions. Lambda bodies and local syntax-binding bodies
 become blocks. A block retains its internal definitions and nonfinal expressions,
 then a mandatory final expression in tail position. Nonfinal expression results
-are discarded. Library-body `begin` declarations remain wrappers and share one
-library environment across declarations.
+are discarded. Library-level `begin` declarations share one library environment;
+their expanded items are concatenated in source order into the library body.
 
 `if` tests Scheme truthiness: only `#f` is false. `set!` retains the target's
 resolved identity. Constructing an assignment record does not mutate the expander's
@@ -273,9 +299,9 @@ to execution/lowering, not expansion.
 [`expand.sld`](../src/snail-scheme/expand.sld) exports:
 
 ```scheme
-(syntax-list->hir-program syntax-forms library-loader)       ; => program
-(syntax->hir-library define-library-syntax library-loader) ; => library
-(macroexpand-1 syntax environment transformers)    ; => syntax
+(syntax-list->hir-library syntax-forms library-loader)     ; => unnamed library
+(syntax->hir-library define-library-syntax library-loader) ; => named library
+(macroexpand-1 syntax environment transformers)            ; => syntax
 ```
 
 The loader receives a library-name datum, such as `(helpers)`, and returns a
@@ -304,8 +330,11 @@ environment, and exports are resolved against the completed environment. Private
 helpers referenced by an exported macro keep their original binding identities;
 callers need not import those private names. Transitive dependency names and
 resolved import records retain the corresponding library relationships.
-Body expansion keeps one chunk per declaration, including empty chunks for imports
-and exports, so reconstruction preserves declaration order and empty `begin` wrappers.
+Body expansion keeps one chunk per declaration while resolving macros and
+bindings. Construction concatenates the runtime items in source order; source
+`begin` and export declaration wrappers have completed their work and do not
+survive as records. Imports retain their located syntax for diagnostics, and
+exports retain only external names and resolved identities.
 
 ## Macro expansion
 
@@ -530,18 +559,15 @@ are not implemented yet.
 
 ## Later passes
 
-The next inference/synthesis pass consumes this untyped HIR and produces a
-separate lower-level representation. It can attach inferred information in its
-own tables or records without changing expansion's binding identities. Keep
-representation choices, primitive specialization, closure conversion, and code
-generation beyond the HIR boundary.
+[`lower.sld`](../src/snail-scheme/lower.sld) consumes this untyped HIR, analyzes
+captures and mutation, assigns storage, and elaborates it to structured
+[MIR](mir.md). Binding identities survive import renaming and source shadowing;
+representation choices belong beyond this boundary. Type inference and
+information-driven check elimination remain future work.
 
-Execution/lowering also needs to preserve proper tail calls, assignment, quoted
-data, recursive initialization, and Scheme's result-count protocol. `values` and
-`call-with-values` remain ordinary calls here. Memory management, exceptions,
-continuations, a complete standard library, and runtime implementation are still
-open work.
-
-The current command-line launcher still reads and prints syntax. The expansion
-API is available as a host Scheme library. Integration with later passes and the
-launcher can follow independently.
+The executable backend preserves proper tail calls, assignment, quoted data,
+recursive initialization, multiple values, and snapshot continuations. `values`
+and `call-with-values` remain ordinary calls in HIR. The command-line compiler
+runs this pipeline under Chibi and asks Cargo to link LLVM with the Rust runtime
+for native or WASI execution. See [backend.md](backend.md) for the implemented
+boundary and remaining limitations.

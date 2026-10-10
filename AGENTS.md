@@ -1,7 +1,7 @@
 # Working on Snail-Scheme
 
 Make the implementation educational to read. Follow the program from located
-syntax through expanded HIR, stack instructions, LLVM, and the Rust runtime.
+syntax through expanded HIR, structured MIR, LLVM, and the Rust runtime.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Prefer cohesive single-file modules with named sections. A large file can

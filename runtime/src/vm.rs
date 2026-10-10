@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 pub const STOP: u32 = u32::MAX;
 pub const CONSUME: u32 = u32::MAX - 1;
 
-// Application actions are shared with llvm.sld, independently of code labels.
+// Application actions are shared with machine.sld, independently of code labels.
 const ENTER_SCHEME: u32 = 0;
 const RETURN_VALUES: u32 = 1;
 const APPLY_ARGUMENTS: u32 = 2;
@@ -559,7 +559,7 @@ impl Vm {
         }
     }
 
-    /// Numeric VM instructions retain f/c and root operands through s. Polling
+    /// Numeric fast paths retain f/c and root operands through s. Polling
     /// also traces a/c, so the current environment needs no extra call frame.
     pub(crate) fn numeric(&mut self, global: u32) -> Result<(), String> {
         let builtin = self.numeric_builtin(global)?;
