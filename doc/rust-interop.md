@@ -206,6 +206,12 @@ retain rooted results between calls, and receive normal completion, VM failure,
 or an exit request without the library terminating its process. Define explicit
 idle, running, failed, and exited states.
 
+The [application-engine proposal](application-engines.md) uses that boundary for
+Rust hosts invoking Scheme behavior through explicit contracts. Its per-message
+workers and runtime state services are later requirements, not properties of
+today's `Vm`. Retaining a rooted value within one VM does not transfer it into a
+different worker's heap or make it durable storage.
+
 Start with one generated whole-program image per instance. Namespace generated
 symbols so multiple program crates can coexist, but do not mistake that for
 cross-program Scheme calls: today's closure PC is a `u32` without program

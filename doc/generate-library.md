@@ -149,3 +149,8 @@ The [staged-program scope](staged-programs.md) explores a wrapper producing a
 server library together with browser and shader artifacts. It keeps compiler
 phases distinct from runtime targets and identifies the additional artifact and
 procedural-transformer APIs that this would require. These are also planned.
+
+The [application-engine plan](application-engines.md) describes the separate
+runtime contract: an engine invokes exported behavior, while ordinary runtime
+functions provide explicit state retention. Generating a library does not grant
+its globals persistence or implement the engine's reload protocol.

@@ -5,6 +5,11 @@ This is a design scope, not an implemented language extension. It extends the
 server code, browser code, and typed GPU programs in the same source file.
 The surface forms below are sketches; their names and import syntax are open.
 
+The [application-engine design](application-engines.md) describes who owns those
+artifacts at runtime: native hosts invoke Scheme methods through contracts,
+workers handle individual messages, and explicit runtime state services retain
+data. It also scopes code and shader reload without requiring script-owned loops.
+
 ## Separate phase from execution target
 
 Two questions apply to every binding: when does it run, and where does it run?
@@ -60,6 +65,10 @@ not a callable server closure. The response contains initial HTML, an explicitly
 and a reference to the browser artifact. It does not serialize Scheme procedures.
 The `shader` form declares code and an interface; it does not draw anything.
 A browser or native host would create a pipeline and submit rendering commands.
+
+`browser-entry` above is a host-invoked startup hook. An engine contract can
+instead expose initialization, update, and view methods directly. Neither shape
+requires Scheme to own the process or browser event loop.
 
 Each target block needs its own imports and lexical bindings. `shared` makes
 selected source definitions available to both Scheme targets, with separately

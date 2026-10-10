@@ -455,3 +455,7 @@ tracks the next work. The repository's pinned `simplify` skill describes the
 independent explanation and review process used when changing these modules.
 [The Rust interop design](doc/rust-interop.md) separates today's executable
 linking from the scoped native calls and reusable embedding API planned next.
+[The application-engine design](doc/application-engines.md) records proposed
+host contracts, invocation lifetimes, runtime state services, and reload rules.
+It distinguishes those requirements from the Chibi UI experiment and the current
+whole-program runtime.
