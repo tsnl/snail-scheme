@@ -1,6 +1,11 @@
 ;; The stack VM is a compilation representation, independent of LLVM and Rust.
 ;; Labels identify instructions. Ordinary instructions have a known successor;
 ;; calls and returns transfer through the explicit Scheme continuation stack.
+;; Frame saves closure/frame/resume before arguments are evaluated. Argument
+;; pushes a value; apply enters a procedure. A tail call shifts its arguments
+;; over the current locals, retaining the caller's three-word return record.
+;; Box creates an assigned binding's cell; indirect reads that cell. Immutable
+;; locals and free variables hold values directly, including closure captures.
 (define-library (snail-scheme vm)
   (export
    make-vm-program vm-program? vm-program-entry vm-program-locals

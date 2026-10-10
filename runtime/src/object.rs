@@ -134,6 +134,7 @@ pub enum ObjectKind {
     Integer = 18,
     Port = 19,
     Extension = 20,
+    Continuation = 21,
 }
 
 mod sealed {
@@ -176,6 +177,17 @@ pub struct Closure {
     pub captures: Vec<Value>,
 }
 object!(Closure);
+/// A reusable copy of the active stack suffix. Frame metadata is immediate;
+/// object words keep their identities, including shared mutable binding cells.
+#[derive(Debug)]
+#[repr(C)]
+pub struct Continuation {
+    pub stack: Vec<Value>,
+    // Pending application headers are not linked through f; retain their count
+    // for statistics instead of trying to reconstruct it from the saved stack.
+    pub frames: u32,
+}
+object!(Continuation);
 #[derive(Debug)]
 #[repr(C)]
 pub struct Record {
@@ -491,6 +503,7 @@ unsafe fn gc_mark(header: *mut Header, pending: &mut Vec<Value>) {
             ObjectKind::Vector => pending.extend(&payload::<Vector>(header).0),
             ObjectKind::Cell => pending.push(payload::<Cell>(header).0),
             ObjectKind::Closure => pending.extend(&payload::<Closure>(header).captures),
+            ObjectKind::Continuation => pending.extend(&payload::<Continuation>(header).stack),
             ObjectKind::Record => {
                 let record = payload::<Record>(header);
                 pending.push(record.descriptor);
@@ -519,6 +532,7 @@ unsafe fn destroy_object(pointer: NonNull<Header>) {
             ObjectKind::Vector => destroy_box::<Vector>(pointer),
             ObjectKind::Cell => destroy_box::<Cell>(pointer),
             ObjectKind::Closure => destroy_box::<Closure>(pointer),
+            ObjectKind::Continuation => destroy_box::<Continuation>(pointer),
             ObjectKind::Record => destroy_box::<Record>(pointer),
             ObjectKind::RecordType => destroy_box::<RecordType>(pointer),
             ObjectKind::Text => destroy_box::<Text>(pointer),
@@ -703,6 +717,28 @@ mod tests {
         assert_eq!(heap.get::<Cell>(cell).unwrap().0, pair);
         assert_eq!(heap.live_objects(), 2);
         heap.collect([], &HeapAccess::for_test());
+        assert_eq!(heap.live_objects(), 0);
+    }
+
+    #[test]
+    fn continuation_snapshot_traces_words_and_reclaims_them_when_unreachable() {
+        let access = HeapAccess::for_test();
+        let mut heap = Heap::new(&access);
+        let child = heap.allocate(Text::new("saved stack local".into()), &access);
+        let saved = heap.allocate(
+            Continuation {
+                stack: vec![Value::NIL, child],
+                frames: 0,
+            },
+            &access,
+        );
+        heap.collect([saved], &access);
+        assert_eq!(
+            heap.get::<Text>(child).unwrap().as_str(),
+            "saved stack local"
+        );
+        assert_eq!(heap.live_objects(), 2);
+        heap.collect([], &access);
         assert_eq!(heap.live_objects(), 0);
     }
 

@@ -1,8 +1,8 @@
 //! Runtime for statically emitted Scheme instruction streams.
 //!
 //! The LLVM-facing ABI passes only an opaque machine pointer and fixed-width
-//! operands, plus transient pointers to tagged-word slots. No Rust container
-//! layout, enum discriminant, or trait object crosses it.
+//! operands, a fixed register record, and transient pointers to tagged-word slots.
+//! No Rust container layout, enum discriminant, or trait object crosses it.
 //!
 //! Only allocating operations are automatic GC boundaries. They collect before
 //! acquiring an owned allocation capability; allocations within Rust never collect.
@@ -21,11 +21,11 @@ mod vm;
 
 pub use object::{Extension, ExtensionVTable, GcStatistics, GcVisit, Value};
 
-pub use vm::{STOP, Vm};
+pub use vm::{CONSUME, STOP, State, Vm};
 
 /// Version of the generated-code protocol, including tagged singleton values.
 /// Keep this in sync with `write-llvm-program` in `llvm.sld`.
-pub const PROGRAM_ABI: u32 = 2;
+pub const PROGRAM_ABI: u32 = 3;
 
 use object::*;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -59,59 +59,53 @@ unsafe fn boundary<T: Copy>(
 
 // ---- Slot and control services for Scheme-written LLVM instructions ----
 
-// Slot pointers last until the next operation that can relocate that storage.
-// Ordinary slot access never collects; promoting a captured local may collect
-// before allocation. LLVM loads sources before resizing a destination and
-// publishes live words before an allocating service.
+// The register record remains at a fixed address while its VM stays in place.
+// Stack-slot pointers last until a service can resize the stack. LLVM loads
+// sources before resizing a destination and publishes live words before a
+// safepoint. Raw VM and register pointers may alias; neither has a noalias promise.
 
 /// # Safety
 /// `machine` must name a live, exclusively accessible VM with all values rooted.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_enter(machine: *mut Vm) -> u32 {
-    unsafe { boundary(machine, 0, |_| Ok(1)) }
+pub unsafe extern "C" fn snail_rt_state(machine: *mut Vm) -> *mut State {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.state())) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before resizing it.
+/// `machine` must name a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_slot(machine: *mut Vm, index: u32, kind: u32) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.slot(index, kind)) }
+pub unsafe extern "C" fn snail_rt_reserve(machine: *mut Vm, depth: u32) {
+    unsafe { boundary(machine, (), |vm| vm.reserve(depth)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before resizing it.
+/// `machine` must name a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_capture_slot(
-    machine: *mut Vm,
-    index: u32,
-    free: u32,
-) -> *mut Value {
-    unsafe {
-        boundary(machine, std::ptr::null_mut(), |vm| {
-            vm.capture_slot(index, free != 0)
-        })
-    }
+pub unsafe extern "C" fn snail_rt_box(machine: *mut Vm, index: u32) {
+    unsafe { boundary(machine, (), |vm| vm.box_local(index)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; consume the returned slot before replacing results.
+/// `machine` must name a live VM and `cell` must be one of its live values.
+/// Consume the returned slot before a service that can collect its cell.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_single(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), Vm::single_slot) }
+pub unsafe extern "C" fn snail_rt_cell(machine: *mut Vm, cell: Value) -> *mut Value {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.cell_slot(cell)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; fill the returned slot before another safepoint.
+/// `machine` must name a live VM with its active closure rooted.
+/// Consume the returned slot before a service that can collect its closure.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_result(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.result_slot())) }
+pub unsafe extern "C" fn snail_rt_free(machine: *mut Vm, index: u32) -> *mut Value {
+    unsafe { boundary(machine, std::ptr::null_mut(), |vm| vm.free_slot(index)) }
 }
 
 /// # Safety
-/// `machine` must name a live VM; fill the returned slot before another safepoint.
+/// `machine` must point to a live VM with exclusive access for this call.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_push(machine: *mut Vm) -> *mut Value {
-    unsafe { boundary(machine, std::ptr::null_mut(), |vm| Ok(vm.push_slot())) }
+pub unsafe extern "C" fn snail_rt_value_error(machine: *mut Vm) {
+    unsafe { boundary(machine, (), |vm| vm.single().map(|_| ())) }
 }
 
 /// # Safety
@@ -146,15 +140,29 @@ pub unsafe extern "C" fn snail_rt_close(
 /// # Safety
 /// `machine` must point to a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_call(machine: *mut Vm, argc: u32, resume: u32, tail: u32) -> u32 {
-    unsafe { boundary(machine, STOP, |vm| vm.call(argc, resume, tail != 0)) }
+pub unsafe extern "C" fn snail_rt_prepare_apply(machine: *mut Vm, argc: u32) -> u32 {
+    unsafe { boundary(machine, 255, |vm| vm.prepare_apply(argc)) }
 }
 
 /// # Safety
 /// `machine` must point to a live VM with all surviving values published in roots.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn snail_rt_return(machine: *mut Vm) -> u32 {
-    unsafe { boundary(machine, STOP, Vm::return_values) }
+pub unsafe extern "C" fn snail_rt_receive(machine: *mut Vm) {
+    unsafe { boundary(machine, (), Vm::receive) }
+}
+
+/// # Safety
+/// `machine` must point to a live VM with all surviving values published in roots.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_capture(machine: *mut Vm) {
+    unsafe { boundary(machine, (), Vm::capture) }
+}
+
+/// # Safety
+/// `machine` must point to a live VM with all surviving values published in roots.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snail_rt_restore(machine: *mut Vm, argc: u32) {
+    unsafe { boundary(machine, (), |vm| vm.restore(argc)) }
 }
 
 /// # Safety

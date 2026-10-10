@@ -98,7 +98,7 @@ The new modules have explicit boundaries:
 | `vm.sld` | Target-independent instructions, constants, metadata, readable dump |
 | `llvm.sld` | Inline LLVM instruction bodies, static branches, and dynamic destinations |
 | `llvmlite.sld` | Immutable typed LLVM references/definitions, checks, and text serialization |
-| `runtime/src/vm.rs` | Activations, continuations, calls, multiple values, roots |
+| `runtime/src/vm.rs` | Stack storage, application preparation, snapshots, multiple values, roots |
 | `runtime/src/object.rs` | 32-bit tagged words, fixed object layouts, allocation, tracing, and collection |
 | `runtime/src/primitives.rs`, `host.rs` | Primitive operations and host services |
 | `runner/` | Target assembly and final Rust application entry point |
@@ -122,43 +122,65 @@ byte-for-byte from `v3`. VM instructions here are a compilation representation,
 distinct from LLVM bitcode; a bytecode interpreter is not needed for this stage.
 
 Lowering assigns one global slot per defining binding and initializes each
-library once, after its dependencies. Local parameters and definitions start as
-direct values in activation slots. The first closure capture promotes a local
-to a shared heap cell; subsequent local accesses and captures use that same
-cell. This preserves mutation, recursion, and lifetime across tail calls without
-allocating cells for uncaptured bindings. Globals use their indexed slots
-directly, including through imported aliases.
+library once, after its dependencies. Lexical bindings occupy stack slots.
+An identity-based scan boxes every binding assigned by `set!`, including locals
+that no lambda captures: a continuation must share the location rather than
+restore an old value. Ordinary immutable parameters, locals, and captures stay
+unboxed, with no runtime direct-versus-cell test. Recursive initialization is a
+separate reason for indirection: a closure created before a local definition is
+initialized captures its cell. Earlier initialized immutable definitions stay
+direct. Globals use their indexed slots directly.
 
 Local collection stops at nested lambdas. Capture analysis enters them: a
 grandchild's free binding must be available when its parent constructs it.
 Every lambda's definitions are in scope before visiting their initializers.
-Reading an uninitialized local, captured cell, or global is a runtime error.
+Reading an uninitialized local, cell, or global is a runtime error.
 
+One reusable Rust-owned buffer holds the Scheme stack for each VM. It grows
+from high addresses toward low addresses. `s` and `f` are depths measured from
+its high end, so resizing preserves every saved offset. A return frame contains
+three words: saved closure, tagged saved frame depth, and tagged return label.
 Arguments evaluate left-to-right, followed by the operator. Pending arguments
-remain on the operand stack while nested calls run. A normal call saves the
-caller activation, operand extent, and return label. A tail call replaces the
-activation while retaining its continuation. Rust handlers never recursively
-enter Scheme, so proper tail recursion does not depend on Wasm tail-call support.
+and saved callers remain in the same buffer while nested calls run.
 
-The result register contains a sequence, including zero or multiple values.
-Arguments, tests, assignments, and operators require one value. Returns forward
-the sequence unchanged; nonfinal body expressions discard it when the following
-expression replaces it. `apply` and `call-with-values` use the same explicit
-invocation loop, including rooted consumer continuations.
+The Scheme-written LLVM handlers implement `frame`, `argument`, `shift`,
+`apply`, and `return`. A normal call pushes a return frame; a tail call moves
+arguments over the current locals and keeps that frame. Closure entry pads its
+local slots in this same buffer. Rust checks callable kind and arity, constructs
+rest lists when required, and borrows native arguments from the stack. There is
+no per-call argument or local vector for ordinary fixed-arity calls. Rust never
+recursively enters Scheme, so tail recursion does not depend on Wasm tail calls.
+
+One value lives in register `a`; zero or multiple values use a count and a
+reusable result buffer. Arguments, tests, assignments, and operators require one
+value. Returns forward all values; nonfinal body expressions discard them.
+`call-with-values` uses a normal frame with a reserved consumer return label.
+`apply` rewrites arguments and rejoins the same application loop.
+
+`call/cc` and `call-with-current-continuation` capture an immutable copy of the
+active stack through the current return header. Invoking the snapshot preserves
+its supplied values, restores a copy into the working stack, and executes the
+ordinary return transition. Snapshots are reusable and own their storage. Shared
+cells preserve assignment across restoration; heap objects and globals are not
+rolled back. `dynamic-wind` and nonlocal parameter/port cleanup remain deferred.
 
 Each VM instruction becomes an LLVM basic block. Known successors branch
-directly. Calls and returns obtain a label from Rust and enter a dispatcher whose
-cases contain procedure entries and non-tail return addresses. The stop sentinel
-is `4294967295`; unexpected destinations become errors. LLVM performs native
-lowering or WebAssembly control-flow structuring.
+directly; application and return share blocks within the same generated
+function. The dispatcher contains procedure entries and return addresses.
+Reserved labels are `4294967295` (stop), `4294967294` (consume produced values),
+`4294967293` (apply), and `4294967292` (return);
+ordinary labels fit a nonnegative 31-bit fixnum. LLVM performs native lowering
+or WebAssembly control-flow structuring.
 
 ## ABI and collection
 
 Generated code passes an opaque VM pointer, fixed-width `i32` operands, and
-transient pointers to tagged-word slots. No Rust container layout or trait object
-crosses this ABI. LLVM copies a `Value` as one target-sized word using `ptr` on
-the supported integral-pointer targets. The copied word is never dereferenced
-as an object. It only moves between slots or compares against singleton tags.
+transient pointers to tagged-word slots. `snail_rt_state` exposes one stable
+`repr(C)` register record; LLVM owns its documented fields, not Rust containers
+or trait-object layouts. LLVM moves each `Value` as `i32`, including the tagged
+cell argument passed to Rust. `ptr` names actual addresses such as register
+fields and slots. Ordinary instructions dereference slots,
+not object payloads. They move words and compare singleton tags.
 
 `Value` is one 32-bit word. The tags come directly from `origin/v3`:
 null is zero, fixnums have low bit 1, interned symbols have low bits 10, and
@@ -175,27 +197,26 @@ it does not accept arbitrary integers or offer durable host handles.
 
 | Handler family | Effect |
 | --- | --- |
-| `constant`, `refer_local/free/global` | Replace results with a stored value |
-| `set_local/free/global` | Store a single result |
-| `capture_local/free`, `close` | Capture raw cells and construct a closure |
-| `push`, `call`, `return`, `test` | Evaluate calls and transfer control |
+| `constant`, `refer_local/free/global`, `indirect` | Read direct values or explicit cells |
+| `init_local`, `set_local/free/global`, `box` | Initialize slots, assign cells, or create cells |
+| `close` | Copy captures into a new closure |
+| `frame`, `argument`, `shift`, `apply`, `return`, `test` | Operate on the reusable stack and transfer control |
 | `const_atom/pair/vector`, `global_primitive` | Initialize constants and native procedures |
 | `halt`, `invalid_pc` | End execution or report an invalid destination |
 
-The instruction bodies above are emitted as internal `snail_vm_*` functions
-with `alwaysinline`. Rust supplies checked `snail_rt_*` slot and frame services,
-defined in `runtime/src/lib.rs`. Reference, assignment, capture, push, and test
-instructions perform their loads, stores, and tag tests in LLVM. Variable-sized
-closure and call-frame work stays in Rust. Load a source slot before calling a
-service that may clear or grow its storage; publish the word before the next
-allocating operation.
+Ordinary instruction bodies are internal `snail_vm_*` functions with
+`alwaysinline`. Their LLVM loads, stores, and branches access the register record
+and stack directly. Rust supplies stack growth, checked closure/cell access,
+object construction, primitive invocation, and snapshot services. A source word
+must be loaded before a service can resize its storage, and live words must be
+published before a safepoint. The VM pointer and its embedded register pointer
+alias; neither is promised `noalias`.
 
 The generated module exports `snail_program`, `snail_global_count`,
 `snail_constant_count`, and `snail_program_abi`. The runner checks the last
-against `PROGRAM_ABI` before initialization. This version covers slot services
-and tagged singleton encodings; stale generated code fails before executing.
-Compound constants refer to earlier constant-pool entries, so construction
-preserves roots without temporary object layouts in LLVM.
+against `PROGRAM_ABI` before initialization. ABI **3** describes the register
+record, stack/control protocol, and tagged singleton encodings. Older modules
+fail before executing. Compound constants refer to earlier constant-pool entries.
 
 The collector is precise, nonmoving mark-and-sweep. Each allocation is one
 `Box` containing an aligned kind/mark header followed by its concrete payload.
@@ -221,15 +242,17 @@ Collection follows three rules:
    another allocating boundary. Ending a capability never collects.
 
 Nonallocating primitives and ordinary instruction entry do not poll. Closure
-creation, first capture of a local, rest-list construction, and startup constants
+creation, explicit local boxing, continuation capture, rest-list construction, and startup constants
 also acquire a capability. Arithmetic is classified as allocating because its
 result may require boxing. Interning symbols uses ordinary Rust storage only.
 `Runtime` exposes object/host services; the allocating entry receives
 `Allocation`, while only `Vm` owns Scheme roots and collection control.
 
 The explicit `collect-garbage` action consumes its inputs and publishes its
-result before collecting. Roots include globals, constants, results, operands,
-current and saved activations, multiple-value consumers, and current ports.
+result before collecting. Roots include globals, constants, registers, active
+stack words, multiple results, and current ports. Frame metadata is encoded as
+immediate values, so every word in the active suffix can be scanned uniformly.
+Continuation objects trace all words in their owned snapshots.
 Large Rust calls may exceed the soft collection budget by their entire burst;
 there is no emergency collection from inside those calls. Dropping unreachable
 objects releases their owned Rust resources. Host allocator OOM is not a
@@ -260,8 +283,10 @@ returns go through the shared dispatcher. The build then omits LLVM 22's
 irreducible-control-flow repair pass. Its
 [all-pairs reachability analysis](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/WebAssembly/WebAssemblyFixIrreducibleControlFlow.cpp)
 consumed over 24 GB on the compiler-sized dispatch loop despite having no
-irreducibility to repair. With the check and omission, the tested WASI compiler
-built in about 39 seconds. This policy is for this compiler's generated control
+irreducibility to repair. With the check and omission, that earlier compiler
+built in about 39 seconds; the current stack emitter's larger output is measured
+separately in the [stack report](stack-vm.md#compiler-sized-code-generation).
+This policy is for this compiler's generated control
 flow; it is not a general-purpose LLVM assembler setting. A regression fixture
 with a two-entry VM loop confirms that the build rejects an irreducible module.
 The WASI module contains generated code and Rust in
@@ -325,6 +350,15 @@ Its Fibonacci compilation took 2.81 seconds in this single check. The earlier
 215-second observation used older compiler sources as well as the older runtime,
 so these figures are not an isolated runtime speedup comparison.
 
+The ABI 3 stack implementation also compiles the compiler's own source to
+byte-identical LLVM on native32 and WASI. Its
+[validation record](../benchmarks/results/2026-10-09-ch4-compiler.json) includes
+Fibonacci emission and execution on both targets. The compiled WASI compiler
+requires Node's explicit `--liftoff-only` workaround in this environment: V8's
+optimizing tier exhausts memory on the compiler-sized dispatch function.
+See the [host limitation](stack-vm.md#wasi-compiler-host-limitation); ordinary
+integration tests and benchmarks retain the default optimizing host.
+
 ## Measurements
 
 `--timing` reports parse, expand, lower, LLVM emission, and optional VM dump
@@ -366,20 +400,18 @@ and calls still pay for generic runtime dispatch.
 This is the compiler's bootstrap subset, not a complete R7RS implementation.
 Exact integers are checked `i64`; bignums, rational and complex values are not
 implemented. Nonintegral division yields `f64`. Unicode character case comparison
-uses lowercase conversion rather than full Unicode case folding. Full
-continuations, Scheme exception handling, and `dynamic-wind` are deferred.
+uses lowercase conversion rather than full Unicode case folding. Scheme
+exception handling and `dynamic-wind` are deferred.
 Parameterization and file wrappers restore or close on normal returns, including
 multiple values; they do not yet implement nonlocal-exit semantics.
 Printing cyclic structures produces the diagnostic marker `#<cycle>`, not
 readable graph notation.
 
 Source locations survive in VM instruction metadata, but generated executables
-do not yet produce Scheme source backtraces. Captured locals use shared cells,
-including immutable captures. Activations and call arguments still use Rust
-vectors; they are not yet packed into a reusable contiguous value stack. The
-full bootstrap library is retained, and dynamic calls share one dispatcher.
-These choices establish a measurable baseline before representation and flow
-analysis.
+do not yet produce Scheme source backtraces. The full bootstrap library is
+retained, and dynamic calls share one dispatcher. The reusable stack establishes
+the baseline before type inference and specialization; see the
+[stack implementation notes](stack-vm.md).
 
 The instruction functions are already inlined; Rust service calls remain
 ordinary ABI calls. This deliberately exposes a simple baseline for later

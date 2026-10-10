@@ -10,7 +10,7 @@
    block block-name block-owner block-body body-block body-instructions instruction-result
    value-name
    global-bytes global-array global-length utf8-bytes
-   call load store icmp zext binop phi br cbr ret switch
+   call load store gep cast select icmp zext binop phi br cbr ret switch
    declare define-function module write-module write-definition)
   (import (scheme base) (scheme cxr) (scheme write))
   (begin
@@ -155,6 +155,33 @@
       (value-type value)
       (require-type address ptr)
       (instruction #f 'store (list value address)))
+
+    (define (gep result element-type address indices)
+      (require-result result ptr)
+      (require-type address ptr)
+      (require (and (type? element-type) (not (type=? element-type void)) (pair? indices))
+               "getelementptr requires an element type and indices")
+      (for-each (lambda (index)
+                  (require (eq? (type-kind (value-type index)) 'integer)
+                           "getelementptr requires integer indices")) indices)
+      (instruction result 'gep (cons element-type (cons address indices))))
+
+    (define (cast result operation value)
+      (require-result result (value-type result))
+      (require (case operation
+                 ((ptrtoint) (and (type=? (value-type value) ptr)
+                                  (eq? (type-kind (value-type result)) 'integer)))
+                 ((inttoptr) (and (type=? (value-type result) ptr)
+                                  (eq? (type-kind (value-type value)) 'integer)))
+                 (else #f)) "invalid pointer/integer cast" operation)
+      (instruction result operation (list value)))
+
+    (define (select result condition left right)
+      (require-result result (value-type left))
+      (require-type condition i1)
+      (require-type right (value-type left))
+      (require (memq (type-kind (value-type left)) '(integer pointer)) "invalid select type")
+      (instruction result 'select (list condition left right)))
 
     (define (icmp result predicate left right)
       (require-result result i1)
@@ -407,9 +434,13 @@
           ((load) (display "load " port) (write-type (value-type result) port)
            (display ", " port) (write-typed (car args) port))
           ((store) (display "store " port) (separated write-typed args port))
+          ((gep) (display "getelementptr " port) (write-type (car args) port)
+           (display ", " port) (separated write-typed (cdr args) port))
+          ((select) (display "select " port) (separated write-typed args port))
           ((icmp) (text port "icmp " (car args) " ") (write-typed (cadr args) port)
            (display ", " port) (write-value (caddr args) port))
-          ((zext) (display "zext " port) (write-typed (car args) port)
+          ((zext ptrtoint inttoptr) (text port (instruction-operation item) " ")
+           (write-typed (car args) port)
            (display " to " port) (write-type (value-type result) port))
           ((phi) (display "phi " port) (write-type (value-type result) port)
            (display " " port) (separated write-incoming args port))
@@ -514,6 +545,56 @@
                     (expect (raises? (lambda () (apply indexed-name arguments))) #t))
                   '(("" 1) ("1b" 2) ("bad name" 0) ("b" -1) ("b" 1.0))))
 
+      (define (test-pointer-instructions)
+        (let* ((function (function "slot" ptr (list (cons ptr "base") (cons i32 "index"))))
+               (entry (block function "entry")) (address (local function ptr "address"))
+               (bits (local function i32 "bits")) (restored (local function ptr "restored"))
+               (chosen (local function ptr "chosen"))
+               (instructions (list (gep address i32 (parameter function 0) (list (parameter function 1)))
+                                   (cast bits 'ptrtoint address) (cast restored 'inttoptr bits)
+                                   (select chosen (integer i1 1) restored (inttoptr (word 7))))))
+          (expect (module-text (module (list (define-function function 'external '()
+                                               (list (block-body entry instructions (ret chosen)))))))
+                  (string-append "define ptr @slot(ptr %base, i32 %index) {\nentry:\n"
+                                 "  %address = getelementptr i32, ptr %base, i32 %index\n"
+                                 "  %bits = ptrtoint ptr %address to i32\n"
+                                 "  %restored = inttoptr i32 %bits to ptr\n"
+                                 "  %chosen = select i1 1, ptr %restored, ptr inttoptr (i32 7 to ptr)\n"
+                                 "  ret ptr %chosen\n}\n"))))
+
+      (define (test-invalid-pointer-instructions)
+        (let* ((function (function "f" ptr '())) (address (local function ptr "address"))
+               (value (local function i32 "value")) (array (local function (array-type i32 2) "array")))
+          (for-each (lambda (thunk) (expect (raises? thunk) #t))
+                    (list (lambda () (gep value i32 address (list (word -1))))
+                          (lambda () (gep address void address (list (word 0))))
+                          (lambda () (gep address i32 value (list (word 0))))
+                          (lambda () (gep address i32 address '()))
+                          (lambda () (gep address i32 address (list null-pointer)))
+                          (lambda () (cast address 'bitcast address))
+                          (lambda () (cast address 'ptrtoint address))
+                          (lambda () (cast value 'ptrtoint value))
+                          (lambda () (cast value 'inttoptr value))
+                          (lambda () (cast address 'inttoptr address))
+                          (lambda () (select address (word 1) address null-pointer))
+                          (lambda () (select address (integer i1 1) value value))
+                          (lambda () (select address (integer i1 1) address value))
+                          (lambda () (select array (integer i1 1) array array))))))
+
+      (define (test-pointer-reference-scopes)
+        (let* ((first (function "f" ptr '())) (second (function "g" ptr '()))
+               (entry (block first "entry")) (address (local first ptr "address"))
+               (value (local first i32 "value")) (foreign (local second ptr "address"))
+               (index (local second i32 "index")) (condition (local second i1 "condition")))
+          (for-each (lambda (item)
+                      (expect (raises? (lambda () (block-body entry (list item) (ret address)))) #t))
+                    (list (gep address i32 foreign (list (word -1)))
+                          (gep address i32 null-pointer (list index))
+                          (cast value 'ptrtoint foreign) (cast address 'inttoptr index)
+                          (select address condition null-pointer null-pointer)
+                          (select address (integer i1 1) foreign null-pointer)
+                          (select address (integer i1 1) null-pointer foreign)))))
+
       (define (test-invalid-instructions)
         (let* ((function (function "f" i32 '())) (entry (block function "entry"))
                (value (local function i32 "value")) (condition (local function i1 "test"))
@@ -543,6 +624,9 @@
         (run-test test-immutable-construction)
         (run-test test-global-bytes)
         (run-test test-indexed-names)
+        (run-test test-pointer-instructions)
+        (run-test test-invalid-pointer-instructions)
+        (run-test test-pointer-reference-scopes)
         (run-test test-invalid-instructions)
         (run-test test-reference-scopes))
       ))))
