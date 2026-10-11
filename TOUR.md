@@ -60,6 +60,13 @@ The frontend does not launch processes. An optional CLI entry selects a root
 module handler or the ordinary script adapter; build policy remains outside
 the frontend.
 
+[`compile-build.sld`](src/snail-scheme/compile-build.sld) installs the resolver for
+`generate-library`. It compiles and runs each generator in a private workspace,
+caches its result for one build, and collects its dependency artifacts.
+[`generation.sld`](src/snail-scheme/generation.sld) owns the located-source and
+artifact transport protocol. The wrapper's name and exports remain authoritative;
+the generator returns import and begin declarations.
+
 [`artifacts.sld`](src/snail-scheme/artifacts.sld) validates dependency graphs,
 snapshots completed files, and writes the package manifest. Builds with
 dependencies publish a complete generation and atomically switch the public

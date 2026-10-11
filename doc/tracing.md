@@ -155,6 +155,10 @@ library generation register literals in source traversal order. The separate
 instead trace name/type resolution and LLVM emission. Runtime definitions are
 ordinary in-memory datums, so there are no runtime text-copy spans.
 
+Build-stage `generate-library` processes have their own trace files. Their
+parent records compilation, native linking, and subprocess execution; it does
+not combine clocks from separate processes into one trace.
+
 `make test` checks host values, JSON escaping, nesting, file closure, and omission
 of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded
 by Chibi and linked Wasm and checks missing destinations, file-opening failures,
