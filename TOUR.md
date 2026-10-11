@@ -7,9 +7,11 @@ application Wasm interface (AWI), with matching native C symbols.
 
 ```text
 build.scm -> compile-native main.scm and its generated installation library
-  -> reader -> syntax parser -> expander -> library-grouped IR -> WasmGC
-  -> Binaryen validation -> binary Wasm reader -> LLVM
+  -> reader -> syntax parser -> expander -> library-grouped IR -> Wasm datums
+  -> name/type resolution -> LLVM
   -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
+
+Portable backend: Wasm datums -> write-simple -> Binaryen + Rust Wasm -> .wasm
 
 snail-scheme [-I DIRECTORY ...] SCRIPT -> compile temporary native script -> run -> return status
 ```
@@ -49,7 +51,8 @@ failed builds retain them and preserve the last published artifact. Cargo tracks
 Rust dependencies and reuses the runtime archive.
 
 [`compiler.sld`](src/snail-scheme/compiler.sld) exports
-`source-file->wat-file`: source filename to unlinked WasmGC text. The loader
+`source-file->wasm`: source filename to an in-memory module datum.
+`source-file->wat-file` writes that datum as unlinked WAT. The loader
 maps `(scheme ...)` to `bootstrap/scheme/`. Other imports search caller-provided
 library directories in order, then `src/`; one search policy covers transitive
 imports, and malformed first matches do not fall through.
@@ -274,34 +277,34 @@ callbacks work, but suspension and cancellation across Rust frames need an
 explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
 implemented ownership from this planned support.
 
-[`native.sld`](src/snail-scheme/native.sld) builds an x86-64 Linux executable from
-the exact linked `.wasm` file used by the Wasm host. Binaryen validates and
-canonicalizes the binary's types; [`wasm-binary.sld`](src/snail-scheme/wasm-binary.sld)
-reads bounded sections and retains function bodies as ranges in the original
-bytevector. [`llvm.sld`](src/snail-scheme/llvm.sld) indexes declarations, then
-decodes each function's flat instructions directly into LLVM. It never reads
-Scheme IR. Entry-block slots represent locals and structured branch results;
-LLVM promotes them to SSA. Guest functions use `tailcc`, with `tail` on Wasm
-tail calls, including calls with different argument counts.
+[`native.sld`](src/snail-scheme/native.sld) builds x86-64 Linux executables from
+in-memory module datums. [`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld)
+resolves names, canonicalizes final singleton recursive types, and normalizes
+each function into evaluation order. [`llvm.sld`](src/snail-scheme/llvm.sld)
+consumes these numeric declarations and instructions without reading Scheme IR,
+WAT, or Wasm binaries. Unsupported generated shapes fail explicitly. This
+adapter handles the compiler's subset; it is not an arbitrary-Wasm validator.
 
-The binary reader also retains optional function names. The native converter
-maps the explicit `cold.` prefix to LLVM's `cold` hint, which keeps wide-number
-fallbacks from dictating the hot integer path's layout. Name stripping discards
-only this optimization hint. Immediate i31 values pack and unpack with i32 shifts;
-all reference storage remains i64 so heap pointers retain their full width.
+Entry-block slots represent locals and structured branch results; LLVM promotes
+them to SSA. Guest functions use `tailcc`, with `tail` on Wasm tail calls,
+including calls with different argument counts. Optional function names with
+the `cold.` prefix request LLVM's cold hint for wide-number fallbacks.
+Immediate i31 values pack and unpack with i32 shifts; all reference storage
+remains i64 so heap pointers retain their full width.
 
-[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) keeps names, integer operands,
-escaped bytes, and float bit patterns structured until printing. Fragments
-compose as nested lists and stream directly to the output port. One function's
-body is buffered to place all local and branch-result slots in its entry block.
+[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) keeps names, integer operands and
+escaped bytes structured until printing. Finite f64 literals use round-tripping
+decimal spelling; infinities and NaNs use LLVM hex literals. Fragments compose as
+nested lists and stream to the output port. Only one function's body is buffered
+to place local and branch-result slots in its entry block.
 
-[`native.c`](src/native.c) provides Wasm mechanics, WASIp1, and BDWGC. It keeps
-Scheme GC objects in scanned allocations and Rust's linear memory in an
-unscanned reservation. The translated Rust uses the same AWI root table as in
-Wasm. The CLI route instead links a native Rust archive;
-its OS operations bypass WASIp1 and use the same owned root handles. One native
-process currently owns one Scheme instance. Finalizers queue scalar resource IDs; cleanup calls Rust only after all
-guest frames return, when no Rust host-state borrow is active. See
+[`native.c`](src/native.c) provides WasmGC mechanics, traps and BDWGC. Scheme
+objects and the AWI reference table are scanned allocations. Rust links as a
+native archive, uses its standard library for OS operations, and retains Scheme
+values with owned AWI handles. The binary reader, translated Rust linear memory
+and native WASIp1 adapter have been removed. One process currently owns one
+Scheme instance. Finalizers queue scalar resource IDs; cleanup calls Rust only
+after guest frames return, when no Rust host-state borrow is active. See
 [native execution](doc/native.md) for the representation and host contract.
 
 ## Tests and measurements

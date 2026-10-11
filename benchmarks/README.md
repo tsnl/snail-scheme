@@ -17,8 +17,11 @@ and timing boundaries. [`render-studio.py`](render-studio.py) renders the
 
 ## Complete linked native CPU baseline
 
-[`benchmarks/native`](native) builds one complete Rust-linked Wasm program and
-translates that exact binary with the Scheme LLVM converter. It compares native,
+The recorded baseline builds one complete Rust-linked Wasm program and
+translates that exact binary with the Scheme LLVM converter. The current
+[`benchmarks/native`](native) runner instead uses the shared datum-to-LLVM backend
+and native Rust archive; rerun it to measure the current pipeline. The historical
+comparison measures native,
 V8, Chez, Guile, and Chibi after all compilation finishes. Eight rotating CPU2
 rounds give native **0.02690s**, Chez **0.02978s**, V8 **0.08347s**, Guile
 **0.09566s**, and Chibi **0.45900s**, for checksum `269118144` in every sample.

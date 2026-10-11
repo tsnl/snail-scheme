@@ -148,8 +148,7 @@ Within `ir-library->wasm`, the emitter records these stages:
 
 The visitor consumes transient type facts while lowering each expression and
 registers literals in source traversal order. The separate `write-wasm` span
-measures serialization of the completed datum; native builds trace translation
-separately. Runtime definitions are ordinary in-memory datums, so there are no
+measures serialization of the completed datum; native builds trace name/type resolution and LLVM emission. Runtime definitions are ordinary in-memory datums, so there are no
 runtime text-copy spans.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and omission

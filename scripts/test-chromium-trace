@@ -82,7 +82,7 @@ def main():
     if target == "both":
         native = BUILD / "trace"
         subprocess.run([CHIBI, "-I", str(ROOT / "src"), str(ROOT / "tests/build-native.scm"),
-                        str(ROOT), str(wasm), str(native)], cwd=ROOT, check=True)
+                        str(ROOT), str(source), str(native)], cwd=ROOT, check=True)
         check_execution([str(native)])
         print("passed native: Chromium trace decorator", flush=True)
 

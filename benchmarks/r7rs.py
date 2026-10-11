@@ -158,32 +158,15 @@ def build_commands(case):
 
 
 def native_commands(directory, source):
-    artifact, wasm = str(directory / "program"), str(directory / "program.wasm")
+    artifact = str(directory / "program")
     quote = lambda value: json.dumps(str(value), ensure_ascii=False)
-    translation = " ".join(quote(arg) for arg in native_translation_command(wasm, artifact))
     script = directory / "build.scm"
     script.write_text(
-        "(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace))\n"
-        f"(with-chromium-trace-to {quote(directory / 'build.trace.json')}\n"
-        "  (lambda ()\n"
-        f"    (build-wasm {quote(ROOT)} {quote(source)} {quote(wasm)})\n"
-        f'    (run-command "benchmark.native" (list {translation}))))\n'
+        "(import (scheme base) (snail-scheme native) (snail-scheme chromium-trace))\n"
+        f'(with-chromium-trace-to {quote(directory / "build.trace.json")} (lambda ()\n'
+        f"(build-native {quote(ROOT)} {quote(source)} {quote(artifact)})))\n"
     )
     return [tool("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"), str(script)], [artifact]
-
-
-def native_translation_command(wasm, artifact):
-    if os.environ.get("SNAIL_WASM_NATIVE"):
-        return [tool("SNAIL_WASM_NATIVE", ""), str(wasm), "-o", str(artifact)]
-    return [
-        tool("CHIBI", "chibi-scheme"),
-        "-I",
-        str(ROOT / "src"),
-        str(ROOT / "tests/build-native.scm"),
-        str(ROOT),
-        str(wasm),
-        str(artifact),
-    ]
 
 
 def chez_commands(directory, source):
@@ -528,7 +511,7 @@ def metadata(args, files, names):
         "systems": args.systems,
         "cases": [],
         "order": [],
-        "native_translator": os.environ.get("SNAIL_WASM_NATIVE") or "(snail-scheme native)",
+        "native_backend": "WAT datums through LLVM, Clang, the native Rust runtime, and BDWGC",
         "input_sha256": {
             n: digest(data) for n, data in files.items() if n.startswith(("src/", "inputs/"))
         },
@@ -547,7 +530,11 @@ def tool_versions():
         ("GUILD", "guild"),
         ("CHIBI", "chibi-scheme"),
         ("CARGO", "cargo"),
+        ("RUSTC", "rustc"),
+        ("CLANG", "clang"),
         ("NODE", "node"),
+        ("WASM_AS", "wasm-as"),
+        ("WASM_MERGE", "wasm-merge"),
         ("WASM_OPT", "wasm-opt"),
     ]:
         path = shutil.which(os.environ.get(key, default))
