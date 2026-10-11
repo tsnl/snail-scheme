@@ -1,20 +1,29 @@
-;; A small option specification drives parsing, validation, defaults, and help.
-;; Parsed values are keyed by the first declared alias; callers choose that key.
+;; Quoted type-headed declarations become a validated argument specification.
+;; Both parsers share that specification; each creates its own result values.
 (define-library (snail-scheme options)
-  (export option <args> make-args args? args-posargs args-options args-ref
-          parse-options parse-options-prefix options-help)
+  (export <args-spec> make-args-spec args-spec?
+          <args> make-args args? args-posargs args-options args-ref
+          parse-options parse-options-prefix options-usage options-help)
   (import (scheme base))
   (begin
 
     ;; ---- Option specifications and parsed arguments ----
 
     (define-record-type <option>
-      (%make-option names type description metavar)
+      (%make-option type names description metavar)
       option-spec?
       (names option-names)
       (type option-type)
       (description option-description)
       (metavar option-metavar))
+
+    (define-record-type <args-spec>
+      (%make-args-spec program description options aliases)
+      args-spec?
+      (program args-spec-program)
+      (description args-spec-description)
+      (options args-spec-options)
+      (aliases args-spec-aliases))
 
     (define-record-type <args>
       (make-args posargs options)
@@ -22,16 +31,34 @@
       (posargs args-posargs)
       (options args-options))
 
-    (define (option names type description . metavar)
+    (define (make-option type names description . metavar)
       (if (not (memq type '(flag counter key-val key-val-list)))
           (error "unknown argument type" type))
-      (if (or (> (length metavar) 1) (not (string? description))
+      (if (or (not (list? names)) (null? names))
+          (error "expected a nonempty list of option names" names))
+      (if (or (not (string? description))
               (and (pair? metavar) (not (string? (car metavar)))))
-          (error "expected a description and at most one metavar string"))
-      (let ((aliases (if (string? names) (list names) names)))
-        (if (null? aliases) (error "expected at least one option name"))
-        (for-each validate-option-name aliases)
-        (%make-option aliases type description (if (null? metavar) "VALUE" (car metavar)))))
+          (error "expected description and metavar strings"))
+      (for-each validate-option-name names)
+      (%make-option type (map string-append names) (string-append description)
+                    (if (null? metavar) "VALUE" (string-append (car metavar)))))
+
+    (define (read-option declaration)
+      (if (or (not (list? declaration)) (not (memv (length declaration) '(3 4))))
+          (error "expected (TYPE (NAME ...) DESCRIPTION [METAVAR])" declaration))
+      (apply make-option declaration))
+
+    ;; Construction owns the configuration and establishes unique aliases once.
+    ;; string-append with one string copies it using the bootstrap's primitives.
+    (define (make-args-spec declarations program . help)
+      (if (not (list? declarations)) (error "expected a list of option declarations" declarations))
+      (if (or (not (string? program)) (string=? program ""))
+          (error "expected a nonempty program name string" program))
+      (if (or (> (length help) 1) (and (pair? help) (not (string? (car help)))))
+          (error "expected at most one help string" help))
+      (let ((options (map read-option declarations)))
+        (%make-args-spec (string-append program) (if (null? help) "" (string-append (car help)))
+                         options (option-table options))))
 
     (define (option-key entry)
       (car (option-names entry)))
@@ -62,9 +89,23 @@
     (define (option-help entry)
       (string-append "  " (option-label entry) "\n    " (option-description entry) "\n"))
 
-    (define (options-help specification usage)
-      (string-append (if (string=? usage "") "" (string-append usage "\n\n"))
-                     "Options:\n" (apply string-append (map option-help specification))))
+    (define (option-usage entry)
+      (string-append " [" (option-key entry)
+                     (if (option-takes-value? entry) (string-append " " (option-metavar entry)) "")
+                     "]" (if (memq (option-type entry) '(counter key-val-list)) "..." "")))
+
+    (define (options-usage specification)
+      (string-append "usage: " (args-spec-program specification)
+                     (apply string-append (map option-usage (args-spec-options specification)))
+                     " [--] [ARGUMENT ...]"))
+
+    (define (options-help specification)
+      (let ((options (args-spec-options specification))
+            (description (args-spec-description specification)))
+        (string-append (options-usage specification) "\n"
+                       (if (string=? description "") "" (string-append "\n" description "\n"))
+                       (if (null? options) ""
+                           (string-append "\nOptions:\n" (apply string-append (map option-help options)))))))
 
     ;; ---- Names and alias lookup ----
 
@@ -96,8 +137,8 @@
               ((assoc (car names) table) (error "duplicate option name" (car names)))
               (else (register (cdr names) (cons (cons (car names) entry) table))))))
 
-    (define (option-table specification)
-      (let build ((remaining specification) (aliases '()))
+    (define (option-table options)
+      (let build ((remaining options) (aliases '()))
         (if (null? remaining) aliases
             (build (cdr remaining) (register-option aliases (car remaining))))))
 
@@ -161,12 +202,11 @@
     ;; Both grammars share alias lookup, arity validation, and typed updates.
     ;; Prefix mode alone stops at the first positional, preserving its full tail.
     ;; Exact -- always ends interpretation and is consumed only once.
-    (define (collect-options specification arguments prefix? usage)
-      (if (> (length usage) 1) (error "expected at most one usage string"))
-      (let ((aliases (option-table specification))
-            (help (options-help specification (if (null? usage) "" (car usage))))
-            (settings (map (lambda (entry) (cons (option-key entry) (option-default entry)))
-                           specification)))
+    (define (collect-options specification arguments prefix?)
+      (let ((aliases (args-spec-aliases specification))
+            (help (options-help specification))
+            (settings (map (lambda (entry) (cons (string-append (option-key entry)) (option-default entry)))
+                           (args-spec-options specification))))
         (let scan ((remaining arguments) (positionals '()))
           (cond ((null? remaining) (finish-args positionals settings '()))
                 ((string=? (car remaining) "--") (finish-args positionals settings (cdr remaining)))
@@ -175,11 +215,11 @@
                 (prefix? (finish-args positionals settings remaining))
                 (else (scan (cdr remaining) (cons (car remaining) positionals)))))))
 
-    (define (parse-options specification arguments . usage)
-      (collect-options specification arguments #f usage))
+    (define (parse-options specification arguments)
+      (collect-options specification arguments #f))
 
-    (define (parse-options-prefix specification arguments . usage)
-      (collect-options specification arguments #t usage)))
+    (define (parse-options-prefix specification arguments)
+      (collect-options specification arguments #t)))
 
   ;; ---- Tests ----
 
@@ -189,18 +229,25 @@
     (export test-options)
     (begin
       (define test-specification
-        (list (option '("-v" "--verbose") 'counter "Increase verbosity.")
-              (option '("-h" "--help") 'flag "Show help.")
-              (option '("--output" "-o") 'key-val "Write a file." "FILE")
-              (option '("--file" "-f") 'key-val-list "Read files." "FILE")
-              (option "-I" 'key-val-list "Prepend library directories." "DIRECTORY")))
+        (make-args-spec
+         '((counter ("-v" "--verbose") "Increase verbosity.")
+           (flag ("-h" "--help") "Show help.")
+           (key-val ("--output" "-o") "Write a file." "FILE")
+           (key-val-list ("--file" "-f") "Read files." "FILE")
+           (key-val-list ("-I") "Prepend library directories." "DIRECTORY"))
+         "sample"))
 
       (define (parse-error arguments)
         (guard (failure (else (list (error-object-message failure) (car (error-object-irritants failure)))))
-          (parse-options test-specification arguments "usage: sample")))
+          (parse-options test-specification arguments)))
+
+      (define (spec-error . arguments)
+        (guard (failure (else (error-object-message failure)))
+          (apply make-args-spec arguments) #f))
 
       (define (test-option-defaults)
         (let ((result (parse-options test-specification '())))
+          (expect (args-spec? test-specification) #t)
           (expect (args? result) #t)
           (expect (args-posargs result) '())
           (expect (args-ref result "-v") 0)
@@ -268,8 +315,8 @@
         (expect (parse-error '("-vx")) '("unknown option" "-x"))
         (expect (parse-error '("first" "--unknown")) '("unknown option" "--unknown"))
         (expect (guard (failure (else (cadr (error-object-irritants failure))))
-                  (parse-options test-specification '("-x") "usage: sample") #f)
-                (options-help test-specification "usage: sample")))
+                  (parse-options test-specification '("-x")) #f)
+                (options-help test-specification)))
 
       (define (test-option-ownership)
         (let* ((arguments '("-vv" "-Ione")) (first (parse-options test-specification arguments))
@@ -278,28 +325,84 @@
           (expect (args-ref first "-I") '("one"))
           (expect (args-ref second "-v") 0)
           (expect (args-ref second "-I") '())
-          (expect arguments '("-vv" "-Ione")))
-        (expect (guard (failure (else (error-object-message failure)))
-                  (parse-options (list (option "-x" 'flag "First.")
-                                       (option '("--other" "-x") 'counter "Second.")) '()) #f)
-                "duplicate option name"))
+          (expect arguments '("-vv" "-Ione"))))
 
       (define (test-option-declarations)
         (for-each
          (lambda (name)
-           (expect (guard (failure (else (error-object-message failure)))
-                     (option (list name) 'flag "Invalid.") #f) "invalid option name"))
+           (expect (spec-error (list (list 'flag (list name) "Invalid.")) "sample")
+                   "invalid option name"))
          '("" "-" "--" "-vv" "--file=value" "-= " 1))
-        (expect (guard (failure (else (error-object-message failure)))
-                  (option "-v" 'unknown "Invalid.") #f) "unknown argument type")
+        (expect (spec-error '((unknown ("-v") "Invalid.")) "sample") "unknown argument type")
+        (expect (spec-error '((counter "-v" "Invalid.")) "sample")
+                "expected a nonempty list of option names")
+        (expect (spec-error '((counter () "Invalid.")) "sample")
+                "expected a nonempty list of option names")
+        (expect (spec-error '((counter ("-v" . "--verbose") "Invalid.")) "sample")
+                "expected a nonempty list of option names")
+        (expect (spec-error '((counter ("-v"))) "sample")
+                "expected (TYPE (NAME ...) DESCRIPTION [METAVAR])")
+        (expect (spec-error '((counter ("-v") "Invalid." "VALUE" "EXTRA")) "sample")
+                "expected (TYPE (NAME ...) DESCRIPTION [METAVAR])")
+        (expect (spec-error '(counter) "sample") "expected (TYPE (NAME ...) DESCRIPTION [METAVAR])")
+        (expect (spec-error #f "sample") "expected a list of option declarations")
+        (expect (spec-error '((flag ("-x") "First.") (counter ("--other" "-x") "Second.")) "sample")
+                "duplicate option name")
+        (expect (spec-error '((flag ("-x" "-x") "Repeated.")) "sample") "duplicate option name")
         (expect (guard (failure (else (error-object-message failure)))
                   (args-ref (parse-options test-specification '()) "--undeclared") #f)
                 "unknown argument key"))
 
+      (define (test-specification-metadata)
+        (expect (spec-error '() "") "expected a nonempty program name string")
+        (expect (spec-error '() 1) "expected a nonempty program name string")
+        (expect (spec-error '() "sample" 1) "expected at most one help string")
+        (expect (spec-error '() "sample" "first" "second") "expected at most one help string")
+        (expect (spec-error '((key-val ("-o") 1)) "sample")
+                "expected description and metavar strings")
+        (expect (spec-error '((key-val ("-o") "Invalid." #f)) "sample")
+                "expected description and metavar strings"))
+
+      (define (test-specification-ownership)
+        (let* ((name (string-append "-v")) (names (list name))
+               (description (string-append "Increase.")) (program (string-append "sample"))
+               (help (string-append "Long help."))
+               (specification (make-args-spec (list (list 'counter names description)) program help)))
+          (set-car! names "--replaced")
+          (for-each (lambda (text) (string-set! text 0 #\x)) (list name description program help))
+          (expect (options-help specification)
+                  "usage: sample [-v]... [--] [ARGUMENT ...]\n\nLong help.\n\nOptions:\n  -v\n    Increase.\n")
+          (let ((result (parse-options specification '("-vv"))))
+            (expect (args-ref result "-v") 2)
+            (string-set! (caar (args-options result)) 0 #\x)
+            (expect (args-ref (parse-options specification '("-v")) "-v") 1))))
+
+      (define (test-empty-specification)
+        (let* ((specification (make-args-spec '() "app"))
+               (result (parse-options specification '("first" "--" "-v" "--"))))
+          (expect (args-options result) '())
+          (expect (args-posargs result) '("first" "-v" "--"))
+          (expect (options-usage specification) "usage: app [--] [ARGUMENT ...]")
+          (expect (options-help specification) "usage: app [--] [ARGUMENT ...]\n")
+          (expect (options-help (make-args-spec '() "app" "Long help."))
+                  "usage: app [--] [ARGUMENT ...]\n\nLong help.\n")))
+
       (define (test-option-help)
-        (expect (options-help (list (option "-I" 'key-val-list "Search a directory." "DIR")
-                                    (option '("-h" "--help") 'flag "Show help.")) "usage: app")
-                "usage: app\n\nOptions:\n  -I DIR\n    Search a directory.\n  -h, --help\n    Show help.\n"))
+        (let ((specification
+               (make-args-spec
+                '((counter ("-v" "--verbose") "Increase verbosity.")
+                  (key-val ("-o" "--output") "Write a file.")
+                  (key-val-list ("-I") "Search a directory." "DIR")
+                  (flag ("-h" "--help") "Show help."))
+                "app" "Long help.\nMore help.")))
+          (expect (options-usage specification)
+                  "usage: app [-v]... [-o VALUE] [-I DIR]... [-h] [--] [ARGUMENT ...]")
+          (expect (options-help specification)
+                  (string-append
+                   "usage: app [-v]... [-o VALUE] [-I DIR]... [-h] [--] [ARGUMENT ...]\n\n"
+                   "Long help.\nMore help.\n\nOptions:\n  -v, --verbose\n    Increase verbosity.\n"
+                   "  -o, --output VALUE\n    Write a file.\n  -I DIR\n    Search a directory.\n"
+                   "  -h, --help\n    Show help.\n"))))
 
       (define (test-options)
         (run-test test-option-defaults)
@@ -310,5 +413,8 @@
         (run-test test-option-errors)
         (run-test test-option-ownership)
         (run-test test-option-declarations)
+        (run-test test-specification-metadata)
+        (run-test test-specification-ownership)
+        (run-test test-empty-specification)
         (run-test test-option-help))))
    (else)))

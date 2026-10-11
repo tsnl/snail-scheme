@@ -22,9 +22,11 @@ supplied script, and return its status. Both `-Isrc` and `-I src` work; each
 occurrence prepends a directory. `--` ends interpreter options, and arguments
 after the script filename pass through literally.
 [`options.sld`](src/snail-scheme/options.sld) supplies the reusable option reader.
-A single specification supplies validation and generated help. The `<args>`
-result holds positionals and a value for each declared option. Four canned types
-handle boolean flags, counters, single values, and repeated values; grouped aliases
+`make-args-spec` validates a quoted list of type-headed declarations and stores
+the program name, optional help text, option records, and unique alias lookup
+in an `<args-spec>` record. Usage and help are generated from this record. The
+`<args>` result holds positionals and a value for each declared option. Four canned
+types handle boolean flags, counters, single values, and repeated values; grouped aliases
 share one result key. Repeated values accumulate latest first.
 Full parsing accepts options after positionals; the interpreter uses prefix
 parsing to preserve script arguments. Both consume `--` and keep its remaining

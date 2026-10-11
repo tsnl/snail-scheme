@@ -29,8 +29,10 @@ filename beginning with `-`. After the script filename, all arguments belong to
 the script, including any `-I` tokens.
 
 The CLI uses the public `(snail-scheme options)` library. Its `parse-options`
-procedure validates argument strings against a specification, which also
-generates help. An `<args>` record holds positionals and typed option values:
+procedure reads argument strings using an `<args-spec>` record, constructed from
+a quoted list of typed declarations, a program name, and optional help text.
+The library generates usage and help from that record. An `<args>` record holds
+positionals and typed option values:
 flags, counters, single values, or repeated values. `--` switches permanently to
 positional-only mode. The CLI uses `parse-options-prefix` to preserve the script's
 argument suffix and provides generated help with `-h` or `--help`.

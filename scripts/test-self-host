@@ -188,7 +188,7 @@ def check_option_errors(interpreter, directory, **environment):
     for arguments, diagnostic in cases:
         result = invoke([interpreter, *arguments], directory, TMPDIR=str(temporary), **environment)
         if (result.returncode == 0 or diagnostic not in result.stderr or
-                "usage: snail-scheme [OPTIONS]" not in result.stderr):
+                "usage: snail-scheme [-I DIRECTORY]... [-h]" not in result.stderr):
             raise RuntimeError(f"missing interpreter option diagnostic: {result}")
     if list(temporary.iterdir()):
         raise RuntimeError("invalid options created compilation intermediates")
@@ -210,7 +210,8 @@ def check_application_options(interpreter, directory, **environment):
     require(invoke([interpreter, source, *arguments], directory, **environment), expected)
     help_result = invoke([interpreter, source, "--help"], directory, **environment)
     if (help_result.returncode or help_result.stderr or "  --file, -f FILE\n" not in help_result.stdout or
-            "usage: options-demo" not in help_result.stdout):
+            "usage: options-demo [-I DIRECTORY]... [--output FILE] [--file FILE]... [-v]... [-h]" not in help_result.stdout or
+            "Demonstrate typed options in an ordinary Scheme application." not in help_result.stdout):
         raise RuntimeError(f"application help did not use its specification: {help_result}")
     for arguments, diagnostic in ((["--file", "--"], "option requires an argument"),
                                   (["--verbose="], "option does not take an argument"),

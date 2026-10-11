@@ -21,8 +21,9 @@ Use `--` before a script filename beginning with `-`; arguments after the
 filename pass through literally.
 
 Applications can use `(snail-scheme options)` for the same option syntax.
-A specification drives argument validation and generated help; the `<args>`
-result holds positionals and typed option values. Flags, counters such as `-vvv`,
+A quoted list of typed declarations constructs an `<args-spec>` record, which
+drives validation and generated usage and help. The `<args>` result holds
+positionals and typed option values. Flags, counters such as `-vvv`,
 single values, and repeated values share one small API.
 See [the API and example](doc/options.md). Use `snail-scheme --help` for CLI help.
 
