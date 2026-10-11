@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile once to WasmGC and execute fixtures in a Wasm engine or native adapter."""
+"""Compile Scheme fixtures through the Wasm and native backends and execute them."""
 
 import argparse
 import os
@@ -18,6 +18,7 @@ SUCCESSES = {
     "backend-binary": "binary IO checks passed\n",
     "backend-numeric": "numeric instruction checks passed\n",
     "backend-inexact": "inexact checks passed\n",
+    "backend-hash-tables": "hash table checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
     "backend-control": "control-flow checks passed\n",
@@ -32,6 +33,12 @@ ERRORS = {
     "numeric-arity": "wrong number of arguments",
     "binary-range": "slice index out of range",
     "binary-utf8": "invalid utf-8",
+    "hash-immutable": "immutable hash table",
+    "hash-missing": "hash table key not found",
+    "hash-invalid": "invalid hash value",
+    "hash-key-type": "hash table key type mismatch",
+    "hash-equality-mutation": "hash table structurally changed during callback",
+    "hash-traversal-mutation": "hash table structurally changed during callback",
     "inexact-type": "expected [Integer, Real]",
     "inexact-arity": "sqrt: expected 1..=1 arguments",
     "inexact-optional-type": "expected [Integer, Real]",
@@ -69,9 +76,10 @@ def execution_command(wasm, native):
             str(ROOT / "scripts/run-wasi.mjs"), str(wasm)]
 
 
-def require_result(command, stdout, diagnostic="", arguments=()):
+def require_result(command, stdout, diagnostic="", arguments=(), environment=None):
     result = subprocess.run([*command, *arguments], cwd=ROOT, text=True,
-                            capture_output=True, check=False, timeout=120)
+                            capture_output=True, check=False, timeout=120,
+                            env={**os.environ, **(environment or {})})
     status_matches = result.returncode != 0 if diagnostic else result.returncode == 0
     message_matches = diagnostic in result.stderr if diagnostic else not result.stderr
     if not status_matches or result.stdout != stdout or not message_matches:
@@ -87,16 +95,20 @@ def check_fixture(name, targets):
             for argument, diagnostic in ERRORS.items():
                 require_result(command, "", diagnostic, [argument])
         else:
-            require_result(command, SUCCESSES[name])
+            stress = {"SNAIL_NATIVE_GC_INTERVAL": "97"} if native and name == "backend-hash-tables" else {}
+            require_result(command, SUCCESSES[name], environment=stress)
+        if not native and name == "backend-hash-tables":
+            require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                            str(ROOT / "tests/check-awi-roots.mjs"), command[-1], "3"], SUCCESSES[name])
         print(f"passed {'native' if native else 'Wasm'}: {name}", flush=True)
 
 
-def check_finalizers():
-    output = BUILD / "finalizers.wasm"
-    checked([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/finalizers.wat",
+def check_host_lifetime(name):
+    output = BUILD / f"{name}.wasm"
+    checked([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests" / f"{name}.wat",
              "--enable-gc", "--enable-reference-types", "-o", output])
     checked([os.environ.get("NODE", "node"), "--expose-gc",
-             ROOT / "tests/check-finalizers.mjs", output])
+             ROOT / "tests" / f"check-{name}.mjs", output])
 
 
 def main():
@@ -106,7 +118,8 @@ def main():
     for name in [*SUCCESSES, "backend-errors"]:
         check_fixture(name, targets)
     if False in targets:
-        check_finalizers()
+        check_host_lifetime("finalizers")
+        check_host_lifetime("hash-identity")
     print("WasmGC backend checks passed; call/cc remains unsupported future work")
 
 

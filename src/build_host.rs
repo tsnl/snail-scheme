@@ -280,12 +280,16 @@ mod tests {
 
     #[test]
     fn failed_removal_still_consumes_ownership() {
-        let directory = reserve_directory(&std::env::temp_dir()).unwrap();
+        // Keep the parent reserved while replacing the child. Other parallel
+        // tests must not reuse the temporarily absent directory name.
+        let parent = reserve_directory(&std::env::temp_dir()).unwrap();
+        let directory = reserve_directory(&parent).unwrap();
         fs::remove_dir(&directory).unwrap();
         fs::write(&directory, "a file prevents recursive directory removal").unwrap();
         clean_directory(&directory).unwrap();
         assert!(directory.is_file());
         assert!(clean_directory(&directory).is_err());
         fs::remove_file(directory).unwrap();
+        clean_directory(&parent).unwrap();
     }
 }

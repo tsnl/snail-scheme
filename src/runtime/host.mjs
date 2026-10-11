@@ -18,3 +18,24 @@ export function createFinalizers(cleanup) {
     },
   };
 }
+
+// ---- Identity hashing ----
+
+// WasmGC references have stable JS identities even when the engine moves them.
+// Weak keys and scalar values let hashed objects, including cycles, be collected.
+// Keep one hasher alive for the instance: tables cache these hash values.
+export function createIdentityHasher() {
+  const identities = new WeakMap();
+  let next = 0;
+  return value => {
+    if (value === null) return 0;
+    if (typeof value === 'number') return Math.imul(value, 0x9e3779b1) & 0x3fffffff;
+    let hash = identities.get(value);
+    if (hash === undefined) {
+      hash = next;
+      next = (next + 1) & 0x3fffffff;
+      identities.set(value, hash);
+    }
+    return hash;
+  };
+}

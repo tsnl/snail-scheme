@@ -169,3 +169,6 @@
 (func (export "call") (param $procedure i32) (param $arguments i32) (result i32)
   (call $awi_root (call $apply (call $awi_get (local.get $procedure))
     (ref.cast (ref $vector) (call $awi_get (local.get $arguments))) (ref.null $result_context))))
+
+(func (export "identity_hash") (param $handle i32) (result i32)
+  (call $host_hash_identity (call $awi_get (local.get $handle))))

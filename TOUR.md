@@ -203,6 +203,13 @@ See [the implemented typing contract](doc/typing-prototype.md),
 [proposed rules](doc/typing-rules.md), and [typing measurements](benchmarks/README.md#typing-and-i32-specialization)
 for supported boundaries and remaining proof obligations.
 
+[`hash-table.sld`](src/snail-scheme/hash-table.sld) implements collector-owned
+R7RS-large hash tables behind `(scheme hash-table)`. Scheme owns buckets, cached
+hashes, and callback mutation checks; [`hash.rs`](src/hash.rs) supplies structural
+hashing through owned AWI roots. Wasm's weak identity map and native pointer
+hashing avoid a registry that would retain keys. See [hash tables](doc/hash-tables.md)
+for the supported API and comparator limits.
+
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
