@@ -5,7 +5,8 @@
   (export analyze-types type-optimizations-enabled analysis-fact analysis-guard analysis-guards
           analysis-signature analysis-call-guards fact-type fact-single? fact-callee predicate-type
           analysis-statistics)
-  (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme type-inference)
+  (import (scheme base) (scheme cxr) (scheme hash-table)
+          (snail-scheme types) (snail-scheme type-inference)
           (prefix (snail-scheme ir) ir:))
   (begin
     ;; ---- Evidence and analysis state ----
@@ -36,9 +37,9 @@
       (let ((entry (assq key entries))) (if entry (cdr entry) default)))
 
     (define-record-type <analysis>
-      (make-analysis facts guards signatures declarations primitives assigned bindings summaries records call-guards calls)
+      (make-analysis facts fact-count guards signatures declarations primitives assigned bindings summaries records call-guards calls)
       analysis?
-      (facts analysis-facts set-analysis-facts!)
+      (facts analysis-facts) (fact-count analysis-fact-count set-analysis-fact-count!)
       (guards analysis-guards set-analysis-guards!)
       (signatures analysis-signatures set-analysis-signatures!)
       (declarations analysis-declarations set-analysis-declarations!)
@@ -49,14 +50,21 @@
       (calls analysis-calls set-analysis-calls!))
 
     (define (analysis-fact analysis node)
-      (entry-value node (analysis-facts analysis) (unknown-fact)))
+      (hash-table-ref/default (analysis-facts analysis) node (unknown-fact)))
+
+    ;; Node identity selects the latest evidence. The count retains the number
+    ;; of analysis records, including repeated visits, for existing statistics.
+    (define (record-fact! analysis node fact)
+      (hash-table-set! (analysis-facts analysis) node fact)
+      (set-analysis-fact-count! analysis (+ 1 (analysis-fact-count analysis))))
+
     (define (analysis-guard analysis node) (entry-value node (analysis-guards analysis) #f))
     (define (analysis-signature analysis node)
       (entry-value node (analysis-signatures analysis) #f))
     (define (analysis-call-guards analysis node)
       (entry-value node (analysis-call-guard-plans analysis) '()))
     (define (analysis-statistics analysis)
-      (list (cons 'expressions (length (analysis-facts analysis)))
+      (list (cons 'expressions (analysis-fact-count analysis))
             (cons 'guards (length (analysis-guards analysis)))
             (cons 'signatures (length (analysis-signatures analysis)))
             (cons 'function-summaries (length (analysis-summaries analysis)))))
@@ -92,7 +100,7 @@
              (bindings (map (lambda (node) (cons (ir:value-binding-definition node)
                                                  (ir:value-binding-initializer node)))
                             (select ir:value-binding? nodes)))
-             (analysis (make-analysis '() '() '() '() primitives assigned bindings '() '() '() '())))
+             (analysis (make-analysis (make-hash-table eq?) 0 '() '() '() primitives assigned bindings '() '() '() '())))
         (for-each (lambda (node) (register-record! node items analysis)) (select ir:record-schema? nodes))
         (for-each (lambda (node) (declare-record! node analysis)) (select ir:record-schema? nodes))
         (for-each (lambda (node) (declare-type! node analysis)) (select ir:type-declaration? nodes))
@@ -284,7 +292,7 @@
       ;; postcondition to omit its own redundant check.
       (let* ((fact (infer node environment path strict? expected analysis))
              (checked (if expected (check-result node fact expected analysis) fact)))
-        (set-analysis-facts! analysis (cons (cons node checked) (analysis-facts analysis)))
+        (record-fact! analysis node checked)
         checked))
 
     (define (infer node environment path strict? expected analysis)
@@ -525,7 +533,7 @@
     (define (analyze-immediate-call procedure arguments environment path strict? expected analysis)
       (let* ((parameters (parameter-facts procedure #f arguments analysis))
              (body (analyze (ir:lambda-body procedure) (append parameters environment) path strict? expected analysis)))
-        (set-analysis-facts! analysis (cons (cons procedure (value-fact 'Procedure)) (analysis-facts analysis)))
+        (record-fact! analysis procedure (value-fact 'Procedure))
         body))
 
     (define (call-result node operator arguments strict? expected analysis)
@@ -627,7 +635,18 @@
     (export test-type-analysis)
     (import (snail-scheme test-utils))
     (begin
+      (define (test-fact-identity)
+        (let ((analysis (analyze-types '() '()))
+              (first (ir:make-literal 1 #f)) (second (ir:make-literal 1 #f)))
+          (record-fact! analysis first (value-fact 'ExactInteger))
+          (expect (fact-type (analysis-fact analysis first)) 'ExactInteger)
+          (expect (fact-type (analysis-fact analysis second)) '?)
+          (record-fact! analysis first (unknown-fact))
+          (expect (fact-type (analysis-fact analysis first)) '?)
+          (expect (cdr (assq 'expressions (analysis-statistics analysis))) 2)))
+
       (define (test-type-analysis)
+        (run-test test-fact-identity)
         (let ((first (ir:make-value-definition 'same-name #f))
               (second (ir:make-value-definition 'same-name #f)))
           (expect (common-filters (list (list first #t 'String)) (list (list second #t 'String))) '()))

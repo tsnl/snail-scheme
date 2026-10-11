@@ -7,7 +7,7 @@
 ;; Captures are GC references. Only assigned or early-captured locals need cells.
 (define-library (snail-scheme wasm)
   (export ir-library->wasm write-wasm)
-  (import (scheme base) (scheme cxr) (scheme write)
+  (import (scheme base) (scheme cxr) (scheme write) (scheme hash-table)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis) (snail-scheme partial-eval)
           (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)
@@ -71,9 +71,16 @@
                                (analysis ((chromium-trace "analyze-types" analyze-types) items primitives)))
                           (make-module (numbered globals) primitives
                                        (boxed-definitions items globals) functions known foreign (make-literal-pool) analysis
-                                       ((chromium-trace "partial-evaluate" partial-evaluate) items primitives analysis)
+                                       (index-folds ((chromium-trace "partial-evaluate" partial-evaluate) items primitives analysis))
                                        (specialized-functions functions known globals primitives analysis)
                                        (numbered (unique-identities (map car (analysis-guards analysis)))))))))
+
+    ;; Keep the first alist entry for each node, including false/null constants.
+    ;; This table is queried only; source traversal still determines emission order.
+    (define (index-folds folds)
+      (let ((index (make-hash-table eq?)))
+        (for-each (lambda (entry) (hash-table-set! index (car entry) entry)) (reverse folds))
+        index))
 
     (define (specialized-functions functions known globals primitives analysis)
       (if (null? functions) '()
@@ -329,7 +336,7 @@
               (else (raw-expression node context #f)))))
 
     (define (raw-expression node context checks)
-      (cond ((assq node (module-folds (function-module context)))
+      (cond ((hash-table-ref/default (module-folds (function-module context)) node #f)
              => (lambda (entry) (finish-expression (literal-value (cdr entry) (function-module context)) checks context)))
             ((ir:block? node) (sequence-expression (ir:block-items node) context checks))
             ((ir:conditional? node) (conditional-expression node context checks))
@@ -941,7 +948,7 @@
       (define (emitted-literal-references node values)
         (let* ((pool (make-literal-pool))
                (module (make-module '() '() '() '() '() '() pool
-                                    (analyze-types '() '()) '() '() '()))
+                                    (analyze-types '() '()) (index-folds '()) '() '()))
                (context (make-function module '() '())))
           (expression node context #f)
           (map (lambda (value) (literal-reference value pool)) values)))
@@ -966,9 +973,19 @@
         (expect (float-expression (string->number "+inf.0")) '(f64.const inf))
         (expect (float-expression (string->number "+nan.0")) '(f64.const nan)))
 
+      (define (test-fold-index)
+        (let* ((first (ir:make-literal 1 #f)) (second (ir:make-literal 1 #f))
+               (folds (list (cons first #f) (cons second '()) (cons first 42)))
+               (index (index-folds folds)))
+          (expect (hash-table-ref/default index first #f) (car folds))
+          (expect (hash-table-ref/default index second #f) (cadr folds))
+          (expect (hash-table-ref/default index (ir:make-literal 1 #f) #f) #f)
+          (expect (map cdr folds) '(#f () 42))))
+
       (define (test-wasm)
         (run-test test-binding-cells)
         (run-test test-recursive-capture)
         (run-test test-primitive-rebinding)
+        (run-test test-fold-index)
         (run-test test-emission-order)
         (run-test test-wat-leaves))))))
