@@ -12,7 +12,14 @@ Initialize the upstream suite with
 Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
 own full Scheme source, with byte-checked output and preparation excluded.
 See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
-and timing boundaries. [`render-studio.py`](render-studio.py) renders the
+and timing boundaries. The current
+[visitor comparison](results/2026-10-10-visitor-typing/README.md) preserves the
+frozen inputs, per-implementation output checks, and measured costs of passing
+type facts directly through the visitor. [`compare-compilers.py`](compare-compilers.py)
+requires identical output between implementations; the historical
+[indexing report](results/2026-10-10-compiler-indexes/README.md) uses that stricter check.
+The [call experiment](calls/README.md) keeps the throwaway flow/inlining pass in a
+patch with measurements and reproduction instructions. [`render-studio.py`](render-studio.py) renders the
 [studio scene](../BENCHMARKS.md#studio-scene) and reports its elapsed time.
 
 ## Complete linked native CPU baseline

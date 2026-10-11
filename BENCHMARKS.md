@@ -149,6 +149,40 @@ has no published Snail timing yet.
 
 ## Compile the compiler
 
+The compiler now passes child facts through the visitor, with immutable binding
+scopes and no expression caches. A fixed-input comparison with the previous
+indexed compiler measures the cost of this simplification:
+
+| Compiler host | Cached facts | Visitor | Change in time |
+| --- | ---: | ---: | ---: |
+| Chibi | 14.100 s | 14.650 s | +3.9% |
+| Snail Wasm / V8 | 7.658 s | 9.435 s | +23.2% |
+| Snail native | 31.859 s | 32.319 s | +1.4% |
+
+![Visitor comparison](benchmarks/results/2026-10-10-visitor-typing/comparison.svg)
+
+These are three rotating measured rounds after one discarded run per case.
+Each implementation's outputs match its own validated Chibi reference across
+all three hosts. Emission order differs between implementations. See the
+[method, limitations, and frozen inputs](benchmarks/results/2026-10-10-visitor-typing/README.md)
+and [raw report](benchmarks/results/2026-10-10-visitor-typing/results.json).
+The Wasm regression remains a follow-up; native is close within these samples.
+Chibi remains the supported compiler host. WAT writing takes 0.1–0.24 seconds;
+compiler preparation and linking are outside the timer. The
+[earlier indexing experiment](benchmarks/results/2026-10-10-compiler-indexes/README.md)
+is retained as historical evidence, not an implementation in the landing stack.
+
+A separate [direct-call and inlining experiment](benchmarks/calls/README.md)
+finds a modest benefit from calling known primitive adapters, a larger gain on
+a focused native callback workload from closure analysis, and regressions from
+raising the global inlining threshold. It does not support a general 5–10× gain.
+
+### Earlier compiler corpus
+
+The measurements below use an earlier, smaller compiler and its original native
+pipeline. Their absolute timings are not comparable with the fixed-input
+optimization comparison above.
+
 ![Compiler self-compilation times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)
 
 Three measured rounds on October 10 at commit `5721de9` give medians of
