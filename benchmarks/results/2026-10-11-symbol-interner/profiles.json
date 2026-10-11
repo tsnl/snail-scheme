@@ -1,0 +1,66 @@
+{
+  "scope": "Diagnostic whole-process profiles; not benchmark samples.",
+  "perf_version": "perf version 7.2.3",
+  "profiles": [
+    {
+      "system": "snail-native-before-4gib",
+      "command": [
+        "perf",
+        "record",
+        "-e",
+        "cycles:u",
+        "-F",
+        "199",
+        "--call-graph",
+        "dwarf",
+        "-o",
+        "/tmp/snail-symbol-fingerprints-20261011/build/symbol-profile/snail-native-before-4gib.data",
+        "--",
+        "taskset",
+        "-c",
+        "2",
+        "env",
+        "GC_INITIAL_HEAP_SIZE=4294967296",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-symbol-fingerprints-20261011/build/symbol-profile/snail-native-before-4gib.wat",
+        "snail-native-before-4gib"
+      ],
+      "stdout": "+!CSVLINE!+snail-native-before-4gib,compiler-self,26.277855488\n",
+      "environment": {
+        "GC_PRINT_STATS": "1"
+      },
+      "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a"
+    },
+    {
+      "system": "snail-native-after",
+      "command": [
+        "perf",
+        "record",
+        "-e",
+        "cycles:u",
+        "-F",
+        "199",
+        "--call-graph",
+        "dwarf",
+        "-o",
+        "/tmp/snail-symbol-fingerprints-20261011/build/symbol-profile/snail-native-after.data",
+        "--",
+        "taskset",
+        "-c",
+        "2",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-symbol-fingerprints-20261011/build/symbol-profile/snail-native-after.wat",
+        "snail-native-after"
+      ],
+      "stdout": "+!CSVLINE!+snail-native-after,compiler-self,10.692762549\n",
+      "environment": {
+        "GC_PRINT_STATS": "1"
+      },
+      "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a"
+    }
+  ]
+}
