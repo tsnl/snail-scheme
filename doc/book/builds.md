@@ -1,7 +1,7 @@
 # Programs that build programs
 
 `snail-scheme [-I DIRECTORY ...] [--] SCRIPT [ARGUMENT ...]` evaluates an ordinary
-Scheme script. The native CLI compiles that script through Wasm and LLVM into a
+Scheme script. The native CLI compiles that script through Wasm datums and LLVM into a
 temporary executable, runs it, and returns its status. Script statements execute
 in order. Compilation, artifact paths, and execution policy are procedures in
 Scheme libraries.
@@ -56,17 +56,18 @@ a helper named `main` inside a script does not become an entry point.
 
 The interpreter embeds its source checkout's absolute path. `SNAIL_ROOT` can
 select a compatible checkout. It still needs those compiler/runtime sources and
-external Cargo, Binaryen, Clang/LLD, and BDWGC tools; this is a self-hosting build
+external Cargo, Clang/LLD, and BDWGC tools; this is a self-hosting build
 interpreter, not a standalone compiler distribution. It does not need Chibi after
-the initial bootstrap. `scripts/test-self-host` verifies that by blocking Chibi,
+the initial bootstrap. `scripts/test-self-host` verifies that by blocking Chibi and Binaryen,
 rebuilding the interpreter, and executing scripts with the replacement.
 
 ## Build policy belongs to libraries
 
-`(snail-scheme compiler)` emits unlinked WAT. `(snail-scheme build)` assembles and
-links portable Wasm. `(snail-scheme native)` builds native executables from Scheme
-or binary Wasm and runs ordinary scripts. Its `build-native` procedure publishes
-an executable atomically. `compile-native` is the composition stage used by the
+`(snail-scheme compiler)` constructs Wasm datums and optionally writes unlinked
+WAT. `(snail-scheme build)` uses Binaryen to assemble and link portable Wasm.
+`(snail-scheme native)` builds executables directly from the generated datums and
+runs ordinary scripts. Its `build-native` procedure publishes an executable
+atomically. `compile-native` is the composition stage used by the
 build script above: it writes a private candidate into the caller's workspace,
 without reserving another directory or publishing anything. Importing these
 libraries performs no build.
@@ -77,9 +78,10 @@ publication. The bootstrap build host implements the same operations using Chibi
 The [native CLI interface](platforms/native-cli.md) documents every platform
 operation and the application's required handler inline.
 
-Build scripts choose every artifact path. A successful build atomically renames
-a completed artifact over the destination; a failed build preserves the previous
-output and reports retained intermediates.
+Build scripts choose every artifact path. A successful build publishes a
+completed file or switches a relative symlink to a complete executable generation
+with its dependency artifacts. A failed build preserves the previous output and
+reports retained intermediates. See [generation and packaging](../build-artifacts.md).
 `call-with-build-output` owns one workspace and checks the declared input paths
 both before building and before publication. The second check also protects a
 runtime archive created during this build. `native-runtime-path` selects that
@@ -91,7 +93,7 @@ Scripts inherit stdin/stdout/stderr, environment, working directory, and argumen
 
 ## Stages are ordinary computations with explicit outputs
 
-1. **Expansion** transforms located syntax. A planned `generate-library` has
+1. **Expansion** transforms located syntax. `generate-library` has
    one generator `begin`; its imports apply to generator code, and generated
    code declares its own imports. Explicit source paths select the reader.
 2. **Build evaluation** calls compiler libraries, captures graphs, or composes
@@ -101,5 +103,5 @@ Scripts inherit stdin/stdout/stderr, environment, working directory, and argumen
 Running a reader does not run the document's embedded Scheme. Capturing a tensor
 graph does not train it. Build-time heaps and live connections do not become
 deployment state. General reader generators, graph capture, hot reload, and actor
-connections remain planned; ordinary Scheme compiler calls are the first working
-stage of this design.
+connections remain planned. Ordinary Scheme compiler calls and isolated library
+generators implement the current build stages.

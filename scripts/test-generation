@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Execute generated libraries and verify artifact lifetime and publication."""
+
+import json
+import os
+from pathlib import Path
+import select
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+
+
+# ---- Build scripts and generated fixtures ----
+
+
+def quote(value):
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def invoke(command, directory, **environment):
+    return subprocess.run(list(map(str, command)), cwd=directory, text=True,
+                          capture_output=True, timeout=600,
+                          env={**os.environ, "BINARYEN_CORES": "1", **environment})
+
+
+def require(result, stdout="", diagnostic=None):
+    if diagnostic:
+        if not result.returncode or diagnostic not in result.stderr:
+            raise RuntimeError(f"expected {diagnostic!r}: {result}")
+    elif result.returncode or result.stdout != stdout or result.stderr:
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
+
+
+def build(directory, output, target="native"):
+    source = directory / "build.scm"
+    libraries = f"(list {quote(directory)})"
+    arguments = f"#f {libraries}" if target == "native" else f"'() {libraries}"
+    source.write_text('(import (scheme base) (snail-scheme native) (snail-scheme build) '
+                      '(snail-scheme chromium-trace))\n'
+                      f'(with-chromium-trace-to {quote(str(output) + ".trace.json")} (lambda ()\n'
+                      f'(build-{target} {quote(ROOT)} {quote(directory / "main.scm")} '
+                      f'{quote(output)} {arguments})))\n')
+    return invoke([CHIBI, "-h512M", "-I", ROOT / "src", source], directory)
+
+
+def write_fixtures(directory):
+    project = directory / "project"
+    project.mkdir()
+    (project / "value.txt").write_text("42")
+    (project / "private.txt").write_text("generator only")
+    (project / "private.sld").write_text('''(generate-library (project private)
+      (export private-value)
+      (import (scheme base) (snail-scheme generation) (snail-scheme artifacts) (snail-scheme build-host))
+      (begin
+        (run-command "test.effect" '("sh" "-c" "printf x >> count"))
+        (generated-library
+          '((import (scheme base) (scheme file) (snail artifacts))
+            (begin (define (private-value)
+              (call-with-input-file (artifact-path "private.txt") (lambda (port) (read-string 100 port))))))
+          (list (make-artifact "private.txt" (generation-source-path "private.txt") '())))))''')
+    (project / "answer.sld").write_text('''(generate-library (project answer)
+      (export answer)
+      (import (scheme base) (snail-scheme generation) (snail-scheme artifacts) (project private))
+      (begin
+        (unless (equal? (private-value) "generator only") (error "generator dependency missing"))
+        (generated-library
+          '((import (scheme base) (scheme file) (snail artifacts))
+            (begin (define (answer)
+              (call-with-input-file (artifact-path "answer 'λ.txt") (lambda (port) (read-string 100 port))))))
+          (list (make-artifact "answer 'λ.txt" (generation-source-path "value.txt") '())))))''')
+    (project / "second.sld").write_text('''(generate-library (project second)
+      (export second-value)
+      (import (scheme base) (snail-scheme generation) (project private))
+      (begin (generated-library `((import (scheme base)) (begin (define second-value ,(private-value)))) '())))''')
+    (directory / "main.scm").write_text('''(import (scheme base) (scheme write) (scheme process-context)
+      (project answer) (project second))
+      (when (pair? (cdr (command-line))) (display "ready\\n") (read-char))
+      (display (answer)) (newline) (display second-value) (newline)
+    ''')
+
+
+# ---- Generation stages, publication and relocation ----
+
+
+def check_generation(directory):
+    output = directory / "application"
+    require(build(directory, output))
+    require(invoke([output], "/tmp"), "42\ngenerator only\n")
+    package = output.resolve().parent
+    if not output.is_symlink() or (directory / "project/count").read_text() != "x":
+        raise RuntimeError("generation was not cached across generator compilations")
+    if sorted(p.name for p in (package / "artifacts").iterdir()) != ["answer 'λ.txt"]:
+        raise RuntimeError("generator-only dependencies leaked into the application")
+    if "answer 'λ.txt" not in (package / "manifest.scm").read_text():
+        raise RuntimeError("manifest omitted a reachable dependency")
+    check_running_generation(directory, output)
+    relocated = directory / "relocated"
+    relocated.mkdir()
+    shutil.copytree(output.resolve().parent, relocated / output.resolve().parent.name)
+    (relocated / output.name).symlink_to(os.readlink(output))
+    require(invoke([relocated / output.name], "/tmp"), "43\ngenerator only\n")
+    print("passed generator isolation, shared cache, relocation and live generations", flush=True)
+
+
+def check_running_generation(directory, output):
+    old = subprocess.Popen([output, "wait"], cwd="/tmp", text=True,
+                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        if not select.select([old.stdout], [], [], 20)[0] or old.stdout.readline() != "ready\n":
+            raise RuntimeError("old executable did not reach its synchronization point")
+        (directory / "project/value.txt").write_text("43")
+        require(build(directory, output))
+        stdout, stderr = old.communicate("x", timeout=20)
+        if old.returncode or stdout != "42\ngenerator only\n" or stderr:
+            raise RuntimeError(f"old executable lost its generation: {stdout!r} {stderr!r}")
+        require(invoke([output], "/tmp"), "43\ngenerator only\n")
+    finally:
+        if old.poll() is None:
+            old.kill()
+            old.communicate()
+
+
+def check_failures(directory):
+    output, library = directory / "application", directory / "project/answer.sld"
+    original, generation = library.read_text(), output.resolve()
+    for source, diagnostic in [
+        (original.replace('"value.txt"', '"missing.txt"'), "artifact is not a regular file"),
+        ('(generate-library (project answer) (export answer) (import (scheme base)) (begin 42))',
+         "generator must return generated-library"),
+        ('(generate-library (wrong name) (begin 42))', "library name does not match import"),
+    ]:
+        library.write_text(source)
+        require(build(directory, output), diagnostic=diagnostic)
+        if output.resolve() != generation:
+            raise RuntimeError("failed generation replaced the public executable")
+        require(invoke([output], "/tmp"), "43\ngenerator only\n")
+    library.write_text(original)
+    print("passed failed generation without replacing a completed package", flush=True)
+
+
+def check_cycles(directory):
+    source = directory / "main.scm"
+    original = source.read_text()
+    source.write_text('(import (scheme base) (project a))')
+    a, b = directory / "project/a.sld", directory / "project/b.sld"
+    a.write_text('''(generate-library (project a) (import (scheme base) (project b)) (begin 42))''')
+    b.write_text('''(generate-library (project b) (import (scheme base) (project a)) (begin 42))''')
+    require(build(directory, directory / "cycle"), diagnostic="generate-library dependency cycle")
+    a.write_text('''(generate-library (project a) (import (scheme base) (snail-scheme generation))
+      (begin (generated-library '((import (project b))) '())))''')
+    require(build(directory, directory / "cycle"), diagnostic="generate-library dependency cycle")
+    source.write_text(original)
+    print("passed generator cycles across generation and runtime imports", flush=True)
+
+
+def check_wasm(directory):
+    output = directory / "application.wasm"
+    require(build(directory, output, "wasm"))
+    require(invoke([os.environ.get("NODE", "node"), "--no-warnings", ROOT / "scripts/run-wasi.mjs", output],
+                   "/tmp"), "43\ngenerator only\n")
+    print("passed linked Wasm execution with packaged dependencies", flush=True)
+
+
+# ---- Test entry point ----
+
+
+def main():
+    build_root = ROOT / "build/generation-tests"
+    build_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=build_root) as temporary:
+        directory = Path(temporary)
+        write_fixtures(directory)
+        check_generation(directory)
+        check_failures(directory)
+        check_cycles(directory)
+        check_wasm(directory)
+    print("generated-library and artifact checks passed")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"generation test failed: {error}", file=sys.stderr)
+        sys.exit(1)

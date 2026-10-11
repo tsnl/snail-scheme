@@ -4,8 +4,9 @@
   (export build-runtime link-wasm build-wasm run-wasm run-command tool-name wasm-features
           assemble-wasm call-with-build-output)
   (import (scheme base) (scheme file) (scheme write)
-          (scheme process-context) (snail-scheme compiler) (snail-scheme chromium-trace)
-          (snail-scheme build-host) (snail-scheme artifacts))
+          (scheme process-context) (snail-scheme compile-build) (snail-scheme chromium-trace)
+          (snail-scheme build-host) (snail-scheme artifacts)
+          (only (snail-scheme wasm) write-wasm))
   (begin
     ;; ---- Processes and owned build directories ----
 
@@ -56,8 +57,8 @@
 
     ;; ---- Linking a complete Wasm program ----
 
-    ;; Preserve the standard name section through linking and optimization:
-    ;; the native backend recognizes explicit cold. function-name hints.
+    ;; Preserve the standard name section for Wasm inspection and profiling.
+    ;; Native compilation consumes module datums before these portable stages.
     (define wasm-features
       '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
         "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"
@@ -108,14 +109,15 @@
     ;; Convenience for a one-file build. Scripts building several artifacts can
     ;; build-runtime once, emit each WAT file, and call link-wasm themselves.
     (define build-wasm
-      (chromium-trace
-       "build-wasm"
-       (lambda (root input output . options)
-         (call-with-build-output output (list input (wasm-runtime-path root))
-                                 (lambda (directory finished)
-                                   (let ((wat (string-append directory "/program.wat")))
-                                     (apply source-file->wat-file root input wat options)
-                                     (link-in-directory wat (build-runtime root) directory finished)))))))
+      (chromium-trace "build-wasm" (lambda (root input output . options)
+                                     (call-with-build-output output (list input (wasm-runtime-path root))
+                                                             (lambda (directory finished)
+                                                               (let ((wat (string-append directory "/program.wat"))
+                                                                     (compiled (apply source-file->compilation root input directory options)))
+                                                                 (call-with-output-file wat
+                                                                   (lambda (port) (write-wasm (compilation-wasm compiled) port)))
+                                                                 (link-in-directory wat (build-runtime root) directory finished)
+                                                                 (make-artifact "program" finished (compilation-artifacts compiled))))))))
 
     ;; ---- Execution ----
 

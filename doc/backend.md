@@ -98,6 +98,7 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
 | `src/lib.rs` | Rust ports, formatting, inexact math, text search, clocks, process services |
 | `artifacts.sld`, `src/snail/artifacts.sld`, `artifacts.rs` | Dependency graphs, manifests, and installed companion lookup |
+| `compile-build.sld`, `generation.sld` | Isolated library generators and their returned dependencies |
 | `build.sld` | Cargo, linking, execution and artifact publication |
 | `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
 | `native.sld` | Scheme/Wasm-to-native stages and ordinary script execution |
