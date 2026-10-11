@@ -232,23 +232,17 @@ def check_interop(directory):
 
 
 def check_emission_traces(events):
-    expected = ['prepare-module', 'generate-procedure-functions', 'generate-library-functions',
-                'write-module-imports', 'copy-file', 'copy-file',
-                'write-module-definitions', 'write-wasm-module']
+    expected = ['prepare-module', 'generate-procedure-functions', 'generate-library-functions']
     stages = []
     for event in events:
         name = event['name']
-        if name in expected or name.startswith('copy-file '):
+        if name in expected:
             stages.append(event)
-        elif name == 'write-ir-library-as-wasm':
-            names = ['copy-file' if stage['name'].startswith('copy-file ') else stage['name']
-                     for stage in stages]
+        elif name == 'ir-library->wasm':
+            names = [stage['name'] for stage in stages]
             assert names == expected, names
-            assert stages[4]['name'].endswith('/src/runtime/wasmgc.wat')
-            assert stages[5]['name'].endswith('/src/runtime/awi.wat')
-            for parent, children in ((event, stages), (stages[-1], stages[3:-1])):
-                assert all(parent['ts'] <= child['ts'] <= child['ts'] + child['dur']
-                           <= parent['ts'] + parent['dur'] for child in children)
+            assert all(event['ts'] <= stage['ts'] <= stage['ts'] + stage['dur']
+                       <= event['ts'] + event['dur'] for stage in stages)
             stages = []
     assert not stages
 
@@ -265,7 +259,7 @@ def check_traces(directory):
         check_emission_traces(events)
         names.update(event['name'] for event in events[1:])
     expected = {'build-wasm', 'build-runtime', 'build.cargo', 'build.link', 'build.run',
-                'source-file->wat-file', 'syntax-list->ir-library'}
+                'source-file->wat-file', 'syntax-list->ir-library', 'ir-library->wasm', 'write-wasm'}
     if not expected <= names:
         raise RuntimeError(f"missing build traces: {expected - names}")
 

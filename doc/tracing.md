@@ -135,26 +135,24 @@ WasmGC does not expose portable collector timings.
 | `syntax-parser.sld` | `reader->syntax-list` | Reader → located syntax list |
 | `expand.sld` | `syntax-list->ir-library` | Syntax list → unnamed IR library |
 | `expand.sld` | `syntax->ir-library` | Library syntax → resolved IR library |
-| `wasm.sld` | `write-ir-library-as-wasm` | Library dependency graph → WAT on a port |
+| `wasm.sld` | `ir-library->wasm` | Library dependency graph → Wasm datum |
+| `wasm.sld` | `write-wasm` | Wasm datum → WAT on a port |
 | `compiler.sld` | `source-file->wat-file` | Source filename → WAT output file |
 
-Within `write-ir-library-as-wasm`, the emitter records these stages:
+Within `ir-library->wasm`, the emitter records these stages:
 
 | Span | Work |
 | --- | --- |
 | `prepare-module` | Collect globals and procedures; analyze mutation, cells and known callees |
+| `analyze-types` | Record occurrence facts, checked signatures, and required guards |
 | `generate-procedure-functions` | Build procedure bodies, including local/capture analysis |
 | `generate-library-functions` | Build library initialization bodies in dependency order |
-| `write-wasm-module` | Write the complete module to the caller's port |
-| `write-module-imports` | Write runtime, finalizer and Rust service imports |
-| `copy-file <path>` | Copy each runtime text fragment; the path identifies the fragment |
-| `write-module-definitions` | Assemble and serialize globals, constants, adapters, bodies and entries |
 
-The last three stages nest inside `write-wasm-module`. Procedure and library
-generation register constants before definition writing; their spans cover
-generation, while definition writing includes final WAT serialization. Local
-capture analysis remains part of procedure generation. Each emission adds eight
-stage events regardless of the number of procedures or libraries.
+Type analysis nests inside preparation. Procedure and
+library generation register literals in source traversal order. The separate
+`write-wasm` span measures serialization of the completed datum; native builds
+trace their translation separately. Runtime definitions are
+ordinary in-memory datums, so there are no runtime text-copy spans.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and omission
 of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded

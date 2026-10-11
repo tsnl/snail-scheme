@@ -6,11 +6,11 @@
 ;; Known calls avoid argument arrays; dynamic calls and apply use the adapter.
 ;; Captures are GC references. Only assigned or early-captured locals need cells.
 (define-library (snail-scheme wasm)
-  (export write-ir-library-as-wasm)
-  (import (scheme base) (scheme cxr) (scheme write) (scheme file)
+  (export ir-library->wasm write-wasm)
+  (import (scheme base) (scheme cxr) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
-          (snail-scheme wasm-i32)
+          (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
@@ -21,8 +21,9 @@
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
-      (foreign module-foreign) (constants module-constants set-module-constants!)
-      (analysis module-analysis) (specialized module-specialized) (result-guards module-result-guards))
+      (foreign module-foreign) (constants module-constants)
+      (analysis module-analysis)
+      (specialized module-specialized) (result-guards module-result-guards))
 
     (define-record-type <function>
       (make-function module environment temporaries)
@@ -69,7 +70,7 @@
                                (known (known-lambdas items (assigned-definitions items)))
                                (analysis ((chromium-trace "analyze-types" analyze-types) items primitives)))
                           (make-module (numbered globals) primitives
-                                       (boxed-definitions items globals) functions known foreign '() analysis
+                                       (boxed-definitions items globals) functions known foreign (make-literal-pool) analysis
                                        (specialized-functions functions known globals primitives analysis)
                                        (numbered (unique-identities (map car (analysis-guards analysis)))))))))
 
@@ -286,57 +287,30 @@
                        ,(caddr place) ,value))
                 (global.get $unspecified))))
 
-    (define (constant! datum module)
-      (let ((found (assoc datum (module-constants module))))
-        (if found (cdr found)
-            (let ((name (identifier "constant" (length (module-constants module)))))
-              (set-module-constants! module (cons (cons datum name) (module-constants module)))
-              name))))
-
     (define (literal-value datum module)
-      (cond ((eq? datum #f) '(global.get $false))
-            ((eq? datum #t) '(global.get $true))
-            ((null? datum) '(global.get $nil))
-            ((char? datum) `(struct.new $atom (i32.const ,(+ 256 (char->integer datum)))))
-            ((exact-integer? datum) (integer-literal datum))
-            ((number? datum) `(struct.new $float (f64.const ,(float-token datum))))
-            (else `(global.get ,(constant! datum module)))))
+      (literal-reference datum (module-constants module)))
 
     (define (integer-literal datum)
       (if (or (< datum -9223372036854775808) (> datum 9223372036854775807))
           (error "integer literal outside supported signed 64-bit range" datum))
       `(call $pack_integer (i64.const ,datum)))
 
-    (define (float-token number)
+    ;; Generated function datums use tokens shared by Scheme and WAT. Scheme's
+    ;; writer quotes the symbol -inf, so spell that value with a Wasm operation.
+    ;; These expressions run in function bodies, never constant initializers.
+    (define (float-expression number)
       (let ((text (number->string number)))
-        (cond ((equal? text "+nan.0") 'nan)
-              ((equal? text "+inf.0") 'inf) ((equal? text "-inf.0") '-inf)
-              (else number))))
+        (cond ((equal? text "+nan.0") '(f64.const nan))
+              ((equal? text "+inf.0") '(f64.const inf))
+              ((equal? text "-inf.0") '(f64.neg (f64.const inf)))
+              (else `(f64.const ,number)))))
 
     (define (text-expression text)
       `(array.new_fixed $text ,(string-length text)
                         ,@(map (lambda (character) `(i32.const ,(char->integer character)))
                                (string->list text))))
 
-    (define (constant-expression datum)
-      (cond ((pair? datum) `(struct.new $pair ,(constant-expression (car datum))
-                                        ,(constant-expression (cdr datum))))
-            ((vector? datum) `(array.new_fixed $vector ,(vector-length datum)
-                                               ,@(map constant-expression (vector->list datum))))
-            ((bytevector? datum) `(struct.new $bytevector ,(bytevector-expression datum)))
-            ((string? datum) `(struct.new $text_object (i32.const 0) ,(text-expression datum)))
-            ((symbol? datum) `(call $intern ,(text-expression (symbol->string datum))))
-            (else (literal-value datum #f))))
-
-    (define (bytevector-expression datum)
-      (let loop ((index (- (bytevector-length datum) 1)) (bytes '()))
-        (if (< index 0) `(array.new_fixed $bytes ,(bytevector-length datum) ,@bytes)
-            (loop (- index 1) (cons `(i32.const ,(bytevector-u8-ref datum index)) bytes)))))
-
     ;; ---- Structured expressions ----
-
-    ;; Emission allocates temporary and constant names. Sequence those effects
-    ;; explicitly: quasiquote does not specify an order for its unquotes.
 
     (define (single node context)
       (let ((value (expression node context #f)))
@@ -625,10 +599,9 @@
     ;; ---- Procedure definitions ----
 
     (define generate-procedure-functions
-      (chromium-trace
-       "generate-procedure-functions"
-       (lambda (module)
-         (map (lambda (entry) (procedure-function entry module)) (module-functions module)))))
+      (chromium-trace "generate-procedure-functions"
+                      (lambda (module)
+                        (map (lambda (entry) (procedure-function entry module)) (module-functions module)))))
 
     (define (procedure-environment procedure module)
       (append (map (lambda (entry) (list (car entry) 'local (identifier "v" (cdr entry))))
@@ -709,10 +682,9 @@
     ;; ---- Library entries ----
 
     (define generate-library-functions
-      (chromium-trace
-       "generate-library-functions"
-       (lambda (libraries module)
-         (map (lambda (entry) (library-function entry module)) libraries))))
+      (chromium-trace "generate-library-functions"
+                      (lambda (libraries module)
+                        (map (lambda (entry) (library-function entry module)) libraries))))
 
     (define (library-function entry module)
       (let* ((items (library:library-body (car entry)))
@@ -743,8 +715,6 @@
 
     (define (module-entry libraries module)
       `(func $program (export "snail_main") (result eqref)
-             ,@(map (lambda (entry) `(global.set ,(cdr entry) ,(constant-expression (car entry))))
-                    (reverse (module-constants module)))
              ,@(map global-initializer (library-primitive-slots libraries module))
              ,@(map (lambda (entry) `(drop (call ,(identifier "library" (cdr entry)))))
                     (reverse (cdr (reverse libraries))))
@@ -826,79 +796,86 @@
 
     ;; ---- Serialization ----
 
-    (define (copy-file path port)
-      ((chromium-trace
-        (string-append "copy-file " path)
-        (lambda ()
-          (call-with-input-file path
-            (lambda (input)
-              (let loop ((character (read-char input)))
-                (if (not (eof-object? character))
-                    (begin (display character port) (loop (read-char input)))))))))))
+    ;; Function datums are acyclic, contain generated identifiers, and quote
+    ;; only fixed export names. Let the host traverse each complete definition:
+    ;; Chibi's write-simple is native and avoids write's per-number temporary
+    ;; strings and graph tables; Snail's writer traverses the datum in Rust.
+    ;; Import names are the only user-supplied strings at this boundary. WAT's
+    ;; byte escapes differ from Scheme's, so format just those leaves here.
+    (define (write-wat-string text port)
+      (display "\"" port)
+      (let ((bytes (string->utf8 text)))
+        (let loop ((index 0))
+          (if (< index (bytevector-length bytes))
+              (begin (write-wat-byte (bytevector-u8-ref bytes index) port)
+                     (loop (+ index 1))))))
+      (display "\"" port))
 
-    ;; Scheme's writer escapes numeric-looking symbols such as -inf. WAT uses
-    ;; those tokens literally; only WAT string operands need Scheme quoting.
-    (define (write-wasm-expression expression port)
-      (cond ((pair? expression)
-             (display "(" port)
-             (write-wasm-expression (car expression) port)
-             (for-each (lambda (item) (display " " port) (write-wasm-expression item port))
-                       (cdr expression))
-             (display ")" port))
-            ((symbol? expression) (display (symbol->string expression) port))
-            (else (write expression port))))
+    (define (write-wat-byte byte port)
+      (if (and (<= 32 byte 126) (not (memv byte '(34 92))))
+          (display (integer->char byte) port)
+          (begin (display "\\" port)
+                 (if (< byte 16) (display "0" port))
+                 (display (number->string byte 16) port))))
+
+    (define (write-import definition port)
+      (display "(import " port)
+      (write-wat-string (cadr definition) port) (display " " port)
+      (write-wat-string (caddr definition) port) (display " " port)
+      (write-simple (cadddr definition) port) (display ")" port))
 
     (define (write-definition definition port)
-      (write-wasm-expression definition port)
+      (cond ((eq? (car definition) 'import) (write-import definition port))
+            ((negative-infinity? definition) (write-with-infinity definition port))
+            (else (write-simple definition port)))
       (newline port))
 
-    (define write-ir-library-as-wasm
-      (chromium-trace
-       "write-ir-library-as-wasm"
-       (lambda (root runtime-path awi-path port . options)
-         (let* ((libraries (numbered (library:library-dependency-order root)))
-                (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
-                ;; Both generators register constants before declarations are written.
-                (procedures (generate-procedure-functions module))
-                (entries (generate-library-functions libraries module)))
-           (write-wasm-module root libraries module procedures entries options runtime-path awi-path port)))))
+    ;; Scheme quotes the WAT token -inf as a symbol. Only definitions containing
+    ;; that exceptional leaf need a Scheme walk; the ordinary path stays native.
+    (define (negative-infinity? datum)
+      (cond ((pair? datum) (or (negative-infinity? (car datum)) (negative-infinity? (cdr datum))))
+            ((symbol? datum) (eq? datum (string->symbol "-inf")))
+            (else #f)))
 
-    (define write-wasm-module
-      (chromium-trace
-       "write-wasm-module"
-       (lambda (root libraries module procedures entries options runtime-path awi-path port)
-         (display "(module\n" port)
-         (write-module-imports module port)
-         (copy-file runtime-path port)
-         (copy-file awi-path port)
-         (write-module-definitions root libraries module procedures entries options port)
-         (display ")\n" port))))
+    (define (write-with-infinity datum port)
+      (cond ((pair? datum)
+             (display "(" port)
+             (write-with-infinity (car datum) port)
+             (for-each (lambda (item) (display " " port) (write-with-infinity item port)) (cdr datum))
+             (display ")" port))
+            ((eq? datum (string->symbol "-inf")) (display "-inf" port))
+            (else (write-simple datum port))))
 
-    (define write-module-imports
-      (chromium-trace
-       "write-module-imports"
-       (lambda (module port)
-         (write-definition '(import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32))) port)
-         (write-definition '(import "snail.host" "hash-identity"
-                                    (func $host_hash_identity (param eqref) (result i32))) port)
-         (write-definition '(import "snail.host" "register-finalizer"
-                                    (func $host_register_finalizer (param eqref i32 i32))) port)
-         (for-each (lambda (entry) (write-definition (rust-import entry) port))
-                   (numbered (module-services module))))))
+    (define write-wasm
+      (chromium-trace "write-wasm" (lambda (datum port)
+                                     (display "(module\n" port)
+                                     (for-each (lambda (definition) (write-definition definition port)) (cdr datum))
+                                     (display ")\n" port))))
 
-    (define write-module-definitions
-      (chromium-trace
-       "write-module-definitions"
-       (lambda (root libraries module procedures entries options port)
-         (for-each (lambda (definition) (write-definition definition port))
-                   (module-definitions libraries module procedures entries))
-         (if (and (pair? options) (pair? (cdr options)))
-             (write-definition (cli-entry root module (cadr options)) port)))))
+    ;; Both backends receive these same datums. Runtime definitions are quoted
+    ;; data, shared without mutation; no backend has to read or reparse WAT.
+    (define ir-library->wasm
+      (chromium-trace "ir-library->wasm" (lambda (root . options)
+                                           (let* ((libraries (numbered (library:library-dependency-order root)))
+                                                  (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
+                                                  (procedures (generate-procedure-functions module))
+                                                  (entries (generate-library-functions libraries module))
+                                                  (program (module-entry libraries module)))
+                                             (cons 'module
+                                                   (append '((import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32)))
+                                                             (import "snail.host" "register-finalizer"
+                                                                     (func $host_register_finalizer (param eqref i32 i32)))
+                                                             (import "snail.host" "hash-identity" (func $host_hash_identity (param eqref) (result i32))))
+                                                           (map rust-import (numbered (module-services module)))
+                                                           runtime-definitions awi-definitions
+                                                           (module-definitions libraries module procedures entries program)
+                                                           (if (and (pair? options) (pair? (cdr options)))
+                                                               (list (cli-entry root module (cadr options))) '())))))))
 
-    (define (module-definitions libraries module procedures entries)
+    (define (module-definitions libraries module procedures entries program)
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))
                    (module-globals module))
-              (map (lambda (entry) `(global ,(cdr entry) (mut eqref) (ref.null eq))) (module-constants module))
+              (literal-declarations (module-constants module))
               (map result-guard-global (module-result-guards module))
               (list `(elem declare func ,@(map (lambda (entry) (identifier "adapter" (cdr entry)))
                                                (module-functions module))
@@ -912,7 +889,7 @@
               (map (lambda (entry) (procedure-adapter entry module)) (module-functions module))
               (typed-entries (module-functions module) module) procedures entries
               (map cdr (module-specialized module))
-              (list (module-entry libraries module))))
+              (list program)))
 
     (define (typed-entries entries module)
       (if (null? entries) '()
@@ -956,27 +933,39 @@
           (expect (immutable-primitives (list plus) '()) (list plus))
           (expect (immutable-primitives (list plus) (list assigned)) '())))
 
-      (define (emitted-constant-data node)
-        (let* ((module (make-module '() '() '() '() '() '() '() (analyze-types '() '()) '() '()))
+      ;; Emission allocates identities. Host quasiquote evaluation order must
+      ;; never determine the numbering of source literals or temporaries.
+      (define (emitted-literal-references node values)
+        (let* ((pool (make-literal-pool))
+               (module (make-module '() '() '() '() '() '() pool
+                                    (analyze-types '() '()) '() '()))
                (context (make-function module '() '())))
           (expression node context #f)
-          (reverse (map car (module-constants module)))))
+          (map (lambda (value) (literal-reference value pool)) values)))
 
       (define (test-emission-order)
         (define (literal text) (ir:make-literal text #f))
-        (expect (emitted-constant-data
-                 (ir:make-block (list (literal "first") (literal "second")) #f))
-                '("first" "second"))
-        (expect (emitted-constant-data
-                 (ir:make-conditional (literal "test") (literal "yes") (literal "no") #f))
-                '("test" "yes" "no"))
-        (expect (emitted-constant-data
-                 (ir:make-application (literal "operator")
-                                      (list (literal "first") (literal "second")) #f))
-                '("first" "second" "operator")))
+        (let ((a (string #\a)) (b (string #\b)) (c (string #\c)))
+          (expect (emitted-literal-references (ir:make-block (list (literal a) (literal b)) #f) (list a b))
+                  '((global.get $literal0) (global.get $literal1)))
+          (expect (emitted-literal-references (ir:make-conditional (literal a) (literal b) (literal c) #f) (list a b c))
+                  '((global.get $literal0) (global.get $literal1) (global.get $literal2)))
+          (expect (emitted-literal-references (ir:make-application (literal c) (list (literal a) (literal b)) #f) (list a b c))
+                  '((global.get $literal0) (global.get $literal1) (global.get $literal2)))))
+
+      (define (test-wat-leaves)
+        (let ((port (open-output-string)))
+          (write-import `(import ,(string #\" #\\ #\newline #\λ (integer->char 0)) "f"
+                                 (func $f (param i32))) port)
+          (expect (get-output-string port)
+                  "(import \"\\22\\5c\\0a\\ce\\bb\\00\" \"f\" (func $f (param i32)))"))
+        (expect (float-expression (string->number "-inf.0")) '(f64.neg (f64.const inf)))
+        (expect (float-expression (string->number "+inf.0")) '(f64.const inf))
+        (expect (float-expression (string->number "+nan.0")) '(f64.const nan)))
 
       (define (test-wasm)
         (run-test test-binding-cells)
         (run-test test-recursive-capture)
+        (run-test test-primitive-rebinding)
         (run-test test-emission-order)
-        (run-test test-primitive-rebinding))))))
+        (run-test test-wat-leaves))))))
