@@ -65,9 +65,11 @@
         (func (export "retain") (param $handle i32) (result i32)
               (call $awi_root (call $awi_get (local.get $handle))))
         (func (export "same") (param $a i32) (param $b i32) (result i32)
-              (ref.eq (call $awi_get (local.get $a)) (call $awi_get (local.get $b))))
+              (call $same (call $awi_get (local.get $a)) (call $awi_get (local.get $b))))
         (func (export "identity_hash") (param $handle i32) (result i32)
-              (call $host_hash_identity (call $awi_get (local.get $handle))))
+              (call $identity_hash (call $awi_get (local.get $handle))))
+        (func (export "literal_symbol_names") (result i32)
+              (call $awi_root (global.get $symbol_names)))
 
         ;; ---- Value categories ----
 
@@ -79,6 +81,7 @@
               (if (ref.test (ref $atom) (local.get $value))
                   (then
                    (local.set $tag (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value))))
+                   (if (i32.lt_s (local.get $tag) (i32.const 0)) (then (return (i32.const 10))))
                    (if (i32.lt_u (local.get $tag) (i32.const 2)) (then (return (i32.const 1))))
                    (if (i32.eq (local.get $tag) (i32.const 2)) (then (return (i32.const 2))))
                    (if (i32.eq (local.get $tag) (i32.const 3)) (then (return (i32.const 0))))
@@ -86,8 +89,7 @@
                    (if (i32.eq (local.get $tag) (i32.const 5)) (then (return (i32.const 16))))
                    (return (i32.const 6))))
               (if (ref.test (ref $text_object) (local.get $value))
-                  (then (return (i32.add (i32.const 9)
-                                         (struct.get $text_object 0 (ref.cast (ref $text_object) (local.get $value)))))))
+                  (then (return (i32.const 9))))
               (if (ref.test (ref $float) (local.get $value)) (then (return (i32.const 5))))
               (if (ref.test (ref $pair) (local.get $value)) (then (return (i32.const 7))))
               (if (ref.test (ref $vector) (local.get $value)) (then (return (i32.const 8))))
@@ -149,6 +151,10 @@
                   (then (return (array.len (struct.get $values 0 (ref.cast (ref $values) (local.get $value)))))))
               (if (ref.test (ref $text_object) (local.get $value))
                   (then (return (array.len (struct.get $text_object 1 (ref.cast (ref $text_object) (local.get $value)))))))
+              (if (call $is_symbol (local.get $value))
+                  (then (return (call $rust_symbol_length
+                                      (i32.and (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value)))
+                                               (i32.const 2147483647))))))
               (array.len (struct.get $bytevector 0 (ref.cast (ref $bytevector) (local.get $value)))))
         (func (export "at") (param $root i32) (param $index i32) (result i32)
               (local $value eqref) (local $items (ref $vector))
@@ -158,7 +164,13 @@
                                     (else (ref.cast (ref $vector) (local.get $value)))))
               (call $awi_root (array.get $vector (local.get $items) (local.get $index))))
         (func (export "char_at") (param $root i32) (param $index i32) (result i32)
-              (array.get $text (struct.get $text_object 1 (ref.cast (ref $text_object) (call $awi_get (local.get $root)))) (local.get $index)))
+              (local $value eqref)
+              (local.set $value (call $awi_get (local.get $root)))
+              (if (call $is_symbol (local.get $value))
+                  (then (return (call $rust_symbol_character
+                                      (i32.and (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value)))
+                                               (i32.const 2147483647)) (local.get $index)))))
+              (array.get $text (struct.get $text_object 1 (ref.cast (ref $text_object) (local.get $value))) (local.get $index)))
         (func (export "byte_at") (param $root i32) (param $index i32) (result i32)
               (array.get_u $bytes (struct.get $bytevector 0 (ref.cast (ref $bytevector) (call $awi_get (local.get $root)))) (local.get $index)))
         (func (export "car") (param $root i32) (result i32)

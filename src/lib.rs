@@ -17,6 +17,7 @@ mod build_host;
 mod hash;
 mod host;
 mod interop_example;
+mod symbols;
 
 use crate::awi::{Arguments, Kind, Root};
 use host::Port;

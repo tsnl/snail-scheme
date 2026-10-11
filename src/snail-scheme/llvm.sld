@@ -709,7 +709,9 @@
         (output "}\n")))
 
     (define (host-import import)
-      (cond ((and (member (car import) '("snail.rust" "snail.cli"))
+      (cond ((equal? import '("snail.rust" "snail:symbol-character"))
+             (list (llvm-quoted (cadr import)) "i32" "i32" "i32"))
+            ((and (member (car import) '("snail.rust" "snail.cli"))
                   (prefix? "snail:" (cadr import)))
              (list (llvm-quoted (cadr import)) "i32" "i32"))
             ((equal? import '("snail.host" "register-finalizer"))

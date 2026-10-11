@@ -8,13 +8,14 @@
     ;; ---- Pool and object identity ----
 
     (define-record-type <pool>
-      (make-pool entries definitions symbols count) pool?
+      (make-pool entries definitions symbols symbol-count count) pool?
       (entries pool-entries set-pool-entries!)
       (definitions pool-definitions set-pool-definitions!)
       (symbols pool-symbols set-pool-symbols!)
+      (symbol-count pool-symbol-count set-pool-symbol-count!)
       (count pool-count set-pool-count!))
 
-    (define (make-literal-pool) (make-pool (make-hash-table eq?) '() '() 0))
+    (define (make-literal-pool) (make-pool (make-hash-table eq?) '() '() 0 0))
     (define (literal-name index) (string->symbol (string-append "$literal" (number->string index))))
     (define (compound? value)
       (or (pair? value) (vector? value) (string? value) (symbol? value) (bytevector? value)))
@@ -54,7 +55,9 @@
         (set-pool-definitions! pool
                                (cons `(global ,(cadr entry) eqref ,(object-expression value pool))
                                      (pool-definitions pool)))
-        (if (symbol? value) (set-pool-symbols! pool (cons (cadr entry) (pool-symbols pool))))
+        (when (symbol? value)
+          (set-pool-symbols! pool (cons value (pool-symbols pool)))
+          (set-pool-symbol-count! pool (+ 1 (pool-symbol-count pool))))
         (set-car! (cddr entry) #t)))
 
     (define (literal-reference value pool)
@@ -106,17 +109,19 @@
                                                ,@(map (lambda (value) (reference value pool)) (vector->list value))))
             ((bytevector? value) `(struct.new $bytevector ,(bytes-expression value)))
             ((string? value) `(struct.new $text_object (i32.const 0) ,(text-expression value)))
-            ((symbol? value) `(struct.new $text_object (i32.const 1) ,(text-expression (symbol->string value))))))
+            ((symbol? value)
+             (when (>= (pool-symbol-count pool) 2147483648) (error "symbol ID space exhausted"))
+             `(struct.new $atom (i32.const ,(- (pool-symbol-count pool) 2147483648))))))
 
-    ;; All quoted symbols participate in the same interning table as symbols
-    ;; created later. Its initial spine is data too; no intern calls run at load.
+    ;; Literal IDs form the initial prefix of the Rust registry. Names and IDs
+    ;; share this one ordering; the registry installs every name before assigning
+    ;; dynamic IDs. This is constant data, with no generated initializer calls.
     (define (symbol-declarations names)
-      (let loop ((names names) (index 0) (tail '(ref.null eq)) (definitions '()))
-        (if (null? names)
-            (reverse (cons `(global $symbols (mut eqref) ,tail) definitions))
-            (let ((name (string->symbol (string-append "$literal.symbols" (number->string index)))))
-              (loop (cdr names) (+ index 1) `(global.get ,name)
-                    (cons `(global ,name eqref (struct.new $pair (global.get ,(car names)) ,tail)) definitions))))))
+      `((global $symbol_names (ref $vector)
+                (array.new_fixed $vector ,(length names)
+                                 ,@(map (lambda (name) `(struct.new $text_object (i32.const 0)
+                                                                    ,(text-expression (symbol->string name))))
+                                        (reverse names))))))
 
     (define (literal-declarations pool)
       (append (reverse (pool-definitions pool)) (symbol-declarations (pool-symbols pool)))))
@@ -146,8 +151,15 @@
         (let ((pool (make-literal-pool)))
           (literal-reference 'one pool) (literal-reference (string->symbol "one") pool)
           (expect (pool-count pool) 1)
+          (literal-reference '#(two one) pool)
+          (expect (pool-symbol-count pool) 2)
+          (expect (cadddr (car (reverse (pool-definitions pool))))
+                  `(struct.new $atom (i32.const ,(string->number "-2147483648"))))
           (expect (car (reverse (literal-declarations pool)))
-                  '(global $symbols (mut eqref) (global.get $literal.symbols0)))))
+                  `(global $symbol_names (ref $vector)
+                           (array.new_fixed $vector 2
+                                            (struct.new $text_object (i32.const 0) ,(text-expression "one"))
+                                            (struct.new $text_object (i32.const 0) ,(text-expression "two")))))))
 
       (define (test-literal-floats)
         (let ((pool (make-literal-pool)))
