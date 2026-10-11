@@ -12,6 +12,8 @@ let
 in
 pkgs.mkShell {
   PERFETTO_UI = perfettoUi;
+  BDWGC_INCLUDE = "${pkgs.boehmgc.dev}/include";
+  BDWGC_LIB = "${pkgs.boehmgc}/lib";
   packages = with pkgs; [
     git
     chibi
