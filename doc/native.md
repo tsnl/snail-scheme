@@ -94,6 +94,12 @@ and no separate shadow-root stack. The collector and optimizer must preserve
 live uncompressed pointers under this restricted ABI; forced-collection tests
 exercise locals, allocating operands, tables, callbacks, and tail transfers.
 
+Each native process starts with at least 4 GiB of collector heap capacity. A larger
+`GC_INITIAL_HEAP_SIZE` remains effective. Startup fails if the collector cannot
+provide the minimum, rather than silently returning to a small heap. Forced
+collection through `SNAIL_NATIVE_GC_INTERVAL` still exercises the same root and
+finalizer invariants.
+
 Rust links as a native archive. Imports under `snail.rust` and `snail.cli` retain
 their `snail:` names and scalar signatures. Rust's AWI calls bind to the lowered
 Scheme exports. Files, subprocesses and environment access use Rust's native

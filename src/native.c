@@ -235,6 +235,14 @@ void native_host_init(int argc, char **argv) {
     GC_set_all_interior_pointers(1);
     GC_set_finalize_on_demand(1);
     GC_INIT();
+    // Give allocation-heavy programs room before their first collection.
+    // Respect a larger heap requested through the collector's environment.
+    const size_t initial_heap = (size_t)4 * 1024 * 1024 * 1024;
+    size_t heap_size = GC_get_heap_size();
+    if (heap_size < initial_heap && !GC_expand_hp(initial_heap - heap_size)) {
+        fputs("unable to allocate the initial 4 GiB Scheme heap\n", stderr);
+        exit(1);
+    }
     const char *interval = getenv("SNAIL_NATIVE_GC_INTERVAL");
     if (interval) collection_interval = strtoull(interval, NULL, 10);
 }
