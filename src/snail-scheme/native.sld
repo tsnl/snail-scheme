@@ -15,16 +15,15 @@
         (link-native root datum directory output)))
 
     (define build-native
-      (chromium-trace
-       "build-native"
-       (lambda (root input output . options)
-         (if (> (length options) 2) (error "expected CLI entry and library directories"))
-         (let ((entry (if (null? options) #f (car options)))
-               (libraries (if (< (length options) 2) '() (cadr options))))
-           (if (and entry (not (symbol? entry))) (error "expected a handler name or #f" entry))
-           (call-with-build-output output (list input (native-runtime-path root))
-                                   (lambda (directory finished)
-                                     (compile-native root input directory finished entry libraries)))))))
+      (chromium-trace "build-native" (lambda (root input output . options)
+                                       (if (> (length options) 3) (error "expected CLI entry, library directories, and artifact dependencies"))
+                                       (let ((entry (if (null? options) #f (car options)))
+                                             (libraries (if (< (length options) 2) '() (cadr options)))
+                                             (dependencies (if (< (length options) 3) '() (caddr options))))
+                                         (if (and entry (not (symbol? entry))) (error "expected a handler name or #f" entry))
+                                         (call-with-build-output output (list input (native-runtime-path root))
+                                                                 (lambda (directory finished)
+                                                                   (compile-native root input directory finished entry libraries)) dependencies)))))
 
     ;; ---- Ordinary script execution ----
 

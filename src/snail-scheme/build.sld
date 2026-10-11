@@ -5,7 +5,7 @@
           assemble-wasm call-with-build-output)
   (import (scheme base) (scheme file) (scheme write)
           (scheme process-context) (snail-scheme compiler) (snail-scheme chromium-trace)
-          (snail-scheme build-host))
+          (snail-scheme build-host) (snail-scheme artifacts))
   (begin
     ;; ---- Processes and owned build directories ----
 
@@ -17,14 +17,24 @@
                   (if (same-file? input output)
                       (error "output must not replace a compilation input" output input))) inputs))
 
-    (define (call-with-build-output output inputs procedure)
-      (check-build-output output inputs)
-      (call-with-build-directory output
-                                 (lambda (directory)
-                                   (let ((finished (string-append directory "/artifact")))
-                                     (procedure directory finished)
-                                     (check-build-output output inputs)
-                                     (publish-file finished output)))))
+    (define (call-with-build-output output inputs procedure . dependencies)
+      (let* ((dependencies (if (null? dependencies) '() (car dependencies)))
+             (inputs (append inputs (apply append (map artifact-inputs (artifact-closure dependencies))))))
+        (check-build-output output inputs)
+        (call-with-build-directory output
+                                   (lambda (directory)
+                                     (let* ((finished (string-append directory "/artifact"))
+                                            (result (procedure directory finished))
+                                            (dependencies (append dependencies (if (artifact? result) (artifact-dependencies result) '()))))
+                                       (when (and (artifact? result) (not (same-file? finished (artifact-source result))))
+                                         (error "build result must name the completed candidate" (artifact-source result) finished))
+                                       (check-build-output output (append inputs (apply append (map artifact-inputs (artifact-closure dependencies)))))
+                                       (if (null? dependencies) (publish-file finished output)
+                                           (let ((bundle (string-append directory "/bundle")))
+                                             (create-directory* bundle)
+                                             (publish-file finished (string-append bundle "/program"))
+                                             (stage-artifacts dependencies bundle "program")
+                                             (publish-bundle bundle output))))))))
 
     ;; ---- Reusable Rust standard runtime ----
 

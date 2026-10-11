@@ -777,7 +777,7 @@
                   open-output-string get-output-string display write newline
                   %current-input-port %current-output-port %current-error-port
                   %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                  command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains))
+                  command-line exit get-environment-variable find-artifact current-jiffy jiffies-per-second string-contains))
 
     (define (module-services module)
       (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)
