@@ -13,8 +13,12 @@ Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
 own full Scheme source, with byte-checked output and preparation excluded.
 See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
 and timing boundaries. The latest
-[compiler simplification report](results/2026-10-10-compiler-simplification/README.md)
-preserves frozen inputs, byte-checked outputs, and refreshed typing workloads.
+[global interner report](results/2026-10-11-symbol-interner/README.md)
+separates the interner improvement from the native heap policy and compares
+Fibonacci execution with Chez and Chibi. It preserves frozen compiler inputs,
+validated outputs, profiles, and heap controls.
+The [compiler simplification report](results/2026-10-10-compiler-simplification/README.md)
+records the preceding shared binding analysis and typing workloads.
 The earlier [visitor comparison](results/2026-10-10-visitor-typing/README.md)
 records the cost of passing type facts directly through the visitor. [`compare-compilers.py`](compare-compilers.py)
 requires identical output between implementations; the historical
@@ -41,7 +45,12 @@ See [the raw report](results/2026-10-10-native-fibonacci.json),
 
 ## Typing and i32 specialization
 
-The [latest runtime refresh](results/2026-10-10-compiler-simplification/README.md#runtime-measurements)
+The [latest complete-program comparison](results/2026-10-11-symbol-interner/README.md#running-fibonacci-on-snail-chez-and-chibi)
+uses the same emitted WAT for native and Wasm and includes Chez and Chibi on
+both Fibonacci workloads. Run `python3 benchmarks/typing/compare-schemes.py`
+inside the benchmark Nix shell to reproduce it.
+
+The [previous runtime refresh](results/2026-10-10-compiler-simplification/README.md#runtime-measurements)
 measures recursive i32 Fibonacci at 0.173772 s (2.26× faster than
 untyped Scheme), three-parameter tail Fibonacci at 0.114204 s (2.53×),
 and boxed occurrence typing at 0.029675 s (1.64× faster than guarded).
