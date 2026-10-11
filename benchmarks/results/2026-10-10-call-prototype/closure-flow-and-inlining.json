@@ -1,0 +1,4168 @@
+{
+  "base_revision": "5ad489eda35e42176702e597361657ed6cea1eca",
+  "source_diff": "diff --git a/src/snail-scheme/wasm.sld b/src/snail-scheme/wasm.sld\nindex d473ed0..bdfd6f5 100644\n--- a/src/snail-scheme/wasm.sld\n+++ b/src/snail-scheme/wasm.sld\n@@ -10,6 +10,7 @@\n   (import (scheme base) (scheme cxr) (scheme write)\n           (snail-scheme chromium-trace) (snail-scheme bootstrap)\n           (snail-scheme types) (snail-scheme type-analysis) (snail-scheme partial-eval)\n+          (snail-scheme call-flow)\n           (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)\n           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))\n   (begin\n@@ -17,13 +18,13 @@\n     ;; ---- Compilation state ----\n \n     (define-record-type <module>\n-      (make-module globals primitives boxed functions known foreign constants analysis folds specialized result-guards)\n+      (make-module globals primitives boxed functions known foreign constants analysis folds specialized result-guards callees)\n       module?\n       (globals module-globals) (primitives module-primitives)\n       (boxed module-boxed) (functions module-functions) (known module-known)\n       (foreign module-foreign) (constants module-constants)\n       (analysis module-analysis) (folds module-folds)\n-      (specialized module-specialized) (result-guards module-result-guards))\n+      (specialized module-specialized) (result-guards module-result-guards) (callees module-callees))\n \n     (define-record-type <function>\n       (make-function module environment temporaries)\n@@ -61,7 +62,7 @@\n \n     (define prepare-module\n       (chromium-trace \"prepare-module\"\n-                      (lambda (libraries foreign)\n+                      (lambda (libraries foreign entry)\n                         (let* ((items (apply append (map library:library-body libraries)))\n                                (globals (apply append (map library-global-definitions libraries)))\n                                (primitives (immutable-primitives\n@@ -73,7 +74,11 @@\n                                        (boxed-definitions items globals) functions known foreign (make-literal-pool) analysis\n                                        ((chromium-trace \"partial-evaluate\" partial-evaluate) items primitives analysis)\n                                        (specialized-functions functions known globals primitives analysis)\n-                                       (numbered (unique-identities (map car (analysis-guards analysis)))))))))\n+                                       (numbered (unique-identities (map car (analysis-guards analysis))))\n+                                       (analyze-call-flow\n+                                        (map library:library-body libraries)\n+                                        (and entry (find-definition entry (item-definitions\n+                                                                           (library:library-body (car (reverse libraries))))))))))))\n \n     (define (specialized-functions functions known globals primitives analysis)\n       (if (null? functions) '()\n@@ -473,12 +478,13 @@\n                     (string->symbol (string-append \"$\" (symbol->string (caddr entry)))))))))\n \n     (define (known-procedure node module)\n-      (let ((operator (ir:application-operator node)))\n-        (cond ((ir:lambda? operator) operator)\n-              ((ir:name? operator)\n-               (let ((entry (assq (ir:name-definition operator) (module-known module))))\n-                 (and entry (cdr entry))))\n-              (else #f))))\n+      (or (call-flow-procedure (module-callees module) node)\n+          (let ((operator (ir:application-operator node)))\n+            (cond ((ir:lambda? operator) operator)\n+                  ((ir:name? operator)\n+                   (let ((entry (assq (ir:name-definition operator) (module-known module))))\n+                     (and entry (cdr entry))))\n+                  (else #f)))))\n \n     (define (application-expression node context checks)\n       (let* ((primitive (typed-primitive node (function-module context)))\n@@ -860,7 +866,8 @@\n     (define ir-library->wasm\n       (chromium-trace \"ir-library->wasm\" (lambda (root . options)\n                                            (let* ((libraries (numbered (library:library-dependency-order root)))\n-                                                  (module (prepare-module (map car libraries) (if (null? options) '() (car options))))\n+                                                  (module (prepare-module (map car libraries) (if (null? options) '() (car options))\n+                                                                          (if (< (length options) 2) #f (cadr options))))\n                                                   (procedures (generate-procedure-functions module))\n                                                   (entries (generate-library-functions libraries module))\n                                                   (program (module-entry libraries module)))\n@@ -941,7 +948,7 @@\n       (define (emitted-literal-references node values)\n         (let* ((pool (make-literal-pool))\n                (module (make-module '() '() '() '() '() '() pool\n-                                    (analyze-types '() '()) '() '() '()))\n+                                    (analyze-types '() '()) '() '() '() #f))\n                (context (make-function module '() '())))\n           (expression node context #f)\n           (map (lambda (value) (literal-reference value pool)) values)))\n",
+  "source_hashes": {
+    "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+    "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+    "benchmarks/calls/callbacks.scm": "bfda9d8b5518c1a6faf571ae3039ee2f6a711fabde50df16927742edb24ad02c",
+    "benchmarks/calls/emit.scm": "74004a005525583c3784be938aa1677554c274070b5e4d506e60796ca7d2572c",
+    "benchmarks/calls/measure.py": "de5aeb41196da73b3cbc9475dd39bb1fc9446e2d9e69ea1cbe395f5570ce7094",
+    "benchmarks/calls/semantics.scm": "5d80a9a2e69f08573766ea6eb373841d3886a37c1bdcc533aafa78a919136b79",
+    "benchmarks/compile-self.scm": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/memory.scm": "c35ed7c8995f0c5688c05c2223a141f78eb4ea71df20f1e10b886250bd716adb",
+    "bootstrap/scheme/base.sld": "c85213d86c4787ccbd188aa3708a4a141ecaf3972182ad97816c54b8dea552f3",
+    "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+    "scripts/run-wasi.mjs": "f262ea291804cf07c548d0e6d8681d87c4d434df3b3c6ea33e69626ad479621f",
+    "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+    "src/awi.rs": "85203b02c38a2211e67aa41e7801de34810751cbf9765688f0cb6ed0ed51e4b6",
+    "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+    "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+    "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+    "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+    "src/lib.rs": "ec751857ad07045403b36df7555487b100e4eb5fd4a05eac70324d141c3a2580",
+    "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+    "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+    "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+    "src/snail-scheme/call-flow.sld": "074e394b97116f82c01a328e97c7688f03371a3194df2da5a944a772c2b05745",
+    "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "7f70c60826c14dbb8343d65926d27a7a21549a102fed7cc502e50252eb90a815",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "9dc5d1e67ac78135870f064b07e992ff0cce3a1d98ca71914d4572c09f563e19",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/llvm.sld": "1ab04853d25f3bffc4062340f98a2d8ee9a8ba2351ab30d5f717f767ff4e9fbf",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+    "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "e4f2c0bf49129b83e4be38b9a88c98d088fa265cf3f419ec05fc1003769bdf78",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "7142194fae35a6a62f80afcf0df201932bc9f22ad940da14697a64ac38c65184",
+    "src/snail-scheme/type-inference.sld": "9eb6d3ae7be26d792e58d39a6bef890648acbc6495d68b075660b47056683d52",
+    "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+    "src/snail-scheme/wasm-awi.sld": "b9418d05a0c046e5c4f11b7099e9e77bcd3d025f05c6ac0a3733f07a71cfd0e9",
+    "src/snail-scheme/wasm-i32.sld": "a4c674fc58fe39d1f24d073483f6904b38a6491e253f312c66abe20ba27467ae",
+    "src/snail-scheme/wasm-literals.sld": "d24d3e78d7112905458484e2013f3a44cb5785cce34f6f29f7e44a3cea7439fd",
+    "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+    "src/snail-scheme/wasm-runtime.sld": "5fc3298ed0a6f341f901ce00994e8cff12d64d6f88e6911e9bb7fb9fbeb9b626",
+    "src/snail-scheme/wasm.sld": "6826c9d14dc23580bb56681dc8aa624b195b4755c82d461e916a2e12bcc59275"
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu": 3,
+  "rounds": 10,
+  "versions": {
+    "node": "v24.19.0\n",
+    "wasm-opt": "wasm-opt version 132\n",
+    "chibi-scheme": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n"
+  },
+  "timing": "Internal complete Scheme workload timer; excludes compilation/startup. V8 default tiering.",
+  "warmup": "One discarded fresh process per variant; callback workload also repeats full work in process.",
+  "builds": [
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm"
+      ],
+      "seconds": 0.005436471998109482,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "workloads": {
+    "callbacks": {
+      "builds": [
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/callbacks.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.wat",
+            "baseline"
+          ],
+          "seconds": 0.9932105640036752,
+          "status": 0,
+          "stdout": "()\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.assembled.wasm"
+          ],
+          "seconds": 0.020892574997560587,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.merged.wasm"
+          ],
+          "seconds": 0.029649469994183164,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.wasm"
+          ],
+          "seconds": 0.577918294002302,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-inline80.wasm"
+          ],
+          "seconds": 1.096758202998899,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-inline160.wasm"
+          ],
+          "seconds": 2.4610191460014903,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/callbacks.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.wat",
+            "direct"
+          ],
+          "seconds": 1.020203122003295,
+          "status": 0,
+          "stdout": "((nodes . 1381) (rounds . 20) (escaped . 7))\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.assembled.wasm"
+          ],
+          "seconds": 0.024279044002469163,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.merged.wasm"
+          ],
+          "seconds": 0.02819056000589626,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.wasm"
+          ],
+          "seconds": 0.607254192000255,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct-inline80.wasm"
+          ],
+          "seconds": 0.8301591940034996,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct-inline160.wasm"
+          ],
+          "seconds": 1.920692179002799,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "emission": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.wat",
+          "sha256": "6ed84894e5dbcd74fd7e8035d84ce9a426dba773d5e8f0c697a2d868fde0b77d",
+          "bytes": 290992,
+          "direct_worker_calls": 106,
+          "generic_apply_calls": 80,
+          "all_calls": 1148,
+          "worker_definitions": 106,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682268880000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682268880000,
+              "dur": 34000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682268880000,
+              "dur": 34000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682268914000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682268915000,
+              "dur": 497000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682268914000,
+              "dur": 498000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682269436000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682269436000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682269436000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682269438000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682269438000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682269438000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682269440000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682269440000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682269440000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682268914000,
+              "dur": 531000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682269447000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682269451000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682269451000,
+              "dur": 3000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682269445000,
+              "dur": 12000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682269457000,
+              "dur": 9000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682269466000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682269445000,
+              "dur": 25000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682268880000,
+              "dur": 590000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682269470000,
+              "dur": 5000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682268880000,
+              "dur": 595000
+            }
+          ]
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.wat",
+          "sha256": "eba54fa0a3d377d179319847f52be7c79079d25ee6dcd6a3397042aadeb5e30f",
+          "bytes": 291342,
+          "direct_worker_calls": 119,
+          "generic_apply_calls": 67,
+          "all_calls": 1148,
+          "worker_definitions": 106,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682274061000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682274062000,
+              "dur": 34000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682274061000,
+              "dur": 35000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682274096000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682274097000,
+              "dur": 505000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682274096000,
+              "dur": 506000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682274625000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682274625000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682274625000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682274628000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682274628000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682274628000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682274630000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682274630000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682274630000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682274096000,
+              "dur": 539000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682274637000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682274641000,
+              "dur": 18000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682274659000,
+              "dur": 3000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682274635000,
+              "dur": 30000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682274665000,
+              "dur": 9000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682274674000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682274635000,
+              "dur": 43000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682274061000,
+              "dur": 617000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682274679000,
+              "dur": 5000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682274061000,
+              "dur": 623000
+            }
+          ]
+        }
+      },
+      "variants": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-baseline.wasm",
+          "sha256": "ed4d4be34709a6a0758d3c24473e788a71c80c033efc6095c06e7394a56159dd",
+          "bytes": 286743
+        },
+        "inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-inline80.wasm",
+          "sha256": "485f2618f291f96e644d7a1d5221c29621058cf1f7a006d87f792b39329937ee",
+          "bytes": 376386
+        },
+        "inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-inline160.wasm",
+          "sha256": "654356143c46462b0001db6826bf86fae196409cc7ff08e6c45c39b85c01ff76",
+          "bytes": 484424
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct.wasm",
+          "sha256": "294aa24fb646e01d257ec41bd9a5337948517b62a48fb3858b2d2785b0169b62",
+          "bytes": 288023
+        },
+        "direct-inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct-inline80.wasm",
+          "sha256": "a7d025d056c1881398e5d4907453499a1a869ad32021610305cadd94133946b0",
+          "bytes": 421982
+        },
+        "direct-inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/callbacks-direct-inline160.wasm",
+          "sha256": "eedcca9b17e211cf9855fe9a5528a89ad6355db0fd8f905185a2d0f5ad31233d",
+          "bytes": 541902
+        }
+      },
+      "repetitions": 4096,
+      "checksum": 819222790000,
+      "warmups": {
+        "baseline": {
+          "seconds": 0.485651075,
+          "checksum": 819222790000,
+          "process_seconds": 1.019093573995633
+        },
+        "direct": {
+          "seconds": 0.459143459,
+          "checksum": 819222790000,
+          "process_seconds": 0.967198416001338
+        },
+        "inline80": {
+          "seconds": 0.823736933,
+          "checksum": 819222790000,
+          "process_seconds": 1.7060052160013583
+        },
+        "direct-inline80": {
+          "seconds": 1.334556613,
+          "checksum": 819222790000,
+          "process_seconds": 2.734418840998842
+        },
+        "inline160": {
+          "seconds": 0.839586221,
+          "checksum": 819222790000,
+          "process_seconds": 1.7425914169944008
+        },
+        "direct-inline160": {
+          "seconds": 1.341338339,
+          "checksum": 819222790000,
+          "process_seconds": 2.7465083919960307
+        }
+      },
+      "samples": [
+        {
+          "round": 1,
+          "variant": "baseline",
+          "seconds": 0.487837445,
+          "checksum": 819222790000,
+          "process_seconds": 1.0256575149978744
+        },
+        {
+          "round": 1,
+          "variant": "direct",
+          "seconds": 0.478452337,
+          "checksum": 819222790000,
+          "process_seconds": 1.0090967229989474
+        },
+        {
+          "round": 1,
+          "variant": "inline80",
+          "seconds": 0.826327604,
+          "checksum": 819222790000,
+          "process_seconds": 1.7080585789954057
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline80",
+          "seconds": 1.332778419,
+          "checksum": 819222790000,
+          "process_seconds": 2.7240588319982635
+        },
+        {
+          "round": 1,
+          "variant": "inline160",
+          "seconds": 0.829666976,
+          "checksum": 819222790000,
+          "process_seconds": 1.7154297740053153
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline160",
+          "seconds": 1.326357093,
+          "checksum": 819222790000,
+          "process_seconds": 2.7242132390019833
+        },
+        {
+          "round": 2,
+          "variant": "direct",
+          "seconds": 0.458529788,
+          "checksum": 819222790000,
+          "process_seconds": 0.9619980889983708
+        },
+        {
+          "round": 2,
+          "variant": "inline80",
+          "seconds": 0.821620931,
+          "checksum": 819222790000,
+          "process_seconds": 1.6954082259981078
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline80",
+          "seconds": 1.333133038,
+          "checksum": 819222790000,
+          "process_seconds": 2.7216147979997913
+        },
+        {
+          "round": 2,
+          "variant": "inline160",
+          "seconds": 0.826991044,
+          "checksum": 819222790000,
+          "process_seconds": 1.71319434200268
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline160",
+          "seconds": 1.341498105,
+          "checksum": 819222790000,
+          "process_seconds": 2.7415012780038523
+        },
+        {
+          "round": 2,
+          "variant": "baseline",
+          "seconds": 0.487385346,
+          "checksum": 819222790000,
+          "process_seconds": 1.0231908240020857
+        },
+        {
+          "round": 3,
+          "variant": "inline80",
+          "seconds": 0.827904674,
+          "checksum": 819222790000,
+          "process_seconds": 1.7087135990004754
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline80",
+          "seconds": 1.330462904,
+          "checksum": 819222790000,
+          "process_seconds": 2.720475914000417
+        },
+        {
+          "round": 3,
+          "variant": "inline160",
+          "seconds": 0.836474403,
+          "checksum": 819222790000,
+          "process_seconds": 1.7357443689979846
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline160",
+          "seconds": 1.343705959,
+          "checksum": 819222790000,
+          "process_seconds": 2.744643325000652
+        },
+        {
+          "round": 3,
+          "variant": "baseline",
+          "seconds": 0.485807887,
+          "checksum": 819222790000,
+          "process_seconds": 1.0209004469943466
+        },
+        {
+          "round": 3,
+          "variant": "direct",
+          "seconds": 0.458264125,
+          "checksum": 819222790000,
+          "process_seconds": 0.9633937789985794
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline80",
+          "seconds": 1.354921335,
+          "checksum": 819222790000,
+          "process_seconds": 2.768161713000154
+        },
+        {
+          "round": 4,
+          "variant": "inline160",
+          "seconds": 0.832062192,
+          "checksum": 819222790000,
+          "process_seconds": 1.7219749089999823
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline160",
+          "seconds": 1.327154656,
+          "checksum": 819222790000,
+          "process_seconds": 2.7342306740029017
+        },
+        {
+          "round": 4,
+          "variant": "baseline",
+          "seconds": 0.487848465,
+          "checksum": 819222790000,
+          "process_seconds": 1.0245929760058061
+        },
+        {
+          "round": 4,
+          "variant": "direct",
+          "seconds": 0.456654966,
+          "checksum": 819222790000,
+          "process_seconds": 0.962252762998105
+        },
+        {
+          "round": 4,
+          "variant": "inline80",
+          "seconds": 0.823122088,
+          "checksum": 819222790000,
+          "process_seconds": 1.7001876040012576
+        },
+        {
+          "round": 5,
+          "variant": "inline160",
+          "seconds": 0.837391817,
+          "checksum": 819222790000,
+          "process_seconds": 1.7265383889971417
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline160",
+          "seconds": 1.326742628,
+          "checksum": 819222790000,
+          "process_seconds": 2.717207885994867
+        },
+        {
+          "round": 5,
+          "variant": "baseline",
+          "seconds": 0.48698418,
+          "checksum": 819222790000,
+          "process_seconds": 1.0227517899984377
+        },
+        {
+          "round": 5,
+          "variant": "direct",
+          "seconds": 0.455721937,
+          "checksum": 819222790000,
+          "process_seconds": 0.961918182001682
+        },
+        {
+          "round": 5,
+          "variant": "inline80",
+          "seconds": 0.824884945,
+          "checksum": 819222790000,
+          "process_seconds": 1.7059712219997891
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline80",
+          "seconds": 1.34322052,
+          "checksum": 819222790000,
+          "process_seconds": 2.7412718539999332
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline160",
+          "seconds": 1.34350232,
+          "checksum": 819222790000,
+          "process_seconds": 2.743120256003749
+        },
+        {
+          "round": 6,
+          "variant": "baseline",
+          "seconds": 0.489256049,
+          "checksum": 819222790000,
+          "process_seconds": 1.027760245000536
+        },
+        {
+          "round": 6,
+          "variant": "direct",
+          "seconds": 0.457235653,
+          "checksum": 819222790000,
+          "process_seconds": 0.9637394509991282
+        },
+        {
+          "round": 6,
+          "variant": "inline80",
+          "seconds": 0.836158756,
+          "checksum": 819222790000,
+          "process_seconds": 1.7293809469992993
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline80",
+          "seconds": 1.332807852,
+          "checksum": 819222790000,
+          "process_seconds": 2.724050659999193
+        },
+        {
+          "round": 6,
+          "variant": "inline160",
+          "seconds": 0.832352209,
+          "checksum": 819222790000,
+          "process_seconds": 1.7230609870020999
+        },
+        {
+          "round": 7,
+          "variant": "baseline",
+          "seconds": 0.489571933,
+          "checksum": 819222790000,
+          "process_seconds": 1.0268397890031338
+        },
+        {
+          "round": 7,
+          "variant": "direct",
+          "seconds": 0.470022272,
+          "checksum": 819222790000,
+          "process_seconds": 1.002148342995497
+        },
+        {
+          "round": 7,
+          "variant": "inline80",
+          "seconds": 0.825770938,
+          "checksum": 819222790000,
+          "process_seconds": 1.711055589003081
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline80",
+          "seconds": 1.333787582,
+          "checksum": 819222790000,
+          "process_seconds": 2.7224950430027093
+        },
+        {
+          "round": 7,
+          "variant": "inline160",
+          "seconds": 0.836397093,
+          "checksum": 819222790000,
+          "process_seconds": 1.729808365998906
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline160",
+          "seconds": 1.345601229,
+          "checksum": 819222790000,
+          "process_seconds": 2.750219859997742
+        },
+        {
+          "round": 8,
+          "variant": "direct",
+          "seconds": 0.457455814,
+          "checksum": 819222790000,
+          "process_seconds": 0.9616538769987528
+        },
+        {
+          "round": 8,
+          "variant": "inline80",
+          "seconds": 0.8237141,
+          "checksum": 819222790000,
+          "process_seconds": 1.7042820240021683
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline80",
+          "seconds": 1.329285761,
+          "checksum": 819222790000,
+          "process_seconds": 2.721431086996745
+        },
+        {
+          "round": 8,
+          "variant": "inline160",
+          "seconds": 0.829914405,
+          "checksum": 819222790000,
+          "process_seconds": 1.7226378170016687
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline160",
+          "seconds": 1.328872203,
+          "checksum": 819222790000,
+          "process_seconds": 2.7246860189989093
+        },
+        {
+          "round": 8,
+          "variant": "baseline",
+          "seconds": 0.501070932,
+          "checksum": 819222790000,
+          "process_seconds": 1.0519513209947036
+        },
+        {
+          "round": 9,
+          "variant": "inline80",
+          "seconds": 0.8224371,
+          "checksum": 819222790000,
+          "process_seconds": 1.698382897004194
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline80",
+          "seconds": 1.338544292,
+          "checksum": 819222790000,
+          "process_seconds": 2.7272236599965254
+        },
+        {
+          "round": 9,
+          "variant": "inline160",
+          "seconds": 0.833158775,
+          "checksum": 819222790000,
+          "process_seconds": 1.7236372280021897
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline160",
+          "seconds": 1.343161989,
+          "checksum": 819222790000,
+          "process_seconds": 2.7436878599983174
+        },
+        {
+          "round": 9,
+          "variant": "baseline",
+          "seconds": 0.486216875,
+          "checksum": 819222790000,
+          "process_seconds": 1.0206840600003488
+        },
+        {
+          "round": 9,
+          "variant": "direct",
+          "seconds": 0.455961802,
+          "checksum": 819222790000,
+          "process_seconds": 0.966562323999824
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline80",
+          "seconds": 1.334636943,
+          "checksum": 819222790000,
+          "process_seconds": 2.727519357998972
+        },
+        {
+          "round": 10,
+          "variant": "inline160",
+          "seconds": 0.836986055,
+          "checksum": 819222790000,
+          "process_seconds": 1.7300312770021264
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline160",
+          "seconds": 1.345551588,
+          "checksum": 819222790000,
+          "process_seconds": 2.7434909389994573
+        },
+        {
+          "round": 10,
+          "variant": "baseline",
+          "seconds": 0.4875895,
+          "checksum": 819222790000,
+          "process_seconds": 1.0227657610012102
+        },
+        {
+          "round": 10,
+          "variant": "direct",
+          "seconds": 0.45436835,
+          "checksum": 819222790000,
+          "process_seconds": 0.9574572600031388
+        },
+        {
+          "round": 10,
+          "variant": "inline80",
+          "seconds": 0.824760039,
+          "checksum": 819222790000,
+          "process_seconds": 1.705305572002544
+        }
+      ],
+      "medians": {
+        "baseline": 0.48771347249999997,
+        "direct": 0.4573457335,
+        "inline80": 0.824822492,
+        "direct-inline80": 1.33346031,
+        "inline160": 0.832755492,
+        "direct-inline160": 1.342330047
+      }
+    },
+    "cpu": {
+      "builds": [
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/cpu.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.wat",
+            "baseline"
+          ],
+          "seconds": 1.0832882210015669,
+          "status": 0,
+          "stdout": "()\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.assembled.wasm"
+          ],
+          "seconds": 0.026416918997711036,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.merged.wasm"
+          ],
+          "seconds": 0.02848691400140524,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.wasm"
+          ],
+          "seconds": 0.597016834995884,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-inline80.wasm"
+          ],
+          "seconds": 54.99849657499726,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-inline160.wasm"
+          ],
+          "seconds": 25.912092924998433,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/cpu.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.wat",
+            "direct"
+          ],
+          "seconds": 1.1244604559979052,
+          "status": 0,
+          "stdout": "((nodes . 1636) (rounds . 17) (escaped . 10))\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.assembled.wasm"
+          ],
+          "seconds": 0.02606522900168784,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.merged.wasm"
+          ],
+          "seconds": 0.029482921003364027,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.wasm"
+          ],
+          "seconds": 0.6395608080056263,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct-inline80.wasm"
+          ],
+          "seconds": 56.34873045799759,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct-inline160.wasm"
+          ],
+          "seconds": 32.92455535499903,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "emission": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.wat",
+          "sha256": "2d217851783f67704eb6d2068169fa74957542d68ca7824fe8aeb541f4968bb7",
+          "bytes": 324082,
+          "direct_worker_calls": 137,
+          "generic_apply_calls": 92,
+          "all_calls": 1340,
+          "worker_definitions": 128,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682278492000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682278492000,
+              "dur": 72000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682278492000,
+              "dur": 72000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682278564000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682278566000,
+              "dur": 495000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682278564000,
+              "dur": 497000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682279084000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682279084000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682279084000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682279087000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682279087000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682279087000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682279088000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682279088000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682279088000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682278564000,
+              "dur": 532000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682279099000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682279103000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682279103000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682279097000,
+              "dur": 14000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682279111000,
+              "dur": 11000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682279122000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682279097000,
+              "dur": 29000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682278492000,
+              "dur": 634000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682279126000,
+              "dur": 6000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682278492000,
+              "dur": 640000
+            }
+          ]
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.wat",
+          "sha256": "9ae84c4a4e6b64f073081e42723b9831a0b3b2f6c2ef0e9c49afef0642b27cab",
+          "bytes": 324461,
+          "direct_worker_calls": 151,
+          "generic_apply_calls": 78,
+          "all_calls": 1340,
+          "worker_definitions": 128,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682361150000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682361151000,
+              "dur": 72000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682361150000,
+              "dur": 73000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682361223000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682361225000,
+              "dur": 505000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682361223000,
+              "dur": 507000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682361754000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682361754000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682361754000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682361756000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682361756000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682361756000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682361758000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682361758000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682361758000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682361223000,
+              "dur": 543000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682361769000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682361773000,
+              "dur": 19000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682361792000,
+              "dur": 3000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682361766000,
+              "dur": 34000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682361800000,
+              "dur": 11000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682361811000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682361766000,
+              "dur": 50000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682361150000,
+              "dur": 666000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682361816000,
+              "dur": 5000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682361150000,
+              "dur": 671000
+            }
+          ]
+        }
+      },
+      "variants": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-baseline.wasm",
+          "sha256": "8b51b100d71000ab8cf0ae04e90ebb5d6f649bd2311238bec5f698218c3d4203",
+          "bytes": 295398
+        },
+        "inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-inline80.wasm",
+          "sha256": "a76be5ebdebe2115af1dd69518f19ac0e533b537099d9c6c13f74befe4833810",
+          "bytes": 1169562
+        },
+        "inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-inline160.wasm",
+          "sha256": "b7872507ee0ad513aabc698bcdf88b8ae5cc80ef5b6170698d7db8ebbb3ad4bd",
+          "bytes": 1129652
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct.wasm",
+          "sha256": "7bbe96585af2678e85a2f44333e6af4d8cc0ed8dcd5dad644aa98071247f7993",
+          "bytes": 295979
+        },
+        "direct-inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct-inline80.wasm",
+          "sha256": "f5daef0412f6764382ce1bc169a9897feb0c654ce794f026d00d6bb8c9b67b37",
+          "bytes": 1334855
+        },
+        "direct-inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/cpu-direct-inline160.wasm",
+          "sha256": "35553a9aec3482686d45dc1d50cc5cd55fe5f2be80387c8a1ddb69a99dd5386d",
+          "bytes": 1384481
+        }
+      },
+      "repetitions": 256,
+      "checksum": 1076472576,
+      "warmups": {
+        "baseline": {
+          "seconds": 0.333257,
+          "checksum": 1076472576,
+          "process_seconds": 0.36081264299718896
+        },
+        "direct": {
+          "seconds": 0.332441,
+          "checksum": 1076472576,
+          "process_seconds": 0.35622305300057633
+        },
+        "inline80": {
+          "seconds": 1.235728,
+          "checksum": 1076472576,
+          "process_seconds": 1.2877829589997418
+        },
+        "direct-inline80": {
+          "seconds": 1.14839,
+          "checksum": 1076472576,
+          "process_seconds": 1.177814449001744
+        },
+        "inline160": {
+          "seconds": 1.192997,
+          "checksum": 1076472576,
+          "process_seconds": 1.2380898329938645
+        },
+        "direct-inline160": {
+          "seconds": 1.123153,
+          "checksum": 1076472576,
+          "process_seconds": 1.154441268001392
+        }
+      },
+      "samples": [
+        {
+          "round": 1,
+          "variant": "baseline",
+          "seconds": 0.333638,
+          "checksum": 1076472576,
+          "process_seconds": 0.3570069319976028
+        },
+        {
+          "round": 1,
+          "variant": "direct",
+          "seconds": 0.33264,
+          "checksum": 1076472576,
+          "process_seconds": 0.35548997500154655
+        },
+        {
+          "round": 1,
+          "variant": "inline80",
+          "seconds": 1.312194,
+          "checksum": 1076472576,
+          "process_seconds": 1.3631659370003035
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline80",
+          "seconds": 1.147859,
+          "checksum": 1076472576,
+          "process_seconds": 1.1776397950015962
+        },
+        {
+          "round": 1,
+          "variant": "inline160",
+          "seconds": 1.195275,
+          "checksum": 1076472576,
+          "process_seconds": 1.2407940330012934
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline160",
+          "seconds": 1.124072,
+          "checksum": 1076472576,
+          "process_seconds": 1.1564921289973427
+        },
+        {
+          "round": 2,
+          "variant": "direct",
+          "seconds": 0.332302,
+          "checksum": 1076472576,
+          "process_seconds": 0.3560432380036218
+        },
+        {
+          "round": 2,
+          "variant": "inline80",
+          "seconds": 1.235982,
+          "checksum": 1076472576,
+          "process_seconds": 1.2864475879978272
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline80",
+          "seconds": 1.148558,
+          "checksum": 1076472576,
+          "process_seconds": 1.1785061490008957
+        },
+        {
+          "round": 2,
+          "variant": "inline160",
+          "seconds": 1.194465,
+          "checksum": 1076472576,
+          "process_seconds": 1.2399851289956132
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline160",
+          "seconds": 1.124576,
+          "checksum": 1076472576,
+          "process_seconds": 1.1577147229982074
+        },
+        {
+          "round": 2,
+          "variant": "baseline",
+          "seconds": 0.332715,
+          "checksum": 1076472576,
+          "process_seconds": 0.35810484400280984
+        },
+        {
+          "round": 3,
+          "variant": "inline80",
+          "seconds": 1.238719,
+          "checksum": 1076472576,
+          "process_seconds": 1.2880800780039863
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline80",
+          "seconds": 1.147669,
+          "checksum": 1076472576,
+          "process_seconds": 1.1787635090004187
+        },
+        {
+          "round": 3,
+          "variant": "inline160",
+          "seconds": 1.192744,
+          "checksum": 1076472576,
+          "process_seconds": 1.2381996429976425
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline160",
+          "seconds": 1.122564,
+          "checksum": 1076472576,
+          "process_seconds": 1.1572569220006699
+        },
+        {
+          "round": 3,
+          "variant": "baseline",
+          "seconds": 0.321308,
+          "checksum": 1076472576,
+          "process_seconds": 0.34521152100205654
+        },
+        {
+          "round": 3,
+          "variant": "direct",
+          "seconds": 0.332343,
+          "checksum": 1076472576,
+          "process_seconds": 0.35769498499576
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline80",
+          "seconds": 1.148444,
+          "checksum": 1076472576,
+          "process_seconds": 1.1791547539978637
+        },
+        {
+          "round": 4,
+          "variant": "inline160",
+          "seconds": 1.194464,
+          "checksum": 1076472576,
+          "process_seconds": 1.2398603330002516
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline160",
+          "seconds": 1.1232,
+          "checksum": 1076472576,
+          "process_seconds": 1.1562354510024306
+        },
+        {
+          "round": 4,
+          "variant": "baseline",
+          "seconds": 0.321511,
+          "checksum": 1076472576,
+          "process_seconds": 0.3453641140004038
+        },
+        {
+          "round": 4,
+          "variant": "direct",
+          "seconds": 0.332368,
+          "checksum": 1076472576,
+          "process_seconds": 0.35555370800284436
+        },
+        {
+          "round": 4,
+          "variant": "inline80",
+          "seconds": 1.237594,
+          "checksum": 1076472576,
+          "process_seconds": 1.2882611670065671
+        },
+        {
+          "round": 5,
+          "variant": "inline160",
+          "seconds": 1.193463,
+          "checksum": 1076472576,
+          "process_seconds": 1.2392216730004293
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline160",
+          "seconds": 1.123006,
+          "checksum": 1076472576,
+          "process_seconds": 1.1572956279997015
+        },
+        {
+          "round": 5,
+          "variant": "baseline",
+          "seconds": 0.332477,
+          "checksum": 1076472576,
+          "process_seconds": 0.35755227700428804
+        },
+        {
+          "round": 5,
+          "variant": "direct",
+          "seconds": 0.332324,
+          "checksum": 1076472576,
+          "process_seconds": 0.3550930799974594
+        },
+        {
+          "round": 5,
+          "variant": "inline80",
+          "seconds": 1.236576,
+          "checksum": 1076472576,
+          "process_seconds": 1.287201405997621
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline80",
+          "seconds": 1.148755,
+          "checksum": 1076472576,
+          "process_seconds": 1.1775631940035964
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline160",
+          "seconds": 1.124243,
+          "checksum": 1076472576,
+          "process_seconds": 1.1570611060014926
+        },
+        {
+          "round": 6,
+          "variant": "baseline",
+          "seconds": 0.332492,
+          "checksum": 1076472576,
+          "process_seconds": 0.3570861820044229
+        },
+        {
+          "round": 6,
+          "variant": "direct",
+          "seconds": 0.332451,
+          "checksum": 1076472576,
+          "process_seconds": 0.35689253300370183
+        },
+        {
+          "round": 6,
+          "variant": "inline80",
+          "seconds": 1.236027,
+          "checksum": 1076472576,
+          "process_seconds": 1.2886433500025305
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline80",
+          "seconds": 1.147599,
+          "checksum": 1076472576,
+          "process_seconds": 1.1772602270066272
+        },
+        {
+          "round": 6,
+          "variant": "inline160",
+          "seconds": 1.1941,
+          "checksum": 1076472576,
+          "process_seconds": 1.23808779000683
+        },
+        {
+          "round": 7,
+          "variant": "baseline",
+          "seconds": 0.332411,
+          "checksum": 1076472576,
+          "process_seconds": 0.35821998600295046
+        },
+        {
+          "round": 7,
+          "variant": "direct",
+          "seconds": 0.332361,
+          "checksum": 1076472576,
+          "process_seconds": 0.35776135800551856
+        },
+        {
+          "round": 7,
+          "variant": "inline80",
+          "seconds": 1.237465,
+          "checksum": 1076472576,
+          "process_seconds": 1.2891562139993766
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline80",
+          "seconds": 1.147683,
+          "checksum": 1076472576,
+          "process_seconds": 1.177496317999612
+        },
+        {
+          "round": 7,
+          "variant": "inline160",
+          "seconds": 1.193708,
+          "checksum": 1076472576,
+          "process_seconds": 1.2394542350011761
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline160",
+          "seconds": 1.122348,
+          "checksum": 1076472576,
+          "process_seconds": 1.153784062997147
+        },
+        {
+          "round": 8,
+          "variant": "direct",
+          "seconds": 0.332484,
+          "checksum": 1076472576,
+          "process_seconds": 0.35707289000129094
+        },
+        {
+          "round": 8,
+          "variant": "inline80",
+          "seconds": 1.238184,
+          "checksum": 1076472576,
+          "process_seconds": 1.2907405770019977
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline80",
+          "seconds": 1.150579,
+          "checksum": 1076472576,
+          "process_seconds": 1.1794671570023638
+        },
+        {
+          "round": 8,
+          "variant": "inline160",
+          "seconds": 1.19321,
+          "checksum": 1076472576,
+          "process_seconds": 1.2391799370016088
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline160",
+          "seconds": 1.124565,
+          "checksum": 1076472576,
+          "process_seconds": 1.1587791800047853
+        },
+        {
+          "round": 8,
+          "variant": "baseline",
+          "seconds": 0.332468,
+          "checksum": 1076472576,
+          "process_seconds": 0.35695992300315993
+        },
+        {
+          "round": 9,
+          "variant": "inline80",
+          "seconds": 1.237116,
+          "checksum": 1076472576,
+          "process_seconds": 1.2871411430023727
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline80",
+          "seconds": 1.148246,
+          "checksum": 1076472576,
+          "process_seconds": 1.1812428800039925
+        },
+        {
+          "round": 9,
+          "variant": "inline160",
+          "seconds": 1.192805,
+          "checksum": 1076472576,
+          "process_seconds": 1.238950778999424
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline160",
+          "seconds": 1.122303,
+          "checksum": 1076472576,
+          "process_seconds": 1.1546130389979226
+        },
+        {
+          "round": 9,
+          "variant": "baseline",
+          "seconds": 0.332827,
+          "checksum": 1076472576,
+          "process_seconds": 0.35623389599641087
+        },
+        {
+          "round": 9,
+          "variant": "direct",
+          "seconds": 0.324043,
+          "checksum": 1076472576,
+          "process_seconds": 0.35008373299933737
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline80",
+          "seconds": 1.147616,
+          "checksum": 1076472576,
+          "process_seconds": 1.177312843996333
+        },
+        {
+          "round": 10,
+          "variant": "inline160",
+          "seconds": 1.193481,
+          "checksum": 1076472576,
+          "process_seconds": 1.2387817909984733
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline160",
+          "seconds": 1.121467,
+          "checksum": 1076472576,
+          "process_seconds": 1.155857139005093
+        },
+        {
+          "round": 10,
+          "variant": "baseline",
+          "seconds": 0.332361,
+          "checksum": 1076472576,
+          "process_seconds": 0.3570228520038654
+        },
+        {
+          "round": 10,
+          "variant": "direct",
+          "seconds": 0.332256,
+          "checksum": 1076472576,
+          "process_seconds": 0.3560267360007856
+        },
+        {
+          "round": 10,
+          "variant": "inline80",
+          "seconds": 1.238011,
+          "checksum": 1076472576,
+          "process_seconds": 1.2877646740016644
+        }
+      ],
+      "medians": {
+        "baseline": 0.3324725,
+        "direct": 0.332352,
+        "inline80": 1.2375295,
+        "direct-inline80": 1.1480525,
+        "inline160": 1.1935945000000001,
+        "direct-inline160": 1.123103
+      }
+    },
+    "memory": {
+      "builds": [
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/memory.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.wat",
+            "baseline"
+          ],
+          "seconds": 1.1500789409983554,
+          "status": 0,
+          "stdout": "()\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.assembled.wasm"
+          ],
+          "seconds": 0.02689654999994673,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.merged.wasm"
+          ],
+          "seconds": 0.028912392997881398,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.wasm"
+          ],
+          "seconds": 0.761832959993626,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-inline80.wasm"
+          ],
+          "seconds": 0.8891123770008562,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-inline160.wasm"
+          ],
+          "seconds": 2.0515842439999687,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/src",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/calls/emit.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/source/benchmarks/memory.scm",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.wat",
+            "direct"
+          ],
+          "seconds": 1.1771943620042293,
+          "status": 0,
+          "stdout": "((nodes . 1893) (rounds . 22) (escaped . 9))\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-as",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.wat",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.assembled.wasm"
+          ],
+          "seconds": 0.02657823800109327,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-merge",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.assembled.wasm",
+            "snail.awi",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+            "snail.rust",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/entry.wasm",
+            "snail.entry",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.merged.wasm"
+          ],
+          "seconds": 0.03011142999457661,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=40",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.wasm"
+          ],
+          "seconds": 0.7277446720036096,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=80",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct-inline80.wasm"
+          ],
+          "seconds": 1.2563163150043692,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "wasm-opt",
+            "-g",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "--enable-sign-ext",
+            "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int",
+            "--remove-exports",
+            "--pass-arg=remove-exports@_initialize",
+            "-O3",
+            "--closed-world",
+            "--always-inline-max-function-size=160",
+            "--converge",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.merged.wasm",
+            "-o",
+            "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct-inline160.wasm"
+          ],
+          "seconds": 3.8331333990063285,
+          "status": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "emission": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.wat",
+          "sha256": "43ef1b0831e4d2caf7fc9f41bcb9c6a0bf99cf0568dafbe527ee7ed833da4473",
+          "bytes": 360510,
+          "direct_worker_calls": 159,
+          "generic_apply_calls": 114,
+          "all_calls": 1552,
+          "worker_definitions": 148,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682452253000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682452254000,
+              "dur": 95000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682452253000,
+              "dur": 96000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682452349000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682452351000,
+              "dur": 506000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682452349000,
+              "dur": 508000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682452881000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682452881000,
+              "dur": 3000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682452881000,
+              "dur": 3000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682452884000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682452884000,
+              "dur": 1000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682452884000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682452886000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682452886000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682452886000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682452349000,
+              "dur": 551000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682452903000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682452907000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682452908000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682452900000,
+              "dur": 16000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682452917000,
+              "dur": 14000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682452931000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682452900000,
+              "dur": 36000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682452253000,
+              "dur": 683000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682452936000,
+              "dur": 6000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682452253000,
+              "dur": 689000
+            }
+          ]
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.wat",
+          "sha256": "9d9b76465b29e9824294b6a189e2f685f5396af087f0b8fc72bf339990e09131",
+          "bytes": 360945,
+          "direct_worker_calls": 175,
+          "generic_apply_calls": 98,
+          "all_calls": 1552,
+          "worker_definitions": 148,
+          "trace": [
+            {
+              "ph": "M",
+              "pid": 1,
+              "tid": 1,
+              "name": "thread_name",
+              "args": {
+                "name": "Scheme"
+              }
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682457164000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682457165000,
+              "dur": 94000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682457164000,
+              "dur": 95000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682457259000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682457261000,
+              "dur": 506000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682457259000,
+              "dur": 508000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682457791000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682457791000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682457791000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682457793000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682457793000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682457793000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "file->reader",
+              "ts": 1791682457795000,
+              "dur": 0
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "reader->syntax-list",
+              "ts": 1791682457795000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->syntax-list",
+              "ts": 1791682457795000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "syntax-list->ir-library",
+              "ts": 1791682457259000,
+              "dur": 550000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-types",
+              "ts": 1791682457812000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "analyze-call-flow",
+              "ts": 1791682457817000,
+              "dur": 27000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "partial-evaluate",
+              "ts": 1791682457845000,
+              "dur": 4000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "prepare-module",
+              "ts": 1791682457809000,
+              "dur": 45000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-procedure-functions",
+              "ts": 1791682457854000,
+              "dur": 14000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "generate-library-functions",
+              "ts": 1791682457868000,
+              "dur": 2000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "ir-library->wasm",
+              "ts": 1791682457809000,
+              "dur": 64000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wasm",
+              "ts": 1791682457164000,
+              "dur": 709000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "write-wasm",
+              "ts": 1791682457873000,
+              "dur": 6000
+            },
+            {
+              "ph": "X",
+              "pid": 1,
+              "tid": 1,
+              "name": "source-file->wat-file",
+              "ts": 1791682457164000,
+              "dur": 715000
+            }
+          ]
+        }
+      },
+      "variants": {
+        "baseline": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-baseline.wasm",
+          "sha256": "4dc2c6df8508d0a73815fe22a29b8f6cd7262dda2ba6880a5d2eeb3c0a64104b",
+          "bytes": 311732
+        },
+        "inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-inline80.wasm",
+          "sha256": "e70fc239f292855ce5aec01df0e64fb71717c119da58e464c4f647c598e3b0c1",
+          "bytes": 475085
+        },
+        "inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-inline160.wasm",
+          "sha256": "8e3b5acc69bc45a5c9ef1bfbbbf4f9bef1b62e4834187a42d4fe7c306565ad47",
+          "bytes": 679737
+        },
+        "direct": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct.wasm",
+          "sha256": "f01811f0fedd7ef9e4565cd64a8416ed211db0f4c7cc629d5a2aeb654ab7c674",
+          "bytes": 316669
+        },
+        "direct-inline80": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct-inline80.wasm",
+          "sha256": "4289c69d871b44ad9ea41446460dda568cbd7e848ebecc257964a4bdb2bc500e",
+          "bytes": 548461
+        },
+        "direct-inline160": {
+          "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/memory-direct-inline160.wasm",
+          "sha256": "d80b541845929c709c2027632bc687b4474afdc699379724bcaa1acb8aa4dca3",
+          "bytes": 1030683
+        }
+      },
+      "repetitions": 64,
+      "checksum": 29115816192,
+      "warmups": {
+        "baseline": {
+          "seconds": 0.207015,
+          "checksum": 29115816192,
+          "process_seconds": 0.23748440999770537
+        },
+        "direct": {
+          "seconds": 0.208763,
+          "checksum": 29115816192,
+          "process_seconds": 0.2371386459999485
+        },
+        "inline80": {
+          "seconds": 0.367906,
+          "checksum": 29115816192,
+          "process_seconds": 0.39926961199671496
+        },
+        "direct-inline80": {
+          "seconds": 0.368233,
+          "checksum": 29115816192,
+          "process_seconds": 0.39950106300238986
+        },
+        "inline160": {
+          "seconds": 0.459043,
+          "checksum": 29115816192,
+          "process_seconds": 0.4964204249990871
+        },
+        "direct-inline160": {
+          "seconds": 0.459875,
+          "checksum": 29115816192,
+          "process_seconds": 0.4966795239961357
+        }
+      },
+      "samples": [
+        {
+          "round": 1,
+          "variant": "baseline",
+          "seconds": 0.207483,
+          "checksum": 29115816192,
+          "process_seconds": 0.23744711600011215
+        },
+        {
+          "round": 1,
+          "variant": "direct",
+          "seconds": 0.211216,
+          "checksum": 29115816192,
+          "process_seconds": 0.239851518002979
+        },
+        {
+          "round": 1,
+          "variant": "inline80",
+          "seconds": 0.369295,
+          "checksum": 29115816192,
+          "process_seconds": 0.4001566750011989
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline80",
+          "seconds": 0.365699,
+          "checksum": 29115816192,
+          "process_seconds": 0.3976432070048759
+        },
+        {
+          "round": 1,
+          "variant": "inline160",
+          "seconds": 0.460406,
+          "checksum": 29115816192,
+          "process_seconds": 0.4975616869996884
+        },
+        {
+          "round": 1,
+          "variant": "direct-inline160",
+          "seconds": 0.456933,
+          "checksum": 29115816192,
+          "process_seconds": 0.49256094599695643
+        },
+        {
+          "round": 2,
+          "variant": "direct",
+          "seconds": 0.208407,
+          "checksum": 29115816192,
+          "process_seconds": 0.23901030799606815
+        },
+        {
+          "round": 2,
+          "variant": "inline80",
+          "seconds": 0.368744,
+          "checksum": 29115816192,
+          "process_seconds": 0.3986498960002791
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline80",
+          "seconds": 0.367419,
+          "checksum": 29115816192,
+          "process_seconds": 0.39976827300415607
+        },
+        {
+          "round": 2,
+          "variant": "inline160",
+          "seconds": 0.459025,
+          "checksum": 29115816192,
+          "process_seconds": 0.4974070269963704
+        },
+        {
+          "round": 2,
+          "variant": "direct-inline160",
+          "seconds": 0.458356,
+          "checksum": 29115816192,
+          "process_seconds": 0.49675861099967733
+        },
+        {
+          "round": 2,
+          "variant": "baseline",
+          "seconds": 0.2069,
+          "checksum": 29115816192,
+          "process_seconds": 0.23731054599920753
+        },
+        {
+          "round": 3,
+          "variant": "inline80",
+          "seconds": 0.369313,
+          "checksum": 29115816192,
+          "process_seconds": 0.40094237299490487
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline80",
+          "seconds": 0.367508,
+          "checksum": 29115816192,
+          "process_seconds": 0.39960678100032965
+        },
+        {
+          "round": 3,
+          "variant": "inline160",
+          "seconds": 0.458009,
+          "checksum": 29115816192,
+          "process_seconds": 0.49472282000351697
+        },
+        {
+          "round": 3,
+          "variant": "direct-inline160",
+          "seconds": 0.458712,
+          "checksum": 29115816192,
+          "process_seconds": 0.4971665060002124
+        },
+        {
+          "round": 3,
+          "variant": "baseline",
+          "seconds": 0.206709,
+          "checksum": 29115816192,
+          "process_seconds": 0.23838787699787645
+        },
+        {
+          "round": 3,
+          "variant": "direct",
+          "seconds": 0.209684,
+          "checksum": 29115816192,
+          "process_seconds": 0.23861405799834756
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline80",
+          "seconds": 0.367421,
+          "checksum": 29115816192,
+          "process_seconds": 0.39949101799720665
+        },
+        {
+          "round": 4,
+          "variant": "inline160",
+          "seconds": 0.458196,
+          "checksum": 29115816192,
+          "process_seconds": 0.49473036100243917
+        },
+        {
+          "round": 4,
+          "variant": "direct-inline160",
+          "seconds": 0.458573,
+          "checksum": 29115816192,
+          "process_seconds": 0.4979100569980801
+        },
+        {
+          "round": 4,
+          "variant": "baseline",
+          "seconds": 0.207118,
+          "checksum": 29115816192,
+          "process_seconds": 0.23762396600068314
+        },
+        {
+          "round": 4,
+          "variant": "direct",
+          "seconds": 0.207459,
+          "checksum": 29115816192,
+          "process_seconds": 0.23825098000088474
+        },
+        {
+          "round": 4,
+          "variant": "inline80",
+          "seconds": 0.368215,
+          "checksum": 29115816192,
+          "process_seconds": 0.40065200500248466
+        },
+        {
+          "round": 5,
+          "variant": "inline160",
+          "seconds": 0.458444,
+          "checksum": 29115816192,
+          "process_seconds": 0.49498417600261746
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline160",
+          "seconds": 0.458028,
+          "checksum": 29115816192,
+          "process_seconds": 0.49659087400505086
+        },
+        {
+          "round": 5,
+          "variant": "baseline",
+          "seconds": 0.208208,
+          "checksum": 29115816192,
+          "process_seconds": 0.23821464300272055
+        },
+        {
+          "round": 5,
+          "variant": "direct",
+          "seconds": 0.206194,
+          "checksum": 29115816192,
+          "process_seconds": 0.23661300000094343
+        },
+        {
+          "round": 5,
+          "variant": "inline80",
+          "seconds": 0.370468,
+          "checksum": 29115816192,
+          "process_seconds": 0.4030733820036403
+        },
+        {
+          "round": 5,
+          "variant": "direct-inline80",
+          "seconds": 0.367527,
+          "checksum": 29115816192,
+          "process_seconds": 0.3975568110035965
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline160",
+          "seconds": 0.457421,
+          "checksum": 29115816192,
+          "process_seconds": 0.4951016759951017
+        },
+        {
+          "round": 6,
+          "variant": "baseline",
+          "seconds": 0.208823,
+          "checksum": 29115816192,
+          "process_seconds": 0.2377963679973618
+        },
+        {
+          "round": 6,
+          "variant": "direct",
+          "seconds": 0.209124,
+          "checksum": 29115816192,
+          "process_seconds": 0.2375664860010147
+        },
+        {
+          "round": 6,
+          "variant": "inline80",
+          "seconds": 0.369253,
+          "checksum": 29115816192,
+          "process_seconds": 0.40086529099789914
+        },
+        {
+          "round": 6,
+          "variant": "direct-inline80",
+          "seconds": 0.368761,
+          "checksum": 29115816192,
+          "process_seconds": 0.4008845190037391
+        },
+        {
+          "round": 6,
+          "variant": "inline160",
+          "seconds": 0.456964,
+          "checksum": 29115816192,
+          "process_seconds": 0.4928052449977258
+        },
+        {
+          "round": 7,
+          "variant": "baseline",
+          "seconds": 0.208914,
+          "checksum": 29115816192,
+          "process_seconds": 0.23779129100148566
+        },
+        {
+          "round": 7,
+          "variant": "direct",
+          "seconds": 0.209231,
+          "checksum": 29115816192,
+          "process_seconds": 0.23892450900166295
+        },
+        {
+          "round": 7,
+          "variant": "inline80",
+          "seconds": 0.369667,
+          "checksum": 29115816192,
+          "process_seconds": 0.40150470799562754
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline80",
+          "seconds": 0.370328,
+          "checksum": 29115816192,
+          "process_seconds": 0.40261980699870037
+        },
+        {
+          "round": 7,
+          "variant": "inline160",
+          "seconds": 0.45848,
+          "checksum": 29115816192,
+          "process_seconds": 0.49340474999917205
+        },
+        {
+          "round": 7,
+          "variant": "direct-inline160",
+          "seconds": 0.459681,
+          "checksum": 29115816192,
+          "process_seconds": 0.4975241209976957
+        },
+        {
+          "round": 8,
+          "variant": "direct",
+          "seconds": 0.210322,
+          "checksum": 29115816192,
+          "process_seconds": 0.23919210599706275
+        },
+        {
+          "round": 8,
+          "variant": "inline80",
+          "seconds": 0.370292,
+          "checksum": 29115816192,
+          "process_seconds": 0.40275890200427966
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline80",
+          "seconds": 0.367938,
+          "checksum": 29115816192,
+          "process_seconds": 0.401737079002487
+        },
+        {
+          "round": 8,
+          "variant": "inline160",
+          "seconds": 0.460283,
+          "checksum": 29115816192,
+          "process_seconds": 0.49839564799913205
+        },
+        {
+          "round": 8,
+          "variant": "direct-inline160",
+          "seconds": 0.462765,
+          "checksum": 29115816192,
+          "process_seconds": 0.49927552600274794
+        },
+        {
+          "round": 8,
+          "variant": "baseline",
+          "seconds": 0.212582,
+          "checksum": 29115816192,
+          "process_seconds": 0.2442975119993207
+        },
+        {
+          "round": 9,
+          "variant": "inline80",
+          "seconds": 0.37194,
+          "checksum": 29115816192,
+          "process_seconds": 0.402776069000538
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline80",
+          "seconds": 0.369595,
+          "checksum": 29115816192,
+          "process_seconds": 0.401722996000899
+        },
+        {
+          "round": 9,
+          "variant": "inline160",
+          "seconds": 0.460907,
+          "checksum": 29115816192,
+          "process_seconds": 0.4967657179950038
+        },
+        {
+          "round": 9,
+          "variant": "direct-inline160",
+          "seconds": 0.460501,
+          "checksum": 29115816192,
+          "process_seconds": 0.4976319710040116
+        },
+        {
+          "round": 9,
+          "variant": "baseline",
+          "seconds": 0.208376,
+          "checksum": 29115816192,
+          "process_seconds": 0.23741339299886022
+        },
+        {
+          "round": 9,
+          "variant": "direct",
+          "seconds": 0.207123,
+          "checksum": 29115816192,
+          "process_seconds": 0.2346581169986166
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline80",
+          "seconds": 0.367686,
+          "checksum": 29115816192,
+          "process_seconds": 0.39848498799983645
+        },
+        {
+          "round": 10,
+          "variant": "inline160",
+          "seconds": 0.458646,
+          "checksum": 29115816192,
+          "process_seconds": 0.4959180389996618
+        },
+        {
+          "round": 10,
+          "variant": "direct-inline160",
+          "seconds": 0.457816,
+          "checksum": 29115816192,
+          "process_seconds": 0.4956518929975573
+        },
+        {
+          "round": 10,
+          "variant": "baseline",
+          "seconds": 0.2074,
+          "checksum": 29115816192,
+          "process_seconds": 0.23719548399822088
+        },
+        {
+          "round": 10,
+          "variant": "direct",
+          "seconds": 0.209915,
+          "checksum": 29115816192,
+          "process_seconds": 0.2410536460010917
+        },
+        {
+          "round": 10,
+          "variant": "inline80",
+          "seconds": 0.370076,
+          "checksum": 29115816192,
+          "process_seconds": 0.4029243070035591
+        }
+      ],
+      "medians": {
+        "baseline": 0.20784550000000002,
+        "direct": 0.20917750000000002,
+        "inline80": 0.36949,
+        "direct-inline80": 0.3676065,
+        "inline160": 0.458563,
+        "direct-inline160": 0.4584645
+      }
+    }
+  },
+  "runtime": {
+    "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/run2/runtime.wasm",
+    "sha256": "920129236bd6d1e05366cba0d99acdf44c29b9cc596c9d06e0ca6f5597b5c16d",
+    "bytes": 256725
+  },
+  "competition": "Parent compiler benchmark and typing suite finished before sampling; parent reserved this quiet window for Git/documentation work. All timed children pinned to logical CPU3. Other operating-system activity was not isolated.",
+  "measured_at": "2026-10-11T01:41:55.638279+00:00",
+  "loadavg_before": "0.85 2.79 3.06 1/1194 2\n",
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "native_callbacks": {
+    "variants": {
+      "baseline": {
+        "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+        "sha256": "12fa7000c970ef8a462540ce1765f29428effe3dc970c6ba576194b5564fa84f",
+        "bytes": 2873920
+      },
+      "direct": {
+        "path": "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+        "sha256": "2f3886f843acfdd3625253598495587369175d1e9358d9ab2f1fdcffa0393e6d",
+        "bytes": 2873152
+      }
+    },
+    "samples": [
+      {
+        "round": 1,
+        "variant": "baseline",
+        "seconds": 2.055729591,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 1,
+        "variant": "direct",
+        "seconds": 1.526814285,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 2,
+        "variant": "direct",
+        "seconds": 1.535542215,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 2,
+        "variant": "baseline",
+        "seconds": 1.99528837,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 3,
+        "variant": "baseline",
+        "seconds": 2.000368911,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 3,
+        "variant": "direct",
+        "seconds": 1.571075218,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 4,
+        "variant": "direct",
+        "seconds": 1.523318685,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 4,
+        "variant": "baseline",
+        "seconds": 1.998522841,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 5,
+        "variant": "baseline",
+        "seconds": 1.994869439,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 5,
+        "variant": "direct",
+        "seconds": 1.528102401,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 6,
+        "variant": "direct",
+        "seconds": 1.531948836,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 6,
+        "variant": "baseline",
+        "seconds": 1.996867583,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 7,
+        "variant": "baseline",
+        "seconds": 1.994764925,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 7,
+        "variant": "direct",
+        "seconds": 1.518449145,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 8,
+        "variant": "direct",
+        "seconds": 1.51846253,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 8,
+        "variant": "baseline",
+        "seconds": 2.003982422,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 9,
+        "variant": "baseline",
+        "seconds": 2.005601981,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      {
+        "round": 9,
+        "variant": "direct",
+        "seconds": 1.511150162,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 10,
+        "variant": "direct",
+        "seconds": 1.52274965,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      },
+      {
+        "round": 10,
+        "variant": "baseline",
+        "seconds": 2.004239109,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      }
+    ],
+    "warmups": {
+      "baseline": {
+        "seconds": 2.006439932,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-baseline",
+          "4096"
+        ]
+      },
+      "direct": {
+        "seconds": 1.583468165,
+        "checksum": 819222790000,
+        "command": [
+          "taskset",
+          "-c",
+          "3",
+          "/tmp/snail-call-prototype-20261010/build/call-prototype/callbacks.native-direct",
+          "4096"
+        ]
+      }
+    },
+    "medians": {
+      "baseline": 1.9994458759999998,
+      "direct": 1.525066485
+    }
+  },
+  "compiler_report": "/tmp/snail-call-prototype-20261010/build/call-prototype/compiler-probe/report.json",
+  "loadavg_after": "1.54 1.59 2.31 1/1179 2356\n"
+}

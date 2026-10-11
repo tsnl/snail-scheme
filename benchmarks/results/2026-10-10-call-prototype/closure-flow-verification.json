@@ -1,0 +1,3780 @@
+{
+  "builds": [
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm"
+      ],
+      "seconds": 0.0055475330009358,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-wasmgc.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.4287597040020046,
+      "status": 0,
+      "stdout": "((nodes . 1782) (rounds . 15) (escaped . 12))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.assembled.wasm"
+      ],
+      "seconds": 0.0268417289989884,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.merged.wasm"
+      ],
+      "seconds": 0.029287830999237485,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.wasm"
+      ],
+      "seconds": 0.5840241670011892,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-bootstrap.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.1421826719961246,
+      "status": 0,
+      "stdout": "((nodes . 1836) (rounds . 15) (escaped . 34))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.assembled.wasm"
+      ],
+      "seconds": 0.02691103699908126,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.merged.wasm"
+      ],
+      "seconds": 0.030143339005007874,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.wasm"
+      ],
+      "seconds": 0.41968177699891385,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-options.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.5094344739991357,
+      "status": 0,
+      "stdout": "((nodes . 2466) (rounds . 18) (escaped . 19))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.assembled.wasm"
+      ],
+      "seconds": 0.031500524004513863,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.merged.wasm"
+      ],
+      "seconds": 0.030229757001507096,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.wasm"
+      ],
+      "seconds": 0.4336904730007518,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-binary.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9964926409957116,
+      "status": 0,
+      "stdout": "((nodes . 1301) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.assembled.wasm"
+      ],
+      "seconds": 0.0245979030005401,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.merged.wasm"
+      ],
+      "seconds": 0.028703638003207743,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.wasm"
+      ],
+      "seconds": 0.5126855850030552,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-numeric.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.0206562290040893,
+      "status": 0,
+      "stdout": "((nodes . 1349) (rounds . 15) (escaped . 9))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.assembled.wasm"
+      ],
+      "seconds": 0.023943296997458674,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.merged.wasm"
+      ],
+      "seconds": 0.02815158400335349,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.wasm"
+      ],
+      "seconds": 0.6023549879973871,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-inexact.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.0472596109975711,
+      "status": 0,
+      "stdout": "((nodes . 1507) (rounds . 15) (escaped . 12))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.assembled.wasm"
+      ],
+      "seconds": 0.02248240499466192,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.merged.wasm"
+      ],
+      "seconds": 0.036508486002276186,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.wasm"
+      ],
+      "seconds": 0.7797930180022377,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-hash-tables.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.9572545499977423,
+      "status": 0,
+      "stdout": "((nodes . 4088) (rounds . 26) (escaped . 38))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.assembled.wasm"
+      ],
+      "seconds": 0.042417702003149316,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.merged.wasm"
+      ],
+      "seconds": 0.032605953005258925,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.wasm"
+      ],
+      "seconds": 0.597014612001658,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-numeric-rebinding.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9789219110025442,
+      "status": 0,
+      "stdout": "((nodes . 1189) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.assembled.wasm"
+      ],
+      "seconds": 0.022314144000119995,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.merged.wasm"
+      ],
+      "seconds": 0.02554590200452367,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.wasm"
+      ],
+      "seconds": 0.4325467149974429,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-semantics.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.040486409998266,
+      "status": 0,
+      "stdout": "((nodes . 1382) (rounds . 15) (escaped . 15))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.assembled.wasm"
+      ],
+      "seconds": 0.021921144994848873,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.merged.wasm"
+      ],
+      "seconds": 0.02855090199591359,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.wasm"
+      ],
+      "seconds": 0.48346554699674016,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-control.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9961517750052735,
+      "status": 0,
+      "stdout": "((nodes . 1278) (rounds . 15) (escaped . 8))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.assembled.wasm"
+      ],
+      "seconds": 0.022205335000762716,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.merged.wasm"
+      ],
+      "seconds": 0.02854151700012153,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.wasm"
+      ],
+      "seconds": 0.6071516119991429,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-errors.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wat",
+        "direct"
+      ],
+      "seconds": 2.062694638996618,
+      "status": 0,
+      "stdout": "((nodes . 3834) (rounds . 50) (escaped . 36))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.assembled.wasm"
+      ],
+      "seconds": 0.042482700999244116,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.merged.wasm"
+      ],
+      "seconds": 0.028744278999511153,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm"
+      ],
+      "seconds": 0.6913014349993318,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/semantics.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wat",
+        "baseline"
+      ],
+      "seconds": 1.0362549550045514,
+      "status": 0,
+      "stdout": "()\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.assembled.wasm"
+      ],
+      "seconds": 0.020495043994742446,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.merged.wasm"
+      ],
+      "seconds": 0.029797716000757646,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm"
+      ],
+      "seconds": 0.5540190339961555,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/semantics.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wat",
+        "direct"
+      ],
+      "seconds": 1.038595288999204,
+      "status": 0,
+      "stdout": "((nodes . 1444) (rounds . 15) (escaped . 12))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.assembled.wasm"
+      ],
+      "seconds": 0.023536272994533647,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.merged.wasm"
+      ],
+      "seconds": 0.028067948995158076,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm"
+      ],
+      "seconds": 0.5017228850047104,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9962880840030266,
+      "status": 0,
+      "stdout": "((nodes . 1122) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.assembled.wasm"
+      ],
+      "seconds": 0.020456450001802295,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.merged.wasm"
+      ],
+      "seconds": 0.027880033005203586,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.wasm"
+      ],
+      "seconds": 0.42489487899729284,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9782408629980637,
+      "status": 0,
+      "stdout": "((nodes . 1133) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.assembled.wasm"
+      ],
+      "seconds": 0.021903679000388365,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.merged.wasm"
+      ],
+      "seconds": 0.02658312900166493,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.wasm"
+      ],
+      "seconds": 0.43031596999935573,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9664091720042052,
+      "status": 0,
+      "stdout": "((nodes . 1132) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.assembled.wasm"
+      ],
+      "seconds": 0.02223994299856713,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.merged.wasm"
+      ],
+      "seconds": 0.02486670400685398,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.wasm"
+      ],
+      "seconds": 0.43126874799781945,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9417435669965926,
+      "status": 0,
+      "stdout": "((nodes . 1126) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.assembled.wasm"
+      ],
+      "seconds": 0.020884315999865066,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.merged.wasm"
+      ],
+      "seconds": 0.02797498400468612,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.wasm"
+      ],
+      "seconds": 0.44350647100509377,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9635719950019848,
+      "status": 0,
+      "stdout": "((nodes . 1123) (rounds . 15) (escaped . 8))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.assembled.wasm"
+      ],
+      "seconds": 0.02309351699659601,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.merged.wasm"
+      ],
+      "seconds": 0.027592323000135366,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.wasm"
+      ],
+      "seconds": 0.4631066690053558,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9624332610037527,
+      "status": 0,
+      "stdout": "((nodes . 1133) (rounds . 15) (escaped . 9))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.assembled.wasm"
+      ],
+      "seconds": 0.02176876299927244,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.merged.wasm"
+      ],
+      "seconds": 0.027799156996479724,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.wasm"
+      ],
+      "seconds": 0.527598324995779,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9566303879983025,
+      "status": 0,
+      "stdout": "((nodes . 1131) (rounds . 15) (escaped . 10))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.assembled.wasm"
+      ],
+      "seconds": 0.02460907199565554,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.merged.wasm"
+      ],
+      "seconds": 0.028730038997309748,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.wasm"
+      ],
+      "seconds": 0.5824718270014273,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9737645990026067,
+      "status": 0,
+      "stdout": "((nodes . 1131) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.assembled.wasm"
+      ],
+      "seconds": 0.02219281699944986,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.merged.wasm"
+      ],
+      "seconds": 0.028593299000931438,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.wasm"
+      ],
+      "seconds": 0.4340579510026146,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9683704119961476,
+      "status": 0,
+      "stdout": "((nodes . 1131) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.assembled.wasm"
+      ],
+      "seconds": 0.021254125000268687,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.merged.wasm"
+      ],
+      "seconds": 0.0377046510038781,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.wasm"
+      ],
+      "seconds": 0.47424072599824285,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.952391411003191,
+      "status": 0,
+      "stdout": "((nodes . 1125) (rounds . 15) (escaped . 8))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.assembled.wasm"
+      ],
+      "seconds": 0.021395160001702607,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.merged.wasm"
+      ],
+      "seconds": 0.028857779994723387,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.wasm"
+      ],
+      "seconds": 0.4300168939953437,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9565417730045738,
+      "status": 0,
+      "stdout": "((nodes . 1129) (rounds . 15) (escaped . 8))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.assembled.wasm"
+      ],
+      "seconds": 0.03509537399804685,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.merged.wasm"
+      ],
+      "seconds": 0.03288974200404482,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.wasm"
+      ],
+      "seconds": 0.4782554299963522,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.955931614000292,
+      "status": 0,
+      "stdout": "((nodes . 1121) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.assembled.wasm"
+      ],
+      "seconds": 0.020305858000938315,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.merged.wasm"
+      ],
+      "seconds": 0.030213466998247895,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.wasm"
+      ],
+      "seconds": 0.43317370799923083,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9691704430006212,
+      "status": 0,
+      "stdout": "((nodes . 1130) (rounds . 15) (escaped . 9))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.assembled.wasm"
+      ],
+      "seconds": 0.021043870998255443,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.merged.wasm"
+      ],
+      "seconds": 0.049872187002620194,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.wasm"
+      ],
+      "seconds": 0.6569993980010622,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9816534029960167,
+      "status": 0,
+      "stdout": "((nodes . 1145) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.assembled.wasm"
+      ],
+      "seconds": 0.019421971999690868,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.merged.wasm"
+      ],
+      "seconds": 0.02941123900382081,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.wasm"
+      ],
+      "seconds": 0.6907129989995155,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9725319120043423,
+      "status": 0,
+      "stdout": "((nodes . 1142) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.assembled.wasm"
+      ],
+      "seconds": 0.023643397995328996,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.merged.wasm"
+      ],
+      "seconds": 0.03163928900175961,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.wasm"
+      ],
+      "seconds": 0.4338574569992488,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.954979247006122,
+      "status": 0,
+      "stdout": "((nodes . 1195) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.assembled.wasm"
+      ],
+      "seconds": 0.02501399900211254,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.merged.wasm"
+      ],
+      "seconds": 0.040656263001437765,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.wasm"
+      ],
+      "seconds": 0.5180230499972822,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9584281749994261,
+      "status": 0,
+      "stdout": "((nodes . 1170) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.assembled.wasm"
+      ],
+      "seconds": 0.029583894996903837,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.merged.wasm"
+      ],
+      "seconds": 0.03204321399971377,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.wasm"
+      ],
+      "seconds": 0.4865957339934539,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9855283180004335,
+      "status": 0,
+      "stdout": "((nodes . 1178) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.assembled.wasm"
+      ],
+      "seconds": 0.020164608999039046,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.merged.wasm"
+      ],
+      "seconds": 0.029704238004342187,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.wasm"
+      ],
+      "seconds": 0.4964013459975831,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/emit.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.wat",
+        "direct"
+      ],
+      "seconds": 0.9824210169972503,
+      "status": 0,
+      "stdout": "((nodes . 1138) (rounds . 15) (escaped . 7))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-as",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.wat",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.assembled.wasm"
+      ],
+      "seconds": 0.023997365002287552,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-merge",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.assembled.wasm",
+        "snail.awi",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/runtime.wasm",
+        "snail.rust",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/entry.wasm",
+        "snail.entry",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.merged.wasm"
+      ],
+      "seconds": 0.02854029100126354,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=40",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.wasm"
+      ],
+      "seconds": 0.4377353099989705,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=80",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm"
+      ],
+      "seconds": 0.7396942129998934,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-g",
+        "--mvp-features",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_initialize",
+        "-O3",
+        "--closed-world",
+        "--always-inline-max-function-size=160",
+        "--converge",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.merged.wasm",
+        "-o",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm"
+      ],
+      "seconds": 1.939252898999257,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "checks": [
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-wasmgc-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-bootstrap-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "bootstrap checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-options-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "(\"first.scm\" \"script.scm\" \"-Ithird\" \"--\" \"\")\n((\"-I\" \"second\" \"first\") (\"--output\" . \"a=b\") (\"--file\" \"b\" \"a\") (\"-v\" . 4) (\"-h\" . #f))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-binary-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "binary IO checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "numeric instruction checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-inexact-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "inexact checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-hash-tables-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "hash table checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-numeric-rebinding-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "numeric rebinding checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-semantics-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "backend checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-control-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "control-flow checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: wrong number of arguments\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "overflow"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: exact integer overflow\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "numeric-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a number\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "numeric-values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "numeric-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: wrong number of arguments\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "binary-range"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: slice index out of range\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "binary-utf8"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: invalid utf-8 sequence of 1 bytes from index 0\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-immutable"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: immutable hash table\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-missing"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table key not found absent\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-invalid"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: invalid hash value -1\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-key-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table key type mismatch a\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-equality-mutation"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table structurally changed during callback\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "hash-traversal-mutation"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table structurally changed during callback\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "inexact-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected [Integer, Real], found Boolean\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "inexact-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: sqrt: expected 1..=1 arguments, got 2\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "inexact-optional-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected [Integer, Real], found Boolean\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/backend-errors-direct.wasm",
+        "inexact-optional-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: atan: expected 1..=2 arguments, got 3\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm",
+        "ok"
+      ],
+      "status": 0,
+      "stdout": "call-flow semantics passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm",
+        "entry"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm",
+        "result"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-baseline.wasm",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm",
+        "ok"
+      ],
+      "status": 0,
+      "stdout": "call-flow semantics passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm",
+        "entry"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm",
+        "result"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct.wasm",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-renamed-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "\"renamed\"",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-call-order-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "abo",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-inferred-guard-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "f",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-i32-guard-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-concrete-entry-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-entry-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "a",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-count-result-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-mutation-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-predicate-effect-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-erased-apply-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "42",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-apply-result-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/poly-instance-arity-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: wrong number of arguments\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-host-isolation-direct.wasm"
+      ],
+      "status": 0,
+      "stdout": "42",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-count-any-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-range-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-check-order-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-delayed-check-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-local-check-order-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/tail-body-error-direct.wasm"
+      ],
+      "status": 1,
+      "stdout": "done",
+      "stderr": "snail-scheme: exact integer overflow\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm",
+        "ok"
+      ],
+      "status": 0,
+      "stdout": "call-flow semantics passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm",
+        "entry"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm",
+        "result"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline80.wasm",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm",
+        "ok"
+      ],
+      "status": 0,
+      "stdout": "call-flow semantics passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm",
+        "entry"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm",
+        "result"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: incorrect value type\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "node",
+        "--no-warnings",
+        "/tmp/snail-call-prototype-20261010/scripts/run-wasi.mjs",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification/semantics-direct-inline160.wasm",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    }
+  ]
+}

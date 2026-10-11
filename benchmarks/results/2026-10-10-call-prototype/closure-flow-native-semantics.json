@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "build/call-prototype/semantics.native-direct",
+      "ok"
+    ],
+    "status": 0,
+    "stdout": "call-flow semantics passed\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "build/call-prototype/semantics.native-direct",
+      "entry"
+    ],
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: incorrect value type\n"
+  },
+  {
+    "command": [
+      "build/call-prototype/semantics.native-direct",
+      "result"
+    ],
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: incorrect value type\n"
+  },
+  {
+    "command": [
+      "build/call-prototype/semantics.native-direct",
+      "values"
+    ],
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: expected a single value\n"
+  },
+  {
+    "command": [
+      "build/call-prototype/semantics.native-direct",
+      "uninitialized"
+    ],
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: read of an uninitialized binding\n"
+  }
+]
