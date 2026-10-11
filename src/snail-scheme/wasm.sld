@@ -3,7 +3,7 @@
 ;; locals, calls are Wasm calls, and tail positions use return_call/ref.
 ;;
 ;; Every lambda has an ordinary fixed-arity entry and a uniform closure adapter.
-;; Known calls avoid argument arrays; dynamic calls and apply use the adapter.
+;; Known fixed workers avoid argument arrays; primitive adapters keep checked vectors.
 ;; Captures are GC references. Only assigned or early-captured locals need cells.
 (define-library (snail-scheme wasm)
   (export ir-library->wasm write-wasm)
@@ -636,9 +636,29 @@
                (= (length arguments) (length (ir:lambda-parameters procedure))))
           `(call ,worker (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
                  ,@(map (lambda (name) `(local.get ,name)) arguments) ,(call-checks tail?))
-          `(call $apply (local.get ,operator)
-                 (array.new_fixed $vector ,(length arguments)
-                                  ,@(map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks tail?))))
+          (adapter-invocation node operator arguments context tail?)))
+
+    ;; Core bindings are initialized before Scheme code runs. The primitive
+    ;; list excludes source initializers and assignments of those definitions,
+    ;; including imported aliases; their immutable closure code stays known.
+    ;; Keep the actual operator, argument vector, and result-check context.
+    (define (known-primitive-adapter node module)
+      (let ((operator (ir:application-operator node)))
+        (and (ir:name? operator)
+             (memq (ir:name-definition operator) (module-primitives module))
+             (let loop ((names bootstrap-primitive-names) (index 0))
+               (cond ((null? names) #f)
+                     ((eq? (car names) (ir:value-definition-name (ir:name-definition operator)))
+                      (identifier "primitive" index))
+                     (else (loop (cdr names) (+ index 1))))))))
+
+    (define (adapter-invocation node operator arguments context checks)
+      (let ((adapter (known-primitive-adapter node (function-module context))))
+        `(call ,(or adapter '$apply)
+               ,(if adapter `(struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
+                    `(local.get ,operator))
+               (array.new_fixed $vector ,(length arguments)
+                                ,@(map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks checks))))
 
     ;; The first guarded transfer owns one suspended frame. Its shared context
     ;; sees guards added by deeper tail calls; only this owner drains the list.
