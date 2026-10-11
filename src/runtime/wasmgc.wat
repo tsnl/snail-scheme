@@ -4,7 +4,11 @@
 ;; ---- Object representations ----
 
 (type $vector (array (mut eqref)))
-(type $call (func (param eqref (ref $vector)) (result eqref)))
+(type $result_guard_fn (func (param eqref) (result eqref)))
+(type $result_guard (struct (field (ref $result_guard_fn))))
+(type $result_checks (struct (field (ref $result_guard)) (field (mut (ref null $result_checks)))))
+(type $result_context (struct (field (mut (ref null $result_checks)))))
+(type $call (func (param eqref (ref $vector) (ref null $result_context)) (result eqref)))
 (type $closure (struct (field (ref $call)) (field (ref $vector))))
 (type $cell (struct (field (mut eqref))))
 (type $pair (struct (field (mut eqref)) (field (mut eqref))))
@@ -57,12 +61,58 @@
               (i32.and (i32.eqz (local.get $rest))
                        (i32.ne (array.len (local.get $arguments)) (local.get $required))))
     (then (call $fail (i32.const 4)))))
-(func $apply (param $procedure eqref) (param $arguments (ref $vector)) (result eqref)
+(func $apply (param $procedure eqref) (param $arguments (ref $vector))
+  (param $checks (ref null $result_context)) (result eqref)
   (local $closure (ref $closure))
   (local.set $closure (ref.cast (ref $closure) (local.get $procedure)))
   (return_call_ref $call
-    (struct.get $closure 1 (local.get $closure)) (local.get $arguments)
+    (struct.get $closure 1 (local.get $closure)) (local.get $arguments) (local.get $checks)
     (struct.get $closure 0 (local.get $closure))))
+
+;; ---- Pending result checks ----
+
+;; The first guarded tail call retains one frame to check the eventual result.
+;; Its mutable context owns this list; subsequent tail calls update its head.
+;; Ordinary calls and host callbacks start empty. The context never escapes into
+;; a Scheme value/closure; Wasm keeps it rooted across calls and allocations.
+;; Moving a repeated site to the front preserves inner-before-outer checking and
+;; bounds reachable nodes by the number of static check sites, not tail depth.
+;; No descriptor is read and no check runs until the eventual result arrives.
+(func $defer_result_check (param $checks (ref null $result_checks))
+  (param $guard (ref $result_guard)) (result (ref $result_checks))
+  (local $previous (ref $result_checks)) (local $current (ref null $result_checks))
+  (if (ref.is_null (local.get $checks))
+    (then (return (struct.new $result_checks (local.get $guard) (local.get $checks)))))
+  (local.set $previous (ref.as_non_null (local.get $checks)))
+  (if (ref.eq (struct.get $result_checks 0 (local.get $previous)) (local.get $guard))
+    (then (return (local.get $previous))))
+  (loop $find
+    (local.set $current (struct.get $result_checks 1 (local.get $previous)))
+    (if (ref.is_null (local.get $current))
+      (then (return (struct.new $result_checks (local.get $guard) (local.get $checks)))))
+    (if (ref.eq (struct.get $result_checks 0 (ref.as_non_null (local.get $current))) (local.get $guard))
+      (then
+        (struct.set $result_checks 1 (local.get $previous)
+          (struct.get $result_checks 1 (ref.as_non_null (local.get $current))))
+        (struct.set $result_checks 1 (ref.as_non_null (local.get $current)) (local.get $checks))
+        (return (ref.as_non_null (local.get $current)))))
+    (local.set $previous (ref.as_non_null (local.get $current)))
+    (br $find))
+  unreachable)
+
+;; Successful checks leave the same ordinary value. The sole envelope
+;; constructor below never allocates a singleton envelope, and AWI cannot
+;; resize its fixed-length array. This makes repeated normalization idempotent;
+;; shallow predicates neither mutate nor call user code between checks.
+(func $finish_result (param $value eqref) (param $checks (ref null $result_checks)) (result eqref)
+  (block $done (loop $next
+    (br_if $done (ref.is_null (local.get $checks)))
+    (local.set $value (call_ref $result_guard_fn (local.get $value)
+      (struct.get $result_guard 0
+        (struct.get $result_checks 0 (ref.as_non_null (local.get $checks))))))
+    (local.set $checks (struct.get $result_checks 1 (ref.as_non_null (local.get $checks))))
+    (br $next)))
+  (local.get $value))
 (func $rest (param $arguments (ref $vector)) (param $start i32) (result eqref)
   (local $index i32) (local $result eqref)
   (local.set $index (array.len (local.get $arguments)))
@@ -290,7 +340,109 @@
     (then (call $fail (i32.const 3))))
   (i32.wrap_i64 (local.get $integer)))
 
+;; ---- Operations justified by type evidence ----
+
+;; Call only after analysis has proved ExactInteger for both operands. The
+;; i31/boxed representation dispatch, signed overflow, and packing still apply.
+;; ref.cast remains necessary for Wasm validation; type facts do not change eqref.
+(func $known_integer_value (param $value eqref) (result i64)
+  (if (result i64) (ref.test (ref i31) (local.get $value))
+    (then (i64.extend_i32_s (i31.get_s (ref.cast (ref i31) (local.get $value)))))
+    (else (struct.get $integer 0 (ref.cast (ref $integer) (local.get $value))))))
+(func $integer_add_slow (param $a eqref) (param $b eqref) (result eqref)
+  (local $x i64) (local $y i64) (local $n i64)
+  (local.set $x (call $known_integer_value (local.get $a)))
+  (local.set $y (call $known_integer_value (local.get $b)))
+  (local.set $n (i64.add (local.get $x) (local.get $y)))
+  (if (i64.lt_s (i64.and (i64.xor (local.get $x) (local.get $n)) (i64.xor (local.get $y) (local.get $n))) (i64.const 0))
+    (then (call $fail (i32.const 2))))
+  (call $pack_integer (local.get $n)))
+(func $integer_add (param $a eqref) (param $b eqref) (result eqref)
+      (local $x i32) (local $y i32) (local $n i32)
+      (if (result eqref)
+        (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+        (then
+          (local.set $x (i31.get_s (ref.cast (ref i31) (local.get $a))))
+          (local.set $y (i31.get_s (ref.cast (ref i31) (local.get $b))))
+          (local.set $n (i32.add (local.get $x) (local.get $y)))
+          (if (result eqref) (i32.le_u (i32.add (local.get $n) (i32.const 1073741824)) (i32.const 2147483647))
+            (then (ref.i31 (local.get $n))) (else (call $integer_add_slow (local.get $a) (local.get $b)))))
+        (else (call $integer_add_slow (local.get $a) (local.get $b)))))
+(func $integer_subtract_slow (param $a eqref) (param $b eqref) (result eqref)
+  (local $x i64) (local $y i64) (local $n i64)
+  (local.set $x (call $known_integer_value (local.get $a)))
+  (local.set $y (call $known_integer_value (local.get $b)))
+  (local.set $n (i64.sub (local.get $x) (local.get $y)))
+  (if (i64.lt_s (i64.and (i64.xor (local.get $x) (local.get $y)) (i64.xor (local.get $x) (local.get $n))) (i64.const 0))
+    (then (call $fail (i32.const 2))))
+  (call $pack_integer (local.get $n)))
+(func $integer_subtract (param $a eqref) (param $b eqref) (result eqref)
+      (local $x i32) (local $y i32) (local $n i32)
+      (if (result eqref)
+        (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+        (then
+          (local.set $x (i31.get_s (ref.cast (ref i31) (local.get $a))))
+          (local.set $y (i31.get_s (ref.cast (ref i31) (local.get $b))))
+          (local.set $n (i32.sub (local.get $x) (local.get $y)))
+          (if (result eqref) (i32.le_u (i32.add (local.get $n) (i32.const 1073741824)) (i32.const 2147483647))
+            (then (ref.i31 (local.get $n))) (else (call $integer_subtract_slow (local.get $a) (local.get $b)))))
+        (else (call $integer_subtract_slow (local.get $a) (local.get $b)))))
+(func $integer_numeric_equal (param $a eqref) (param $b eqref) (result eqref)
+  (if (result eqref)
+    (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+    (then (call $pack_boolean
+      (i32.eq (i31.get_s (ref.cast (ref i31) (local.get $a)))
+                  (i31.get_s (ref.cast (ref i31) (local.get $b))))))
+    (else (call $pack_boolean
+      (i64.eq (call $known_integer_value (local.get $a))
+                  (call $known_integer_value (local.get $b)))))))
+(func $integer_less (param $a eqref) (param $b eqref) (result eqref)
+  (if (result eqref)
+    (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+    (then (call $pack_boolean
+      (i32.lt_s (i31.get_s (ref.cast (ref i31) (local.get $a)))
+                  (i31.get_s (ref.cast (ref i31) (local.get $b))))))
+    (else (call $pack_boolean
+      (i64.lt_s (call $known_integer_value (local.get $a))
+                  (call $known_integer_value (local.get $b)))))))
+(func $integer_less_equal (param $a eqref) (param $b eqref) (result eqref)
+  (if (result eqref)
+    (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+    (then (call $pack_boolean
+      (i32.le_s (i31.get_s (ref.cast (ref i31) (local.get $a)))
+                  (i31.get_s (ref.cast (ref i31) (local.get $b))))))
+    (else (call $pack_boolean
+      (i64.le_s (call $known_integer_value (local.get $a))
+                  (call $known_integer_value (local.get $b)))))))
+(func $integer_greater (param $a eqref) (param $b eqref) (result eqref)
+  (if (result eqref)
+    (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+    (then (call $pack_boolean
+      (i32.gt_s (i31.get_s (ref.cast (ref i31) (local.get $a)))
+                  (i31.get_s (ref.cast (ref i31) (local.get $b))))))
+    (else (call $pack_boolean
+      (i64.gt_s (call $known_integer_value (local.get $a))
+                  (call $known_integer_value (local.get $b)))))))
+(func $integer_greater_equal (param $a eqref) (param $b eqref) (result eqref)
+  (if (result eqref)
+    (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
+    (then (call $pack_boolean
+      (i32.ge_s (i31.get_s (ref.cast (ref i31) (local.get $a)))
+                  (i31.get_s (ref.cast (ref i31) (local.get $b))))))
+    (else (call $pack_boolean
+      (i64.ge_s (call $known_integer_value (local.get $a))
+                  (call $known_integer_value (local.get $b)))))))
+
 ;; ---- Identity and predicates ----
+
+;; The emitter supplies String or the exact nominal record identity as a proof.
+;; Field contents, field-name lookup, and Wasm reference casts remain checked.
+(func $known_string_length (param $value eqref) (result eqref)
+  (call $pack_integer (i64.extend_i32_u
+    (array.len (struct.get $text_object 1 (ref.cast (ref $text_object) (local.get $value)))))))
+(func $known_record_ref (param $type eqref) (param $name eqref) (param $value eqref) (result eqref)
+  (array.get $vector (struct.get $record 1 (ref.cast (ref $record) (local.get $value)))
+    (call $field_index (ref.cast (ref $record_type) (local.get $type)) (local.get $name))))
 
 (func $eq (param $a eqref) (param $b eqref) (result eqref)
   (call $pack_boolean (ref.eq (local.get $a) (local.get $b))))
@@ -351,17 +503,20 @@
   (if (result eqref) (i32.eq (array.len (local.get $arguments)) (i32.const 1))
     (then (array.get $vector (local.get $arguments) (i32.const 0)))
     (else (struct.new $values (local.get $arguments)))))
-(func $builtin:call-with-values (param $arguments (ref $vector)) (result eqref)
+(func $builtin:call-with-values (param $arguments (ref $vector))
+  (param $checks (ref null $result_context)) (result eqref)
   (local $result eqref) (local $values (ref $vector))
   (call $arity (local.get $arguments) (i32.const 2) (i32.const 0))
   (local.set $result (call $apply (array.get $vector (local.get $arguments) (i32.const 0))
-                                  (array.new_fixed $vector 0)))
+                                  (array.new_fixed $vector 0) (ref.null $result_context)))
   (local.set $values
     (if (result (ref $vector)) (ref.test (ref $values) (local.get $result))
       (then (struct.get $values 0 (ref.cast (ref $values) (local.get $result))))
       (else (array.new_fixed $vector 1 (local.get $result)))))
-  (return_call $apply (array.get $vector (local.get $arguments) (i32.const 1)) (local.get $values)))
-(func $builtin:apply (param $arguments (ref $vector)) (result eqref)
+  (return_call $apply (array.get $vector (local.get $arguments) (i32.const 1))
+    (local.get $values) (local.get $checks)))
+(func $builtin:apply (param $arguments (ref $vector))
+  (param $checks (ref null $result_context)) (result eqref)
   (local $prefix i32) (local $tail (ref $vector)) (local $all (ref $vector))
   (call $arity (local.get $arguments) (i32.const 2) (i32.const 1))
   (local.set $prefix (i32.sub (array.len (local.get $arguments)) (i32.const 2)))
@@ -373,7 +528,8 @@
     (local.get $arguments) (i32.const 1) (local.get $prefix))
   (array.copy $vector $vector (local.get $all) (local.get $prefix)
     (local.get $tail) (i32.const 0) (array.len (local.get $tail)))
-  (return_call $apply (array.get $vector (local.get $arguments) (i32.const 0)) (local.get $all)))
+  (return_call $apply (array.get $vector (local.get $arguments) (i32.const 0))
+    (local.get $all) (local.get $checks)))
 (func $builtin:call/cc (param $arguments (ref $vector)) (result eqref)
   (call $fail (i32.const 7)) unreachable)
 (func $builtin:call-with-current-continuation (param $arguments (ref $vector)) (result eqref)

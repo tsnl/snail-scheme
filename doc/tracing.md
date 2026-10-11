@@ -143,17 +143,16 @@ Within `write-ir-library-as-wasm`, the emitter records these stages:
 | Span | Work |
 | --- | --- |
 | `prepare-module` | Collect globals and procedures; analyze mutation, cells and known callees |
-| `generate-procedure-functions` | Build procedure bodies, including local/capture analysis |
-| `generate-library-functions` | Build library initialization bodies in dependency order |
+| `generate-library-functions` | Check and lower procedures and library initialization in dependency order |
 | `write-wasm-module` | Write the complete module to the caller's port |
 | `write-module-imports` | Write runtime, finalizer and Rust service imports |
 | `copy-file <path>` | Copy each runtime text fragment; the path identifies the fragment |
 | `write-module-definitions` | Assemble and serialize globals, constants, adapters, bodies and entries |
 
-The last three stages nest inside `write-wasm-module`. Procedure and library
-generation register constants before definition writing; their spans cover
+The last three stages nest inside `write-wasm-module`. The type-directed visitor
+registers constants before definition writing; their spans cover
 generation, while definition writing includes final WAT serialization. Local
-capture analysis remains part of procedure generation. Each emission adds eight
+capture analysis remains part of procedure generation. Each emission adds seven
 stage events regardless of the number of procedures or libraries.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and omission

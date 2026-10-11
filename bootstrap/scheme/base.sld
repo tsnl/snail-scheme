@@ -155,15 +155,35 @@
            (define (accessor object) (%record-ref type 'field object))
            (define (modifier object value) (%record-set! type 'field object value))))))
 
-    (define-syntax define-record-type
+    ;; Standard two/three-element fields keep their original meaning, including
+    ;; an accessor named `:`. Only the longer four/five-element forms are typed.
+    (define-syntax finish-record-type
       (syntax-rules ()
-        ((_ type (constructor argument ...) predicate (field accessor modifier ...) ...)
+        ((_ type (constructor argument ...) predicate (field field-type accessor modifier ...) ...)
          (begin
            (define type (%make-record-type 'type '(field ...)))
+           (%record-schema type constructor predicate (argument ...)
+                           ((field field-type accessor modifier ...) ...))
            (define (constructor argument ...)
              (%make-record type '(argument ...) (list argument ...)))
            (define (predicate object) (%record? type object))
            (define-record-accessors type field accessor modifier ...) ...))))
+
+    (define-syntax normalize-record-fields
+      (syntax-rules (:)
+        ((_ type constructor predicate (done ...))
+         (finish-record-type type constructor predicate done ...))
+        ((_ type constructor predicate (done ...) (field : field-type getter setter ...) rest ...)
+         (normalize-record-fields type constructor predicate
+                                  (done ... (field field-type getter setter ...)) rest ...))
+        ((_ type constructor predicate (done ...) (field getter setter ...) rest ...)
+         (normalize-record-fields type constructor predicate
+                                  (done ... (field ? getter setter ...)) rest ...))))
+
+    (define-syntax define-record-type
+      (syntax-rules ()
+        ((_ type constructor predicate field ...)
+         (normalize-record-fields type constructor predicate () field ...))))
 
     ;; Collections stay in Scheme. Native handlers own allocation and individual
     ;; object accesses; they never need to call back into Scheme for map/equality.

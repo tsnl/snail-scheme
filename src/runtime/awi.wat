@@ -165,5 +165,7 @@
 ;; Ordinary Rust-to-Scheme callback. Both incoming handles remain borrowed;
 ;; the returned root is owned. Future continuation transfers must not cross
 ;; this call boundary. Scheme callbacks can allocate: all Rust roots stay live.
+;; Reentry has its own return obligations; it never inherits the host caller's.
 (func (export "call") (param $procedure i32) (param $arguments i32) (result i32)
-  (call $awi_root (call $apply (call $awi_get (local.get $procedure)) (ref.cast (ref $vector) (call $awi_get (local.get $arguments))))))
+  (call $awi_root (call $apply (call $awi_get (local.get $procedure))
+    (ref.cast (ref $vector) (call $awi_get (local.get $arguments))) (ref.null $result_context))))

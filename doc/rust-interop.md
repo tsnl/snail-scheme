@@ -31,6 +31,14 @@ a `RefCell` borrow or a lock that the callback could reacquire. Existing roots
 remain in the GC table across callbacks. Scheme `apply` and `call-with-values`
 remain in Wasm so tail calls do not retain Rust frames.
 
+A callback's `Root` can hold a multiple-value result envelope. `Root::pair`,
+`Root::vector`, and `Root::call` preserve it; they do not normalize it to one
+ordinary value. The type analyzer therefore retains count checks for unknown
+callback parameters and heap reads. An ignored untyped parameter is not checked
+early, and returning the envelope preserves multiple values. The
+`rust-call-with-result` example export exercises these boundaries in
+`scripts/test-typing` without changing the root ownership contract.
+
 The [example](../examples/rust-interop/README.md) lives in `src/interop_example.rs`
 and is built into the standard runtime. Its Scheme build script supplies an
 alist mapping callable Scheme names to the `"snail.rust"` Wasm import module.
