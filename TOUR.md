@@ -238,9 +238,10 @@ unions, nominal records, rigid type variables, internal occurrence intersections
 and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
 solves rank-one `All` instantiations from arguments and expected results.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
-rules that take child facts as arguments. A declaration scan collects assignment
-and nominal identities before narrowing; immutable scopes retain declared types
-and verified contracts under binding identities. The visitor in `wasm.sld` passes
+rules that take child facts as arguments. One declaration scan collects assignments,
+initializers, and nominal identities before narrowing. Typing, closure analysis,
+and constant evaluation share its binding stability decisions; immutable scopes
+retain declared types and verified contracts under binding identities. The visitor in `wasm.sld` passes
 transient facts directly to these rules and to emission. There are no expression
 type caches or separate signature and guard lookup tables. Checked callable views
 retain implementation origins for recursive-instantiation checks. A guard's
@@ -264,8 +265,8 @@ operand before replacing parameters and branching to a local Wasm loop.
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
-constructs folded Wasm datums in memory. Its declaration scans record binding identity, assignment, lambda
-captures, and initialization. It does not build MIR, bytecode, a managed operand
+constructs folded Wasm datums in memory. It uses the shared declaration summary
+and separately analyzes lambda captures and initialization order. It does not build MIR, bytecode, a managed operand
 stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
 visible in the generated code. Runtime helpers are quoted datums too.
 `write-wasm` prints each definition with standard `write-simple`; only import

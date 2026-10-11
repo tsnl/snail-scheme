@@ -22,8 +22,8 @@
     (define-record-type <quoted>
       (make-quoted datum) quoted? (datum quoted-datum))
     (define-record-type <state>
-      (make-state assigned declared primitives remaining) state?
-      (assigned state-assigned) (declared state-declared)
+      (make-state unavailable primitives remaining) state?
+      (unavailable state-unavailable)
       (primitives partial-primitives)
       (remaining state-remaining set-state-remaining!))
     (define-record-type <attempt>
@@ -43,25 +43,7 @@
           (and (exact-integer? value) (<= -9223372036854775808 value 9223372036854775807))))
     (define (literal-value value) (if (scalar? value) value (make-quoted value)))
 
-    ;; ---- Ordered bindings and source traversal ----
-
-    (define (children node)
-      (cond ((ir:lambda? node) (list (ir:lambda-body node)))
-            ((ir:block? node) (ir:block-items node))
-            ((ir:value-binding? node) (list (ir:value-binding-initializer node)))
-            ((ir:application? node) (append (ir:application-operands node) (list (ir:application-operator node))))
-            ((ir:conditional? node)
-             (append (list (ir:conditional-test node) (ir:conditional-consequent node))
-                     (if (ir:conditional-opt-alternate node) (list (ir:conditional-opt-alternate node)) '())))
-            ((ir:assignment? node) (list (ir:assignment-value node)))
-            ((ir:annotation? node) (list (ir:annotation-expression node)))
-            ((ir:instantiation? node) (list (ir:instantiation-expression node)))
-            (else '())))
-
-    (define (collect-bindings items predicate definition)
-      (apply append (map (lambda (node)
-                           (append (if (predicate node) (list (definition node)) '())
-                                   (collect-bindings (children node) predicate definition))) items)))
+    ;; ---- Ordered bindings ----
 
     (define (reserve-bindings items environment)
       (append (map (lambda (node) (cons (ir:value-binding-definition node) unknown))
@@ -71,7 +53,7 @@
                            (else (select (cdr items)))))) environment))
 
     (define (binding-known? definition state)
-      (not (or (memq definition (state-assigned state)) (memq definition (state-declared state)))))
+      (not (memq definition (state-unavailable state))))
 
     ;; An evaluated closure could hide private mutable data that later escapes.
     ;; Only syntactic lambdas capture this traversal's scalar-only slot graph.
@@ -83,10 +65,8 @@
     (define (primitive-environment primitives)
       (map (lambda (definition) (cons definition (make-primitive (ir:value-definition-name definition)))) primitives))
 
-    (define (make-partial-state items declared primitives)
-      (make-state (collect-bindings items ir:assignment?
-                                    (lambda (node) (ir:name-definition (ir:assignment-target node))))
-                  declared (primitive-environment primitives) 300000))
+    (define (make-partial-state assigned declared primitives)
+      (make-state (append assigned declared) (primitive-environment primitives) 300000))
 
     ;; Typed bindings are unavailable here, and annotation/instantiation syntax
     ;; is opaque to evaluate. Thus a fold cannot erase a dynamic type boundary.
@@ -276,7 +256,7 @@
    (snail-tests
     (export test-partial-eval)
     (import (snail-scheme test-utils) (snail-scheme reader) (snail-scheme syntax-parser)
-            (snail-scheme expand) (snail-scheme library))
+            (snail-scheme expand) (snail-scheme library) (snail-scheme type-analysis))
     (begin
       (define (fold-last source)
         (let* ((core (make-core-library '(scheme base) '(+ - * = < cons car cdr set-car! vector vector-ref error)))
@@ -288,8 +268,9 @@
                (program (syntax-list->ir-library (reader->syntax-list (string->reader "partial-eval-test.scm" source))
                                                  (lambda (name) #f) (list core)))
                (items (library-body program))
-               (declared (collect-bindings items ir:type-declaration? ir:type-declaration-definition))
-               (state (make-partial-state items declared primitives))
+               (typing (prepare-types items primitives))
+               (state (make-partial-state (typing-assigned typing) (map car (typing-declarations typing))
+                                          (typing-primitives typing)))
                (value (evaluate-sequence items (partial-primitives state) (make-attempt state 16384) 0)))
           (if (scalar? value) value 'unfolded)))
 
