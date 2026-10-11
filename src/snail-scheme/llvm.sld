@@ -583,6 +583,12 @@
                (cast (if (char=? (string-ref name (- (string-length name) 1)) #\s) "sitofp" "uitofp") value target))
               ((memq operation '(trunc_f32_s trunc_f32_u trunc_f64_s trunc_f64_u))
                (call-native (list "native_" base "_" name) target values))
+              ((prefix? "trunc_sat_" name)
+               ;; LLVM's saturating intrinsic preserves Wasm's NaN -> 0 and
+               ;; range clamps; ordinary fptosi/fptoui would produce poison.
+               (call-native (list "llvm.fpto" (substring name (- (string-length name) 1))
+                                  "i.sat." base "." (if (string=? (car value) "float") "f32" "f64"))
+                            target values))
               ((memq operation '(extend8_s extend16_s extend32_s))
                (cast "sext" (cast "trunc" value
                                   (case operation ((extend8_s) "i8") ((extend16_s) "i16") (else "i32"))) target))
@@ -913,6 +919,8 @@
          (for-each (lambda (source)
                      (for-each (lambda (sign)
                                  (output "declare " type " @native_" type "_trunc_" (car source) "_" sign
+                                         "(" (cdr source) ")")
+                                 (output "declare " type " @llvm.fpto" sign "i.sat." type "." (car source)
                                          "(" (cdr source) ")")) '(s u)))
                    '((f32 . "float") (f64 . "double")))) '("i32" "i64"))
       (for-each
