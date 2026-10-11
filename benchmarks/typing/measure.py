@@ -63,13 +63,18 @@ def build_scheme(name, annotation, mode, contents=None):
     return [os.environ.get("NODE", "node"), "--no-warnings", "scripts/run-wasi.mjs", output]
 
 
+def count_i32_workers(wat):
+    # Function definitions have fields after the name; export references do not.
+    return len(re.findall(r"\(func \$i32_[^\s()]+\s+\(", wat))
+
+
 def check_specialization(commands):
     for name, command in commands.items():
         if name.startswith("c-"):
             continue
         wat = Path(command[-1]).with_suffix(".wasm.wat").read_text()
         expected = 1 if name.startswith("i32-specialized") else 0
-        actual = wat.count("(func $i32_")
+        actual = count_i32_workers(wat)
         if actual != expected:
             raise RuntimeError(f"{name}: expected {expected} i32 workers, emitted {actual}")
 
@@ -183,7 +188,7 @@ def describe(command, samples):
         result["integer_helper_calls"] = emitted.count("$integer_")
         result["string_helper_calls"] = emitted.count("$known_string_length")
         result["record_helper_calls"] = emitted.count("$known_record_ref")
-        result["i32_workers"] = emitted.count("(func $i32_")
+        result["i32_workers"] = count_i32_workers(emitted)
     return result
 
 
