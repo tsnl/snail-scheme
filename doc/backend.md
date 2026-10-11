@@ -151,6 +151,28 @@ cells, records, and multiple-value packets use WasmGC structs and arrays.
 Equivalent Wasm types are structural: names alone do not distinguish them.
 Atoms and text wrappers therefore carry explicit category tags.
 
+Symbols are atoms whose tag has its sign bit set; the low 31 bits hold a Rust
+intern-table ID. The native process has one global `OnceLock<Mutex<Symbols>>`;
+each Wasm instance owns its own table in the Rust runtime's linear memory.
+Rust's standard `HashMap` compares exact names, handles hash collisions, and
+shares owned name storage with a reverse vector used by `symbol->string` and
+`write`. Names and IDs live until the runtime ends and IDs are never reused.
+Symbols compare and hash by ID even when their Scheme boxes differ.
+
+The compiler assigns consecutive IDs to the final module's literal symbols and
+emits a private vector of their names as constant data. The first interner or
+reverse-lookup operation copies and validates the complete prefix before
+publishing the Rust table. Copying performs no symbol operations and holds
+neither the table mutex nor the initialization lock across AWI calls. Subsequent
+operations release the mutex before creating Scheme values or reporting errors.
+The registry contains no Scheme roots. Its global scope does not make AWI roots
+or the Scheme heap safe to access from another thread.
+
+These IDs belong to one final linked program, including all its Scheme libraries.
+Separately loaded modules are not supported: they would need symbol registration
+and ID relocation instead of independently assigning literal IDs. IDs must never
+cross runtime instances, and the table must never be reset to load another module.
+
 The Wasm engine sees references in globals, locals, arrays, tables, and active
 frames. It owns collection and relocation. Rust does not scan its own stack for
 Scheme roots: owned AWI handles retain references in a Wasm table. Temporary
