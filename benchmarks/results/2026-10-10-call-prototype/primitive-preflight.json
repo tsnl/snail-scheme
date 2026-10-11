@@ -1,0 +1,73 @@
+[
+  {
+    "workload": "callbacks",
+    "mode": "primitives",
+    "status": 0,
+    "stdout": "checksum: 700030000\nelapsed: 0.000880229 s\n"
+  },
+  {
+    "workload": "cpu",
+    "mode": "primitives",
+    "status": 0,
+    "stdout": "CPU: recursive Fibonacci\nchecksum: 16819884\nelapsed: 0.006555 s; repetitions: 4\n"
+  },
+  {
+    "workload": "memory",
+    "mode": "primitives",
+    "status": 0,
+    "stdout": "Memory: sieve and prime list\nchecksum: 1819738512\nelapsed: 0.021800 s; repetitions: 4\n"
+  },
+  {
+    "workload": "callbacks",
+    "mode": "combined",
+    "status": 0,
+    "stdout": "checksum: 700030000\nelapsed: 0.000793754 s\n"
+  },
+  {
+    "workload": "cpu",
+    "mode": "combined",
+    "status": 0,
+    "stdout": "CPU: recursive Fibonacci\nchecksum: 16819884\nelapsed: 0.006833 s; repetitions: 4\n"
+  },
+  {
+    "workload": "memory",
+    "mode": "combined",
+    "status": 0,
+    "stdout": "Memory: sieve and prime list\nchecksum: 1819738512\nelapsed: 0.022570 s; repetitions: 4\n"
+  },
+  {
+    "workload": "semantics.native-combined",
+    "mode": "ok",
+    "status": 0,
+    "stdout": "call-flow semantics passed\n",
+    "stderr": ""
+  },
+  {
+    "workload": "semantics.native-combined",
+    "mode": "entry",
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: incorrect value type\n"
+  },
+  {
+    "workload": "semantics.native-combined",
+    "mode": "result",
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: incorrect value type\n"
+  },
+  {
+    "workload": "semantics.native-combined",
+    "mode": "values",
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: expected a single value\n"
+  },
+  {
+    "workload": "semantics.native-combined",
+    "mode": "uninitialized",
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: read of an uninitialized binding\n"
+  }
+]

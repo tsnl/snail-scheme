@@ -1,0 +1,444 @@
+{
+  "builds": [
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-wasmgc.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-wasmgc",
+        "combined"
+      ],
+      "seconds": 2.965291096996225,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-bootstrap.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-bootstrap",
+        "combined"
+      ],
+      "seconds": 3.0280879519996233,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-options.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-options",
+        "combined"
+      ],
+      "seconds": 3.8716061179948156,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-binary.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-binary",
+        "combined"
+      ],
+      "seconds": 2.639105786998698,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-numeric.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-numeric",
+        "combined"
+      ],
+      "seconds": 2.633824620002997,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-inexact.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-inexact",
+        "combined"
+      ],
+      "seconds": 2.725570536997111,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-hash-tables.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-hash-tables",
+        "combined"
+      ],
+      "seconds": 5.3516666180003085,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-numeric-rebinding.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-numeric-rebinding",
+        "combined"
+      ],
+      "seconds": 2.501634380001633,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-semantics.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-semantics",
+        "combined"
+      ],
+      "seconds": 2.688050602999283,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-control.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-control",
+        "combined"
+      ],
+      "seconds": 2.573361640999792,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-call-prototype-20261010/src",
+        "/tmp/snail-call-prototype-20261010/benchmarks/calls/native.scm",
+        "/tmp/snail-call-prototype-20261010",
+        "/tmp/snail-call-prototype-20261010/tests/programs/backend-errors.scm",
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "combined"
+      ],
+      "seconds": 5.289176234997285,
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "checks": [
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-wasmgc"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-bootstrap"
+      ],
+      "status": 0,
+      "stdout": "bootstrap checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-options"
+      ],
+      "status": 0,
+      "stdout": "(\"first.scm\" \"script.scm\" \"-Ithird\" \"--\" \"\")\n((\"-I\" \"second\" \"first\") (\"--output\" . \"a=b\") (\"--file\" \"b\" \"a\") (\"-v\" . 4) (\"-h\" . #f))\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-binary"
+      ],
+      "status": 0,
+      "stdout": "binary IO checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-numeric"
+      ],
+      "status": 0,
+      "stdout": "numeric instruction checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-inexact"
+      ],
+      "status": 0,
+      "stdout": "inexact checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-hash-tables"
+      ],
+      "status": 0,
+      "stdout": "hash table checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-numeric-rebinding"
+      ],
+      "status": 0,
+      "stdout": "numeric rebinding checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-semantics"
+      ],
+      "status": 0,
+      "stdout": "backend checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-control"
+      ],
+      "status": 0,
+      "stdout": "control-flow checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: wrong number of arguments\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "uninitialized"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: read of an uninitialized binding\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "overflow"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: exact integer overflow\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "numeric-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a number\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "numeric-values"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected a single value\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "numeric-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: wrong number of arguments\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "binary-range"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: slice index out of range\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "binary-utf8"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: invalid utf-8 sequence of 1 bytes from index 0\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-immutable"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: immutable hash table\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-missing"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table key not found absent\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-invalid"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: invalid hash value -1\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-key-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table key type mismatch a\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-equality-mutation"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table structurally changed during callback\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "hash-traversal-mutation"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: hash table structurally changed during callback\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "inexact-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected [Integer, Real], found Boolean\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "inexact-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: sqrt: expected 1..=1 arguments, got 2\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "inexact-optional-type"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: expected [Integer, Real], found Boolean\n"
+    },
+    {
+      "command": [
+        "/tmp/snail-call-prototype-20261010/build/call-prototype/verification-native-combined/backend-errors",
+        "inexact-optional-arity"
+      ],
+      "status": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: atan: expected 1..=2 arguments, got 3\n"
+    }
+  ]
+}
