@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Compare prepared compiler implementations on one frozen source corpus."""
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import statistics
+import sys
+from datetime import datetime, timezone
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'benchmarks'))
+spec = importlib.util.spec_from_file_location('compiler_benchmark', ROOT / 'benchmarks/compile-self.py')
+benchmark = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(benchmark)
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def sample(case, report, args):
+    output = args.output / (case['system'] + '.wat')
+    output.unlink(missing_ok=True)
+    command = [*case['command'], report['input_root'], report['input_entry'], str(output), case['system']]
+    result = benchmark.execute(command, args.output, args.timeout)
+    result['command'] = command
+    if result['status'] == 'ok':
+        try:
+            result.update(benchmark.parse_result(result['stdout'], case['system'], 'compiler-self'))
+            result['wat_sha256'] = digest(output)
+            if result['wat_sha256'] != report['reference_sha256']:
+                raise ValueError('compiler output differs from the frozen reference')
+            events = json.loads(Path(str(output) + '.trace.json').read_text())
+            names = ('source-file->wat-file','syntax-list->ir-library','analyze-types','partial-evaluate',
+                     'prepare-module','generate-procedure-functions','generate-library-functions','write-wasm')
+            result['stages_seconds'] = {name: sum(event['dur'] for event in events
+                if event.get('ph') == 'X' and event['name'] == name) / 1e6 for name in names}
+        except (ValueError, OSError) as error:
+            result.update(status='invalid-output', diagnostic=str(error))
+    return result
+
+def measure(report, args):
+    affinity = os.sched_getaffinity(0)
+    os.sched_setaffinity(0, {args.cpu})
+    try:
+        for index in range(args.rounds + 1):
+            cases = report['cases']
+            offset = index % len(cases)
+            for case in cases[offset:] + cases[:offset]:
+                if case['status'] == 'ready':
+                    record_sample(case, index, report, args)
+            benchmark.save_report(report, args.output)
+    finally:
+        os.sched_setaffinity(0, affinity)
+
+
+def record_sample(case, index, report, args):
+    result = sample(case, report, args)
+    if index == 0:
+        case['preliminary'] = result
+    else:
+        case['samples'].append({'round': index, **result})
+    if result['status'] != 'ok':
+        case['status'] = 'runtime-' + result['status']
+    report['order'].append([index, case['system']])
+    print(case['system'], 'preliminary' if index == 0 else index,
+          result.get('seconds', result['status']), flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--before', type=Path, required=True)
+    parser.add_argument('--after', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--cpu', type=int, default=2)
+    parser.add_argument('--rounds', type=benchmark.positive, default=3)
+    args = parser.parse_args()
+    args.timeout = 600
+    if args.cpu not in os.sched_getaffinity(0):
+        parser.error('requested CPU is outside the allowed affinity set')
+    args.output = args.output.resolve()
+    args.output.mkdir(parents=True)
+    before, after = args.before.resolve(), args.after.resolve()
+    reports = [json.loads((path / 'results.json').read_text()) for path in (before, after)]
+    report = {'schema': 1, 'kind': 'compiler-comparison', 'complete': False,
+              'date': datetime.now(timezone.utc).isoformat(),
+              'cpu': args.cpu, 'rounds': args.rounds, 'order': [], 'cases': [],
+              'input_root': str(before / 'source'), 'input_entry': str(before / 'source' / benchmark.ENTRY),
+              'input_source_sha256': reports[0]['source_sha256'],
+              'reference_sha256': digest(before / 'reference.wat'),
+              'platform': reports[1]['platform'], 'cpu_info': reports[1]['cpu_info'],
+              'tools': reports[1]['tools'], 'build_environment': reports[1]['build_environment'],
+              'harness_sha256': digest(Path(__file__)),
+              'implementations': {label: {'revision': value['revision'], 'working_tree': value['working_tree'],
+                  'source_sha256': value['source_sha256'], 'builds': value['builds']}
+                  for label, value in zip(('before','after'), reports)}}
+    for system in ('chibi','snail-wasm','snail-native'):
+        for label, original in zip(('before','after'), reports):
+            case = next(case for case in original['cases'] if case['system'] == system)
+            report['cases'].append({'system': system + '-' + label, 'command': case['command'],
+                'status': 'ready', 'samples': [], 'artifact_sha256': digest(Path(case['command'][-1]))})
+    try:
+        measure(report, args)
+        for label, directory, original in zip(('before','after'), (before, after), reports):
+            if benchmark.manifest(directory / 'source', exclude_build=True) != original['source_sha256']:
+                raise ValueError(label + ' sources changed during measurement')
+        for case in report['cases']:
+            if case['status'] == 'ready':
+                case['status'] = 'passed'
+                case['median_seconds'] = statistics.median(item['seconds'] for item in case['samples'])
+        report['complete'] = True
+    finally:
+        benchmark.save_report(report, args.output)
+    for case in report['cases']:
+        print(case['system'], case.get('median_seconds', case['status']), flush=True)
+    return int(any(case['status'] != 'passed' for case in report['cases']))
+
+if __name__ == '__main__':
+    raise SystemExit(main())
