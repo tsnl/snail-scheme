@@ -2,6 +2,7 @@
 ;; Compilation, artifact paths, and execution are ordinary library operations.
 (import (scheme base) (scheme process-context) (scheme write)
         (snail-scheme options) (snail-scheme native) (snail-scheme installation)
+        (snail-scheme runtime-artifact)
         (snail-scheme chromium-trace) (only (snail-scheme build-host) same-file?))
 
 ;; ---- Interpreter options and script arguments ----

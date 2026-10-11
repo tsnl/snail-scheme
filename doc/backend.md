@@ -24,7 +24,8 @@ chibi-scheme -I src examples/rust-interop/build.scm
 `(snail-scheme compiler)` exports `source-file->wat-file(root, input, output)`.
 `(snail-scheme build)` supplies complete build operations:
 
-- `build-runtime(root)` builds/reuses the Rust Wasm runtime and returns its path.
+- `build-runtime(root)` finds the installed runtime WAT companion or builds the
+  Rust Wasm runtime, then returns its path. Binaryen accepts either form.
 - `link-wasm(wat, runtime, output)` assembles, links, optimizes and publishes Wasm.
 - `build-wasm(root, input, output)` combines source emission and linking.
 - `run-wasm(root, module, arguments)` runs Node/WASI and returns its exit code.
@@ -46,7 +47,9 @@ errors include the import name and all searched paths. `(scheme ...)` imports
 always use the checkout's bootstrap runtime libraries and cannot be shadowed by
 project directories. Foreign declarations do not package separate Rust crates.
 
-The single root Cargo crate contains all Rust services under `src/`.
+The compiler installation includes `snail-runtime.wat` as a dependency artifact;
+see [generation and packaging](build-artifacts.md). The bootstrap fallback uses
+the single root Cargo crate containing all Rust services under `src/`.
 `build-runtime` invokes Cargo with a stable manifest and target directory;
 Scheme-only changes do not rebuild Rust. To prebuild the identical runtime:
 
