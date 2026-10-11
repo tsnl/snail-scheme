@@ -29,6 +29,8 @@
         (type $record_type (struct (field eqref) (field (ref $vector)) (field i32)))
         (type $record (struct (field (ref $record_type)) (field (ref $vector))))
         (type $extension (struct (field i32) (field i32)))
+        (import "snail.rust" "snail:symbol-length" (func $rust_symbol_length (param i32) (result i32)))
+        (import "snail.rust" "snail:symbol-character" (func $rust_symbol_character (param i32 i32) (result i32)))
         (global $false (ref $atom) (struct.new $atom (i32.const 0)))
         (global $true (ref $atom) (struct.new $atom (i32.const 1)))
         (global $nil (ref $atom) (struct.new $atom (i32.const 2)))
@@ -449,8 +451,26 @@
               (array.get $vector (struct.get $record 1 (ref.cast (ref $record) (local.get $value)))
                          (call $field_index (ref.cast (ref $record_type) (local.get $type)) (local.get $name))))
 
+        ;; Atoms 0..5 are singleton values; 256+scalar are characters. The sign
+        ;; bit marks symbols, whose low 31 bits index the one Rust intern table.
+        ;; Symbol boxes can differ while their IDs denote the same identity.
+        (func $is_symbol (param $value eqref) (result i32)
+              (if (result i32) (ref.test (ref $atom) (local.get $value))
+                  (then (i32.lt_s (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value))) (i32.const 0)))
+                  (else (i32.const 0))))
+        (func $same (param $a eqref) (param $b eqref) (result i32)
+              (if (ref.eq (local.get $a) (local.get $b)) (then (return (i32.const 1))))
+              (if (i32.and (call $is_symbol (local.get $a)) (call $is_symbol (local.get $b)))
+                  (then (return (i32.eq (struct.get $atom 0 (ref.cast (ref $atom) (local.get $a)))
+                                        (struct.get $atom 0 (ref.cast (ref $atom) (local.get $b)))))))
+              (i32.const 0))
+        (func $identity_hash (param $value eqref) (result i32)
+              (if (call $is_symbol (local.get $value))
+                  (then (return (i32.and (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value)))
+                                         (i32.const 1073741823)))))
+              (call $host_hash_identity (local.get $value)))
         (func $eq (param $a eqref) (param $b eqref) (result eqref)
-              (call $pack_boolean (ref.eq (local.get $a) (local.get $b))))
+              (call $pack_boolean (call $same (local.get $a) (local.get $b))))
         (func $eqv (param $a eqref) (param $b eqref) (result eqref)
               (if (ref.eq (local.get $a) (local.get $b)) (then (return (global.get $true))))
               (if (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
@@ -475,6 +495,8 @@
               (call $pack_boolean (i32.or (ref.eq (local.get $value) (global.get $false))
                                           (ref.eq (local.get $value) (global.get $true)))))
         (func $is_text_kind (param $value eqref) (param $kind i32) (result eqref)
+              (if (i32.eq (local.get $kind) (i32.const 1))
+                  (then (return (call $pack_boolean (call $is_symbol (local.get $value))))))
               (if (result eqref) (ref.test (ref $text_object) (local.get $value))
                   (then (call $pack_boolean (i32.eq (struct.get $text_object 0
                                                                 (ref.cast (ref $text_object) (local.get $value)))
@@ -482,13 +504,13 @@
                   (else (global.get $false))))
         (func $is_character (param $value eqref) (result eqref)
               (if (result eqref) (ref.test (ref $atom) (local.get $value))
-                  (then (call $pack_boolean (i32.ge_u (struct.get $atom 0
+                  (then (call $pack_boolean (i32.ge_s (struct.get $atom 0
                                                                   (ref.cast (ref $atom) (local.get $value))) (i32.const 256))))
                   (else (global.get $false))))
         (func $character_value (param $value eqref) (result i32)
               (local $code i32)
               (local.set $code (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value))))
-              (if (i32.lt_u (local.get $code) (i32.const 256)) (then (call $fail (i32.const 8))))
+              (if (i32.lt_s (local.get $code) (i32.const 256)) (then (call $fail (i32.const 8))))
               (i32.sub (local.get $code) (i32.const 256)))
         (func $pack_character (param $code i32) (result eqref)
               (if (i32.or (i32.gt_u (local.get $code) (i32.const 1114111))
@@ -556,7 +578,7 @@
 
         (func $builtin:%hash-by-identity (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (ref.i31 (call $host_hash_identity
+              (ref.i31 (call $identity_hash
                              (array.get $vector (local.get $arguments) (i32.const 0)))))
 
         (func $builtin:eq? (param $arguments (ref $vector)) (result eqref)
@@ -933,20 +955,6 @@
                                  (local.set $index (i32.add (local.get $index) (i32.const 1)))
                                  (br $next)))
               (i32.const 1))
-        (func $intern (param $text (ref $text)) (result eqref)
-              (local $cursor eqref) (local $symbol eqref)
-              (local.set $cursor (global.get $symbols))
-              (block $new (loop $next
-                                (br_if $new (ref.is_null (local.get $cursor)))
-                                (local.set $symbol (call $car (local.get $cursor)))
-                                (if (call $text_equal (local.get $text)
-                                          (struct.get $text_object 1 (ref.cast (ref $text_object) (local.get $symbol))))
-                                    (then (return (local.get $symbol))))
-                                (local.set $cursor (call $cdr (local.get $cursor)))
-                                (br $next)))
-              (local.set $symbol (struct.new $text_object (i32.const 1) (local.get $text)))
-              (global.set $symbols (struct.new $pair (local.get $symbol) (global.get $symbols)))
-              (local.get $symbol))
         (func $builtin:string (param $arguments (ref $vector)) (result eqref)
               (local $text (ref $text)) (local $index i32)
               (local.set $text (array.new_default $text (array.len (local.get $arguments))))
@@ -1020,7 +1028,7 @@
               (loop $next
                     (if (i32.eq (local.get $index) (array.len (local.get $fields)))
                         (then (call $fail (i32.const 3))))
-                    (if (ref.eq (array.get $vector (local.get $fields) (local.get $index)) (local.get $name))
+                    (if (call $same (array.get $vector (local.get $fields) (local.get $index)) (local.get $name))
                         (then (return (local.get $index))))
                     (local.set $index (i32.add (local.get $index) (i32.const 1)))
                     (br $next)) unreachable)
@@ -1071,16 +1079,6 @@
                                  (local.set $index (i32.add (local.get $index) (i32.const 1)))
                                  (br $next)))
               (call $pack_boolean (local.get $matches)))
-
-        (func $builtin:string->symbol (param $arguments (ref $vector)) (result eqref)
-              (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (call $intern (call $string_text (array.get $vector (local.get $arguments) (i32.const 0)))))
-
-        (func $builtin:symbol->string (param $arguments (ref $vector)) (result eqref)
-              (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (if (i32.eqz (call $truthy (call $is_text_kind (array.get $vector (local.get $arguments) (i32.const 0)) (i32.const 1))))
-                  (then (call $fail (i32.const 8))))
-              (struct.new $text_object (i32.const 0) (struct.get $text_object 1 (ref.cast (ref $text_object) (array.get $vector (local.get $arguments) (i32.const 0))))))
 
         (func $builtin:bytevector-length (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))

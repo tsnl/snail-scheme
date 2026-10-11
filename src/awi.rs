@@ -38,6 +38,7 @@ mod raw {
         fn kind(root: u32) -> u32;
         fn same(a: u32, b: u32) -> u32;
         fn identity_hash(root: u32) -> u32;
+        fn literal_symbol_names() -> u32;
         fn call(procedure: u32, arguments: u32) -> u32;
         fn integer(value: i64) -> u32;
         fn real(value: f64) -> u32;
@@ -166,6 +167,20 @@ impl Root {
 
     pub fn identity_hash(&self) -> u32 {
         unsafe { raw::identity_hash(self.handle) }
+    }
+
+    pub(crate) fn literal_symbol_names() -> Self {
+        unsafe { Self::from_handle(raw::literal_symbol_names()) }
+    }
+
+    pub(crate) fn symbol(id: u32) -> Self {
+        assert!(id < (1 << 31));
+        unsafe { Self::from_handle(raw::atom(id | (1 << 31))) }
+    }
+
+    pub(crate) fn symbol_id(&self) -> Result<u32, String> {
+        self.require(&[Kind::Symbol])?;
+        Ok(unsafe { raw::atom_value(self.handle) } & 0x7fffffff)
     }
 
     /// Calls Scheme synchronously. The call may allocate and call Rust again.
@@ -335,6 +350,9 @@ impl Root {
 
     pub fn text(&self) -> Result<String, String> {
         self.require(&[Kind::String, Kind::Symbol])?;
+        if self.kind() == Kind::Symbol {
+            return Ok(crate::symbols::spelling(self.symbol_id()?)?.to_string());
+        }
         (0..self.len()?).map(|index| self.char_at(index)).collect()
     }
 

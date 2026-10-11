@@ -322,6 +322,14 @@ floats are boxes. Other values use structs and arrays. Type equivalence is
 structural, so atom and text categories carry explicit tags. The engine owns
 GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 
+[`src/symbols.rs`](src/symbols.rs) owns one Rust `HashMap` from exact names to
+31-bit symbol IDs, with a reverse name vector. It is global to the native process
+or linked Wasm instance. Symbol atoms carry the sign bit plus the ID; equality
+and identity hashing use that ID. `wasm-literals.sld` assigns the literal prefix
+and emits its names as constant data. The registry copies that prefix on first
+use, before assigning dynamic IDs. It never retains Scheme roots or reuses IDs;
+its mutex is released before allocating Scheme values.
+
 [`src/snail-scheme/wasm-awi.sld`](src/snail-scheme/wasm-awi.sld) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
