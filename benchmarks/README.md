@@ -28,6 +28,191 @@ See [the raw report](results/2026-10-10-native-fibonacci.json),
 [the ablation](results/2026-10-10-native-fibonacci-ablation.json), and
 [BENCHMARKS.md](../BENCHMARKS.md) for reproduction, scope, and compile-time costs.
 
+## Typing and i32 specialization
+
+The [implemented checker and optimizations](../doc/typing-prototype.md) were
+measured at commit `e3d916657357e8fb0a64a075fdb3161d3e24e5d3` with no tracked
+source changes. These October 10 measurements use an Intel Core Ultra 7 270K
+Plus, Node 24.19.0, Clang 22.1.8, and Binaryen 132. Eight rotating rounds run on
+logical CPU 2 after one discarded full run per variant. Every sample starts a
+fresh process, runs untimed correctness checks, and verifies its checksum.
+Compilation and process startup are excluded; V8's default tiering remains
+enabled. The tail workload also performs a full in-process warmup, described below.
+
+### Recursive Fibonacci with two parameters
+
+The Fibonacci workload uses two uncurried arguments, `n` and `offset`. The base
+case returns `(+ n offset)` and both recursive calls retain `offset`; it is not
+an unused argument. Timed calls use offset zero, inputs 22–25, and 256 repetitions,
+with checksum `1076472576`. The integration suite also tests a nonzero offset.
+This differs from the older one-argument, 64-repetition measurements below.
+
+| Fibonacci variant | Median seconds |
+| --- | ---: |
+| Untyped, guarded | 0.392100 |
+| Untyped, check elimination | 0.392312 |
+| ExactInteger signature, guarded | 0.499025 |
+| ExactInteger signature, check elimination | 0.392319 |
+| i32 signature, guarded | 0.472806 |
+| i32 signature, check elimination, boxed | 0.472713 |
+| **i32 signature, specialized** | **0.173662** |
+| Native C, `-O3` | 0.068725 |
+| Native C, checked result range | 0.107269 |
+| Native C, `-fno-optimize-sibling-calls` | 0.104731 |
+| C-to-Wasm, `-O3` | 0.095643 |
+| C-to-Wasm, checked result range | 0.171902 |
+
+The specialized workload is **2.26× faster than untyped Scheme**, **2.72× faster
+than boxed i32**, and within about 1% of checked C-to-Wasm. The
+annotation is `(-> i32 i32 i32)`; it means checked signed 32-bit arguments and
+result, with widened intermediates, not wrapping arithmetic. Check elimination
+alone is neutral for untyped and boxed i32 Fibonacci. For ExactInteger it removes
+21% of elapsed time relative to the guarded variant, restoring roughly the
+untyped baseline. Fewer emitted checks do not necessarily mean faster execution.
+
+Snail executes the complete Scheme workload through the production WasmGC
+pipeline. Native C uses the same weighted outer loop and a separately compiled
+kernel, without LTO. C-to-Wasm uses the same kernel on the same Node engine,
+with a JavaScript outer loop; that driver differs from the Scheme workload.
+Every timed input is in range, including for unchecked C. The checked C kernel
+widens addition and tests the i32 result range, but uses abort/trap on failure;
+it is a performance control, not a replacement for Scheme error behavior.
+
+Specialized Snail still takes **2.53× native C's time**, or **1.62× checked native
+C's time**. Inspection of Clang's assembly shows that unchecked C turns one
+recursive branch into a loop with an accumulator. Checked C retains two calls
+and the result-range test; disabling sibling-call optimization on unchecked C
+also brings its time close to checked C. An i32 signature alone cannot prove
+that all Fibonacci inputs avoid overflow. Removing these tests or reassociating
+the recursion requires preserving failure behavior or proving tighter input
+bounds. The current pass does neither for this non-tail recursion. The checked C-to-Wasm comparison
+also shows a remaining target/backend difference from native C; individual
+costs have not been profiled. No native Snail executor is measured here.
+
+### Tail Fibonacci with three parameters
+
+The efficient version carries both accumulators through an uncurried tail call:
+
+```scheme
+(: fibonacci (-> i32 i32 i32 i32))
+(define (fibonacci n a b)
+  (if (< n 2)
+      (if (<= n 0) a b)
+      (fibonacci (- n 1) b (+ a b))))
+```
+
+All three parameters are used. Returning `b` at one avoids computing an unused
+next accumulator, allowing F46 to succeed without first overflowing on F47.
+The tests also check nonstandard seeds, F47 failure, and a million iterations
+with zero accumulators. Self tail calls lower to a Wasm loop: all operands are
+saved before any parameter is replaced, then checked narrowing establishes the
+next iteration's i32 domains. Proper tail recursion bounds stack use; it does
+not establish that an accumulator fits the declared numeric range.
+
+Each timed sample repeats the weighted inputs 22–25 **1,048,576 times**: 4,194,304
+top-level Fibonacci calls and 94,371,840 self tail updates, with checksum
+`4409231671296`. Every implementation first executes the same number of
+repetitions untimed in that process and validates the warmup checksum. This is
+in addition to the discarded fresh-process run. The recursive Fibonacci and
+occurrence workloads retain their small in-process correctness checks instead
+of this full warmup; reports record `warmup_repetitions` explicitly.
+
+| Tail Fibonacci variant | Median seconds |
+| --- | ---: |
+| Untyped, guarded | 0.287597 |
+| Untyped, check elimination | 0.289357 |
+| ExactInteger signature, guarded | 0.348353 |
+| ExactInteger signature, check elimination | 0.294258 |
+| i32 signature, guarded | 0.310597 |
+| i32 signature, check elimination, boxed | 0.311953 |
+| **i32 signature, specialized, complete Scheme workload** | **0.117819** |
+| **Specialized i32 worker, JavaScript driver** | **0.058404** |
+| Native C, `-O3` | 0.009597 |
+| Native C, checked argument ranges | 0.033144 |
+| Native C, `-fno-optimize-sibling-calls` | 0.063777 |
+| C-to-Wasm, `-O3` | 0.013884 |
+| C-to-Wasm, checked argument ranges | 0.043914 |
+
+The complete specialized workload is **2.46× faster than untyped Scheme** and
+**2.65× faster than boxed i32**. Its time is still **2.68× checked C-to-Wasm** and
+**3.55× checked native C**. The isolated worker takes **1.33× checked C-to-Wasm's
+time**. This worker measurement exports the existing pure i32 function from a
+benchmark-only module and uses exactly the same JavaScript driver as C-to-Wasm.
+It bypasses the boxed Scheme entry and outer driver; runtime initialization
+finishes before timing. It does not add a compiler API or measure the full
+Scheme program. Both C versions use matching three-argument source kernels;
+native compilation keeps driver and kernel in separate translation units,
+without LTO. Checked C widens arithmetic and checks entry ranges, with different
+failure behavior from Scheme; the timed inputs all succeed.
+
+The isolated worker and complete program have different performance histories.
+The [earlier `return_call` implementation](results/2026-10-10-typing-tail-calls-fibonacci.json)
+measured 0.096455 seconds for the worker and 0.101298 for the complete program.
+The current worker is faster, but **the complete Scheme workload regressed**.
+The base-case layout and warmup policy also changed, so these historical reports
+do not isolate the loop transformation's effect. With the current compiler but
+[without full in-process warmup](results/2026-10-10-typing-tail-tiering.json), the
+times were 0.060522 and 0.121440. Full warmup does not remove the gap. Diagnostic
+runs with V8's baseline compiler disabled reduced complete-program time to about
+0.099 seconds, indicating sensitivity to tiering. Those two-run diagnostics are
+not a full profile. The boxed driver, calls across representation boundaries,
+and engine code generation remain further work; their individual costs have
+not been established.
+
+### Occurrence check elimination
+
+The occurrence workload alternates the arms of `(U String <box>)`, reading a
+preallocated eight-character string and a record containing 13. At 512
+repetitions it performs 5,120,000 loop iterations, 10,240,000 union-dispatch calls,
+and checks checksum `107520000`:
+
+| Occurrence variant | Median seconds |
+| --- | ---: |
+| Guarded | 0.129638 |
+| **Check elimination, boxed** | **0.064886** |
+
+This is **2.00× faster**, with no representation specialization. The optimized
+module uses known-string and known-record access helpers. It retains required
+field-result, bounds, and overflow checks. The reports also count helper call
+sites in emitted user/library workers before Binaryen: single-value calls fall
+from 729 to 281 here. Those are static sites, exclude checked entry wrappers,
+and are not counts of checks executed or surviving optimization.
+
+The optimized time is essentially the prototype's 0.065398 seconds. The larger
+speedup ratio comes from the guarded path's higher cost after correcting typed
+tail-result enforcement, rather than another improvement to the optimized path.
+
+### Reports and reproduction
+
+Raw samples, source hashes, artifact hashes/sizes, commands, and tool versions
+are in the current [recursive Fibonacci report](results/2026-10-10-typing-production-fibonacci.json),
+[tail Fibonacci report](results/2026-10-10-typing-production-tail-fibonacci.json),
+and [occurrence report](results/2026-10-10-typing-production-occurrence.json).
+The historical prototype [Fibonacci](results/2026-10-10-typing-fibonacci.json) and
+[occurrence](results/2026-10-10-typing-occurrence.json) reports remain available.
+An intermediate design that ran a result-check helper on every return regressed
+boxed Fibonacci to 0.770757 seconds; its
+[Fibonacci](results/2026-10-10-typing-return-checks-fibonacci.json) and
+[occurrence](results/2026-10-10-typing-return-checks-occurrence.json) reports record
+why it was replaced. The final emitter checks local returns inline and creates
+one shared checking context only when a guarded tail transfer requires it. The
+[measurement script](typing/measure.py) contains the build commands. With the
+tools in [doc/backend.md](../doc/backend.md), Clang, Python 3, and `taskset`:
+
+```sh
+python3 benchmarks/typing/measure.py --output /tmp/typing-fibonacci.json
+python3 benchmarks/typing/measure.py --workload tail-fibonacci --output /tmp/typing-tail-fibonacci.json
+python3 benchmarks/typing/measure.py --workload occurrence --repetitions 512 --output /tmp/typing-occurrence.json
+scripts/test-typing
+```
+
+Use `--cpu` for an available logical CPU and `--output` to save a new report.
+`TYPING_CC` selects native Clang; `TYPING_WASM_CC` selects Wasm Clang. The script
+unwraps Nix's native Clang wrapper for Wasm so native linker/hardening flags do
+not leak into that target. The guarded mode disables optional type optimizations,
+the boxed mode enables check elimination, and the optimized mode also enables
+i32 specialization. All modes enforce the same declared type contracts.
+
 ## Historical native LLVM CPU experiment
 
 The [LLVM code-generation ablation](results/2026-10-10-llvm-codegen.json)
