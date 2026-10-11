@@ -174,6 +174,16 @@ do not establish lexical identity.
 | `conditional` | Test, consequent, optional alternate, location |
 | `assignment` | Target name, value expression, location |
 | `block` | Nonempty ordered items ending in a result expression, location |
+| `type-declaration` | Resolved value definition, type, location |
+| `annotation` | Expression, expected type, location |
+| `instantiation` | Expression, explicit shallow type arguments, location |
+| `record-schema` | Descriptor, constructor and predicate identities, field metadata, location |
+
+Type expressions resolve scalar syntax, nominal descriptor identities, and
+fresh rigid `All` binders during expansion. Checking happens later, over this
+resolved representation. `instantiation` preserves the underlying procedure
+value; its callable view and required call-boundary checks live in analysis
+evidence. See [the implemented type language](typing-prototype.md).
 
 Compilation containers belong to [`library.sld`](../src/snail-scheme/library.sld),
 which imports neither IR nor MIR. Its body payload belongs to the current pass;
@@ -219,8 +229,11 @@ For example, the initializer and final reference in this body share one object:
     #f))
 ```
 
-The executable core has eight forms: names, literals, applications, lambdas,
-blocks, conditionals, assignments, and value bindings. Initialization remains
+The executable core has names, literals, applications, lambdas,
+blocks, conditionals, assignments, value bindings, and type annotations.
+Type declarations and record schemas are body metadata. An annotation retains
+its expression and expected type; the checker records its guard separately.
+Initialization remains
 distinct from assignment: a definition introduces a binding and its initializer,
 whereas `set!` makes an existing location mutable. Encoding both with an extra
 mode flag would move that distinction into every analysis. Blocks likewise
@@ -559,11 +572,15 @@ are not implemented yet.
 
 ## Later passes
 
-[`wasm.sld`](../src/snail-scheme/wasm.sld) consumes this untyped IR, analyzes
+[`wasm.sld`](../src/snail-scheme/wasm.sld) consumes resolved IR, analyzes
 captures, mutation, and initialization, then emits structured WasmGC directly.
 Binding identities survive import renaming and source shadowing. Representation
-choices belong beyond expansion; type inference and check elimination remain
-future IR-to-IR work.
+choices belong beyond expansion. The implemented
+[`type-analysis.sld`](../src/snail-scheme/type-analysis.sld) records per-expression
+facts, required guards, function signatures, and verified summaries before
+emission. [`wasm-i32.sld`](../src/snail-scheme/wasm-i32.sld) attempts bounded
+monomorphic representation specialization. See [the implementation report](typing-prototype.md)
+and [the broader proposal](occurrence-typing.md).
 
 The executable backend preserves proper tail calls, assignment, quoted data,
 recursive initialization, and multiple values. `values` and `call-with-values`

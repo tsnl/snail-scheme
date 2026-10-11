@@ -352,4 +352,11 @@ value categories, structural unions, nominal record identities, function signatu
 and rank-one `All` schemes. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
 solves fresh argument and result constraints for each use of a polymorphic signature.
 The resolved IR can carry declarations, annotations, explicit instantiations, and
-record schemas. These building blocks are not yet connected to source compilation.
+record schemas. The expander now resolves the type syntax into these nodes.
+[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure rules
+that consume child facts and return types, occurrence filters, and required guards.
+A declaration scan collects mutation and nominal identities before checking.
+Immutable scopes retain declared types and verified contracts under binding
+identities; no expression facts or signatures are cached. Unknown calls and
+mutation limit which facts survive. The visitor, runtime checks, and public
+`(snail typing)` import are connected in a later layer.

@@ -14,6 +14,7 @@
           (snail-scheme common)
           (snail-scheme syntax)
           (snail-scheme pattern)
+          (snail-scheme types)
           (snail-scheme ir) (snail-scheme library))
   (begin
 
@@ -355,6 +356,16 @@
                              transformers fuel))
         ((define) (prepare-value-binding form outer local reservations transformers fuel))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
+        ((:) (values
+              (list (lambda (values transformers)
+                      (expand-type-declaration form
+                                               (append values (macro-bindings local) outer)
+                                               transformers fuel)))
+              local transformers))
+        ((%record-schema)
+         (values (list (lambda (values transformers)
+                         (expand-record-schema form (append values (macro-bindings local) outer))))
+                 local transformers))
         (else (prepare-expression form outer local transformers fuel))))
 
     (define (prepare-expression form outer local transformers fuel)
@@ -477,7 +488,7 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax) (fail form "definition in expression position"))
+          ((define define-syntax : %record-schema) (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
 
@@ -488,11 +499,86 @@
         ((if) expand-conditional)
         ((set!) expand-assignment)
         ((begin) expand-sequence)
+        ((ann) expand-annotation)
+        ((inst) expand-instantiation)
         ((let-syntax letrec-syntax) expand-local-macros)
         (else expand-application)))
 
     (define (expand-quotation form environment transformers fuel)
       (make-literal (syntax-datum (car (fields form '(_ datum)))) (syntax-loc form)))
+
+    ;; ---- Type syntax ----
+
+    ;; Type names use the same resolved macro identities as every other keyword.
+    ;; Renaming imports works; a local value named String is not the String type.
+    (define (type-keyword syntax environment)
+      (let ((definition (lookup syntax environment)))
+        (and (macro-definition? definition) (macro-definition-builtin definition))))
+
+    (define (expand-type syntax environment)
+      (if (identifier-of syntax)
+          (let ((tag (type-keyword syntax environment)) (definition (lookup syntax environment)))
+            (cond ((type-variable? definition) definition)
+                  ((memq tag scalar-type-names) tag)
+                  ((value-definition? definition) (list 'record definition))
+                  (else (fail syntax "unknown type"))))
+          (expand-compound-type syntax environment)))
+
+    (define (expand-compound-type syntax environment)
+      (let* ((parts (syntax-list syntax))
+             (tag (and (pair? parts) (type-keyword (car parts) environment))))
+        (cond ((eq? tag 'All) (expand-all-type syntax environment))
+              ((memq tag '(-> U))
+               (let ((types (map (lambda (part) (expand-type part environment)) (cdr parts))))
+                 (if (eq? tag 'U) (apply type-union types)
+                     (if (null? types) (fail syntax "function type requires a result")
+                         (cons '-> types)))))
+              (else (fail syntax "unsupported type constructor")))))
+
+    (define (expand-all-type syntax environment)
+      (let* ((parts (fields syntax '(_ variables body)))
+             (bindings (map reserve-type-variable (syntax-list (car parts)))))
+        (check-distinct (map car bindings) syntax)
+        (if (null? bindings) (fail syntax "All requires at least one type variable"))
+        (let ((body (expand-type (cadr parts) (append bindings environment))))
+          (if (not (arrow-type? body)) (fail syntax "All requires a function signature"))
+          (list 'All (map cdr bindings) body))))
+
+    (define (reserve-type-variable syntax)
+      (let ((id (require-identifier syntax)))
+        (cons (identifier-key id) (make-type-variable (identifier-name id)))))
+
+    (define (expand-instantiation form environment transformers fuel)
+      (let ((parts (fields form '(_ expression type ...))))
+        (make-instantiation (expand-expression (car parts) environment transformers fuel)
+                            (map (lambda (type) (expand-type type environment)) (cadr parts))
+                            (syntax-loc form))))
+
+    (define (expand-annotation form environment transformers fuel)
+      (let ((parts (fields form '(_ expression type))))
+        (make-annotation (expand-expression (car parts) environment transformers fuel)
+                         (expand-type (cadr parts) environment) (syntax-loc form))))
+
+    (define (expand-type-declaration form environment transformers fuel)
+      (let ((parts (fields form '(_ name type))))
+        (make-type-declaration (name-definition (resolve-name (car parts) environment))
+                               (expand-type (cadr parts) environment) (syntax-loc form))))
+
+    (define (expand-record-schema form environment)
+      (let ((parts (fields form '(_ type constructor predicate arguments record-fields))))
+        (make-record-schema (name-definition (resolve-name (car parts) environment))
+                            (name-definition (resolve-name (cadr parts) environment))
+                            (name-definition (resolve-name (caddr parts) environment))
+                            (map require-symbol (syntax-list (cadddr parts)))
+                            (map (lambda (field) (expand-record-field field environment))
+                                 (syntax-list (car (cddddr parts)))) (syntax-loc form))))
+
+    (define (expand-record-field field environment)
+      (let ((parts (syntax-list field)))
+        (list (require-symbol (car parts)) (expand-type (cadr parts) environment)
+              (name-definition (resolve-name (caddr parts) environment))
+              (and (pair? (cdddr parts))
+                   (name-definition (resolve-name (cadddr parts) environment))))))
 
     (define (expand-literal form)
       (let ((value (atom-syntax-value form)))
@@ -1173,7 +1259,8 @@
     ;; ---- Environment and diagnostics ----
 
     (define (runtime-expression? item)
-      (not (or (value-binding? item) (eliminated-definition? item))))
+      (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
+               (eliminated-definition? item))))
 
     (define (runtime-items items)
       (filter (lambda (item) (not (eliminated-definition? item))) items))
@@ -1270,7 +1357,10 @@
                     '() '() #f))
 
     (define core-syntax-names
-      '(define define-syntax syntax-rules let-syntax letrec-syntax lambda quote if set! begin))
+      (append '(define define-syntax syntax-rules let-syntax letrec-syntax
+                 lambda quote if set! begin
+                 : ann inst All -> U %record-schema)
+              scalar-type-names))
 
     (define core-primitive-names
       '(+ - * / = < <= > >= cons car cdr list append null? pair? list?
