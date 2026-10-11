@@ -15,6 +15,8 @@ See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
 and timing boundaries. [`compare-compilers.py`](compare-compilers.py) compares
 prepared implementations against one frozen source corpus; the
 [indexing report](results/2026-10-10-compiler-indexes/README.md) preserves its inputs.
+The [persistent-index comparison](results/2026-10-10-persistent-indexes/README.md)
+measures the HAMT's cost relative to mutable tables.
 The [call experiment](calls/README.md) keeps the throwaway flow/inlining pass in a
 patch with measurements and reproduction instructions. [`render-studio.py`](render-studio.py) renders the
 [studio scene](../BENCHMARKS.md#studio-scene) and reports its elapsed time.

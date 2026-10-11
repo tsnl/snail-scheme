@@ -150,7 +150,7 @@ has no published Snail timing yet.
 ## Compile the compiler
 
 Indexing expression facts and constant folds removes repeated linear searches
-from emission. A controlled comparison compiles one frozen input with both
+from emission. The initial mutable-table comparison compiles one frozen input with both
 compiler implementations; every preliminary and measured output is byte-identical:
 
 | Compiler host | Before indexing | Indexed facts | Speedup |
@@ -167,6 +167,12 @@ and [raw report](benchmarks/results/2026-10-10-compiler-indexes/results.json).
 WAT writing takes roughly 0.1–0.2 seconds in these traces; repeated metadata
 lookup had dominated emission. Compiler preparation and linking are outside
 this comparison's timer.
+
+A [persistent HAMT follow-up](benchmarks/results/2026-10-10-persistent-indexes/README.md)
+preserves earlier index versions when facts are replaced. On its fixed compiler
+input, median compilation costs 7.8% more on Chibi and 8.0% more on Wasm than
+mutable tables; native is roughly comparable. All 24 outputs match byte for
+byte. The follow-up retains its own inputs and raw measurements.
 
 A separate [direct-call and inlining experiment](benchmarks/calls/README.md)
 finds a modest benefit from calling known primitive adapters, a larger gain on
