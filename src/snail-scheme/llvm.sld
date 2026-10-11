@@ -1,8 +1,8 @@
 (define-library (snail-scheme llvm)
-  (export wasm->llvm wasm-file->llvm-file)
+  (export wasm->llvm wasm->llvm-file)
   (import (scheme base) (scheme char) (scheme cxr)
           (scheme file) (scheme write)
-          (snail-scheme wasm-binary) (snail-scheme llvmlite))
+          (snail-scheme wasm-resolve) (snail-scheme llvmlite))
   (begin
 
     ;; ---- LLVM operands and native types ----
@@ -35,43 +35,45 @@
     (define (typed value) (list (car value) " " (cdr value)))
     (define (constant type word) (cons type word))
 
-    (define (float-constant bits single?)
-      ;; LLVM spells float constants using the equivalent double's bits. Integer
-      ;; conversion preserves NaN payloads and signed zero without a host float.
-      (llvm-hex (if single? (single->double-bits bits) bits)))
+    ;; The datum backend receives Scheme f64 values, not encoded bit words.
+    ;; LLVM accepts round-tripping decimal doubles; its hex spelling carries
+    ;; nonfinite values. Preserve a decimal point even in exponent-only output.
+    (define (float-constant value)
+      (case value
+        ((inf) (llvm-hex 9218868437227405312))
+        ((nan) (llvm-hex 9221120237041090560))
+        ((-inf) (llvm-hex -4503599627370496))
+        (else
+         (unless (number? value) (error "unsupported Wasm float literal" value))
+         (float-spelling (number->string value)))))
 
-    (define (single->double-bits bits)
-      (let* ((sign (* (quotient bits 2147483648) -9223372036854775808))
-             (exponent (modulo (quotient bits 8388608) 256))
-             (fraction (modulo bits 8388608)))
-        (+ sign
-           (cond ((= exponent 255) (+ (* 2047 4503599627370496) (* fraction 536870912)))
-                 ((> exponent 0) (+ (* (+ exponent 896) 4503599627370496) (* fraction 536870912)))
-                 ((= fraction 0) 0)
-                 (else (let loop ((mantissa fraction) (exponent 897))
-                         (if (>= mantissa 8388608)
-                             (+ (* exponent 4503599627370496) (* (- mantissa 8388608) 536870912))
-                             (loop (* mantissa 2) (- exponent 1)))))))))
+    (define (float-spelling text)
+      (let loop ((index 0))
+        (cond ((= index (string-length text)) (string-append text ".0"))
+              ((char=? (string-ref text index) #\.) text)
+              ((memv (string-ref text index) '(#\e #\E))
+               (string-append (substring text 0 index) ".0" (substring text index (string-length text))))
+              (else (loop (+ index 1))))))
 
     ;; ---- Declarations ----
 
-    ;; One pass records the validated module's numeric declarations. Function
-    ;; bodies stay in the input bytevector until their direct lowering below.
+    ;; One pass records resolved numeric declarations. Folded function bodies
+    ;; normalize to an instruction sequence only when that function is emitted.
     ;; Heap headers encode a canonical type identity and its abstract category:
     ;; function = 0, struct = 2, array = 3. Odd references are immediate i31s.
 
     (define-record-type <module>
-      (make-module types functions globals output)
+      (make-module types functions globals constants output)
       module?
       (types module-types) (functions module-functions)
-      (globals module-globals) (output module-output))
+      (globals module-globals) (constants module-constants) (output module-output))
 
     (define-record-type <function>
-      (make-function name params result locals body import type cold?)
+      (make-function name params result locals body import type attributes)
       function?
       (name function-name) (params function-params) (result function-result)
       (locals function-locals) (body function-body) (import function-import)
-      (type function-wasm-type) (cold? function-cold? set-function-cold?!))
+      (type function-wasm-type) (attributes function-attributes set-function-attributes!))
 
     (define current-module (make-parameter #f))
 
@@ -85,7 +87,7 @@
       (let* ((type (caddr node)) (signature (type-definition type)))
         (make-function (cadr node) (cadr signature) (result-type signature)
                        (if import '() (cadddr node))
-                       (and (not import) (car (cddddr node))) import type #f)))
+                       (and (not import) (car (cddddr node))) import type "")))
 
     (define (iota count start)
       (let loop ((index 0) (result '()))
@@ -124,7 +126,10 @@
         ;; Names are optional optimization hints, never semantic requirements.
         ((function-name)
          (when (< (cadr node) (vector-length (module-functions (current-module))))
-           (set-function-cold?! (function-info (cadr node)) (prefix? "cold." (caddr node)))))))
+           (set-function-attributes! (function-info (cadr node)) (function-attributes-for-name (caddr node)))))))
+
+    (define (function-attributes-for-name name)
+      (if (prefix? "cold." name) "cold " ""))
 
     (define (function-type index) (function-wasm-type (function-info index)))
 
@@ -281,11 +286,17 @@
 
     (define (emit-stream code)
       (let loop ()
-        (let* ((instruction (read-wasm-instruction code)) (op (car instruction)))
+        (let* ((instruction (take-instruction! code)) (op (car instruction)))
           (case op
             ((end else) op)
             ((block loop if) (emit-control op (cadr instruction) code) (loop))
             (else (when (alive?) (push-value! (emit-operation instruction))) (loop))))))
+
+    (define (take-instruction! code)
+      (let ((remaining (vector-ref code 0)))
+        (when (null? remaining) (error "missing Wasm function ending"))
+        (vector-set! code 0 (cdr remaining))
+        (car remaining)))
 
     (define (close-control destination)
       (when (alive?) (jump destination (branch-value destination))))
@@ -493,26 +504,6 @@
         (store (cast "trunc" value type) (array-slot reference index type))
         #f))
 
-    ;; ---- Linear memory ----
-
-    ;; Rust addresses remain wasm32 offsets into a distinct, unscanned memory.
-    ;; Offset addition uses i64, so a large static offset cannot wrap around a
-    ;; bounds check. All loads and stores permit byte alignment as Wasm does.
-
-    (define (memory-address address offset size)
-      (let* ((wide (cast "zext" address "i64"))
-             (index (instruction "i64" "add " (typed wide) ", " offset)))
-        (call-native "native_memory_address" "ptr" (list index (constant "i64" size)))))
-
-    (define (memory-instruction descriptor offset)
-      (let* ((type (car descriptor)) (narrow (cadr descriptor)) (size (caddr descriptor))
-             (signed? (cadddr descriptor)) (store? (car (cddddr descriptor)))
-             (values (pop-values! (if store? 2 1)))
-             (address (memory-address (car values) offset size))
-             (pointer (constant narrow (cdr address))))
-        (if store? (begin (store (cast "trunc" (cadr values) narrow) pointer) #f)
-            (cast (if signed? "sext" "zext") (load pointer) type))))
-
     ;; ---- Numeric operations ----
 
     (define integer-operations
@@ -639,7 +630,6 @@
           ((numeric) (emit-numeric (car args) (cadr args) (pop-values! (caddr args))))
           ((i32.const) (constant "i32" (car args)))
           ((local.set local.tee) (emit-local-set (car args) (eq? op 'local.tee)))
-          ((memory) (memory-instruction (car args) (cadr args)))
           ((global.get) (load (global-slot (car args))))
           ((br) (emit-branch (car args) #f))
           ((br_if) (emit-branch (car args) #t))
@@ -682,13 +672,8 @@
           ((array.copy) (call-native "native_array_copy" "void" (pop-values! 5)))
           ((table.get table.set table.size table.grow)
            (emit-table op (car args)))
-          ((memory.size) (call-native "native_memory_pages" "i32" '()))
-          ((memory.grow) (call-native "native_memory_grow" "i32" (pop-values! 1)))
-          ((memory.copy) (call-native "native_memory_copy" "void" (pop-values! 3)))
-          ((memory.fill) (call-native "native_memory_fill" "void" (pop-values! 3)))
           ((i64.const) (constant "i64" (car args)))
-          ((f64.const) (constant "double" (float-constant (car args) #f)))
-          ((f32.const) (constant "float" (float-constant (car args) #t)))
+          ((f64.const) (constant "double" (float-constant (car args))))
           (else (error "unsupported native Wasm instruction" op)))))
 
     ;; ---- Function definitions and host boundary ----
@@ -727,9 +712,6 @@
       (cond ((and (member (car import) '("snail.rust" "snail.cli"))
                   (prefix? "snail:" (cadr import)))
              (list (llvm-quoted (cadr import)) "i32" "i32"))
-            ((string=? (car import) "wasi_snapshot_preview1")
-             (let ((entry (assoc (cadr import) wasi-imports)))
-               (and entry (cons (list "wasi_" (car entry)) (cdr entry)))))
             ((equal? import '("snail.host" "register-finalizer"))
              '("native_register_finalizer" "void" "i64" "i32" "i32"))
             ((equal? import '("snail.host" "unregister-finalizer"))
@@ -746,19 +728,6 @@
         (unless (equal? signature (cdr entry)) (error "native host import type mismatch" import))
         (car entry)))
 
-    (define wasi-imports
-      '(("args_sizes_get" "i32" "i32" "i32") ("args_get" "i32" "i32" "i32")
-        ("environ_sizes_get" "i32" "i32" "i32") ("environ_get" "i32" "i32" "i32")
-        ("clock_time_get" "i32" "i32" "i64" "i32") ("proc_exit" "void" "i32")
-        ("fd_close" "i32" "i32") ("fd_prestat_get" "i32" "i32" "i32")
-        ("fd_prestat_dir_name" "i32" "i32" "i32" "i32")
-        ("fd_fdstat_get" "i32" "i32" "i32") ("fd_filestat_get" "i32" "i32" "i32")
-        ("fd_seek" "i32" "i32" "i64" "i32" "i32")
-        ("fd_write" "i32" "i32" "i32" "i32" "i32") ("fd_read" "i32" "i32" "i32" "i32" "i32")
-        ("path_open" "i32" "i32" "i32" "i32" "i32" "i32" "i64" "i64" "i32" "i32")
-        ("path_create_directory" "i32" "i32" "i32" "i32")
-        ("path_filestat_get" "i32" "i32" "i32" "i32" "i32" "i32")))
-
     (define (emit-function function)
       (let ((params (parameter-values function)) (result (function-result function)))
         (emit-definition
@@ -771,13 +740,13 @@
                  (initialize-locals function)
                  (set-emitter-result! (current-emitter) result)
                  (let ((exit (make-target "return" result))
-                       (code (wasm-code-copy (function-body function))))
+                       (code (vector (lower-wasm-body (function-body function)))))
                    (set-emitter-targets! (current-emitter) (list exit))
-                   (unless (and (eq? (emit-stream code) 'end) (wasm-code-end? code))
+                   (unless (and (eq? (emit-stream code) 'end) (null? (vector-ref code 0)))
                      (error "invalid Wasm function ending"))
                    (close-control exit)
                    (let ((value (join-target exit))) (when (alive?) (return-value value)))))))
-         (if (function-cold? function) "cold " ""))))
+         (function-attributes function))))
 
     (define (emit-export node)
       (case (caaddr node)
@@ -799,30 +768,103 @@
 
     ;; ---- Module initialization ----
 
-    (define (immutable-struct? node)
-      (let* ((init (reverse (cadddr node))) (last (car init)))
-        (and (not (and (pair? (caddr node)) (eq? (caaddr node) 'mut)))
-             (eq? (car last) 'struct.new)
-             (null? (filter (lambda (field) (and (pair? field) (eq? (car field) 'mut)))
-                            (cdr (type-definition (cadr last)))))
-             (= (length (cdr init))
-                (length (filter (lambda (value) (memq (car value) '(i32.const i64.const f32.const f64.const)))
-                                (cdr init)))))))
+    ;; Immutable bindings retain their initial object graphs for the module's
+    ;; lifetime. The objects themselves keep their declared field mutability;
+    ;; writable static storage is scanned by BDWGC after later reference stores.
+    ;; A plan is committed only if every operation is a supported constant.
+    (define (mutable-type? type) (and (pair? type) (eq? (car type) 'mut)))
+    (define (static-global index) (vector-ref (module-constants (current-module)) index))
 
-    (define (static-field node)
+    (define (constant-cast opcode value type)
+      (if (string=? type (car value)) value
+          (constant type (list opcode " (" (typed value) " to " type ")"))))
+
+    (define (static-word type value)
+      (case type
+        ((f64) (constant-cast "bitcast" value "i64"))
+        ((i8 i16 i32)
+         (constant "i64" (modulo (cdr value) (case type ((i8) 256) ((i16) 65536) (else 4294967296)))))
+        (else value)))
+
+    (define (static-object type fields length plan)
+      (let* ((name (list "@object." (vector-ref plan 0) "." (vector-ref plan 2)))
+             (definition (type-definition type))
+             (types (if length (make-list length (array-type type)) (map field-type (cdr definition))))
+             (words (append (list (constant "i64" (type-id type)))
+                            (if length (list (constant "i64" length)) '())
+                            (map static-word types fields)))
+             (mutable? (if length (mutable-type? (cadr definition))
+                           (pair? (filter mutable-type? (cdr definition))))))
+        (vector-set! plan 1 (cons (list name words mutable?) (vector-ref plan 1)))
+        (vector-set! plan 2 (+ 1 (vector-ref plan 2)))
+        (constant "i64" (list "ptrtoint (ptr " name " to i64)"))))
+
+    (define (take-constants stack count)
+      (let loop ((stack stack) (left count) (values '()))
+        (cond ((= left 0) (cons values stack))
+              ((null? stack) (error "missing Wasm constant operand"))
+              (else (loop (cdr stack) (- left 1) (cons (car stack) values))))))
+
+    (define (static-struct node stack plan)
+      (let* ((type (cadr node)) (fields (cdr (type-definition type)))
+             (default? (eq? (car node) 'struct.new_default))
+             (values (if default?
+                         (cons (map (lambda (field)
+                                      (let ((type (value-type (field-type field)))) (constant type (zero type)))) fields) stack)
+                         (take-constants stack (length fields)))))
+        (cons (static-object type (car values) #f plan) (cdr values))))
+
+    (define (static-array node stack plan)
+      (let* ((type (cadr node)) (op (car node))
+             (length (if (eq? op 'array.new_fixed) (caddr node) (cdar stack)))
+             (rest (if (eq? op 'array.new_fixed) stack (cdr stack))))
+        (and (integer? length) (<= 0 length 65536)
+             (let* ((element (value-type (array-type type)))
+                    (values (case op
+                              ((array.new_fixed) (take-constants rest length))
+                              ((array.new) (cons (make-list length (car rest)) (cdr rest)))
+                              (else (cons (make-list length (constant element (zero element))) rest)))))
+               (cons (static-object type (car values) length plan) (cdr values))))))
+
+    (define (static-operation node stack plan)
       (case (car node)
-        ((f64.const) (list "i64 bitcast (double " (float-constant (cadr node) #f) " to i64)"))
-        ((f32.const) (list "i64 zext (i32 bitcast (float " (float-constant (cadr node) #t) " to i32) to i64)"))
-        (else (list "i64 " (cadr node)))))
+        ((i32.const) (cons (constant "i32" (cadr node)) stack))
+        ((i64.const) (cons (constant "i64" (cadr node)) stack))
+        ((f64.const) (cons (constant "double" (float-constant (cadr node))) stack))
+        ((ref.null) (cons (constant "i64" 0) stack))
+        ((ref.func) (cons (constant "i64" (list "ptrtoint (ptr " (symbol-name "ref." (cadr node)) " to i64)")) stack))
+        ((ref.i31) (and (integer? (cdar stack))
+                        (cons (constant "i64" (+ 1 (* 2 (modulo (cdar stack) 2147483648)))) (cdr stack))))
+        ((global.get)
+         (let ((prior (static-global (cadr node))))
+           (and prior (not (mutable-type? (caddr (global-info (cadr node))))) (cons (car prior) stack))))
+        ((struct.new struct.new_default) (static-struct node stack plan))
+        ((array.new array.new_fixed array.new_default) (static-array node stack plan))
+        (else #f)))
+
+    (define (plan-global! node)
+      (let ((plan (vector (cadr node) '() 0)))
+        (let loop ((instructions (cadddr node)) (stack '()))
+          (if (null? instructions)
+              (when (and (= (length stack) 1)
+                         (or (null? (vector-ref plan 1)) (not (mutable-type? (caddr node)))))
+                (vector-set! (module-constants (current-module)) (cadr node)
+                             (cons (car stack) (reverse (vector-ref plan 1)))))
+              (let ((next (static-operation (car instructions) stack plan)))
+                (when next (loop (cdr instructions) next)))))))
+
+    (define (declare-static-object object)
+      (let ((words (cadr object)))
+        (output (car object) " = internal " (if (caddr object) "global " "constant ")
+                "{ " (llvm-join (map car words) ", ") " } { "
+                (llvm-join (map typed words) ", ") " }, align 8")))
 
     (define (declare-global node)
-      (let ((pointer (global-slot (cadr node))))
-        (if (immutable-struct? node)
-            (let* ((init (reverse (cadddr node))) (object (symbol-name "object." (cadr node)))
-                   (fields (cons (list "i64 " (type-id (cadar init))) (map static-field (reverse (cdr init))))))
-              (output object " = internal constant { " (llvm-join (map (lambda (field) "i64") fields) ", ")
-                      " } { " (llvm-join fields ", ") " }, align 8")
-              (output (cdr pointer) " = internal constant i64 ptrtoint (ptr " object " to i64)"))
+      (let ((pointer (global-slot (cadr node))) (plan (static-global (cadr node))))
+        (if plan
+            (begin (for-each declare-static-object (cdr plan))
+                   (output (cdr pointer) " = internal " (if (mutable-type? (caddr node)) "global " "constant ")
+                           (typed (car plan))))
             (output (cdr pointer) " = internal global " (car pointer) " " (zero (car pointer))))))
 
     (define (declare-function-reference function)
@@ -831,31 +873,18 @@
               (type-id (function-type (function-name function)))
               ", ptr " (symbol-name "f." (function-name function)) " }, align 8"))
 
-    (define (declare-data node)
-      (let ((data (cadddr node)))
-        (output (symbol-name "data." (cadr node)) " = private constant ["
-                (bytevector-length data) " x i8] c" (llvm-quoted data))))
-
     (define (emit-declaration node)
       (case (car node)
         ((global) (declare-global node))
         ((func) (declare-function-reference (function-info (cadr node))))
         ((import) (let ((function (function-info (cadr (cadddr node)))))
                     (emit-import-declaration function) (declare-function-reference function)))
-        ((table) (output (symbol-name "table." (cadr node)) " = internal global { ptr, i32, i32 } zeroinitializer"))
-        ((data) (declare-data node))))
+        ((table) (output (symbol-name "table." (cadr node)) " = internal global { ptr, i32, i32 } zeroinitializer"))))
 
     (define (initialize-table node)
       (call-native "native_table_init" "void"
                    (list (constant "ptr" (symbol-name "table." (cadr node)))
                          (constant "i32" (caddr node)) (constant "i32" (cadddr node)))))
-
-    (define (initialize-data node)
-      (let* ((data (cadddr node)) (length (bytevector-length data))
-             (address (memory-address (emit-constant-expression (caddr node)) 0 length)))
-        (call-native "llvm.memcpy.p0.p0.i64" "void"
-                     (list address (constant "ptr" (symbol-name "data." (cadr node)))
-                           (constant "i64" length) (constant "i1" "false")))))
 
     (define (initialize-element node)
       (let ((table (cadr node)) (offset (emit-constant-expression (caddr node)))
@@ -869,14 +898,9 @@
 
     (define (initialize-declaration node)
       (case (car node)
-        ((memory)
-         (call-native "native_memory_init" "void"
-                      (list (constant "i32" (caddr node))
-                            (constant "i32" (cadddr node)))))
-        ((global) (unless (immutable-struct? node)
+        ((global) (unless (static-global (cadr node))
                     (store (emit-constant-expression (cadddr node)) (global-slot (cadr node)))))
         ((table) (initialize-table node))
-        ((data) (initialize-data node))
         ((elem) (initialize-element node))))
 
     (define (emit-initializer declarations)
@@ -896,17 +920,10 @@
         "declare ptr @native_array_slot(i64, i32)"
         "declare i32 @native_array_length(i64)"
         "declare void @native_array_copy(i64, i32, i64, i32, i32)"
-        "declare void @native_memory_init(i32, i32)"
-        "declare ptr @native_memory_address(i64, i64)"
-        "declare i32 @native_memory_pages()"
-        "declare i32 @native_memory_grow(i32)"
-        "declare void @native_memory_copy(i32, i32, i32)"
-        "declare void @native_memory_fill(i32, i32, i32)"
         "declare void @native_table_init(ptr, i32, i32)"
         "declare ptr @native_table_slot(ptr, i32)"
         "declare i32 @native_table_size(ptr)"
-        "declare i32 @native_table_grow(ptr, i64, i32)"
-        "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)"))
+        "declare i32 @native_table_grow(ptr, i64, i32)"))
 
     (define (declare-numeric-helpers)
       (for-each
@@ -936,16 +953,15 @@
     (define (declaration-count declarations tag)
       (length (filter (lambda (node) (eq? (car node) tag)) declarations)))
 
-    (define (wasm->llvm declarations port)
+    (define (emit-module declarations port)
       (let ((module (make-module (make-vector (declaration-count declarations 'type))
                                  (make-vector (+ (declaration-count declarations 'func)
                                                  (declaration-count declarations 'import)))
                                  (make-vector (declaration-count declarations 'global))
-                                 port)))
+                                 (make-vector (declaration-count declarations 'global) #f) port)))
         (parameterize ((current-module module))
           (for-each record-declaration! declarations)
-          (when (> (declaration-count declarations 'memory) 1)
-            (error "native multiple memories are unsupported"))
+          (for-each (lambda (node) (when (eq? (car node) 'global) (plan-global! node))) declarations)
           (output "; WasmGC -> LLVM. Generated by the Scheme compiler library.\n"
                   "target triple = \"x86_64-unknown-linux-gnu\"\n")
           (for-each output native-declarations)
@@ -958,36 +974,36 @@
                         ((export) (emit-export node)))) declarations)
           (emit-initializer declarations))))
 
-    (define (wasm-file->llvm-file input output)
-      (let ((module (read-wasm-file input)))
-        (call-with-output-file output (lambda (port) (wasm->llvm module port))))))
+    (define (wasm->llvm datum port)
+      (emit-module (resolve-wasm datum) port))
+
+    (define (wasm->llvm-file datum output)
+      (call-with-output-file output (lambda (port) (wasm->llvm datum port)))))
 
   ;; ---- Tests ----
 
-  ;; Executable ABI, trap, GC and binary control-flow tests are integration tests.
+  ;; Executable ABI, trap, GC and folded control-flow tests are integration tests.
   (cond-expand
    (snail-tests
     (export test-llvm)
     (import (snail-scheme test-utils))
     (begin
       (define (test-llvm-floats)
-        (expect (single->double-bits 2147483648) (string->number "-9223372036854775808"))
-        (expect (single->double-bits 4294967295) -536870912)
-        (expect (single->double-bits 4286578688) (string->number "-4503599627370496"))
-        (expect (single->double-bits 1) (* 874 4503599627370496))
-        (expect (single->double-bits 1065353216) (* 1023 4503599627370496))
-        (expect (single->double-bits 2143289344) (+ (* 2047 4503599627370496) (expt 2 51))))
+        (expect (float-spelling "1e-300") "1.0e-300")
+        (expect (float-spelling "-0.0") "-0.0")
+        (expect (float-spelling "9223372036854775808") "9223372036854775808.0")
+        (expect (float-spelling "1.25e20") "1.25e20"))
 
       (define (test-llvm-rejections)
         (for-each
-         (lambda (declarations)
+         (lambda (datum)
            (expect (guard (error (else #t))
-                     (wasm->llvm declarations (open-output-string)) #f) #t))
-         '(((memory 0 1 1) (memory 1 1 1))
-           ((type 0 (func () (i32 i64))))
-           ((type 0 (func () ())) (import "unknown" "thing" (func 0 0)))
-           ((type 0 (func () ())) (import "wasi_snapshot_preview1" "args_get" (func 0 0)))
-           ((type 0 (func () ())) (import "wasi_snapshot_preview1" "unknown" (func 0 0))))))
+                     (wasm->llvm datum (open-output-string)) #f) #t))
+         '((module (memory 1))
+           (module (type $many (func (result i32 i64))))
+           (module (import "unknown" "thing" (func)))
+           (module (import "snail.rust" "snail:fail" (func)))
+           (module (import "wasi_snapshot_preview1" "args_get" (func (param i32 i32) (result i32)))))))
 
       (define (test-llvm)
         (run-test test-llvm-floats)

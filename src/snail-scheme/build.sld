@@ -9,16 +9,6 @@
   (begin
     ;; ---- Processes and owned build directories ----
 
-    (define (tool-name variable default)
-      (or (get-environment-variable variable) default))
-
-    (define (run-command stage arguments . directory)
-      ((chromium-trace stage
-                       (lambda ()
-                         (let ((status (process-status arguments (if (null? directory) "." (car directory))
-                                                       #f (car arguments))))
-                           (if (not (zero? status)) (error "build command failed" arguments status)))))))
-
     ;; Intermediates share the output filesystem. Publication is one rename;
     ;; protect the same inputs before any work and again after generated inputs
     ;; (such as Cargo's runtime archive) exist. Stages only write private paths.

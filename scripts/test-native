@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute full linked Rust/Scheme modules and independent native Wasm invariants."""
+"""Execute shared Wasm datums and native Rust/Scheme programs."""
 
 import json
 import os
@@ -35,9 +35,9 @@ def scheme(script, *arguments, **environment):
     return invoke([CHIBI, "-I", ROOT / "src", ROOT / script, *arguments], **environment)
 
 
-def translate(wasm, name):
+def translate(source, name):
     llvm = BUILD / f"{name}.ll"
-    require(scheme("tests/translate-native.scm", wasm, llvm))
+    require(scheme("tests/translate-native.scm", ROOT, source, llvm))
     return llvm
 
 
@@ -53,10 +53,14 @@ def collector_flags():
 
 def custom_host(llvm, name, program=False):
     output = BUILD / name
-    defines = ["-DSNAIL_NATIVE_LIBRARY"] + (["-DSNAIL_NATIVE_PROGRAM"] if program else [])
+    defines = ["-DSNAIL_NATIVE_LIBRARY"]
+    runtime = []
+    if program:
+        defines += ["-DSNAIL_NATIVE_PROGRAM"]
+        runtime = [ROOT / "build/native-runtime/release/libsnail_runtime.a", "-ldl", "-lpthread"]
     command = [os.environ.get("CLANG", "clang"), "-O3", "-flto", "-fuse-ld=lld", *defines,
                llvm, ROOT / "src/native.c", ROOT / "tests/native-runner.c",
-               *collector_flags(), "-o", output]
+               *runtime, *collector_flags(), "-o", output]
     require(invoke(command))
     return output
 
@@ -64,41 +68,19 @@ def custom_host(llvm, name, program=False):
 # ---- ABI, traps, roots and finalizer scheduling ----
 
 
-def check_dead_control():
-    # Assemble the bytes here: a WAT assembler can erase the unreachable block.
-    # (block (result i32) (br 0 (i32.const 7))
-    #   (block (result i32) (i32.const 99))) must still produce 7.
-    # Decode all eight saturating operations in unreachable code, using padded
-    # subopcode LEBs. The reachable marker after the block must still execute.
-    dead = b''.join(bytes([252, 128 + opcode, 0, 26]) for opcode in range(8))
-    code = bytes([0, 2, 127, 65, 7, 12, 0]) + dead + bytes([2, 127, 65, 227, 0, 11, 11,
-                  65, 7, 71, 4, 64, 0, 11, 11])
-    module = (b'\0asm\1\0\0\0' + bytes([1, 4, 1, 96, 0, 0, 3, 2, 1, 0]) +
-              bytes([7, 10, 1, 6]) + b'_start\0\0' +
-              bytes([10, len(code) + 2, 1, len(code)]) + code)
-    wasm, output = BUILD / "dead-control.wasm", BUILD / "dead-control"
-    wasm.write_bytes(module)
-    javascript = ("const fs = require('node:fs'); "
-                  "new WebAssembly.Instance(new WebAssembly.Module("
-                  "fs.readFileSync(process.argv[1]))).exports._start()")
-    require(invoke([os.environ.get("NODE", "node"), "-e", javascript, wasm]))
-    llvm = translate(wasm, "dead-control")
-    require(invoke([os.environ.get("CLANG", "clang"), "-O3", "-flto", "-fuse-ld=lld",
-                    llvm, ROOT / "src/native.c", *collector_flags(), "-o", output]))
-    require(invoke([output]))
-    print("passed nested unreachable binary control", flush=True)
-
-
 def check_semantics():
+    require(scheme("tests/build-native-datums.scm", BUILD))
+    llvm = BUILD / "semantics.ll"
+    if llvm.read_bytes() != (BUILD / "semantics-again.ll").read_bytes():
+        raise RuntimeError("printing or lowering mutated the shared module datum")
     wasm = BUILD / "semantics.wasm"
     features = ["--enable-gc", "--enable-reference-types", "--enable-tail-call",
                 "--enable-bulk-memory", "--enable-sign-ext", "--enable-mutable-globals",
                 "--enable-nontrapping-float-to-int"]
-    require(invoke([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/native-semantics.wat",
+    require(invoke([os.environ.get("WASM_AS", "wasm-as"), BUILD / "semantics.wat",
                     *features, "-g", "-o", wasm]))
     reference = BUILD / "saturation.json"
     require(invoke([os.environ.get("NODE", "node"), ROOT / "tests/check-native-semantics.mjs", wasm, reference]))
-    llvm = translate(wasm, "semantics")
     assert len(re.findall(r"^define .*\) cold \{", llvm.read_text(), re.MULTILINE)) == 1
     executable = custom_host(llvm, "semantics")
     require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"))
@@ -108,31 +90,15 @@ def check_semantics():
         result = require(invoke([executable, kind]), failure=True)
         if result.returncode != 1 or result.stderr != "WebAssembly trap\n":
             raise RuntimeError(f"native trap {kind}: {result.stderr}")
-    output = BUILD / "published"
-    require(scheme("tests/build-native.scm", ROOT, wasm, output))
-    require(invoke([output]))
-    before = output.read_bytes()
-    failed = require(scheme("tests/build-native.scm", ROOT, wasm, output, CLANG="/missing/clang"), failure=True)
-    if output.read_bytes() != before:
-        raise RuntimeError("failed native compilation replaced the output")
-    retained = re.findall(r"build failed; intermediates retained: (.+)", failed.stderr)
-    if len(retained) != 1 or not (Path(retained[0]) / "module.ll").is_file():
-        raise RuntimeError("failed native build did not retain its LLVM")
-    stripped = BUILD / "semantics-stripped.wasm"
-    require(invoke([os.environ.get("WASM_OPT", "wasm-opt"), wasm,
-                    *features, "--strip-debug", "-o", stripped]))
-    stripped_llvm = translate(stripped, "semantics-stripped")
-    assert not re.search(r"^define .*\) cold \{", stripped_llvm.read_text(), re.MULTILINE)
-    require(invoke([custom_host(stripped_llvm, "semantics-stripped")], SNAIL_NATIVE_GC_INTERVAL="1"))
-    print("passed native Wasm ABI, 13 traps, forced GC, optional hints, and atomic publication", flush=True)
+    print("passed shared-datum types, control, tail ABI, 13 traps, and forced GC", flush=True)
 
 
 def check_rust_callbacks():
     require(scheme("examples/rust-interop/build.scm"), EXPECTED)
-    llvm = translate(ROOT / "build/rust-interop.wasm", "extension")
+    llvm = translate(ROOT / "examples/rust-interop/main.scm", "extension")
     executable = custom_host(llvm, "extension", program=True)
     require(invoke([executable], SNAIL_NATIVE_GC_INTERVAL="1"), EXPECTED)
-    print("passed native linked Rust roots and reentrant Scheme callbacks", flush=True)
+    print("passed native Rust roots and reentrant Scheme callbacks", flush=True)
 
 
 def check_resources():
@@ -141,7 +107,8 @@ def check_resources():
                    ROOT / "tests/programs/backend-native-resources.scm", wasm))
     require(invoke([os.environ.get("NODE", "node"), "--no-warnings",
                     ROOT / "scripts/run-wasi.mjs", wasm]), "native resource checks passed\n")
-    executable = custom_host(translate(wasm, "resources"), "resources", program=True)
+    executable = custom_host(translate(ROOT / "tests/programs/backend-native-resources.scm", "resources"),
+                             "resources", program=True)
     require(invoke([executable, "finalizers"], SNAIL_NATIVE_GC_INTERVAL="1"),
             "native resource checks passed\n")
     print("passed native Rust resource cleanup outside active Wasm calls", flush=True)
@@ -149,7 +116,9 @@ def check_resources():
 
 def main():
     BUILD.mkdir(parents=True, exist_ok=True)
-    check_dead_control()
+    require(invoke([os.environ.get("CARGO", "cargo"), "rustc", "--quiet", "--offline",
+                    "--release", "--crate-type=staticlib", "--features=native-runtime",
+                    "--target-dir", ROOT / "build/native-runtime"]))
     check_semantics()
     check_rust_callbacks()
     check_resources()

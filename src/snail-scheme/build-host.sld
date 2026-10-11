@@ -2,9 +2,19 @@
 ;; compiled commands import these same operations from the native Rust runtime.
 (define-library (snail-scheme build-host)
   (export build-host-imports absolute-path same-file? process-status create-directory*
-          call-with-build-directory publish-file)
-  (import (scheme base) (scheme cxr) (scheme process-context) (scheme write))
+          call-with-build-directory publish-file run-command tool-name)
+  (import (scheme base) (scheme cxr) (scheme process-context) (scheme write) (snail-scheme chromium-trace))
   (begin
+    (define (tool-name variable default)
+      (or (get-environment-variable variable) default))
+
+    (define (run-command stage arguments . directory)
+      ((chromium-trace stage
+                       (lambda ()
+                         (let ((status (process-status arguments (if (null? directory) "." (car directory))
+                                                       #f (car arguments))))
+                           (if (not (zero? status)) (error "build command failed" arguments status)))))))
+
     (define build-host-imports
       (map (lambda (name) (cons name "snail.cli"))
            '(%absolute-path %same-file? %process-status %publish-file %create-directory*

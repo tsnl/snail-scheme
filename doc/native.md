@@ -1,73 +1,63 @@
 # Native execution through Wasm
 
-`(snail-scheme native)` translates Wasm to LLVM and links an x86-64 Linux
-executable. It supports two runtime arrangements: a complete Rust-linked Wasm
-module, and the CLI's Scheme Wasm module importing a native Rust archive. Both
-use the same translator, AWI ownership rules, and BDWGC collector.
-`build-native` compiles Scheme through that same native tail; `run-script` uses
-it in a private execution directory. The project-specific interpreter recipe and
-installation data live in `build.scm`.
-
-The native CLI is built by `chibi-scheme -I src build.scm`. Its `main.scm` handler
-accepts `-I DIRECTORY` or `-IDIRECTORY` before a script, compiles it, executes it,
-and returns its status. Each `-I` prepends a library search directory, so the last
-one supplied is searched first. Relative directories use the current working
-directory. `--` ends option parsing; arguments after the script remain literal.
-The resulting `build/snail-scheme -Isrc build.scm` rebuilds the interpreter. See the
-[build chapter](book/builds.md) and [inline CLI ABI](book/platforms/native-cli.md).
-
-For complete linked Wasm, the existing library workflow remains:
+`(snail-scheme native)` lowers in-memory Wasm datums to LLVM and links an
+x86-64 Linux executable with the native Rust runtime and BDWGC. The portable
+backend prints the same datums and uses Binaryen to assemble, link and optimize
+Wasm. Native builds never print WAT or consume binary Wasm.
 
 ```scheme
 (import (scheme base) (snail-scheme build) (snail-scheme native))
-(build-wasm "." "examples/fibonacci.scm" "build/fibonacci.wasm")
-(wasm-file->native-file "." "build/fibonacci.wasm" "build/fibonacci")
+(build-native "." "examples/fibonacci.scm" "build/fibonacci")
 (run-command "fibonacci" '("build/fibonacci"))
 ```
 
-The supported native target is x86-64 Linux. In addition to the Wasm build
-toolchain, install Clang, LLD, BDWGC headers/library, and the C math library.
-The repository's Nix shell includes these. `WASM_OPT` and `CLANG` override tool
-paths; `BDWGC_INCLUDE` and `BDWGC_LIB` optionally identify a separate collector
-installation. The latter adds a runtime library search path as well as a linker
-path. Translation, `-O3` optimization, and shared LLVM LTO happen automatically.
-Successful builds publish the executable atomically; failures preserve any
-existing output and print the directory retaining the Wasm/LLVM intermediates.
+`build-native` publishes an executable; `run-script` uses a private execution
+directory. The interpreter recipe and installation data live in `build.scm`.
+Bootstrap with `chibi-scheme -h512M -I src build.scm`. The resulting
+`build/snail-scheme -Isrc build.scm` rebuilds the interpreter without Chibi or Binaryen.
+The CLI accepts `-I DIRECTORY` or `-IDIRECTORY` before the script; each option
+prepends a search directory. `--` ends option parsing, and arguments after the
+script are passed literally.
+See the [build chapter](book/builds.md) and [inline CLI ABI](book/platforms/native-cli.md).
+
+Native builds require Chibi, Cargo, Clang/LLD, BDWGC headers/library and the C math
+library; the Nix shell supplies these. `CLANG` overrides the compiler path.
+`BDWGC_INCLUDE` and `BDWGC_LIB` identify a separate collector installation; the
+latter adds both a link path and runtime library search path. Translation, `-O3`
+optimization and LLVM LTO happen automatically. Successful builds publish
+atomically; failures preserve existing output and report the directory retaining
+`module.ll`. There is no arbitrary `.wasm`-to-native entry point or binary reader.
 
 ## Compiler stages
 
-Binaryen validates the binary and canonicalizes equivalent types, using the
-same explicit feature set as the portable build. The bounded reader in
-`wasm-binary.sld` records numeric declarations and function ranges in one shared
-bytevector. `llvm.sld` indexes those declarations, then decodes each function's
-flat instructions directly into LLVM. There is no disassembly, instruction tree,
-or text-to-number conversion. This library consumes no Scheme IR or Scheme
-binding information; unsupported Wasm operations fail explicitly.
+`source-file->wasm` returns a complete folded module datum, including the quoted
+runtime and AWI helper definitions. Neither consumer mutates it. `wasm-resolve.sld`
+resolves names and canonicalizes final singleton recursive types. A canonical
+key distinguishes a type's own recursive reference from references to earlier
+types, and retains field mutability, nullability and packed widths. Equal keys
+share identity. Explicit recursion groups, forward references and subtyping are
+outside the generated subset.
 
-The build preserves Wasm's standard name section. A function name beginning
-`cold.` requests LLVM's `cold` optimization hint; the runtime uses it for its
-wide/inexact comparison, addition, and subtraction fallbacks. The converter reads
-the final function indices after Binaryen optimization. It does not infer types
-or remove checks, and it leaves inlining decisions to LLVM. Stripping names
-removes the hints without changing semantics. This favors the immediate-integer
-path; it is not a claim that floating-point arithmetic is rare in every program.
+Function bodies are normalized one at a time into flat evaluation order, then
+`llvm.sld` emits LLVM. Operands evaluate left to right before their operation;
+LLVM's stack holds SSA values, so later mutation cannot change an earlier read.
+Labels enter scope for control bodies, excluding an `if` condition. Shadowing,
+unnamed controls and the implicit function label determine branch depths. Dead
+instructions still preserve control nesting; only live incoming edges resume
+emission. Entry-block slots represent locals and result joins; LLVM promotes them
+to SSA. The resolver is an adapter for trusted compiler output, not a general
+WAT parser or Wasm validator. Unsupported declarations and instructions fail.
 
-`llvmlite.sld` preserves integers, names, quoted bytes, and float bit patterns as
-immutable operands. Nested lists compose output fragments; a single writer
-prints them without intermediate concatenation or repeated numeric formatting.
-Only one function's body is buffered, so its allocations can precede it in the
-entry block. Float bits never pass through the host's floating-point parser.
+Names beginning `cold.` request LLVM's `cold` optimization hint. This keeps the
+runtime's wide/inexact numeric fallback from dictating the hot integer path's
+layout. It introduces no type facts or removed checks; LLVM decides inlining.
 
-Locals and block-result joins use entry-block slots. The compile-time operand
-stack holds already evaluated SSA operands, so a later mutation cannot change
-an earlier read. Lexical branch targets retain an optional result slot and a
-live-incoming-edge flag. Dead instructions are decoded without emitting values;
-only a target reached by a live edge can resume emission. LLVM promotes slots
-to SSA and optimizes the complete module together with the C host. Initialization
-allocates memory and tables, evaluates globals, copies active data/element
-segments, and invokes the
-Wasm start function before the host calls the exported `_start`, or the CLI
-handler adapter `snail:main` for a command.
+`llvmlite.sld` composes immutable output fragments without repeated formatting.
+Only one function's body is buffered so allocations can precede it in the entry
+block. Finite f64 literals use round-tripping decimal spelling, preserving
+negative zero and subnormals; canonical infinities and NaNs use LLVM hex literals.
+Initialization creates tables, evaluates globals and active element segments,
+and invokes any module start function before the native CLI calls `snail:main`.
 
 Every guest function uses LLVM [`tailcc`](https://llvm.org/docs/LangRef.html#call-instruction).
 Wasm tail instructions emit `tail call`
@@ -75,7 +65,7 @@ immediately followed by return, including reference and table calls. This gives
 proper native tail calls across different signatures. LLVM 22's x86-64 lowering
 of `musttail call tailcc` lost growing stack arguments in a verified small
 reproduction; `tail call tailcc` follows the convention's guaranteed-tail path.
-`tests/native-semantics.wat` guards this boundary with two million alternating
+`tests/native-datums.scm` guards this boundary with two million alternating
 calls, integer/reference/floating arguments, and a 256 KiB native stack limit.
 
 ## Representations and roots
@@ -88,8 +78,12 @@ use this same canonical encoding, so reference equality is ordinary i64 equality
 Other references are uncompressed pointers. Heap objects begin with a type and
 category word. Struct fields occupy eight-byte slots; arrays add a length word
 and eight-byte element slots. Packed fields load/store their specified width.
-Immutable, numeric-only global structs have distinct static objects, preserving
-reference identity while exposing constant atoms to LLVM. Function references
+Supported constant global object graphs become distinct static structs and
+arrays, including nested references, text, and vectors. Their declared field
+mutability is retained, and writable static storage is scanned by BDWGC.
+Initial graphs remain live for the module lifetime, including children later
+overwritten in mutable objects. Unsupported initializers fall back to runtime
+construction; constant arrays are bounded to 65,536 elements. Function references
 point to static descriptors containing their Wasm type identity and native code
 pointer. Indirect calls check bounds, null, and the expected type identity.
 
@@ -100,52 +94,40 @@ and no separate shadow-root stack. The collector and optimizer must preserve
 live uncompressed pointers under this restricted ABI; forced-collection tests
 exercise locals, allocating operands, tables, callbacks, and tail transfers.
 
-When translating a complete Rust-linked Wasm module, Rust linear memory is a
-separate, unscanned 4 GiB address reservation. Growth
-commits zeroed pages without moving its base. Rust addresses remain wasm32
-offsets; memory bounds use widened arithmetic so offsets cannot wrap through a
-check. Loads and stores allow byte alignment. Rust retains Scheme values through
-owned AWI handles in the scanned reference table, exactly as under a Wasm engine.
-
-The native CLI instead links Rust's native archive directly. Scheme imports
-under `snail.rust` and `snail.cli` retain their `snail:` symbol names and scalar
-signatures. Rust's AWI calls bind to the translated Scheme exports. Files,
-subprocesses, and environment access use Rust's native standard library, with no
-WASI shim on this route. This first host supports one instance per OS process;
-multiple actors sharing a process still need explicit instance selection.
+Rust links as a native archive. Imports under `snail.rust` and `snail.cli` retain
+their `snail:` names and scalar signatures. Rust's AWI calls bind to the lowered
+Scheme exports. Files, subprocesses and environment access use Rust's native
+standard library, with no Wasm linear memory or WASI adapter. One instance per
+OS process is supported; multiple actors need explicit instance selection.
 
 Collector callbacks queue only resource kinds and IDs. They never enter Rust:
-an allocation may occur while a translated Rust `RefCell` is borrowed. The host
+an allocation may occur while a Rust `RefCell` is borrowed. The host
 drains a finite queued batch only after guest execution returns. Held finalizer
 records do not retain their watched wrapper. The ordinary executable polls after
-`_start` or `snail:main`; custom C hosts must call `native_poll_finalizers` only with no active
-guest frames. A long-running call or `proc_exit` may defer cleanup indefinitely;
+`snail:main`; custom C hosts must call `native_poll_finalizers` only with no active
+guest frames. A long-running call or process exit may defer cleanup indefinitely;
 explicit close remains the prompt resource-release mechanism. There is no Scheme
 collection/statistics API; portable Wasm does not expose those operations.
 
 ## Coverage and boundaries
 
-The converter covers operations emitted by the current linked compiler/runtime:
+The converter covers operations emitted by the current Scheme compiler and its quoted runtime:
 
 | Area | Implemented behavior |
 | --- | --- |
 | Control | Blocks, loops, if, branches, branch tables, returns, direct/reference/indirect calls and tail calls |
-| Numeric | Scalar i32/i64/f32/f64 arithmetic used by the runtime, comparisons, shifts, rotations, bit counts, conversions, sign extension, IEEE bit reinterpretation |
-| GC | Final struct/array types, recursive type groups, allocation, fields/elements, packed access, copy, reference tests/casts, i31 |
-| Memory | One unshared wasm32 memory, active data, size/grow, loads/stores, fill/copy |
+| Numeric | Scalar i32/i64/f64 arithmetic used by the runtime, comparisons, shifts, rotations, bit counts, conversions, sign extension, IEEE bit reinterpretation |
+| GC | Final struct/array types, singleton recursive types, allocation, fields/elements, packed access, copy, reference tests/casts, i31 |
 | Tables | Nullable table32, active function elements, get/set, size/grow, indirect-call checks |
-| Host | Native CLI AWI imports, or WASIp1 arguments/environment, clocks, descriptor I/O/stat/seek/close, preopens, path open/stat/mkdir, process exit, AWI finalizers |
+| Host | Native Rust AWI services and deferred resource finalizers |
 
-Integer division, float truncation, reference casts, and memory/array/table bounds
+Integer division, float truncation, reference casts, and array/table bounds
 trap at Wasm boundaries rather than relying on LLVM undefined behavior. A trap
-prints `WebAssembly trap` and exits with status 1. WASI returns scalar error codes
-and writes its specified layouts into guest memory. The native host exposes the
-working directory, and executes with ordinary
-native process permissions; it is not a Wasm security sandbox.
+prints `WebAssembly trap` and exits with status 1. Programs execute with ordinary
+native process permissions; the native backend is not a Wasm security sandbox.
 
 This is not an implementation of every Wasm proposal. Subtyping, externref,
-multivalue function/block signatures, block parameters, passive segments, memory64,
-multiple/shared memories, SIMD, threads, exceptions, and stack switching are
+multivalue function/block signatures, block parameters, linear memories/data segments, SIMD, threads, exceptions, and stack switching are
 unsupported. Additional scalar/array/table instructions outside the emitted
 subset also fail explicitly. Declarative element segments establish validation
 facts and need no runtime action. Scheme multiple values already use GC packets and
@@ -154,22 +136,20 @@ host signatures are diagnosed before native linking.
 
 ## Checks and measurements
 
-`scripts/test-backend --target both` builds each Scheme fixture once, then
-executes its exact linked binary in Node and as native code. `scripts/test-native`
-compares a separate Wasm semantics fixture under both engines, checks thirteen
-traps and proper tail calls, forces collection at every allocation, verifies
-Rust-retained Scheme roots and Rust-to-Scheme callbacks, and checks actual Rust
-resource cleanup. It also runs with the optional function names stripped and
-checks signed/unsigned i31 boundaries and equality across initialization and
-dynamic construction. `scripts/test-self-host` separately exercises direct native
-Rust linkage, the CLI handler, and rebuilding without Chibi. Set
-`SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every N native object
-allocations; leave it unset for ordinary execution.
+`scripts/test-backend --target both` builds and runs each Scheme fixture through
+both backends. `scripts/test-native` gives both consumers the same datum fixture,
+compares results, checks thirteen traps, proper tail calls, float boundaries,
+recursive type identity, shadowed labels and evaluation order. It checks that
+printing and repeated lowering preserve the datum. Forced collection exercises
+Rust-retained roots, reentrant callbacks and actual resource cleanup.
+`scripts/test-self-host` checks CLI behavior and publication, then blocks both
+Chibi and Binaryen during a rebuild and runs its replacement. Set
+`SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every N native allocations;
+leave it unset for ordinary execution.
 
-`benchmarks/native` builds the complete canonical Fibonacci workload in all
-implementations before rotating eight rounds on a fixed core. The native and
-V8 cases use the same Rust-linked module and Scheme outer loops. The internal
-timer excludes compilation, process startup, checks, and output. Raw samples,
-commands, hashes, and scope are saved to `build/native-benchmark/results.json`.
-See [the benchmark report](../BENCHMARKS.md) for measured results and the older
-bounded experiment's distinct scope.
+`benchmarks/native` builds the canonical Fibonacci workload independently for
+native and Wasm, then rotates eight rounds on a fixed core against Chez, Guile
+and Chibi. Native links Rust natively; V8 runs Binaryen's linked module. Timers
+exclude compilation, startup, checks and output. Commands, hashes and raw samples
+are saved to `build/native-benchmark/results.json`. Earlier reports translating
+the exact linked binary are historical; see [BENCHMARKS.md](../BENCHMARKS.md).

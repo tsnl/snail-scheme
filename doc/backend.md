@@ -2,7 +2,8 @@
 
 The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
 by library; `wasm.sld` constructs WasmGC datums and writes their WAT form with
-the standard Scheme writer. Binaryen assembles, links, and
+the standard Scheme writer. The native backend instead resolves these datums
+into LLVM and links the native Rust archive. Binaryen assembles, links, and
 optimizes it with the Rust runtime compiled to Wasm.
 
 The [type checker](typing-prototype.md) runs on resolved identities before
@@ -90,7 +91,7 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `ir.sld` | Seven resolved expression forms and shared binding identities |
 | `library.sld` | Library containers, imports, exports, dependency order |
 | `expand.sld` | Located syntax to IR, including `syntax-rules` expansion |
-| `wasm.sld` | Binding/capture analysis and direct folded WAT emission |
+| `wasm.sld` | Binding/capture analysis, Wasm datums, and standard WAT printing |
 | `src/snail-scheme/wasm-runtime.sld` | Value representations, checked primitives, calls |
 | `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
@@ -174,15 +175,16 @@ stack when the toolchain supports it. Host finalization could schedule that
 cancellation, but does not itself implement unwinding. Current Rust release
 builds use `panic = "abort"`; no Rust forced-unwind support is promised.
 
-The Scheme [`native` library](../src/snail-scheme/native.sld) translates the complete
-linked Wasm module to an x86-64 Linux executable. Scripts call
-`wasm-file->native-file(root, input-wasm, output-executable)` and choose whether
-to run it. The converter reads the validated binary directly, independently of
-Scheme IR, and emits structured LLVM operands through `llvmlite` for both the
-Scheme and Rust portions. A C host supplies
-Wasm memory/table mechanics, WASIp1, and BDWGC. Clang/LLD compile and link these
-automatically. [Native execution](native.md) explains coverage, proper tail calls,
-GC roots, resource finalization, and the remaining unsupported Wasm features.
+The Scheme [`native` library](../src/snail-scheme/native.sld) builds an x86-64
+Linux executable with `build-native(root, source, output-executable)`. Both
+backends start from `source-file->wasm`'s in-memory module datum. Portable builds
+use standard `write-simple` per definition and pass WAT to Binaryen. Import
+names alone require WAT byte escaping; generated function tokens belong to the
+shared Scheme/WAT spelling subset. Native builds resolve names and canonical
+types directly, then emit LLVM through `llvmlite`. They never serialize or read
+Wasm binaries and do not invoke Binaryen. Clang/LLD link the native Rust runtime
+and C GC/trap host. [Native execution](native.md) explains the supported datum
+subset, proper tail calls, GC roots, and resource finalization.
 
 ## Validation and measurements
 

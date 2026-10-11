@@ -9,4 +9,4 @@
 (if (or (same-file? (cadr arguments) trace-file) (same-file? output trace-file))
     (error "trace file must not replace build input or output" trace-file))
 (create-directory* (path-directory output))
-(with-chromium-trace-to trace-file (lambda () (apply wasm-file->native-file arguments)))
+(with-chromium-trace-to trace-file (lambda () (apply build-native arguments)))

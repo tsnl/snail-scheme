@@ -7,8 +7,9 @@
 
 Native Snail takes **9.7% less time than Chez** and runs **3.56× faster than
 Guile** on this recursive Fibonacci workload. Every implementation runs the
-complete [Scheme program](benchmarks/cpu.scm); native and V8 execute the same
-Rust-linked Wasm module. Bars show medians, ordered slowest to fastest;
+complete [Scheme program](benchmarks/cpu.scm); at the recorded revision, native and V8 execute the same
+Rust-linked Wasm module. The current native build uses shared Wasm datums and a
+native Rust archive, so these historical results do not measure that pipeline. Bars show medians, ordered slowest to fastest;
 whiskers show the observed minimum and maximum. Orange identifies Snail.
 See the [generated table](benchmarks/results/2026-10-10-native-fibonacci/summary.md)
 and [raw measurements](benchmarks/results/2026-10-10-native-fibonacci.json).
@@ -61,11 +62,11 @@ With Rust/Cargo and the `wasm32-wasip1` target installed, use the same Nix shell
 python3 benchmarks/r7rs.py --cpu 2
 ```
 
-The runner compiles each complete program to Wasm, then invokes the checkout's
-native translator through `(snail-scheme native)`. Default participants are
-Snail native, Chez, Guile, and Chibi. `SNAIL_WASM_NATIVE` optionally selects an
-external translator accepting `INPUT.wasm -o OUTPUT`. Missing tools and failed
-builds remain visible in the report; requested native cases execute native code.
+The runner compiles each complete program through `(snail-scheme native)`: the
+Wasm datum is resolved into LLVM and linked with the native Rust archive.
+Default participants are Snail native, Chez, Guile, and Chibi. Missing tools and
+failed builds remain visible in the report; requested native cases execute
+native code. The retired binary-reader override is no longer accepted.
 
 For a quick harness check on the reference implementations:
 

@@ -1,4 +1,4 @@
-// The same binary supplies both engines; native-only host checks live in C.
+// Both backends consume the same module datum; native-only host checks live in C.
 import { readFile, writeFile } from 'node:fs/promises';
 const { instance } = await WebAssembly.instantiate(await readFile(process.argv[2]));
 const wasm = instance.exports;
