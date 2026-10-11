@@ -8,7 +8,8 @@
           infer-call check-result check-recursive-instances validate-type
           checked-fact checked-guard call-fact call-guards call-edges
           value-fact unknown-fact normalized-fact fact-type fact-single? fact-callee
-          fact-signature fact-body typing-declarations type-optimizations-enabled predicate-type)
+          fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
+          type-optimizations-enabled predicate-type)
   (import (scheme base) (scheme cxr)
           (snail-scheme types) (snail-scheme type-inference)
           (prefix (snail-scheme ir) ir:))
@@ -102,11 +103,18 @@
              (bindings (map (lambda (node) (cons (ir:value-binding-definition node)
                                                  (ir:value-binding-initializer node)))
                             (select ir:value-binding? nodes)))
+             (primitives (immutable-primitives primitives assigned bindings))
              (base (make-typing '() primitives assigned bindings '()))
              (records (register-records (select ir:record-schema? nodes) items base))
              (typing (make-typing '() primitives assigned bindings records)))
         (declare-types (append (record-declarations (select ir:record-schema? nodes))
                                (select ir:type-declaration? nodes)) typing)))
+
+    ;; Every consumer uses this same stability decision. Resolved local names
+    ;; have distinct identities; an import alias can still write the core one.
+    (define (immutable-primitives primitives assigned bindings)
+      (select (lambda (definition)
+                (not (or (memq definition assigned) (assq definition bindings)))) primitives))
 
     (define (declare-types nodes typing)
       (if (null? nodes) typing
@@ -589,9 +597,24 @@
           (expect (fact-single? incoming) #f)
           (expect (checked-guard (check-result node (checked-fact checked) 'ExactInteger)) #f)))
 
+      (define (test-primitive-stability)
+        (let* ((plus (ir:make-value-definition '+ #f))
+               (shadow (ir:make-value-definition '+ #f))
+               (name (ir:make-name plus #f))
+               (assignment (ir:make-assignment name (ir:make-literal 42 #f) #f))
+               (nested (ir:make-lambda '() #f assignment #f))
+               (binding (ir:make-value-binding plus (ir:make-literal 42 #f) #f)))
+          (expect (typing-primitives (prepare-types (list nested) (list plus))) '())
+          (expect (typing-primitives (prepare-types (list binding) (list plus))) '())
+          (let ((scope (bind-fact shadow (value-fact 'String)
+                                  (make-type-scope (prepare-types '() (list plus))))))
+            (expect (fact-type (infer-name name scope)) 'Procedure)
+            (expect (fact-type (infer-name (ir:make-name shadow #f) scope)) 'String))))
+
       (define (test-type-analysis)
         (run-test test-scoped-facts)
         (run-test test-guard-evidence)
+        (run-test test-primitive-stability)
         (let ((first (ir:make-value-definition 'same-name #f))
               (second (ir:make-value-definition 'same-name #f)))
           (expect (common-filters (list (list first #t 'String)) (list (list second #t 'String))) '()))

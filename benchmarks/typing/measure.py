@@ -63,6 +63,22 @@ def build_scheme(name, annotation, mode, contents=None):
     return [os.environ.get("NODE", "node"), "--no-warnings", "scripts/run-wasi.mjs", output]
 
 
+def count_i32_workers(wat):
+    # Function definitions have fields after the name; export references do not.
+    return len(re.findall(r"\(func \$i32_[^\s()]+\s+\(", wat))
+
+
+def check_specialization(commands):
+    for name, command in commands.items():
+        if name.startswith("c-"):
+            continue
+        wat = Path(command[-1]).with_suffix(".wasm.wat").read_text()
+        expected = 1 if name.startswith("i32-specialized") else 0
+        actual = count_i32_workers(wat)
+        if actual != expected:
+            raise RuntimeError(f"{name}: expected {expected} i32 workers, emitted {actual}")
+
+
 def wasm_compiler():
     compiler = Path(shutil.which(os.environ.get("TYPING_WASM_CC", "clang"))).resolve()
     original = compiler.parent.parent / "nix-support/orig-cc"
@@ -133,7 +149,9 @@ def build_tail_kernel():
     wat = output.with_suffix(".wasm.wat")
     export_i32_worker(wat)
     link = f"(link-wasm {json.dumps(str(wat))} (build-runtime {json.dumps(str(ROOT))}) {json.dumps(str(output))})"
-    run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", "-m", "snail-scheme.build", "-e", link])
+    link = f"(with-chromium-trace-to {json.dumps(str(output) + '.link.trace.json')} (lambda () {link}))"
+    run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", "-m", "snail-scheme.build",
+         "-m", "snail-scheme.chromium-trace", "-e", link])
     return [os.environ.get("NODE", "node"), "--no-warnings", "benchmarks/typing/run-tail-kernel.mjs", output]
 
 
@@ -170,7 +188,7 @@ def describe(command, samples):
         result["integer_helper_calls"] = emitted.count("$integer_")
         result["string_helper_calls"] = emitted.count("$known_string_length")
         result["record_helper_calls"] = emitted.count("$known_record_ref")
-        result["i32_workers"] = emitted.count("(func $i32_")
+        result["i32_workers"] = count_i32_workers(emitted)
     return result
 
 
@@ -186,6 +204,7 @@ def main():
         args.repetitions = 1048576 if args.workload == "tail-fibonacci" else 256
     BUILD.mkdir(parents=True, exist_ok=True)
     commands = variants(args.workload)
+    check_specialization(commands)
     expected = (210000 if args.workload == "occurrence" else 4204971) * args.repetitions
     results = {name: [] for name in commands}
     for command in commands.values():
