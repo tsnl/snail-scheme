@@ -9,17 +9,20 @@
   (export write-ir-library-as-wasm)
   (import (scheme base) (scheme cxr) (scheme write) (scheme file)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
+          (snail-scheme types) (snail-scheme type-analysis)
+          (snail-scheme wasm-i32)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
     ;; ---- Compilation state ----
 
     (define-record-type <module>
-      (make-module globals primitives boxed functions known foreign constants)
+      (make-module globals primitives boxed functions known foreign constants analysis specialized result-guards)
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
-      (foreign module-foreign) (constants module-constants set-module-constants!))
+      (foreign module-foreign) (constants module-constants set-module-constants!)
+      (analysis module-analysis) (specialized module-specialized) (result-guards module-result-guards))
 
     (define-record-type <function>
       (make-function module environment temporaries)
@@ -56,15 +59,31 @@
       (apply append (map visit items)))
 
     (define prepare-module
-      (chromium-trace
-       "prepare-module"
-       (lambda (libraries foreign)
-         (let* ((items (apply append (map library:library-body libraries)))
-                (globals (apply append (map library-global-definitions libraries)))
-                (primitives (apply append (map library-core-primitives libraries))))
-           (make-module (numbered globals) (immutable-primitives primitives items)
-                        (boxed-definitions items globals) (numbered (all-lambdas items))
-                        (known-lambdas items (assigned-definitions items)) foreign '())))))
+      (chromium-trace "prepare-module"
+                      (lambda (libraries foreign)
+                        (let* ((items (apply append (map library:library-body libraries)))
+                               (globals (apply append (map library-global-definitions libraries)))
+                               (primitives (immutable-primitives
+                                            (apply append (map library-core-primitives libraries)) items))
+                               (functions (numbered (all-lambdas items)))
+                               (known (known-lambdas items (assigned-definitions items)))
+                               (analysis ((chromium-trace "analyze-types" analyze-types) items primitives)))
+                          (make-module (numbered globals) primitives
+                                       (boxed-definitions items globals) functions known foreign '() analysis
+                                       (specialized-functions functions known globals primitives analysis)
+                                       (numbered (unique-identities (map car (analysis-guards analysis)))))))))
+
+    (define (specialized-functions functions known globals primitives analysis)
+      (if (null? functions) '()
+          (let* ((entry (car functions)) (binding (procedure-binding (car entry) known globals))
+                 (code (specialize-i32 (car entry) (cdr entry) binding primitives analysis)))
+            (append (if code (list (cons (car entry) code)) '())
+                    (specialized-functions (cdr functions) known globals primitives analysis)))))
+
+    (define (procedure-binding procedure known globals)
+      (cond ((null? known) #f)
+            ((and (eq? procedure (cdar known)) (memq (caar known) globals)) (caar known))
+            (else (procedure-binding procedure (cdr known) globals))))
 
     ;; ---- Binding and capture analysis ----
     (define (library-global-definitions library)
@@ -125,6 +144,8 @@
                     (list (ir:conditional-opt-alternate node)) '())))
        ((ir:assignment? node) (list (ir:assignment-target node) (ir:assignment-value node)))
        ((ir:value-binding? node) (list (ir:value-binding-initializer node)))
+       ((ir:annotation? node) (list (ir:annotation-expression node)))
+       ((ir:instantiation? node) (list (ir:instantiation-expression node)))
        (else '())))
 
     (define (lambda-locals procedure)
@@ -318,15 +339,43 @@
     ;; explicitly: quasiquote does not specify an order for its unquotes.
 
     (define (single node context)
-      `(call $single ,(expression node context #f)))
+      (let ((value (expression node context #f)))
+        (if (and (type-optimizations-enabled)
+                 (fact-single? (analysis-fact (module-analysis (function-module context)) node)))
+            value `(call $single ,value))))
 
-    (define (expression node context tail?)
+    ;; #f denotes an ordinary expression; a list denotes tail position and its
+    ;; pending source assertions, innermost first. Keep these checks in the
+    ;; emitter until a procedure call actually needs to transfer them.
+    (define (expression node context checks)
+      (let ((guard (analysis-guard (module-analysis (function-module context)) node)))
+        (cond (checks (raw-expression node context (if guard (cons node checks) checks)))
+              (guard (guard-value (raw-expression node context #f) guard context))
+              (else (raw-expression node context #f)))))
+
+    (define (raw-expression node context checks)
+      (cond ((ir:block? node) (sequence-expression (ir:block-items node) context checks))
+            ((ir:conditional? node) (conditional-expression node context checks))
+            ((ir:annotation? node) (expression (ir:annotation-expression node) context checks))
+            ((ir:instantiation? node) (expression (ir:instantiation-expression node) context checks))
+            ((ir:application? node) (application-expression node context checks))
+            (else (finish-expression (leaf-expression node context) checks context))))
+
+    (define (finish-expression value checks context)
+      (if (or (not checks) (null? checks)) value
+          (finish-expression
+           (guard-value value (analysis-guard (module-analysis (function-module context)) (car checks)) context)
+           (cdr checks) context)))
+
+    (define (call-checks checks)
+      (if checks '(local.get $checks) '(ref.null $result_context)))
+
+    (define (leaf-expression node context)
       (cond ((ir:literal? node) (literal-value (ir:literal-value node) (function-module context)))
             ((ir:name? node) (read-binding (ir:name-definition node) context))
             ((ir:lambda? node) (closure-expression node context))
-            ((ir:application? node) (application-expression node context tail?))
-            ((ir:block? node) (sequence-expression (ir:block-items node) context tail?))
-            ((ir:conditional? node) (conditional-expression node context tail?))
+            ((ir:type-declaration? node) '(global.get $unspecified))
+            ((ir:record-schema? node) '(global.get $unspecified))
             ((ir:value-binding? node)
              (store-binding (ir:value-binding-definition node)
                             (single (ir:value-binding-initializer node) context) context))
@@ -335,20 +384,20 @@
                             (single (ir:assignment-value node) context) context))
             (else (error "unknown IR expression" node))))
 
-    (define (sequence-expression items context tail?)
-      (cond ((null? items) '(global.get $unspecified))
-            ((null? (cdr items)) (expression (car items) context tail?))
+    (define (sequence-expression items context checks)
+      (cond ((null? items) (finish-expression '(global.get $unspecified) checks context))
+            ((null? (cdr items)) (expression (car items) context checks))
             (else
              (let* ((first (expression (car items) context #f))
-                    (rest (sequence-expression (cdr items) context tail?)))
+                    (rest (sequence-expression (cdr items) context checks)))
                `(block (result eqref) (drop ,first) ,rest)))))
 
-    (define (conditional-expression node context tail?)
+    (define (conditional-expression node context checks)
       (let* ((test (single (ir:conditional-test node) context))
-             (yes (expression (ir:conditional-consequent node) context tail?))
+             (yes (expression (ir:conditional-consequent node) context checks))
              (no (if (ir:conditional-opt-alternate node)
-                     (expression (ir:conditional-opt-alternate node) context tail?)
-                     '(global.get $unspecified))))
+                     (expression (ir:conditional-opt-alternate node) context checks)
+                     (finish-expression '(global.get $unspecified) checks context))))
         `(if (result eqref) (call $truthy ,test) (then ,yes) (else ,no))))
 
     (define (closure-expression node context)
@@ -359,6 +408,74 @@
                      (array.new_fixed $vector ,(length free)
                                       ,@(map (lambda (definition)
                                                (read-place (binding-place definition context))) free)))))
+
+    ;; ---- Enforced type boundaries ----
+
+    (define (result-guard-name node module)
+      (identifier "result_guard" (cdr (assq node (module-result-guards module)))))
+
+    ;; A static site is the identity, not an unordered type union. Its recipe
+    ;; reads nominal descriptors only when executed, after the result arrives.
+    (define (result-guard-function entry module)
+      (let* ((context (make-function module '() '()))
+             (guard (analysis-guard (module-analysis module) (car entry)))
+             (body (guard-value '(local.get $value) guard context)))
+        `(func ,(identifier "check_result" (cdr entry)) (type $result_guard_fn)
+               (param $value eqref) (result eqref) ,@(function-locals context) ,body)))
+
+    (define (result-guard-global entry)
+      `(global ,(identifier "result_guard" (cdr entry)) (ref $result_guard)
+               (struct.new $result_guard (ref.func ,(identifier "check_result" (cdr entry))))))
+
+    ;; Checked entries enforce domains before boxing, including unknown callers
+    ;; through closure adapters. Direct calls bypass them only with proved domains.
+    ;; Expression guards also normalize counts. Types never prove initialization.
+    (define (guard-value value type context)
+      (let ((temporary (temporary! context)))
+        `(block (result eqref) (local.set ,temporary (call $single ,value))
+                (if (i32.eqz ,(type-test type `(local.get ,temporary) context))
+                    (then (call $fail (i32.const 8))))
+                (local.get ,temporary))))
+
+    (define (parameter-guards procedure context)
+      (let ((signature (analysis-signature (module-analysis (function-module context)) procedure)))
+        (if (not signature) '()
+            (map (lambda (definition type)
+                   (let ((name (caddr (binding-place definition context))))
+                     `(local.set ,name ,(guard-value `(local.get ,name) type context))))
+                 (ir:lambda-parameters procedure) (type-arguments (type-erasure signature))))))
+
+    (define (union-test members value context)
+      (if (null? members) '(i32.const 0)
+          `(i32.or ,(type-test (car members) value context) ,(union-test (cdr members) value context))))
+
+    (define (type-test type value context)
+      (cond ((union-type? type) (union-test (cdr type) value context))
+            ((nominal-type? type)
+             `(if (result i32) (ref.test (ref $record) ,value)
+                  (then (ref.eq (struct.get $record 0 (ref.cast (ref $record) ,value))
+                                ,(read-binding (cadr type) context))) (else (i32.const 0))))
+            ((memq type '(Any ?)) '(i32.const 1))
+            ((eq? type 'Never) '(i32.const 0))
+            ((eq? type 'ExactInteger) `(call $is_integer ,value))
+            ((eq? type 'i32)
+             `(if (result i32) (ref.test (ref i31) ,value) (then (i32.const 1))
+                  (else (if (result i32) (ref.test (ref $integer) ,value)
+                            (then (i64.le_u (i64.add (struct.get $integer 0 (ref.cast (ref $integer) ,value))
+                                                     (i64.const 2147483648)) (i64.const 4294967295)))
+                            (else (i32.const 0))))))
+            ((memq type '(False True Null Unspecified))
+             `(ref.eq ,value (global.get ,(case type ((False) '$false) ((True) '$true)
+                                                ((Null) '$nil) (else '$unspecified)))))
+            ((memq type '(String Symbol))
+             `(call $truthy (call $is_text_kind ,value (i32.const ,(if (eq? type 'String) 0 1)))))
+            ((eq? type 'Boolean) `(call $truthy (call $is_boolean ,value)))
+            ((eq? type 'Number) `(call $truthy (call $is_number ,value)))
+            ((eq? type 'Char) `(call $truthy (call $is_character ,value)))
+            (else `(ref.test (ref ,(case type
+                                     ((InexactReal) '$float) ((Pair) '$pair) ((Vector) '$vector)
+                                     ((Bytevector) '$bytevector) ((Procedure) '$closure) ((Record) '$record)
+                                     (else (error "no runtime type test" type)))) ,value))))
 
     ;; ---- Calls ----
 
@@ -386,17 +503,48 @@
                  (and entry (cdr entry))))
               (else #f))))
 
-    (define (application-expression node context tail?)
-      (let* ((primitive (direct-primitive node (function-module context)))
+    (define (application-expression node context checks)
+      (let* ((primitive (typed-primitive node (function-module context)))
              (operands (ir:application-operands node)))
         (if primitive
-            `(,(if tail? 'return_call 'call) ,primitive
-              ,@(map (lambda (operand) (single operand context)) operands))
-            (procedure-call node context tail?))))
+            (finish-expression `(call ,primitive ,@(map (lambda (operand) (single operand context)) operands)) checks context)
+            (procedure-call node context checks))))
+
+    ;; Select a check-free category path only from facts at this exact operand.
+    ;; Integer representation tests and arithmetic overflow remain in the helper.
+    (define (typed-primitive node module)
+      (let ((primitive (direct-primitive node module)))
+        (cond ((not (type-optimizations-enabled)) primitive)
+              ((and (memq primitive '($add $subtract $numeric_equal $less $less_equal $greater $greater_equal))
+                    (integer-operands? (ir:application-operands node) (module-analysis module)))
+               (let ((name (symbol->string primitive)))
+                 (string->symbol (string-append "$integer_" (substring name 1 (string-length name))))))
+              (else (or (typed-object-primitive node module) primitive)))))
+
+    (define (typed-object-primitive node module)
+      (let ((operator (ir:application-operator node)) (operands (ir:application-operands node)))
+        (and (ir:name? operator) (memq (ir:name-definition operator) (module-primitives module))
+             (case (ir:value-definition-name (ir:name-definition operator))
+               ((string-length)
+                (and (= (length operands) 1)
+                     (type-subtype? (fact-type (analysis-fact (module-analysis module) (car operands))) 'String)
+                     '$known_string_length))
+               ((%record-ref) (and (proved-record-access? operands module) '$known_record_ref))
+               (else #f)))))
+
+    (define (proved-record-access? operands module)
+      (and (= (length operands) 3) (ir:name? (car operands))
+           (type-subtype? (fact-type (analysis-fact (module-analysis module) (caddr operands)))
+                          (list 'record (ir:name-definition (car operands))))))
+
+    (define (integer-operands? operands analysis)
+      (or (null? operands)
+          (and (type-subtype? (fact-type (analysis-fact analysis (car operands))) 'ExactInteger)
+               (integer-operands? (cdr operands) analysis))))
 
     ;; Bind operands before the operator, retaining the established evaluation
     ;; order even though a direct call puts its closure environment first.
-    (define (procedure-call node context tail?)
+    (define (procedure-call node context checks)
       (let* ((operands (ir:application-operands node))
              (arguments (map (lambda (node) (temporary! context)) operands))
              (operator (temporary! context))
@@ -404,19 +552,75 @@
              (arguments-code (map (lambda (name operand) `(local.set ,name ,(single operand context)))
                                   arguments operands))
              (operator-code (single (ir:application-operator node) context)))
-        `(block (result eqref) ,@arguments-code (local.set ,operator ,operator-code)
-                ,(call-expression procedure operator arguments context tail?))))
+        `(block (result eqref) ,@arguments-code
+                (local.set ,operator ,operator-code)
+                ,@(call-guards node arguments context)
+                ,(call-expression procedure operator arguments context checks node))))
 
-    (define (call-expression procedure operator arguments context tail?)
+    (define (call-guards node arguments context)
+      (let* ((analysis (module-analysis (function-module context)))
+             (guards (analysis-call-guards analysis node)))
+        (if (null? guards) '()
+            (apply append
+                   (map (lambda (name operand type)
+                          (if (or (not type) (and (type-optimizations-enabled)
+                                                  (type-subtype? (fact-type (analysis-fact analysis operand)) type))) '()
+                                                  (list `(local.set ,name ,(guard-value `(local.get ,name) type context)))))
+                        arguments (ir:application-operands node) guards)))))
+
+    (define (call-expression procedure operator arguments context checks node)
+      (let ((call (procedure-invocation procedure operator arguments context checks node)))
+        (cond ((not checks) call)
+              ((null? checks) (cons 'return_call (cdr call)))
+              (else (guarded-tail-call call checks (function-module context))))))
+
+    (define (procedure-invocation procedure operator arguments context checks node)
       (if (and procedure (not (ir:lambda-opt-rest-parameter procedure))
                (= (length arguments) (length (ir:lambda-parameters procedure))))
-          `(,(if tail? 'return_call 'call)
-            ,(identifier "function" (cdr (assq procedure (module-functions (function-module context)))))
+          `(call
+            ,(call-worker procedure node (function-module context))
             (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
-            ,@(map (lambda (name) `(local.get ,name)) arguments))
-          `(,(if tail? 'return_call 'call) $apply (local.get ,operator)
-            (array.new_fixed $vector ,(length arguments)
-                             ,@(map (lambda (name) `(local.get ,name)) arguments)))))
+            ,@(map (lambda (name) `(local.get ,name)) arguments) ,(call-checks checks))
+          `(call $apply (local.get ,operator)
+                 (array.new_fixed $vector ,(length arguments)
+                                  ,@(map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks checks))))
+
+    ;; The first guarded transfer owns one suspended frame. Its shared context
+    ;; sees guards added by deeper tail calls; only this owner drains the list.
+    ;; Ordinary subcalls receive null, and no state escapes into Scheme values.
+    (define (guarded-tail-call call checks module)
+      (let ((register (defer-result-checks checks module)))
+        `(block (result eqref)
+                (if (ref.is_null (local.get $checks))
+                    (then (local.set $checks (struct.new $result_context (ref.null $result_checks)))
+                          ,@register
+                          (return_call $finish_result ,call
+                                       (struct.get $result_context 0 (ref.as_non_null (local.get $checks))))))
+                ,@register
+                (return_call ,@(cdr call)))))
+
+    (define (defer-result-checks checks module)
+      (map (lambda (node)
+             `(struct.set $result_context 0 (ref.as_non_null (local.get $checks))
+                          (call $defer_result_check
+                                (struct.get $result_context 0 (ref.as_non_null (local.get $checks)))
+                                (global.get ,(result-guard-name node module)))))
+           (reverse checks)))
+
+    (define (call-worker procedure node module)
+      (let ((signature (type-erasure (analysis-signature (module-analysis module) procedure)))
+            (index (cdr (assq procedure (module-functions module)))))
+        (identifier (if (and signature (not (proved-arguments? node signature module)))
+                        "checked" "function") index)))
+
+    (define (proved-arguments? node signature module)
+      (and (type-optimizations-enabled)
+           (let loop ((operands (ir:application-operands node)) (types (type-arguments signature)))
+             (or (null? operands)
+                 (and (or (memq (car types) '(? Any))
+                          (type-subtype? (fact-type (analysis-fact (module-analysis module) (car operands)))
+                                         (car types)))
+                      (loop (cdr operands) (cdr types)))))))
 
     ;; ---- Procedure definitions ----
 
@@ -446,29 +650,61 @@
                                 (list (box-local definition context)) '()))) locals)))
 
     (define (procedure-function entry module)
+      (if (assq (car entry) (module-specialized module)) (i32-bridge entry module)
+          (ordinary-procedure-function entry module)))
+
+    (define (i32-bridge entry module)
+      (let* ((procedure (car entry)) (context (make-function module (procedure-environment procedure module) '()))
+             (names (map (lambda (definition) (caddr (binding-place definition context)))
+                         (ir:lambda-parameters procedure))))
+        `(func ,(identifier "function" (cdr entry)) (param $env eqref)
+               ,@(map (lambda (name) `(param ,name eqref)) names)
+               (param $checks (ref null $result_context)) (result eqref)
+               (call $pack_integer (i64.extend_i32_s
+                                    (call ,(identifier "i32_" (cdr entry))
+                                          ,@(map (lambda (name) `(i32.wrap_i64
+                                                                  (call $known_integer_value (local.get ,name)))) names)))))))
+
+    (define (ordinary-procedure-function entry module)
       (let* ((procedure (car entry)) (parameters (lambda-arguments procedure))
              (locals (lambda-locals procedure))
              (context (make-function module (procedure-environment procedure module) '()))
-             (body (expression (ir:lambda-body procedure) context #t)))
+             (body (expression (ir:lambda-body procedure) context '())))
         `(func ,(identifier "function" (cdr entry)) (param $env eqref)
                ,@(map (lambda (definition) `(param ,(caddr (binding-place definition context)) eqref)) parameters)
+               (param $checks (ref null $result_context))
                (result eqref)
                ,@(map (lambda (definition) `(local ,(caddr (binding-place definition context)) eqref))
                       (list-tail locals (length parameters)))
                ,@(function-locals context)
                ,@(initialize-locals locals parameters context) ,body)))
 
-    (define (procedure-adapter entry)
+    (define (procedure-checked-entry entry module)
+      (let* ((procedure (car entry)) (context (make-function module (procedure-environment procedure module) '()))
+             (names (map (lambda (definition) (caddr (binding-place definition context)))
+                         (ir:lambda-parameters procedure)))
+             (guards (parameter-guards procedure context)))
+        `(func ,(identifier "checked" (cdr entry)) (param $env eqref)
+               ,@(map (lambda (name) `(param ,name eqref)) names)
+               (param $checks (ref null $result_context)) (result eqref)
+               ,@(function-locals context) ,@guards
+               (return_call ,(identifier "function" (cdr entry)) (local.get $env)
+                            ,@(map (lambda (name) `(local.get ,name)) names) (local.get $checks)))))
+
+    (define (procedure-adapter entry module)
       (let* ((procedure (car entry)) (count (length (ir:lambda-parameters procedure)))
              (rest? (ir:lambda-opt-rest-parameter procedure)))
         `(func ,(identifier "adapter" (cdr entry)) (type $call)
-               (param $env eqref) (param $arguments (ref $vector)) (result eqref)
+               (param $env eqref) (param $arguments (ref $vector))
+               (param $checks (ref null $result_context)) (result eqref)
                (call $arity (local.get $arguments) (i32.const ,count) (i32.const ,(if rest? 1 0)))
-               (return_call ,(identifier "function" (cdr entry)) (local.get $env)
-                            ,@(map (lambda (entry) `(array.get $vector (local.get $arguments)
-                                                               (i32.const ,(cdr entry))))
-                                   (numbered (ir:lambda-parameters procedure)))
-                            ,@(if rest? `((call $rest (local.get $arguments) (i32.const ,count))) '())))))
+               (return_call ,(identifier (if (analysis-signature (module-analysis module) procedure)
+                                             "checked" "function") (cdr entry)) (local.get $env)
+                                             ,@(map (lambda (entry) `(array.get $vector (local.get $arguments)
+                                                                                (i32.const ,(cdr entry))))
+                                                    (numbered (ir:lambda-parameters procedure)))
+                                             ,@(if rest? `((call $rest (local.get $arguments) (i32.const ,count))) '())
+                                             (local.get $checks)))))
 
     ;; ---- Library entries ----
 
@@ -494,8 +730,11 @@
                       (string->symbol (string-append "$builtin:" (symbol->string (car entry))))
                       (identifier "foreign" (- (cdr entry) (length bootstrap-primitive-names))))))
         `(func ,(identifier "primitive" (cdr entry)) (type $call)
-               (param $env eqref) (param $arguments (ref $vector)) (result eqref)
-               (return_call ,name (local.get $arguments)))))
+               (param $env eqref) (param $arguments (ref $vector))
+               (param $checks (ref null $result_context)) (result eqref)
+               ,(if (memq (car entry) '(apply call-with-values))
+                    `(return_call ,name (local.get $arguments) (local.get $checks))
+                    `(return_call ,name (local.get $arguments))))))
 
     (define (global-initializer slot)
       `(global.set ,(identifier "g" (car slot))
@@ -524,7 +763,7 @@
                (drop (call $program))
                (call $awi_root ,(if definition
                                     `(call $apply ,(read-binding definition (make-function module '() '()))
-                                           (local.get $args))
+                                           (local.get $args) (ref.null $result_context))
                                     '(ref.i31 (i32.const 0)))))))
 
     (define (find-definition name definitions)
@@ -657,14 +896,26 @@
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))
                    (module-globals module))
               (map (lambda (entry) `(global ,(cdr entry) (mut eqref) (ref.null eq))) (module-constants module))
+              (map result-guard-global (module-result-guards module))
               (list `(elem declare func ,@(map (lambda (entry) (identifier "adapter" (cdr entry)))
                                                (module-functions module))
                            ,@(map (lambda (entry) (identifier "primitive" (cdr entry)))
-                                  (numbered (module-primitive-names module)))))
+                                  (numbered (module-primitive-names module)))
+                           ,@(map (lambda (entry) (identifier "check_result" (cdr entry)))
+                                  (module-result-guards module))))
+              (map (lambda (entry) (result-guard-function entry module)) (module-result-guards module))
               (map rust-wrapper (numbered (module-services module)))
               (map primitive-function (numbered (module-primitive-names module)))
-              (map procedure-adapter (module-functions module)) procedures entries
+              (map (lambda (entry) (procedure-adapter entry module)) (module-functions module))
+              (typed-entries (module-functions module) module) procedures entries
+              (map cdr (module-specialized module))
               (list (module-entry libraries module))))
+
+    (define (typed-entries entries module)
+      (if (null? entries) '()
+          (append (if (analysis-signature (module-analysis module) (caar entries))
+                      (list (procedure-checked-entry (car entries) module)) '())
+                  (typed-entries (cdr entries) module))))
     )
 
   ;; ---- Tests ----
@@ -703,7 +954,7 @@
           (expect (immutable-primitives (list plus) (list assigned)) '())))
 
       (define (emitted-constant-data node)
-        (let* ((module (make-module '() '() '() '() '() '() '()))
+        (let* ((module (make-module '() '() '() '() '() '() '() (analyze-types '() '()) '() '()))
                (context (make-function module '() '())))
           (expression node context #f)
           (reverse (map car (module-constants module)))))

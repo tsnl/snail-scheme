@@ -356,12 +356,17 @@ record schemas. The expander now resolves the type syntax into these nodes.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) checks resolved identities,
 tracks definite initialization and value counts, narrows stable bindings across
 predicate branches, and records required guards. Unknown calls and mutation limit
-which facts survive. Runtime checks and the public `(snail typing)` import are
-connected in a later layer.
+which facts survive. The public `(snail typing)` import enables these forms; the Wasm emitter uses the
+analysis to enforce annotation boundaries and omit only checks justified by facts.
 
 [`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) accepts only closed, immutable,
 fixed-arity i32 procedures whose supported operations preserve Scheme arithmetic.
 It returns a worker or declines specialization. Intermediate arithmetic widens;
 narrowing checks retain the declared boundary, and self tail calls replace all
-parameters simultaneously through a loop. The next layer connects these workers
-to the normal checked Scheme calling convention.
+parameters simultaneously through a loop. Checked Scheme adapters preserve the normal closure calling convention.
+
+Typed result assertions remain local until a tail transfer needs to defer them.
+One shared result-check context owns that tail chain and drains pending checks at
+the return boundary, preserving their order without accumulating host stack frames.
+Unannotated record definitions retain their standard syntax; optional typed fields
+add schema metadata and shallow field contracts.

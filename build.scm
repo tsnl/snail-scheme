@@ -1,5 +1,5 @@
 ;; Bootstrap from the checkout, then rebuild using the resulting executable:
-;;   chibi-scheme -I src build.scm
+;;   chibi-scheme -h512M -I src build.scm
 ;;   build/snail-scheme -Isrc build.scm
 ;; An optional argument selects the complete output filename.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context)

@@ -4,12 +4,18 @@ The compiler can run under Chibi or the native `snail-scheme` interpreter. Sourc
 by library; `wasm.sld` emits WasmGC text directly. Binaryen assembles, links, and
 optimizes it with the Rust runtime compiled to Wasm.
 
+The [type checker](typing-prototype.md) runs on resolved identities before
+emission. Opt-in annotations enforce shallow boundaries; occurrence facts can
+remove redundant checks. Eligible closed i32 functions additionally receive
+unboxed workers, with the ordinary Scheme ABI at closure boundaries. The report
+documents limits, guarded/optimized ablations, and C comparisons.
+
 ## Build and run
 
 Run ordinary Scheme build scripts with Chibi:
 
 ```sh
-chibi-scheme -I src build.scm
+chibi-scheme -h512M -I src build.scm
 chibi-scheme -I src examples/rust-interop/build.scm
 ```
 
