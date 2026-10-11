@@ -90,7 +90,7 @@ Move the public symlink and its target generation together when relocating an
 installation, or move the complete generation directory and invoke its `program`
 file. Copying only the executable omits its declared dependencies.
 
-## Runtime lookup
+## Runtime lookup and the compiler's WAT companion
 
 `(snail artifacts)` exports `find-artifact`, which returns a path or `#f`, and
 `artifact-path`, which reports a missing required file. Native lookup uses the
@@ -100,6 +100,20 @@ physical executable's directory, independent of the working directory and
 bootstrap workflows. The Node/WASI launcher resolves the selected payload once
 and preopens its artifact directory as `/snail-artifacts`.
 
+[`runtime-artifact.sld`](../src/snail-scheme/runtime-artifact.sld) is the compiler's
+concrete generator. It runs offline Cargo for the Rust WASI runtime, uses
+`wasm-dis` to produce `snail-runtime.wat`, and returns that file as a dependency.
+The generated runtime library resolves the installed path. `main.scm` imports
+it, so building the compiler packages the companion automatically. Build scripts
+reuse it for Wasm linking through `build-runtime`; the Chibi bootstrap falls
+back to building the Rust runtime when no installed companion exists.
+
+Native programs link Rust's native archive directly through AWI. They consume
+Wasm datums through the LLVM backend and do not need Binaryen for that translation.
+Binaryen remains part of preparing and linking portable Wasm artifacts.
+
 `scripts/test-generation` exercises isolation, nested/cache-hit dependencies,
 cycles, rollback, relocation, live generation pinning, and linked Wasm companion
-lookup.
+lookup. `scripts/test-self-host` builds the compiler and uses the installed
+compiler to rebuild itself with Chibi and Wasm assembly/optimization blocked.
+Preparing the runtime companion still uses Cargo and `wasm-dis`.
