@@ -10,6 +10,7 @@
 // Ordinary cargo tests keep the independent helper-only configuration.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+mod artifacts;
 pub mod awi;
 #[cfg(not(target_arch = "wasm32"))]
 mod build_host;

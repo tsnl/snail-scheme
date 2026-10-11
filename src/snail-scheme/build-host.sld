@@ -2,7 +2,7 @@
 ;; compiled commands import these same operations from the native Rust runtime.
 (define-library (snail-scheme build-host)
   (export build-host-imports absolute-path same-file? process-status create-directory*
-          call-with-build-directory publish-file run-command tool-name)
+          call-with-build-directory publish-file copy-file publish-bundle run-command tool-name)
   (import (scheme base) (scheme cxr) (scheme process-context) (scheme write) (snail-scheme chromium-trace))
   (begin
     (define (tool-name variable default)
@@ -17,7 +17,7 @@
 
     (define build-host-imports
       (map (lambda (name) (cons name "snail.cli"))
-           '(%absolute-path %same-file? %process-status %publish-file %create-directory*
+           '(%absolute-path %same-file? %process-status %publish-file %copy-file %publish-bundle %create-directory*
                             %reserve-build-directory %clean-build-directory))))
   (cond-expand
    (snail-scheme
@@ -27,6 +27,8 @@
       (define same-file? %same-file?)
       (define process-status %process-status)
       (define publish-file %publish-file)
+      (define copy-file %copy-file)
+      (define publish-bundle %publish-bundle)
       (define create-directory* %create-directory*)
 
       ;; Terminal faults report registered directories in Rust. Ordinary returns
@@ -39,10 +41,10 @@
    (else
     (import (scheme file)
             (only (chibi process) fork execute waitpid current-process-id)
-            (only (chibi pathname) path-absolute? path-normalize path-directory)
+            (only (chibi pathname) path-absolute? path-normalize path-directory path-strip-directory)
             (only (chibi filesystem) current-directory change-directory
                   create-directory create-directory* delete-file-hierarchy rename-file
-                  file-status file-device file-inode open open/read
+                  file-status file-device file-inode file-regular? file-mode chmod symbolic-link-file open open/read
                   duplicate-file-descriptor-to))
     (begin
       ;; ---- Chibi process and filesystem adapter ----
@@ -81,10 +83,36 @@
       (define (publish-file source output)
         (if (not (rename-file source output)) (error "cannot publish build output" output)))
 
+      (define (copy-file source output)
+        (unless (file-regular? source) (error "artifact is not a regular file" source))
+        (call-with-port (open-binary-input-file source)
+          (lambda (input)
+            (call-with-port (open-binary-output-file output)
+              (lambda (port)
+                (let loop ((bytes (read-bytevector 65536 input)))
+                  (unless (eof-object? bytes) (write-bytevector bytes port) (loop (read-bytevector 65536 input))))))))
+        (unless (chmod output (modulo (file-mode (file-status source)) #o1000))
+          (error "cannot copy artifact permissions" source output)))
+
+      ;; The public executable is one relative link to a completed generation.
+      ;; Previous generations stay available to processes already running them.
+      (define (publish-bundle bundle output)
+        (let* ((destination (reserve-directory (path-directory (absolute-path output)) ".snail-artifacts-"))
+               (link (string-append (path-directory bundle) "/publish")))
+          (unless (rename-file bundle destination)
+            (delete-file-hierarchy destination)
+            (error "cannot stage artifact generation" destination))
+          (guard (failure (else (unless (rename-file destination bundle)
+                                  (report-build-directory "artifact generation retained: " destination))
+                                (raise failure)))
+            (unless (symbolic-link-file (string-append (path-strip-directory destination) "/program") link)
+              (error "cannot create artifact entry" link))
+            (publish-file link output))))
+
       ;; ---- Build directory ownership ----
 
-      (define (reserve-build-directory parent)
-        (let ((prefix (string-append parent "/.snail-build-"
+      (define (reserve-directory parent kind)
+        (let ((prefix (string-append parent "/" kind
                                      (number->string (current-process-id)) "-")))
           (let loop ((serial 0))
             (if (> serial 100) (error "cannot reserve build directory" parent))
@@ -106,7 +134,7 @@
         (let ((parent (if output (path-directory (absolute-path output))
                           (or (get-environment-variable "TMPDIR") "/tmp"))))
           (if (not (create-directory* parent)) (error "cannot create output directory" parent))
-          (let ((directory (reserve-build-directory parent)))
+          (let ((directory (reserve-directory parent ".snail-build-")))
             (guard (failure (else (report-build-directory "build failed; intermediates retained: " directory)
                                   (raise failure)))
               (let ((result (procedure directory)))
