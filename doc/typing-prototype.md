@@ -362,6 +362,11 @@ not a generic `All` monomorphizer or a change to record/container layout.
 
 ## Measurements
 
+The [latest runtime and compiler report](../benchmarks/results/2026-10-10-compiler-simplification/README.md)
+refreshes these workloads after the visitor refactor and binding-summary cleanup.
+It also fixes the benchmark mode and tracing checks. The measurements below
+retain the earlier production baseline and its historical comparisons.
+
 At implementation commit `e3d916657357e8fb0a64a075fdb3161d3e24e5d3`, eight
 rotating rounds measure specialized two-argument recursive Fibonacci at 0.173662
 seconds, compared with 0.392312 for untyped Scheme and 0.171902 for checked
