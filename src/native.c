@@ -563,6 +563,19 @@ uint32_t wasi_path_filestat_get(uint32_t fd, uint32_t flags, uint32_t address,
     return 0;
 }
 
+// ---- Identity hashing ----
+
+// BDWGC does not move live objects. Mixing the tagged reference is therefore
+// stable while the key is live; unlike an AWI slot, it identifies the value.
+// No registry retains hashed values, so self-referential tables remain garbage.
+uint32_t native_hash_identity(uint64_t reference) {
+    reference ^= reference >> 30;
+    reference *= UINT64_C(0xbf58476d1ce4e5b9);
+    reference ^= reference >> 27;
+    reference *= UINT64_C(0x94d049bb133111eb);
+    return (reference ^ (reference >> 31)) & UINT32_C(0x3fffffff);
+}
+
 // ---- Process initialization ----
 
 extern void native_module_init(void);
