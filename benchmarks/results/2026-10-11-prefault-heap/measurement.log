@@ -1,0 +1,70 @@
+compiler 0 nursery8 14.02939773 
+compiler 0 immix 26.72881494 
+compiler 0 v8 3.718064848 
+compiler 0 bdw300 10.369204548 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.042242 minor_faults=77156 rss_kib=311316 | HEAP_RUN user_s=10.332039 system_s=0.022008 minor_faults=16009 major_faults=0 rss_kib=373196 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=77 heap=340398080 rss_kib=373196
+compiler 0 incremental300 31.215949808 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.043619 minor_faults=77206 rss_kib=311516 | HEAP_RUN user_s=24.504998 system_s=6.664780 minor_faults=17013556 major_faults=0 rss_kib=313156 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=7716 heap=322895872 rss_kib=313156
+compiler 0 precise300 20.454067219 
+compiler 0 nursery32 14.652758223 
+compiler 1 immix 26.80991517 
+compiler 1 v8 3.723507876 
+compiler 1 bdw300 10.402941842 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.043670 minor_faults=77155 rss_kib=311344 | HEAP_RUN user_s=10.356968 system_s=0.030976 minor_faults=16128 major_faults=0 rss_kib=373220 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=77 heap=340414464 rss_kib=373220
+compiler 1 incremental300 31.791745079 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.043774 minor_faults=77207 rss_kib=311428 | HEAP_RUN user_s=25.168375 system_s=6.574844 minor_faults=17132731 major_faults=0 rss_kib=313192 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=7736 heap=322895872 rss_kib=313192
+compiler 1 precise300 20.414529679 
+compiler 1 nursery32 14.652036392 
+compiler 1 nursery8 14.079236476 
+compiler 2 v8 3.733441768 
+compiler 2 bdw300 10.368769587 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.043948 minor_faults=77157 rss_kib=311100 | HEAP_RUN user_s=10.328439 system_s=0.024767 minor_faults=18426 major_faults=0 rss_kib=381572 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=74 heap=350158848 rss_kib=381572
+compiler 2 incremental300 33.794664874 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.042474 minor_faults=77207 rss_kib=311428 | HEAP_RUN user_s=26.929255 system_s=6.811003 minor_faults=17345411 major_faults=0 rss_kib=313192 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=7732 heap=322895872 rss_kib=313192
+compiler 2 precise300 21.505603742 
+compiler 2 nursery32 14.643545549 
+compiler 2 nursery8 14.040919198 
+compiler 2 immix 26.819184156 
+compiler 3 bdw300 10.39819958 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.045019 minor_faults=77157 rss_kib=311184 | HEAP_RUN user_s=10.363342 system_s=0.020022 minor_faults=15812 major_faults=0 rss_kib=372732 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=76 heap=340361216 rss_kib=372732
+compiler 3 incremental300 33.048994091 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.043211 minor_faults=77202 rss_kib=311684 | HEAP_RUN user_s=26.200872 system_s=6.774829 minor_faults=18099198 major_faults=0 rss_kib=313236 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=7713 heap=331284480 rss_kib=313236
+compiler 3 precise300 20.471989018 
+compiler 3 nursery32 14.660271167 
+compiler 3 nursery8 14.088968751 
+compiler 3 immix 26.832039819 
+compiler 3 v8 3.722651457 
+tail 0 nursery8 0.366369 
+tail 0 immix 0.364441 
+tail 0 v8 0.11433 
+tail 0 bdw300 0.26022 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.045583 minor_faults=77028 rss_kib=309944 | HEAP_RUN user_s=0.522409 system_s=0.008092 minor_faults=6492 major_faults=0 rss_kib=336284 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336284
+tail 0 incremental300 2.090393 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.040963 minor_faults=77076 rss_kib=310228 | HEAP_RUN user_s=1.125100 system_s=3.077802 minor_faults=1239233 major_faults=0 rss_kib=310668 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19568 heap=167936 rss_kib=310668
+tail 0 precise300 0.362336 
+tail 0 nursery32 0.385448 
+tail 1 immix 0.375099 
+tail 1 v8 0.114599 
+tail 1 bdw300 0.260043 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.044998 minor_faults=77031 rss_kib=310144 | HEAP_RUN user_s=0.528991 system_s=0.001673 minor_faults=6489 major_faults=0 rss_kib=336256 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336256
+tail 1 incremental300 2.092482 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.041968 minor_faults=77079 rss_kib=310184 | HEAP_RUN user_s=1.120915 system_s=3.086195 minor_faults=1247615 major_faults=0 rss_kib=310568 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19616 heap=143360 rss_kib=310568
+tail 1 precise300 0.345856 
+tail 1 nursery32 0.376002 
+tail 1 nursery8 0.370238 
+tail 2 v8 0.113713 
+tail 2 bdw300 0.259777 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.044165 minor_faults=77033 rss_kib=309968 | HEAP_RUN user_s=0.527650 system_s=0.001836 minor_faults=6491 major_faults=0 rss_kib=336116 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336116
+tail 2 incremental300 2.090555 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.041410 minor_faults=77078 rss_kib=310152 | HEAP_RUN user_s=1.166828 system_s=3.035632 minor_faults=1208905 major_faults=0 rss_kib=310536 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19651 heap=172032 rss_kib=310536
+tail 2 precise300 0.339507 
+tail 2 nursery32 0.374115 
+tail 2 nursery8 0.366206 
+tail 2 immix 0.375439 
+tail 3 bdw300 0.260148 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.041868 minor_faults=77031 rss_kib=309996 | HEAP_RUN user_s=0.522765 system_s=0.007931 minor_faults=6488 major_faults=0 rss_kib=336140 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336140
+tail 3 incremental300 2.084782 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.041032 minor_faults=77080 rss_kib=310204 | HEAP_RUN user_s=1.178092 system_s=3.014868 minor_faults=1217632 major_faults=0 rss_kib=310644 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19627 heap=143360 rss_kib=310644
+tail 3 precise300 0.3414 
+tail 3 nursery32 0.374477 
+tail 3 nursery8 0.360255 
+tail 3 immix 0.374924 
+tail 3 v8 0.114374 
+tail 4 incremental300 2.089927 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.045360 minor_faults=77078 rss_kib=310136 | HEAP_RUN user_s=1.178956 system_s=3.028310 minor_faults=1235692 major_faults=0 rss_kib=310576 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19663 heap=176128 rss_kib=310576
+tail 4 precise300 0.342039 
+tail 4 nursery32 0.376185 
+tail 4 nursery8 0.366709 
+tail 4 immix 0.366802 
+tail 4 v8 0.113691 
+tail 4 bdw300 0.259636 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.045321 minor_faults=77029 rss_kib=310168 | HEAP_RUN user_s=0.524052 system_s=0.006228 minor_faults=6490 major_faults=0 rss_kib=336088 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336088
+tail 5 precise300 0.35323 
+tail 5 nursery32 0.377628 
+tail 5 nursery8 0.369023 
+tail 5 immix 0.366638 
+tail 5 v8 0.114245 
+tail 5 bdw300 0.259079 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.045753 minor_faults=77032 rss_kib=310148 | HEAP_RUN user_s=0.525041 system_s=0.004266 minor_faults=6491 major_faults=0 rss_kib=336308 | GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=5 heap=314572800 rss_kib=336308
+tail 5 incremental300 2.100313 HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1 | HEAP_SETUP seconds=0.042416 minor_faults=77077 rss_kib=310180 | HEAP_RUN user_s=1.144490 system_s=3.079655 minor_faults=1252584 major_faults=0 rss_kib=310564 | GC_MODE incremental=1 helpers=0 time_limit=999999 protection=0 collections=19621 heap=147456 rss_kib=310564
