@@ -1,0 +1,1714 @@
+{
+  "cpu": 2,
+  "rounds": 3,
+  "complete": true,
+  "order": [
+    [
+      "compiler",
+      0,
+      "baseline"
+    ],
+    [
+      "compiler",
+      0,
+      "no-poll"
+    ],
+    [
+      "compiler",
+      0,
+      "inline-single"
+    ],
+    [
+      "compiler",
+      0,
+      "inline-budget"
+    ],
+    [
+      "compiler",
+      0,
+      "no-single"
+    ],
+    [
+      "compiler",
+      0,
+      "freelist"
+    ],
+    [
+      "compiler",
+      0,
+      "combined"
+    ],
+    [
+      "compiler",
+      0,
+      "v8"
+    ],
+    [
+      "compiler",
+      0,
+      "v8-no-inline"
+    ],
+    [
+      "compiler",
+      0,
+      "v8-no-opt"
+    ],
+    [
+      "compiler",
+      1,
+      "no-poll"
+    ],
+    [
+      "compiler",
+      1,
+      "inline-single"
+    ],
+    [
+      "compiler",
+      1,
+      "inline-budget"
+    ],
+    [
+      "compiler",
+      1,
+      "no-single"
+    ],
+    [
+      "compiler",
+      1,
+      "freelist"
+    ],
+    [
+      "compiler",
+      1,
+      "combined"
+    ],
+    [
+      "compiler",
+      1,
+      "v8"
+    ],
+    [
+      "compiler",
+      1,
+      "v8-no-inline"
+    ],
+    [
+      "compiler",
+      1,
+      "v8-no-opt"
+    ],
+    [
+      "compiler",
+      1,
+      "baseline"
+    ],
+    [
+      "compiler",
+      2,
+      "inline-single"
+    ],
+    [
+      "compiler",
+      2,
+      "inline-budget"
+    ],
+    [
+      "compiler",
+      2,
+      "no-single"
+    ],
+    [
+      "compiler",
+      2,
+      "freelist"
+    ],
+    [
+      "compiler",
+      2,
+      "combined"
+    ],
+    [
+      "compiler",
+      2,
+      "v8"
+    ],
+    [
+      "compiler",
+      2,
+      "v8-no-inline"
+    ],
+    [
+      "compiler",
+      2,
+      "v8-no-opt"
+    ],
+    [
+      "compiler",
+      2,
+      "baseline"
+    ],
+    [
+      "compiler",
+      2,
+      "no-poll"
+    ],
+    [
+      "compiler",
+      3,
+      "inline-budget"
+    ],
+    [
+      "compiler",
+      3,
+      "no-single"
+    ],
+    [
+      "compiler",
+      3,
+      "freelist"
+    ],
+    [
+      "compiler",
+      3,
+      "combined"
+    ],
+    [
+      "compiler",
+      3,
+      "v8"
+    ],
+    [
+      "compiler",
+      3,
+      "v8-no-inline"
+    ],
+    [
+      "compiler",
+      3,
+      "v8-no-opt"
+    ],
+    [
+      "compiler",
+      3,
+      "baseline"
+    ],
+    [
+      "compiler",
+      3,
+      "no-poll"
+    ],
+    [
+      "compiler",
+      3,
+      "inline-single"
+    ],
+    [
+      "fibonacci",
+      0,
+      "baseline"
+    ],
+    [
+      "fibonacci",
+      0,
+      "no-poll"
+    ],
+    [
+      "fibonacci",
+      0,
+      "inline-single"
+    ],
+    [
+      "fibonacci",
+      0,
+      "inline-budget"
+    ],
+    [
+      "fibonacci",
+      0,
+      "no-single"
+    ],
+    [
+      "fibonacci",
+      0,
+      "freelist"
+    ],
+    [
+      "fibonacci",
+      0,
+      "combined"
+    ],
+    [
+      "fibonacci",
+      0,
+      "no-gc"
+    ],
+    [
+      "fibonacci",
+      0,
+      "v8"
+    ],
+    [
+      "fibonacci",
+      0,
+      "v8-no-inline"
+    ],
+    [
+      "fibonacci",
+      0,
+      "v8-no-opt"
+    ],
+    [
+      "fibonacci",
+      1,
+      "no-poll"
+    ],
+    [
+      "fibonacci",
+      1,
+      "inline-single"
+    ],
+    [
+      "fibonacci",
+      1,
+      "inline-budget"
+    ],
+    [
+      "fibonacci",
+      1,
+      "no-single"
+    ],
+    [
+      "fibonacci",
+      1,
+      "freelist"
+    ],
+    [
+      "fibonacci",
+      1,
+      "combined"
+    ],
+    [
+      "fibonacci",
+      1,
+      "no-gc"
+    ],
+    [
+      "fibonacci",
+      1,
+      "v8"
+    ],
+    [
+      "fibonacci",
+      1,
+      "v8-no-inline"
+    ],
+    [
+      "fibonacci",
+      1,
+      "v8-no-opt"
+    ],
+    [
+      "fibonacci",
+      1,
+      "baseline"
+    ],
+    [
+      "fibonacci",
+      2,
+      "inline-single"
+    ],
+    [
+      "fibonacci",
+      2,
+      "inline-budget"
+    ],
+    [
+      "fibonacci",
+      2,
+      "no-single"
+    ],
+    [
+      "fibonacci",
+      2,
+      "freelist"
+    ],
+    [
+      "fibonacci",
+      2,
+      "combined"
+    ],
+    [
+      "fibonacci",
+      2,
+      "no-gc"
+    ],
+    [
+      "fibonacci",
+      2,
+      "v8"
+    ],
+    [
+      "fibonacci",
+      2,
+      "v8-no-inline"
+    ],
+    [
+      "fibonacci",
+      2,
+      "v8-no-opt"
+    ],
+    [
+      "fibonacci",
+      2,
+      "baseline"
+    ],
+    [
+      "fibonacci",
+      2,
+      "no-poll"
+    ],
+    [
+      "fibonacci",
+      3,
+      "inline-budget"
+    ],
+    [
+      "fibonacci",
+      3,
+      "no-single"
+    ],
+    [
+      "fibonacci",
+      3,
+      "freelist"
+    ],
+    [
+      "fibonacci",
+      3,
+      "combined"
+    ],
+    [
+      "fibonacci",
+      3,
+      "no-gc"
+    ],
+    [
+      "fibonacci",
+      3,
+      "v8"
+    ],
+    [
+      "fibonacci",
+      3,
+      "v8-no-inline"
+    ],
+    [
+      "fibonacci",
+      3,
+      "v8-no-opt"
+    ],
+    [
+      "fibonacci",
+      3,
+      "baseline"
+    ],
+    [
+      "fibonacci",
+      3,
+      "no-poll"
+    ],
+    [
+      "fibonacci",
+      3,
+      "inline-single"
+    ],
+    [
+      "tail",
+      0,
+      "baseline"
+    ],
+    [
+      "tail",
+      0,
+      "no-poll"
+    ],
+    [
+      "tail",
+      0,
+      "inline-single"
+    ],
+    [
+      "tail",
+      0,
+      "inline-budget"
+    ],
+    [
+      "tail",
+      0,
+      "no-single"
+    ],
+    [
+      "tail",
+      0,
+      "freelist"
+    ],
+    [
+      "tail",
+      0,
+      "combined"
+    ],
+    [
+      "tail",
+      0,
+      "no-gc"
+    ],
+    [
+      "tail",
+      0,
+      "v8"
+    ],
+    [
+      "tail",
+      0,
+      "v8-no-inline"
+    ],
+    [
+      "tail",
+      0,
+      "v8-no-opt"
+    ],
+    [
+      "tail",
+      1,
+      "no-poll"
+    ],
+    [
+      "tail",
+      1,
+      "inline-single"
+    ],
+    [
+      "tail",
+      1,
+      "inline-budget"
+    ],
+    [
+      "tail",
+      1,
+      "no-single"
+    ],
+    [
+      "tail",
+      1,
+      "freelist"
+    ],
+    [
+      "tail",
+      1,
+      "combined"
+    ],
+    [
+      "tail",
+      1,
+      "no-gc"
+    ],
+    [
+      "tail",
+      1,
+      "v8"
+    ],
+    [
+      "tail",
+      1,
+      "v8-no-inline"
+    ],
+    [
+      "tail",
+      1,
+      "v8-no-opt"
+    ],
+    [
+      "tail",
+      1,
+      "baseline"
+    ],
+    [
+      "tail",
+      2,
+      "inline-single"
+    ],
+    [
+      "tail",
+      2,
+      "inline-budget"
+    ],
+    [
+      "tail",
+      2,
+      "no-single"
+    ],
+    [
+      "tail",
+      2,
+      "freelist"
+    ],
+    [
+      "tail",
+      2,
+      "combined"
+    ],
+    [
+      "tail",
+      2,
+      "no-gc"
+    ],
+    [
+      "tail",
+      2,
+      "v8"
+    ],
+    [
+      "tail",
+      2,
+      "v8-no-inline"
+    ],
+    [
+      "tail",
+      2,
+      "v8-no-opt"
+    ],
+    [
+      "tail",
+      2,
+      "baseline"
+    ],
+    [
+      "tail",
+      2,
+      "no-poll"
+    ],
+    [
+      "tail",
+      3,
+      "inline-budget"
+    ],
+    [
+      "tail",
+      3,
+      "no-single"
+    ],
+    [
+      "tail",
+      3,
+      "freelist"
+    ],
+    [
+      "tail",
+      3,
+      "combined"
+    ],
+    [
+      "tail",
+      3,
+      "no-gc"
+    ],
+    [
+      "tail",
+      3,
+      "v8"
+    ],
+    [
+      "tail",
+      3,
+      "v8-no-inline"
+    ],
+    [
+      "tail",
+      3,
+      "v8-no-opt"
+    ],
+    [
+      "tail",
+      3,
+      "baseline"
+    ],
+    [
+      "tail",
+      3,
+      "no-poll"
+    ],
+    [
+      "tail",
+      3,
+      "inline-single"
+    ]
+  ],
+  "variants": {
+    "compiler": {
+      "baseline": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-baseline"
+        ],
+        "samples": [
+          {
+            "seconds": 19.885618278,
+            "wall_seconds": 19.904965818990604,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 23.106699128,
+            "wall_seconds": 23.114859267006977,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 22.714908633,
+            "wall_seconds": 22.721407973993337,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 19.786164069,
+          "wall_seconds": 19.79257325200888,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 22.714908633
+      },
+      "no-poll": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-no-poll"
+        ],
+        "samples": [
+          {
+            "seconds": 18.302857678,
+            "wall_seconds": 18.310836994001875,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.292200209,
+            "wall_seconds": 18.300065244999132,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 20.180527173,
+            "wall_seconds": 20.188028713993845,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 18.247353571,
+          "wall_seconds": 18.254537264001556,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 18.302857678
+      },
+      "inline-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-inline-single"
+        ],
+        "samples": [
+          {
+            "seconds": 18.410574272,
+            "wall_seconds": 18.41812145098811,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.575637351,
+            "wall_seconds": 18.604920686004334,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.510200883,
+            "wall_seconds": 18.539765520996298,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 18.497526716,
+          "wall_seconds": 18.50428637600271,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 18.510200883
+      },
+      "inline-budget": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-inline-budget"
+        ],
+        "samples": [
+          {
+            "seconds": 18.108391461,
+            "wall_seconds": 18.115143289993284,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.037216161,
+            "wall_seconds": 18.065697785001248,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 20.435650091,
+            "wall_seconds": 20.44243420800194,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 17.868632379,
+          "wall_seconds": 17.876008092003758,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 18.108391461
+      },
+      "no-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-no-single"
+        ],
+        "samples": [
+          {
+            "seconds": 17.668013264,
+            "wall_seconds": 17.676472200997523,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 17.842349046,
+            "wall_seconds": 17.85056019500189,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 17.745996869,
+            "wall_seconds": 17.75246922299266,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 20.081742095,
+          "wall_seconds": 20.089248830001452,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 17.745996869
+      },
+      "freelist": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-freelist"
+        ],
+        "samples": [
+          {
+            "seconds": 18.338087435,
+            "wall_seconds": 18.344889656000305,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 21.12530558,
+            "wall_seconds": 21.131620763000683,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.168067594,
+            "wall_seconds": 18.176350038993405,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 18.595163301,
+          "wall_seconds": 18.624415826998302,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 18.338087435
+      },
+      "combined": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler-combined"
+        ],
+        "samples": [
+          {
+            "seconds": 16.203429936,
+            "wall_seconds": 16.21127809700556,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 18.822208475,
+            "wall_seconds": 18.82853265501035,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 16.32416249,
+            "wall_seconds": 16.330950200004736,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 15.878821533,
+          "wall_seconds": 15.885328011005186,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 16.32416249
+      },
+      "v8": {
+        "command": [
+          "node",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 3.704840531,
+            "wall_seconds": 3.753267092994065,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.711671477,
+            "wall_seconds": 3.7571615779888816,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.72484057,
+            "wall_seconds": 3.7717593800043687,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 3.704662784,
+          "wall_seconds": 3.7508336960017914,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 3.711671477
+      },
+      "v8-no-inline": {
+        "command": [
+          "node",
+          "--no-wasm-inlining",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 3.736235192,
+            "wall_seconds": 3.782704166995245,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.752101572,
+            "wall_seconds": 3.799345223000273,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.721487565,
+            "wall_seconds": 3.770162002008874,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 3.732501614,
+          "wall_seconds": 3.780874207994202,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 3.736235192
+      },
+      "v8-no-opt": {
+        "command": [
+          "node",
+          "--no-wasm-opt",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 3.712359766,
+            "wall_seconds": 3.7592875310074305,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.720036978,
+            "wall_seconds": 3.7697054559976095,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          },
+          {
+            "seconds": 3.727360864,
+            "wall_seconds": 3.7770995469909394,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 3.733704724,
+          "wall_seconds": 3.7795925960090244,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stderr": ""
+        },
+        "median_seconds": 3.720036978
+      }
+    },
+    "fibonacci": {
+      "baseline": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-baseline"
+        ],
+        "samples": [
+          {
+            "seconds": 0.111459,
+            "wall_seconds": 0.11334700000588782,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.111399,
+            "wall_seconds": 0.11451243799820077,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.111379,
+            "wall_seconds": 0.11417821201030165,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.111057,
+          "wall_seconds": 0.11412855199887417,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.111399
+      },
+      "no-poll": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-no-poll"
+        ],
+        "samples": [
+          {
+            "seconds": 0.114294,
+            "wall_seconds": 0.11602078900614288,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.114041,
+            "wall_seconds": 0.11625644699961413,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.114112,
+            "wall_seconds": 0.11560829699737951,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.114033,
+          "wall_seconds": 0.1158648609998636,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.114112
+      },
+      "inline-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-inline-single"
+        ],
+        "samples": [
+          {
+            "seconds": 0.112661,
+            "wall_seconds": 0.11538315399957355,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.112646,
+            "wall_seconds": 0.11547543900087476,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.112605,
+            "wall_seconds": 0.1145103390008444,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.112573,
+          "wall_seconds": 0.11442867600999307,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.112646
+      },
+      "inline-budget": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-inline-budget"
+        ],
+        "samples": [
+          {
+            "seconds": 0.111322,
+            "wall_seconds": 0.1147884110105224,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.111296,
+            "wall_seconds": 0.11416555799951311,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.111266,
+            "wall_seconds": 0.1134480160108069,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.111264,
+          "wall_seconds": 0.11301627301145345,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.111296
+      },
+      "no-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-no-single"
+        ],
+        "samples": [
+          {
+            "seconds": 0.110552,
+            "wall_seconds": 0.11381015199003741,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.111272,
+            "wall_seconds": 0.11470682499930263,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.110363,
+            "wall_seconds": 0.11242505299742334,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.110793,
+          "wall_seconds": 0.11220531699655112,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.110552
+      },
+      "freelist": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-freelist"
+        ],
+        "samples": [
+          {
+            "seconds": 0.11771,
+            "wall_seconds": 0.12142801799927838,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.11778,
+            "wall_seconds": 0.11972608500218485,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.117701,
+            "wall_seconds": 0.12131659399892669,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.117684,
+          "wall_seconds": 0.11938518699025735,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.11771
+      },
+      "combined": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-combined"
+        ],
+        "samples": [
+          {
+            "seconds": 0.110083,
+            "wall_seconds": 0.11198156599130016,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.110552,
+            "wall_seconds": 0.1131363010063069,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.112632,
+            "wall_seconds": 0.1147904420067789,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.112562,
+          "wall_seconds": 0.11452715899213217,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.110552
+      },
+      "no-gc": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-no-gc"
+        ],
+        "samples": [
+          {
+            "seconds": 0.112585,
+            "wall_seconds": 0.11459108200506307,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.112333,
+            "wall_seconds": 0.11505949599086307,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.112623,
+            "wall_seconds": 0.11538316600490361,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.105967,
+          "wall_seconds": 0.10785847199440468,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.112585
+      },
+      "v8": {
+        "command": [
+          "node",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.173632,
+            "wall_seconds": 0.1988748290023068,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.173633,
+            "wall_seconds": 0.19993090399657376,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.173558,
+            "wall_seconds": 0.19938260300841648,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.173785,
+          "wall_seconds": 0.1975227829971118,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.173632
+      },
+      "v8-no-inline": {
+        "command": [
+          "node",
+          "--no-wasm-inlining",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.173642,
+            "wall_seconds": 0.19930018900777213,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.173822,
+            "wall_seconds": 0.1990107210003771,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.173898,
+            "wall_seconds": 0.19904184399638325,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.173686,
+          "wall_seconds": 0.19850118599424604,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.173822
+      },
+      "v8-no-opt": {
+        "command": [
+          "node",
+          "--no-wasm-opt",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.173902,
+            "wall_seconds": 0.1972227770020254,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.173648,
+            "wall_seconds": 0.19944742499501444,
+            "checksum": 1076472576,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.17363,
+            "wall_seconds": 0.19621026000822894,
+            "checksum": 1076472576,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.173683,
+          "wall_seconds": 0.19730045800679363,
+          "checksum": 1076472576,
+          "stderr": ""
+        },
+        "median_seconds": 0.173648
+      }
+    },
+    "tail": {
+      "baseline": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-baseline"
+        ],
+        "samples": [
+          {
+            "seconds": 0.30389,
+            "wall_seconds": 0.6093371680035489,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.304528,
+            "wall_seconds": 0.6111826800042763,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.306087,
+            "wall_seconds": 0.6128841660101898,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.303993,
+          "wall_seconds": 0.6093262700014748,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.304528
+      },
+      "no-poll": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-no-poll"
+        ],
+        "samples": [
+          {
+            "seconds": 0.261547,
+            "wall_seconds": 0.5258713850053027,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.263112,
+            "wall_seconds": 0.5274422989896266,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.273379,
+            "wall_seconds": 0.5492982230061898,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.260473,
+          "wall_seconds": 0.5237441770004807,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.263112
+      },
+      "inline-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-inline-single"
+        ],
+        "samples": [
+          {
+            "seconds": 0.270649,
+            "wall_seconds": 0.5424029969872208,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.274387,
+            "wall_seconds": 0.5493062699970324,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.272719,
+            "wall_seconds": 0.5452792300056899,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.274165,
+          "wall_seconds": 0.5486438139923848,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.272719
+      },
+      "inline-budget": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-inline-budget"
+        ],
+        "samples": [
+          {
+            "seconds": 0.269659,
+            "wall_seconds": 0.5406158480036538,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.268544,
+            "wall_seconds": 0.5394916330114938,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.268977,
+            "wall_seconds": 0.5384996900102124,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.268842,
+          "wall_seconds": 0.5385419740050565,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.268977
+      },
+      "no-single": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-no-single"
+        ],
+        "samples": [
+          {
+            "seconds": 0.263297,
+            "wall_seconds": 0.528607493994059,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.265049,
+            "wall_seconds": 0.5293724329967517,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.261369,
+            "wall_seconds": 0.5253239510057028,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.264106,
+          "wall_seconds": 0.5284769179997966,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.263297
+      },
+      "freelist": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-freelist"
+        ],
+        "samples": [
+          {
+            "seconds": 0.280718,
+            "wall_seconds": 0.5653202630055603,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.281087,
+            "wall_seconds": 0.5651530900067883,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.282504,
+            "wall_seconds": 0.56889302500349,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.279812,
+          "wall_seconds": 0.5625463989999844,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.281087
+      },
+      "combined": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-combined"
+        ],
+        "samples": [
+          {
+            "seconds": 0.209711,
+            "wall_seconds": 0.42181097499269526,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.207006,
+            "wall_seconds": 0.4162898509966908,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.207396,
+            "wall_seconds": 0.41819140400912147,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.207366,
+          "wall_seconds": 0.4186451620043954,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.207396
+      },
+      "no-gc": {
+        "command": [
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail-no-gc"
+        ],
+        "samples": [
+          {
+            "seconds": 0.439587,
+            "wall_seconds": 0.9174145979923196,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.435959,
+            "wall_seconds": 0.9128250789945014,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.435362,
+            "wall_seconds": 0.9101015070045833,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.440254,
+          "wall_seconds": 0.9168017930060159,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.435959
+      },
+      "v8": {
+        "command": [
+          "node",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.115382,
+            "wall_seconds": 0.2596868690015981,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.114869,
+            "wall_seconds": 0.25827330800530035,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.114352,
+            "wall_seconds": 0.25822877101018094,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.114846,
+          "wall_seconds": 0.2596895559981931,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.114869
+      },
+      "v8-no-inline": {
+        "command": [
+          "node",
+          "--no-wasm-inlining",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.118002,
+            "wall_seconds": 0.2658890440070536,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.117338,
+            "wall_seconds": 0.26527602500573266,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.117911,
+            "wall_seconds": 0.26701623600092717,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.117595,
+          "wall_seconds": 0.2651141810056288,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.117911
+      },
+      "v8-no-opt": {
+        "command": [
+          "node",
+          "--no-wasm-opt",
+          "--no-warnings",
+          "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+          "/tmp/snail-native-ablation-20261011/build/ablation/tail.wasm"
+        ],
+        "samples": [
+          {
+            "seconds": 0.114089,
+            "wall_seconds": 0.25498648099892307,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.11345,
+            "wall_seconds": 0.25532517599640414,
+            "checksum": 4409231671296,
+            "stderr": ""
+          },
+          {
+            "seconds": 0.113885,
+            "wall_seconds": 0.2575349010003265,
+            "checksum": 4409231671296,
+            "stderr": ""
+          }
+        ],
+        "discarded": {
+          "seconds": 0.113377,
+          "wall_seconds": 0.25444394299120177,
+          "checksum": 4409231671296,
+          "stderr": ""
+        },
+        "median_seconds": 0.113885
+      }
+    }
+  },
+  "scope": "Internal timers exclude process startup and compilation. Fresh processes; tail has equal in-process warmup.",
+  "environment": {}
+}
