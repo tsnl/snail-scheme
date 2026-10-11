@@ -1,4 +1,4 @@
-(import (scheme base) (scheme write) (scheme process-context) (scheme hash-table)
+(import (scheme base) (scheme write) (scheme process-context) (scheme hash-table) (snail typing)
         (only (snail-scheme core) %make-record-type %make-record %record-ref))
 
 (define (check expected actual)
@@ -23,6 +23,15 @@
 (check #t (symbol? dynamic))
 (check #f (symbol? #\λ))
 (check #f (eqv? #\λ (string->symbol "λ")))
+
+;; Dynamic typed entry checks and occurrence predicates share the symbol tag.
+(: identity (-> Symbol Symbol))
+(define (identity value) value)
+(check #t (eq? 'literal (apply identity (list dynamic))))
+(: spelling (-> (U String Symbol) String))
+(define (spelling value) (if (symbol? value) (symbol->string value) value))
+(check "literal" (spelling dynamic))
+(check "text" (spelling "text"))
 
 ;; Reverse names live in Rust, independently of the input Scheme string.
 (define name (string #\λ #\😀 (integer->char 0)))

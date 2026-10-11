@@ -22,6 +22,10 @@ extern uint32_t atom_value(uint32_t) __asm__("wasm.atom_value");
 extern uint32_t same(uint32_t, uint32_t) __asm__("wasm.same");
 extern uint32_t identity_hash(uint32_t) __asm__("wasm.identity_hash");
 extern void release(uint32_t) __asm__("wasm.release");
+extern uint32_t literal_symbol_names(void) __asm__("wasm.literal_symbol_names");
+extern uint32_t length(uint32_t) __asm__("wasm.length");
+extern uint32_t at(uint32_t, uint32_t) __asm__("wasm.at");
+extern uint32_t char_at(uint32_t, uint32_t) __asm__("wasm.char_at");
 
 static void check_symbol_tags(void) {
     const uint32_t ids[] = {0, 0x3fffffff, 0x40000000, 0x7fffffff};
@@ -34,11 +38,24 @@ static void check_symbol_tags(void) {
     }
 }
 
+static void check_symbol_names(void) {
+    uint32_t names = literal_symbol_names();
+    for (uint32_t id = 0; id < length(names); id++) {
+        uint32_t name = at(names, id), symbol = atom(id | 0x80000000);
+        assert(length(name) == length(symbol));
+        for (uint32_t index = 0; index < length(name); index++)
+            assert(char_at(name, index) == char_at(symbol, index));
+        release(name); release(symbol);
+    }
+    release(names);
+}
+
 int main(int argc, char **argv) {
     native_host_init(argc, argv);
     native_module_init();
     assert(snail_cli_main() == 0);
     check_symbol_tags();
+    check_symbol_names();
     // Returned Rust callbacks release every temporary AWI handle.
     assert(live_roots() == 3);
     for (int i = 0; i < 5; i++) { GC_gcollect(); native_poll_finalizers(); }
