@@ -461,11 +461,12 @@ def positive(text):
     return value
 
 
-def arguments():
+def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "build/r7rs-report")
     parser.add_argument("--systems", nargs="+", choices=SYSTEMS, default=list(SYSTEMS))
-    parser.add_argument("--benchmarks", nargs="+", default=["all"])
+    parser.add_argument("--benchmarks", nargs="+", default=["all"],
+                        help="workloads to run; default: the entire pinned suite")
     parser.add_argument("--rounds", type=positive, default=3)
     parser.add_argument(
         "--count", type=positive, help="SMOKE ONLY: replace upstream iteration count"
@@ -474,7 +475,7 @@ def arguments():
         "--timeout", type=positive, default=300, help="seconds per runtime invocation"
     )
     parser.add_argument("--build-timeout", type=positive, default=300)
-    parser.add_argument("--cpu", type=int)
+    parser.add_argument("--cpu", type=int, default=os.environ.get("BENCH_CPU"))
     parser.add_argument(
         "--allow-failures",
         action="store_true",
@@ -483,7 +484,7 @@ def arguments():
     parser.add_argument(
         "--plot", type=Path, help="render saved JSON without downloading or executing"
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def metadata(args, files, names):
@@ -607,6 +608,14 @@ def main():
 
 
 class ResultsTests(unittest.TestCase):
+    def test_default_run_selects_the_whole_suite_with_original_inputs(self):
+        args = arguments([])
+        files = {"bench": b'FIRST_BENCHMARKS="fib ray"\nSECOND_BENCHMARKS="ray gcbench"\n'}
+        self.assertEqual(select_benchmarks(args.benchmarks, files), ["fib", "ray", "gcbench"])
+        self.assertEqual(args.systems, list(SYSTEMS))
+        self.assertIsNone(args.count)
+        self.assertFalse(args.allow_failures)
+
     def test_ray_image_requires_reference_pixels(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

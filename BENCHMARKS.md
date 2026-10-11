@@ -1,50 +1,12 @@
 # Benchmarks
 
-**Runtime comparisons exclude compilation and process startup.** The
+**The default benchmark is the entire pinned 57-workload R7RS suite.**
+Runtime comparisons exclude compilation and process startup. The separate
 [compiler benchmark](#compile-the-compiler) measures compilation itself.
-
-![Complete-program Fibonacci execution times](benchmarks/results/2026-10-10-native-fibonacci/comparison.svg)
-
-Native Snail takes **9.7% less time than Chez** and runs **3.56× faster than
-Guile** on this recursive Fibonacci workload. Every implementation runs the
-complete [Scheme program](benchmarks/cpu.scm); at the recorded revision, native and V8 execute the same
-Rust-linked Wasm module. The current native build uses shared Wasm datums and a
-native Rust archive, so these historical results do not measure that pipeline. Bars show medians, ordered slowest to fastest;
-whiskers show the observed minimum and maximum. Orange identifies Snail.
-See the [generated table](benchmarks/results/2026-10-10-native-fibonacci/summary.md)
-and [raw measurements](benchmarks/results/2026-10-10-native-fibonacci.json).
-
-## Reproduce the comparison
-
-Use an otherwise idle x86-64 Linux machine with Rust/Cargo and the
-`wasm32-wasip1` target installed:
-
-```sh
-nix-shell benchmarks/shell.nix
-BENCH_CPU=2 benchmarks/native
-```
-
-The runner builds all implementations, then measures eight rotating rounds of
-64 repetitions on one CPU after a discarded run per implementation. Every run
-must produce checksum `269118144`. `BENCH_CPU` selects an allowed CPU.
-It saves raw samples, commands, tool versions, and source/artifact hashes in
-`build/native-benchmark/results.json`, alongside a table and SVG/PNG plots.
-Regenerate plots without rebuilding or running workloads:
-
-```sh
-benchmarks/native --plot build/native-benchmark/results.json
-```
-
-This measures one call/arithmetic workload. Compare implementations within the
-same run; absolute times vary with hardware, tools, and load. These observations
-are not CI performance thresholds. The [native benchmark notes](doc/native-benchmarks.md)
-retain the complete methodology, code-generation ablation, translation latency,
-and historical measurements. [`reproduce.py`](benchmarks/reproduce.py) rebuilds
-the earlier extracted-function comparison at its pinned historical revision.
 
 ## Run the R7RS suite
 
-The broader runner uses all 57 workloads from
+The runner uses all 57 workloads from
 [ecraven's R7RS benchmarks](https://github.com/ecraven/r7rs-benchmarks), derived
 from the Larceny, Gabriel, and Gambit suites. A pinned
 [submodule](benchmarks/r7rs-benchmarks) supplies the unchanged benchmark bodies
@@ -56,11 +18,17 @@ flow. Initialize the submodule once:
 git submodule update --init benchmarks/r7rs-benchmarks
 ```
 
-With Rust/Cargo and the `wasm32-wasip1` target installed, use the same Nix shell:
+With Rust/Cargo and the `wasm32-wasip1` target installed:
 
 ```sh
-python3 benchmarks/r7rs.py --cpu 2
+nix-shell benchmarks/shell.nix
+BENCH_CPU=2 make benchmark
 ```
+
+`make benchmark`, `benchmarks/native`, and `python3 benchmarks/r7rs.py` all
+select every workload with its original upstream iteration count by default.
+`benchmarks/native` is a symlink to the suite runner. The standalone Fibonacci
+and prime-sieve runners are retired.
 
 The runner compiles each complete program through `(snail-scheme native)`: the
 Wasm datum is resolved into LLVM and linked with the native Rust archive.
@@ -68,11 +36,10 @@ Default participants are Snail native, Chez, Guile, and Chibi. Missing tools and
 failed builds remain visible in the report; requested native cases execute
 native code. The retired binary-reader override is no longer accepted.
 
-For a quick harness check on the reference implementations:
+For a smoke check of the entire suite on the reference implementations:
 
 ```sh
-python3 benchmarks/r7rs.py --systems chez guile chibi \
-  --benchmarks fib array1 quicksort --count 1 --rounds 1 --timeout 30
+benchmarks/native --systems chez guile chibi --count 1 --rounds 1 --timeout 30
 ```
 
 `--count` replaces only the upstream iteration count and labels the result as a
@@ -92,37 +59,29 @@ status. Interrupted runs retain incomplete JSON and cannot produce a final plot.
 Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
 score that silently drops failed benchmarks.
 
-Suite reports stay under `build/`; published Fibonacci and compiler comparisons
-are checked in. Unsupported Scheme libraries or features remain explicit build
-failures; integration does not imply that Snail passes the full suite.
+Suite reports stay under `build/`; historical measurements and compiler
+comparisons are checked in. Unsupported Scheme libraries or features remain
+explicit build failures; integration does not imply that Snail passes the full suite.
 
-### Next showcase: ray tracing
+### Correctness and coverage
 
-The upstream [`ray` workload](benchmarks/r7rs-benchmarks/src/ray.scm) renders
-33 spheres into a 100 × 100 grayscale image. It exercises floating-point math,
-vectors, allocation, scene traversal, and image-file output. Original inputs
-render the scene 50 times per sample; image writing is part of the timed work.
+The October 11 native check of main `724cdd6` attempted all 57 workloads with
+original inputs. None reached execution: 56 stopped at missing `(scheme read)`;
+`mbrotZ` stopped earlier at missing `(scheme complex)`. These are the first
+reported blockers, not a complete list of remaining implementation work.
+There are no Snail runtime medians for that suite check.
 
-```sh
-python3 benchmarks/r7rs.py --benchmarks ray --cpu 2
-```
+The report retains all requested cases, including unsupported libraries and
+language features. A successful harness invocation is not evidence that every
+Snail case ran. There is no suite-wide speedup when cases are missing.
 
-The runner checks every rendered pixel against the identical output produced
-by Chez, Guile, and Chibi; upstream's return-value check alone only verifies
-the symbol `ok`. Results include a pixel checksum, the timing chart appears at
-`build/r7rs-report/plots/ray.svg`, and each implementation's PGM image is under
-`build/r7rs-report/cases/ray/<system>/outputs/ray.output`.
+The upstream `ray` workload also checks every rendered pixel against the
+reference image checksum. Its output is under
+`build/r7rs-report/cases/ray/<system>/outputs/ray.output`. The complete suite
+runs this case along with the other 56 workloads.
 
-This is the next proposed README comparison, pending Snail execution. The
-`(scheme inexact)` library now passes linked-Wasm execution checks. The ray
-program next fails on the missing `(scheme read)` library before native
-translation; no Snail ray-tracing timing is published. To exercise the
-reference engines and image checks now:
-
-```sh
-python3 benchmarks/r7rs.py --systems chez guile chibi --benchmarks ray \
-  --count 1 --rounds 1
-```
+Historical single-workload results and their original reproduction commands
+are archived in [the native benchmark notes](doc/native-benchmarks.md).
 
 ### Studio scene
 
@@ -232,7 +191,7 @@ from saved JSON. Chibi bootstraps the native interpreter; see the
 Snail is not fully R7RS compliant. Reusable, multi-shot continuations are outside
 the intended language; the current backend rejects `call/cc` entirely. Single-shot
 delimited continuations and coroutines are planned, and other conformance gaps
-remain. The Fibonacci comparison does not isolate the cost of continuations.
+remain. Unsupported continuation workloads stay visible in the suite report.
 See [the roadmap](TODO.md) and [backend guide](doc/backend.md).
 
 [The benchmark guide](benchmarks/README.md) retains historical measurements,
