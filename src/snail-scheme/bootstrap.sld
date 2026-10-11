@@ -6,6 +6,7 @@
   (begin
     (define bootstrap-primitive-names
       '(+ - * / = < <= > >= quotient remainder modulo
+          acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
           eq? eqv? boolean? number? real? inexact? integer? exact-integer? pair? null?
           symbol? string? char? vector? bytevector? procedure?
           cons car cdr set-car! set-cdr!

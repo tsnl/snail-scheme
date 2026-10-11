@@ -14,6 +14,25 @@
   (global $ordering (mut i32) (i32.const 11))
   (global $negative (ref i31) (ref.i31 (i32.const -1)))
 
+  ;; ---- Saturating conversions with dynamic operands ----
+
+  (func (export "sat-i32-f32-s") (param f32) (result i32)
+    (i32.trunc_sat_f32_s (local.get 0)))
+  (func (export "sat-i32-f32-u") (param f32) (result i32)
+    (i32.trunc_sat_f32_u (local.get 0)))
+  (func (export "sat-i32-f64-s") (param f64) (result i32)
+    (i32.trunc_sat_f64_s (local.get 0)))
+  (func (export "sat-i32-f64-u") (param f64) (result i32)
+    (i32.trunc_sat_f64_u (local.get 0)))
+  (func (export "sat-i64-f32-s") (param f32) (result i64)
+    (i64.trunc_sat_f32_s (local.get 0)))
+  (func (export "sat-i64-f32-u") (param f32) (result i64)
+    (i64.trunc_sat_f32_u (local.get 0)))
+  (func (export "sat-i64-f64-s") (param f64) (result i64)
+    (i64.trunc_sat_f64_s (local.get 0)))
+  (func (export "sat-i64-f64-u") (param f64) (result i64)
+    (i64.trunc_sat_f64_u (local.get 0)))
+
   ;; ---- Values and structured control in binary instruction order ----
 
   (func $local-order (param $x i32) (result i32)
