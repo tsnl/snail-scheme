@@ -1,0 +1,420 @@
+{
+  "base_revision": "dbc63b640b7b8258bbf4d0aaa4c299fa1b064a82",
+  "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_hashes": {
+    "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+    "src/awi.rs": "85203b02c38a2211e67aa41e7801de34810751cbf9765688f0cb6ed0ed51e4b6",
+    "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+    "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+    "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+    "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+    "src/lib.rs": "97f37c4343df28675796590eb91eaf20acce6430f754626f28ca42b978aedef2",
+    "src/native.c": "95add385a13829e61b8bd4a4f41906cf3e29695d20e90c10c69b066155ec29d1",
+    "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+    "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+    "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+    "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/llvm.sld": "1ab04853d25f3bffc4062340f98a2d8ee9a8ba2351ab30d5f717f767ff4e9fbf",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+    "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+    "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+    "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+    "src/snail-scheme/wasm-awi.sld": "b9418d05a0c046e5c4f11b7099e9e77bcd3d025f05c6ac0a3733f07a71cfd0e9",
+    "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+    "src/snail-scheme/wasm-literals.sld": "05e6a0a610da91642a2d7234559840918979c222e32ba83609329e2308bdf5af",
+    "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+    "src/snail-scheme/wasm-runtime.sld": "5fc3298ed0a6f341f901ce00994e8cff12d64d6f88e6911e9bb7fb9fbeb9b626",
+    "src/snail-scheme/wasm.sld": "5b6cef53e68b15f557e64c9f40c9a88b4819e71196373082daca0c8a38e614fb",
+    "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+    "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "benchmarks/build.scm": "b12fd6e199aaea750454dc7b3e15e182b37f5f0982eaba5a6ba8f4f3cefc6d4b",
+    "benchmarks/chez.scm": "94ce135680dc26cd96efd399746a7bf5b4081b8b802c6ac1b352bceeec0b6d72",
+    "benchmarks/compare-compilers.py": "2658e73d233d791b4dcc70837d6a16d957cb9b5cf6d1cdc606c7351ae3c546b3",
+    "benchmarks/compile-self.py": "6a41c21cec53906a618bf8083b6d14bbb40e8c83723027733158fc0a9c600238",
+    "benchmarks/compile-self.scm": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/memory.scm": "c35ed7c8995f0c5688c05c2223a141f78eb4ea71df20f1e10b886250bd716adb",
+    "benchmarks/native-build.scm": "5b3a1689ec96c215cc991f0ecbd9ca318abd947ce55dc9e534b038fef80aad5d",
+    "benchmarks/plots.py": "9566d7fd0c3124652085d30075e612cebc4fe69f7bb3c602fc6bf35586150566",
+    "benchmarks/r7rs-chez.scm": "18861bdbad3006c77aeaed491d3036793c9bf18aab0a7b09de235f1a04e45946",
+    "benchmarks/r7rs.py": "8fc944208c41304fb6b2958d0da82db0d9756c554bb2f37fb3023e693d9258b5",
+    "benchmarks/render-studio.py": "541a539fc52c2e7ab688fb7c2c874e7cbc34990af0730ae3b55b1180d160cd56",
+    "benchmarks/reproduce.py": "00828fb6e2fd3a5a600953baf0010cc2ed4e9943d52e6c6bc126b352ab36183a",
+    "benchmarks/results/2026-10-10-compiler-indexes/render.py": "bfbf13d4d7c25ebe388a672137a1293e9f588e6ad03fa567c3a54899885427a6",
+    "benchmarks/results/2026-10-10-visitor-typing/measure.py": "2121f649d677df5e521bc5fc5e0bd38894db868bc87f7e1a49e6e3ac5bc0e995",
+    "benchmarks/studio.scm": "b783397eda683f0c685e365e29f4bcde1b4e11a9ca563860a1b56e367061894c",
+    "benchmarks/typing/fibonacci-checked.c": "842225d29a90863659887dcde4fe82d3e2b5b9f05406d8d2dd7ee71a6e7a7807",
+    "benchmarks/typing/fibonacci-kernel.c": "c29209bc597422654386ad6974db41b961703f0cf0b0532e641caf2e209f78e1",
+    "benchmarks/typing/fibonacci-tail-checked.c": "4aa995fd79d7205c38dc9d1999e21848a5bf6de63d61cdcca262975020acc2a7",
+    "benchmarks/typing/fibonacci-tail-driver.c": "7d4a0ff425757a061738f3edb7bed50a176a525c564d0a7e2f3f8146df3a6cbf",
+    "benchmarks/typing/fibonacci-tail.c": "993357f3523ebba06088599c33900f4bb2203d9a3c115e8fe326107466582df5",
+    "benchmarks/typing/fibonacci.c": "96938ac49dcea328129b4a642d268ff653dc75b3c5889acc7bb82e4ac1685af5",
+    "benchmarks/typing/measure.py": "2a4c46f01eaed489adf8b9ed2b4a34b7791b159562bfd1049f85b55c8ad24e29",
+    "benchmarks/typing/occurrence.scm": "9fdb0b16f31eaebfa79c03bc3655526fe7208832510cc7057735094953377239",
+    "benchmarks/typing/run-kernel.mjs": "9c1479bb7887ab1a2fd4a7f32b821b34d6ca1474fc770166b658fa2363b9d589",
+    "benchmarks/typing/run-tail-kernel.mjs": "c579ca966fcf648518a2efb6e33218989437b57097ceed18743c991bcf83f878",
+    "tests/build-native-datums.scm": "93e8d60191dd074fddeeda5c7edf1d5fcf82e623aeeb0cd05a1679b675103b09",
+    "tests/build-native.scm": "27fe4b4c0db13f308b7b1226771e679e5d994b54712d784ba1dd7de181fbe186",
+    "tests/build-program.scm": "bac849a7ece0061cd8a54a9b58e706a80ba4f252d1138c298a21b3083f1e2130",
+    "tests/build-typed-program.scm": "7eb464316e9ee5ac3435adbbdea0060766c8fb3753b6de3c7ed4cda00aeba293",
+    "tests/check-awi-roots.mjs": "c397f51c86028e8b0540f99f9f3027336a223eb267ed79e82f4163a0d67efff8",
+    "tests/check-finalizers.mjs": "469669981ebd6e5b7e6e10c24729c4b8f20b0754f83f7de259453ad9b1c41169",
+    "tests/check-hash-identity.mjs": "7a9f737ce39fb83d4d7c9ac89d68ef33928663f9e68120ae56c893e6eb034485",
+    "tests/check-native-semantics.mjs": "e0702758e8ffc1f28d3315b34064dbcdeefd2b2a5c7f08c8e845641f6076a13d",
+    "tests/finalizers.wat": "7eb8054a2e2e471e62f2fa814955d098dd02fe691164a06f00afa08a7deaded3",
+    "tests/hash-identity.wat": "a8e84f77b9cd5ebc014e59b498fd57b3f4c7f47782db603a6eaa27fa29a233ee",
+    "tests/libraries/testing/polymorphism.sld": "41dd4cb276f2242058d8ba7bcd308e8dbb6a4bfaf5bf4633e3bf70e92a2487fb",
+    "tests/native-datums.scm": "144620409180d87aba412d9e5e7505dc4b7df4e40564a576a1ab389263b848ed",
+    "tests/native-runner.c": "b363e0bfeb5d912ee028d6b9b86593eb180bd13a1fee765fca8886d194167603",
+    "tests/programs/backend-binary.scm": "497ada1fa8abd6005037d85355ab45fd38036072c2ec74697232d8405d4bd53e",
+    "tests/programs/backend-bootstrap.scm": "ab813ed6271f6348ffc0b5d0e49912a5b571c1f5a5bb5e0cff6449ba47fbecc3",
+    "tests/programs/backend-control.scm": "e99a1d7b16e54cae5aefd34a304f104eb567e6655b15a74ebab8576b0d962dc9",
+    "tests/programs/backend-direct-calls.scm": "ec2784ed53edaef55848f452c96e7ff444c64c46194e7ba445c107dacf5dc489",
+    "tests/programs/backend-errors.scm": "58d7642538a314b63b712a83ced0973931db3caa38ec1558c2492f9bfbf4b682",
+    "tests/programs/backend-hash-tables.scm": "93bf9e7d72027d14a22b32aad7f95eaa389675bd60827c86c8b7230db8dfd076",
+    "tests/programs/backend-inexact.scm": "1836309de57191607d72480b975e5d9f8b21676ab56c8e044c603cac09296626",
+    "tests/programs/backend-native-resources.scm": "a87e00d407315f626ff46b068c8ae402e9ad4ccf34ae0cd8fbaa4e0509cb007d",
+    "tests/programs/backend-numeric-rebinding.scm": "1f1abc102bbaef0e1b7960e8b66f3cf6afc81eebf67d35f41a6785fa0cf277ea",
+    "tests/programs/backend-numeric.scm": "ddc891403e1aa781626c6548a63078b719b65bc911c2afd50a469af82cd1fc32",
+    "tests/programs/backend-options.scm": "227719ebeae8e57175ed0db9e77afa000b076ce4c82479b04debcd2a8db07f10",
+    "tests/programs/backend-polymorphism.scm": "bbc2352a62cd16080b9fc4fe63f495806dd57613539c6030505d86602b136ada",
+    "tests/programs/backend-semantics.scm": "ffc645500246b0b4e0739f3262ba3b220c352af829b7e759342ee11c4a8243a8",
+    "tests/programs/backend-typed-tail.scm": "7aa0241d4b34c4d8f7fc5c4f5fa6cbe92be66f2752f741b7710ee92b4c76742e",
+    "tests/programs/backend-typing.scm": "81af0ce83e78466e3bf24065f39f3cfc257dd89eeb2f4898d5c0789529cd4789",
+    "tests/programs/backend-wasmgc.scm": "2b720db9668149ba3b2186b51b251d36edff8fc6c0742524801d4ac5bd6724ec",
+    "tests/programs/chromium-trace.scm": "75845ff99576e7e5aae1baaeb25488e512c49db5946e122e4061fb8705c6c6be",
+    "tests/programs/p0001.scm": "c140ee3dbb0ce39ab8342eeb13ead0c7fa51fc684213fc009372ab44622f6258",
+    "tests/snail-scheme/test-utils.sld": "073130c725fb772aa04f2ba82746946bd88322c73d783b320db0337fe5b98d07",
+    "tests/snail-scheme/test.scm": "b4a242316e6bc51e2a6684d9f47d41bc89050d0705193bf2c8e104043bb6dfce",
+    "tests/translate-native.scm": "b5fe6ad6ed72934783fcf66bf1346256cac58bb7fe683c9a2c865fd9970d30db"
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu": 2,
+  "rounds": 8,
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "compilers": {
+    "native": "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+    "wasm": "/nix/store/603yaax3l2jmc0hfv6g3hgjr1qk5jfxk-clang-21.1.8/bin/clang"
+  },
+  "workload": "fibonacci",
+  "repetitions": 256,
+  "checksum": 1076472576,
+  "warmup_repetitions": 0,
+  "versions": {
+    "node": "v24.19.0",
+    "clang": "clang version 21.1.8",
+    "wasm-opt": "wasm-opt version 132"
+  },
+  "variants": {
+    "untyped-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/untyped-guarded.wasm"
+      ],
+      "seconds": [
+        0.392779,
+        0.392528,
+        0.392205,
+        0.387393,
+        0.387685,
+        0.392253,
+        0.388002,
+        0.392206
+      ],
+      "median_seconds": 0.3922055,
+      "bytes": 296526,
+      "sha256": "bdbac50be40f26aeebd2359f5e59549677ba753b84cac4049ed5d1b0b74d3012",
+      "emitted_single_calls": 968,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "untyped-boxed": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/untyped.wasm"
+      ],
+      "seconds": [
+        0.392227,
+        0.39231,
+        0.392959,
+        0.392731,
+        0.392745,
+        0.392387,
+        0.392591,
+        0.392357
+      ],
+      "median_seconds": 0.392489,
+      "bytes": 296946,
+      "sha256": "f8d439374ef58a3f79eeee67edf6bdb56405ae1580b6dfd191479dde46d584cd",
+      "emitted_single_calls": 354,
+      "integer_helper_calls": 5,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "integer-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/integer-guarded.wasm"
+      ],
+      "seconds": [
+        0.500053,
+        0.50201,
+        0.499297,
+        0.498874,
+        0.499071,
+        0.498715,
+        0.499705,
+        0.501547
+      ],
+      "median_seconds": 0.499501,
+      "bytes": 296690,
+      "sha256": "75b6da38c5e127eed3c827fe1999b3cb404494f2bed436daa75b119e7a37c1f3",
+      "emitted_single_calls": 968,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "integer-optimized": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/integer.wasm"
+      ],
+      "seconds": [
+        0.392442,
+        0.392352,
+        0.392629,
+        0.392379,
+        0.392773,
+        0.392343,
+        0.392164,
+        0.392388
+      ],
+      "median_seconds": 0.3923835,
+      "bytes": 297189,
+      "sha256": "0a9275f9864d63fd6257a29da4dbe0c8a42e1a030789aac948da89d05b9a5932",
+      "emitted_single_calls": 345,
+      "integer_helper_calls": 10,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/guarded.wasm"
+      ],
+      "seconds": [
+        0.472697,
+        0.472702,
+        0.472543,
+        0.461898,
+        0.473128,
+        0.473392,
+        0.47305,
+        0.472511
+      ],
+      "median_seconds": 0.4726995,
+      "bytes": 296750,
+      "sha256": "9ebcccb6ed8a99d163e57f378d0242e8c01c569780dc913f59d6a69f402ae796",
+      "emitted_single_calls": 970,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-boxed": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/boxed.wasm"
+      ],
+      "seconds": [
+        0.472943,
+        0.472699,
+        0.461813,
+        0.472998,
+        0.473184,
+        0.473025,
+        0.472618,
+        0.473412
+      ],
+      "median_seconds": 0.47297049999999996,
+      "bytes": 297329,
+      "sha256": "102c857acb94ea2132682712976aff82469e578a99304da992c71cf546df8eb8",
+      "emitted_single_calls": 347,
+      "integer_helper_calls": 10,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-specialized": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/specialized.wasm"
+      ],
+      "seconds": [
+        0.173762,
+        0.173624,
+        0.173617,
+        0.173768,
+        0.173776,
+        0.173855,
+        0.173785,
+        0.173827
+      ],
+      "median_seconds": 0.173772,
+      "bytes": 296769,
+      "sha256": "e1009fe8d1fd6484765560488b0205e173b8f7c9f2ab1985c973da4762e067f9",
+      "emitted_single_calls": 345,
+      "integer_helper_calls": 5,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 1
+    },
+    "c-native-O3": {
+      "command": [
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/c-native"
+      ],
+      "seconds": [
+        0.06882476,
+        0.068794203,
+        0.068847959,
+        0.068862449,
+        0.068799801,
+        0.062793968,
+        0.068749763,
+        0.068878652
+      ],
+      "median_seconds": 0.06881228049999999,
+      "bytes": 16096,
+      "sha256": "02f19d5bb08682fd29435a2b2e89746bccc6aef9016b1bfc376c1b49640ef6d5"
+    },
+    "c-native-checked": {
+      "command": [
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/c-checked"
+      ],
+      "seconds": [
+        0.107305738,
+        0.107359219,
+        0.107327832,
+        0.107351716,
+        0.103265483,
+        0.107331017,
+        0.1072964,
+        0.104722537
+      ],
+      "median_seconds": 0.107316785,
+      "bytes": 16144,
+      "sha256": "6eec5c9b5d90f688905b0bf0a88d8e2bab8145e27e8f8a15219bb0f334a7587b"
+    },
+    "c-native-no-sibling-calls": {
+      "command": [
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/c-recursive"
+      ],
+      "seconds": [
+        0.112827279,
+        0.112795254,
+        0.112799793,
+        0.112792293,
+        0.112802508,
+        0.112793873,
+        0.112724573,
+        0.112776628
+      ],
+      "median_seconds": 0.1127945635,
+      "bytes": 16096,
+      "sha256": "2de30147d53ac1323774aa5c91d0135e63d3ae551c5b11402a9e7cb63d7eb797"
+    },
+    "c-wasm-O3": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "benchmarks/typing/run-kernel.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/c-wasm.wasm"
+      ],
+      "seconds": [
+        0.088318773,
+        0.087683767,
+        0.087581917,
+        0.088171366,
+        0.086686135,
+        0.086646482,
+        0.088216629,
+        0.088218647
+      ],
+      "median_seconds": 0.0879275665,
+      "bytes": 297,
+      "sha256": "bbb9da6c8ef47d946adce0cdbbe5492ddf413a508026e721d356983ce5289b8d"
+    },
+    "c-wasm-checked": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "benchmarks/typing/run-kernel.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/typing-benchmark/c-wasm-checked.wasm"
+      ],
+      "seconds": [
+        0.170464907,
+        0.172005971,
+        0.172365403,
+        0.169724771,
+        0.171996299,
+        0.172364102,
+        0.171915062,
+        0.172729206
+      ],
+      "median_seconds": 0.172001135,
+      "bytes": 310,
+      "sha256": "4062cb38f1e4ef55851bd1e67bc92edf9b311d583695895e6e034ba7ca4beed1"
+    }
+  }
+}
