@@ -1102,3 +1102,8 @@
 (func $builtin:eof-object? (param $arguments (ref $vector)) (result eqref)
   (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
   (call $pack_boolean (ref.eq (array.get $vector (local.get $arguments) (i32.const 0)) (global.get $eof))))
+
+(func $builtin:%hash-by-identity (param $arguments (ref $vector)) (result eqref)
+  (call $arity (local.get $arguments) (i32.const 1) (i32.const 1))
+  (ref.i31 (call $host_hash_identity
+    (array.get $vector (local.get $arguments) (i32.const 0)))))

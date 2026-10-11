@@ -13,6 +13,7 @@
 pub mod awi;
 #[cfg(not(target_arch = "wasm32"))]
 mod build_host;
+mod hash;
 mod host;
 mod interop_example;
 
