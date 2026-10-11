@@ -63,6 +63,17 @@ def build_scheme(name, annotation, mode, contents=None):
     return [os.environ.get("NODE", "node"), "--no-warnings", "scripts/run-wasi.mjs", output]
 
 
+def check_specialization(commands):
+    for name, command in commands.items():
+        if name.startswith("c-"):
+            continue
+        wat = Path(command[-1]).with_suffix(".wasm.wat").read_text()
+        expected = 1 if name.startswith("i32-specialized") else 0
+        actual = wat.count("(func $i32_")
+        if actual != expected:
+            raise RuntimeError(f"{name}: expected {expected} i32 workers, emitted {actual}")
+
+
 def wasm_compiler():
     compiler = Path(shutil.which(os.environ.get("TYPING_WASM_CC", "clang"))).resolve()
     original = compiler.parent.parent / "nix-support/orig-cc"
@@ -186,6 +197,7 @@ def main():
         args.repetitions = 1048576 if args.workload == "tail-fibonacci" else 256
     BUILD.mkdir(parents=True, exist_ok=True)
     commands = variants(args.workload)
+    check_specialization(commands)
     expected = (210000 if args.workload == "occurrence" else 4204971) * args.repetitions
     results = {name: [] for name in commands}
     for command in commands.values():
