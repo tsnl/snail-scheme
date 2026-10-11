@@ -1,0 +1,363 @@
+{
+  "base_revision": "a48e403fe139334c455ce65643cc68313f34bc4a",
+  "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_hashes": {
+    "src/awi.rs": "a8171568ae3a5ceebf767a5fd2d2e294ef674e9669cb3ab724a7b76aea7a29c7",
+    "src/host.rs": "3b8b4f4c5d5a062e34e70fe556485e1f4647f036c3f7624406ce5c5d1fe7cb4a",
+    "src/interop_example.rs": "5918a7c4451f6db3dc59ef9f23956c7714b1b7820300134324f6b1be35e8fc92",
+    "src/lib.rs": "2dca24d315a129cf2589bc425b4471bd78d90ed0fd41ea38afc35ede8ebe1b2e",
+    "src/runtime/awi.wat": "3320524b9f610e83b6eca1d48c2c0dab4b7e7be6966e8fe468ebbff9decdeea5",
+    "src/runtime/host.mjs": "a919df9534dfc14cdcad751b551a4352d219a6fd505ff9f6177fec808bc76be5",
+    "src/runtime/wasmgc.wat": "60726e8e70e68447e564d6c0d74c90c98b409b4c008f9dba54222fd70df91c42",
+    "src/snail/typing.sld": "8b3a5d6e00b5b2f1359e2b70dafa49c246eb48f3c4bcb1f0cebf56df69418e61",
+    "src/snail-scheme/bootstrap.sld": "7e4e44843c3a48641071fd740ccea31288d4834332c457b1296e186897f42f57",
+    "src/snail-scheme/build.sld": "835444287c07d15f1a0d938bdb5204e9853098c1734b924641444848ffcbeaca",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compiler.sld": "a8e9a4df3b0e1c5fc5fae5e041054a200a815fda91a67a5f033e75cb527c8d00",
+    "src/snail-scheme/expand.sld": "c710afcaf615c6ffcd5221c18009fd84902d0a10b88ea4e157f51be86fb9399c",
+    "src/snail-scheme/ir.sld": "2c628b4f39ca44b41e0d232011c29440d1a8620b2969e2c369de64e5239cfa27",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+    "src/snail-scheme/type-analysis.sld": "66b7831c720d6bd486c643ac4711c5e65d936958a17c96ee3a0ca16d98c77673",
+    "src/snail-scheme/types.sld": "dbb23c9b8883a9b6c108fe5edeb6e3066d6ea0ed9863d41320d28fd355c20233",
+    "src/snail-scheme/wasm-i32.sld": "491ab795ab500c176bc02bb43a1d623df8b7f81f390fb54a074ea728243d46eb",
+    "src/snail-scheme/wasm.sld": "2caa2ceef61e0e8fe85fdc33c2044c97f3e2bff231b2b22934134b0f5f3ffddd",
+    "src/trace.rs": "0c5f61300d3f89162045572b1e608ce3f34f3bcb7011e03400d02f46e28c267e",
+    "bootstrap/scheme/base.sld": "9b528ad8e1949697715ce05d019b3f439349d2fd53b3e9b1f3b144ae6989d8b8",
+    "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "de8e3c4bcca559ec00fa2d656089bc547d3b52cce0d263cd44030ab9edeb8334",
+    "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "benchmarks/build.scm": "3e3a0d1ab5f392d5baae8fbe889f5d542ac533fbc338845c00373371cca7fded",
+    "benchmarks/chez.scm": "94ce135680dc26cd96efd399746a7bf5b4081b8b802c6ac1b352bceeec0b6d72",
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/memory.scm": "c35ed7c8995f0c5688c05c2223a141f78eb4ea71df20f1e10b886250bd716adb",
+    "benchmarks/typing/fibonacci-checked.c": "842225d29a90863659887dcde4fe82d3e2b5b9f05406d8d2dd7ee71a6e7a7807",
+    "benchmarks/typing/fibonacci-kernel.c": "c29209bc597422654386ad6974db41b961703f0cf0b0532e641caf2e209f78e1",
+    "benchmarks/typing/fibonacci.c": "96938ac49dcea328129b4a642d268ff653dc75b3c5889acc7bb82e4ac1685af5",
+    "benchmarks/typing/measure.py": "bd91185b527707c44497ed56e54d54d98dd65202aaf663cd7e6e6d7ce9f65aa3",
+    "benchmarks/typing/occurrence.scm": "9fdb0b16f31eaebfa79c03bc3655526fe7208832510cc7057735094953377239",
+    "benchmarks/typing/run-kernel.mjs": "9c1479bb7887ab1a2fd4a7f32b821b34d6ca1474fc770166b658fa2363b9d589",
+    "tests/build-program.scm": "cbd361a38e80fb1fd127caaf7b9f9dbb60cdb8ff94b7a671e1c5d5259d4bcfb4",
+    "tests/build-typed-program.scm": "62bf7e2031ccb20b565577e81bac9ef255651dfeab92aa6493d1f1dbc5d3a64b",
+    "tests/check-awi-roots.mjs": "479adfb5872436f5c96895533387ea6c167ee4942e1a1cc3a8a88c2b6635478b",
+    "tests/check-finalizers.mjs": "469669981ebd6e5b7e6e10c24729c4b8f20b0754f83f7de259453ad9b1c41169",
+    "tests/finalizers.wat": "7eb8054a2e2e471e62f2fa814955d098dd02fe691164a06f00afa08a7deaded3",
+    "tests/programs/backend-bootstrap.scm": "f1eb5f0ff0670df00931d28000e24d61c9890eb79fa1b23761ce6bea9a63b1dc",
+    "tests/programs/backend-control.scm": "e99a1d7b16e54cae5aefd34a304f104eb567e6655b15a74ebab8576b0d962dc9",
+    "tests/programs/backend-errors.scm": "6b2364b6610304c8ab5c3431170ebf71ae7cc0d8c41ec6adc53b1b6f8d76da8f",
+    "tests/programs/backend-numeric-rebinding.scm": "1f1abc102bbaef0e1b7960e8b66f3cf6afc81eebf67d35f41a6785fa0cf277ea",
+    "tests/programs/backend-numeric.scm": "ddc891403e1aa781626c6548a63078b719b65bc911c2afd50a469af82cd1fc32",
+    "tests/programs/backend-semantics.scm": "3221241b7a678c0605bd6cbde6b58e613a9c4e6380b6adfe0efe3c58c933c413",
+    "tests/programs/backend-typing.scm": "81af0ce83e78466e3bf24065f39f3cfc257dd89eeb2f4898d5c0789529cd4789",
+    "tests/programs/backend-wasmgc.scm": "2b720db9668149ba3b2186b51b251d36edff8fc6c0742524801d4ac5bd6724ec",
+    "tests/programs/p0001.scm": "c140ee3dbb0ce39ab8342eeb13ead0c7fa51fc684213fc009372ab44622f6258",
+    "tests/snail-scheme/test-utils.sld": "073130c725fb772aa04f2ba82746946bd88322c73d783b320db0337fe5b98d07",
+    "tests/snail-scheme/test.scm": "dbee36704672e65de88a944a41e711ab073e66a66c7456bd2e6636c491bc2d99"
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu": 2,
+  "rounds": 8,
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "compilers": {
+    "native": "/run/current-system/sw/bin/clang",
+    "wasm": "/nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin/clang"
+  },
+  "workload": "fibonacci",
+  "repetitions": 256,
+  "checksum": 1076472576,
+  "versions": {
+    "node": "v24.19.0",
+    "clang": "clang version 22.1.8",
+    "wasm-opt": "wasm-opt version 132"
+  },
+  "variants": {
+    "untyped-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/untyped-guarded.wasm"
+      ],
+      "seconds": [
+        0.387285,
+        0.392132,
+        0.392421,
+        0.392224,
+        0.392248,
+        0.390998,
+        0.391474,
+        0.392398
+      ],
+      "median_seconds": 0.392178,
+      "bytes": 249941,
+      "sha256": "64037e827d3c53228baf0dc6ea9320b6fba5d2c06a30ad0b8aac387a13719692",
+      "emitted_single_calls": 952,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "untyped-boxed": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/untyped.wasm"
+      ],
+      "seconds": [
+        0.392082,
+        0.392439,
+        0.387437,
+        0.39229,
+        0.392102,
+        0.392321,
+        0.392175,
+        0.392099
+      ],
+      "median_seconds": 0.3921385,
+      "bytes": 248540,
+      "sha256": "6863b68fb157d32f90b85ee8840749950a0dae161c5aab60f7a5b3dc4d3dd3de",
+      "emitted_single_calls": 352,
+      "integer_helper_calls": 5,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "integer-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/integer-guarded.wasm"
+      ],
+      "seconds": [
+        0.49881,
+        0.487651,
+        0.498904,
+        0.498679,
+        0.499012,
+        0.498584,
+        0.499223,
+        0.487545
+      ],
+      "median_seconds": 0.4987445,
+      "bytes": 250105,
+      "sha256": "cb012b5dfda8416428b9ed2782c2793d2f3664539801ea6524638edc331d405e",
+      "emitted_single_calls": 952,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "integer-optimized": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/integer.wasm"
+      ],
+      "seconds": [
+        0.387577,
+        0.392131,
+        0.392463,
+        0.392407,
+        0.387667,
+        0.392206,
+        0.392508,
+        0.387624
+      ],
+      "median_seconds": 0.39216850000000003,
+      "bytes": 248757,
+      "sha256": "d11e7a32cb77cecbb4369db3a05855ff3a52d2dd6de8349806739dc0606265d8",
+      "emitted_single_calls": 343,
+      "integer_helper_calls": 10,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-guarded": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/guarded.wasm"
+      ],
+      "seconds": [
+        0.472685,
+        0.47257,
+        0.472556,
+        0.472755,
+        0.472508,
+        0.469542,
+        0.47272,
+        0.473399
+      ],
+      "median_seconds": 0.4726275,
+      "bytes": 250173,
+      "sha256": "75102f50889813ca496ae35d64dfc7e6ac7de7fc8c9c0839eb97ae3a82838c9b",
+      "emitted_single_calls": 954,
+      "integer_helper_calls": 0,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-boxed": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/boxed.wasm"
+      ],
+      "seconds": [
+        0.472699,
+        0.472741,
+        0.472486,
+        0.472718,
+        0.472471,
+        0.472491,
+        0.472495,
+        0.472559
+      ],
+      "median_seconds": 0.47252700000000003,
+      "bytes": 248904,
+      "sha256": "bdc474c4777039555fc2eadd138a464aa455c729bec47ad042211fd6aced3676",
+      "emitted_single_calls": 345,
+      "integer_helper_calls": 10,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 0
+    },
+    "i32-specialized": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "scripts/run-wasi.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/specialized.wasm"
+      ],
+      "seconds": [
+        0.171819,
+        0.171997,
+        0.171889,
+        0.171828,
+        0.171711,
+        0.172735,
+        0.171926,
+        0.171888
+      ],
+      "median_seconds": 0.1718885,
+      "bytes": 248358,
+      "sha256": "550bfb8e1d9557096f00797116b45883f4111045ceba0dba8aebc8e6c422fdba",
+      "emitted_single_calls": 343,
+      "integer_helper_calls": 5,
+      "string_helper_calls": 0,
+      "record_helper_calls": 0,
+      "i32_workers": 1
+    },
+    "c-native-O3": {
+      "command": [
+        "/tmp/snail-typing-20261010/build/typing-benchmark/c-native"
+      ],
+      "seconds": [
+        0.068719684,
+        0.068746546,
+        0.068675294,
+        0.068710254,
+        0.068678865,
+        0.068707554,
+        0.068909792,
+        0.068725102
+      ],
+      "median_seconds": 0.068714969,
+      "bytes": 16096,
+      "sha256": "a0a4fd1574ef1496f1950fd38076792de82dbb93eea5ebdf33b49f9f406600cc"
+    },
+    "c-native-checked": {
+      "command": [
+        "/tmp/snail-typing-20261010/build/typing-benchmark/c-checked"
+      ],
+      "seconds": [
+        0.107253733,
+        0.107241086,
+        0.094642649,
+        0.094694757,
+        0.101840198,
+        0.094653451,
+        0.107239106,
+        0.107242634
+      ],
+      "median_seconds": 0.10453965200000001,
+      "bytes": 16144,
+      "sha256": "e6a070591bb1faeadad260bac99610cf7f06e00c003127ca871bfef7fe68f283"
+    },
+    "c-native-no-sibling-calls": {
+      "command": [
+        "/tmp/snail-typing-20261010/build/typing-benchmark/c-recursive"
+      ],
+      "seconds": [
+        0.104681574,
+        0.104721208,
+        0.104735055,
+        0.104811309,
+        0.104720108,
+        0.104765428,
+        0.104720212,
+        0.104701585
+      ],
+      "median_seconds": 0.10472071,
+      "bytes": 16096,
+      "sha256": "ffab2e87d01f45d2ae5245aa7276b854e543d7f9fbc3883eb695062110b89238"
+    },
+    "c-wasm-O3": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "benchmarks/typing/run-kernel.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/c-wasm.wasm"
+      ],
+      "seconds": [
+        0.095131691,
+        0.094839498,
+        0.09528539,
+        0.09564833,
+        0.095102739,
+        0.095513771,
+        0.095792185,
+        0.095807535
+      ],
+      "median_seconds": 0.0953995805,
+      "bytes": 298,
+      "sha256": "93493ed2183742dc01061c85c0d7fb885b5ed5f24a0c3ba5a10e8a464c2830d9"
+    },
+    "c-wasm-checked": {
+      "command": [
+        "node",
+        "--no-warnings",
+        "benchmarks/typing/run-kernel.mjs",
+        "/tmp/snail-typing-20261010/build/typing-benchmark/c-wasm-checked.wasm"
+      ],
+      "seconds": [
+        0.172364254,
+        0.171899648,
+        0.17194008,
+        0.172309726,
+        0.171764118,
+        0.171846621,
+        0.172166401,
+        0.169713695
+      ],
+      "median_seconds": 0.17191986399999998,
+      "bytes": 310,
+      "sha256": "c055898a692626768c7c8e30dbd0a45d43bb744573bae755f41f029299989201"
+    }
+  }
+}
