@@ -32,6 +32,12 @@
    <conditional> make-conditional conditional? conditional-test conditional-consequent
    conditional-opt-alternate conditional-loc
    <assignment> make-assignment assignment? assignment-target assignment-value assignment-loc
+   make-type-declaration type-declaration? type-declaration-definition
+   type-declaration-type type-declaration-loc
+   make-annotation annotation? annotation-expression annotation-type annotation-loc
+   make-instantiation instantiation? instantiation-expression instantiation-types instantiation-loc
+   make-record-schema record-schema? record-schema-definition record-schema-constructor
+   record-schema-predicate record-schema-arguments record-schema-fields record-schema-loc
 
    ;; ---- Identity ----
 
@@ -127,6 +133,39 @@
       (loc assignment-loc))
 
     ;; ---- Identity ----
+
+    ;; Types are resolved during expansion. Declarations name binding identities;
+    ;; assertions retain their evaluation site, so their checks cannot move early.
+    (define-record-type <type-declaration>
+      (make-type-declaration definition type loc)
+      type-declaration?
+      (definition type-declaration-definition)
+      (type type-declaration-type)
+      (loc type-declaration-loc))
+
+    (define-record-type <annotation>
+      (make-annotation expression type loc)
+      annotation?
+      (expression annotation-expression)
+      (type annotation-type)
+      (loc annotation-loc))
+
+    ;; A static callable view; evaluating it returns the same procedure value.
+    (define-record-type <instantiation>
+      (make-instantiation expression types loc)
+      instantiation?
+      (expression instantiation-expression)
+      (types instantiation-types)
+      (loc instantiation-loc))
+
+    ;; Compile-time description emitted by the bootstrap record macro. Fields
+    ;; are (name type accessor-definition optional-mutator-definition).
+    (define-record-type <record-schema>
+      (make-record-schema definition constructor predicate arguments fields loc)
+      record-schema?
+      (definition record-schema-definition) (constructor record-schema-constructor)
+      (predicate record-schema-predicate) (arguments record-schema-arguments)
+      (fields record-schema-fields) (loc record-schema-loc))
 
     ;; Defining nodes and references share this object; neither stores a scope.
     (define-record-type <value-definition>
