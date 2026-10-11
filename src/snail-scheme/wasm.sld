@@ -9,7 +9,7 @@
   (export ir-library->wasm write-wasm)
   (import (scheme base) (scheme cxr) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
-          (snail-scheme types) (snail-scheme type-analysis)
+          (snail-scheme types) (snail-scheme type-analysis) (snail-scheme partial-eval)
           (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
@@ -17,12 +17,12 @@
     ;; ---- Compilation state ----
 
     (define-record-type <module>
-      (make-module globals primitives boxed functions known foreign constants analysis specialized result-guards)
+      (make-module globals primitives boxed functions known foreign constants analysis folds specialized result-guards)
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
       (foreign module-foreign) (constants module-constants)
-      (analysis module-analysis)
+      (analysis module-analysis) (folds module-folds)
       (specialized module-specialized) (result-guards module-result-guards))
 
     (define-record-type <function>
@@ -71,6 +71,7 @@
                                (analysis ((chromium-trace "analyze-types" analyze-types) items primitives)))
                           (make-module (numbered globals) primitives
                                        (boxed-definitions items globals) functions known foreign (make-literal-pool) analysis
+                                       ((chromium-trace "partial-evaluate" partial-evaluate) items primitives analysis)
                                        (specialized-functions functions known globals primitives analysis)
                                        (numbered (unique-identities (map car (analysis-guards analysis)))))))))
 
@@ -328,7 +329,9 @@
               (else (raw-expression node context #f)))))
 
     (define (raw-expression node context checks)
-      (cond ((ir:block? node) (sequence-expression (ir:block-items node) context checks))
+      (cond ((assq node (module-folds (function-module context)))
+             => (lambda (entry) (finish-expression (literal-value (cdr entry) (function-module context)) checks context)))
+            ((ir:block? node) (sequence-expression (ir:block-items node) context checks))
             ((ir:conditional? node) (conditional-expression node context checks))
             ((ir:annotation? node) (expression (ir:annotation-expression node) context checks))
             ((ir:instantiation? node) (expression (ir:instantiation-expression node) context checks))
@@ -938,7 +941,7 @@
       (define (emitted-literal-references node values)
         (let* ((pool (make-literal-pool))
                (module (make-module '() '() '() '() '() '() pool
-                                    (analyze-types '() '()) '() '()))
+                                    (analyze-types '() '()) '() '() '()))
                (context (make-function module '() '())))
           (expression node context #f)
           (map (lambda (value) (literal-reference value pool)) values)))

@@ -145,10 +145,11 @@ Within `ir-library->wasm`, the emitter records these stages:
 | --- | --- |
 | `prepare-module` | Collect globals and procedures; analyze mutation, cells and known callees |
 | `analyze-types` | Record occurrence facts, checked signatures, and required guards |
+| `partial-evaluate` | Evaluate bounded closed computations and record safe scalar folds |
 | `generate-procedure-functions` | Build procedure bodies, including local/capture analysis |
 | `generate-library-functions` | Build library initialization bodies in dependency order |
 
-Type analysis nests inside preparation. Procedure and
+Type analysis and partial evaluation nest inside preparation. Procedure and
 library generation register literals in source traversal order. The separate
 `write-wasm` span measures serialization of the completed datum; native builds
 instead trace name/type resolution and LLVM emission. Runtime definitions are

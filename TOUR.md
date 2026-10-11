@@ -213,6 +213,12 @@ hashing through owned AWI roots. Wasm's weak identity map and native pointer
 hashing avoid a registry that would retain keys. See [hash tables](doc/hash-tables.md)
 for the supported API and comparator limits.
 
+[`partial-eval.sld`](src/snail-scheme/partial-eval.sld) evaluates bounded,
+side-effect-free computations over resolved IR and records scalar constants.
+Unknown inputs, mutation, typed guards, unsafe arithmetic, and exhausted fuel
+leave the original IR and checks intact. Private temporary aggregates can help
+compute a scalar result, but no mutable allocation escapes through a fold.
+
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) constructs a complete Wasm datum from
