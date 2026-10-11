@@ -118,18 +118,25 @@ def check_script(interpreter, directory, **environment):
     temporary = directory / "script-temporaries"
     temporary.mkdir()
     environment = {**environment, "TMPDIR": str(temporary)}
-    source = write_script(directory, "literal 'script.scm", """(import (scheme base) (scheme write) (scheme process-context))
+    source = write_script(directory, "literal 'script.scm", """(import (scheme base) (scheme write) (scheme process-context) (snail typing))
 (display "first\\n")
 (define (main) (error "a script's helper must not become its entry"))
 (write (command-line)) (newline)
 (write (read-string 3)) (newline)
 (write (utf8->string (bytevector-append (string->utf8 "λ") (bytevector 0 255)) 0 2)) (newline)
 (write (bytevector-copy (bytevector 0 128 255) 1)) (newline)
+(: identity (All (A) (-> A A)))
+(define (identity value) value)
+(: cancel (-> i32 i32 i32))
+(define (cancel a b) (- (+ a b) b))
+(: product (-> i32 i32 i32 i32))
+(define (product a b c) (* (* a b) c))
+(write (list (identity "typed") (cancel 2147483647 2147483647) (product 2 3 4))) (newline)
 (display "last\\n")
 42
 """)
     expected = ("first\n(" + " ".join(map(quote, [source.name, *ARGUMENTS])) +
-                ')\n"aλ😀"\n"λ"\n#u8(128 255)\nlast\n')
+                ')\n"aλ😀"\n"λ"\n#u8(128 255)\n("typed" 2147483647 24)\nlast\n')
     require(invoke([interpreter, source.name, *ARGUMENTS], directory, input="aλ😀z", **environment), expected)
     exit_source = write_script(directory, "exit.scm", '(import (scheme process-context)) (exit 7)\n')
     require(invoke([interpreter, exit_source], **environment), status=7)
@@ -263,7 +270,7 @@ def check_self_host(interpreter, directory):
     check_option_errors(replacement, directory, **environment)
     check_application_options(replacement, directory, **environment)
     check_failed_build(replacement, directory, **environment)
-    print("passed native compiler self-hosting with Chibi unavailable", flush=True)
+    print("passed native compiler self-hosting with Chibi deliberately blocked", flush=True)
 
 
 # ---- Test entry point ----
@@ -279,7 +286,9 @@ def main():
         check_entry(directory)
         interpreter = options.interpreter.resolve() if options.interpreter else directory / "snail-scheme"
         if not options.interpreter:
-            require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", ROOT / "build.scm", interpreter]))
+            # Headroom avoids Chibi allocator scanning during full-compiler serialization.
+            require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-h512M", "-I", ROOT / "src",
+                            ROOT / "build.scm", interpreter]))
         require_native(interpreter)
         check_self_host(interpreter, directory)
     print("native self-hosting checks passed")

@@ -17,7 +17,7 @@ The checkout's complete `build.scm` chooses the interpreter's output filename:
 Bootstrap with Chibi, then run the same script with the resulting interpreter:
 
 ```sh
-chibi-scheme -I src build.scm
+chibi-scheme -h512M -I src build.scm
 build/snail-scheme -Isrc build.scm
 build/snail-scheme build.scm build/another-snail-scheme
 ```
