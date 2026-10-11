@@ -144,12 +144,15 @@ Within `ir-library->wasm`, the emitter records these stages:
 | Span | Work |
 | --- | --- |
 | `prepare-module` | Collect declarations, globals, procedures, mutation, cells and known callees |
-| `generate-library-functions` | Visit libraries and procedure bodies, check types, and construct code |
+| `generate-library-functions` | Visit libraries and procedure bodies, check types, attempt bounded scalar folds, and construct code |
 
-The visitor consumes transient type facts while lowering each expression and
-registers literals in source traversal order. The separate `write-wasm` span
-measures serialization of the completed datum; native builds trace name/type resolution and LLVM emission. Runtime definitions are ordinary in-memory datums, so there are no
-runtime text-copy spans.
+Type inference and partial evaluation run inside the visitor. Each expression's
+facts and fold candidate are consumed by its parent and emission; there are no
+separate fact-indexing or procedure-generation spans. The visitor registers
+literals in source traversal order. The separate `write-wasm` span measures
+serialization of the completed datum; native builds instead trace name/type
+resolution and LLVM emission. Runtime definitions are ordinary in-memory datums,
+so there are no runtime text-copy spans.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and omission
 of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded

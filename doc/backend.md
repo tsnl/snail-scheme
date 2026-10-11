@@ -91,6 +91,7 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `ir.sld` | Seven resolved expression forms and shared binding identities |
 | `library.sld` | Library containers, imports, exports, dependency order |
 | `expand.sld` | Located syntax to IR, including `syntax-rules` expansion |
+| `partial-eval.sld` | Bounded scalar candidates consumed directly by the visitor |
 | `wasm.sld` | Binding/capture analysis, Wasm datums, and standard WAT printing |
 | `src/snail-scheme/wasm-runtime.sld` | Value representations, checked primitives, calls |
 | `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |

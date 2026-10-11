@@ -213,6 +213,24 @@ hashing through owned AWI roots. Wasm's weak identity map and native pointer
 hashing avoid a registry that would retain keys. See [hash tables](doc/hash-tables.md)
 for the supported API and comparator limits.
 
+[`partial-eval.sld`](src/snail-scheme/partial-eval.sld) attempts bounded evaluation
+of closed scalar computations as the visitor checks and lowers each expression.
+The visitor checks every source child before consuming a scalar fold; even a
+discarded branch must typecheck. No fold index survives. Unknown values, effects,
+typed boundaries, overflow, or exhausted fuel abandon an attempt. Private
+temporary pairs and vectors may participate, but only scalar results become
+replacements. The bounded interpreter retains private activation slots and fuel;
+these are separate from the immutable typing scopes.
+Each visitor result also says whether interpreting the original syntax could
+bypass an inferred check. Children propagate that information directly; a guard
+inside an immediate lambda blocks folding the whole call and publishing its raw
+value. The interpreter still proves purity, successful execution, and bounded work.
+
+Tail expressions delay code assembly until their enclosing result checks are
+known. These small builders capture selected WAT fragments and explicit check
+recipes, never inferred facts or type scopes. They are consumed once before the
+enclosing procedure's code is published. Ordinary children already contain WAT.
+
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) constructs a complete Wasm datum from

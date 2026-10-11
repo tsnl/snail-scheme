@@ -337,9 +337,9 @@ def require(condition, description, result):
                            f"stdout={result.stdout}\nstderr={result.stderr}")
 
 
-def run_case(name, source, stdout, diagnostic):
+def run_case(name, source, stdout, diagnostic, modes=("guarded", "optimized")):
     observations = []
-    for mode in ("guarded", "optimized"):
+    for mode in modes:
         output = BUILD / f"{name}-{mode}.wasm"
         built = compile_program(source, output, mode)
         require(built.returncode == 0, f"compile {name}/{mode}", built)
@@ -351,6 +351,53 @@ def run_case(name, source, stdout, diagnostic):
         observations.append((result.returncode, result.stdout))
     assert observations[0] == observations[1], name
     print(f"passed typing: {name}", flush=True)
+
+
+def check_streaming_folds():
+    cases = {
+        "checked-alias": ('(: f (-> i32 i32)) (define (f x) x) '
+                          '(define alias f) (alias 2147483648)', "", "incorrect value type"),
+        "untyped-result-guard": ('(define (f x) (ann x String)) (f 42)',
+                                 "", "incorrect value type"),
+        "count-through-iife": ('(write (call-with-values '
+                               '(lambda () ((lambda () (values 1 2)))) list))', "(1 2)", ""),
+        "guard-after-fold": ('(write (ann ((lambda () (+ 20 22))) ExactInteger))', "42", ""),
+        "folded-false": ('(write (if ((lambda () #f)) 1 2))', "2", ""),
+        "folded-null": ('(write ((lambda () (quote ()))))', "()", ""),
+        "forward-alias": ('(define alias f) (define (f x) x) (alias 42)',
+                          "", "read of an uninitialized binding"),
+    }
+    # An expected result can introduce a guard inside an unannotated IIFE.
+    # Raw interpretation of its syntax must not erase that generated guard.
+    initializers = {
+        "inherited-guard": '((lambda (v) v) (car (cons VALUE #f)))',
+        "higher-order-guard": '((lambda (f) (f (car (cons VALUE #f)))) (lambda (v) v))',
+        "factory-guard": '(((lambda () (lambda (v) v))) (car (cons VALUE #f)))',
+        "let-guard": '(let ((v (car (cons VALUE #f)))) v)',
+        "branch-guard": '(if #f  "unused" ((lambda (v) v) (car (cons VALUE #f))))',
+    }
+    for name, initializer in initializers.items():
+        for suffix, value, stdout, diagnostic in [
+            ("bad", "42", "", "incorrect value type"),
+            ("good", '"ok"', '"ok"', ""),
+        ]:
+            program = f'(: x String) (define x {initializer.replace("VALUE", value)}) (write x)'
+            cases[f"{name}-{suffix}"] = (program, stdout, diagnostic)
+    for name, (program, stdout, diagnostic) in cases.items():
+        source = BUILD / f"stream-{name}.scm"
+        source.write_text(IMPORTS + program + "\n")
+        run_case(f"stream-{name}", source, stdout, diagnostic, ("optimized", "folded"))
+    for name, program in {
+        "dead-branch": '(if #t 42 (ann "bad" ExactInteger))',
+        "unused-body": '(ann (lambda () "bad") (-> ExactInteger)) 42',
+    }.items():
+        source = BUILD / f"stream-{name}.scm"
+        source.write_text(IMPORTS + program + "\n")
+        for mode in ("optimized", "folded"):
+            result = compile_program(source, BUILD / f"stream-{name}-{mode}.wasm", mode)
+            require(result.returncode != 0 and "type mismatch" in result.stderr,
+                    f"reject stream-{name}/{mode}", result)
+        print(f"rejected before folding: {name}", flush=True)
 
 
 def main():
@@ -374,6 +421,7 @@ def main():
             require(re.search(re.escape(str(source)) + r":\d+:\d+:", result.stderr),
                     f"located diagnostic {name}", result)
         print(f"rejected as expected: {name}", flush=True)
+    check_streaming_folds()
 
 
 if __name__ == "__main__":
