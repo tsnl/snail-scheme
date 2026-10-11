@@ -145,7 +145,7 @@ Within `ir-library->wasm`, the emitter records these stages:
 | --- | --- |
 | `prepare-module` | Collect globals and procedures; analyze mutation, cells and known callees |
 | `analyze-types` | Record occurrence facts, checked signatures, and required guards |
-| `partial-evaluate` | Evaluate bounded closed computations and record safe scalar folds |
+| `partial-evaluate` | Attempt bounded scalar evaluation and record safe folds |
 | `generate-procedure-functions` | Build procedure bodies, including local/capture analysis |
 | `generate-library-functions` | Build library initialization bodies in dependency order |
 

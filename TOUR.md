@@ -51,8 +51,8 @@ failed builds retain them and preserve the last published artifact. Cargo tracks
 Rust dependencies and reuses the runtime archive.
 
 [`compiler.sld`](src/snail-scheme/compiler.sld) exports
-`source-file->wasm`: source filename to an in-memory module datum.
-`source-file->wat-file` writes that datum as unlinked WAT. The loader
+`source-file->wasm`: source filename to a complete in-memory Wasm datum.
+`source-file->wat-file` additionally writes that datum as unlinked WAT. The loader
 maps `(scheme ...)` to `bootstrap/scheme/`. Other imports search caller-provided
 library directories in order, then `src/`; one search policy covers transitive
 imports, and malformed first matches do not fall through.
@@ -67,14 +67,13 @@ caches its result for one build, and collects its dependency artifacts.
 artifact transport protocol. The wrapper's name and exports remain authoritative;
 the generator returns import and begin declarations.
 
-[`artifacts.sld`](src/snail-scheme/artifacts.sld) validates dependency graphs,
-snapshots completed files, and writes the package manifest. Builds with
-dependencies publish a complete generation and atomically switch the public
-symlink. [`(snail artifacts)`](src/snail/artifacts.sld) resolves companions beside
-the physical executable; older generations remain available to running programs.
-[`runtime-artifact.sld`](src/snail-scheme/runtime-artifact.sld) runs Cargo in a
-generator and packages `snail-runtime.wat` for the compiler. Build scripts reuse
-the installed companion, with Cargo as the bootstrap fallback.
+[`artifacts.sld`](src/snail-scheme/artifacts.sld) validates the dependency graph,
+snapshots completed files, and writes the package manifest. A build with
+dependencies publishes an executable and its files as one generation, then
+atomically switches the public symlink. [`(snail artifacts)`](src/snail/artifacts.sld)
+resolves companions beside the physical executable; old generations remain
+available to running programs. [`runtime-artifact.sld`](src/snail-scheme/runtime-artifact.sld)
+uses a generator to run Cargo and package `snail-runtime.wat` for the compiler.
 See [generation and packaging](doc/build-artifacts.md).
 
 [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) decorates procedures
@@ -211,17 +210,13 @@ compiler optimizations can improve.
 
 The remaining bootstrap modules are deliberately thin. `cxr.sld` defines the
 longer `car`/`cdr` compositions. `file.sld` wraps file opening with
-`call-with-port`. `char.sld`, `inexact.sld`, `process-context.sld`, `time.sld`, and `write.sld`
+`call-with-port`. `char.sld`, `process-context.sld`, `time.sld`, and `write.sld`
 expose their corresponding primitive groups. `parameterize` and port wrappers
 preserve multiple values on normal returns; nonlocal exits and `dynamic-wind`
 are outside this bootstrap subset.
 
 [`runtime.sld`](src/snail-scheme/runtime.sld) exposes the explicitly nonstandard
 `string-contains` operation, implemented by Rust's substring search.
-
-See [the implemented typing contract](doc/typing-prototype.md),
-[proposed rules](doc/typing-rules.md), and [typing measurements](benchmarks/README.md#typing-and-i32-specialization)
-for supported boundaries and remaining proof obligations.
 
 [`hash-table.sld`](src/snail-scheme/hash-table.sld) implements collector-owned
 R7RS-large hash tables behind `(scheme hash-table)`. Scheme owns buckets, cached
@@ -230,27 +225,65 @@ hashing through owned AWI roots. Wasm's weak identity map and native pointer
 hashing avoid a registry that would retain keys. See [hash tables](doc/hash-tables.md)
 for the supported API and comparator limits.
 
-[`partial-eval.sld`](src/snail-scheme/partial-eval.sld) evaluates bounded,
-side-effect-free computations over resolved IR and records scalar constants.
-Unknown inputs, mutation, typed guards, unsafe arithmetic, and exhausted fuel
-leave the original IR and checks intact. Private temporary aggregates can help
-compute a scalar result, but no mutable allocation escapes through a fold.
+## Checking types and recording evidence
+
+[`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
+syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record
+schemas in IR, with resolved binding identities and source locations. The
+existing `define-record-type` macro also accepts typed fields; standard field
+forms keep their meaning.
+
+[`types.sld`](src/snail-scheme/types.sld) defines shallow categories, structural
+unions, nominal records, rigid type variables, internal occurrence intersections,
+and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
+solves rank-one `All` instantiations from arguments and expected results.
+[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) checks annotated
+lambdas bidirectionally, collects mutation before narrowing, and infers bounded
+occurrence filters and verified function summaries. Its output separates
+expression facts, required guards, and enforced function signatures. Checked
+callable views retain implementation origins for recursive-instantiation checks.
+A guard's
+postcondition can justify a later optimization, never removal of that guard.
+The emitter checks local returns inline. The first guarded tail transfer owns
+one checking frame; the private closure ABI shares its pending-check context
+with subsequent tail calls. `wasm-runtime.sld` deduplicates recurring check sites in
+inner-to-outer order and executes them when the logical invocation returns.
+Ordinary calls and AWI callbacks start fresh; neither closures nor Rust roots
+capture this state.
+See [the implementation report](doc/typing-prototype.md) for syntax, soundness
+obligations, measurements, and the boundary between implemented and proposed rules.
+
+[`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) optionally specializes closed
+monomorphic i32 functions. Code and interval bounds travel together; unsupported
+expressions or possible i64 overflow cause whole-function fallback. Public
+closures keep the ordinary Scheme ABI, while eligible recursive workers use i32
+parameters/results and checked, widened arithmetic. Self tail calls save every
+operand before replacing parameters and branching to a local Wasm loop.
 
 ## Emitting WebAssembly
 
-[`wasm.sld`](src/snail-scheme/wasm.sld) constructs a complete Wasm datum from
-resolved IR. `ir-library->wasm` sequences module preparation, procedure generation,
-and library initialization explicitly, preserving source traversal and generated
-names across hosts. `write-wasm` prints completed definitions with standard
-`write-simple`; import strings use WAT byte escaping. Runtime definitions are
-quoted datums in `wasm-runtime.sld` and `wasm-awi.sld`.
+[`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
+constructs folded Wasm datums in memory. Its analysis records binding identity, assignment, lambda
+captures, and initialization. It does not build MIR, bytecode, a managed operand
+stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
+visible in the generated code. Runtime helpers are quoted datums too.
+`write-wasm` prints each definition with standard `write-simple`; only import
+string leaves need WAT-specific byte escaping. The portable backend passes
+that WAT to Binaryen; the native backend consumes the datums directly.
 
-[`wasm-literals.sld`](src/snail-scheme/wasm-literals.sld) records compound literals
-by identity and emits dependencies before their users. An explicit work list
-handles long lists, shared mutable objects remain shared, and equal objects are
-not merged. Symbols share their interned identity. Cyclic source literals still
-require datum-label reader support. This avoids a large procedural initializer
-when the compiler's runtime definitions are themselves compiled as literals.
+[`partial-eval.sld`](src/snail-scheme/partial-eval.sld) attempts bounded evaluation
+of closed scalar computations before emission. It records results by IR identity
+and leaves the original program intact. Unknown values, effects, typed guards,
+overflow, or exhausted fuel abandon an attempt. Private temporary pairs and
+vectors may participate, but only scalar results become replacements.
+
+[`wasm-literals.sld`](src/snail-scheme/wasm-literals.sld) turns compound literals
+into a dependency-ordered object graph. Identity preserves shared objects without
+merging equal mutable containers; an explicit work list handles long lists.
+Both Wasm constant initializers and LLVM static aggregates consume this graph.
+Cycles still require reader datum-label support. The LLVM static path retains
+the initial graph for the module lifetime and leaves unsupported initializers
+on the ordinary runtime path.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
 fixed callees pass arguments directly; unknown calls use a GC argument array.
@@ -258,6 +291,13 @@ Wasm tail-call instructions implement proper tail calls. Captures known to be
 initialized and immutable travel by value; mutable or early captures use cells.
 Recursive initialization preserves unreadable cells until each initializer
 finishes. Single/multiple-value contexts are checked explicitly.
+
+Annotated functions also have a checked entry. A direct call bypasses it only
+when every argument has sufficient evidence; generic adapters retain it.
+Per-expression facts remove redundant single-value and category checks, while
+initialization, field-content, arithmetic-overflow, and bounds checks require
+their own evidence. The runtime provides integer-only and known-category
+helpers without changing ordinary Scheme storage representations.
 
 [`src/snail-scheme/wasm-runtime.sld`](src/snail-scheme/wasm-runtime.sld) defines the value representations and
 checked primitives. Small integers are immediate `i31ref`; larger integers and
@@ -289,8 +329,8 @@ Rust-owned external resources need explicit close. The additional JS
 [`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
 Scheme values, invoking callbacks, and returning rooted values. It is compiled
 into the standard runtime; [its build script](examples/rust-interop/build.scm)
-provides the Scheme name-to-Wasm-module declarations. All Rust code in a program
-shares the runtime's one linear memory.
+provides the Scheme name-to-Wasm-module declarations. All Rust code in a portable Wasm program
+shares the runtime's one linear memory; native builds link a native Rust archive.
 
 ## Continuations and native translation
 
@@ -348,12 +388,17 @@ sources compile without importing host-only test modules.
 Rust unit tests remain in implementation modules. `scripts/test-backend`
 executes linked Wasm semantic and diagnostic fixtures; `scripts/test-build`
 checks library imports, traces, publication, literal arguments, Rust callbacks, and
-root ownership. `scripts/test-backend --target both` compiles each fixture once
-and runs that exact module through both backends. `scripts/test-native` adds
+root ownership. `scripts/test-backend --target both` builds and executes each
+fixture through both backends. `scripts/test-native` adds
 cross-engine Wasm semantics, traps, bounded native stack use, forced collection,
 Rust callbacks, and resource finalization. `scripts/test-self-host` exercises
 the native CLI, blocks Chibi and Wasm assembly/optimization during a rebuild,
 and runs its replacement. Runtime companion generation still uses `wasm-dis`.
+
+`scripts/test-typing` compares fully guarded and optimized linked Wasm, including
+diagnostics, effect order, mutation, record identity, numeric boundaries, and
+proper tail calls. `benchmarks/typing/measure.py` measures check elimination and
+i32 specialization against checked and unchecked C kernels.
 
 [`benchmarks/`](benchmarks/README.md) contains CPU and allocation workloads.
 CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
@@ -383,29 +428,3 @@ those same sources. The small [Scheme entry](benchmarks/compile-self.scm) owns
 the clock boundary; Python checks output bytes and reuses the suite's process
 and reporting utilities.
 [BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.
-
-## Type analysis building blocks
-
-[`types.sld`](src/snail-scheme/types.sld) defines the decidable type algebra: shallow
-value categories, structural unions, nominal record identities, function signatures,
-and rank-one `All` schemes. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
-solves fresh argument and result constraints for each use of a polymorphic signature.
-The resolved IR can carry declarations, annotations, explicit instantiations, and
-record schemas. The expander now resolves the type syntax into these nodes.
-[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) checks resolved identities,
-tracks definite initialization and value counts, narrows stable bindings across
-predicate branches, and records required guards. Unknown calls and mutation limit
-which facts survive. The public `(snail typing)` import enables these forms; the Wasm emitter uses the
-analysis to enforce annotation boundaries and omit only checks justified by facts.
-
-[`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) accepts only closed, immutable,
-fixed-arity i32 procedures whose supported operations preserve Scheme arithmetic.
-It returns a worker or declines specialization. Intermediate arithmetic widens;
-narrowing checks retain the declared boundary, and self tail calls replace all
-parameters simultaneously through a loop. Checked Scheme adapters preserve the normal closure calling convention.
-
-Typed result assertions remain local until a tail transfer needs to defer them.
-One shared result-check context owns that tail chain and drains pending checks at
-the return boundary, preserving their order without accumulating host stack frames.
-Unannotated record definitions retain their standard syntax; optional typed fields
-add schema metadata and shallow field contracts.

@@ -1,10 +1,10 @@
 # WebAssembly backend
 
 The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
-by library; `wasm.sld` constructs WasmGC datums and writes their WAT form with
-the standard Scheme writer. The native backend instead resolves these datums
-into LLVM and links the native Rust archive. Binaryen assembles, links, and
-optimizes it with the Rust runtime compiled to Wasm.
+by library; `wasm.sld` produces an in-memory WasmGC datum. The Wasm backend
+writes WAT with Scheme's standard writer, then Binaryen assembles, links, and
+optimizes it with the Rust runtime. The native backend resolves the same datum
+and lowers it to LLVM without a Wasm binary reader.
 
 The [type checker](typing-prototype.md) runs on resolved identities before
 emission. Opt-in annotations enforce shallow boundaries; occurrence facts can
@@ -100,11 +100,13 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
 | `src/lib.rs` | Rust ports, formatting, inexact math, text search, clocks, process services |
-| `artifacts.sld`, `src/snail/artifacts.sld`, `artifacts.rs` | Dependency graphs, manifests, and installed companion lookup |
-| `compile-build.sld`, `generation.sld` | Isolated library generators and their returned dependencies |
 | `build.sld` | Cargo, linking, execution and artifact publication |
+| `compile-build.sld`, `generation.sld` | Isolated library generators and their returned dependencies |
+| `artifacts.sld`, `src/snail/artifacts.sld` | Build artifact graph and installed companion lookup |
 | `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
-| `native.sld` | Scheme/Wasm-to-native stages and ordinary script execution |
+| `wasm-resolve.sld` | Datum names/types and folded evaluation order for LLVM |
+| `llvm.sld` | Resolved Wasm declarations and instructions to native LLVM |
+| `native-link.sld`, `native.sld` | Datum-to-native linking, publication, and script execution |
 | `build.scm`, `main.scm` | Interpreter build recipe and command entry |
 
 IR expressions are names, literals, applications, lambdas, blocks, conditionals,
