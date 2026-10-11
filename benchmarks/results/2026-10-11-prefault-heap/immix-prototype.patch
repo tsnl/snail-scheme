@@ -1,0 +1,1206 @@
+diff --git a/scripts/test-native b/scripts/test-native
+index 1220be7..fde371d 100755
+--- a/scripts/test-native
++++ b/scripts/test-native
+@@ -42,6 +42,8 @@ def translate(source, name):
+ 
+ 
+ def collector_flags():
++    if os.environ.get("SNAIL_PRECISE_GC"):
++        return ["-DSNAIL_PRECISE_GC", "-I", str(ROOT / "src"), str(ROOT / "src/precise-gc.c"), "-lm"]
+     flags = ["-lgc", "-lm"]
+     if "BDWGC_INCLUDE" in os.environ:
+         flags += ["-I", os.environ["BDWGC_INCLUDE"]]
+diff --git a/src/native.c b/src/native.c
+index 0b04cde..3ad4aae 100644
+--- a/src/native.c
++++ b/src/native.c
+@@ -3,7 +3,10 @@
+ // This host knows no Scheme representation beyond AWI's finalizer import.
+ 
+ #define _GNU_SOURCE
++#include "precise-gc.h"
++#ifndef SNAIL_PRECISE_GC
+ #include <gc/gc.h>
++#endif
+ #include <math.h>
+ #include <stdbool.h>
+ #include <stdint.h>
+@@ -26,6 +29,20 @@ _Noreturn void native_trap(void) {
+     exit(1);
+ }
+ 
++// A tail call unlinks before transfer. The callee links before any collection.
++// Rust callbacks temporarily link above suspended guest frames. No async GC.
++NativeRoots *volatile native_roots;
++void native_roots_enter(NativeRoots *frame, uint64_t capacity) {
++    frame->capacity = capacity;
++    frame->count = 0;
++    if (!capacity) return;
++    frame->previous = native_roots;
++    native_roots = frame;
++}
++void native_roots_leave(NativeRoots *frame) {
++    if (frame->capacity) native_roots = frame->previous;
++}
++
+ static uint64_t allocations, collection_interval;
+ 
+ static void *try_allocate(uint64_t size) {
+@@ -92,14 +109,20 @@ void native_array_copy(uint64_t target, uint32_t to, uint64_t source,
+     memmove(destination + 2 + to, origin + 2 + from, (size_t)count * 8);
+ }
+ 
+-typedef struct {
+-    uint64_t *values;
+-    uint32_t length, maximum;
+-} NativeTable;
++// Headerless table buffers have explicit ownership in the precise experiment.
++// The collector enumerates current cells through the permanent table identity.
++static uint64_t *table_allocate(uint64_t bytes) {
++#ifdef SNAIL_PRECISE_GC
++    return calloc(1, bytes ? bytes : 1);
++#else
++    return try_allocate(bytes);
++#endif
++}
+ 
+ void native_table_init(NativeTable *table, uint32_t length, uint32_t maximum) {
+     if (length > maximum) native_trap();
+-    table->values = (void *)(uintptr_t)native_alloc((uint64_t)length * 8);
++    table->values = table_allocate((uint64_t)length * 8);
++    if (!table->values) native_trap();
+     table->length = length;
+     table->maximum = maximum;
+ }
+@@ -115,10 +138,13 @@ uint32_t native_table_grow(NativeTable *table, uint64_t initial, uint32_t delta)
+     uint32_t old = table->length;
+     if (!delta) return old;
+     if ((uint64_t)old + delta > table->maximum) return UINT32_MAX;
+-    uint64_t *values = try_allocate(((uint64_t)old + delta) * 8);
++    uint64_t *values = table_allocate(((uint64_t)old + delta) * 8);
+     if (!values) return UINT32_MAX;
+     memcpy(values, table->values, (size_t)old * 8);
+     for (uint64_t i = old; i < (uint64_t)old + delta; i++) values[i] = initial;
++#ifdef SNAIL_PRECISE_GC
++    free(table->values);
++#endif
+     table->values = values;
+     table->length = old + delta;
+     return old;
+diff --git a/src/precise-gc.c b/src/precise-gc.c
+new file mode 100644
+index 0000000..b444522
+--- /dev/null
++++ b/src/precise-gc.c
+@@ -0,0 +1,359 @@
++// Experimental nonmoving Immix: block/line reclamation and bump allocation.
++// This prototype deliberately omits opportunistic evacuation. Exact reference
++// frames and declared heap edges are unchanged from the precise experiment.
++#define _GNU_SOURCE
++#include "precise-gc.h"
++#include <assert.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/mman.h>
++#include <time.h>
++
++// ---- Heap representation ----
++
++#define BLOCK_SIZE 32768u
++#define LINE_SIZE 128u
++#define LINES (BLOCK_SIZE / LINE_SIZE)
++#define ALIGNMENT 16u
++#define START_WORDS (BLOCK_SIZE / ALIGNMENT / 64)
++#define ALLOCATED 1u
++#define MARKED 2u
++#define CONTINUATION UINT32_MAX
++
++typedef struct {
++    uint64_t starts[START_WORDS];
++    uint8_t lines[LINES];
++    uint32_t span, live_lines;
++    uint16_t available_lines, next_line;
++} Block;
++typedef struct { uint32_t kind, count; const uint32_t *offsets; } Layout;
++typedef struct Watch {
++    void *object, *data;
++    GC_finalization_proc callback;
++    struct Watch *next;
++} Watch;
++extern const Layout native_gc_layouts[];
++extern const uint64_t native_gc_layouts_count;
++extern uint64_t *const native_gc_globals[];
++extern const uint64_t native_gc_globals_count;
++extern NativeTable *const native_gc_tables[];
++extern const uint64_t native_gc_tables_count;
++extern _Noreturn void native_trap(void);
++
++// A bump range reserves its entire line hole. If a larger request abandons
++// the remaining tail, that reserved space becomes reusable only after GC.
++static uint8_t *arena, *cursor, *limit;
++static Block *blocks;
++static size_t heap_bytes = 300 * 1024 * 1024, block_count, used_blocks, search_block, search_large;
++static size_t since_collection, budget = 8 * 1024 * 1024, minimum_budget = 8 * 1024 * 1024;
++static uint64_t **work;
++static size_t work_count, work_capacity, collections, live_bytes, live_objects;
++static size_t allocated_bytes, allocated_objects, peak_live, root_visits, field_visits;
++static size_t reused_holes, large_objects;
++static double mark_seconds, sweep_seconds, prefault_seconds;
++static bool scan_all, statistics;
++static Watch *watches;
++
++static double seconds(void) {
++    struct timespec time;
++    clock_gettime(CLOCK_MONOTONIC, &time);
++    return time.tv_sec + time.tv_nsec * 1e-9;
++}
++
++static size_t aligned_size(size_t bytes) {
++    return (bytes + 8 + ALIGNMENT - 1) & ~(size_t)(ALIGNMENT - 1);
++}
++
++static void record_start(uint64_t *header) {
++    size_t offset = (uint8_t *)header - arena;
++    size_t index = offset % BLOCK_SIZE / ALIGNMENT;
++    blocks[offset / BLOCK_SIZE].starts[index / 64] |= UINT64_C(1) << (index % 64);
++}
++
++// Search cursors reset after GC. Between collections allocation only consumes
++// holes, so full blocks can be skipped without reading their line maps again.
++static void claim_hole(size_t index, size_t first, size_t end) {
++    Block *block = &blocks[index];
++    if (block->live_lines) reused_holes++;
++    memset(block->lines + first, 1, end - first);
++    block->span = 1;
++    block->available_lines -= end - first;
++    block->next_line = end;
++    cursor = arena + index * BLOCK_SIZE + first * LINE_SIZE;
++    limit = arena + index * BLOCK_SIZE + end * LINE_SIZE;
++    search_block = index;
++    if (index + 1 > used_blocks) used_blocks = index + 1;
++}
++
++static bool find_hole(size_t index, size_t first, size_t stop, size_t bytes) {
++    Block *block = &blocks[index];
++    while (first < stop) {
++        while (first < stop && block->lines[first]) first++;
++        size_t end = first;
++        while (end < stop && !block->lines[end]) end++;
++        if ((end - first) * LINE_SIZE >= bytes) {
++            claim_hole(index, first, end);
++            return true;
++        }
++        first = end;
++    }
++    return false;
++}
++
++static bool acquire_hole(size_t bytes) {
++    size_t index = search_block;
++    for (size_t checked = 0; checked < block_count; checked++) {
++        Block *block = &blocks[index];
++        if (!block->span) {
++            block->available_lines = LINES;
++            claim_hole(index, 0, LINES);
++            return true;
++        }
++        if (block->span == 1 && (size_t)block->available_lines * LINE_SIZE >= bytes) {
++            // The boundary follows a consumed hole, so no free run crosses it.
++            size_t next = block->next_line;
++            if (find_hole(index, next, LINES, bytes) || find_hole(index, 0, next, bytes))
++                return true;
++        }
++        if (++index == block_count) index = 0;
++    }
++    return false;
++}
++
++// Next-fit begins after the last reservation. A second range search includes
++// all earlier holes before failure; the split follows an occupied reservation.
++// Differing request sizes therefore cannot strand a free run across the split.
++static uint64_t *find_large(size_t first, size_t stop, size_t span) {
++    while (first + span <= stop) {
++        size_t end = first;
++        while (end < first + span && !blocks[end].span) end++;
++        if (end == first + span) {
++            blocks[first].span = span;
++            for (size_t i = first + 1; i < end; i++) blocks[i].span = CONTINUATION;
++            if (end > used_blocks) used_blocks = end;
++            search_large = end;
++            large_objects++;
++            return (uint64_t *)(arena + first * BLOCK_SIZE);
++        }
++        size_t occupied = blocks[end].span;
++        first = end + (occupied == CONTINUATION ? 1 : occupied);
++    }
++    return NULL;
++}
++
++static uint64_t *allocate_large(size_t bytes) {
++    size_t span = (bytes + BLOCK_SIZE - 1) / BLOCK_SIZE;
++    uint64_t *header = find_large(search_large, block_count, span);
++    return header ? header : find_large(0, search_large, span);
++}
++
++static uint64_t *allocate_header(size_t bytes) {
++    if (bytes > BLOCK_SIZE) return allocate_large(bytes);
++    if (!cursor || (size_t)(limit - cursor) < bytes)
++        if (!acquire_hole(bytes)) return NULL;
++    uint64_t *header = (uint64_t *)cursor;
++    cursor += bytes;
++    return header;
++}
++
++void *GC_malloc(size_t bytes) {
++    if (bytes > heap_bytes - 8 - ALIGNMENT) return NULL;
++    if (since_collection >= budget) GC_gcollect();
++    uint64_t *header = allocate_header(aligned_size(bytes));
++    if (!header) { GC_gcollect(); header = allocate_header(aligned_size(bytes)); }
++    if (!header) return NULL;
++    record_start(header);
++    *header = ((uint64_t)bytes << 2) | ALLOCATED;
++    memset(header + 1, 0, bytes);
++    since_collection += aligned_size(bytes);
++    allocated_bytes += bytes;
++    allocated_objects++;
++    return header + 1;
++}
++
++// ---- Explicit roots and tracing ----
++
++// The object-start bitmap validates pointer-shaped numeric values in scan-all.
++// Interior pointers are never roots in this exact-frame experiment.
++static uint64_t *candidate(uint64_t value) {
++    uintptr_t offset = (uintptr_t)value - (uintptr_t)arena;
++    if (offset >= used_blocks * BLOCK_SIZE || offset % ALIGNMENT != 8) return NULL;
++    size_t index = (offset - 8) % BLOCK_SIZE / ALIGNMENT;
++    if (!(blocks[offset / BLOCK_SIZE].starts[index / 64] & (UINT64_C(1) << (index % 64)))) return NULL;
++    uint64_t *header = (uint64_t *)(uintptr_t)value - 1;
++    return (*header & ALLOCATED) ? header : NULL;
++}
++
++static void mark_lines(uint64_t *header) {
++    size_t first = ((uint8_t *)header - arena) / LINE_SIZE;
++    size_t end = (((uint8_t *)header - arena) + aligned_size(*header >> 2) + LINE_SIZE - 1) / LINE_SIZE;
++    for (size_t line = first; line < end; line++)
++        blocks[line / LINES].lines[line % LINES] = 1;
++}
++
++static void mark(uint64_t value) {
++    uint64_t *header = candidate(value);
++    if (!header || (*header & MARKED)) return;
++    *header |= MARKED;
++    mark_lines(header);
++    if (work_count == work_capacity) {
++        work_capacity = work_capacity ? work_capacity * 2 : 1024;
++        void *grown = realloc(work, work_capacity * sizeof(*work));
++        if (!grown) native_trap();
++        work = grown;
++    }
++    work[work_count++] = header + 1;
++}
++
++static void mark_roots(void) {
++    for (NativeRoots *frame = native_roots; frame; frame = frame->previous) {
++        assert(frame->count <= frame->capacity);
++        root_visits += frame->count;
++        for (size_t i = 0; i < frame->count; i++) mark(frame->values[i]);
++    }
++    root_visits += native_gc_globals_count;
++    for (size_t i = 0; i < native_gc_globals_count; i++) mark(*native_gc_globals[i]);
++    for (size_t i = 0; i < native_gc_tables_count; i++) {
++        NativeTable *table = native_gc_tables[i];
++        root_visits += table->length;
++        for (size_t j = 0; j < table->length; j++) mark(table->values[j]);
++    }
++}
++
++static void trace_object(uint64_t *words) {
++    size_t count = words[-1] >> 5;
++    if (scan_all) {
++        field_visits += count;
++        for (size_t i = 0; i < count; i++) mark(words[i]);
++        return;
++    }
++    uint64_t type = words[0] >> 2;
++    if (!type || type > native_gc_layouts_count) native_trap();
++    Layout layout = native_gc_layouts[type - 1];
++    if (layout.kind == 2) {
++        assert(words[1] <= count - 2);
++        field_visits += words[1];
++        for (size_t i = 0; i < words[1]; i++) mark(words[i + 2]);
++    } else {
++        field_visits += layout.count;
++        for (size_t i = 0; i < layout.count; i++) {
++            assert(layout.offsets[i] < count);
++            mark(words[layout.offsets[i]]);
++        }
++    }
++}
++
++// ---- Weak cleanup and line reclamation ----
++
++void GC_register_finalizer_no_order(void *object, GC_finalization_proc callback,
++                                    void *data, GC_finalization_proc *old_fn, void **old_data) {
++    Watch **link = &watches;
++    while (*link && (*link)->object != object) link = &(*link)->next;
++    Watch *old = *link;
++    if (old_fn) *old_fn = old ? old->callback : NULL;
++    if (old_data) *old_data = old ? old->data : NULL;
++    if (old) { *link = old->next; free(old); }
++    if (!callback) return;
++    Watch *watch = malloc(sizeof(*watch));
++    if (!watch) native_trap();
++    *watch = (Watch){object, data, callback, watches};
++    watches = watch;
++}
++
++static void queue_finalizers(void) {
++    Watch **link = &watches;
++    while (*link) {
++        Watch *watch = *link;
++        uint64_t *header = candidate((uintptr_t)watch->object);
++        if (header && !(*header & MARKED)) {
++            *link = watch->next;
++            // Only queues scalar IDs; it must not allocate or reenter.
++            watch->callback(watch->object, watch->data);
++            free(watch);
++        } else link = &watch->next;
++    }
++}
++
++static void sweep_starts(size_t index) {
++    Block *block = &blocks[index];
++    for (size_t word = 0; word < START_WORDS; word++) {
++        uint64_t starts = block->starts[word];
++        while (starts) {
++            unsigned bit = __builtin_ctzll(starts);
++            uint64_t *header = (uint64_t *)(arena + index * BLOCK_SIZE + (word * 64 + bit) * ALIGNMENT);
++            if (*header & MARKED) {
++                *header &= ~MARKED;
++                live_bytes += *header >> 2;
++                live_objects++;
++            } else {
++                block->starts[word] &= ~(UINT64_C(1) << bit);
++                *header = 0;
++            }
++            starts &= starts - 1;
++        }
++    }
++}
++
++static void sweep(void) {
++    live_bytes = live_objects = 0;
++    for (size_t index = 0; index < used_blocks; index++) {
++        Block *block = &blocks[index];
++        sweep_starts(index);
++        block->live_lines = 0;
++        for (size_t line = 0; line < LINES; line++) block->live_lines += block->lines[line] != 0;
++        if (!block->live_lines) block->span = 0;
++        block->available_lines = LINES - block->live_lines;
++        block->next_line = 0;
++    }
++    cursor = limit = NULL;
++    search_block = search_large = 0;
++}
++
++void GC_gcollect(void) {
++    double start = statistics ? seconds() : 0;
++    for (size_t i = 0; i < used_blocks; i++) memset(blocks[i].lines, 0, LINES);
++    mark_roots();
++    while (work_count) trace_object(work[--work_count]);
++    double marked = statistics ? seconds() : 0;
++    queue_finalizers();
++    sweep();
++    if (statistics) { mark_seconds += marked - start; sweep_seconds += seconds() - marked; }
++    collections++;
++    if (live_bytes > peak_live) peak_live = live_bytes;
++    budget = live_bytes * 2 > minimum_budget ? live_bytes * 2 : minimum_budget;
++    since_collection = 0;
++}
++
++size_t GC_get_gc_no(void) { return collections; }
++
++// ---- Initialization and opt-in measurements ----
++
++static void report_statistics(void) {
++    fprintf(stderr, "immix-gc allocation_search=tuned evacuation=0 scan_all=%d heap_bytes=%zu prefault_s=%.6f collections=%zu allocations=%zu bytes=%zu "
++            "arena_used=%zu last_live=%zu peak_live=%zu live_objects=%zu roots=%zu fields=%zu "
++            "holes_reused=%zu large_allocations=%zu mark_s=%.6f sweep_s=%.6f\n",
++            scan_all, heap_bytes, prefault_seconds, collections, allocated_objects,
++            allocated_bytes, used_blocks * BLOCK_SIZE, live_bytes, peak_live, live_objects,
++            root_visits, field_visits, reused_holes, large_objects, mark_seconds, sweep_seconds);
++}
++
++void precise_init(void) {
++    const char *heap = getenv("SNAIL_GC_HEAP_BYTES");
++    if (heap) heap_bytes = strtoull(heap, NULL, 10) / BLOCK_SIZE * BLOCK_SIZE;
++    if (heap_bytes < BLOCK_SIZE) native_trap();
++    block_count = heap_bytes / BLOCK_SIZE;
++    arena = mmap(NULL, heap_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++    blocks = calloc(block_count, sizeof(*blocks));
++    if (arena == MAP_FAILED || !blocks) native_trap();
++    double start = seconds();
++    // Touch every page before native_module_init and any internal benchmark timer.
++    memset(arena, 0, heap_bytes);
++    prefault_seconds = seconds() - start;
++    scan_all = getenv("SNAIL_GC_SCAN_ALL") != NULL;
++    statistics = getenv("SNAIL_GC_STATS") != NULL;
++    const char *minimum = getenv("SNAIL_GC_MIN_BYTES");
++    if (minimum) minimum_budget = budget = strtoull(minimum, NULL, 10);
++    if (statistics) atexit(report_statistics);
++}
+diff --git a/src/precise-gc.h b/src/precise-gc.h
+new file mode 100644
+index 0000000..276a243
+--- /dev/null
++++ b/src/precise-gc.h
+@@ -0,0 +1,32 @@
++#ifndef SNAIL_PRECISE_GC_H
++#define SNAIL_PRECISE_GC_H
++#include <stddef.h>
++#include <stdint.h>
++
++// This experimental collector is single-threaded, synchronous and nonmoving.
++// LLVM publishes only reference-typed values; numeric i64 slots are not roots.
++typedef struct NativeRoots {
++    struct NativeRoots *previous;
++    uint64_t capacity, count;
++    uint64_t values[];
++} NativeRoots;
++typedef struct { uint64_t *values; uint32_t length, maximum; } NativeTable;
++extern NativeRoots *volatile native_roots;
++void native_roots_enter(NativeRoots *, uint64_t);
++void native_roots_leave(NativeRoots *);
++
++#ifdef SNAIL_PRECISE_GC
++void precise_init(void);
++void *GC_malloc(size_t);
++void GC_gcollect(void);
++size_t GC_get_gc_no(void);
++typedef void (*GC_finalization_proc)(void *, void *);
++void GC_register_finalizer_no_order(void *, GC_finalization_proc, void *,
++                                    GC_finalization_proc *, void **);
++#define GC_INIT() precise_init()
++#define GC_set_all_interior_pointers(x) ((void)(x))
++#define GC_set_finalize_on_demand(x) ((void)(x))
++#define GC_invoke_finalizers() ((void)0)
++#define GC_reachable_here(x) ((void)(x))
++#endif
++#endif
+diff --git a/src/snail-scheme/llvm.sld b/src/snail-scheme/llvm.sld
+index d2cee07..69adc5d 100644
+--- a/src/snail-scheme/llvm.sld
++++ b/src/snail-scheme/llvm.sld
+@@ -16,7 +16,7 @@
+           (list "@" (llvm-quoted (string-append prefix name)))))
+ 
+     (define (value-type type)
+-      (cond ((and (pair? type) (eq? (car type) 'ref)) "i64")
++      (cond ((and (pair? type) (eq? (car type) 'ref)) "ref")
+             ((memq type '(i8 i16 i32)) "i32")
+             ((eq? type 'i64) "i64")
+             ((eq? type 'f32) "float")
+@@ -32,7 +32,10 @@
+     (define (zero type)
+       (if (member type '("double" "float")) "0.0" "0"))
+ 
+-    (define (typed value) (list (car value) " " (cdr value)))
++    ;; Operand types retain reference identity even though the machine ABI is i64.
++    (define (llvm-type type) (if (string=? type "ref") "i64" type))
++    (define (reference-value? value) (string=? (car value) "ref"))
++    (define (typed value) (list (llvm-type (car value)) " " (cdr value)))
+     (define (constant type word) (cons type word))
+ 
+     ;; The datum backend receives Scheme f64 values, not encoded bit words.
+@@ -141,14 +144,16 @@
+     ;; stack holds already-produced SSA values, never deferred reads or calls.
+ 
+     (define-record-type <emitter>
+-      (make-emitter locals targets serial live? port slots stack result)
++      (make-emitter locals targets serial live? port slots stack result roots local-roots)
+       emitter?
+       (locals emitter-locals set-emitter-locals!)
+       (targets emitter-targets set-emitter-targets!)
+       (serial emitter-serial set-emitter-serial!)
+       (live? emitter-live? set-emitter-live!) (port emitter-port)
+       (slots emitter-slots set-emitter-slots!)
+-      (stack emitter-stack set-emitter-stack!) (result emitter-result set-emitter-result!))
++      (stack emitter-stack set-emitter-stack!) (result emitter-result set-emitter-result!)
++      (roots emitter-roots set-emitter-roots!)
++      (local-roots emitter-local-roots set-emitter-local-roots!))
+ 
+     (define current-emitter (make-parameter #f))
+ 
+@@ -182,7 +187,7 @@
+     (define (slot type)
+       (let* ((name (fresh "%slot")) (emitter (current-emitter)))
+         (set-emitter-slots! emitter
+-                            (cons (list "  " name " = alloca " type ", align 8\n")
++                            (cons (list "  " name " = alloca " (llvm-type type) ", align 8\n")
+                                   (emitter-slots emitter)))
+         (constant type name)))
+ 
+@@ -190,7 +195,7 @@
+       (line "store " (typed value) ", ptr " (cdr pointer) ", align 1"))
+ 
+     (define (load pointer)
+-      (instruction (car pointer) "load " (car pointer) ", ptr " (cdr pointer) ", align 1"))
++      (instruction (car pointer) "load " (llvm-type (car pointer)) ", ptr " (cdr pointer) ", align 1"))
+ 
+     (define (push-value! value)
+       (when (and value (alive?))
+@@ -220,11 +225,11 @@
+       (instruction "i32" "zext " (typed value) " to i32"))
+ 
+     (define (cast opcode value type)
+-      (if (string=? type (car value)) value
+-          (instruction type opcode " " (typed value) " to " type)))
++      (if (string=? (llvm-type type) (llvm-type (car value))) (constant type (cdr value))
++          (instruction type opcode " " (typed value) " to " (llvm-type type))))
+ 
+     (define (call-native name result arguments)
+-      (let ((call (list "call " result " @" name "(" (llvm-join (map typed arguments) ", ") ")")))
++      (let ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")")))
+         (if (string=? result "void") (begin (line call) #f)
+             (instruction result call))))
+ 
+@@ -240,7 +245,31 @@
+       (trap-unless (instruction "i1" "icmp ne " (typed value) ", 0"))
+       value)
+ 
+-    (define (return-value value)
++    ;; Reference locals live directly in the frame. At synchronous safepoints
++    ;; only operand temporaries need copies. Nonmoving objects need no reload.
++    ;; The active count excludes stale temporary slots left by earlier loops.
++    (define (publish-roots arguments)
++      (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
++             (values (filter reference-value? (append (emitter-stack emitter) arguments)))
++             (count (+ offset (length values))))
++        (set-emitter-roots! emitter (max (emitter-roots emitter) count))
++        (for-each (lambda (value index) (store value (root-slot (+ index 3))))
++                  values (iota (length values) offset))
++        (store (constant "i64" count) (root-slot 2))))
++
++    (define (local-storage type)
++      (if (not (string=? type "ref")) (slot type)
++          (let* ((emitter (current-emitter)) (index (emitter-local-roots emitter)))
++            (set-emitter-local-roots! emitter (+ index 1))
++            (constant type (cdr (root-slot (+ index 3)))))))
++
++    (define (root-slot index)
++      (constant "i64" (cdr (instruction "ptr" "getelementptr i64, ptr %roots, i64 " index))))
++
++    (define (leave-roots) (line "call void @native_roots_leave(ptr %roots)"))
++
++    (define (return-value value . tail?)
++      (unless (and (pair? tail?) (car tail?)) (leave-roots))
+       (if value (finish "ret " (typed value)) (finish "ret void")))
+ 
+     ;; ---- Structured control flow ----
+@@ -358,11 +387,13 @@
+       ;; tailcc guarantees tail lowering even when argument counts differ.
+       ;; LLVM 22 x86-64 mishandles musttail with growing stack arguments; the
+       ;; executable ABI regression covers tailcc + tail across that boundary.
+-      (let* ((code (list (if tail? "tail " "") "call tailcc " result " " name
++      ;; No collection can occur between unlinking and the callee publishing.
++      (if tail? (leave-roots) (publish-roots arguments))
++      (let* ((code (list (if tail? "tail " "") "call tailcc " (llvm-type result) " " name
+                          "(" (llvm-join (map typed arguments) ", ") ")"))
+              (value (if (string=? result "void") (begin (line code) #f)
+                         (instruction result code))))
+-        (when tail? (return-value value))
++        (when tail? (return-value value #t))
+         value))
+ 
+     (define (emit-direct-call index arguments tail?)
+@@ -389,7 +420,7 @@
+ 
+     (define (emit-indirect-call table type tail?)
+       (let* ((index (pop-value!)) (arguments (call-arguments type))
+-             (reference (load (constant "i64" (cdr (table-slot table index)))))
++             (reference (load (constant "ref" (cdr (table-slot table index)))))
+              (tag (load (field-pointer reference 0 "i64"))))
+         (trap-unless (instruction "i1" "icmp eq " (typed tag) ", " (type-id type)))
+         (emit-call (cdr (function-pointer reference)) arguments
+@@ -422,7 +453,7 @@
+       ;; each payload one canonical odd word; heap references remain full i64s.
+       (let* ((shifted (instruction "i32" "shl " (typed value) ", 1"))
+              (tagged (instruction "i32" "or " (typed shifted) ", 1")))
+-        (cast "zext" tagged "i64")))
++        (cast "zext" tagged "ref")))
+ 
+     (define (emit-i31-get reference signed?)
+       (let ((tagged (cast "trunc" (nonnull reference) "i32")))
+@@ -435,7 +466,7 @@
+     ;; Interior pointers stay recognizable across allocating operands and calls.
+ 
+     (define (allocate-struct name values)
+-      (let* ((reference (call-native "native_alloc" "i64"
++      (let* ((reference (call-native "native_alloc" "ref"
+                                      (list (constant "i64" (+ 8 (* 8 (length values)))))))
+              (fields (cdr (type-definition name))))
+         (store (constant "i64" (type-id name)) (field-pointer reference 0 "i64"))
+@@ -473,7 +504,7 @@
+             (else (cast "zext" value "i64"))))
+ 
+     (define (new-array name length initial)
+-      (call-native "native_array_new" "i64"
++      (call-native "native_array_new" "ref"
+                    (list (constant "i64" (type-id name)) length (value-word initial))))
+ 
+     (define (emit-array-new name default?)
+@@ -610,7 +641,7 @@
+       (let* ((pointer (constant "ptr" (symbol-name "table." table)))
+              (values (pop-values! (case op ((table.get) 1) ((table.size) 0) (else 2)))))
+         (case op
+-          ((table.get) (load (constant "i64" (cdr (table-slot table (car values))))))
++          ((table.get) (load (constant "ref" (cdr (table-slot table (car values))))))
+           ((table.set) (store (cadr values) (constant "i64" (cdr (table-slot table (car values))))) #f)
+           ((table.size) (call-native "native_table_size" "i32" (list pointer)))
+           ((table.grow) (call-native "native_table_grow" "i32" (cons pointer values)))
+@@ -625,6 +656,10 @@
+     ;; Common operations lead the case: Chibi searches its arms linearly.
+     (define (emit-operation node)
+       (let ((op (car node)) (args (cdr node)))
++        ;; Publish before operands are popped: constructors retain their fields
++        ;; across allocation, including an array's erased initial machine word.
++        (when (memq op '(struct.new struct.new_default array.new array.new_default array.new_fixed table.grow))
++          (publish-roots '()))
+         (case op
+           ((local.get) (load (local-slot (car args))))
+           ((numeric) (emit-numeric (car args) (cadr args) (pop-values! (caddr args))))
+@@ -648,8 +683,8 @@
+            (emit-reference-call (car args) (eq? op 'return_call_ref)))
+           ((call_indirect return_call_indirect)
+            (emit-indirect-call (car args) (cadr args) (eq? op 'return_call_indirect)))
+-          ((ref.null) (constant "i64" 0))
+-          ((ref.func) (constant "i64" (list "ptrtoint (ptr " (symbol-name "ref." (car args)) " to i64)")))
++          ((ref.null) (constant "ref" 0))
++          ((ref.func) (constant "ref" (list "ptrtoint (ptr " (symbol-name "ref." (car args)) " to i64)")))
+           ((ref.i31) (emit-i31 (pop-value!)))
+           ((i31.get_s i31.get_u) (emit-i31-get (pop-value!) (eq? op 'i31.get_s)))
+           ((ref.as_non_null) (nonnull (pop-value!)))
+@@ -692,18 +727,20 @@
+         (set-emitter-locals! (current-emitter) (make-vector (length locals)))
+         (for-each
+          (lambda (local index)
+-           (let* ((type (value-type local)) (pointer (slot type)))
++           (let* ((type (value-type local)) (pointer (local-storage type)))
+              (vector-set! (emitter-locals (current-emitter)) index pointer)
+              (store (constant type (if (< index (length params)) (llvm-name "%arg" index) (zero type))) pointer)))
+          locals (iota (length locals) 0))))
+ 
+     (define (emit-definition name params body . attributes)
+       (let ((emitter (make-emitter '#() '() 0 #t
+-                                   (open-output-string) '() '() "void")))
++                                   (open-output-string) '() '() "void" 0 0)))
+         (parameterize ((current-emitter emitter)) (body))
+         (output "define " name "(" (llvm-join (map typed params) ", ") ") " attributes "{\nentry:")
+         (for-each (lambda (line) (write-llvm line (module-output (current-module))))
+                   (reverse (emitter-slots emitter)))
++        (output "  %roots = alloca { ptr, i64, i64, [" (max (emitter-roots emitter) (emitter-local-roots emitter)) " x i64] }, align 8")
++        (output "  call void @native_roots_enter(ptr %roots, i64 " (emitter-roots emitter) ")")
+         (display (get-output-string (emitter-port emitter)) (module-output (current-module)))
+         (close-output-port (emitter-port emitter))
+         (output "}\n")))
+@@ -724,8 +761,8 @@
+ 
+     (define (import-name function)
+       (let* ((import (function-import function)) (entry (host-import import))
+-             (signature (cons (function-result function)
+-                              (map value-type (function-params function)))))
++             (signature (map llvm-type (cons (function-result function)
++                                             (map value-type (function-params function))))))
+         (unless entry (error "unsupported native host import" import))
+         (unless (equal? signature (cdr entry)) (error "native host import type mismatch" import))
+         (car entry)))
+@@ -733,11 +770,12 @@
+     (define (emit-function function)
+       (let ((params (parameter-values function)) (result (function-result function)))
+         (emit-definition
+-         (list "internal tailcc " result " " (symbol-name "f." (function-name function)))
++         (list "internal tailcc " (llvm-type result) " " (symbol-name "f." (function-name function)))
+          params
+          (lambda ()
+            (if (function-import function)
+-               (return-value (call-native (import-name function) result params))
++               (begin (publish-roots params)
++                      (return-value (call-native (import-name function) result params)))
+                (begin
+                  (initialize-locals function)
+                  (set-emitter-result! (current-emitter) result)
+@@ -754,19 +792,19 @@
+       (case (caaddr node)
+         ((global)
+          (let ((pointer (global-slot (cadr (caddr node)))))
+-           (emit-definition (list (car pointer) " " (symbol-name "wasm-global." (cadr node)))
++           (emit-definition (list (llvm-type (car pointer)) " " (symbol-name "wasm-global." (cadr node)))
+                             '() (lambda () (return-value (load pointer))))))
+         ((func)
+          (let* ((function (function-info (cadr (caddr node)))) (params (parameter-values function))
+                 (result (function-result function)))
+            (emit-definition
+-            (list result " " (symbol-name "wasm." (cadr node))) params
++            (list (llvm-type result) " " (symbol-name "wasm." (cadr node))) params
+             (lambda () (return-value (emit-call (symbol-name "f." (function-name function))
+                                                 params result #f))))))))
+ 
+     (define (emit-import-declaration function)
+-      (output "declare " (function-result function) " @" (import-name function)
+-              "(" (llvm-join (map value-type (function-params function)) ", ") ")"))
++      (output "declare " (llvm-type (function-result function)) " @" (import-name function)
++              "(" (llvm-join (map (lambda (type) (llvm-type (value-type type))) (function-params function)) ", ") ")"))
+ 
+     ;; ---- Module initialization ----
+ 
+@@ -778,12 +816,15 @@
+     (define (static-global index) (vector-ref (module-constants (current-module)) index))
+ 
+     (define (constant-cast opcode value type)
+-      (if (string=? type (car value)) value
+-          (constant type (list opcode " (" (typed value) " to " type ")"))))
++      (if (string=? (llvm-type type) (llvm-type (car value))) (constant type (cdr value))
++          (constant type (list opcode " (" (typed value) " to " (llvm-type type) ")"))))
+ 
+     (define (static-word type value)
+       (case type
+         ((f64) (constant-cast "bitcast" value "i64"))
++        ;; Only default f32 initializers reach the static planner today.
++        ((f32) (unless (equal? (cdr value) "0.0") (error "unsupported static f32" value))
++         (constant "i64" 0))
+         ((i8 i16 i32)
+          (constant "i64" (modulo (cdr value) (case type ((i8) 256) ((i16) 65536) (else 4294967296)))))
+         (else value)))
+@@ -799,7 +840,7 @@
+                            (pair? (filter mutable-type? (cdr definition))))))
+         (vector-set! plan 1 (cons (list name words mutable?) (vector-ref plan 1)))
+         (vector-set! plan 2 (+ 1 (vector-ref plan 2)))
+-        (constant "i64" (list "ptrtoint (ptr " name " to i64)"))))
++        (constant "ref" (list "ptrtoint (ptr " name " to i64)"))))
+ 
+     (define (take-constants stack count)
+       (let loop ((stack stack) (left count) (values '()))
+@@ -833,10 +874,10 @@
+         ((i32.const) (cons (constant "i32" (cadr node)) stack))
+         ((i64.const) (cons (constant "i64" (cadr node)) stack))
+         ((f64.const) (cons (constant "double" (float-constant (cadr node))) stack))
+-        ((ref.null) (cons (constant "i64" 0) stack))
+-        ((ref.func) (cons (constant "i64" (list "ptrtoint (ptr " (symbol-name "ref." (cadr node)) " to i64)")) stack))
++        ((ref.null) (cons (constant "ref" 0) stack))
++        ((ref.func) (cons (constant "ref" (list "ptrtoint (ptr " (symbol-name "ref." (cadr node)) " to i64)")) stack))
+         ((ref.i31) (and (integer? (cdar stack))
+-                        (cons (constant "i64" (+ 1 (* 2 (modulo (cdar stack) 2147483648)))) (cdr stack))))
++                        (cons (constant "ref" (+ 1 (* 2 (modulo (cdar stack) 2147483648)))) (cdr stack))))
+         ((global.get)
+          (let ((prior (static-global (cadr node))))
+            (and prior (not (mutable-type? (caddr (global-info (cadr node))))) (cons (car prior) stack))))
+@@ -858,7 +899,7 @@
+     (define (declare-static-object object)
+       (let ((words (cadr object)))
+         (output (car object) " = internal " (if (caddr object) "global " "constant ")
+-                "{ " (llvm-join (map car words) ", ") " } { "
++                "{ " (llvm-join (map (lambda (word) (llvm-type (car word))) words) ", ") " } { "
+                 (llvm-join (map typed words) ", ") " }, align 8")))
+ 
+     (define (declare-global node)
+@@ -867,7 +908,7 @@
+             (begin (for-each declare-static-object (cdr plan))
+                    (output (cdr pointer) " = internal " (if (mutable-type? (caddr node)) "global " "constant ")
+                            (typed (car plan))))
+-            (output (cdr pointer) " = internal global " (car pointer) " " (zero (car pointer))))))
++            (output (cdr pointer) " = internal global " (llvm-type (car pointer)) " " (zero (car pointer))))))
+ 
+     (define (declare-function-reference function)
+       (output (symbol-name "ref." (function-name function))
+@@ -883,6 +924,54 @@
+                     (emit-import-declaration function) (declare-function-reference function)))
+         ((table) (output (symbol-name "table." (cadr node)) " = internal global { ptr, i32, i32 } zeroinitializer"))))
+ 
++    ;; ---- Precise heap layouts and permanent roots ----
++
++    (define (reference-offsets fields start)
++      (let loop ((fields fields) (offset start) (result '()))
++        (if (null? fields) (reverse result)
++            (loop (cdr fields) (+ offset 1)
++                  (if (string=? (value-type (field-type (car fields))) "ref")
++                      (cons offset result) result)))))
++
++    (define (gc-layout index)
++      (let* ((type (type-definition index)) (array? (eq? (car type) 'array))
++             (offsets (if (eq? (car type) 'struct) (reference-offsets (cdr type) 1) '()))
++             (kind (if array? (if (pair? (reference-offsets (cdr type) 2)) 2 0) 1)))
++        (output "@gc.fields." index " = private constant [" (length offsets) " x i32] ["
++                (llvm-join (map (lambda (offset) (list "i32 " offset)) offsets) ", ") "]")
++        (list "{ i32, i32, ptr } { i32 " kind ", i32 " (length offsets)
++              ", ptr @gc.fields." index " }")))
++
++    (define (static-root-slots object)
++      (if (not (caddr object)) '()
++          (let loop ((words (cadr object)) (offset 0) (roots '()))
++            (if (null? words) roots
++                (loop (cdr words) (+ offset 1)
++                      (if (reference-value? (car words))
++                          (cons (list "ptr getelementptr (i64, ptr " (car object) ", i64 " offset ")") roots)
++                          roots))))))
++
++    (define (global-root-slots node)
++      (let ((plan (static-global (cadr node))) (slot (global-slot (cadr node))))
++        (append (if (and (reference-value? slot) (or (not plan) (mutable-type? (caddr node))))
++                    (list (list "ptr " (cdr slot))) '())
++                (if plan (apply append (map static-root-slots (cdr plan))) '()))))
++
++    (define (declare-gc-array name type values)
++      (output "@native_gc_" name "_count = constant i64 " (length values))
++      (output "@native_gc_" name " = constant [" (length values) " x " type "] ["
++              (llvm-join values ", ") "]"))
++
++    (define (declare-gc-layouts declarations)
++      (declare-gc-array "layouts" "{ i32, i32, ptr }"
++                        (map gc-layout (iota (vector-length (module-types (current-module))) 0)))
++      (declare-gc-array "globals" "ptr"
++                        (apply append (map global-root-slots
++                                           (filter (lambda (node) (eq? (car node) 'global)) declarations))))
++      (declare-gc-array "tables" "ptr"
++                        (map (lambda (node) (list "ptr " (symbol-name "table." (cadr node))))
++                             (filter (lambda (node) (eq? (car node) 'table)) declarations))))
++
+     (define (initialize-table node)
+       (call-native "native_table_init" "void"
+                    (list (constant "ptr" (symbol-name "table." (cadr node)))
+@@ -915,7 +1004,9 @@
+          (return-value #f))))
+ 
+     (define native-declarations
+-      '("declare void @native_trap() noreturn cold"
++      '("declare void @native_roots_enter(ptr, i64)"
++        "declare void @native_roots_leave(ptr)"
++        "declare void @native_trap() noreturn cold"
+         "declare i64 @native_alloc(i64)"
+         "declare i32 @native_ref_test(i64, i64, i32)"
+         "declare i64 @native_array_new(i64, i32, i64)"
+@@ -969,6 +1060,7 @@
+           (for-each output native-declarations)
+           (declare-numeric-helpers)
+           (for-each emit-declaration declarations)
++          (declare-gc-layouts declarations)
+           (for-each (lambda (node)
+                       (case (car node)
+                         ((func) (emit-function (function-info (cadr node))))
+diff --git a/tests/immix-gc.c b/tests/immix-gc.c
+new file mode 100644
+index 0000000..d4e6b7c
+--- /dev/null
++++ b/tests/immix-gc.c
+@@ -0,0 +1,111 @@
++#define _POSIX_C_SOURCE 200809L
++// The defining mark-region behavior: retain object lines, reclaim their holes.
++#include "precise-gc.h"
++#include <assert.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <string.h>
++
++typedef struct { uint32_t kind, count; const uint32_t *offsets; } Layout;
++const Layout native_gc_layouts[] = {{1, 0, NULL}};
++const uint64_t native_gc_layouts_count = 1;
++uint64_t *const native_gc_globals[] = {NULL};
++const uint64_t native_gc_globals_count = 0;
++NativeTable *const native_gc_tables[] = {NULL};
++const uint64_t native_gc_tables_count = 0;
++NativeRoots *volatile native_roots;
++_Noreturn void native_trap(void) { abort(); }
++
++static uint64_t *object(uint64_t scalar) {
++    uint64_t *words = GC_malloc(16);
++    assert(words);
++    words[0] = 6;
++    words[1] = scalar;
++    return words;
++}
++
++static void check_reclaimed_lines(void) {
++    struct { NativeRoots *previous; uint64_t capacity, count, values[2]; } roots = {NULL, 2, 2, {0}};
++    native_roots = (NativeRoots *)&roots;
++    uint64_t *first = object(123), *last = NULL;
++    roots.values[0] = (uintptr_t)first;
++    for (unsigned i = 0; i < 999; i++) last = object(i);
++    roots.values[1] = (uintptr_t)last;
++    GC_gcollect();
++    assert(first[1] == 123 && last[1] == 998);
++    assert(roots.values[0] == (uintptr_t)first && roots.values[1] == (uintptr_t)last);
++    uint64_t *middle = object(456);
++    assert((uintptr_t)middle > (uintptr_t)first && (uintptr_t)middle < (uintptr_t)last);
++    // The first object's retained 128-byte line cannot be overwritten.
++    assert((uintptr_t)middle - (uintptr_t)first >= 128);
++    roots.values[1] = (uintptr_t)middle;
++    for (unsigned i = 0; i < 4000; i++) (void)object(i);
++    GC_gcollect();
++    assert(first[1] == 123 && middle[1] == 456);
++}
++
++// Allocate an object that fills a chosen number of lines or whole blocks.
++static uint64_t *sized_object(size_t bytes, uint64_t scalar) {
++    uint64_t *words = GC_malloc(bytes);
++    assert(words);
++    words[0] = 6;
++    words[1] = scalar;
++    return words;
++}
++
++static void check_wrapped_small_hole(void) {
++    struct { NativeRoots *previous; uint64_t capacity, count, values[256]; } roots = {NULL, 256, 256, {0}};
++    native_roots = (NativeRoots *)&roots;
++    uintptr_t base = 0;
++    for (unsigned line = 0; line < 256; line++) {
++        uint64_t *value = sized_object(120, line);
++        if (!line) base = (uintptr_t)value;
++        if (line != 1 && (line < 3 || line > 10)) roots.values[line] = (uintptr_t)value;
++    }
++    GC_gcollect();
++    size_t collected = GC_get_gc_no();
++    // Eight lines skip the earlier one-line hole, then consume the later hole.
++    uint64_t *large = sized_object(1016, 900);
++    assert((uintptr_t)large == base + 3 * 128);
++    roots.values[3] = (uintptr_t)large;
++    uint64_t *small = object(901);
++    assert((uintptr_t)small == base + 128);
++    assert(GC_get_gc_no() == collected); // A failed search/GC retry cannot mask wrap failure.
++    roots.values[1] = (uintptr_t)small;
++    GC_gcollect();
++    assert(large[1] == 900 && small[1] == 901);
++    assert(((uint64_t *)(uintptr_t)roots.values[255])[1] == 255);
++}
++
++static void check_wrapped_large_space(void) {
++    struct { NativeRoots *previous; uint64_t capacity, count, values[4]; } roots = {NULL, 4, 4, {0}};
++    native_roots = (NativeRoots *)&roots;
++    uint64_t *first = sized_object(2 * 32768 - 8, 1);
++    uint64_t *separator = sized_object(32768 - 8, 2);
++    roots.values[0] = (uintptr_t)separator;
++    uint64_t *later = sized_object(3 * 32768 - 8, 3);
++    uint64_t *last = sized_object(2 * 32768 - 8, 4);
++    roots.values[1] = (uintptr_t)last;
++    GC_gcollect();
++    size_t collected = GC_get_gc_no();
++    // A three-block request skips the first two free blocks; a later two-block
++    // request must wrap past the live final reservation to recover those blocks.
++    uint64_t *three = sized_object(3 * 32768 - 8, 5);
++    assert(three == later);
++    roots.values[2] = (uintptr_t)three;
++    uint64_t *two = sized_object(2 * 32768 - 8, 6);
++    assert(two == first && GC_get_gc_no() == collected);
++    roots.values[3] = (uintptr_t)two;
++    GC_gcollect();
++    assert(separator[1] == 2 && last[1] == 4 && three[1] == 5 && two[1] == 6);
++}
++
++int main(int argc, char **argv) {
++    bool large = argc > 1 && !strcmp(argv[1], "wrap-large");
++    setenv("SNAIL_GC_HEAP_BYTES", large ? "262144" : "32768", 1);
++    precise_init();
++    if (large) check_wrapped_large_space();
++    else if (argc > 1) check_wrapped_small_hole();
++    else check_reclaimed_lines();
++    return 0;
++}
+diff --git a/tests/native-datums.scm b/tests/native-datums.scm
+index 2716743..7bb78c0 100644
+--- a/tests/native-datums.scm
++++ b/tests/native-datums.scm
+@@ -3,6 +3,8 @@
+   '(module
+     (type $box (struct (field (mut i64)) (field (mut eqref))))
+     (type $refs (array (mut eqref)))
++    (type $float-prefix (struct (field f32) (field f32) (field (mut eqref))))
++    (global $float-static (ref $float-prefix) (struct.new_default $float-prefix))
+     (type $bytes (array (mut i8)))
+     (type $short (func (param i32 eqref) (result eqref)))
+     (type $integer (func (param i32) (result i32)))
+@@ -105,6 +107,38 @@
+                 (br_if $allocate (local.get $n)))
+           (struct.get $box 0 (local.get $value)))
+ 
++    ;; Allocating tail transfers and constructor operands exercise explicit roots.
++    (func $gc-hop (param $n i32) (param $keep eqref) (result eqref)
++          (drop (array.new $refs (local.get $keep) (i32.const 3)))
++          (if (result eqref) (i32.eqz (local.get $n))
++              (then (local.get $keep))
++              (else (return_call $gc-wide (i32.sub (local.get $n) (i32.const 1))
++                                 (local.get $keep) (i64.const 1) (i64.const 2)
++                                 (i64.const 3) (i64.const 4) (i64.const 5) (i64.const 6)))))
++    (func $gc-wide (param $n i32) (param $keep eqref)
++          (param i64 i64 i64 i64 i64 i64) (result eqref)
++          (drop (struct.new $box (i64.const 0) (local.get $keep)))
++          (return_call $gc-hop (local.get $n) (local.get $keep)))
++    (func (export "tail-gc") (param $n i32) (result i64)
++          (struct.get $box 0 (ref.cast (ref $box)
++                                       (call $gc-hop (local.get $n)
++                                             (struct.new $box (i64.const 42) (ref.null eq))))))
++    (func (export "gc-operands") (result i64)
++          (local $array (ref $refs))
++          (struct.set $float-prefix 2 (global.get $float-static)
++                      (struct.new $box (i64.const 41) (ref.null eq)))
++          (struct.set $box 1 (global.get $mutable)
++                      (struct.new $box (i64.const 40) (ref.null eq)))
++          (local.set $array (array.new_fixed $refs 2
++                                             (struct.new $box (i64.const 1) (ref.null eq))
++                                             (struct.new $box (i64.const 2) (ref.null eq))))
++          (if (i64.ne (struct.get $box 0 (ref.cast (ref $box)
++                                                   (struct.get $float-prefix 2 (global.get $float-static))))
++                      (i64.const 41)) (then unreachable))
++          (i64.add
++           (struct.get $box 0 (ref.cast (ref $box) (struct.get $box 1 (global.get $mutable))))
++           (struct.get $box 0 (ref.cast (ref $box) (array.get $refs (local.get $array) (i32.const 1))))))
++
+     ;; ---- Containers, branch values and numeric edges ----
+ 
+     (func $cold.increment (type $integer) (param $n i32) (result i32)
+diff --git a/tests/native-runner.c b/tests/native-runner.c
+index 36eb677..ee820bd 100644
+--- a/tests/native-runner.c
++++ b/tests/native-runner.c
+@@ -1,6 +1,10 @@
+ // Execute lowered Wasm datums, including GC and native stack invariants.
+ #include <assert.h>
++#ifdef SNAIL_PRECISE_GC
++#include "precise-gc.h"
++#else
+ #include <gc/gc.h>
++#endif
+ #include <inttypes.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -71,6 +75,8 @@ void drop_resource(uint32_t kind, uint32_t id) { (void)kind; (void)id; abort();
+ extern uint32_t check(void) __asm__("wasm.check");
+ extern uint64_t tail(uint32_t) __asm__("wasm.tail");
+ extern uint64_t root(uint32_t) __asm__("wasm.root");
++extern uint64_t tail_gc(uint32_t) __asm__("wasm.tail-gc");
++extern uint64_t gc_operands(void) __asm__("wasm.gc-operands");
+ extern void trap(uint32_t) __asm__("wasm.trap");
+ extern int32_t i31_signed(int32_t) __asm__("wasm.i31-s");
+ extern uint32_t i31_unsigned(int32_t) __asm__("wasm.i31-u");
+@@ -114,6 +120,11 @@ int main(int argc, char **argv) {
+     assert(!i31_equal_negative(0));
+     assert(tail(2000000) == 42);
+     assert(root(500) == 99);
++    assert(tail_gc(20000) == 42);
++    assert(gc_operands() == 42);
++#ifdef SNAIL_PRECISE_GC
++    assert(native_roots == NULL);
++#endif
+     assert(GC_get_gc_no() > 1);
+     return 0;
+ }
+diff --git a/tests/precise-gc.c b/tests/precise-gc.c
+new file mode 100644
+index 0000000..1a94e1c
+--- /dev/null
++++ b/tests/precise-gc.c
+@@ -0,0 +1,103 @@
++// Behavioral tests for exact roots, typed heap edges, weak cleanup and reuse.
++#include "precise-gc.h"
++#include <assert.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <string.h>
++
++typedef struct { uint32_t kind, count; const uint32_t *offsets; } Layout;
++static const uint32_t reference_field[] = {1};
++const Layout native_gc_layouts[] = {{1, 1, reference_field}, {1, 0, NULL}, {2, 0, NULL}};
++const uint64_t native_gc_layouts_count = 3;
++static uint64_t permanent;
++uint64_t *const native_gc_globals[] = {&permanent};
++const uint64_t native_gc_globals_count = 1;
++static NativeTable table;
++NativeTable *const native_gc_tables[] = {&table};
++const uint64_t native_gc_tables_count = 1;
++NativeRoots *volatile native_roots;
++_Noreturn void native_trap(void) { abort(); }
++static unsigned finalized;
++
++static uint64_t *object(uint64_t tag) {
++    uint64_t *value = GC_malloc(16);
++    assert(value);
++    value[0] = tag;
++    return value;
++}
++
++static void finalizer(void *object, void *data) {
++    (void)object;
++    assert(data == &finalized);
++    finalized++;
++}
++
++static void watch(uint64_t *value) {
++    GC_register_finalizer_no_order(value, finalizer, &finalized, NULL, NULL);
++}
++
++int main(void) {
++    precise_init();
++    struct { NativeRoots *previous; uint64_t capacity, count, values[2]; } roots = {NULL, 2, 2, {0}};
++    native_roots = (NativeRoots *)&roots;
++    uint64_t *parent = object(6); // Struct with a declared reference field.
++    roots.values[0] = (uintptr_t)parent;
++    uint64_t *child = object(10); // Struct containing only an ordinary i64.
++    parent[1] = (uintptr_t)child;
++    watch(child);
++    GC_gcollect();
++    assert(finalized == 0 && parent[1] == (uintptr_t)child);
++    child[1] = (uintptr_t)parent; // Pointer-shaped numeric field is not an edge.
++    roots.values[0] = (uintptr_t)child;
++    watch(parent);
++    GC_gcollect();
++    assert(finalized == (getenv("SNAIL_GC_SCAN_ALL") ? 0 : 1));
++    roots.values[0] = 0;
++    GC_gcollect();
++    assert(finalized == 2);
++
++    // A reference cycle is reclaimed; a table root keeps it until released.
++    uint64_t *cycle = object(6);
++    cycle[1] = (uintptr_t)cycle;
++    uint64_t cells[] = {(uintptr_t)cycle};
++    table = (NativeTable){cells, 1, 1};
++    watch(cycle);
++    GC_gcollect();
++    assert(finalized == 2);
++    permanent = cells[0];
++    cells[0] = 0;
++    GC_gcollect();
++    assert(finalized == 2);
++    permanent = 0;
++    GC_gcollect();
++    assert(finalized == 3);
++
++    // Declared reference arrays include all elements; stale frame slots don't.
++    uint64_t *array = GC_malloc(16 + 20000 * 8);
++    array[0] = 15;
++    array[1] = 20000;
++    roots.values[0] = (uintptr_t)array;
++    child = object(10);
++    array[20001] = (uintptr_t)child;
++    watch(child);
++    GC_gcollect();
++    assert(finalized == 3);
++    roots.values[1] = roots.values[0];
++    roots.count = 0;
++    GC_gcollect();
++    assert(finalized == 4);
++    uint64_t *reused = GC_malloc(16 + 20000 * 8);
++    assert(reused == array); // Stable slab can be reused after collection.
++    for (size_t i = 0; i < 20002; i++) assert(reused[i] == 0);
++    roots.count = 1;
++    roots.values[0] = (uintptr_t)reused;
++    reused[0] = 15;
++    reused[1] = 20000;
++    GC_gcollect();
++    static uint64_t immortal[] = {10, 0};
++    watch(immortal);
++    GC_gcollect();
++    assert(finalized == 4);
++    GC_register_finalizer_no_order(immortal, NULL, NULL, NULL, NULL);
++    return 0;
++}

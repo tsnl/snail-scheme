@@ -12,11 +12,15 @@ Initialize the upstream suite with
 Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
 own full Scheme source, with byte-checked output and preparation excluded.
 See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
-and timing boundaries. The latest
+and timing boundaries. The
 [global interner report](results/2026-10-11-symbol-interner/README.md)
 separates the interner improvement from the native heap policy and compares
 Fibonacci execution with Chez and Chibi. It preserves frozen compiler inputs,
 validated outputs, profiles, and heap controls.
+The [native lowering audit](results/2026-10-11-native-lowering/README.md) uses
+restored default heap growth and separates LLVM lowering, allocation policy,
+Binaryen preprocessing and GC costs. Its small constructor prototype remains
+experimental because its measured effects are mixed.
 The [compiler simplification report](results/2026-10-10-compiler-simplification/README.md)
 records the preceding shared binding analysis and typing workloads.
 The earlier [visitor comparison](results/2026-10-10-visitor-typing/README.md)

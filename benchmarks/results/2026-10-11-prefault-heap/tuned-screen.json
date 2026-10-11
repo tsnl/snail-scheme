@@ -1,0 +1,36 @@
+{
+  "immix-tuned": {
+    "seconds": 25.81187598,
+    "wall_seconds": 25.92494927199732,
+    "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+    "stdout": "+!CSVLINE!+immix-tuned,compiler-self,25.81187598\n",
+    "stderr": "immix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.096560 collections=1609 allocations=556614983 bytes=16342156320 arena_used=200998912 last_live=25968608 peak_live=34638960 live_objects=1104813 roots=53655324 fields=757538487 holes_reused=56412170 large_allocations=62 mark_s=8.125226 sweep_s=2.983124\n",
+    "command": [
+      "taskset",
+      "-c",
+      "3",
+      "/tmp/snail-immix-gc-20261011/build/immix-gc/compiler-immix-tuned",
+      "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+      "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+      "immix-tuned"
+    ]
+  },
+  "immix-tuned-128": {
+    "seconds": 17.662660575,
+    "wall_seconds": 17.772785967987147,
+    "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+    "stdout": "+!CSVLINE!+immix-tuned-128,compiler-self,17.662660575\n",
+    "stderr": "immix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.093737 collections=168 allocations=556616983 bytes=16342242488 arena_used=314572800 last_live=25968616 peak_live=34678968 live_objects=1104812 roots=5730491 fields=123035974 holes_reused=17251437 large_allocations=62 mark_s=1.941235 sweep_s=1.804077\n",
+    "command": [
+      "taskset",
+      "-c",
+      "3",
+      "/tmp/snail-immix-gc-20261011/build/immix-gc/compiler-immix-tuned",
+      "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+      "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+      "immix-tuned-128"
+    ]
+  }
+}
