@@ -149,6 +149,36 @@ has no published Snail timing yet.
 
 ## Compile the compiler
 
+Indexing expression facts and constant folds removes repeated linear searches
+from emission. A controlled comparison compiles one frozen input with both
+compiler implementations; every preliminary and measured output is byte-identical:
+
+| Compiler host | Before indexing | Indexed facts | Speedup |
+| --- | ---: | ---: | ---: |
+| Chibi | 26.999 s | 13.985 s | 1.93× |
+| Snail Wasm / V8 | 13.431 s | 7.424 s | 1.81× |
+| Snail native | 67.360 s | 31.168 s | 2.16× |
+
+![Compiler evidence indexing](benchmarks/results/2026-10-10-compiler-indexes/comparison.svg)
+
+These are three rotating measured rounds after one discarded run per case.
+See the [method and frozen inputs](benchmarks/results/2026-10-10-compiler-indexes/README.md)
+and [raw report](benchmarks/results/2026-10-10-compiler-indexes/results.json).
+WAT writing takes roughly 0.1–0.2 seconds in these traces; repeated metadata
+lookup had dominated emission. Compiler preparation and linking are outside
+this comparison's timer.
+
+A separate [direct-call and inlining experiment](benchmarks/calls/README.md)
+finds a modest benefit from calling known primitive adapters, a larger gain on
+a focused native callback workload from closure analysis, and regressions from
+raising the global inlining threshold. It does not support a general 5–10× gain.
+
+### Earlier compiler corpus
+
+The measurements below use an earlier, smaller compiler and its original native
+pipeline. Their absolute timings are not comparable with the fixed-input
+optimization comparison above.
+
 ![Compiler self-compilation times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)
 
 Three measured rounds on October 10 at commit `5721de9` give medians of
