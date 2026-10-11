@@ -293,14 +293,6 @@
   ;; haystack by Unicode scalar index.
   (func (export "snail:string-contains") (param $arguments i32) (result i32) unreachable)
 
-  ;; Takes a span-name string, starts a trace span, and returns an unspecified-
-  ;; value root. Trace-file failure is nonfatal.
-  (func (export "snail:%trace-begin") (param $arguments i32) (result i32) unreachable)
-
-  ;; Takes no arguments, ends the current trace span, and returns an
-  ;; unspecified- value root.
-  (func (export "snail:%trace-end") (param $arguments i32) (result i32) unreachable)
-
   ;; ---- Initialization, diagnostics, and cleanup ----
 
   ;; Initializes the Rust runtime before any Scheme execution. The Wasm build

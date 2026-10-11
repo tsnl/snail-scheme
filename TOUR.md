@@ -57,9 +57,15 @@ The frontend does not launch processes. An optional CLI entry selects a root
 module handler or the ordinary script adapter; build policy remains outside
 the frontend.
 
-[`trace.sld`](src/snail-scheme/trace.sld) and [`src/trace.rs`](src/trace.rs)
-centralize always-on Chromium trace spans. `build/traces/` is the default;
-`SNAIL_TRACE_DIR` overrides it. See [Tracing](doc/tracing.md).
+[`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) decorates procedures
+with `chromium-trace` and records spans only when calls return normally.
+`with-chromium-trace-to` opens a file, initializes its JSON array with a metadata
+event, and finalizes and closes it when the thunk returns. Compiler and build
+operations use these decorators; executable scripts choose the destination and
+establish the file scope. Calling a decorated procedure outside a file scope
+raises an error. [`scripts/view-traces`](scripts/view-traces) serves a trace folder
+and the Nix-provided Perfetto UI on loopback for viewing through an SSH tunnel. Both
+pages start in dark mode. See [Tracing](doc/tracing.md).
 
 ## Reading source
 
@@ -200,6 +206,11 @@ writes folded WAT. Its analysis records binding identity, assignment, lambda
 captures, and initialization. It does not build MIR, bytecode, a managed operand
 stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
 visible in the generated code.
+
+`write-ir-library-as-wasm` coordinates module preparation, procedure generation,
+library initializer generation, and module writing. Both generators register
+constants before declarations are written. Nested trace spans distinguish these
+stages and the writing of imports, runtime fragments, and module definitions.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
 fixed callees pass arguments directly; unknown calls use a GC argument array.

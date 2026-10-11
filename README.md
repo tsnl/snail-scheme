@@ -1,10 +1,10 @@
 # `snail-scheme`
 
-> Rewrite in progress; the previous implementation lives on branch `v3`.
+> 🚧 Work in progress, claims may change; the previous implementation lives on branch `v3`.
 
-A small Scheme compiler library. Chibi bootstraps the native `snail-scheme`
-interpreter, which can run its own build script. Ordinary Scheme scripts choose
-what to compile, where to write it, and whether to run it.
+A small Scheme compiler library. Chibi bootstraps its native interpreter, which
+can then run its own build script. Ordinary Scheme scripts choose what to compile,
+where to write it, and whether to run it.
 
 ```sh
 nix-shell
@@ -27,21 +27,29 @@ positionals and typed option values. Flags, counters such as `-vvv`,
 single values, and repeated values share one small API.
 See [the API and example](doc/options.md). Use `snail-scheme --help` for CLI help.
 
-The checked-in [build.scm](build.scm) builds the interpreter. A Fibonacci build
-script can use:
+The checked-in [build.scm](build.scm) builds the native interpreter. A separate
+script can compile and run Fibonacci:
 
 ```scheme
-(import (scheme base) (snail-scheme build))
-(build-wasm "." "examples/fibonacci.scm" "build/fibonacci.wasm")
-(run-wasm "." "build/fibonacci.wasm" '())
+(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace)
+        (only (chibi filesystem) create-directory*))
+(create-directory* "build")
+(with-chromium-trace-to "build/fibonacci.trace.json"
+  (lambda ()
+    (build-wasm "." "examples/fibonacci.scm" "build/fibonacci.wasm")
+    (run-wasm "." "build/fibonacci.wasm" '())))
 ```
 
-Copy or edit that script, or write your own. A build script is free to read
+Copy or edit that example, or write your own. A build script is free to read
 `command-line`, import project libraries, generate several artifacts, or skip
 execution. Run it with `chibi-scheme -I /path/to/snail-scheme/src your-build.scm`.
 The root argument above identifies the Snail checkout; input and output paths
 are relative to the script's working directory. `run-wasm` returns the program's
 exit code; the script decides whether to pass it to `exit`.
+
+Compiler and build operations require an active `with-chromium-trace-to` scope.
+Put `exit` outside that scope so its trace file is finalized first. Run the build
+and execution calls below inside that scope. See [tracing](doc/tracing.md) for the API.
 
 Project libraries can live outside this checkout. Supply ordered search directories
 after the optional foreign declarations:
@@ -77,7 +85,7 @@ features, GC ownership, and checks.
 
 The compiler emits WasmGC. Binaryen assembles, links, and optimizes it with the
 Rust runtime. There is **one root Cargo crate**, containing the runtime and its
-AWI/tracing modules under `src/`. Cargo reuses the precompiled runtime across
+AWI modules under `src/`. Cargo reuses the precompiled runtime across
 Scheme programs and rebuilds it when Rust inputs change. All current Rust
 services are built into that runtime; independent extension packaging is deferred.
 See the [Rust callback example](examples/rust-interop/README.md).
@@ -88,8 +96,12 @@ Python; `rust-toolchain.toml` requests Rust stable, rustfmt, and `wasm32-wasip1`
 Rustup installs missing components on first use (network access is needed then).
 The stable channel is not a fixed-version benchmark toolchain. `CARGO`, `WASM_AS`,
 `WASM_MERGE`, `WASM_OPT`, and `NODE` override build tools with executable paths,
-not shell command strings. Chromium traces are always written under
-`build/traces/`; `SNAIL_TRACE_DIR` overrides the destination.
+not shell command strings. Build scripts choose an explicit Chromium trace
+filename; the checked-in script writes `<output>.trace.json`. The native
+interpreter records its compilation and execution in `<SCRIPT>.trace.json`.
+
+`scripts/test-self-host` verifies rebuilding the native interpreter and running
+scripts with Chibi unavailable.
 
 This is R7RS-inspired, not fully R7RS compliant. `call/cc` is currently
 unsupported. Single-shot delimited continuations are planned; reusable

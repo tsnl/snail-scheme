@@ -140,7 +140,7 @@ Integer division, float truncation, reference casts, and memory/array/table boun
 trap at Wasm boundaries rather than relying on LLVM undefined behavior. A trap
 prints `WebAssembly trap` and exits with status 1. WASI returns scalar error codes
 and writes its specified layouts into guest memory. The native host exposes the
-working directory and optional trace directory, and executes with ordinary
+working directory, and executes with ordinary
 native process permissions; it is not a Wasm security sandbox.
 
 This is not an implementation of every Wasm proposal. Subtyping, externref,

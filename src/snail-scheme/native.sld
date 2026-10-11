@@ -4,7 +4,7 @@
   (export build-native compile-native native-runtime-path wasm-file->native-file run-script)
   (import (scheme base) (scheme cxr) (scheme process-context)
           (snail-scheme compiler) (snail-scheme llvm) (snail-scheme build)
-          (snail-scheme build-host) (snail-scheme trace))
+          (snail-scheme build-host) (snail-scheme chromium-trace))
   (begin
 
     ;; ---- Wasm to native code ----
@@ -26,30 +26,36 @@
         (run-command "native.validate"
                      (append (list (tool-name "WASM_OPT" "wasm-opt") input)
                              wasm-features (list "-q" "-g" "-o" wasm)))
-        (call-with-trace "native.translate" (lambda () (wasm-file->llvm-file wasm llvm)))
+        ((chromium-trace "native.translate" (lambda () (wasm-file->llvm-file wasm llvm))))
         (run-command "native.compile"
                      (append (list (tool-name "CLANG" "clang") "-O3" "-flto" "-fuse-ld=lld"
                                    llvm (string-append root "/src/native.c"))
                              (if runtime (list "-DSNAIL_NATIVE_CLI" runtime "-ldl" "-lpthread") '())
                              (collector-flags) (list "-o" output)))))
 
-    (define-traced (wasm-file->native-file root input output)
-      (call-with-build-output output (list input)
-                              (lambda (directory staging)
-                                (native-in-directory root input directory staging #f))))
+    (define wasm-file->native-file
+      (chromium-trace
+       "wasm-file->native-file"
+       (lambda (root input output)
+         (call-with-build-output output (list input)
+                                 (lambda (directory staging)
+                                   (native-in-directory root input directory staging #f))))))
 
     ;; ---- Scheme source and the native Rust runtime ----
 
     (define (native-runtime-path root)
       (string-append (absolute-path root) "/build/native-runtime/release/libsnail_runtime.a"))
 
-    (define-traced (build-native-runtime root)
-      (run-command "build.native-runtime"
-                   (list (tool-name "CARGO" "cargo") "rustc" "--quiet" "--offline" "--release"
-                         "--crate-type=staticlib" "--features=native-runtime"
-                         "--manifest-path" (string-append root "/Cargo.toml")
-                         "--target-dir" (string-append root "/build/native-runtime")) root)
-      (native-runtime-path root))
+    (define build-native-runtime
+      (chromium-trace
+       "build-native-runtime"
+       (lambda (root)
+         (run-command "build.native-runtime"
+                      (list (tool-name "CARGO" "cargo") "rustc" "--quiet" "--offline" "--release"
+                            "--crate-type=staticlib" "--features=native-runtime"
+                            "--manifest-path" (string-append root "/Cargo.toml")
+                            "--target-dir" (string-append root "/build/native-runtime")) root)
+         (native-runtime-path root))))
 
     ;; This stage neither reserves a workspace nor publishes an artifact.
     ;; Entry #f evaluates an ordinary script; a symbol selects a zero-argument handler.
@@ -61,14 +67,17 @@
         (assemble-wasm wat wasm)
         (native-in-directory root wasm directory output (build-native-runtime root))))
 
-    (define-traced (build-native root input output . options)
-      (if (> (length options) 2) (error "expected CLI entry and library directories"))
-      (let ((entry (if (null? options) #f (car options)))
-            (libraries (if (< (length options) 2) '() (cadr options))))
-        (if (and entry (not (symbol? entry))) (error "expected a handler name or #f" entry))
-        (call-with-build-output output (list input (native-runtime-path root))
-                                (lambda (directory finished)
-                                  (compile-native root input directory finished entry libraries)))))
+    (define build-native
+      (chromium-trace
+       "build-native"
+       (lambda (root input output . options)
+         (if (> (length options) 2) (error "expected CLI entry and library directories"))
+         (let ((entry (if (null? options) #f (car options)))
+               (libraries (if (< (length options) 2) '() (cadr options))))
+           (if (and entry (not (symbol? entry))) (error "expected a handler name or #f" entry))
+           (call-with-build-output output (list input (native-runtime-path root))
+                                   (lambda (directory finished)
+                                     (compile-native root input directory finished entry libraries)))))))
 
     ;; ---- Ordinary script execution ----
 

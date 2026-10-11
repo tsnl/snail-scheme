@@ -3,13 +3,17 @@
 ;;   build/snail-scheme -Isrc build.scm
 ;; An optional argument selects the complete output filename.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context)
-        (snail-scheme build) (snail-scheme build-host) (snail-scheme native))
+        (snail-scheme build) (snail-scheme build-host) (snail-scheme native)
+        (snail-scheme chromium-trace))
 
 (define arguments (cdr (command-line)))
 (if (> (length arguments) 1) (error "usage: build.scm [OUTPUT]"))
 (define output (if (null? arguments) "build/snail-scheme" (car arguments)))
+(define trace-file (string-append output ".trace.json"))
 (define root (absolute-path "."))
 (define source (string-append root "/main.scm"))
+(if (or (same-file? source trace-file) (same-file? output trace-file))
+    (error "trace file must not replace build input or output" trace-file))
 
 ;; Installation data belongs to this build, alongside its compiler intermediates.
 (define (write-installation directory)
@@ -20,7 +24,16 @@
                 (export installation-root) (import (scheme base))
                 (begin (define installation-root ,root))) port))))
 
-(call-with-build-output output (list source (native-runtime-path root))
-                        (lambda (directory artifact)
-                          (write-installation directory)
-                          (compile-native root source directory artifact 'main (list directory))))
+(define (output-directory output)
+  (let ((path (absolute-path output)))
+    (let loop ((index (- (string-length path) 1)))
+      (if (char=? (string-ref path index) #\/) (substring path 0 (+ index 1))
+          (loop (- index 1))))))
+
+(create-directory* (output-directory output))
+(with-chromium-trace-to trace-file
+                        (lambda ()
+                          (call-with-build-output output (list source (native-runtime-path root))
+                                                  (lambda (directory artifact)
+                                                    (write-installation directory)
+                                                    (compile-native root source directory artifact 'main (list directory))))))
