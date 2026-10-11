@@ -22,6 +22,7 @@ SUCCESSES = {
     "backend-direct-calls": "direct call checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
+    "backend-symbols": "symbol checks passed\n",
     "backend-control": "control-flow checks passed\n",
 }
 ERRORS = {
@@ -32,6 +33,9 @@ ERRORS = {
     "numeric-type": "expected a number",
     "numeric-values": "expected a single value",
     "numeric-arity": "wrong number of arguments",
+    "symbol-character": "incorrect value type",
+    "symbol-string": "expected [Symbol]",
+    "string-symbol": "string->symbol: expected a string",
     "binary-range": "slice index out of range",
     "binary-utf8": "invalid utf-8",
     "hash-immutable": "immutable hash table",
@@ -88,6 +92,14 @@ def check_fixture(name, targets):
         if name == "backend-errors":
             for argument, diagnostic in ERRORS.items():
                 require_result(command, "", diagnostic, [argument])
+        elif name == "backend-symbols":
+            for mode in ("literal-first", "dynamic-first", "reverse-first"):
+                require_result(command, SUCCESSES[name], arguments=[mode],
+                               environment={"SNAIL_NATIVE_GC_INTERVAL": "97"} if native else {})
+            if not native:
+                require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                                str(ROOT / "tests/check-awi-roots.mjs"), command[-1], "3", "literal-first"],
+                               SUCCESSES[name])
         else:
             stress = {"SNAIL_NATIVE_GC_INTERVAL": "97"} if native and name == "backend-hash-tables" else {}
             require_result(command, SUCCESSES[name], environment=stress)

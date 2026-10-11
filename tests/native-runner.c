@@ -16,11 +16,29 @@ extern uint64_t native_finalizer_count(void);
 #ifdef SNAIL_NATIVE_PROGRAM
 extern int snail_cli_main(void);
 extern uint32_t live_roots(void) __asm__("wasm-global.awi_live_roots");
+extern uint32_t atom(uint32_t) __asm__("wasm.atom");
+extern uint32_t kind(uint32_t) __asm__("wasm.kind");
+extern uint32_t atom_value(uint32_t) __asm__("wasm.atom_value");
+extern uint32_t same(uint32_t, uint32_t) __asm__("wasm.same");
+extern uint32_t identity_hash(uint32_t) __asm__("wasm.identity_hash");
+extern void release(uint32_t) __asm__("wasm.release");
+
+static void check_symbol_tags(void) {
+    const uint32_t ids[] = {0, 0x3fffffff, 0x40000000, 0x7fffffff};
+    for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
+        uint32_t tag = ids[i] | 0x80000000;
+        uint32_t a = atom(tag), b = atom(tag), character = atom(256 + 955);
+        assert(kind(a) == 10 && atom_value(a) == tag && same(a, b));
+        assert(!same(a, character) && identity_hash(a) == identity_hash(b));
+        release(a); release(b); release(character);
+    }
+}
 
 int main(int argc, char **argv) {
     native_host_init(argc, argv);
     native_module_init();
     assert(snail_cli_main() == 0);
+    check_symbol_tags();
     // Returned Rust callbacks release every temporary AWI handle.
     assert(live_roots() == 3);
     for (int i = 0; i < 5; i++) { GC_gcollect(); native_poll_finalizers(); }
