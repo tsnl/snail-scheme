@@ -1,0 +1,10 @@
+{
+  "before-source.tar.gz": {
+    "sha256": "c53f5935f7ad5581c179cd3fe3ba65b8b634de829d212d98572975581f569840",
+    "bytes": 152193
+  },
+  "after-source.tar.gz": {
+    "sha256": "1ed92181d046ee4e7e1fdd594b0f4c17b0d8ee178717747cf260304044bb8c9c",
+    "bytes": 152919
+  }
+}

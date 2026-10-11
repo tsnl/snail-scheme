@@ -1,4 +1,10 @@
-# Indexing compiler evidence
+# Historical indexing experiment
+
+This experiment measured an earlier expression-cache design. The current
+compiler instead passes transient child facts directly through its visitor and
+uses immutable binding scopes. Neither mutable indexes nor the later HAMT
+proposal is part of the landing stack. See the [visitor comparison](../2026-10-10-visitor-typing/README.md)
+for the current design.
 
 The compiler repeatedly looked up each expression's type fact and constant fold
 in association lists. Indexing those results by IR identity removes the repeated
@@ -25,7 +31,7 @@ The input and before compiler are from integration revision `803d169`. The after
 compiler is from `a72f5b2`; the active compiler dependency graph changes only in
 type-fact and fold lookup (`49353a6`). The remaining changes in that revision are
 documentation and an unused generator helper outside this benchmark's imports.
-The corresponding review change is PR #34. The call-optimization prototype is a
+The corresponding review change was PR #34, now superseded. The call-optimization prototype is a
 separate experiment and is absent from both measured compilers.
 
 `results.json` retains every sample, execution order, stage times, source hashes,

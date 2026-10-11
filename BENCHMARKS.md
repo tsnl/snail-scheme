@@ -149,24 +149,28 @@ has no published Snail timing yet.
 
 ## Compile the compiler
 
-Indexing expression facts and constant folds removes repeated linear searches
-from emission. A controlled comparison compiles one frozen input with both
-compiler implementations; every preliminary and measured output is byte-identical:
+The compiler now passes child facts through the visitor, with immutable binding
+scopes and no expression caches. A fixed-input comparison with the previous
+indexed compiler measures the cost of this simplification:
 
-| Compiler host | Before indexing | Indexed facts | Speedup |
+| Compiler host | Cached facts | Visitor | Change in time |
 | --- | ---: | ---: | ---: |
-| Chibi | 26.999 s | 13.985 s | 1.93× |
-| Snail Wasm / V8 | 13.431 s | 7.424 s | 1.81× |
-| Snail native | 67.360 s | 31.168 s | 2.16× |
+| Chibi | 14.100 s | 14.650 s | +3.9% |
+| Snail Wasm / V8 | 7.658 s | 9.435 s | +23.2% |
+| Snail native | 31.859 s | 32.319 s | +1.4% |
 
-![Compiler evidence indexing](benchmarks/results/2026-10-10-compiler-indexes/comparison.svg)
+![Visitor comparison](benchmarks/results/2026-10-10-visitor-typing/comparison.svg)
 
 These are three rotating measured rounds after one discarded run per case.
-See the [method and frozen inputs](benchmarks/results/2026-10-10-compiler-indexes/README.md)
-and [raw report](benchmarks/results/2026-10-10-compiler-indexes/results.json).
-WAT writing takes roughly 0.1–0.2 seconds in these traces; repeated metadata
-lookup had dominated emission. Compiler preparation and linking are outside
-this comparison's timer.
+Each implementation's outputs match its own validated Chibi reference across
+all three hosts. Emission order differs between implementations. See the
+[method, limitations, and frozen inputs](benchmarks/results/2026-10-10-visitor-typing/README.md)
+and [raw report](benchmarks/results/2026-10-10-visitor-typing/results.json).
+The Wasm regression remains a follow-up; native is close within these samples.
+Chibi remains the supported compiler host. WAT writing takes 0.1–0.24 seconds;
+compiler preparation and linking are outside the timer. The
+[earlier indexing experiment](benchmarks/results/2026-10-10-compiler-indexes/README.md)
+is retained as historical evidence, not an implementation in the landing stack.
 
 A separate [direct-call and inlining experiment](benchmarks/calls/README.md)
 finds a modest benefit from calling known primitive adapters, a larger gain on
