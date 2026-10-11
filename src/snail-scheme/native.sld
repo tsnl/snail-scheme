@@ -4,7 +4,7 @@
   (export build-native compile-native native-runtime-path run-script)
   (import (scheme base) (scheme cxr) (scheme process-context)
           (snail-scheme compile-build) (snail-scheme native-link) (snail-scheme build)
-          (snail-scheme build-host) (snail-scheme chromium-trace) (snail-scheme artifacts))
+          (snail-scheme build-host) (snail-scheme chromium-trace) (snail-scheme artifacts) (snail artifacts))
   (begin
 
     ;; This stage neither reserves a workspace nor publishes an artifact.
@@ -38,6 +38,13 @@
                                    (let* ((executable (string-append directory "/script"))
                                           (compiled (compile-native root script directory executable #f
                                                                     (if (null? options) '() (car options))))
+                                          (runtime (find-artifact "snail-runtime.wat"))
                                           (dependencies (artifact-dependencies compiled)))
-                                     (stage-artifacts dependencies directory "script")
+                                     (stage-artifacts
+                                      (if (or (not runtime) (assoc "snail-runtime.wat"
+                                                                   (map (lambda (artifact) (cons (artifact-name artifact) artifact))
+                                                                        (artifact-closure dependencies))))
+                                          dependencies
+                                          (cons (make-artifact "snail-runtime.wat" runtime '()) dependencies))
+                                      directory "script")
                                      (process-status (cons executable arguments) "." #t script)))))))
