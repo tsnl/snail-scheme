@@ -37,6 +37,7 @@ mod raw {
         fn release(root: u32);
         fn kind(root: u32) -> u32;
         fn same(a: u32, b: u32) -> u32;
+        fn identity_hash(root: u32) -> u32;
         fn call(procedure: u32, arguments: u32) -> u32;
         fn integer(value: i64) -> u32;
         fn real(value: f64) -> u32;
@@ -161,6 +162,10 @@ impl Root {
 
     pub fn same(&self, other: &Self) -> bool {
         unsafe { raw::same(self.handle, other.handle) != 0 }
+    }
+
+    pub fn identity_hash(&self) -> u32 {
+        unsafe { raw::identity_hash(self.handle) }
     }
 
     /// Calls Scheme synchronously. The call may allocate and call Rust again.

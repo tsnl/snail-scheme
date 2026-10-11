@@ -734,6 +734,8 @@
              '("native_register_finalizer" "void" "i64" "i32" "i32"))
             ((equal? import '("snail.host" "unregister-finalizer"))
              '("native_unregister_finalizer" "void" "i64"))
+            ((equal? import '("snail.host" "hash-identity"))
+             '("native_hash_identity" "i32" "i64"))
             (else #f)))
 
     (define (import-name function)
