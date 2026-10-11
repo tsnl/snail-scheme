@@ -22,6 +22,6 @@
           open-output-string get-output-string display write newline
           %current-input-port %current-output-port %current-error-port
           %set-current-input-port! %set-current-output-port! %set-current-error-port!
-          command-line exit get-environment-variable current-jiffy jiffies-per-second
+          command-line exit get-environment-variable find-artifact current-jiffy jiffies-per-second
           string-contains %hash-by-identity %eqv-hash %equal-hash %string-hash %string-ci-hash
           %make-record-type %make-record %record? %record-ref %record-set!))))
