@@ -60,6 +60,13 @@ The frontend does not launch processes. An optional CLI entry selects a root
 module handler or the ordinary script adapter; build policy remains outside
 the frontend.
 
+[`artifacts.sld`](src/snail-scheme/artifacts.sld) validates dependency graphs,
+snapshots completed files, and writes the package manifest. Builds with
+dependencies publish a complete generation and atomically switch the public
+symlink. [`(snail artifacts)`](src/snail/artifacts.sld) resolves companions beside
+the physical executable; older generations remain available to running programs.
+See [dependency artifacts](doc/build-artifacts.md).
+
 [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) decorates procedures
 with `chromium-trace` and records spans only when calls return normally.
 `with-chromium-trace-to` opens a file, initializes its JSON array with a metadata
