@@ -1,7 +1,53 @@
-# Dependency artifacts
+# Generated libraries and dependency artifacts
 
-Builds can declare completed files needed by an executable. Files and their
-dependencies are published together; they are not embedded into Scheme literals.
+Build evaluation can produce both Scheme declarations and files needed by the
+resulting program. `generate-library` runs that evaluation in a separate native
+process. Dependency artifacts carry the completed files into the executable's
+installation; they are not embedded into Scheme literals.
+
+A generated library uses the ordinary import path and library name:
+
+```scheme
+(generate-library (demo message)
+  (export message-path)
+  (import (scheme base) (scheme file) (scheme write)
+          (snail-scheme generation) (snail-scheme artifacts))
+  (begin
+    (define output (generation-output-path "message.txt"))
+    (call-with-output-file output
+      (lambda (port) (display "Hello from build evaluation!\n" port)))
+    (generated-library
+      '((import (scheme base) (snail artifacts))
+        (begin (define (message-path) (artifact-path "message.txt"))))
+      (list (make-artifact "message.txt" output '())))))
+```
+
+The wrapper contains exactly one `begin`. Its imports apply to generator code;
+returned declarations supply the generated library's own imports. Its name and
+exports remain authoritative, and returned declarations may contain only
+`import` and `begin`. The result is a `generated-library` value carrying declarations and artifact
+roots; use an empty root list when the library needs no companions.
+
+`generation-source-path` resolves relative to the source library's directory.
+`generation-output-path` resolves inside that generator's private workspace.
+The latter owns temporary outputs, which are copied before the workspace can
+be removed or another generator can rebuild a shared Cargo output. Ordinary
+subprocess output is separate from the generator's result protocol. Located
+syntax can retain source locations; ordinary datums inherit the wrapper's
+location for diagnostics.
+
+Generators run once per imported source file in one build, including path aliases.
+Nested generation shares the build's cache, but each compilation collects its
+own dependencies. A recursive generator dependency fails with a cycle error.
+The cache is not persistent across builds and does not promise hermeticity:
+Scheme build code can inspect the environment and execute external tools.
+
+The portable `(snail-scheme compiler)` library has no process dependencies. Its
+`library-generator` parameter defaults to an error when a generated library is
+requested. `(snail-scheme compile-build)` installs the build resolver and returns
+`compilation-wasm` together with `compilation-artifacts`. The ordinary `build-wasm`
+and `build-native` operations use this path and propagate generated dependencies
+automatically. Scripts own the surrounding Chromium trace file scope.
 
 ## Artifact descriptions and publication
 
@@ -54,3 +100,6 @@ physical executable's directory, independent of the working directory and
 bootstrap workflows. The Node/WASI launcher resolves the selected payload once
 and preopens its artifact directory as `/snail-artifacts`.
 
+`scripts/test-generation` exercises isolation, nested/cache-hit dependencies,
+cycles, rollback, relocation, live generation pinning, and linked Wasm companion
+lookup.
