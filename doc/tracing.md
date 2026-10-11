@@ -90,9 +90,10 @@ for file access; trace filenames must lie within the host's accessible paths.
 
 Spans cover source reading, parsing, expansion, WAT emission, Cargo, Wasm
 assembly/linking/optimization, execution, and native translation. Imported
-sources appear within expansion. Use a viewer's inclusive/exclusive durations
-to separate costs. There are no per-instruction or per-primitive spans; WasmGC
-does not expose portable collector timings.
+sources appear within expansion. Parsing is recorded as `reader->syntax-list`;
+each loaded source produces its own span. Use a viewer's inclusive/exclusive
+durations to separate costs. There are no per-instruction or per-primitive spans;
+WasmGC does not expose portable collector timings.
 
 | Module | Entry point | Representation |
 | --- | --- | --- |
@@ -103,10 +104,28 @@ does not expose portable collector timings.
 | `wasm.sld` | `write-ir-library-as-wasm` | Library dependency graph → WAT on a port |
 | `compiler.sld` | `source-file->wat-file` | Source filename → WAT output file |
 
+Within `write-ir-library-as-wasm`, the emitter records these stages:
+
+| Span | Work |
+| --- | --- |
+| `prepare-module` | Collect globals and procedures; analyze mutation, cells and known callees |
+| `generate-procedure-functions` | Build procedure bodies, including local/capture analysis |
+| `generate-library-functions` | Build library initialization bodies in dependency order |
+| `write-wasm-module` | Write the complete module to the caller's port |
+| `write-module-imports` | Write runtime, finalizer and Rust service imports |
+| `copy-file <path>` | Copy each runtime text fragment; the path identifies the fragment |
+| `write-module-definitions` | Assemble and serialize globals, constants, adapters, bodies and entry |
+
+The last three stages nest inside `write-wasm-module`. Procedure and library
+generation register constants before definition writing; their spans cover
+generation, while definition writing includes final WAT serialization. Local
+capture analysis remains part of procedure generation. Each emission adds eight
+stage events regardless of the number of procedures or libraries.
+
 `make test` checks host values, JSON escaping, nesting, file closure, and omission
 of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded
 by Chibi and linked Wasm and checks missing destinations, file-opening failures,
 and omission of a span on terminal error. Add `--target both` to run the same
 linked module through the native executor. `scripts/test-build` checks compiler
-stage coverage, import side effects, destination ownership, and finalization
-before a script exits with a nonzero execution status.
+stage coverage and nesting, import side effects, destination ownership, and
+finalization before a script exits with a nonzero execution status.

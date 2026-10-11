@@ -192,6 +192,11 @@ captures, and initialization. It does not build MIR, bytecode, a managed operand
 stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
 visible in the generated code.
 
+`write-ir-library-as-wasm` coordinates module preparation, procedure generation,
+library initializer generation, and module writing. Both generators register
+constants before declarations are written. Nested trace spans distinguish these
+stages and the writing of imports, runtime fragments, and module definitions.
+
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
 fixed callees pass arguments directly; unknown calls use a GC argument array.
 Wasm tail-call instructions implement proper tail calls. Captures known to be
