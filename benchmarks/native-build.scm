@@ -5,6 +5,6 @@
 
 (create-directory* "build/native-benchmark")
 (with-chromium-trace-to "build/native-benchmark/build.trace.json"
-  (lambda ()
-    (build-wasm "." "benchmarks/cpu.scm" "build/native-benchmark/cpu.wasm")
-    (wasm-file->native-file "." "build/native-benchmark/cpu.wasm" "build/native-benchmark/cpu")))
+                        (lambda ()
+                          (build-wasm "." "benchmarks/cpu.scm" "build/native-benchmark/cpu.wasm")
+                          (build-native "." "benchmarks/cpu.scm" "build/native-benchmark/cpu")))
