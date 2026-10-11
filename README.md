@@ -9,11 +9,23 @@ where to write it, and whether to run it.
 ```sh
 nix-shell
 chibi-scheme -I src build.scm
-build/snail-scheme build.scm
+build/snail-scheme -Isrc build.scm
 make test
 scripts/test-build
 scripts/test-backend
 ```
+
+The native CLI accepts both `-Isrc` and `-I src` before the script filename.
+Each `-I` prepends a library directory, so later flags take precedence.
+Use `--` before a script filename beginning with `-`; arguments after the
+filename pass through literally.
+
+Applications can use `(snail-scheme options)` for the same option syntax.
+A quoted list of typed declarations constructs an `<args-spec>` record, which
+drives validation and generated usage and help. The `<args>` result holds
+positionals and typed option values. Flags, counters such as `-vvv`,
+single values, and repeated values share one small API.
+See [the API and example](doc/options.md). Use `snail-scheme --help` for CLI help.
 
 The checked-in [build.scm](build.scm) builds the native interpreter. A separate
 script can compile and run Fibonacci:

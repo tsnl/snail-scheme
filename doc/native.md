@@ -9,8 +9,11 @@ it in a private execution directory. The project-specific interpreter recipe and
 installation data live in `build.scm`.
 
 The native CLI is built by `chibi-scheme -I src build.scm`. Its `main.scm` handler
-accepts a script, compiles it, executes it, and returns its status. The resulting
-`build/snail-scheme build.scm` rebuilds the interpreter. See the
+accepts `-I DIRECTORY` or `-IDIRECTORY` before a script, compiles it, executes it,
+and returns its status. Each `-I` prepends a library search directory, so the last
+one supplied is searched first. Relative directories use the current working
+directory. `--` ends option parsing; arguments after the script remain literal.
+The resulting `build/snail-scheme -Isrc build.scm` rebuilds the interpreter. See the
 [build chapter](book/builds.md) and [inline CLI ABI](book/platforms/native-cli.md).
 
 For complete linked Wasm, the existing library workflow remains:

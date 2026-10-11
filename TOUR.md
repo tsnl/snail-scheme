@@ -11,14 +11,27 @@ build.scm -> compile-native main.scm and its generated installation library
   -> Binaryen validation -> binary Wasm reader -> LLVM
   -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
 
-snail-scheme SCRIPT -> compile temporary native script -> run -> return status
+snail-scheme [-I DIRECTORY ...] SCRIPT -> compile temporary native script -> run -> return status
 ```
 
 ## Entering the compiler
 
 [build.scm](build.scm) owns the interpreter's output path. [main.scm](main.scm)
-defines its zero-argument `main` handler: run the supplied script and return its
-status. [`native.sld`](src/snail-scheme/native.sld) composes source compilation,
+defines its zero-argument `main` handler: parse `-I` library directories, run the
+supplied script, and return its status. Both `-Isrc` and `-I src` work; each
+occurrence prepends a directory. `--` ends interpreter options, and arguments
+after the script filename pass through literally.
+[`options.sld`](src/snail-scheme/options.sld) supplies the reusable option reader.
+`make-args-spec` validates a quoted list of type-headed declarations and stores
+the program name, optional help text, option records, and unique alias lookup
+in an `<args-spec>` record. Usage and help are generated from this record. The
+`<args>` result holds positionals and a value for each declared option. Four canned
+types handle boolean flags, counters, single values, and repeated values; grouped aliases
+share one result key. Repeated values accumulate latest first.
+Full parsing accepts options after positionals; the interpreter uses prefix
+parsing to preserve script arguments. Both consume `--` and keep its remaining
+tail literal. See [option parsing](doc/options.md).
+[`native.sld`](src/snail-scheme/native.sld) composes source compilation,
 the native runtime archive, and explicit CLI entry adapters. A normal script has
 no special entry name: its forms execute once and normal completion returns zero.
 

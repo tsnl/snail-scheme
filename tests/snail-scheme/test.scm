@@ -1,4 +1,5 @@
 (import (scheme base)
+        (only (snail-scheme options) test-options)
         (only (snail-scheme chromium-trace) test-chromium-trace with-chromium-trace-to)
         (only (chibi temp-file) call-with-temp-dir)
         (only (snail-scheme build) test-build)
@@ -14,6 +15,7 @@
         (only (snail-scheme pattern) test-pattern)
         (only (snail-scheme expand) test-expand))
 
+(test-options)
 (test-chromium-trace)
 (call-with-temp-dir
  "snail-unit-traces"
