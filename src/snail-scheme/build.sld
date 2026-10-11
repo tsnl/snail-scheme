@@ -1,11 +1,11 @@
 ;; Host-independent build operations. Scripts choose inputs, outputs, and execution;
 ;; importing this library never reads command-line arguments or starts a build.
 (define-library (snail-scheme build)
-  (export build-runtime link-wasm build-wasm run-wasm run-command tool-name wasm-features
+  (export build-runtime build-runtime-wat link-wasm build-wasm run-wasm run-command tool-name wasm-features
           assemble-wasm call-with-build-output)
   (import (scheme base) (scheme file) (scheme write)
           (scheme process-context) (snail-scheme compile-build) (snail-scheme chromium-trace)
-          (snail-scheme build-host) (snail-scheme artifacts)
+          (snail-scheme build-host) (snail-scheme artifacts) (snail artifacts)
           (only (snail-scheme wasm) write-wasm))
   (begin
     ;; ---- Processes and owned build directories ----
@@ -45,15 +45,28 @@
       (string-append root "/build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"))
 
     (define build-runtime
-      (chromium-trace
-       "build-runtime"
-       (lambda (root)
-         (let* ((root (absolute-path root)) (target (string-append root "/build/wasm-runtime")))
-           (run-command "build.cargo"
-                        (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                              "--target" "wasm32-wasip1" "--manifest-path" (string-append root "/Cargo.toml")
-                              "--target-dir" target) root)
-           (wasm-runtime-path root)))))
+      (chromium-trace "build-runtime" (lambda (root)
+                                        (or (find-artifact "snail-runtime.wat") (compile-runtime root)))))
+
+    (define compile-runtime
+      (chromium-trace "compile-runtime" (lambda (root)
+                                          (let* ((root (absolute-path root)) (target (string-append root "/build/wasm-runtime")))
+                                            (run-command "build.cargo"
+                                                         (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+                                                               "--target" "wasm32-wasip1" "--manifest-path" (string-append root "/Cargo.toml")
+                                                               "--target-dir" target) root)
+                                            (wasm-runtime-path root)))))
+
+    ;; Cargo emits Wasm; Binaryen converts it into the distributable WAT file.
+    ;; This explicit producer always checks Cargo's inputs, even in an installed
+    ;; compiler that already carries a runtime from its own build.
+    (define (build-runtime-wat root output)
+      (let ((runtime (compile-runtime root)))
+        (call-with-build-output output (list runtime)
+                                (lambda (directory finished)
+                                  (run-command "build.runtime-wat"
+                                               (list (tool-name "WASM_DIS" "wasm-dis") runtime "-o" finished))))
+        (absolute-path output)))
 
     ;; ---- Linking a complete Wasm program ----
 
