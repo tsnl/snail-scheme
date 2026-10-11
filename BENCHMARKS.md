@@ -148,15 +148,16 @@ has no published Snail timing yet.
 
 ## Compile the compiler
 
-![Compiler self-compilation times](benchmarks/results/2026-10-10-compiler-self/compiler-self.svg)
+![Compiler self-compilation times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)
 
-Three measured rounds on October 10 at commit `dcd5de7` give medians of
-**2.184 seconds for Snail Wasm/V8** and **18.849 seconds for Chibi**, on CPU 0
-of an Intel Core Ultra 7 270K Plus. All preliminary and measured outputs match.
-These historical results used compiled Wasm; native was unavailable in that run.
-The
-[raw measurements](benchmarks/results/2026-10-10-compiler-self/results.json)
+Three measured rounds on October 10 at commit `5721de9` give medians of
+**2.250 seconds for Snail Wasm/V8**, **6.103 seconds for Snail native**, and
+**17.400 seconds for Chibi**, on CPU 2 of an Intel Core Ultra 7 270K Plus.
+All twelve preliminary and measured outputs match byte for byte.
+The [raw measurements](benchmarks/results/2026-10-10-compiler-current/results.json)
 retain every sample, tool version, command, and source/artifact hash.
+The earlier [Wasm comparison](benchmarks/results/2026-10-10-compiler-self/results.json)
+at `dcd5de7` used the previous compiler and tracing implementation.
 
 [`compile-self.py`](benchmarks/compile-self.py) runs Snail's compiler on its own
 full Scheme source and imported libraries. It first freezes the sources and

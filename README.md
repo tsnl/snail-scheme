@@ -13,7 +13,7 @@ Snail Scheme is faster than Chez Scheme and Guile
 ([benchmarks](BENCHMARKS.md)), combining broad R7RS compatibility with
 portability wherever WebAssembly runs.
 
-[![Recursive Fibonacci: Guile, Chez, and Snail execution times](benchmarks/results/2026-10-10-native-fibonacci/readme.svg)](BENCHMARKS.md)
+[![Snail compiling its own compiler: elapsed times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)](BENCHMARKS.md#compile-the-compiler)
 
 ## Getting started
 
