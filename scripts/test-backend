@@ -19,6 +19,7 @@ SUCCESSES = {
     "backend-numeric": "numeric instruction checks passed\n",
     "backend-inexact": "inexact checks passed\n",
     "backend-hash-tables": "hash table checks passed\n",
+    "backend-direct-calls": "direct call checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
     "backend-control": "control-flow checks passed\n",
