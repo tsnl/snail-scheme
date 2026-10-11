@@ -21,6 +21,7 @@ Open a completed file in `chrome://tracing` or
 Run the viewer on the development server:
 
 ```sh
+nix-shell
 scripts/view-traces build
 ```
 
@@ -36,16 +37,16 @@ server port; the local forwarded port may differ. It recursively lists `.json`,
 `.pftrace`, `.perfetto-trace`, and `.trace` files. Each opens Perfetto in a new tab;
 refresh the folder page to find new files. Serve completed recordings.
 
-The first launch downloads the official Perfetto `v58.2` UI release (about 16 MB)
-into `build/perfetto-ui/v58.2` beside the repository's other build artifacts.
-Later launches reuse it. The UI and trace bytes are served locally through the
-tunnel, so the browser needs no internet connection to load them. Both the folder
-page and Perfetto start in dark mode. The theme bootstrap uses the pinned UI's
-stored `theme` setting; verify that setting when updating the release.
+`shell.nix` supplies the official Perfetto `v58.2` UI release (about 16 MB) as a
+hashed Nix dependency and sets `PERFETTO_UI` to its store path. Nix fetches it once;
+the script reads the installed assets. The UI and trace bytes are served locally
+through the tunnel, so the browser needs no internet connection to load them.
+Both the folder page and Perfetto start in dark mode. The theme bootstrap uses
+the pinned UI's stored `theme` setting; verify it when updating the release.
 
 The server binds only to `127.0.0.1`. Trace requests stay within the supplied
 folder, including symlink targets. `scripts/test-view-traces` checks discovery,
-refresh, escaped filenames, HTTP file boundaries, and atomic UI cache publication.
+refresh, escaped filenames, HTTP file boundaries, and the required shell dependency.
 See [Perfetto's self-hosting instructions](https://perfetto.dev/docs/visualization/embedding-the-ui#self-hosting-the-ui)
 for the release bundle's layout.
 
@@ -147,7 +148,7 @@ Within `write-ir-library-as-wasm`, the emitter records these stages:
 | `write-wasm-module` | Write the complete module to the caller's port |
 | `write-module-imports` | Write runtime, finalizer and Rust service imports |
 | `copy-file <path>` | Copy each runtime text fragment; the path identifies the fragment |
-| `write-module-definitions` | Assemble and serialize globals, constants, adapters, bodies and entry |
+| `write-module-definitions` | Assemble and serialize globals, constants, adapters, bodies and entries |
 
 The last three stages nest inside `write-wasm-module`. Procedure and library
 generation register constants before definition writing; their spans cover

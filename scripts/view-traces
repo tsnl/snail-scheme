@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
-"""Serve a trace folder and a cached Perfetto UI over a loopback HTTP connection."""
+"""Serve a trace folder and the shell's Perfetto UI over a loopback HTTP connection."""
 
 import argparse
 import html
-import io
 import mimetypes
 import os
 import shutil
 import sys
-import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from string import Template
 from urllib.parse import quote, unquote, urlsplit
-from urllib.request import urlopen
-from zipfile import BadZipFile, ZipFile
-
-ROOT = Path(__file__).resolve().parent.parent
-VERSION = "v58.2"
-UI = ROOT / "build/perfetto-ui" / VERSION
-UI_URL = f"https://github.com/google/perfetto/releases/download/{VERSION}/perfetto-ui.zip"
 TRACE_SUFFIXES = {".json", ".pftrace", ".perfetto-trace", ".trace"}
 
 
@@ -27,16 +18,12 @@ TRACE_SUFFIXES = {".json", ".pftrace", ".perfetto-trace", ".trace"}
 
 
 def perfetto_ui():
-    if not (UI / "index.html").is_file():
-        UI.parent.mkdir(parents=True, exist_ok=True)
-        print(f"Downloading Perfetto {VERSION} to {UI}", flush=True)
-        with tempfile.TemporaryDirectory(dir=UI.parent) as directory:
-            with urlopen(UI_URL, timeout=60) as response:
-                with ZipFile(io.BytesIO(response.read())) as archive:
-                    archive.extractall(directory)
-            contained_file(Path(directory), "index.html")
-            Path(directory).rename(UI)
-    return UI
+    value = os.environ.get("PERFETTO_UI")
+    if not value:
+        raise RuntimeError("Perfetto UI is unavailable; enter nix-shell first")
+    directory = Path(value).resolve()
+    contained_file(directory, "index.html")
+    return directory
 
 
 # The pinned UI reads this setting at startup. Set it before its bootstrap script
@@ -186,5 +173,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, BadZipFile) as error:
+    except (OSError, RuntimeError) as error:
         sys.exit(f"view-traces: {error}")

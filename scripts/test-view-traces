@@ -1,46 +1,29 @@
 #!/usr/bin/env python3
-"""Check trace discovery, HTTP file boundaries, and Perfetto cache publication."""
+"""Check trace discovery, HTTP file boundaries, and the UI shell dependency."""
 
-import io
+import os
 import runpy
 import subprocess
 import tempfile
 import threading
 from pathlib import Path
-from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import urlopen
-from zipfile import BadZipFile, ZipFile
 
 ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "scripts/view-traces"
 MODULE = runpy.run_path(str(VIEWER))
 
 
-# ---- Cache publication ----
+# ---- Shell dependency ----
 
 
-def check_cache(directory):
-    cache = directory / "cached-ui"
-    install = MODULE["perfetto_ui"]
-    with patch.dict(install.__globals__, UI=cache,
-                    urlopen=lambda *a, **k: io.BytesIO(b"bad zip")):
-        try:
-            install()
-            raise AssertionError("invalid download was accepted")
-        except BadZipFile:
-            assert not cache.exists()
-    archive = io.BytesIO()
-    with ZipFile(archive, "w") as release:
-        release.writestr("index.html", "complete UI")
-        release.writestr("version/engine.wasm", b"\x00asm")
-    with patch.dict(install.__globals__, UI=cache,
-                    urlopen=lambda *a, **k: io.BytesIO(archive.getvalue())):
-        assert install() == cache
-    with patch.dict(install.__globals__, UI=cache, urlopen=None):
-        assert install() == cache
-    assert (cache / "version/engine.wasm").read_bytes() == b"\x00asm"
+def check_dependency(directory):
+    result = subprocess.run([VIEWER, directory], capture_output=True, timeout=5,
+                            env={key: value for key, value in os.environ.items()
+                                 if key != "PERFETTO_UI"})
+    assert result.returncode == 1 and b"enter nix-shell first" in result.stderr
 
 
 # ---- Folder discovery and HTTP requests ----
@@ -132,6 +115,6 @@ def check_server(directory):
 
 with tempfile.TemporaryDirectory(prefix="snail-view-traces-") as temporary:
     directory = Path(temporary).resolve()
-    check_cache(directory)
+    check_dependency(directory)
     check_server(directory)
 print("Trace viewer checks passed.")
