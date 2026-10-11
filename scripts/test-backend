@@ -19,6 +19,7 @@ SUCCESSES = {
     "backend-numeric": "numeric instruction checks passed\n",
     "backend-inexact": "inexact checks passed\n",
     "backend-hash-tables": "hash table checks passed\n",
+    "backend-identity-map": "persistent identity map checks passed\n",
     "backend-direct-calls": "direct call checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
@@ -89,9 +90,9 @@ def check_fixture(name, targets):
             for argument, diagnostic in ERRORS.items():
                 require_result(command, "", diagnostic, [argument])
         else:
-            stress = {"SNAIL_NATIVE_GC_INTERVAL": "97"} if native and name == "backend-hash-tables" else {}
+            stress = {"SNAIL_NATIVE_GC_INTERVAL": "97"} if native and name in ("backend-hash-tables", "backend-identity-map") else {}
             require_result(command, SUCCESSES[name], environment=stress)
-        if not native and name == "backend-hash-tables":
+        if not native and name in ("backend-hash-tables", "backend-identity-map"):
             require_result([os.environ.get("NODE", "node"), "--no-warnings",
                             str(ROOT / "tests/check-awi-roots.mjs"), command[-1], "3"], SUCCESSES[name])
         print(f"passed {'native' if native else 'Wasm'}: {name}", flush=True)

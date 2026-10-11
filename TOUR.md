@@ -242,6 +242,12 @@ lambdas bidirectionally, collects mutation before narrowing, and infers bounded
 occurrence filters and verified function summaries. Its output separates
 expression facts, required guards, and enforced function signatures. Checked
 callable views retain implementation origins for recursive-instantiation checks.
+[`identity-map.sld`](src/snail-scheme/identity-map.sld) indexes expression facts
+and constant-fold results by IR identity using a persistent HAMT. Associations
+copy the affected path; earlier map versions retain their mappings. The analyzer
+still updates its current root and counters, and emission order still follows
+the source IR. This map is separate from the branch environments used for
+occurrence narrowing.
 A guard's
 postcondition can justify a later optimization, never removal of that guard.
 The emitter checks local returns inline. The first guarded tail transfer owns

@@ -7,7 +7,7 @@
 ;; Captures are GC references. Only assigned or early-captured locals need cells.
 (define-library (snail-scheme wasm)
   (export ir-library->wasm write-wasm)
-  (import (scheme base) (scheme cxr) (scheme write) (scheme hash-table)
+  (import (scheme base) (scheme cxr) (scheme write) (snail-scheme identity-map)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis) (snail-scheme partial-eval)
           (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)
@@ -76,11 +76,11 @@
                                        (numbered (unique-identities (map car (analysis-guards analysis)))))))))
 
     ;; Keep the first alist entry for each node, including false/null constants.
-    ;; This table is queried only; source traversal still determines emission order.
+    ;; This map is queried only; source traversal still determines emission order.
     (define (index-folds folds)
-      (let ((index (make-hash-table eq?)))
-        (for-each (lambda (entry) (hash-table-set! index (car entry) entry)) (reverse folds))
-        index))
+      (let loop ((entries (reverse folds)) (index empty-identity-map))
+        (if (null? entries) index
+            (loop (cdr entries) (identity-map-set index (caar entries) (car entries))))))
 
     (define (specialized-functions functions known globals primitives analysis)
       (if (null? functions) '()
@@ -336,7 +336,7 @@
               (else (raw-expression node context #f)))))
 
     (define (raw-expression node context checks)
-      (cond ((hash-table-ref/default (module-folds (function-module context)) node #f)
+      (cond ((identity-map-ref (module-folds (function-module context)) node #f)
              => (lambda (entry) (finish-expression (literal-value (cdr entry) (function-module context)) checks context)))
             ((ir:block? node) (sequence-expression (ir:block-items node) context checks))
             ((ir:conditional? node) (conditional-expression node context checks))
@@ -997,9 +997,9 @@
         (let* ((first (ir:make-literal 1 #f)) (second (ir:make-literal 1 #f))
                (folds (list (cons first #f) (cons second '()) (cons first 42)))
                (index (index-folds folds)))
-          (expect (hash-table-ref/default index first #f) (car folds))
-          (expect (hash-table-ref/default index second #f) (cadr folds))
-          (expect (hash-table-ref/default index (ir:make-literal 1 #f) #f) #f)
+          (expect (identity-map-ref index first #f) (car folds))
+          (expect (identity-map-ref index second #f) (cadr folds))
+          (expect (identity-map-ref index (ir:make-literal 1 #f) #f) #f)
           (expect (map cdr folds) '(#f () 42))))
 
       (define (test-wasm)
