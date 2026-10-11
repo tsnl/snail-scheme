@@ -55,13 +55,16 @@
                     (apply append (map visit (children node))))))
       (apply append (map visit items)))
 
-    (define (prepare-module libraries foreign)
-      (let* ((items (apply append (map library:library-body libraries)))
-             (globals (apply append (map library-global-definitions libraries)))
-             (primitives (apply append (map library-core-primitives libraries))))
-        (make-module (numbered globals) (immutable-primitives primitives items)
-                     (boxed-definitions items globals) (numbered (all-lambdas items))
-                     (known-lambdas items (assigned-definitions items)) foreign '())))
+    (define prepare-module
+      (chromium-trace
+       "prepare-module"
+       (lambda (libraries foreign)
+         (let* ((items (apply append (map library:library-body libraries)))
+                (globals (apply append (map library-global-definitions libraries)))
+                (primitives (apply append (map library-core-primitives libraries))))
+           (make-module (numbered globals) (immutable-primitives primitives items)
+                        (boxed-definitions items globals) (numbered (all-lambdas items))
+                        (known-lambdas items (assigned-definitions items)) foreign '())))))
 
     ;; ---- Binding and capture analysis ----
     (define (library-global-definitions library)
@@ -411,6 +414,12 @@
 
     ;; ---- Procedure definitions ----
 
+    (define generate-procedure-functions
+      (chromium-trace
+       "generate-procedure-functions"
+       (lambda (module)
+         (map (lambda (entry) (procedure-function entry module)) (module-functions module)))))
+
     (define (procedure-environment procedure module)
       (append (map (lambda (entry) (list (car entry) 'local (identifier "v" (cdr entry))))
                    (numbered (lambda-locals procedure)))
@@ -456,6 +465,12 @@
                             ,@(if rest? `((call $rest (local.get $arguments) (i32.const ,count))) '())))))
 
     ;; ---- Library entries ----
+
+    (define generate-library-functions
+      (chromium-trace
+       "generate-library-functions"
+       (lambda (libraries module)
+         (map (lambda (entry) (library-function entry module)) libraries))))
 
     (define (library-function entry module)
       (let* ((items (library:library-body (car entry)))
@@ -565,11 +580,14 @@
     ;; ---- Serialization ----
 
     (define (copy-file path port)
-      (call-with-input-file path
-        (lambda (input)
-          (let loop ((character (read-char input)))
-            (if (not (eof-object? character))
-                (begin (display character port) (loop (read-char input))))))))
+      ((chromium-trace
+        (string-append "copy-file " path)
+        (lambda ()
+          (call-with-input-file path
+            (lambda (input)
+              (let loop ((character (read-char input)))
+                (if (not (eof-object? character))
+                    (begin (display character port) (loop (read-char input)))))))))))
 
     ;; Scheme's writer escapes numeric-looking symbols such as -inf. WAT uses
     ;; those tokens literally; only WAT string operands need Scheme quoting.
@@ -593,21 +611,40 @@
        (lambda (root runtime-path awi-path port . options)
          (let* ((libraries (numbered (library:library-dependency-order root)))
                 (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
-                (procedures (map (lambda (entry) (procedure-function entry module)) (module-functions module)))
-                (entries (map (lambda (entry) (library-function entry module)) libraries)))
-           (display "(module\n" port)
-           (write-definition '(import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32))) port)
-           (write-definition '(import "snail.host" "register-finalizer"
-                                      (func $host_register_finalizer (param eqref i32 i32))) port)
-           (for-each (lambda (entry) (write-definition (rust-import entry) port))
-                     (numbered (module-services module)))
-           (copy-file runtime-path port)
-           (copy-file awi-path port)
-           (for-each (lambda (definition) (write-definition definition port))
-                     (module-definitions libraries module procedures entries))
-           (if (and (pair? options) (pair? (cdr options)))
-               (write-definition (cli-entry root module (cadr options)) port))
-           (display ")\n" port)))))
+                ;; Both generators register constants before declarations are written.
+                (procedures (generate-procedure-functions module))
+                (entries (generate-library-functions libraries module)))
+           (write-wasm-module root libraries module procedures entries options runtime-path awi-path port)))))
+
+    (define write-wasm-module
+      (chromium-trace
+       "write-wasm-module"
+       (lambda (root libraries module procedures entries options runtime-path awi-path port)
+         (display "(module\n" port)
+         (write-module-imports module port)
+         (copy-file runtime-path port)
+         (copy-file awi-path port)
+         (write-module-definitions root libraries module procedures entries options port)
+         (display ")\n" port))))
+
+    (define write-module-imports
+      (chromium-trace
+       "write-module-imports"
+       (lambda (module port)
+         (write-definition '(import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32))) port)
+         (write-definition '(import "snail.host" "register-finalizer"
+                                    (func $host_register_finalizer (param eqref i32 i32))) port)
+         (for-each (lambda (entry) (write-definition (rust-import entry) port))
+                   (numbered (module-services module))))))
+
+    (define write-module-definitions
+      (chromium-trace
+       "write-module-definitions"
+       (lambda (root libraries module procedures entries options port)
+         (for-each (lambda (definition) (write-definition definition port))
+                   (module-definitions libraries module procedures entries))
+         (if (and (pair? options) (pair? (cdr options)))
+             (write-definition (cli-entry root module (cadr options)) port)))))
 
     (define (module-definitions libraries module procedures entries)
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))
