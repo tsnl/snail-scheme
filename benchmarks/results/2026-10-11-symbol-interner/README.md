@@ -6,6 +6,12 @@ hash collisions. Symbols carry 31-bit IDs in tagged atoms. Literal IDs form a
 complete prefix installed before dynamic names receive IDs, and IDs are never
 reset or reused. The registry owns Rust data and holds no Scheme roots.
 
+The 4 GiB startup minimum used in these measurements was subsequently removed
+from the review stack. Native startup now leaves heap sizing and automatic growth
+to BDWGC; `GC_INITIAL_HEAP_SIZE` remains available for explicit experiments.
+The recorded samples and source archives below retain their original heap policy.
+They do not measure the new interner with the restored default heap policy.
+
 ## Compiler workload
 
 These timings run an already-prepared compiler on the same frozen compiler source,
@@ -131,8 +137,8 @@ startup minimum. All binary hashes match their original build reports.
 Eight rotating measured rounds follow one discarded run per variant, with the
 same checksums and warmups. The larger heap leaves recursive Fibonacci almost
 unchanged but slows the complete tail workload by about **48%**. The environment
-control reproduces the slowdown without changing the executable. The requested
-minimum is retained; it is a heap policy, not a general performance improvement.
+control reproduces the slowdown without changing the executable. This regression
+motivated removing the startup minimum and restoring BDWGC's default heap policy.
 [heap-control.json](heap-control.json) records the runner source, commands,
 artifact hashes, order and samples.
 
