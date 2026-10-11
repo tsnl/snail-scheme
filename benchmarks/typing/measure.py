@@ -144,7 +144,9 @@ def build_tail_kernel():
     wat = output.with_suffix(".wasm.wat")
     export_i32_worker(wat)
     link = f"(link-wasm {json.dumps(str(wat))} (build-runtime {json.dumps(str(ROOT))}) {json.dumps(str(output))})"
-    run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", "-m", "snail-scheme.build", "-e", link])
+    link = f"(with-chromium-trace-to {json.dumps(str(output) + '.link.trace.json')} (lambda () {link}))"
+    run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", "-m", "snail-scheme.build",
+         "-m", "snail-scheme.chromium-trace", "-e", link])
     return [os.environ.get("NODE", "node"), "--no-warnings", "benchmarks/typing/run-tail-kernel.mjs", output]
 
 
