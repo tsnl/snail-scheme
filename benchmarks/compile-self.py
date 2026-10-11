@@ -14,6 +14,7 @@ from plots import GRAY, ORANGE, duration_chart
 from r7rs import (
     digest,
     execute,
+    native_translation_command,
     parse_result,
     positive,
     save_report,
@@ -24,7 +25,11 @@ from r7rs import (
 
 ROOT = Path(__file__).resolve().parents[1]
 ENTRY = "benchmarks/compile-self.scm"
-LABELS = {"chibi": "Chibi host", "snail-native": "Snail native", "snail-wasm": "Snail Wasm / V8"}
+LABELS = {
+    "chibi": "Chibi host",
+    "snail-native": "Snail native",
+    "snail-wasm": "Snail Wasm / V8",
+}
 
 
 # ---- Frozen input and compiler preparation ----
@@ -60,7 +65,12 @@ def checked_build(report, command, args):
 
 def prepare(report, args):
     frozen, reference = args.output / "source", args.output / "reference.wat"
-    chibi = [tool("CHIBI", "chibi-scheme"), "-I", str(frozen / "src"), str(frozen / ENTRY)]
+    chibi = [
+        tool("CHIBI", "chibi-scheme"),
+        "-I",
+        str(frozen / "src"),
+        str(frozen / ENTRY),
+    ]
     checked_build(report, [*chibi, frozen, frozen / ENTRY, reference, "chibi"], args)
     report["reference_sha256"] = digest(reference.read_bytes())
     checked_build(
@@ -88,22 +98,28 @@ def prepare(report, args):
 def compiler_command(system, chibi, report, args):
     if system == "chibi":
         return chibi
-    native = tool("SNAIL_WASM_NATIVE", "") if system == "snail-native" else None
     wasm = args.output / "compiler.wasm"
     if not wasm.exists():
         link = args.output / "link.scm"
         link.write_text(
-            "(import (scheme base) (snail-scheme build))\n"
-            f'(link-wasm "reference.wat" (build-runtime {json.dumps(str(ROOT))}) "compiler.wasm")\n'
+            "(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace))\n"
+            '(with-chromium-trace-to "link.trace.json"\n'
+            "  (lambda ()\n"
+            f'    (link-wasm "reference.wat" (build-runtime {json.dumps(str(ROOT))}) "compiler.wasm")))\n'
         )
         checked_build(report, [chibi[0], "-I", ROOT / "src", link], args)
         report["compiler_wasm_sha256"] = digest(wasm.read_bytes())
-    if native:
+    if system == "snail-native":
         binary = args.output / "compiler"
-        checked_build(report, [native, wasm, "-o", binary], args)
+        checked_build(report, native_translation_command(wasm, binary), args)
         report["compiler_native_sha256"] = digest(binary.read_bytes())
         return [str(binary)]
-    return [tool("NODE", "node"), "--no-warnings", str(ROOT / "scripts/run-wasi.mjs"), str(wasm)]
+    return [
+        tool("NODE", "node"),
+        "--no-warnings",
+        str(ROOT / "scripts/run-wasi.mjs"),
+        str(wasm),
+    ]
 
 
 # ---- Checked fresh-process measurements ----
@@ -112,7 +128,13 @@ def compiler_command(system, chibi, report, args):
 def sample(case, report, args):
     output, frozen = args.output / f"{case['system']}.wat", args.output / "source"
     output.unlink(missing_ok=True)
-    command = [*case["command"], str(frozen), str(frozen / ENTRY), str(output), case["system"]]
+    command = [
+        *case["command"],
+        str(frozen),
+        str(frozen / ENTRY),
+        str(output),
+        case["system"],
+    ]
     result = execute(command, args.output, args.timeout)
     result["command"] = command
     if result["status"] == "ok":
@@ -225,6 +247,7 @@ def metadata(args):
         "cpu": args.cpu,
         "rounds": args.rounds,
         "tools": tool_versions(),
+        "native_translator": os.environ.get("SNAIL_WASM_NATIVE") or "(snail-scheme native)",
         "timeout": args.timeout,
         "build_timeout": args.build_timeout,
         "source_sha256": snapshot(args.output),
@@ -235,7 +258,12 @@ def metadata(args):
         "builds": [],
         "order": [],
         "cases": [
-            {"system": system, "benchmark": "compiler-self", "status": "pending", "samples": []}
+            {
+                "system": system,
+                "benchmark": "compiler-self",
+                "status": "pending",
+                "samples": [],
+            }
             for system in args.systems
         ],
     }

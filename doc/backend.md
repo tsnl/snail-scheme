@@ -109,8 +109,11 @@ procedures, including the optional second arguments to `log` and `atan`.
 Mathematical results use binary64 even for exact integer inputs; classification
 returns booleans. Real-domain failures such as `(sqrt -1)` produce NaN, as
 permitted for real-only implementations by [R7RS §6.2.3](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html).
-Complex numbers are not supported. Linked-Wasm tests exercise ordinary and
-first-class calls, argument errors, signed zero, infinities, and NaNs.
+Complex numbers are not supported. Wasm and native tests exercise ordinary and
+first-class calls, argument errors, signed zero, infinities, and NaNs. The native
+translator supports all eight Wasm saturating float-to-integer conversions
+used by Rust math through LLVM's
+[saturating intrinsics](https://llvm.org/docs/LangRef.html#saturating-floating-point-to-integer-conversions).
 
 A fixed-arity lambda has a worker taking its environment and individual
 arguments, plus a uniform closure adapter taking an argument array. Proven

@@ -551,13 +551,13 @@
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
       '(acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
-        string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
-                       error open-input-file open-output-file open-binary-input-file file-exists? close-port
-                       read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8
-                       open-output-string get-output-string display write newline
-                       %current-input-port %current-output-port %current-error-port
-                       %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                       command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains))
+             string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
+             error open-input-file open-output-file open-binary-input-file file-exists? close-port
+             read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8
+             open-output-string get-output-string display write newline
+             %current-input-port %current-output-port %current-error-port
+             %set-current-input-port! %set-current-output-port! %set-current-error-port!
+             command-line exit get-environment-variable current-jiffy jiffies-per-second string-contains))
 
     (define (module-services module)
       (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)

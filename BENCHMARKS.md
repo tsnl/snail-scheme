@@ -3,63 +3,43 @@
 **Runtime comparisons exclude compilation and process startup.** The
 [compiler benchmark](#compile-the-compiler) measures compilation itself.
 
-![Recursive Fibonacci execution times](benchmarks/results/2026-10-10-reproduction/comparison.svg)
+![Complete-program Fibonacci execution times](benchmarks/results/2026-10-10-native-fibonacci/comparison.svg)
 
-The tuned native translator is faster than Chez and Guile on this recursive
-Fibonacci workload. Bars show median execution time, ordered slowest to fastest;
+Native Snail takes **9.7% less time than Chez** and runs **3.56× faster than
+Guile** on this recursive Fibonacci workload. Every implementation runs the
+complete [Scheme program](benchmarks/cpu.scm); native and V8 execute the same
+Rust-linked Wasm module. Bars show medians, ordered slowest to fastest;
 whiskers show the observed minimum and maximum. Orange identifies Snail.
-See the [generated table](benchmarks/results/2026-10-10-reproduction/summary.md)
-and [raw measurements](benchmarks/results/2026-10-10-reproduction/results.json).
-This is one call/arithmetic workload, not a claim about every Scheme program.
+See the [generated table](benchmarks/results/2026-10-10-native-fibonacci/summary.md)
+and [raw measurements](benchmarks/results/2026-10-10-native-fibonacci.json).
 
 ## Reproduce the comparison
 
-The runners currently require Linux for CPU affinity and process control.
+Use an otherwise idle x86-64 Linux machine with Rust/Cargo and the
+`wasm32-wasip1` target installed:
 
 ```sh
 nix-shell benchmarks/shell.nix
-python3 benchmarks/reproduce.py --cpu 2
+BENCH_CPU=2 benchmarks/native
 ```
 
-The script builds all implementations, runs the native correctness checks, then
-measures eight rotating rounds of 64 repetitions on one CPU. Every run must
-produce checksum `269118144`. Omit `--cpu` to use the first CPU allowed by the
-host; use `--rounds` and `--repetitions` to change the measurement duration.
-It creates a clean worktree at recorded revision `feb1503` under the output
-directory: those native Fibonacci tools have since been retired from `main`.
-The R7RS and compiler benchmarks below use the current compiler.
-
-Outputs go to `build/benchmark-report/`: `results.json`, `summary.md`,
-`comparison.svg`, and `comparison.png`, plus a compact `readme.svg`/`readme.png`
-comparing Guile, Chez, and tuned Snail. The full chart includes Chibi, the native
-baseline, and the Guile warmup control. JSON includes raw output, preliminary
-runs, execution order, commands, tool versions, and source/artifact hashes.
-Regenerate the reports without rebuilding or running any workloads:
+The runner builds all implementations, then measures eight rotating rounds of
+64 repetitions on one CPU after a discarded run per implementation. Every run
+must produce checksum `269118144`. `BENCH_CPU` selects an allowed CPU.
+It saves raw samples, commands, tool versions, and source/artifact hashes in
+`build/native-benchmark/results.json`, alongside a table and SVG/PNG plots.
+Regenerate plots without rebuilding or running workloads:
 
 ```sh
-python3 benchmarks/reproduce.py --plot build/benchmark-report/results.json
+benchmarks/native --plot build/native-benchmark/results.json
 ```
 
-### What is timed
-
-- The native translator compiles an extracted Fibonacci function from Wasm to
-  LLVM and links it with a C workload harness and BDWGC. The tuned version uses
-  static boolean objects and cold, out-of-line numeric fallbacks; integer checks
-  remain intact. Both variants execute native code. The build checks numeric
-  boundaries, tail calls, collection, and Wasm semantics before timing.
-- Chez, Guile, and Chibi execute the complete [Scheme workload](benchmarks/cpu.scm).
-  Chez uses safe optimization level 2; Guile is compiled to bytecode with `-O2`.
-  Native and Scheme versions perform the same recursive calls and weighted
-  checksum, but have different outer harnesses.
-- Every sample starts a fresh process. One preliminary run per implementation
-  is discarded. The Guile warmup control performs the entire workload twice in
-  one process and reports the second interval; both answers are checked.
-  Runtime JIT activity remains included. Builds and startup are never timed as
-  workload execution.
-
-Absolute times vary with hardware, tool versions, and system load. Compare
-implementations within the same run. These results are observations, not CI
-performance thresholds.
+This measures one call/arithmetic workload. Compare implementations within the
+same run; absolute times vary with hardware, tools, and load. These observations
+are not CI performance thresholds. The [native benchmark notes](doc/native-benchmarks.md)
+retain the complete methodology, code-generation ablation, translation latency,
+and historical measurements. [`reproduce.py`](benchmarks/reproduce.py) rebuilds
+the earlier extracted-function comparison at its pinned historical revision.
 
 ## Run the R7RS suite
 
@@ -78,17 +58,16 @@ git submodule update --init benchmarks/r7rs-benchmarks
 With Rust/Cargo and the `wasm32-wasip1` target installed, use the same Nix shell:
 
 ```sh
-export SNAIL_WASM_NATIVE=/path/to/native-translator
 python3 benchmarks/r7rs.py --cpu 2
 ```
 
-The native command must accept `INPUT.wasm -o OUTPUT`; the runner first calls
-`build-wasm` from a Scheme build script, then invokes the translator. Default
-participants are Snail native, Chez, Guile, and Chibi. Missing tools or an unset
-native command produce explicit `unavailable` entries. No substitute backend is
-selected.
+The runner compiles each complete program to Wasm, then invokes the checkout's
+native translator through `(snail-scheme native)`. Default participants are
+Snail native, Chez, Guile, and Chibi. `SNAIL_WASM_NATIVE` optionally selects an
+external translator accepting `INPUT.wasm -o OUTPUT`. Missing tools and failed
+builds remain visible in the report; requested native cases execute native code.
 
-For a quick harness check while the native command is being configured:
+For a quick harness check on the reference implementations:
 
 ```sh
 python3 benchmarks/r7rs.py --systems chez guile chibi \
@@ -113,8 +92,8 @@ Use `--plot PATH` to regenerate reports from saved data. There is no aggregate
 score that silently drops failed benchmarks.
 
 Suite reports stay under `build/`; published Fibonacci and compiler comparisons
-are checked in. The full-program native suite is ready to run once its
-translator command is available.
+are checked in. Unsupported Scheme libraries or features remain explicit build
+failures; integration does not imply that Snail passes the full suite.
 
 ### Next showcase: ray tracing
 
@@ -174,29 +153,30 @@ has no published Snail timing yet.
 Three measured rounds on October 10 at commit `dcd5de7` give medians of
 **2.184 seconds for Snail Wasm/V8** and **18.849 seconds for Chibi**, on CPU 0
 of an Intel Core Ultra 7 270K Plus. All preliminary and measured outputs match.
-These are compiled-Wasm results; native remains unavailable. The
+These historical results used compiled Wasm; native was unavailable in that run.
+The
 [raw measurements](benchmarks/results/2026-10-10-compiler-self/results.json)
 retain every sample, tool version, command, and source/artifact hash.
 
 [`compile-self.py`](benchmarks/compile-self.py) runs Snail's compiler on its own
 full Scheme source and imported libraries. It first freezes the sources and
 builds the compiler, then times source parsing, library loading, WAT emission,
-and file output. Process startup, building the compiler executable, assembly,
-and linking are outside the timer. Every output must match the assembled,
-validated Chibi-hosted reference byte for byte.
+and file output. The current compiler requires tracing: nested trace work is
+included, while opening and finalizing the trace file are excluded. Process
+startup, building the compiler executable, assembly, and linking are outside
+the timer. Every output must match the assembled, validated Chibi-hosted
+reference byte for byte.
 
 ```sh
-export SNAIL_WASM_NATIVE=/path/to/native-translator
 python3 benchmarks/compile-self.py --cpu 2
 ```
 
-The default comparison is Chibi-hosted versus Snail native. To explicitly
-exercise the compiled Wasm compiler while the native translator is being
-integrated:
+The default comparison is Chibi-hosted versus Snail native, using the checkout's
+translator. To also exercise the compiled Wasm compiler:
 
 ```sh
-python3 benchmarks/compile-self.py --systems chibi snail-wasm \
-  --rounds 3 --output build/compiler-wasm-report
+python3 benchmarks/compile-self.py --systems chibi snail-native snail-wasm \
+  --rounds 3 --output build/compiler-all-report
 ```
 
 Each case gets one discarded preliminary run and rotating fresh-process
@@ -205,7 +185,8 @@ times, and failures in `results.json`, and generates `compiler-self.svg`/`.png`.
 Native availability never changes a case into a Wasm run. Missing tools,
 timeouts, or differing output fail the comparison and remain in the report.
 Choose a fresh output directory for each run; `--plot PATH` regenerates charts
-from saved JSON. The normal compiler build remains Chibi-hosted.
+from saved JSON. Chibi bootstraps the native interpreter; see the
+[build guide](doc/book/builds.md) for rebuilding it with Snail.
 
 ## Language scope
 

@@ -641,7 +641,7 @@ fn float_text(number: f64) -> String {
 // Arguments stay rooted across result allocation; only copied f64 values enter
 // the math operations. finish transfers the separately owned result root.
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:acos"))]
+#[unsafe(export_name = "snail:acos")]
 pub extern "C" fn acos(raw: u32) -> u32 {
     let args = arguments(raw, "acos", 1, 1);
     finish(
@@ -651,7 +651,7 @@ pub extern "C" fn acos(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:asin"))]
+#[unsafe(export_name = "snail:asin")]
 pub extern "C" fn asin(raw: u32) -> u32 {
     let args = arguments(raw, "asin", 1, 1);
     finish(
@@ -661,7 +661,7 @@ pub extern "C" fn asin(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:cos"))]
+#[unsafe(export_name = "snail:cos")]
 pub extern "C" fn cos(raw: u32) -> u32 {
     let args = arguments(raw, "cos", 1, 1);
     finish(
@@ -671,7 +671,7 @@ pub extern "C" fn cos(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:exp"))]
+#[unsafe(export_name = "snail:exp")]
 pub extern "C" fn exp(raw: u32) -> u32 {
     let args = arguments(raw, "exp", 1, 1);
     finish(
@@ -681,7 +681,7 @@ pub extern "C" fn exp(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:finite?"))]
+#[unsafe(export_name = "snail:finite?")]
 pub extern "C" fn finite(raw: u32) -> u32 {
     let args = arguments(raw, "finite?", 1, 1);
     finish(
@@ -691,7 +691,7 @@ pub extern "C" fn finite(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:infinite?"))]
+#[unsafe(export_name = "snail:infinite?")]
 pub extern "C" fn infinite(raw: u32) -> u32 {
     let args = arguments(raw, "infinite?", 1, 1);
     finish(
@@ -701,7 +701,7 @@ pub extern "C" fn infinite(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:nan?"))]
+#[unsafe(export_name = "snail:nan?")]
 pub extern "C" fn nan(raw: u32) -> u32 {
     let args = arguments(raw, "nan?", 1, 1);
     finish(
@@ -711,7 +711,7 @@ pub extern "C" fn nan(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:sin"))]
+#[unsafe(export_name = "snail:sin")]
 pub extern "C" fn sin(raw: u32) -> u32 {
     let args = arguments(raw, "sin", 1, 1);
     finish(
@@ -721,7 +721,7 @@ pub extern "C" fn sin(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:sqrt"))]
+#[unsafe(export_name = "snail:sqrt")]
 pub extern "C" fn sqrt(raw: u32) -> u32 {
     let args = arguments(raw, "sqrt", 1, 1);
     finish(
@@ -731,7 +731,7 @@ pub extern "C" fn sqrt(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:tan"))]
+#[unsafe(export_name = "snail:tan")]
 pub extern "C" fn tan(raw: u32) -> u32 {
     let args = arguments(raw, "tan", 1, 1);
     finish(
@@ -741,7 +741,7 @@ pub extern "C" fn tan(raw: u32) -> u32 {
     )
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:atan"))]
+#[unsafe(export_name = "snail:atan")]
 pub extern "C" fn atan(raw: u32) -> u32 {
     finish(arctangent(&arguments(raw, "atan", 1, 2)))
 }
@@ -756,7 +756,7 @@ fn arctangent(args: &Arguments) -> Result<Root, String> {
     Ok(Root::real(result))
 }
 
-#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:log"))]
+#[unsafe(export_name = "snail:log")]
 pub extern "C" fn log(raw: u32) -> u32 {
     finish(logarithm(&arguments(raw, "log", 1, 2)))
 }

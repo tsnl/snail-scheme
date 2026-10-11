@@ -66,7 +66,10 @@ def input_data(data, count):
         return data
     # Only the first integer (iteration count) changes; algorithm inputs stay fixed.
     result, changes = re.subn(
-        rb"\A((?:\s|;[^\n]*(?:\n|$))*)\d+", lambda m: m[1] + str(count).encode(), data, count=1
+        rb"\A((?:\s|;[^\n]*(?:\n|$))*)\d+",
+        lambda m: m[1] + str(count).encode(),
+        data,
+        count=1,
     )
     if changes != 1:
         raise ValueError("input does not start with an iteration count")
@@ -131,16 +134,20 @@ def build_commands(case):
     directory, system = Path(case["directory"]), case["system"]
     source = str(directory / "program.scm")
     if system == "snail-native":
-        if not os.environ.get("SNAIL_WASM_NATIVE"):
-            raise FileNotFoundError(
-                "set SNAIL_WASM_NATIVE to a compiler accepting INPUT.wasm -o OUTPUT"
-            )
         return native_commands(directory, source)
     if system == "chez":
         return chez_commands(directory, source)
     if system == "guile":
         artifact = str(directory / "program.go")
-        return [tool("GUILD", "guild"), "compile", "--r7rs", "-O2", "-o", artifact, source], [
+        return [
+            tool("GUILD", "guild"),
+            "compile",
+            "--r7rs",
+            "-O2",
+            "-o",
+            artifact,
+            source,
+        ], [
             tool("GUILE", "guile"),
             "--no-auto-compile",
             "--r7rs",
@@ -153,14 +160,30 @@ def build_commands(case):
 def native_commands(directory, source):
     artifact, wasm = str(directory / "program"), str(directory / "program.wasm")
     quote = lambda value: json.dumps(str(value), ensure_ascii=False)
-    native = tool("SNAIL_WASM_NATIVE", "")
+    translation = " ".join(quote(arg) for arg in native_translation_command(wasm, artifact))
     script = directory / "build.scm"
     script.write_text(
-        "(import (scheme base) (snail-scheme build))\n"
-        f"(build-wasm {quote(ROOT)} {quote(source)} {quote(wasm)})\n"
-        f'(run-command "benchmark.native" (list {quote(native)} {quote(wasm)} "-o" {quote(artifact)}))\n'
+        "(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace))\n"
+        f"(with-chromium-trace-to {quote(directory / 'build.trace.json')}\n"
+        "  (lambda ()\n"
+        f"    (build-wasm {quote(ROOT)} {quote(source)} {quote(wasm)})\n"
+        f'    (run-command "benchmark.native" (list {translation}))))\n'
     )
     return [tool("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"), str(script)], [artifact]
+
+
+def native_translation_command(wasm, artifact):
+    if os.environ.get("SNAIL_WASM_NATIVE"):
+        return [tool("SNAIL_WASM_NATIVE", ""), str(wasm), "-o", str(artifact)]
+    return [
+        tool("CHIBI", "chibi-scheme"),
+        "-I",
+        str(ROOT / "src"),
+        str(ROOT / "tests/build-native.scm"),
+        str(ROOT),
+        str(wasm),
+        str(artifact),
+    ]
 
 
 def chez_commands(directory, source):
@@ -295,7 +318,10 @@ def measure(report, args):
                         measure_case(case, index, args.timeout)
                         report["order"].append([index, name, case["system"]])
             save_report(report, args.output)
-            print(f"{'Preliminary' if index == 0 else 'Round ' + str(index)} complete", flush=True)
+            print(
+                f"{'Preliminary' if index == 0 else 'Round ' + str(index)} complete",
+                flush=True,
+            )
     finally:
         os.sched_setaffinity(0, allowed)
 
@@ -467,7 +493,9 @@ def arguments():
     parser.add_argument("--build-timeout", type=positive, default=300)
     parser.add_argument("--cpu", type=int)
     parser.add_argument(
-        "--allow-failures", action="store_true", help="exit zero after recording suite failures"
+        "--allow-failures",
+        action="store_true",
+        help="exit zero after recording suite failures",
     )
     parser.add_argument(
         "--plot", type=Path, help="render saved JSON without downloading or executing"
@@ -500,7 +528,7 @@ def metadata(args, files, names):
         "systems": args.systems,
         "cases": [],
         "order": [],
-        "native_translator": os.environ.get("SNAIL_WASM_NATIVE"),
+        "native_translator": os.environ.get("SNAIL_WASM_NATIVE") or "(snail-scheme native)",
         "input_sha256": {
             n: digest(data) for n, data in files.items() if n.startswith(("src/", "inputs/"))
         },
@@ -552,7 +580,10 @@ def run_suite(args, files):
         for case in report["cases"]:
             case.update(prepare_case(files, case["benchmark"], case["system"], args))
             build_case(case, args.build_timeout)
-            print(f"Build {case['benchmark']}/{case['system']}: {case['status']}", flush=True)
+            print(
+                f"Build {case['benchmark']}/{case['system']}: {case['status']}",
+                flush=True,
+            )
             save_report(report, args.output)
         measure(report, args)
         for case in report["cases"]:
@@ -596,12 +627,16 @@ class ResultsTests(unittest.TestCase):
             image = root / "outputs/ray.output"
             for content in ["P2 100 100 255 0", "P2 100 100 255 " + "0 " * 10_000]:
                 image.write_text(content)
-                with self.subTest(content_length=len(content)), self.assertRaises(ValueError):
+                with (
+                    self.subTest(content_length=len(content)),
+                    self.assertRaises(ValueError),
+                ):
                     check_ray_image(root)
 
     def test_checked_records(self):
         self.assertEqual(
-            parse_result("+!CSVLINE!+chez,fib:40:5,0.1\n", "chez", "fib")["seconds"], 0.1
+            parse_result("+!CSVLINE!+chez,fib:40:5,0.1\n", "chez", "fib")["seconds"],
+            0.1,
         )
         for output in [
             "",
@@ -614,7 +649,8 @@ class ResultsTests(unittest.TestCase):
             with self.subTest(output=output), self.assertRaises(ValueError):
                 parse_result(output, "chez", "fib")
         self.assertEqual(
-            parse_result("+!CSVLINE!+chez,fib,INCORRECT", "chez", "fib")["status"], "incorrect"
+            parse_result("+!CSVLINE!+chez,fib,INCORRECT", "chez", "fib")["status"],
+            "incorrect",
         )
 
     def test_smoke_input_preserves_problem(self):
@@ -622,7 +658,8 @@ class ResultsTests(unittest.TestCase):
         self.assertEqual(input_data(source, 1), b"1\n1000000\n; expected answer\n1000000\n")
         self.assertEqual(input_data(source, None), source)
         self.assertEqual(
-            input_data(b"; upstream comment\n  5\n40\n", 1), b"; upstream comment\n  1\n40\n"
+            input_data(b"; upstream comment\n  5\n40\n", 1),
+            b"; upstream comment\n  1\n40\n",
         )
 
     def test_incomplete_report_rejected(self):
@@ -642,7 +679,12 @@ class ResultsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             results(report)
         report["cases"] = [
-            {"benchmark": "fib", "system": "chez", "status": "build-error", "samples": []}
+            {
+                "benchmark": "fib",
+                "system": "chez",
+                "status": "build-error",
+                "samples": [],
+            }
         ]
         self.assertIsNone(results(report)[0]["median_seconds"])
         report["cases"] *= 2

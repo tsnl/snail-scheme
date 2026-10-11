@@ -1,19 +1,30 @@
 #!/usr/bin/env python3
 """Build full linked programs, then rotate execution samples without build timers."""
 
+import argparse
 import hashlib
 import json
+import math
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import statistics
 import subprocess
+from pathlib import Path
+
+from plots import GRAY, ORANGE, duration_chart
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "build/native-benchmark"
 CPU, ROUNDS, REPETITIONS = int(os.environ.get("BENCH_CPU", "2")), 8, "64"
+LABELS = {
+    "native": "Snail Scheme\nnative",
+    "v8": "Snail Scheme\nWasm / V8",
+    "chez": "Chez Scheme\nsafe O2",
+    "guile": "Guile\nbytecode O2",
+    "chibi": "Chibi Scheme",
+}
 
 
 # ---- Ahead-of-time builds ----
@@ -27,21 +38,49 @@ def tool(variable, default):
 def build_commands():
     return [
         [tool("CHIBI", "chibi-scheme"), "-I", "src", "benchmarks/native-build.scm"],
-        [tool("CHEZ", "scheme"), "--script", "benchmarks/chez.scm",
-         "benchmarks/cpu.scm", str(OUT / "chez.so")],
-        [tool("GUILD", "guild"), "compile", "--r7rs", "-O2", "-o",
-         str(OUT / "guile.go"), "benchmarks/cpu.scm"],
+        [
+            tool("CHEZ", "scheme"),
+            "--script",
+            "benchmarks/chez.scm",
+            "benchmarks/cpu.scm",
+            str(OUT / "chez.so"),
+        ],
+        [
+            tool("GUILD", "guild"),
+            "compile",
+            "--r7rs",
+            "-O2",
+            "-o",
+            str(OUT / "guile.go"),
+            "benchmarks/cpu.scm",
+        ],
     ]
 
 
 def commands():
     return {
         "native": [str(OUT / "cpu"), REPETITIONS],
-        "v8": [tool("NODE", "node"), "--no-warnings", "scripts/run-wasi.mjs",
-               str(OUT / "cpu.wasm"), REPETITIONS],
-        "chez": [tool("CHEZ", "scheme"), "--program", str(OUT / "chez.so"), REPETITIONS],
-        "guile": [tool("GUILE", "guile"), "--no-auto-compile", "--r7rs", "-c",
-                  f'(load-compiled "{OUT / "guile.go"}")', REPETITIONS],
+        "v8": [
+            tool("NODE", "node"),
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            str(OUT / "cpu.wasm"),
+            REPETITIONS,
+        ],
+        "chez": [
+            tool("CHEZ", "scheme"),
+            "--program",
+            str(OUT / "chez.so"),
+            REPETITIONS,
+        ],
+        "guile": [
+            tool("GUILE", "guile"),
+            "--no-auto-compile",
+            "--r7rs",
+            "-c",
+            f'(load-compiled "{OUT / "guile.go"}")',
+            REPETITIONS,
+        ],
         "chibi": [tool("CHIBI", "chibi-scheme"), "benchmarks/cpu.scm", REPETITIONS],
     }
 
@@ -54,8 +93,12 @@ def sample(name, command):
     checksums = re.findall(r"checksum: (\d+)", result.stdout)
     times = re.findall(r"elapsed: ([\d.]+) s", result.stdout)
     assert checksums == ["269118144"] and len(times) == 1, result.stdout
-    return {"variant": name, "seconds": float(times[0]), "checksum": 269118144,
-            "diagnostic": result.stderr}
+    return {
+        "variant": name,
+        "seconds": float(times[0]),
+        "checksum": 269118144,
+        "diagnostic": result.stderr,
+    }
 
 
 def measure(variants):
@@ -75,55 +118,178 @@ def digest(path):
 
 
 def provenance(builds, variants):
-    sources = [ROOT / name for name in ("benchmarks/cpu.scm", "benchmarks/native",
-                                       "benchmarks/native-build.scm", "src/native.c",
-                                       "src/runtime/wasmgc.wat", "Cargo.toml", "Cargo.lock",
-                                       "rust-toolchain.toml")]
+    sources = [
+        ROOT / name
+        for name in (
+            "benchmarks/cpu.scm",
+            "benchmarks/native",
+            "benchmarks/native-build.scm",
+            "src/native.c",
+            "src/runtime/wasmgc.wat",
+            "Cargo.toml",
+            "Cargo.lock",
+            "rust-toolchain.toml",
+        )
+    ]
     sources += list((ROOT / "src/snail-scheme").glob("*.sld"))
     sources += list((ROOT / "src").rglob("*.rs"))
     artifacts = [OUT / name for name in ("cpu", "cpu.wasm", "chez.so", "guile.go")]
-    return {"base_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-            "host": platform.platform(), "build_commands": builds, "commands": variants,
-            "versions": versions(),
-            "environment": {name: os.environ.get(name) for name in
-                            ("BDWGC_INCLUDE", "BDWGC_LIB", "GUILE_JIT_THRESHOLD", "GUILE_AUTO_COMPILE")},
-            "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
-            "artifact_sha256": {str(p.relative_to(ROOT)): digest(p) for p in artifacts}}
+    return {
+        "base_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "host": platform.platform(),
+        "build_commands": builds,
+        "commands": variants,
+        "versions": versions(),
+        "environment": {
+            name: os.environ.get(name)
+            for name in (
+                "BDWGC_INCLUDE",
+                "BDWGC_LIB",
+                "GUILE_JIT_THRESHOLD",
+                "GUILE_AUTO_COMPILE",
+            )
+        },
+        "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
+        "artifact_sha256": {str(p.relative_to(ROOT)): digest(p) for p in artifacts},
+    }
 
 
 def versions():
-    commands = {"clang": [tool("CLANG", "clang"), "--version"],
-                "binaryen": [tool("WASM_OPT", "wasm-opt"), "--version"],
-                "rust": [tool("RUSTC", "rustc"), "--version"],
-                "node": [tool("NODE", "node"), "--version"],
-                "chez": [tool("CHEZ", "scheme"), "--version"],
-                "guile": [tool("GUILE", "guile"), "--version"],
-                "chibi": [tool("CHIBI", "chibi-scheme"), "-V"]}
-    return {name: subprocess.check_output(command, stderr=subprocess.STDOUT, text=True).splitlines()[0]
-            for name, command in commands.items()}
+    commands = {
+        "clang": [tool("CLANG", "clang"), "--version"],
+        "binaryen": [tool("WASM_OPT", "wasm-opt"), "--version"],
+        "rust": [tool("RUSTC", "rustc"), "--version"],
+        "node": [tool("NODE", "node"), "--version"],
+        "chez": [tool("CHEZ", "scheme"), "--version"],
+        "guile": [tool("GUILE", "guile"), "--version"],
+        "chibi": [tool("CHIBI", "chibi-scheme"), "-V"],
+    }
+    return {
+        name: subprocess.check_output(command, stderr=subprocess.STDOUT, text=True).splitlines()[0]
+        for name, command in commands.items()
+    }
 
 
 def write_report(builds, variants, samples):
-    medians = {name: statistics.median(row["seconds"] for row in samples if row["variant"] == name)
-               for name in variants}
-    report = {**provenance(builds, variants), "cpu": CPU, "rounds": ROUNDS,
-              "repetitions": int(REPETITIONS), "warmups": 1, "samples": samples,
-              "median_seconds": medians,
-              "time_over_chez": {name: seconds / medians["chez"] for name, seconds in medians.items()},
-              "scope": "Every implementation executes the complete canonical Scheme workload. "
-              "Native translates the exact Rust-linked binary run by V8. Internal timers exclude "
-              "compilation, startup, checks, and output; V8/Guile runtime tiering remains included."}
+    medians = {
+        name: statistics.median(row["seconds"] for row in samples if row["variant"] == name)
+        for name in variants
+    }
+    report = {
+        **provenance(builds, variants),
+        "cpu": CPU,
+        "rounds": ROUNDS,
+        "repetitions": int(REPETITIONS),
+        "warmups": 1,
+        "samples": samples,
+        "median_seconds": medians,
+        "time_over_chez": {name: seconds / medians["chez"] for name, seconds in medians.items()},
+        "scope": "Every implementation executes the complete canonical Scheme workload. "
+        "Native translates the exact Rust-linked binary run by V8. Internal timers exclude "
+        "compilation, startup, checks, and output; V8/Guile runtime tiering remains included.",
+    }
     (OUT / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     for name, seconds in medians.items():
         print(f"{name:8s} {seconds:.6f} s; {seconds / medians['chez']:.2f}x Chez")
+    return report
+
+
+# ---- Checked plots from saved measurements ----
+
+
+def checked_series(report):
+    rounds, repetitions = report["rounds"], report["repetitions"]
+    if type(rounds) is not int or rounds <= 0 or type(repetitions) is not int or repetitions <= 0:
+        raise ValueError("expected positive round and repetition counts")
+    expected = {(name, index) for name in LABELS for index in range(1, rounds + 1)}
+    keys = [(row["variant"], row["round"]) for row in report["samples"]]
+    if len(keys) != len(expected) or set(keys) != expected:
+        raise ValueError("missing, duplicated, or unexpected measurement")
+    for row in report["samples"]:
+        if (
+            not math.isfinite(row["seconds"])
+            or row["seconds"] <= 0
+            or row["checksum"] != repetitions * 4204971
+        ):
+            raise ValueError("invalid duration or workload checksum")
+    return [checked_variant(name, report) for name in LABELS]
+
+
+def checked_variant(name, report):
+    seconds = [row["seconds"] for row in report["samples"] if row["variant"] == name]
+    if statistics.median(seconds) != report["median_seconds"][name]:
+        raise ValueError("saved median disagrees with raw samples")
+    return {
+        "label": LABELS[name],
+        "seconds": seconds,
+        "color": ORANGE if name in ("native", "v8") else GRAY,
+    }
+
+
+def render(report, output):
+    series = checked_series(report)
+    notes = [
+        f"Median of {report['rounds']} runs · whiskers: observed min–max · build/startup excluded",
+        "Complete Scheme programs; native and V8 execute the same linked Wasm module.",
+    ]
+    for filename, selected in [
+        ("comparison", series),
+        (
+            "readme",
+            [
+                row
+                for row in series
+                if row["label"] in [LABELS[name] for name in ("guile", "chez", "native")]
+            ],
+        ),
+    ]:
+        duration_chart(
+            selected,
+            output / filename,
+            title="Recursive Fibonacci · complete programs",
+            subtitle="Elapsed time · slowest to fastest · Snail in orange",
+            notes=notes,
+        )
+    write_table(series, output)
+
+
+def write_table(series, output):
+    lines = [
+        "# Complete-program Fibonacci",
+        "",
+        "| Implementation | Median seconds | Min–max |",
+        "| --- | ---: | ---: |",
+    ]
+    for row in sorted(series, key=lambda row: statistics.median(row["seconds"]), reverse=True):
+        label, seconds = row["label"].replace("\n", " "), row["seconds"]
+        lines.append(
+            f"| {label} | {statistics.median(seconds):.6f} | {min(seconds):.6f}–{max(seconds):.6f} |"
+        )
+    (output / "summary.md").write_text("\n".join(lines) + "\n")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--plot",
+        type=Path,
+        help="regenerate plots from saved JSON without running workloads",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=OUT,
+        help="directory for generated plots and table",
+    )
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    if args.plot:
+        return render(json.loads(args.plot.read_text()), args.output)
     OUT.mkdir(parents=True, exist_ok=True)
     builds, variants = build_commands(), commands()
     for command in builds:
         subprocess.run(command, cwd=ROOT, check=True)
-    write_report(builds, variants, measure(variants))
+    render(write_report(builds, variants, measure(variants)), args.output)
 
 
 if __name__ == "__main__":

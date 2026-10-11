@@ -11,7 +11,8 @@ pkgs.mkShell {
     guile
     binaryen
     nodejs
-    clang
+    llvmPackages.clang
+    llvmPackages.lld
     llvm
     boehmgc
   ];

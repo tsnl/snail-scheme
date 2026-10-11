@@ -1,9 +1,9 @@
 # Baseline workloads
 
 See [BENCHMARKS.md](../BENCHMARKS.md) for the native comparison, generated plots,
-and the integrated R7RS suite. Run `python3 benchmarks/reproduce.py` to rebuild
-and measure Fibonacci, or `python3 benchmarks/r7rs.py` for the pinned 57-workload
-suite. Both accept `--plot` to regenerate reports from JSON;
+and the integrated R7RS suite. Run `benchmarks/native` to build and measure the
+complete Fibonacci program, or `python3 benchmarks/r7rs.py` for the pinned
+57-workload suite. Both accept `--plot` to regenerate reports from JSON;
 [`shell.nix`](shell.nix) supplies the measurement and plotting dependencies.
 Initialize the upstream suite with
 `git submodule update --init benchmarks/r7rs-benchmarks` before running it.
@@ -36,8 +36,8 @@ unchanged output **0.046632s**, static boolean objects **0.035495s**, cold
 out-of-line numeric fallbacks **0.029078s**, and both changes **0.026140s**.
 Eight rotating CPU2 rounds check the same work and exclude compilation/startup.
 All 43 numeric and tail-call checks pass with the combined changes.
-See [BENCHMARKS.md](../BENCHMARKS.md) for reproduction at the recorded Git
-revision. The transformations were LLVM-level prototypes; they are not
+[`reproduce.py`](reproduce.py) rebuilds this historical comparison in a worktree
+at its recorded revision and generates plots from checked samples. The transformations were LLVM-level prototypes; they are not
 measurements of the current full production pipeline.
 
 ## Production WasmGC CPU baseline
