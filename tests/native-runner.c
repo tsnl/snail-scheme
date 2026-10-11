@@ -1,7 +1,9 @@
 // Execute translated Wasm directly, including GC and native stack invariants.
 #include <assert.h>
 #include <gc/gc.h>
+#include <inttypes.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -33,12 +35,32 @@ extern void trap(uint32_t) __asm__("wasm.trap");
 extern int32_t i31_signed(int32_t) __asm__("wasm.i31-s");
 extern uint32_t i31_unsigned(int32_t) __asm__("wasm.i31-u");
 extern uint32_t i31_equal_negative(int32_t) __asm__("wasm.i31-eq-negative");
+extern uint32_t sat_i32_f32_s(float) __asm__("wasm.sat-i32-f32-s");
+extern uint32_t sat_i32_f32_u(float) __asm__("wasm.sat-i32-f32-u");
+extern uint32_t sat_i32_f64_s(double) __asm__("wasm.sat-i32-f64-s");
+extern uint32_t sat_i32_f64_u(double) __asm__("wasm.sat-i32-f64-u");
+extern uint64_t sat_i64_f32_s(float) __asm__("wasm.sat-i64-f32-s");
+extern uint64_t sat_i64_f32_u(float) __asm__("wasm.sat-i64-f32-u");
+extern uint64_t sat_i64_f64_s(double) __asm__("wasm.sat-i64-f64-s");
+extern uint64_t sat_i64_f64_u(double) __asm__("wasm.sat-i64-f64-u");
+
+static void check_saturation(const char *input) {
+    double number = strtod(input, NULL);
+    float narrow = (float)number;
+    printf("%" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 " "
+           "%" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n",
+           sat_i32_f32_s(narrow), sat_i32_f32_u(narrow),
+           sat_i32_f64_s(number), sat_i32_f64_u(number),
+           sat_i64_f32_s(narrow), sat_i64_f32_u(narrow),
+           sat_i64_f64_s(number), sat_i64_f64_u(number));
+}
 
 int main(int argc, char **argv) {
     struct rlimit stack = {256 * 1024, 256 * 1024};
     assert(setrlimit(RLIMIT_STACK, &stack) == 0);
     native_host_init(argc, argv);
     native_module_init();
+    if (argc == 3 && !strcmp(argv[1], "saturate")) { check_saturation(argv[2]); return 0; }
     if (argc > 1) { trap(strtoul(argv[1], NULL, 10)); return 2; }
     assert(check() == 0);
     assert(i31_signed(INT32_MIN) == 0);
