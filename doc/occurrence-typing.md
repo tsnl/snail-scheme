@@ -30,7 +30,7 @@ remaining proof and runtime-enforcement obligations.
 [`ir.sld`](../src/snail-scheme/ir.sld) contains resolved expressions and binding
 identities. [`wasm.sld`](../src/snail-scheme/wasm.sld) analyzes assignment,
 initialization, and captures before emitting structured Wasm. Checks appear in
-that emission and in [`wasmgc.wat`](../src/runtime/wasmgc.wat); the current IR has
+that emission and in [`wasm-runtime.sld`](../src/snail-scheme/wasm-runtime.sld); the current IR has
 no explicit type-check instructions. The prototype now adds annotation and
 schema metadata and records required guards in a separate analysis result.
 

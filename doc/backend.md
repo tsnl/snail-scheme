@@ -1,7 +1,8 @@
 # WebAssembly backend
 
 The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
-by library; `wasm.sld` emits WasmGC text directly. Binaryen assembles, links, and
+by library; `wasm.sld` constructs WasmGC datums and writes their WAT form with
+the standard Scheme writer. Binaryen assembles, links, and
 optimizes it with the Rust runtime compiled to Wasm.
 
 The [type checker](typing-prototype.md) runs on resolved identities before
@@ -89,10 +90,9 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `ir.sld` | Seven resolved expression forms and shared binding identities |
 | `library.sld` | Library containers, imports, exports, dependency order |
 | `expand.sld` | Located syntax to IR, including `syntax-rules` expansion |
-| `type-analysis.sld` | Pure child-fact rules and immutable binding scopes |
-| `wasm.sld` | Type-directed visitor, binding/capture analysis, folded WAT emission |
-| `src/runtime/wasmgc.wat` | Value representations, checked primitives, calls |
-| `src/runtime/awi.wat` | Root handles and scalar accessors for foreign Wasm code |
+| `wasm.sld` | Binding/capture analysis and direct folded WAT emission |
+| `src/snail-scheme/wasm-runtime.sld` | Value representations, checked primitives, calls |
+| `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
 | `src/lib.rs` | Rust ports, formatting, inexact math, text search, clocks, process services |
 | `build.sld` | Cargo, linking, execution and artifact publication |
