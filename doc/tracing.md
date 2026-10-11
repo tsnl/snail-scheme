@@ -16,6 +16,39 @@ contents; use distinct destinations for concurrent workflows.
 Open a completed file in `chrome://tracing` or
 [Perfetto's trace viewer](https://ui.perfetto.dev).
 
+## Viewing a trace folder over SSH
+
+Run the viewer on the development server:
+
+```sh
+scripts/view-traces build
+```
+
+On your laptop, forward its loopback port and open
+`http://127.0.0.1:9000/traces/`:
+
+```sh
+ssh -N -L 9000:127.0.0.1:9000 user@server
+```
+
+The script prints the URL and forwarding command. `--port 9010` selects another
+server port; the local forwarded port may differ. It recursively lists `.json`,
+`.pftrace`, `.perfetto-trace`, and `.trace` files. Each opens Perfetto in a new tab;
+refresh the folder page to find new files. Serve completed recordings.
+
+The first launch downloads the official Perfetto `v58.2` UI release (about 16 MB)
+into `build/perfetto-ui/v58.2` beside the repository's other build artifacts.
+Later launches reuse it. The UI and trace bytes are served locally through the
+tunnel, so the browser needs no internet connection to load them. Both the folder
+page and Perfetto start in dark mode. The theme bootstrap uses the pinned UI's
+stored `theme` setting; verify that setting when updating the release.
+
+The server binds only to `127.0.0.1`. Trace requests stay within the supplied
+folder, including symlink targets. `scripts/test-view-traces` checks discovery,
+refresh, escaped filenames, HTTP file boundaries, and atomic UI cache publication.
+See [Perfetto's self-hosting instructions](https://perfetto.dev/docs/visualization/embedding-the-ui#self-hosting-the-ui)
+for the release bundle's layout.
+
 ## Procedure decoration and file ownership
 
 `chromium-trace` takes a string and a procedure and returns a procedure accepting

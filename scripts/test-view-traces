@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Check trace discovery, HTTP file boundaries, and Perfetto cache publication."""
+
+import io
+import runpy
+import subprocess
+import tempfile
+import threading
+from pathlib import Path
+from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import urlopen
+from zipfile import BadZipFile, ZipFile
+
+ROOT = Path(__file__).resolve().parent.parent
+VIEWER = ROOT / "scripts/view-traces"
+MODULE = runpy.run_path(str(VIEWER))
+
+
+# ---- Cache publication ----
+
+
+def check_cache(directory):
+    cache = directory / "cached-ui"
+    install = MODULE["perfetto_ui"]
+    with patch.dict(install.__globals__, UI=cache,
+                    urlopen=lambda *a, **k: io.BytesIO(b"bad zip")):
+        try:
+            install()
+            raise AssertionError("invalid download was accepted")
+        except BadZipFile:
+            assert not cache.exists()
+    archive = io.BytesIO()
+    with ZipFile(archive, "w") as release:
+        release.writestr("index.html", "complete UI")
+        release.writestr("version/engine.wasm", b"\x00asm")
+    with patch.dict(install.__globals__, UI=cache,
+                    urlopen=lambda *a, **k: io.BytesIO(archive.getvalue())):
+        assert install() == cache
+    with patch.dict(install.__globals__, UI=cache, urlopen=None):
+        assert install() == cache
+    assert (cache / "version/engine.wasm").read_bytes() == b"\x00asm"
+
+
+# ---- Folder discovery and HTTP requests ----
+
+
+def request(base, path):
+    with urlopen(base + path, timeout=5) as response:
+        return response.headers, response.read()
+
+
+def require_missing(base, path):
+    try:
+        request(base, path)
+        raise AssertionError(f"unexpectedly served {path}")
+    except HTTPError as error:
+        assert error.code == 404
+
+
+def check_listing(base, traces, name):
+    headers, page = request(base, "/traces/")
+    assert headers["Cache-Control"] == "no-store"
+    assert b"No traces yet" in page
+    (traces / name).write_bytes(b'[{"ph":"M"}]')
+    (traces / "nested").mkdir()
+    (traces / "nested/binary.pftrace").write_bytes(b"binary trace")
+    (traces / "nested/program.wat").write_text("private artifact")
+    _, page = request(base, "/traces/")
+    assert b"&lt;compiler&gt;" in page and b"nested/binary.pftrace" in page
+    assert b"program.wat" not in page and b"<compiler>" not in page
+    assert quote(name).encode() in page
+
+
+def check_files(base, traces, name):
+    path = "/trace-files/" + quote(name)
+    headers, content = request(base, path)
+    assert content == (traces / name).read_bytes()
+    assert headers["Cache-Control"] == "no-store"
+    (traces / name).write_bytes(b"new trace contents")
+    assert request(base, path)[1] == b"new trace contents"
+    assert request(base, "/trace-files/nested/binary.pftrace")[1] == b"binary trace"
+    headers, content = request(base, "/version/engine.wasm")
+    assert headers["Content-Type"] == "application/wasm" and content == b"\x00asm"
+    require_missing(base, "/trace-files/nested/program.wat")
+
+
+def check_boundaries(base, directory, traces):
+    secret = directory / "outside.json"
+    secret.write_text("outside the trace folder")
+    (traces / "escape.json").symlink_to(secret)
+    (traces / "escape-directory").symlink_to(directory, target_is_directory=True)
+    _, page = request(base, "/traces/")
+    assert b"escape" not in page
+    for path in ("/trace-files/escape.json", "/trace-files/escape-directory/outside.json",
+                 "/trace-files/%2e%2e/outside.json", "/%2e%2e/outside.json",
+                 "/trace-files/%00.json"):
+        require_missing(base, path)
+
+
+def check_cli(directory, traces):
+    for arguments in ([directory / "absent"], [traces, "--port", "-1"]):
+        result = subprocess.run([VIEWER, *map(str, arguments)], capture_output=True, timeout=5)
+        assert result.returncode == 2 and b"Downloading" not in result.stdout
+
+
+# ---- Tests ----
+
+
+def check_server(directory):
+    traces, ui = directory / "traces", directory / "ui"
+    traces.mkdir()
+    (ui / "version").mkdir(parents=True)
+    (ui / "index.html").write_text("<!doctype html><head></head><body>Perfetto</body>")
+    (ui / "version/engine.wasm").write_bytes(b"\x00asm")
+    with MODULE["TraceServer"](0, traces, ui) as server:
+        assert server.server_address[0] == "127.0.0.1"
+        worker = threading.Thread(target=server.serve_forever)
+        worker.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            name = "<compiler> 'λ' %?#.trace.json"
+            check_listing(base, traces, name)
+            check_files(base, traces, name)
+            check_boundaries(base, directory, traces)
+            check_cli(directory, traces)
+        finally:
+            server.shutdown()
+            worker.join()
+
+
+with tempfile.TemporaryDirectory(prefix="snail-view-traces-") as temporary:
+    directory = Path(temporary).resolve()
+    check_cache(directory)
+    check_server(directory)
+print("Trace viewer checks passed.")

@@ -50,7 +50,9 @@ with `chromium-trace` and records spans only when calls return normally.
 event, and finalizes and closes it when the thunk returns. Compiler and build
 operations use these decorators; executable scripts choose the destination and
 establish the file scope. Calling a decorated procedure outside a file scope
-raises an error. See [Tracing](doc/tracing.md).
+raises an error. [`scripts/view-traces`](scripts/view-traces) serves a trace folder
+and a cached Perfetto UI on loopback for viewing through an SSH tunnel. Both
+pages start in dark mode. See [Tracing](doc/tracing.md).
 
 ## Reading source
 
