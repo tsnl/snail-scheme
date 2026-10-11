@@ -149,28 +149,31 @@ has no published Snail timing yet.
 
 ## Compile the compiler
 
-The compiler now passes child facts through the visitor, with immutable binding
-scopes and no expression caches. A fixed-input comparison with the previous
-indexed compiler measures the cost of this simplification:
+The compiler passes child facts through the visitor, with immutable binding
+scopes and no expression caches. The latest simplification shares binding
+metadata across checking, closure analysis, and constant evaluation:
 
-| Compiler host | Cached facts | Visitor | Change in time |
+| Compiler host | Before | After | Change in time |
 | --- | ---: | ---: | ---: |
-| Chibi | 14.100 s | 14.650 s | +3.9% |
-| Snail Wasm / V8 | 7.658 s | 9.435 s | +23.2% |
-| Snail native | 31.859 s | 32.319 s | +1.4% |
+| Chibi | 14.789 s | 14.408 s | -2.6% |
+| Snail Wasm / V8 | 10.661 s | 10.061 s | -5.6% |
+| Snail native | 31.901 s | 31.429 s | -1.5% |
 
-![Visitor comparison](benchmarks/results/2026-10-10-visitor-typing/comparison.svg)
+![Compiler simplification](benchmarks/results/2026-10-10-compiler-simplification/comparison.svg)
 
-These are three rotating measured rounds after one discarded run per case.
-Each implementation's outputs match its own validated Chibi reference across
-all three hosts. Emission order differs between implementations. See the
-[method, limitations, and frozen inputs](benchmarks/results/2026-10-10-visitor-typing/README.md)
-and [raw report](benchmarks/results/2026-10-10-visitor-typing/results.json).
-The Wasm regression remains a follow-up; native is close within these samples.
-Chibi remains the supported compiler host. WAT writing takes 0.1–0.24 seconds;
-compiler preparation and linking are outside the timer. The
-[earlier indexing experiment](benchmarks/results/2026-10-10-compiler-indexes/README.md)
-is retained as historical evidence, not an implementation in the landing stack.
+Three rotating measured rounds follow one discarded run per case. All 24 outputs
+are byte-identical across both implementations and all three hosts. Wasm and
+native sample ranges overlap; these are modest observed changes. See the
+[method, runtime refresh, and frozen sources](benchmarks/results/2026-10-10-compiler-simplification/README.md)
+and [raw report](benchmarks/results/2026-10-10-compiler-simplification/results.json).
+Chibi remains the supported compiler host. WAT writing takes 0.12–0.26 seconds;
+compiler preparation and linking are outside the timer.
+
+The earlier [visitor comparison](benchmarks/results/2026-10-10-visitor-typing/README.md)
+records the cost of removing expression caches on a different frozen input.
+The [indexing experiment](benchmarks/results/2026-10-10-compiler-indexes/README.md)
+remains historical evidence. Neither expression caches nor the subsequent HAMT
+proposal are in the review stack.
 
 A separate [direct-call and inlining experiment](benchmarks/calls/README.md)
 finds a modest benefit from calling known primitive adapters, a larger gain on

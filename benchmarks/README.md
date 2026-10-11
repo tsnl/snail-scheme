@@ -12,10 +12,11 @@ Initialize the upstream suite with
 Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
 own full Scheme source, with byte-checked output and preparation excluded.
 See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
-and timing boundaries. The current
-[visitor comparison](results/2026-10-10-visitor-typing/README.md) preserves the
-frozen inputs, per-implementation output checks, and measured costs of passing
-type facts directly through the visitor. [`compare-compilers.py`](compare-compilers.py)
+and timing boundaries. The latest
+[compiler simplification report](results/2026-10-10-compiler-simplification/README.md)
+preserves frozen inputs, byte-checked outputs, and refreshed typing workloads.
+The earlier [visitor comparison](results/2026-10-10-visitor-typing/README.md)
+records the cost of passing type facts directly through the visitor. [`compare-compilers.py`](compare-compilers.py)
 requires identical output between implementations; the historical
 [indexing report](results/2026-10-10-compiler-indexes/README.md) uses that stricter check.
 The [call experiment](calls/README.md) keeps the throwaway flow/inlining pass in a
@@ -39,6 +40,13 @@ See [the raw report](results/2026-10-10-native-fibonacci.json),
 [BENCHMARKS.md](../BENCHMARKS.md) for reproduction, scope, and compile-time costs.
 
 ## Typing and i32 specialization
+
+The [latest runtime refresh](results/2026-10-10-compiler-simplification/README.md#runtime-measurements)
+measures recursive i32 Fibonacci at 0.173772 s (2.26× faster than
+untyped Scheme), three-parameter tail Fibonacci at 0.114204 s (2.53×),
+and boxed occurrence typing at 0.029675 s (1.64× faster than guarded).
+The isolated tail worker remains 32.5% slower than checked C-to-Wasm.
+The following tables retain the earlier production baseline for comparison.
 
 The [implemented checker and optimizations](../doc/typing-prototype.md) were
 measured at commit `e3d916657357e8fb0a64a075fdb3161d3e24e5d3` with no tracked
@@ -195,7 +203,7 @@ tail-result enforcement, rather than another improvement to the optimized path.
 ### Reports and reproduction
 
 Raw samples, source hashes, artifact hashes/sizes, commands, and tool versions
-are in the current [recursive Fibonacci report](results/2026-10-10-typing-production-fibonacci.json),
+are in the earlier [recursive Fibonacci report](results/2026-10-10-typing-production-fibonacci.json),
 [tail Fibonacci report](results/2026-10-10-typing-production-tail-fibonacci.json),
 and [occurrence report](results/2026-10-10-typing-production-occurrence.json).
 The historical prototype [Fibonacci](results/2026-10-10-typing-fibonacci.json) and
