@@ -355,15 +355,24 @@ The resolved IR can carry declarations, annotations, explicit instantiations, an
 record schemas. The expander now resolves the type syntax into these nodes.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure rules
 that consume child facts and return types, occurrence filters, and required guards.
-A declaration scan collects mutation and nominal identities before checking.
-Immutable scopes retain declared types and verified contracts under binding
-identities; no expression facts or signatures are cached. Unknown calls and
-mutation limit which facts survive. The visitor, runtime checks, and public
-`(snail typing)` import are connected in a later layer.
+The visitor in `wasm.sld` passes transient child facts to both these rules and
+lowering. Immutable scopes retain declared types and verified binding contracts;
+there are no expression caches or separate signature and guard lookup tables.
+The public `(snail typing)` import enables these forms. Required guards execute
+before their postconditions can justify removing later checks.
+
+Tail expression builders retain selected code and explicit runtime check recipes,
+never inference facts or scopes. The visitor consumes them once before publishing
+a procedure's code.
 
 [`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) accepts only closed, immutable,
 fixed-arity i32 procedures whose supported operations preserve Scheme arithmetic.
 It returns a worker or declines specialization. Intermediate arithmetic widens;
 narrowing checks retain the declared boundary, and self tail calls replace all
-parameters simultaneously through a loop. The next layer connects these workers
-to the normal checked Scheme calling convention.
+parameters simultaneously through a loop. Checked Scheme adapters preserve the normal closure calling convention.
+
+Typed result assertions remain local until a tail transfer needs to defer them.
+One shared result-check context owns that tail chain and drains pending checks at
+the return boundary, preserving their order without accumulating host stack frames.
+Unannotated record definitions retain their standard syntax; optional typed fields
+add schema metadata and shallow field contracts.

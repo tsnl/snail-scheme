@@ -51,6 +51,23 @@ pub extern "C" fn call(raw: u32) -> u32 {
         .into_handle()
 }
 
+// A callback result can contain multiple values. Root preserves that envelope;
+// neither storing it in a container nor passing it back normalizes its count.
+#[unsafe(export_name = "snail:rust-call-with-result")]
+pub extern "C" fn call_with_result(raw: u32) -> u32 {
+    let args = unsafe { Arguments::borrow(raw) };
+    args.check("rust-call-with-result", 2, 2)
+        .expect("a producer and a consumer");
+    let result = args.get(0).unwrap().call(&[]).expect("producer");
+    let pair = Root::pair(&result, &result);
+    let vector = Root::vector(&[result.clone()]);
+    args.get(1)
+        .unwrap()
+        .call(&[result, pair, vector])
+        .expect("consumer")
+        .into_handle()
+}
+
 #[unsafe(export_name = "snail:rust-forget")]
 pub extern "C" fn forget(raw: u32) -> u32 {
     let args = unsafe { Arguments::borrow(raw) };
