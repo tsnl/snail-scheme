@@ -63,7 +63,21 @@
     "tuned-screen.json": "5ca8b75bae13bdf728bb2409083d4c93ad22c374b769ed325d27cb3e5ea7b126",
     "measure.py": "dfe30a908e0082e598d38dec5088eecce536dc887ed01e8f6ced137487e9dc2c",
     "diagnose.py": "a1a3d00784258a66af0023617b23c725331e15bd391de9a076f80d91e400f388",
-    "README.md": "9d1cf001c4d86a17a2677fa5ce95f5d6168003d99e3ada588275bd8e3f592408"
+    "README.md": "48a2ed1d4fe803ba047dc9c8914f152d6a3b9b8ab42650314ed75418484440f3",
+    "nursery-profile.txt": "414062ebea67249e61e84188e499ed2b89ab8c47d2b208697a2cbf591180f6e9",
+    "nursery-prototype.patch": "ca9982de20de6b12703bf62ff8fb362d0f928e47dd05ba94e42ad8ba416d7701",
+    "nursery-profile.stdout": "bc4009003e40eff27198c851c99761a2e82c83a9cba1669510084ffdbd6b4fa0",
+    "precise-prototype.patch": "b70cf27a22279f51a916dace4f798166e252a49c791909d441be34aeac510741",
+    "nursery-profile.stderr": "0a7ec92681c0deee8906ad39ad251757f02a8bd479ffff52e11f32ce52e23fcc",
+    "immix-prototype.patch": "c2d9a69d3ee4db6ffaaa7901df863491cb6da92af5381d0159538487db1997ae"
   },
-  "immix_tuned_commit": "7f698687b9e7c6af4272a6a19c35ca9e1a9f9d11"
+  "immix_tuned_commit": "7f698687b9e7c6af4272a6a19c35ca9e1a9f9d11",
+  "profile": {
+    "source_commit": "f92dde9d0f4a68cc1bb7e6eb4c3d5c711a9ef9af",
+    "binary_sha256": "a73d8a609d0c58e2d23ee661fb0fb4e09e56437476723a6e73e493766ee22d68",
+    "cpu": 3,
+    "event": "cycles:u",
+    "frequency": 999,
+    "output_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a"
+  }
 }

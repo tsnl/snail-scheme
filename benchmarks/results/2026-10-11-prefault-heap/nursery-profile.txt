@@ -1,0 +1,28 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 14K of event 'cpu_core/cycles/u'
+# Event count (approx.): 77662438299
+#
+# Overhead  Symbol                                                         IPC   [IPC Coverage]
+# ........  .............................................................  ....................
+#
+    23.26%  [.] f.62                                                       -      -            
+    22.04%  [.] GC_malloc                                                  -      -            
+    13.03%  [.] f.469                                                      -      -            
+     4.87%  [.] f.105                                                      -      -            
+     3.31%  [.] native_array_new                                           -      -            
+     3.03%  [.] f.409                                                      -      -            
+     2.04%  [.] f.307                                                      -      -            
+     1.64%  [.] f.481                                                      -      -            
+     1.30%  [.] f.461                                                      -      -            
+     1.29%  [.] __memset_avx2_unaligned_erms                               -      -            
+     1.05%  [.] f.182                                                      -      -            
+     1.02%  [.] f.401                                                      -      -            
+
+
+#
+# (Tip: To browse sample contexts use perf report --sample 10 and select in context menu)
+#

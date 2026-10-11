@@ -171,3 +171,55 @@ boundaries follow reserved space, so free runs cannot cross them until collectio
 Collection resets those boundaries and rebuilds counts. Acquired runs remain
 reserved until collection, including abandoned tails. These invariants and the
 adversarial wrap tests explain the candidate's remaining bookkeeping.
+
+## GC optimization handoff
+
+The workload is one self-compilation of the compiler benchmark entry and its
+compiler dependencies. Its trace records 33 source-file reads/parses. The frozen
+`src/snail-scheme` tree contains 36 Scheme files, 12,126 lines and 642,851 bytes;
+that is the whole source tree, not a claim that every file is in the imported
+closure. The checked output is 6,326,568 bytes of WAT. Building the executable
+being timed, Binaryen processing, native linking and heap setup are outside the
+internal timer; source loading, parsing, compiler passes and WAT writing are inside.
+
+A final diagnostic profiles the existing nursery executable, without changing
+code. Its output matches the same reference SHA-256. `nursery-profile.txt` records
+14,250 samples of user cycles on CPU 3: the `$single` helper accounts for 23.26%,
+`GC_malloc` for 22.04%, and generated `function46` for 13.03%. Minor collection is
+inlined into `GC_malloc`, so that symbol's percentage includes collection work.
+The profiled execution takes 14.16 s; it is a diagnostic, not another timing sample.
+
+The source/disassembly audit identifies experiments to do next, not fixes already
+implemented or measured:
+
+- `GC_malloc` contains the inlined minor collector: approximately 3.8 KiB of code,
+  five callee-save pushes, a 136-byte frame and a stack-canary check on its common
+  allocation path. Separate collection/refill from the small allocation path,
+  then inspect whether constant allocation sizes can inline into constructors.
+- Allocation clears every payload, then struct/array constructors initialize it
+  again. Any uninitialized allocation path must preserve packed-slot padding and
+  fully initialize fields before the next collecting operation.
+- Reference locals already occupy root slots, but constructor publication copies
+  some of them again. Every non-tail guest call also publishes argument copies
+  in its caller. Prove callee publication and value lifetime before removing any
+  copy; an earlier local read can outlive a later local assignment.
+- Allocation updates statistics even when reporting is off, and the nursery
+  appends one eight-byte young-object pointer per allocation. These are additional
+  bookkeeping costs worth isolating, not established bandwidth bottlenecks.
+- First add a never-reclaiming control that preserves exactly the custom
+  collector's root protocol. The existing 3.506 s resident-bump control uses the
+  earlier generated LLVM without explicit native roots, so it cannot isolate
+  allocator costs from root publication.
+
+Investigate the compiler's allocation churn and single-value handling in parallel
+with allocator costs. LLVM's offline compilation and V8's JIT do not provide the
+same information or use the same object/root representation; these measurements
+do not establish that LLVM optimization quality is the cause. The goal is a
+repeated, output-checked native win with useful memory bounds, not an inference
+from compiler labels. Follow-up work is listed in [TODO.md](../../../TODO.md).
+
+Production collector selection is unchanged. The original precise collector,
+nursery and nonmoving Immix remain on their recorded experiment branches.
+`precise-prototype.patch`, `nursery-prototype.patch` and `immix-prototype.patch`
+also preserve their implementation and regression-test changes for recovery from
+the measured baseline; they are not applied to this PR's production sources.
