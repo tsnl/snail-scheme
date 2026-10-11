@@ -1,4 +1,4 @@
-// Execute translated Wasm directly, including GC and native stack invariants.
+// Execute lowered Wasm datums, including GC and native stack invariants.
 #include <assert.h>
 #include <gc/gc.h>
 #include <inttypes.h>
@@ -14,13 +14,13 @@ extern void native_poll_finalizers(void);
 extern uint64_t native_finalizer_count(void);
 
 #ifdef SNAIL_NATIVE_PROGRAM
-extern void start(void) __asm__("wasm._start");
+extern int snail_cli_main(void);
 extern uint32_t live_roots(void) __asm__("wasm-global.awi_live_roots");
 
 int main(int argc, char **argv) {
     native_host_init(argc, argv);
     native_module_init();
-    start();
+    assert(snail_cli_main() == 0);
     // Returned Rust callbacks release every temporary AWI handle.
     assert(live_roots() == 3);
     for (int i = 0; i < 5; i++) { GC_gcollect(); native_poll_finalizers(); }
@@ -28,6 +28,11 @@ int main(int argc, char **argv) {
     return 0;
 }
 #else
+// The instruction fixture has no Rust services or resource wrappers.
+void snail_cli_report_failure(void) {}
+void drop_resource(uint32_t, uint32_t) __asm__("snail:drop-resource");
+void drop_resource(uint32_t kind, uint32_t id) { (void)kind; (void)id; abort(); }
+
 extern uint32_t check(void) __asm__("wasm.check");
 extern uint64_t tail(uint32_t) __asm__("wasm.tail");
 extern uint64_t root(uint32_t) __asm__("wasm.root");

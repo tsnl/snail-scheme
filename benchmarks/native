@@ -125,7 +125,7 @@ def provenance(builds, variants):
             "benchmarks/native",
             "benchmarks/native-build.scm",
             "src/native.c",
-            "src/runtime/wasmgc.wat",
+            "src/snail-scheme/wasm-runtime.sld",
             "Cargo.toml",
             "Cargo.lock",
             "rust-toolchain.toml",
@@ -185,7 +185,7 @@ def write_report(builds, variants, samples):
         "median_seconds": medians,
         "time_over_chez": {name: seconds / medians["chez"] for name, seconds in medians.items()},
         "scope": "Every implementation executes the complete canonical Scheme workload. "
-        "Native translates the exact Rust-linked binary run by V8. Internal timers exclude "
+        "Native lowers Wasm datums and links the native Rust runtime; V8 runs the Binaryen-linked build. Internal timers exclude "
         "compilation, startup, checks, and output; V8/Guile runtime tiering remains included.",
     }
     (OUT / "results.json").write_text(json.dumps(report, indent=2) + "\n")

@@ -108,9 +108,8 @@ def check_link_failure(directory, source):
     if result.returncode == 0 or output.read_text() != "previous executable" or len(retained) != 1:
         raise RuntimeError(f"native link failure lost output or split its workspace: {result.stderr}")
     workspace = Path(retained[0])
-    if workspace.parent != directory or not all((workspace / name).is_file() for name in
-            ("program.wat", "program.wasm", "module.wasm", "module.ll")):
-        raise RuntimeError("native link failure did not retain all compilation stages together")
+    if workspace.parent != directory or not (workspace / "module.ll").is_file():
+        raise RuntimeError("native link failure did not retain its LLVM")
     shutil.rmtree(workspace)
 
 
@@ -256,12 +255,14 @@ def check_failed_build(interpreter, directory, **environment):
 
 
 def check_self_host(interpreter, directory):
-    blocked = write_script(directory, "blocked-chibi", '#!/bin/sh\necho unexpected-Chibi >&2\nexit 99\n')
+    blocked = write_script(directory, "blocked-tool", '#!/bin/sh\necho unexpected-tool >&2\nexit 99\n')
     blocked.chmod(0o755)
     tools = directory / "tools"
     tools.mkdir()
-    (tools / "chibi-scheme").symlink_to(blocked)
-    environment = {"CHIBI": str(blocked), "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+    for name in ("chibi-scheme", "wasm-as", "wasm-opt", "wasm-merge"):
+        (tools / name).symlink_to(blocked)
+    environment = {name: str(blocked) for name in ("CHIBI", "WASM_AS", "WASM_OPT", "WASM_MERGE")}
+    environment["PATH"] = str(tools) + os.pathsep + os.environ["PATH"]
     replacement = directory / "rebuilt-snail-scheme"
     require(invoke([interpreter, "-Isrc", ROOT / "build.scm", replacement], **environment))
     require_native(replacement)
@@ -270,7 +271,7 @@ def check_self_host(interpreter, directory):
     check_option_errors(replacement, directory, **environment)
     check_application_options(replacement, directory, **environment)
     check_failed_build(replacement, directory, **environment)
-    print("passed native compiler self-hosting with Chibi deliberately blocked", flush=True)
+    print("passed native compiler self-hosting with Chibi and Wasm assembly/optimization blocked", flush=True)
 
 
 # ---- Test entry point ----
@@ -286,7 +287,7 @@ def main():
         check_entry(directory)
         interpreter = options.interpreter.resolve() if options.interpreter else directory / "snail-scheme"
         if not options.interpreter:
-            # Headroom avoids Chibi allocator scanning during full-compiler serialization.
+            # Give Chibi room for the full compiler's syntax, IR and module datums.
             require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-h512M", "-I", ROOT / "src",
                             ROOT / "build.scm", interpreter]))
         require_native(interpreter)

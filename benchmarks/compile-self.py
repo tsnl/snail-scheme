@@ -14,7 +14,6 @@ from plots import GRAY, ORANGE, duration_chart
 from r7rs import (
     digest,
     execute,
-    native_translation_command,
     parse_result,
     positive,
     save_report,
@@ -38,21 +37,22 @@ LABELS = {
 def snapshot(output):
     frozen = output / "source"
     frozen.mkdir()  # A fresh directory keeps previous measurements and sources intact.
-    paths = [ROOT / ENTRY]
-    for pattern in ["src/**/*.sld", "bootstrap/**/*.sld", "src/runtime/*.wat"]:
+    paths = [ROOT / name for name in [ENTRY, "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
+                                     "src/native.c", "src/runtime/host.mjs", "scripts/run-wasi.mjs"]]
+    for pattern in ["src/**/*.sld", "bootstrap/**/*.sld", "src/**/*.rs"]:
         paths.extend(sorted(ROOT.glob(pattern)))
     for path in paths:
         destination = frozen / path.relative_to(ROOT)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(path.read_bytes())
-    return manifest(frozen)
+    return manifest(frozen, exclude_build=True)
 
 
-def manifest(directory):
+def manifest(directory, *, exclude_build=False):
     return {
         str(p.relative_to(directory)): digest(p.read_bytes())
         for p in sorted(directory.rglob("*"))
-        if p.is_file()
+        if p.is_file() and not (exclude_build and p.relative_to(directory).parts[0] == "build")
     }
 
 
@@ -65,12 +65,7 @@ def checked_build(report, command, args):
 
 def prepare(report, args):
     frozen, reference = args.output / "source", args.output / "reference.wat"
-    chibi = [
-        tool("CHIBI", "chibi-scheme"),
-        "-I",
-        str(frozen / "src"),
-        str(frozen / ENTRY),
-    ]
+    chibi = [tool("CHIBI", "chibi-scheme"), "-h512M", "-I", str(frozen / "src"), str(frozen / ENTRY)]
     checked_build(report, [*chibi, frozen, frozen / ENTRY, reference, "chibi"], args)
     report["reference_sha256"] = digest(reference.read_bytes())
     checked_build(
@@ -98,28 +93,37 @@ def prepare(report, args):
 def compiler_command(system, chibi, report, args):
     if system == "chibi":
         return chibi
+    frozen = args.output / "source"
+    if system == "snail-native":
+        binary = args.output / "compiler"
+        script = args.output / "native.scm"
+        script.write_text(
+            "(import (scheme base) (snail-scheme native) (snail-scheme chromium-trace))\n"
+            '(with-chromium-trace-to "native.trace.json" (lambda ()\n'
+            f'(build-native {json.dumps(str(frozen))} {json.dumps(str(frozen / ENTRY))} "compiler")))\n'
+        )
+        checked_build(report, [chibi[0], "-h512M", "-I", frozen / "src", script], args)
+        report["compiler_native_sha256"] = digest(binary.read_bytes())
+        report["compiler_native_artifacts"] = artifact_hashes(binary)
+        return [str(binary)]
     wasm = args.output / "compiler.wasm"
     if not wasm.exists():
         link = args.output / "link.scm"
         link.write_text(
             "(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace))\n"
-            '(with-chromium-trace-to "link.trace.json"\n'
-            "  (lambda ()\n"
-            f'    (link-wasm "reference.wat" (build-runtime {json.dumps(str(ROOT))}) "compiler.wasm")))\n'
+            '(with-chromium-trace-to "link.trace.json" (lambda ()\n'
+            f'(link-wasm "reference.wat" (build-runtime {json.dumps(str(frozen))}) "compiler.wasm")))\n'
         )
-        checked_build(report, [chibi[0], "-I", ROOT / "src", link], args)
+        checked_build(report, [chibi[0], "-h512M", "-I", frozen / "src", link], args)
         report["compiler_wasm_sha256"] = digest(wasm.read_bytes())
-    if system == "snail-native":
-        binary = args.output / "compiler"
-        checked_build(report, native_translation_command(wasm, binary), args)
-        report["compiler_native_sha256"] = digest(binary.read_bytes())
-        return [str(binary)]
-    return [
-        tool("NODE", "node"),
-        "--no-warnings",
-        str(ROOT / "scripts/run-wasi.mjs"),
-        str(wasm),
-    ]
+    return [tool("NODE", "node"), "--no-warnings", str(frozen / "scripts/run-wasi.mjs"), str(wasm)]
+
+
+def artifact_hashes(entry):
+    payload = entry.resolve()
+    directory = payload.parent / "artifacts"
+    return {"entry": digest(payload.read_bytes()),
+            "dependencies": manifest(directory) if directory.is_dir() else {}}
 
 
 # ---- Checked fresh-process measurements ----
@@ -142,6 +146,14 @@ def sample(case, report, args):
             result.update(parse_result(result["stdout"], case["system"], "compiler-self"))
             contents = output.read_bytes()
             result["wat_sha256"] = digest(contents)
+            trace = Path(str(output) + ".trace.json")
+            events = json.loads(trace.read_text())
+            result["stages_seconds"] = {
+                name: sum(event["dur"] for event in events
+                          if event.get("ph") == "X" and event["name"] == name) / 1_000_000
+                for name in ("syntax-list->ir-library", "analyze-types", "partial-evaluate",
+                             "ir-library->wasm", "write-wasm")
+            }
             if contents != (args.output / "reference.wat").read_bytes():
                 raise ValueError("compiler output differs from the Chibi reference")
         except (ValueError, OSError) as error:
@@ -247,9 +259,11 @@ def metadata(args):
         "cpu": args.cpu,
         "rounds": args.rounds,
         "tools": tool_versions(),
-        "native_translator": os.environ.get("SNAIL_WASM_NATIVE") or "(snail-scheme native)",
+        "native_backend": "Wasm datums -> LLVM -> native Rust archive",
         "timeout": args.timeout,
         "build_timeout": args.build_timeout,
+        "build_environment": {name: os.environ.get(name) for name in
+                              ("BDWGC_INCLUDE", "BDWGC_LIB", "RUSTFLAGS", "BINARYEN_CORES")},
         "source_sha256": snapshot(args.output),
         "harness_sha256": {
             name: digest((ROOT / "benchmarks" / name).read_bytes())
@@ -274,7 +288,7 @@ def run(args):
     try:
         prepare(report, args)
         measure(report, args)
-        if manifest(args.output / "source") != report["source_sha256"]:
+        if manifest(args.output / "source", exclude_build=True) != report["source_sha256"]:
             raise ValueError("frozen compiler sources changed during measurement")
         for case in report["cases"]:
             if case["status"] == "ready":
