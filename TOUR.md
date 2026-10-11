@@ -199,6 +199,10 @@ are outside this bootstrap subset.
 [`runtime.sld`](src/snail-scheme/runtime.sld) exposes the explicitly nonstandard
 `string-contains` operation, implemented by Rust's substring search.
 
+See [the implemented typing contract](doc/typing-prototype.md),
+[proposed rules](doc/typing-rules.md), and [typing measurements](benchmarks/README.md#typing-and-i32-specialization)
+for supported boundaries and remaining proof obligations.
+
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
