@@ -360,3 +360,10 @@ Immutable scopes retain declared types and verified contracts under binding
 identities; no expression facts or signatures are cached. Unknown calls and
 mutation limit which facts survive. The visitor, runtime checks, and public
 `(snail typing)` import are connected in a later layer.
+
+[`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) accepts only closed, immutable,
+fixed-arity i32 procedures whose supported operations preserve Scheme arithmetic.
+It returns a worker or declines specialization. Intermediate arithmetic widens;
+narrowing checks retain the declared boundary, and self tail calls replace all
+parameters simultaneously through a loop. The next layer connects these workers
+to the normal checked Scheme calling convention.
