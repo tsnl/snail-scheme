@@ -22,9 +22,13 @@ supplied script, and return its status. Both `-Isrc` and `-I src` work; each
 occurrence prepends a directory. `--` ends interpreter options, and arguments
 after the script filename pass through literally.
 [`options.sld`](src/snail-scheme/options.sld) supplies the reusable option reader.
-Applications declare switches and single-value options; `parse-options` returns
-occurrences in input order and the untouched positional suffix. The interpreter
-chooses directory priority after parsing. See [option parsing](doc/options.md).
+A single specification supplies validation and generated help. The `<args>`
+result holds positionals and a value for each declared option. Four canned types
+handle boolean flags, counters, single values, and repeated values; grouped aliases
+share one result key. Repeated values accumulate latest first.
+Full parsing accepts options after positionals; the interpreter uses prefix
+parsing to preserve script arguments. Both consume `--` and keep its remaining
+tail literal. See [option parsing](doc/options.md).
 [`native.sld`](src/snail-scheme/native.sld) composes source compilation,
 the native runtime archive, and explicit CLI entry adapters. A normal script has
 no special entry name: its forms execute once and normal completion returns zero.

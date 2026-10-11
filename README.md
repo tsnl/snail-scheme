@@ -21,8 +21,10 @@ Use `--` before a script filename beginning with `-`; arguments after the
 filename pass through literally.
 
 Applications can use `(snail-scheme options)` for the same option syntax.
-`parse-options` reads declared switches and string-valued options and returns
-their occurrences plus the remaining arguments. See [the API and example](doc/options.md).
+A specification drives argument validation and generated help; the `<args>`
+result holds positionals and typed option values. Flags, counters such as `-vvv`,
+single values, and repeated values share one small API.
+See [the API and example](doc/options.md). Use `snail-scheme --help` for CLI help.
 
 The checked-in [build.scm](build.scm) builds the interpreter. A Fibonacci build
 script can use:

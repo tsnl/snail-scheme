@@ -29,9 +29,11 @@ filename beginning with `-`. After the script filename, all arguments belong to
 the script, including any `-I` tokens.
 
 The CLI uses the public `(snail-scheme options)` library. Its `parse-options`
-procedure accepts declarations such as `'(("-I" . #t) ("--verbose" . #f))` and
-returns option occurrences plus remaining arguments. Applications can use this
-same reader for short and long options.
+procedure validates argument strings against a specification, which also
+generates help. An `<args>` record holds positionals and typed option values:
+flags, counters, single values, or repeated values. `--` switches permanently to
+positional-only mode. The CLI uses `parse-options-prefix` to preserve the script's
+argument suffix and provides generated help with `-h` or `--help`.
 
 This first native platform targets **x86-64 Linux**. Enter `nix-shell` for Chibi,
 Rust, Binaryen, Clang/LLD, BDWGC, and mdBook. Cargo's dependencies and Rust target
