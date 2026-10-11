@@ -66,7 +66,7 @@ mod raw {
 
 // ---- Owned roots ----
 
-/// Discriminants are part of AWI v0 and match `src/runtime/awi.wat`.
+/// Discriminants are part of AWI v0 and match `src/snail-scheme/wasm-awi.sld`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Kind {

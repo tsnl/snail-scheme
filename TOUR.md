@@ -212,18 +212,19 @@ for the supported API and comparator limits.
 
 ## Emitting WebAssembly
 
-[`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
-writes folded WAT. Its analysis records binding identity, assignment, lambda
-captures, and initialization. It does not build MIR, bytecode, a managed operand
-stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
-visible in the generated code.
-Stateful emission sequences expression visits explicitly so the Chibi-hosted
-and compiled compiler assign identical temporary and constant names.
+[`wasm.sld`](src/snail-scheme/wasm.sld) constructs a complete Wasm datum from
+resolved IR. `ir-library->wasm` sequences module preparation, procedure generation,
+and library initialization explicitly, preserving source traversal and generated
+names across hosts. `write-wasm` prints completed definitions with standard
+`write-simple`; import strings use WAT byte escaping. Runtime definitions are
+quoted datums in `wasm-runtime.sld` and `wasm-awi.sld`.
 
-`write-ir-library-as-wasm` coordinates module preparation, procedure generation,
-library initializer generation, and module writing. Both generators register
-constants before declarations are written. Nested trace spans distinguish these
-stages and the writing of imports, runtime fragments, and module definitions.
+[`wasm-literals.sld`](src/snail-scheme/wasm-literals.sld) records compound literals
+by identity and emits dependencies before their users. An explicit work list
+handles long lists, shared mutable objects remain shared, and equal objects are
+not merged. Symbols share their interned identity. Cyclic source literals still
+require datum-label reader support. This avoids a large procedural initializer
+when the compiler's runtime definitions are themselves compiled as literals.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
 fixed callees pass arguments directly; unknown calls use a GC argument array.
@@ -232,13 +233,13 @@ initialized and immutable travel by value; mutable or early captures use cells.
 Recursive initialization preserves unreadable cells until each initializer
 finishes. Single/multiple-value contexts are checked explicitly.
 
-[`src/runtime/wasmgc.wat`](src/runtime/wasmgc.wat) defines the value representations and
+[`src/snail-scheme/wasm-runtime.sld`](src/snail-scheme/wasm-runtime.sld) defines the value representations and
 checked primitives. Small integers are immediate `i31ref`; larger integers and
 floats are boxes. Other values use structs and arrays. Type equivalence is
 structural, so atom and text categories carry explicit tags. The engine owns
 GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 
-[`src/runtime/awi.wat`](src/runtime/awi.wat) exposes separately named scalar functions
+[`src/snail-scheme/wasm-awi.sld`](src/snail-scheme/wasm-awi.sld) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
 The [Rust AWI module](src/awi.rs) expresses that ownership through `Root`:
@@ -364,17 +365,22 @@ and rank-one `All` schemes. [`type-inference.sld`](src/snail-scheme/type-inferen
 solves fresh argument and result constraints for each use of a polymorphic signature.
 The resolved IR can carry declarations, annotations, explicit instantiations, and
 record schemas. The expander now resolves the type syntax into these nodes.
-[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure rules
-that consume child facts and return types, occurrence filters, and required guards.
-The visitor in `wasm.sld` passes transient child facts to both these rules and
-lowering. Immutable scopes retain declared types and verified binding contracts;
-there are no expression caches or separate signature and guard lookup tables.
-The public `(snail typing)` import enables these forms. Required guards execute
-before their postconditions can justify removing later checks.
-
-Tail expression builders retain selected code and explicit runtime check recipes,
-never inference facts or scopes. The visitor consumes them once before publishing
-a procedure's code.
+[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
+rules that take child facts as arguments. A declaration scan collects assignment
+and nominal identities before narrowing; immutable scopes retain declared types
+and verified contracts under binding identities. The visitor in `wasm.sld` passes
+transient facts directly to these rules and to emission. There are no expression
+type caches or separate signature and guard lookup tables. Checked callable views
+retain implementation origins for recursive-instantiation checks. A guard's
+postcondition can justify a later optimization, never removal of that guard.
+The emitter checks local returns inline. The first guarded tail transfer owns
+one checking frame; the private closure ABI shares its pending-check context
+with subsequent tail calls. `wasm-runtime.sld` deduplicates recurring check sites in
+inner-to-outer order and executes them when the logical invocation returns.
+Ordinary calls and AWI callbacks start fresh; neither closures nor Rust roots
+capture this state.
+See [the implementation report](doc/typing-prototype.md) for syntax, soundness
+obligations, measurements, and the boundary between implemented and proposed rules.
 
 [`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) accepts only closed, immutable,
 fixed-arity i32 procedures whose supported operations preserve Scheme arithmetic.
