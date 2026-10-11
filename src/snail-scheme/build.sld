@@ -4,7 +4,7 @@
   (export build-runtime link-wasm build-wasm run-wasm run-command tool-name wasm-features
           assemble-wasm call-with-build-output)
   (import (scheme base) (scheme file) (scheme write)
-          (scheme process-context) (snail-scheme compiler) (snail-scheme trace)
+          (scheme process-context) (snail-scheme compiler) (snail-scheme chromium-trace)
           (snail-scheme build-host))
   (begin
     ;; ---- Processes and owned build directories ----
@@ -13,11 +13,11 @@
       (or (get-environment-variable variable) default))
 
     (define (run-command stage arguments . directory)
-      (call-with-trace stage
+      ((chromium-trace stage
                        (lambda ()
                          (let ((status (process-status arguments (if (null? directory) "." (car directory))
                                                        #f (car arguments))))
-                           (if (not (zero? status)) (error "build command failed" arguments status))))))
+                           (if (not (zero? status)) (error "build command failed" arguments status)))))))
 
     ;; Intermediates share the output filesystem. Publication is one rename;
     ;; protect the same inputs before any work and again after generated inputs
@@ -43,13 +43,16 @@
     (define (wasm-runtime-path root)
       (string-append root "/build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"))
 
-    (define-traced (build-runtime root)
-      (let* ((root (absolute-path root)) (target (string-append root "/build/wasm-runtime")))
-        (run-command "build.cargo"
-                     (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-                           "--target" "wasm32-wasip1" "--manifest-path" (string-append root "/Cargo.toml")
-                           "--target-dir" target) root)
-        (wasm-runtime-path root)))
+    (define build-runtime
+      (chromium-trace
+       "build-runtime"
+       (lambda (root)
+         (let* ((root (absolute-path root)) (target (string-append root "/build/wasm-runtime")))
+           (run-command "build.cargo"
+                        (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+                              "--target" "wasm32-wasip1" "--manifest-path" (string-append root "/Cargo.toml")
+                              "--target-dir" target) root)
+           (wasm-runtime-path root)))))
 
     ;; ---- Linking a complete Wasm program ----
 
@@ -93,31 +96,38 @@
         (merge-wasm scheme runtime entry linked)
         (optimize-wasm linked output)))
 
-    (define-traced (link-wasm wat runtime output)
-      (call-with-build-output output (list wat runtime)
-                              (lambda (directory finished)
-                                (link-in-directory wat runtime directory finished))))
+    (define link-wasm
+      (chromium-trace
+       "link-wasm"
+       (lambda (wat runtime output)
+         (call-with-build-output output (list wat runtime)
+                                 (lambda (directory finished)
+                                   (link-in-directory wat runtime directory finished))))))
 
     ;; Convenience for a one-file build. Scripts building several artifacts can
     ;; build-runtime once, emit each WAT file, and call link-wasm themselves.
-    (define-traced (build-wasm root input output . options)
-      (call-with-build-output output (list input (wasm-runtime-path root))
-                              (lambda (directory finished)
-                                (let ((wat (string-append directory "/program.wat")))
-                                  (apply source-file->wat-file root input wat options)
-                                  (link-in-directory wat (build-runtime root) directory finished)))))
+    (define build-wasm
+      (chromium-trace
+       "build-wasm"
+       (lambda (root input output . options)
+         (call-with-build-output output (list input (wasm-runtime-path root))
+                                 (lambda (directory finished)
+                                   (let ((wat (string-append directory "/program.wat")))
+                                     (apply source-file->wat-file root input wat options)
+                                     (link-in-directory wat (build-runtime root) directory finished)))))))
 
     ;; ---- Execution ----
 
     ;; Return the process exit code, including nonzero exits. The calling
     ;; build script decides whether execution failure is fatal or expected.
     (define (run-wasm root module arguments)
-      (call-with-trace "build.run"
-                       (lambda ()
-                         (let ((node (tool-name "NODE" "node")))
-                           (process-status (append (list node "--no-warnings"
-                                                         (string-append root "/scripts/run-wasi.mjs") module)
-                                                   arguments) "." #t node))))))
+      ((chromium-trace
+        "build.run"
+        (lambda ()
+          (let ((node (tool-name "NODE" "node")))
+            (process-status (append (list node "--no-warnings"
+                                          (string-append root "/scripts/run-wasi.mjs") module)
+                                    arguments) "." #t node)))))))
 
   ;; ---- Tests ----
 

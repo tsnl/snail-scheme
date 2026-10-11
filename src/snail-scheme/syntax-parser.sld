@@ -11,7 +11,7 @@
   (export reader->syntax-list s-file s-expr s-atom number-literal? char-literal? symbol-literal?)
 
   (import
-   (snail-scheme trace)
+   (snail-scheme chromium-trace)
    (scheme base)
    (snail-scheme common)
    (snail-scheme reader)
@@ -525,12 +525,15 @@
        (lambda (fields) (cdr (assq 'forms fields)))))
 
     ;; A complete source reader becomes located syntax, or raises a located error.
-    (define-traced (reader->syntax-list reader)
-      (let ((result (s-file reader)))
-        (if (parse-result-err? result)
-            (error "cannot parse Scheme source" (reader-filename reader)
-                   (reader-loc (parse-result-input result))))
-        (parse-result-value result)))
+    (define reader->syntax-list
+      (chromium-trace
+       "reader->syntax-list"
+       (lambda (reader)
+         (let ((result (s-file reader)))
+           (if (parse-result-err? result)
+               (error "cannot parse Scheme source" (reader-filename reader)
+                      (reader-loc (parse-result-input result))))
+           (parse-result-value result)))))
     )
 
   ;; ---- Tests ----

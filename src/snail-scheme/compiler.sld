@@ -4,7 +4,7 @@
 (define-library (snail-scheme compiler)
   (export source-file->wat-file)
   (import (scheme base) (scheme cxr) (scheme file)
-          (snail-scheme trace) (snail-scheme bootstrap)
+          (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme reader) (snail-scheme syntax-parser)
           (snail-scheme expand) (snail-scheme wasm)
           (only (snail-scheme ir) make-value-definition)
@@ -17,25 +17,30 @@
                     (map (lambda (name) (make-named-binding name (make-value-definition name #f))) names)
                     '() '() #f))
 
-    (define-traced (source-file->wat-file root input output . options)
-      (if (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
-      (let* ((foreign (if (null? options) '() (car options)))
-             (directories (if (< (length options) 2) '() (cadr options)))
-             (forms (source-file->syntax-list input))
-             (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-             (extensions (make-extension-library (map car foreign)))
-             (program (syntax-list->ir-library forms (library-loader root directories)
-                                               (list core extensions))))
-        (call-with-output-file output
-          (lambda (port)
-            (apply write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
-                   (string-append root "/src/runtime/awi.wat") port foreign
-                   (if (= (length options) 3) (list (caddr options)) '()))))))
+    (define source-file->wat-file
+      (chromium-trace
+       "source-file->wat-file"
+       (lambda (root input output . options)
+         (if (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
+         (let* ((foreign (if (null? options) '() (car options)))
+                (directories (if (< (length options) 2) '() (cadr options)))
+                (forms (source-file->syntax-list input))
+                (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
+                (extensions (make-extension-library (map car foreign)))
+                (program (syntax-list->ir-library forms (library-loader root directories)
+                                                  (list core extensions))))
+           (call-with-output-file output
+             (lambda (port)
+               (apply write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
+                      (string-append root "/src/runtime/awi.wat") port foreign
+                      (if (= (length options) 3) (list (caddr options)) '()))))))))
 
     ;; ---- Source and library loading ----
 
-    (define-traced (source-file->syntax-list path)
-      (reader->syntax-list (file->reader path)))
+    (define source-file->syntax-list
+      (chromium-trace
+       "source-file->syntax-list"
+       (lambda (path) (reader->syntax-list (file->reader path)))))
 
     (define (library-loader root directories)
       (lambda (name)

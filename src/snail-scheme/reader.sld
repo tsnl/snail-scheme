@@ -16,7 +16,7 @@
    reader-loc)
 
   (import
-   (snail-scheme trace)
+   (snail-scheme chromium-trace)
    (scheme base)
    (only (snail-scheme common) file->string)
    (snail-scheme source))
@@ -37,8 +37,11 @@
       (line reader-line)
       (column reader-column))
 
-    (define-traced (file->reader filename)
-      (string->reader filename (file->string filename)))
+    (define file->reader
+      (chromium-trace
+       "file->reader"
+       (lambda (filename)
+         (string->reader filename (file->string filename)))))
 
     (define (string->reader filename str)
       (let ((chars (string->list str)))

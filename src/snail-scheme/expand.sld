@@ -9,7 +9,7 @@
 
 (define-library (snail-scheme expand)
   (export syntax-list->ir-library syntax->ir-library macroexpand-1 make-core-library)
-  (import (snail-scheme trace) (scheme base)
+  (import (snail-scheme chromium-trace) (scheme base)
           (scheme cxr)
           (snail-scheme common)
           (snail-scheme syntax)
@@ -23,20 +23,26 @@
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
     ;; Each call starts a fresh library cache. A list of script forms produces an
     ;; unnamed library; a define-library form produces its named counterpart.
-    (define-traced (syntax-list->ir-library forms library-loader . initial-libraries)
-      (assert (list? forms))
-      (assert (procedure? library-loader))
-      (let-values (((imports body) (split-script-imports forms)))
-        (expand-script-body imports body library-loader
-                            (and (pair? forms) (syntax-loc (car forms)))
-                            (expansion-library-cache initial-libraries))))
+    (define syntax-list->ir-library
+      (chromium-trace
+       "syntax-list->ir-library"
+       (lambda (forms library-loader . initial-libraries)
+         (assert (list? forms))
+         (assert (procedure? library-loader))
+         (let-values (((imports body) (split-script-imports forms)))
+           (expand-script-body imports body library-loader
+                               (and (pair? forms) (syntax-loc (car forms)))
+                               (expansion-library-cache initial-libraries))))))
 
-    (define-traced (syntax->ir-library form library-loader . initial-libraries)
-      (assert (procedure? library-loader))
-      (let-values (((library cache transformers)
-                    (expand-library-form form (library-parts form) library-loader
-                                         (expansion-library-cache initial-libraries) '() '())))
-        library))
+    (define syntax->ir-library
+      (chromium-trace
+       "syntax->ir-library"
+       (lambda (form library-loader . initial-libraries)
+         (assert (procedure? library-loader))
+         (let-values (((library cache transformers)
+                       (expand-library-form form (library-parts form) library-loader
+                                            (expansion-library-cache initial-libraries) '() '())))
+           library))))
 
     ;; Perform one head transformation using the transient environment and
     ;; transformer alist. Builtin forms and ordinary calls return unchanged.

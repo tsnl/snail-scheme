@@ -404,8 +404,6 @@ static void initialize_descriptors(void) {
     if (!cwd) native_trap();
     preopen(cwd, ".");
     preopen(cwd, cwd);
-    const char *trace = getenv("SNAIL_TRACE_DIR");
-    if (trace && *trace) { preopen(trace, trace); }
     free(cwd);
 }
 

@@ -48,6 +48,13 @@ def write_script(directory, name, source):
     return path
 
 
+def write_build_script(directory, name, body):
+    trace = directory / (name + ".build.trace.json")
+    source = ('(import (scheme base) (snail-scheme native) (snail-scheme chromium-trace))\n'
+              f'(with-chromium-trace-to {quote(trace)} (lambda ()\n{body}))\n')
+    return write_script(directory, name, source)
+
+
 # ---- Program handlers and script statements ----
 
 
@@ -57,8 +64,7 @@ def check_entry(directory):
 (define (main) (display "main\\n") 7)
 """)
     command, script = directory / "command", directory / "script"
-    build = write_script(directory, "entry-build.scm",
-                         '(import (scheme base) (snail-scheme native))\n' +
+    build = write_build_script(directory, "entry-build.scm",
                          f"(build-native {quote(ROOT)} {quote(source)} {quote(command)} 'main)\n" +
                          f"(build-native {quote(ROOT)} {quote(source)} {quote(script)})\n")
     require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
@@ -79,10 +85,9 @@ def check_input_aliases(directory, source):
     stamp = runtime.stat().st_mtime_ns
     calls = [f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})'
              for output in (source, alias, runtime)]
-    body = '(import (scheme base) (snail-scheme native))\n'
-    body += '\n'.join(f'(unless (guard (failure (else #t)) {call} #f) (error "accepted input alias"))'
-                      for call in calls)
-    build = write_script(directory, "aliases.scm", body)
+    body = '\n'.join(f'(unless (guard (failure (else #t)) {call} #f) (error "accepted input alias"))'
+                     for call in calls)
+    build = write_build_script(directory, "aliases.scm", body)
     require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
     rejected = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
                        ROOT / "build.scm", ROOT / "main.scm"])
@@ -96,7 +101,7 @@ def check_input_aliases(directory, source):
 def check_link_failure(directory, source):
     output = directory / "link-output"
     output.write_text("previous executable")
-    build = write_script(directory, "failed-link.scm", '(import (snail-scheme native))\n' +
+    build = write_build_script(directory, "failed-link.scm",
                          f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
     result = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build], CLANG="/missing/clang")
     retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
@@ -143,7 +148,7 @@ def check_failed_build(interpreter, directory, **environment):
     output = directory / "keep-output"
     output.write_text("last successful artifact")
     source = write_script(directory, "broken.scm", "(")
-    build = write_script(directory, "failed-build.scm", '(import (scheme base) (snail-scheme native))\n' +
+    build = write_build_script(directory, "failed-build.scm",
                          f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
     result = invoke([interpreter, build], **environment)
     if result.returncode == 0 or output.read_text() != "last successful artifact":
