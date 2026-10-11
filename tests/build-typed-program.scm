@@ -9,7 +9,7 @@
                           (lambda ()
                             (parameterize ((partial-evaluation-enabled (equal? mode "folded"))
                                            (type-optimizations-enabled (not (equal? mode "guarded")))
-                                           (i32-specialization-enabled (not (equal? mode "guarded"))))
+                                           (i32-specialization-enabled (or (equal? mode "optimized") (equal? mode "folded"))))
                               (source-file->wat-file root source (string-append output ".wat")
                                                      '((rust-call-with-result . "snail.rust"))
                                                      (list (string-append root "/tests/libraries")))

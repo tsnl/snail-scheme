@@ -48,29 +48,23 @@
             (apply append (map visit (children node)))))
       (apply append (map visit items)))
 
-    (define (known-lambdas items assigned)
-      (define (visit node)
-        (append (if (and (ir:value-binding? node)
-                         (ir:lambda? (ir:value-binding-initializer node))
-                         (not (memq (ir:value-binding-definition node) assigned)))
-                    (list (cons (ir:value-binding-definition node)
-                                (ir:value-binding-initializer node))) '())
-                (if (ir:lambda? node) (visit (ir:lambda-body node))
-                    (apply append (map visit (children node))))))
-      (apply append (map visit items)))
+    (define (known-lambdas bindings assigned)
+      (cond ((null? bindings) '())
+            ((and (ir:lambda? (cdar bindings)) (not (memq (caar bindings) assigned)))
+             (cons (car bindings) (known-lambdas (cdr bindings) assigned)))
+            (else (known-lambdas (cdr bindings) assigned))))
 
     (define prepare-module
       (chromium-trace "prepare-module"
                       (lambda (libraries foreign)
                         (let* ((items (apply append (map library:library-body libraries)))
                                (globals (apply append (map library-global-definitions libraries)))
-                               (primitives (immutable-primitives
-                                            (apply append (map library-core-primitives libraries)) items))
-                               (typing (prepare-types items primitives)))
-                          (make-module (numbered globals) primitives (boxed-definitions items globals)
-                                       (numbered (all-lambdas items)) (known-lambdas items (assigned-definitions items))
+                               (typing (prepare-types items (apply append (map library-core-primitives libraries))))
+                               (primitives (typing-primitives typing)) (assigned (typing-assigned typing)))
+                          (make-module (numbered globals) primitives (boxed-definitions items globals assigned)
+                                       (numbered (all-lambdas items)) (known-lambdas (typing-bindings typing) assigned)
                                        foreign (make-literal-pool) typing
-                                       (pe:make-partial-state items (map car (typing-declarations typing)) primitives))))))
+                                       (pe:make-partial-state assigned (map car (typing-declarations typing)) primitives))))))
 
     (define (procedure-binding procedure known globals)
       (cond ((null? known) #f)
@@ -146,21 +140,11 @@
                   (list (ir:lambda-opt-rest-parameter procedure)) '())
               (local-definitions (list (ir:lambda-body procedure)) '())))
 
-    ;; Descend into child procedures because their set! can assign an outer name.
-    (define (assigned-definitions items)
-      (define (visit node)
-        (append
-         (if (ir:assignment? node)
-             (list (ir:name-definition (ir:assignment-target node))) '())
-         (if (ir:lambda? node) (visit (ir:lambda-body node))
-             (apply append (map visit (children node))))))
-      (unique-identities (apply append (map visit items))))
-
     ;; A closure created before a definition's initializer must retain its
     ;; location, not copy UNINITIALIZED. Otherwise immutable locals stay unboxed.
     ;; The walk tracks definitely initialized identities through evaluation order;
     ;; branches keep only identities initialized on both paths.
-    (define (boxed-definitions items globals)
+    (define (boxed-definitions items globals assigned)
       (define (nested node)
         (if (ir:lambda? node)
             (append (car (initialization-sequence (list (ir:lambda-body node))
@@ -169,7 +153,7 @@
                     (nested (ir:lambda-body node)))
             (apply append (map nested (children node)))))
       (unique-identities
-       (append (assigned-definitions items)
+       (append assigned
                (car (initialization-sequence items (local-definitions items globals) globals '()))
                (apply append (map nested items)))))
 
@@ -229,20 +213,6 @@
           (visit (ir:lambda-body node) (append (lambda-locals node) bound)))
          (else (apply append (map (lambda (child) (visit child bound)) (children node))))))
       (unique-identities (visit procedure '())))
-
-    (define (initialized-definitions items)
-      (define (visit node)
-        (append (if (ir:value-binding? node) (list (ir:value-binding-definition node)) '())
-                (if (ir:lambda? node) (visit (ir:lambda-body node))
-                    (apply append (map visit (children node))))))
-      (apply append (map visit items)))
-
-    (define (immutable-primitives primitives items)
-      (let ((written (append (initialized-definitions items) (assigned-definitions items))))
-        (let loop ((remaining primitives))
-          (cond ((null? remaining) '())
-                ((memq (car remaining) written) (loop (cdr remaining)))
-                (else (cons (car remaining) (loop (cdr remaining))))))))
 
 
     ;; ---- References and literals ----
@@ -1012,24 +982,17 @@
                (immutable (test-procedure (list x) '() capture))
                (assigned (test-procedure (list x)
                                          (list (ir:make-assignment reference (ir:make-literal 1 #f) #f)) capture)))
-          (expect (boxed-definitions (list immutable) '()) '())
-          (expect (boxed-definitions (list assigned) '()) (list x))))
+          (expect (boxed-definitions (list immutable) '() '()) '())
+          (expect (boxed-definitions (list assigned) '() (list x)) (list x))))
 
       (define (test-recursive-capture)
         (let* ((f (ir:make-value-definition 'f #f))
                (self (test-procedure '() '() (ir:make-name f #f)))
                (parent (test-procedure '() (list (ir:make-value-binding f self #f))
                                        (ir:make-name f #f))))
-          (expect (boxed-definitions (list parent) '()) (list f))
+          (expect (boxed-definitions (list parent) '() '()) (list f))
           (expect (free-definitions self '()) (list f))
           (expect (free-definitions parent '()) '())))
-
-      (define (test-primitive-rebinding)
-        (let* ((plus (ir:make-value-definition '+ #f))
-               (reference (ir:make-name plus #f))
-               (assigned (ir:make-assignment reference reference #f)))
-          (expect (immutable-primitives (list plus) '()) (list plus))
-          (expect (immutable-primitives (list plus) (list assigned)) '())))
 
       ;; Emission allocates identities. Host quasiquote evaluation order must
       ;; never determine the numbering of source literals or temporaries.
@@ -1074,7 +1037,6 @@
       (define (test-wasm)
         (run-test test-binding-cells)
         (run-test test-recursive-capture)
-        (run-test test-primitive-rebinding)
         (run-test test-emission-order)
         (run-test test-annotation-scope)
         (run-test test-wat-leaves))))))

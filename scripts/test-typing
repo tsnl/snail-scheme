@@ -366,6 +366,13 @@ def check_streaming_folds():
         "folded-null": ('(write ((lambda () (quote ()))))', "()", ""),
         "forward-alias": ('(define alias f) (define (f x) x) (alias 42)',
                           "", "read of an uninitialized binding"),
+        "ignored-effect": ('(write ((lambda (ignored) 42) (begin (display "e") 7)))',
+                            "e42", ""),
+        "operator-effect": ('(write ((begin (display "o") (lambda (x) 42)) '
+                             '(begin (display "a") 7)))', "ao42", ""),
+        "ignored-count": ('((lambda (ignored) 42) (values 1 2))',
+                           "", "expected a single value"),
+        "private-candidate": ('(write (car (cons 42 #f)))', "42", ""),
     }
     # An expected result can introduce a guard inside an unannotated IIFE.
     # Raw interpretation of its syntax must not erase that generated guard.
