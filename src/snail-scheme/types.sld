@@ -12,7 +12,7 @@
     ;; ---- Types and subtyping ----
 
     (define scalar-type-names
-      '(? Any Never Boolean False True Null ExactInteger InexactReal Number
+      '(? Any Never Boolean False True Null ExactInteger InexactReal Complex Number
           String Symbol Char Pair Vector Bytevector Procedure Record Unspecified i32))
 
     (define (arrow-type? type) (and (pair? type) (eq? (car type) '->)))
@@ -58,11 +58,11 @@
           (and (intersection-type? source)
                (some? (lambda (part) (type-subtype? part target)) (cdr source)))
           (and (eq? source 'Boolean) (type-subtype? '(U False True) target))
-          (and (eq? source 'Number) (type-subtype? '(U ExactInteger InexactReal) target))
+          (and (eq? source 'Number) (type-subtype? '(U ExactInteger InexactReal Complex) target))
           (and (union-type? source) (all? (lambda (arm) (type-subtype? arm target)) (cdr source)))
           (and (union-type? target) (some? (lambda (arm) (type-subtype? source arm)) (cdr target)))
           (and (memq source '(False True)) (eq? target 'Boolean))
-          (and (memq source '(i32 ExactInteger InexactReal)) (eq? target 'Number))
+          (and (memq source '(i32 ExactInteger InexactReal Complex)) (eq? target 'Number))
           (and (eq? source 'i32) (eq? target 'ExactInteger))
           (and (nominal-type? source) (eq? target 'Record))
           (and (function-type? source) (eq? target 'Procedure))))
@@ -74,7 +74,7 @@
     (define (type-members type)
       (cond ((union-type? type) (apply append (map type-members (cdr type)))) ((eq? type 'Never) '())
             ((eq? type 'Boolean) '(False True))
-            ((eq? type 'Number) '(ExactInteger InexactReal)) (else (list type))))
+            ((eq? type 'Number) '(ExactInteger InexactReal Complex)) (else (list type))))
 
     (define (insert-type type types)
       (cond ((null? types) (list type))
@@ -170,10 +170,11 @@
     (define (literal-type value)
       (cond ((eq? value #f) 'False) ((eq? value #t) 'True) ((null? value) 'Null)
             ((exact-integer? value)
-             (if (<= -2147483648 value 2147483647) 'i32 'ExactInteger)) ((number? value) 'InexactReal)
-             ((string? value) 'String) ((symbol? value) 'Symbol) ((char? value) 'Char)
-             ((pair? value) 'Pair) ((vector? value) 'Vector) ((bytevector? value) 'Bytevector)
-             (else 'Any))))
+             (if (<= -2147483648 value 2147483647) 'i32 'ExactInteger))
+            ((and (number? value) (not (real? value))) 'Complex) ((number? value) 'InexactReal)
+            ((string? value) 'String) ((symbol? value) 'Symbol) ((char? value) 'Char)
+            ((pair? value) 'Pair) ((vector? value) 'Vector) ((bytevector? value) 'Bytevector)
+            (else 'Any))))
 
   ;; ---- Tests ----
 
@@ -187,7 +188,7 @@
       ;; of the i32 boundary and distinct, equal-shaped nominal records.
       (define test-regions
         '((False Boolean) (True Boolean) (Null) (i32 ExactInteger Number)
-          (ExactInteger Number) (InexactReal Number) (String) (Symbol) (Char)
+          (ExactInteger Number) (InexactReal Number) (Complex Number) (String) (Symbol) (Char)
           (Pair) (Vector) (Bytevector) (Procedure) (Unspecified)
           (Record (record first)) (Record (record second)) (Record)))
       (define test-algebra-types

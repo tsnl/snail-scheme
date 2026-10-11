@@ -14,14 +14,21 @@ mod artifacts;
 pub mod awi;
 #[cfg(not(target_arch = "wasm32"))]
 mod build_host;
+mod datum;
 mod hash;
 mod host;
 mod interop_example;
 mod symbols;
+mod text;
+mod unicode;
 
 use crate::awi::{Arguments, Kind, Root};
 use host::Port;
-use std::{cell::RefCell, time::Instant};
+use num_complex::Complex64;
+use std::{
+    cell::RefCell,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
 // ---- Module initialization ----
 
@@ -89,7 +96,7 @@ struct Host {
 impl Host {
     fn new() -> Self {
         Self {
-            ports: vec![Port::Stdin, Port::Stdout, Port::Stderr],
+            ports: vec![Port::stdin(), Port::Stdout, Port::Stderr],
             // Each freshly created port receives its one owning GC wrapper.
             current: std::array::from_fn(|id| unsafe {
                 Root::from_raw_extension(PORT_KIND, id as u32)
@@ -205,9 +212,15 @@ pub extern "C" fn drop_resource(kind: u32, id: u32) {
         return;
     }
     let port = HOST.with_borrow_mut(|host| {
-        host.ports
-            .get_mut(id as usize)
-            .map(|slot| std::mem::replace(slot, Port::Closed))
+        host.ports.get_mut(id as usize).map(|slot| {
+            std::mem::replace(
+                slot,
+                Port::Closed {
+                    input: false,
+                    binary: false,
+                },
+            )
+        })
     });
     if let Some(mut port) = port {
         let _ = port.close();
@@ -215,6 +228,186 @@ pub extern "C" fn drop_resource(kind: u32, id: u32) {
 }
 
 // ---- Reading and writing ----
+
+#[unsafe(export_name = "snail:input-port?")]
+pub extern "C" fn input_port(raw: u32) -> u32 {
+    let args = arguments(raw, "input-port?", 1, 1);
+    finish(args.get(0).map(|value| {
+        Root::boolean(
+            HOST.with_borrow_mut(|host| host.port(&value).is_ok_and(|port| port.is_input())),
+        )
+    }))
+}
+
+#[unsafe(export_name = "snail:output-port?")]
+pub extern "C" fn output_port(raw: u32) -> u32 {
+    let args = arguments(raw, "output-port?", 1, 1);
+    finish(args.get(0).map(|value| {
+        Root::boolean(
+            HOST.with_borrow_mut(|host| host.port(&value).is_ok_and(|port| port.is_output())),
+        )
+    }))
+}
+
+#[unsafe(export_name = "snail:port?")]
+pub extern "C" fn port_predicate(raw: u32) -> u32 {
+    let args = arguments(raw, "port?", 1, 1);
+    finish(
+        args.get(0)
+            .map(|value| Root::boolean(HOST.with_borrow_mut(|host| host.port(&value).is_ok()))),
+    )
+}
+
+#[unsafe(export_name = "snail:input-port-open?")]
+pub extern "C" fn input_port_open(raw: u32) -> u32 {
+    let args = arguments(raw, "input-port-open?", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        HOST.with_borrow_mut(|host| {
+            host.port(&value)
+                .map(|port| Root::boolean(port.is_input() && port.is_open()))
+        })
+    }))
+}
+
+#[unsafe(export_name = "snail:output-port-open?")]
+pub extern "C" fn output_port_open(raw: u32) -> u32 {
+    let args = arguments(raw, "output-port-open?", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        HOST.with_borrow_mut(|host| {
+            host.port(&value)
+                .map(|port| Root::boolean(port.is_output() && port.is_open()))
+        })
+    }))
+}
+
+#[unsafe(export_name = "snail:textual-port?")]
+pub extern "C" fn textual_port(raw: u32) -> u32 {
+    let args = arguments(raw, "textual-port?", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        HOST.with_borrow_mut(|host| {
+            host.port(&value)
+                .map(|port| Root::boolean(!port.is_binary()))
+        })
+    }))
+}
+
+#[unsafe(export_name = "snail:binary-port?")]
+pub extern "C" fn binary_port(raw: u32) -> u32 {
+    let args = arguments(raw, "binary-port?", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        HOST.with_borrow_mut(|host| {
+            host.port(&value)
+                .map(|port| Root::boolean(port.is_binary()))
+        })
+    }))
+}
+
+#[unsafe(export_name = "snail:delete-file")]
+pub extern "C" fn delete_file(raw: u32) -> u32 {
+    let args = arguments(raw, "delete-file", 1, 1);
+    finish((|| {
+        std::fs::remove_file(string_text(&args.get(0)?)?).map_err(|error| error.to_string())?;
+        Ok(Root::unspecified())
+    })())
+}
+
+#[unsafe(export_name = "snail:flush-output-port")]
+pub extern "C" fn flush_output_port(raw: u32) -> u32 {
+    let args = arguments(raw, "flush-output-port", 0, 1);
+    finish((|| {
+        let port = selected_port(&args, 0, 1)?;
+        HOST.with_borrow_mut(|host| host.port(&port)?.flush())?;
+        Ok(Root::unspecified())
+    })())
+}
+
+#[unsafe(export_name = "snail:write-string")]
+pub extern "C" fn write_string(raw: u32) -> u32 {
+    let args = arguments(raw, "write-string", 1, 4);
+    finish(write_port_string(&args))
+}
+
+fn write_port_string(args: &Arguments) -> Result<Root, String> {
+    let value = args.get(0)?;
+    if value.kind() != Kind::String {
+        return Err("expected a string".into());
+    }
+    let range = bounds(args, value.len()?, 2)?;
+    let text = range
+        .map(|index| value.char_at(index))
+        .collect::<Result<String, _>>()?;
+    let port = selected_port(args, 1, 1)?;
+    HOST.with_borrow_mut(|host| host.port(&port)?.write(&text))?;
+    Ok(Root::unspecified())
+}
+
+#[unsafe(export_name = "snail:read")]
+pub extern "C" fn read(raw: u32) -> u32 {
+    let args = arguments(raw, "read", 0, 1);
+    finish((|| {
+        let port = selected_port(&args, 0, 0)?;
+        let datum = HOST.with_borrow_mut(|host| datum::read(host.port(&port)?.text_input()?))?;
+        datum.map_or_else(|| Ok(Root::eof()), |value| value.into_root())
+    })())
+}
+
+#[unsafe(export_name = "snail:open-input-string")]
+pub extern "C" fn open_input_string(raw: u32) -> u32 {
+    let args = arguments(raw, "open-input-string", 1, 1);
+    finish((|| {
+        let port = Port::input_string(string_text(&args.get(0)?)?);
+        HOST.with_borrow_mut(|host| host.add_port(port))
+    })())
+}
+
+#[unsafe(export_name = "snail:peek-char")]
+pub extern "C" fn peek_char(raw: u32) -> u32 {
+    let args = arguments(raw, "peek-char", 0, 1);
+    finish((|| {
+        let port = selected_port(&args, 0, 0)?;
+        HOST.with_borrow_mut(|host| {
+            Ok(host
+                .port(&port)?
+                .text_input()?
+                .peek_char()?
+                .map(Root::character)
+                .unwrap_or_else(Root::eof))
+        })
+    })())
+}
+
+#[unsafe(export_name = "snail:read-line")]
+pub extern "C" fn read_line(raw: u32) -> u32 {
+    let args = arguments(raw, "read-line", 0, 1);
+    finish((|| {
+        let port = selected_port(&args, 0, 0)?;
+        HOST.with_borrow_mut(|host| {
+            Ok(host
+                .port(&port)?
+                .text_input()?
+                .read_line()?
+                .map(|text| Root::string(&text))
+                .unwrap_or_else(Root::eof))
+        })
+    })())
+}
+
+#[unsafe(export_name = "snail:eof-object")]
+pub extern "C" fn eof_object(raw: u32) -> u32 {
+    arguments(raw, "eof-object", 0, 0);
+    Root::eof().into_handle()
+}
+
+#[unsafe(export_name = "snail:write-char")]
+pub extern "C" fn write_char(raw: u32) -> u32 {
+    let args = arguments(raw, "write-char", 1, 2);
+    finish((|| {
+        let text = args.get(0)?.as_character()?.to_string();
+        let port = selected_port(&args, 1, 1)?;
+        HOST.with_borrow_mut(|host| host.port(&port)?.write(&text))?;
+        Ok(Root::unspecified())
+    })())
+}
 
 #[unsafe(export_name = "snail:read-char")]
 pub extern "C" fn read_char(raw: u32) -> u32 {
@@ -274,13 +467,17 @@ fn nonnegative(value: &Root) -> Result<usize, String> {
 }
 
 fn slice_range(args: &Arguments, length: usize) -> Result<std::ops::Range<usize>, String> {
-    let start = if args.len() > 1 {
-        nonnegative(&args.get(1)?)?
+    bounds(args, length, 1)
+}
+
+fn bounds(args: &Arguments, length: usize, first: usize) -> Result<std::ops::Range<usize>, String> {
+    let start = if args.len() > first {
+        nonnegative(&args.get(first)?)?
     } else {
         0
     };
-    let end = if args.len() > 2 {
-        nonnegative(&args.get(2)?)?
+    let end = if args.len() > first + 1 {
+        nonnegative(&args.get(first + 1)?)?
     } else {
         length
     };
@@ -415,11 +612,13 @@ fn set_current_port(raw: u32, name: &str, index: usize) -> u32 {
     finish(HOST.with_borrow_mut(|host| {
         let value = args.get(0)?;
         let port = host.port(&value)?;
-        if !(if index == 0 {
-            port.is_input()
-        } else {
-            port.is_output()
-        }) {
+        if !port.is_open()
+            || !(if index == 0 {
+                port.is_input()
+            } else {
+                port.is_output()
+            })
+        {
             return Err("expected an open port of the appropriate direction".into());
         }
         host.current[index] = value;
@@ -496,6 +695,18 @@ fn exit_status(args: &Arguments) -> Result<i32, String> {
     i32::try_from(value.as_integer()?).map_err(|_| "exit status out of range".into())
 }
 
+// R7RS permits approximating TAI by UTC plus a constant. This offset has been
+// 37 seconds since 2017; current-jiffy remains the clock for monotonic timing.
+#[unsafe(export_name = "snail:current-second")]
+pub extern "C" fn current_second(raw: u32) -> u32 {
+    arguments(raw, "current-second", 0, 0);
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|time| time.as_secs_f64())
+        .unwrap_or_else(|error| -error.duration().as_secs_f64());
+    Root::real(time + 37.0).into_handle()
+}
+
 #[unsafe(export_name = "snail:current-jiffy")]
 pub extern "C" fn current_jiffy(raw: u32) -> u32 {
     arguments(raw, "current-jiffy", 0, 0);
@@ -555,37 +766,34 @@ fn radix(args: &Arguments) -> Result<u32, String> {
 
 fn parse_number(args: &Arguments) -> Result<Root, String> {
     let text = string_text(&args.get(0)?)?;
-    let (text, radix) = strip_radix_prefix(&text, radix(args)?);
-    match i64::from_str_radix(text, radix) {
-        Ok(number) => Ok(Root::integer(number)),
-        Err(error)
-            if matches!(
-                error.kind(),
-                std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow
-            ) =>
-        {
-            Err("string->number: integer overflow".into())
-        }
-        Err(_) => Ok(if radix == 10 {
-            parse_float(text)
-                .map(Root::real)
-                .unwrap_or_else(|| Root::boolean(false))
-        } else {
-            Root::boolean(false)
-        }),
-    }
+    Ok(datum::number(&text, radix(args)?)?
+        .map(|number| number.root())
+        .unwrap_or_else(|| Root::boolean(false)))
 }
 
 fn format_number(args: &Arguments) -> Result<Root, String> {
     let radix = radix(args)?;
     let value = args.get(0)?;
-    let text = match value.kind() {
+    Ok(Root::string(&number_text(&value, radix)?))
+}
+
+fn number_text(value: &Root, radix: u32) -> Result<String, String> {
+    Ok(match value.kind() {
         Kind::Integer => integer_text(value.as_integer()?, radix),
         Kind::Real if radix == 10 => float_text(value.as_real()?),
         Kind::Real => return Err("inexact number requires decimal radix".into()),
+        Kind::Complex => {
+            let real = number_text(&value.real_part()?, radix)?;
+            let imag = number_text(&value.imag_part()?, radix)?;
+            let sign = if imag.starts_with(['+', '-']) {
+                ""
+            } else {
+                "+"
+            };
+            format!("{real}{sign}{imag}i")
+        }
         _ => return Err("expected a number".into()),
-    };
-    Ok(Root::string(&text))
+    })
 }
 
 fn integer_text(number: i64, radix: u32) -> String {
@@ -603,24 +811,17 @@ fn integer_text(number: i64, radix: u32) -> String {
     }
 }
 
-fn strip_radix_prefix(text: &str, radix: u32) -> (&str, u32) {
-    let radix = match text.as_bytes().get(..2) {
-        Some([b'#', b'b' | b'B']) => 2,
-        Some([b'#', b'o' | b'O']) => 8,
-        Some([b'#', b'd' | b'D']) => 10,
-        Some([b'#', b'x' | b'X']) => 16,
-        _ => return (text, radix),
-    };
-    (&text[2..], radix)
-}
-
 fn parse_float(text: &str) -> Option<f64> {
-    match text {
-        "+inf.0" => Some(f64::INFINITY),
-        "-inf.0" => Some(f64::NEG_INFINITY),
-        "+nan.0" | "-nan.0" => Some(f64::NAN),
-        _ if text.contains(['.', 'e', 'E']) => text.parse().ok(),
-        _ => None,
+    if text.eq_ignore_ascii_case("+inf.0") {
+        Some(f64::INFINITY)
+    } else if text.eq_ignore_ascii_case("-inf.0") {
+        Some(f64::NEG_INFINITY)
+    } else if text.eq_ignore_ascii_case("+nan.0") || text.eq_ignore_ascii_case("-nan.0") {
+        Some(f64::NAN)
+    } else if text.contains(['.', 'e', 'E']) {
+        text.parse().ok()
+    } else {
+        None
     }
 }
 
@@ -650,19 +851,289 @@ fn finite_float_text(number: f64) -> String {
 
 // ---- Inexact mathematics ----
 
-// Snail has i64 integers and binary64 reals, without complex numbers. Conversion
-// may round large integers, so math results are always inexact. Real-domain
-// failures produce NaN, as permitted by R7RS; signed zero and infinities survive.
+#[unsafe(export_name = "snail:inexact")]
+pub extern "C" fn inexact(raw: u32) -> u32 {
+    let args = arguments(raw, "inexact", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        if value.kind() == Kind::Complex {
+            complex_root(complex_value(&value)?)
+        } else {
+            Ok(Root::real(value.as_real()?))
+        }
+    }))
+}
+
+#[unsafe(export_name = "snail:exact")]
+pub extern "C" fn exact(raw: u32) -> u32 {
+    let args = arguments(raw, "exact", 1, 1);
+    finish(args.get(0).and_then(exact_number))
+}
+
+fn exact_number(value: Root) -> Result<Root, String> {
+    match value.kind() {
+        Kind::Integer => Ok(value),
+        Kind::Complex => Root::complex(
+            &exact_number(value.real_part()?)?,
+            &exact_number(value.imag_part()?)?,
+        ),
+        _ => exact_integer(value.as_real()?).map(Root::integer),
+    }
+}
+
+fn exact_integer(value: f64) -> Result<i64, String> {
+    if value.is_finite()
+        && value.fract() == 0.0
+        && (-9223372036854775808.0..9223372036854775808.0).contains(&value)
+    {
+        Ok(value as i64)
+    } else {
+        Err("exact number outside supported integer range".into())
+    }
+}
+
+#[unsafe(export_name = "snail:numerator")]
+pub extern "C" fn numerator(raw: u32) -> u32 {
+    let args = arguments(raw, "numerator", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        if value.kind() == Kind::Integer {
+            Ok(value)
+        } else {
+            Ok(Root::real(real_fraction(value.as_real()?)?.0))
+        }
+    }))
+}
+
+#[unsafe(export_name = "snail:denominator")]
+pub extern "C" fn denominator(raw: u32) -> u32 {
+    let args = arguments(raw, "denominator", 1, 1);
+    finish(args.get(0).and_then(|value| {
+        if value.kind() == Kind::Integer {
+            Ok(Root::integer(1))
+        } else {
+            Ok(Root::real(real_fraction(value.as_real()?)?.1))
+        }
+    }))
+}
+
+fn real_fraction(value: f64) -> Result<(f64, f64), String> {
+    if !value.is_finite() {
+        return Err("expected a finite real number".into());
+    }
+    if value == 0.0 {
+        return Ok((value, 1.0));
+    }
+    let bits = value.to_bits();
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let mantissa = (bits & ((1 << 52) - 1)) | if exponent == 0 { 0 } else { 1 << 52 };
+    let zeros = mantissa.trailing_zeros();
+    let power = exponent.max(1) - 1023 - 52 + zeros as i32;
+    let numerator = (mantissa >> zeros) as f64 * value.signum() * 2.0_f64.powi(power.max(0));
+    let denominator = 2.0_f64.powi((-power).max(0));
+    if denominator.is_infinite() {
+        return Err("denominator exceeds supported real range".into());
+    }
+    Ok((numerator, denominator))
+}
+
+#[unsafe(export_name = "snail:floor")]
+pub extern "C" fn floor(raw: u32) -> u32 {
+    let args = arguments(raw, "floor", 1, 1);
+    finish(args.get(0).and_then(|value| round_real(value, f64::floor)))
+}
+
+#[unsafe(export_name = "snail:ceiling")]
+pub extern "C" fn ceiling(raw: u32) -> u32 {
+    let args = arguments(raw, "ceiling", 1, 1);
+    finish(args.get(0).and_then(|value| round_real(value, f64::ceil)))
+}
+
+#[unsafe(export_name = "snail:truncate")]
+pub extern "C" fn truncate(raw: u32) -> u32 {
+    let args = arguments(raw, "truncate", 1, 1);
+    finish(args.get(0).and_then(|value| round_real(value, f64::trunc)))
+}
+
+#[unsafe(export_name = "snail:round")]
+pub extern "C" fn round(raw: u32) -> u32 {
+    let args = arguments(raw, "round", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| round_real(value, f64::round_ties_even)),
+    )
+}
+
+fn round_real(value: Root, operation: fn(f64) -> f64) -> Result<Root, String> {
+    if value.kind() == Kind::Integer {
+        Ok(value)
+    } else {
+        Ok(Root::real(operation(value.as_real()?)))
+    }
+}
+
+#[unsafe(export_name = "snail:expt")]
+pub extern "C" fn expt(raw: u32) -> u32 {
+    let args = arguments(raw, "expt", 2, 2);
+    finish(power(&args))
+}
+
+fn power(args: &Arguments) -> Result<Root, String> {
+    let base = args.get(0)?;
+    let exponent = args.get(1)?;
+    if base.kind() == Kind::Complex
+        && exponent.kind() == Kind::Integer
+        && exponent.as_integer()? >= 0
+    {
+        let real = base.real_part()?;
+        let imag = base.imag_part()?;
+        if real.kind() == Kind::Integer && imag.kind() == Kind::Integer {
+            let (real, imag) = complex_integer_power(
+                (real.as_integer()?, imag.as_integer()?),
+                exponent.as_integer()? as u64,
+            )?;
+            return Root::complex(&Root::integer(real), &Root::integer(imag));
+        }
+    }
+    if base.kind() == Kind::Complex || exponent.kind() == Kind::Complex {
+        return complex_root(complex_value(&base)?.powc(complex_value(&exponent)?));
+    }
+    if base.kind() == Kind::Integer
+        && exponent.kind() == Kind::Integer
+        && exponent.as_integer()? >= 0
+    {
+        return integer_power(base.as_integer()?, exponent.as_integer()? as u64).map(Root::integer);
+    }
+    let result = base.as_real()?.powf(exponent.as_real()?);
+    if result.is_nan() && base.as_real()?.is_finite() && exponent.as_real()?.is_finite() {
+        complex_root(complex_value(&base)?.powc(complex_value(&exponent)?))
+    } else {
+        Ok(Root::real(result))
+    }
+}
+
+fn integer_power(mut base: i64, mut exponent: u64) -> Result<i64, String> {
+    let mut result = 1_i64;
+    while exponent != 0 {
+        if exponent & 1 != 0 {
+            result = result.checked_mul(base).ok_or("exact integer overflow")?;
+        }
+        exponent >>= 1;
+        if exponent != 0 {
+            base = base.checked_mul(base).ok_or("exact integer overflow")?;
+        }
+    }
+    Ok(result)
+}
+
+fn complex_integer_product(a: (i64, i64), b: (i64, i64)) -> Result<(i64, i64), String> {
+    let real = (a.0 as i128 * b.0 as i128).checked_sub(a.1 as i128 * b.1 as i128);
+    let imag = (a.0 as i128 * b.1 as i128).checked_add(a.1 as i128 * b.0 as i128);
+    let component = |value: Option<i128>| {
+        value
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(|| String::from("exact integer overflow"))
+    };
+    Ok((component(real)?, component(imag)?))
+}
+
+fn complex_integer_power(mut base: (i64, i64), mut exponent: u64) -> Result<(i64, i64), String> {
+    let mut result = (1, 0);
+    while exponent != 0 {
+        if exponent & 1 != 0 {
+            result = complex_integer_product(result, base)?;
+        }
+        exponent >>= 1;
+        if exponent != 0 {
+            base = complex_integer_product(base, base)?;
+        }
+    }
+    Ok(result)
+}
+
+#[unsafe(export_name = "snail:exact-integer-sqrt")]
+pub extern "C" fn exact_integer_sqrt(raw: u32) -> u32 {
+    let args = arguments(raw, "exact-integer-sqrt", 1, 1);
+    finish((|| {
+        let value = args.get(0)?.as_integer()?;
+        let sqrt = value
+            .checked_isqrt()
+            .ok_or("expected a nonnegative exact integer")?;
+        Ok(Root::values(&[
+            Root::integer(sqrt),
+            Root::integer(value - sqrt * sqrt),
+        ]))
+    })())
+}
+
+// Snail has i64 integers and binary64 reals. Complex components keep their
+// exactness in Wasm arithmetic; transcendental operations use native binary64.
 // Arguments stay rooted across result allocation; only copied f64 values enter
 // the math operations. finish transfers the separately owned result root.
+
+fn complex_value(value: &Root) -> Result<Complex64, String> {
+    Ok(Complex64::new(
+        value.real_part()?.as_real()?,
+        value.imag_part()?.as_real()?,
+    ))
+}
+
+fn complex_root(value: Complex64) -> Result<Root, String> {
+    Root::complex(&Root::real(value.re), &Root::real(value.im))
+}
+
+fn unary_math(
+    value: Root,
+    real: fn(f64) -> f64,
+    complex: fn(Complex64) -> Complex64,
+) -> Result<Root, String> {
+    if value.kind() == Kind::Complex {
+        return complex_root(complex(complex_value(&value)?));
+    }
+    let input = value.as_real()?;
+    let result = real(input);
+    if result.is_nan() && input.is_finite() {
+        complex_root(complex(Complex64::new(input, 0.0)))
+    } else {
+        Ok(Root::real(result))
+    }
+}
+
+#[unsafe(export_name = "snail:make-polar")]
+pub extern "C" fn make_polar(raw: u32) -> u32 {
+    let args = arguments(raw, "make-polar", 2, 2);
+    finish((|| {
+        complex_root(Complex64::from_polar(
+            args.get(0)?.as_real()?,
+            args.get(1)?.as_real()?,
+        ))
+    })())
+}
+
+#[unsafe(export_name = "snail:magnitude")]
+pub extern "C" fn magnitude(raw: u32) -> u32 {
+    let args = arguments(raw, "magnitude", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| complex_value(&value))
+            .map(|value| Root::real(value.norm())),
+    )
+}
+
+#[unsafe(export_name = "snail:angle")]
+pub extern "C" fn angle(raw: u32) -> u32 {
+    let args = arguments(raw, "angle", 1, 1);
+    finish(
+        args.get(0)
+            .and_then(|value| complex_value(&value))
+            .map(|value| Root::real(value.arg())),
+    )
+}
 
 #[unsafe(export_name = "snail:acos")]
 pub extern "C" fn acos(raw: u32) -> u32 {
     let args = arguments(raw, "acos", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.acos())),
+            .and_then(|value| unary_math(value, f64::acos, Complex64::acos)),
     )
 }
 
@@ -671,8 +1142,7 @@ pub extern "C" fn asin(raw: u32) -> u32 {
     let args = arguments(raw, "asin", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.asin())),
+            .and_then(|value| unary_math(value, f64::asin, Complex64::asin)),
     )
 }
 
@@ -681,8 +1151,7 @@ pub extern "C" fn cos(raw: u32) -> u32 {
     let args = arguments(raw, "cos", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.cos())),
+            .and_then(|value| unary_math(value, f64::cos, Complex64::cos)),
     )
 }
 
@@ -691,8 +1160,7 @@ pub extern "C" fn exp(raw: u32) -> u32 {
     let args = arguments(raw, "exp", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.exp())),
+            .and_then(|value| unary_math(value, f64::exp, Complex64::exp)),
     )
 }
 
@@ -701,7 +1169,7 @@ pub extern "C" fn finite(raw: u32) -> u32 {
     let args = arguments(raw, "finite?", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
+            .and_then(|value| complex_value(&value))
             .map(|value| Root::boolean(value.is_finite())),
     )
 }
@@ -711,8 +1179,8 @@ pub extern "C" fn infinite(raw: u32) -> u32 {
     let args = arguments(raw, "infinite?", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::boolean(value.is_infinite())),
+            .and_then(|value| complex_value(&value))
+            .map(|value| Root::boolean(value.re.is_infinite() || value.im.is_infinite())),
     )
 }
 
@@ -721,7 +1189,7 @@ pub extern "C" fn nan(raw: u32) -> u32 {
     let args = arguments(raw, "nan?", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
+            .and_then(|value| complex_value(&value))
             .map(|value| Root::boolean(value.is_nan())),
     )
 }
@@ -731,8 +1199,7 @@ pub extern "C" fn sin(raw: u32) -> u32 {
     let args = arguments(raw, "sin", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.sin())),
+            .and_then(|value| unary_math(value, f64::sin, Complex64::sin)),
     )
 }
 
@@ -741,8 +1208,7 @@ pub extern "C" fn sqrt(raw: u32) -> u32 {
     let args = arguments(raw, "sqrt", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.sqrt())),
+            .and_then(|value| unary_math(value, f64::sqrt, Complex64::sqrt)),
     )
 }
 
@@ -751,8 +1217,7 @@ pub extern "C" fn tan(raw: u32) -> u32 {
     let args = arguments(raw, "tan", 1, 1);
     finish(
         args.get(0)
-            .and_then(|value| value.as_real())
-            .map(|value| Root::real(value.tan())),
+            .and_then(|value| unary_math(value, f64::tan, Complex64::tan)),
     )
 }
 
@@ -762,6 +1227,9 @@ pub extern "C" fn atan(raw: u32) -> u32 {
 }
 
 fn arctangent(args: &Arguments) -> Result<Root, String> {
+    if args.len() == 1 {
+        return unary_math(args.get(0)?, f64::atan, Complex64::atan);
+    }
     let y = args.get(0)?.as_real()?;
     let result = if args.len() == 2 {
         y.atan2(args.get(1)?.as_real()?)
@@ -777,13 +1245,19 @@ pub extern "C" fn log(raw: u32) -> u32 {
 }
 
 fn logarithm(args: &Arguments) -> Result<Root, String> {
-    let value = args.get(0)?.as_real()?;
-    let result = if args.len() == 2 {
-        value.log(args.get(1)?.as_real()?)
-    } else {
-        value.ln()
-    };
-    Ok(Root::real(result))
+    if args.len() == 1 {
+        return unary_math(args.get(0)?, f64::ln, Complex64::ln);
+    }
+    let base = args.get(1)?;
+    let value = args.get(0)?;
+    if base.kind() == Kind::Complex
+        || value.kind() == Kind::Complex
+        || value.as_real()? < 0.0
+        || base.as_real()? < 0.0
+    {
+        return complex_root(complex_value(&value)?.ln() / complex_value(&base)?.ln());
+    }
+    Ok(Root::real(value.as_real()?.log(base.as_real()?)))
 }
 
 // ---- Unicode and substring search ----
@@ -803,7 +1277,7 @@ pub extern "C" fn char_numeric(raw: u32) -> u32 {
     finish(
         args.get(0)
             .and_then(|v| v.as_character())
-            .map(|c| Root::boolean(c.is_numeric())),
+            .map(|c| Root::boolean(unicode::digit_value(c).is_some())),
     )
 }
 #[unsafe(export_name = "snail:char-whitespace?")]
@@ -830,7 +1304,7 @@ fn compare_folded_chars(args: &Arguments) -> Result<Root, String> {
     let mut equal = true;
     for index in 1..args.len() {
         let current = args.get(index)?.as_character()?;
-        equal &= previous.to_lowercase().eq(current.to_lowercase());
+        equal &= text::fold_character(previous) == text::fold_character(current);
         previous = current;
     }
     Ok(Root::boolean(equal))
@@ -976,8 +1450,10 @@ fn print_value(
         Kind::Boolean => output.push_str(if value.as_bool()? { "#t" } else { "#f" }),
         Kind::Integer => output.push_str(&value.as_integer()?.to_string()),
         Kind::Real => output.push_str(&float_text(value.as_real()?)),
+        Kind::Complex => output.push_str(&number_text(&value, 10)?),
         Kind::Character => print_character(output, value.as_character()?, display),
         Kind::String if !display => quote_string(output, &value.text()?),
+        Kind::Symbol if !display => print_symbol(output, &value.text()?),
         Kind::String | Kind::Symbol => output.push_str(&value.text()?),
         Kind::Pair | Kind::Vector => print_container(value, output, pending, active)?,
         Kind::Bytevector => {
@@ -1066,6 +1542,25 @@ fn quote_string(output: &mut String, text: &str) {
     output.push('"');
 }
 
+fn print_symbol(output: &mut String, text: &str) {
+    if datum::identifier(text) && matches!(datum::number(text, 10), Ok(None)) {
+        output.push_str(text);
+        return;
+    }
+    output.push('|');
+    for character in text.chars() {
+        match character {
+            '|' | '\\' => {
+                output.push('\\');
+                output.push(character);
+            }
+            c if c.is_control() => output.push_str(&format!("\\x{:x};", c as u32)),
+            c => output.push(c),
+        }
+    }
+    output.push('|');
+}
+
 // ---- Tests ----
 
 #[cfg(test)]
@@ -1075,8 +1570,11 @@ mod tests {
     #[test]
     fn numeric_text_preserves_sign_radix_and_nonfinite_values() {
         assert_eq!(integer_text(i64::MIN, 16), "-8000000000000000");
-        assert_eq!(strip_radix_prefix("#Xff", 10), ("ff", 16));
-        assert_eq!(strip_radix_prefix("λ", 8), ("λ", 8));
+        assert_eq!(
+            datum::number("#Xff", 10).unwrap(),
+            Some(datum::Number::Integer(255))
+        );
+        assert_eq!(datum::number("λ", 8).unwrap(), None);
         assert_eq!(float_text(-0.0), "-0.0");
         assert_eq!(float_text(f64::INFINITY), "+inf.0");
         assert_eq!(float_text(9.223372036854776e18), "9.223372036854776e+18");
@@ -1084,6 +1582,19 @@ mod tests {
         assert!(parse_float("+nan.0").unwrap().is_nan());
         assert_eq!(parse_float("3"), None);
         assert_eq!(parse_float("3.5"), Some(3.5));
+        assert_eq!(parse_float("+INF.0"), Some(f64::INFINITY));
+    }
+
+    #[test]
+    fn exact_powers_check_overflow_and_keep_complex_components() {
+        assert_eq!(integer_power(-2, 63).unwrap(), i64::MIN);
+        assert!(integer_power(2, 63).is_err());
+        assert_eq!(complex_integer_power((3, 4), 2).unwrap(), (-7, 24));
+        assert_eq!(
+            complex_integer_power((0, 1), i64::MAX as u64).unwrap(),
+            (0, -1)
+        );
+        assert!(complex_integer_product((i64::MIN, i64::MIN), (i64::MIN, i64::MIN)).is_err());
     }
 
     #[test]
@@ -1116,5 +1627,8 @@ mod tests {
         text.clear();
         print_character(&mut text, '😀', true);
         assert_eq!(text, "😀");
+        text.clear();
+        print_symbol(&mut text, "x |\\\n");
+        assert_eq!(text, "|x \\|\\\\\\xa;|");
     }
 }

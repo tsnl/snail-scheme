@@ -7,41 +7,44 @@
 
 use std::{
     fs::File,
-    io::{Read, Write},
+    io::{BufReader, BufWriter, Cursor, Read, Write},
 };
 
 // ---- Ports ----
 
-#[derive(Debug)]
 pub(crate) enum Port {
-    Input { chars: Vec<char>, offset: usize },
+    Input(TextInput),
     Output { buffer: String, closed: bool },
-    FileOutput(File),
-    BinaryInput(File),
-    Closed,
-    Stdin,
+    FileOutput(BufWriter<File>),
+    BinaryInput(BufReader<File>),
+    Closed { input: bool, binary: bool },
     Stdout,
     Stderr,
 }
 
 impl Port {
     pub(crate) fn input_file(path: &str) -> Result<Self, String> {
-        let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-        Ok(Self::Input {
-            chars: text.chars().collect(),
-            offset: 0,
-        })
+        let file = File::open(path).map_err(|e| format!("{path}: {e}"))?;
+        Ok(Self::Input(TextInput::new(file)))
+    }
+
+    pub(crate) fn input_string(text: String) -> Self {
+        Self::Input(TextInput::new(Cursor::new(text.into_bytes())))
+    }
+
+    pub(crate) fn stdin() -> Self {
+        Self::Input(TextInput::new(std::io::stdin()))
     }
 
     pub(crate) fn output_file(path: &str) -> Result<Self, String> {
         File::create(path)
-            .map(Self::FileOutput)
+            .map(|file| Self::FileOutput(BufWriter::new(file)))
             .map_err(|e| format!("{path}: {e}"))
     }
 
     pub(crate) fn binary_input_file(path: &str) -> Result<Self, String> {
         File::open(path)
-            .map(Self::BinaryInput)
+            .map(|file| Self::BinaryInput(BufReader::new(file)))
             .map_err(|e| format!("{path}: {e}"))
     }
 
@@ -53,56 +56,78 @@ impl Port {
     }
 
     pub(crate) fn is_input(&self) -> bool {
-        matches!(self, Self::Input { .. } | Self::Stdin)
+        matches!(
+            self,
+            Self::Input(_) | Self::BinaryInput(_) | Self::Closed { input: true, .. }
+        )
     }
 
     pub(crate) fn is_output(&self) -> bool {
         matches!(
             self,
-            Self::Output { closed: false, .. } | Self::FileOutput(_) | Self::Stdout | Self::Stderr
+            Self::Output { .. }
+                | Self::FileOutput(_)
+                | Self::Stdout
+                | Self::Stderr
+                | Self::Closed { input: false, .. }
+        )
+    }
+
+    pub(crate) fn is_open(&self) -> bool {
+        !matches!(
+            self,
+            Self::Closed { .. } | Self::Output { closed: true, .. }
+        )
+    }
+
+    pub(crate) fn is_binary(&self) -> bool {
+        matches!(
+            self,
+            Self::BinaryInput(_) | Self::Closed { binary: true, .. }
         )
     }
 
     pub(crate) fn close(&mut self) -> Result<(), String> {
+        let closed = Self::Closed {
+            input: self.is_input(),
+            binary: self.is_binary(),
+        };
         match self {
             Self::Output { closed, .. } => *closed = true,
             Self::FileOutput(file) => {
                 file.flush().map_err(|e| e.to_string())?;
-                *self = Self::Closed;
+                *self = closed;
             }
             Self::Stdout => {
                 std::io::stdout().flush().map_err(|e| e.to_string())?;
-                *self = Self::Closed;
+                *self = closed;
             }
             Self::Stderr => {
                 std::io::stderr().flush().map_err(|e| e.to_string())?;
-                *self = Self::Closed;
+                *self = closed;
             }
-            _ => *self = Self::Closed,
+            _ => *self = closed,
         }
         Ok(())
     }
 
     pub(crate) fn read_char(&mut self) -> Result<Option<char>, String> {
+        self.text_input()?.read_char()
+    }
+
+    pub(crate) fn text_input(&mut self) -> Result<&mut TextInput, String> {
         match self {
-            Self::Input { chars, offset } => {
-                let character = chars.get(*offset).copied();
-                *offset += usize::from(character.is_some());
-                Ok(character)
-            }
-            Self::Stdin => read_stdin_char(),
-            Self::Closed => Err("port is closed".into()),
+            Self::Input(input) => Ok(input),
+            Self::Closed { .. } => Err("port is closed".into()),
             _ => Err("expected an input port".into()),
         }
     }
 
     pub(crate) fn read_string(&mut self, count: usize) -> Result<Option<String>, String> {
-        if !self.is_input() {
-            return Err("expected an open input port".into());
-        }
+        let input = self.text_input()?;
         let mut text = String::new();
         for _ in 0..count {
-            let Some(character) = self.read_char()? else {
+            let Some(character) = input.read_char()? else {
                 break;
             };
             text.push(character);
@@ -136,6 +161,16 @@ impl Port {
         }
     }
 
+    pub(crate) fn flush(&mut self) -> Result<(), String> {
+        match self {
+            Self::Output { closed: false, .. } => Ok(()),
+            Self::FileOutput(file) => file.flush().map_err(|error| error.to_string()),
+            Self::Stdout => std::io::stdout().flush().map_err(|error| error.to_string()),
+            Self::Stderr => std::io::stderr().flush().map_err(|error| error.to_string()),
+            _ => Err("expected an open output port".into()),
+        }
+    }
+
     pub(crate) fn write(&mut self, text: &str) -> Result<(), String> {
         match self {
             Self::Output {
@@ -148,9 +183,61 @@ impl Port {
             Self::FileOutput(file) => file.write_all(text.as_bytes()).map_err(|e| e.to_string()),
             Self::Stdout => write_stream(&mut std::io::stdout().lock(), text),
             Self::Stderr => write_stream(&mut std::io::stderr().lock(), text),
-            Self::Output { closed: true, .. } | Self::Closed => Err("port is closed".into()),
+            Self::Output { closed: true, .. } | Self::Closed { .. } => Err("port is closed".into()),
             _ => Err("expected an output port".into()),
         }
+    }
+}
+
+// ---- Text input ----
+
+// One lookahead belongs to the port, not the reader invocation. A parser can
+// inspect a delimiter without stealing it from a later read-char or peek-char.
+// Buffered streams return available input; they never read to EOF up front.
+pub(crate) struct TextInput {
+    input: BufReader<Box<dyn Read>>,
+    peeked: Option<Option<char>>,
+    pub(crate) fold_case: bool,
+}
+
+impl TextInput {
+    fn new(input: impl Read + 'static) -> Self {
+        Self {
+            input: BufReader::new(Box::new(input)),
+            peeked: None,
+            fold_case: false,
+        }
+    }
+
+    pub(crate) fn peek_char(&mut self) -> Result<Option<char>, String> {
+        if self.peeked.is_none() {
+            self.peeked = Some(read_utf8_char(&mut self.input)?);
+        }
+        Ok(self.peeked.unwrap())
+    }
+
+    pub(crate) fn read_char(&mut self) -> Result<Option<char>, String> {
+        match self.peeked.take() {
+            Some(character) => Ok(character),
+            None => read_utf8_char(&mut self.input),
+        }
+    }
+
+    pub(crate) fn read_line(&mut self) -> Result<Option<String>, String> {
+        let mut text = String::new();
+        while let Some(character) = self.read_char()? {
+            match character {
+                '\n' => return Ok(Some(text)),
+                '\r' => {
+                    if self.peek_char()? == Some('\n') {
+                        self.read_char()?;
+                    }
+                    return Ok(Some(text));
+                }
+                character => text.push(character),
+            }
+        }
+        Ok(if text.is_empty() { None } else { Some(text) })
     }
 }
 
@@ -161,10 +248,6 @@ fn write_stream(output: &mut impl Write, text: &str) -> Result<(), String> {
         .write_all(text.as_bytes())
         .and_then(|_| output.flush())
         .map_err(|e| e.to_string())
-}
-
-fn read_stdin_char() -> Result<Option<char>, String> {
-    read_utf8_char(&mut std::io::stdin().lock()).map_err(|e| format!("read-char: {e}"))
 }
 
 /// Read one Unicode scalar without buffering past it or waiting for stdin EOF.
@@ -215,10 +298,7 @@ mod tests {
 
     #[test]
     fn empty_reads_and_eof_remain_distinct() {
-        let mut port = Port::Input {
-            chars: "aλ😀z".chars().collect(),
-            offset: 0,
-        };
+        let mut port = Port::input_string("aλ😀z".into());
         assert_eq!(port.read_string(0).unwrap(), Some(String::new()));
         assert_eq!(port.read_string(2).unwrap(), Some("aλ".into()));
         assert_eq!(port.read_string(99).unwrap(), Some("😀z".into()));
@@ -226,6 +306,19 @@ mod tests {
         assert_eq!(port.read_string(0).unwrap(), Some(String::new()));
         port.close().unwrap();
         assert!(port.read_string(0).is_err());
+    }
+
+    #[test]
+    fn lookahead_and_line_endings_share_the_character_cursor() {
+        let mut port = Port::input_string("λ\r\nnext\rfinal".into());
+        let input = port.text_input().unwrap();
+        assert_eq!(input.peek_char().unwrap(), Some('λ'));
+        assert_eq!(input.peek_char().unwrap(), Some('λ'));
+        assert_eq!(input.read_line().unwrap(), Some("λ".into()));
+        assert_eq!(input.read_line().unwrap(), Some("next".into()));
+        assert_eq!(input.read_line().unwrap(), Some("final".into()));
+        assert_eq!(input.peek_char().unwrap(), None);
+        assert_eq!(input.read_line().unwrap(), None);
     }
 
     #[test]

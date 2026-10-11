@@ -198,6 +198,9 @@ CASES = {
 }
 
 REJECTED = {
+    "inexact-complex-domain": ('(: f (-> Number InexactReal)) '
+                               '(define (f x) (if (inexact? x) (ann x InexactReal) 0.0))',
+                               "type mismatch"),
     "result-mismatch": ('(: f (-> ExactInteger String)) (define (f x) x)', "type mismatch"),
     "argument-mismatch": ('(: f (-> String ExactInteger)) (define (f x) (+ x 1))', "type mismatch"),
     "nominal-any": ('(: f (-> Any ExactInteger)) (define (f x) (+ x 1))', "type mismatch"),

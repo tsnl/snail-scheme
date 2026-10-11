@@ -102,14 +102,17 @@ pub(crate) fn spelling(id: u32) -> Result<Arc<str>, String> {
 
 // ---- Scheme and AWI boundaries ----
 
+pub(crate) fn intern(text: &str) -> Result<Root, String> {
+    let id = symbols()?.intern(text.into())?;
+    // The native name table never holds an AWI root or crosses an allocation.
+    Ok(Root::symbol(id))
+}
+
 fn intern_string(value: Root) -> Result<Root, String> {
     if value.kind() != Kind::String {
         return Err("string->symbol: expected a string".into());
     }
-    let text = value.text()?;
-    let id = symbols()?.intern(text)?;
-    // Release the table lock before allocating a Scheme object or AWI root.
-    Ok(Root::symbol(id))
+    intern(&value.text()?)
 }
 
 #[unsafe(export_name = "snail:string->symbol")]

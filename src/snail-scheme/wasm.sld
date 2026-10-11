@@ -519,7 +519,7 @@
             ((eq? type 'Number) `(call $truthy (call $is_number ,value)))
             ((eq? type 'Char) `(call $truthy (call $is_character ,value)))
             (else `(ref.test (ref ,(case type
-                                     ((InexactReal) '$float) ((Pair) '$pair) ((Vector) '$vector)
+                                     ((InexactReal) '$float) ((Complex) '$complex) ((Pair) '$pair) ((Vector) '$vector)
                                      ((Bytevector) '$bytevector) ((Procedure) '$closure) ((Record) '$record)
                                      (else (error "no runtime type test" type)))) ,value))))
 
@@ -833,15 +833,23 @@
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
       '(%eqv-hash %equal-hash %string-hash %string-ci-hash
+                  string->symbol symbol->string find-artifact
                   acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
-                  string->number number->string string->symbol symbol->string
-                  char-ci=? char-alphabetic? char-numeric? char-whitespace?
-                  error open-input-file open-output-file open-binary-input-file file-exists? close-port
-                  read-char read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8
-                  open-output-string get-output-string display write newline
+                  exact inexact floor ceiling truncate round expt exact-integer-sqrt
+                  make-polar magnitude angle
+                  numerator denominator
+                  string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
+                  char-ci<? char-ci<=? char-ci>? char-ci>=? char-upcase char-downcase char-foldcase
+                  char-upper-case? char-lower-case? digit-value
+                  string<? string<=? string>? string>=? string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
+                  string-upcase string-downcase string-foldcase
+                  error open-input-file open-output-file open-binary-input-file file-exists? delete-file close-port
+                  port? input-port? output-port? input-port-open? output-port-open? textual-port? binary-port?
+                  read read-char peek-char read-line read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8 eof-object
+                  open-input-string open-output-string get-output-string display write write-char write-string flush-output-port newline
                   %current-input-port %current-output-port %current-error-port
                   %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                  command-line exit get-environment-variable find-artifact current-jiffy jiffies-per-second string-contains))
+                  command-line exit get-environment-variable current-second current-jiffy jiffies-per-second string-contains))
 
     (define (module-services module)
       (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)
