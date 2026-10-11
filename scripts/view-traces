@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Serve a trace folder and the shell's Perfetto UI over a loopback HTTP connection."""
+"""Serve one trace in the shell's Perfetto UI over a loopback HTTP connection."""
 
 import argparse
-import html
+import json
 import mimetypes
 import os
 import shutil
@@ -11,10 +11,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from string import Template
 from urllib.parse import quote, unquote, urlsplit
-TRACE_SUFFIXES = {".json", ".pftrace", ".perfetto-trace", ".trace"}
 
 
-# ---- Perfetto assets and dark theme ----
+# ---- Perfetto assets and startup ----
 
 
 def perfetto_ui():
@@ -26,21 +25,23 @@ def perfetto_ui():
     return directory
 
 
-# The pinned UI reads this setting at startup. Set it before its bootstrap script
-# runs, keeping the other settings. The downloaded release remains unchanged.
-DARK_THEME = """<script>
+# Configure the pinned UI before its loader runs. Use the browser's origin so
+# the forwarded local port can differ from the server's listening port.
+BOOTSTRAP = Template("""<script>
 let settings = {};
 try { settings = JSON.parse(localStorage.getItem('perfettoSettings')) || {}; } catch {}
 localStorage.setItem('perfettoSettings', JSON.stringify({...settings, theme: 'dark'}));
+location.replace('/#!/?url=' + encodeURIComponent(location.origin + $trace));
 </script>
-"""
+""")
 
 
-def perfetto_page(directory):
-    return (directory / "index.html").read_text().replace("</head>", DARK_THEME + "</head>", 1)
+def perfetto_page(directory, trace):
+    bootstrap = BOOTSTRAP.substitute(trace=json.dumps("/trace/" + quote(trace.name)))
+    return (directory / "index.html").read_text().replace("</head>", bootstrap + "</head>", 1)
 
 
-# ---- Trace discovery and folder page ----
+# ---- HTTP serving ----
 
 
 def contained_file(directory, relative):
@@ -50,69 +51,16 @@ def contained_file(directory, relative):
     return path
 
 
-def trace_file(directory, relative):
-    path = contained_file(directory, relative)
-    if path.suffix not in TRACE_SUFFIXES:
-        raise FileNotFoundError(relative)
-    return path
-
-
-def trace_names(directory):
-    names = []
-    for path in sorted(directory.rglob("*")):
-        if path.suffix in TRACE_SUFFIXES:
-            try:
-                trace_file(directory, path.relative_to(directory))
-                names.append(path.relative_to(directory).as_posix())
-            except OSError:
-                pass
-    return names
-
-
-PAGE = Template("""<!doctype html>
-<html lang="en"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Snail-Scheme traces</title>
-<style>
-  :root { color-scheme: dark; }
-  body { margin: 3rem auto; padding: 0 2rem; max-width: 70rem;
-         background: #17191d; color: #e7e9ee; font: 16px/1.6 system-ui, sans-serif; }
-  a { color: #9dc1ff; } li { margin: .6rem 0; overflow-wrap: anywhere; }
-  code { overflow-wrap: anywhere; }
-</style>
-<h1>Traces</h1><p><code>$directory</code></p>
-<p>Choose a trace to open Perfetto in a new tab. Refresh this page to find new traces.</p>
-<ul>$traces</ul>
-<script>
-// Use the browser's origin: the forwarded local port can differ from the server port.
-for (const link of document.querySelectorAll('a[data-trace]')) {
-  link.href = '/#!/?url=' + encodeURIComponent(location.origin + link.dataset.trace);
-}
-</script></html>
-""")
-
-
-def trace_page(directory):
-    links = [f'<li><a data-trace="/trace-files/{html.escape(quote(name))}" '
-             f'href="#" target="_blank" rel="noopener">{html.escape(name)}</a></li>'
-             for name in trace_names(directory)]
-    return PAGE.substitute(directory=html.escape(str(directory)),
-                           traces="\n".join(links) or "<li>No traces yet.</li>")
-
-
-# ---- HTTP serving and command line ----
-
-
 class TraceHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = unquote(urlsplit(self.path).path)
         try:
-            if path in ("/traces", "/traces/"):
-                return self.send_html(trace_page(self.server.directory))
+            path = unquote(urlsplit(self.path).path)
             if path in ("/", "/index.html"):
-                return self.send_html(perfetto_page(self.server.ui))
-            if path.startswith("/trace-files/"):
-                file = trace_file(self.server.directory, path[len("/trace-files/"):])
+                return self.send_html(perfetto_page(self.server.ui, self.server.trace))
+            if path == "/trace/" + self.server.trace.name:
+                file = self.server.trace
+            elif path.startswith("/trace/"):
+                raise FileNotFoundError(path)
             else:
                 file = contained_file(self.server.ui, path.lstrip("/"))
             self.send_file(file)
@@ -139,20 +87,29 @@ class TraceHandler(BaseHTTPRequestHandler):
 
 
 class TraceServer(ThreadingHTTPServer):
-    def __init__(self, port, directory, ui):
-        self.directory = directory
+    def __init__(self, port, trace, ui):
+        self.trace = trace
         self.ui = ui
         super().__init__(("127.0.0.1", port), TraceHandler)
 
 
+# ---- Command line ----
+
+
+def trace_path(value):
+    path = Path(value).resolve()
+    if not path.is_file():
+        raise argparse.ArgumentTypeError(f"not a trace file: {path}")
+    with path.open("rb"):
+        pass
+    return path
+
+
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("directory", type=Path, help="folder containing JSON or binary traces")
+    parser.add_argument("trace", type=trace_path, help="JSON or binary trace file to load")
     parser.add_argument("--port", type=int, default=9000, help="loopback HTTP port (default: 9000)")
     args = parser.parse_args()
-    args.directory = args.directory.resolve()
-    if not args.directory.is_dir():
-        parser.error(f"not a directory: {args.directory}")
     if not 0 <= args.port <= 65535:
         parser.error("port must be between 0 and 65535")
     return args
@@ -160,9 +117,9 @@ def arguments():
 
 def main():
     args = arguments()
-    with TraceServer(args.port, args.directory, perfetto_ui()) as server:
+    with TraceServer(args.port, args.trace, perfetto_ui()) as server:
         port = server.server_address[1]
-        print(f"Open http://127.0.0.1:{port}/traces/", flush=True)
+        print(f"Open http://127.0.0.1:{port}/", flush=True)
         print(f"For SSH: ssh -N -L {port}:127.0.0.1:{port} user@server", flush=True)
         try:
             server.serve_forever()
