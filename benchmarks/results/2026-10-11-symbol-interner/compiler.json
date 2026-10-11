@@ -1,0 +1,1584 @@
+{
+  "schema": 1,
+  "kind": "compiler-comparison",
+  "complete": true,
+  "date": "2026-10-11T07:57:00.021633+00:00",
+  "cpu": 2,
+  "rounds": 3,
+  "order": [
+    [
+      0,
+      "chibi-before"
+    ],
+    [
+      0,
+      "chibi-after"
+    ],
+    [
+      0,
+      "snail-wasm-before"
+    ],
+    [
+      0,
+      "snail-wasm-after"
+    ],
+    [
+      0,
+      "snail-native-before"
+    ],
+    [
+      0,
+      "snail-native-after"
+    ],
+    [
+      0,
+      "snail-native-before-4gib"
+    ],
+    [
+      1,
+      "chibi-after"
+    ],
+    [
+      1,
+      "snail-wasm-before"
+    ],
+    [
+      1,
+      "snail-wasm-after"
+    ],
+    [
+      1,
+      "snail-native-before"
+    ],
+    [
+      1,
+      "snail-native-after"
+    ],
+    [
+      1,
+      "snail-native-before-4gib"
+    ],
+    [
+      1,
+      "chibi-before"
+    ],
+    [
+      2,
+      "snail-wasm-before"
+    ],
+    [
+      2,
+      "snail-wasm-after"
+    ],
+    [
+      2,
+      "snail-native-before"
+    ],
+    [
+      2,
+      "snail-native-after"
+    ],
+    [
+      2,
+      "snail-native-before-4gib"
+    ],
+    [
+      2,
+      "chibi-before"
+    ],
+    [
+      2,
+      "chibi-after"
+    ],
+    [
+      3,
+      "snail-wasm-after"
+    ],
+    [
+      3,
+      "snail-native-before"
+    ],
+    [
+      3,
+      "snail-native-after"
+    ],
+    [
+      3,
+      "snail-native-before-4gib"
+    ],
+    [
+      3,
+      "chibi-before"
+    ],
+    [
+      3,
+      "chibi-after"
+    ],
+    [
+      3,
+      "snail-wasm-before"
+    ]
+  ],
+  "cases": [
+    {
+      "system": "chibi-before",
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.175101064000046,
+          "stdout": "+!CSVLINE!+chibi-before,compiler-self,14.569\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-before.wat",
+            "chibi-before"
+          ],
+          "seconds": 14.569,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.569,
+            "syntax-list->ir-library": 12.954,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.321,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.153,
+            "write-wasm": 0.111
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.212452288003988,
+          "stdout": "+!CSVLINE!+chibi-before,compiler-self,14.607\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-before.wat",
+            "chibi-before"
+          ],
+          "seconds": 14.607,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.607,
+            "syntax-list->ir-library": 12.988,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.325,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.152,
+            "write-wasm": 0.111
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.227368787003797,
+          "stdout": "+!CSVLINE!+chibi-before,compiler-self,14.622\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-before.wat",
+            "chibi-before"
+          ],
+          "seconds": 14.622,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.622,
+            "syntax-list->ir-library": 12.974,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.321,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.152,
+            "write-wasm": 0.144
+          }
+        }
+      ],
+      "implementation": "before",
+      "artifact_sha256": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+      "reference_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 15.23604616499506,
+        "stdout": "+!CSVLINE!+chibi-before,compiler-self,14.631\n",
+        "stderr": "",
+        "command": [
+          "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+          "-h512M",
+          "-I",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-before.wat",
+          "chibi-before"
+        ],
+        "seconds": 14.631,
+        "name": "compiler-self",
+        "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+        "stages_seconds": {
+          "source-file->wat-file": 14.631,
+          "syntax-list->ir-library": 13.015,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.32,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 1.155,
+          "write-wasm": 0.111
+        }
+      },
+      "median_seconds": 14.607
+    },
+    {
+      "system": "chibi-after",
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.212631605012575,
+          "stdout": "+!CSVLINE!+chibi-after,compiler-self,14.607\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-after.wat",
+            "chibi-after"
+          ],
+          "seconds": 14.607,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.607,
+            "syntax-list->ir-library": 13.006,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.388,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.069,
+            "write-wasm": 0.111
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.213330685000983,
+          "stdout": "+!CSVLINE!+chibi-after,compiler-self,14.612\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-after.wat",
+            "chibi-after"
+          ],
+          "seconds": 14.612,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.612,
+            "syntax-list->ir-library": 13.039,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.389,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.042,
+            "write-wasm": 0.11
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.218143577993033,
+          "stdout": "+!CSVLINE!+chibi-after,compiler-self,14.618\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-after.wat",
+            "chibi-after"
+          ],
+          "seconds": 14.618,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 14.617,
+            "syntax-list->ir-library": 13.049,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.386,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.041,
+            "write-wasm": 0.11
+          }
+        }
+      ],
+      "implementation": "after",
+      "artifact_sha256": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+      "reference_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 15.271485574994585,
+        "stdout": "+!CSVLINE!+chibi-after,compiler-self,14.669\n",
+        "stderr": "",
+        "command": [
+          "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+          "-h512M",
+          "-I",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/chibi-after.wat",
+          "chibi-after"
+        ],
+        "seconds": 14.669,
+        "name": "compiler-self",
+        "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+        "stages_seconds": {
+          "source-file->wat-file": 14.669,
+          "syntax-list->ir-library": 13.076,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.395,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 1.057,
+          "write-wasm": 0.111
+        }
+      },
+      "median_seconds": 14.612
+    },
+    {
+      "system": "snail-wasm-before",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/scripts/run-wasi.mjs",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler.wasm"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.844907520004199,
+          "stdout": "+!CSVLINE!+snail-wasm-before,compiler-self,10.790186451\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-before.wat",
+            "snail-wasm-before"
+          ],
+          "seconds": 10.790186451,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.790134,
+            "syntax-list->ir-library": 2.061131,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.234318,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 7.264931,
+            "write-wasm": 0.181732
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.495187141001225,
+          "stdout": "+!CSVLINE!+snail-wasm-before,compiler-self,10.439713664\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-before.wat",
+            "snail-wasm-before"
+          ],
+          "seconds": 10.439713664,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.439662,
+            "syntax-list->ir-library": 2.061076,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.235897,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 6.918161,
+            "write-wasm": 0.182163
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.554996644001221,
+          "stdout": "+!CSVLINE!+snail-wasm-before,compiler-self,10.506231364\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-before.wat",
+            "snail-wasm-before"
+          ],
+          "seconds": 10.506231364,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.50618,
+            "syntax-list->ir-library": 2.055859,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.234816,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 7.023853,
+            "write-wasm": 0.183739
+          }
+        }
+      ],
+      "implementation": "before",
+      "artifact_sha256": "49639b48f7bb38da14240a46bb4a307aff48fd0a2d5fe2d129f35d80117bd959",
+      "reference_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.734921401002794,
+        "stdout": "+!CSVLINE!+snail-wasm-before,compiler-self,10.678942797\n",
+        "stderr": "",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/scripts/run-wasi.mjs",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler.wasm",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-before.wat",
+          "snail-wasm-before"
+        ],
+        "seconds": 10.678942797,
+        "name": "compiler-self",
+        "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+        "stages_seconds": {
+          "source-file->wat-file": 10.67889,
+          "syntax-list->ir-library": 2.071179,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.236982,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 7.136686,
+          "write-wasm": 0.181818
+        }
+      },
+      "median_seconds": 10.506231364
+    },
+    {
+      "system": "snail-wasm-after",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/scripts/run-wasi.mjs",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler.wasm"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 3.768016763002379,
+          "stdout": "+!CSVLINE!+snail-wasm-after,compiler-self,3.715941366\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-after.wat",
+            "snail-wasm-after"
+          ],
+          "seconds": 3.715941366,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 3.71589,
+            "syntax-list->ir-library": 2.016386,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.24953,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.205507,
+            "write-wasm": 0.218718
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 3.7869821860076627,
+          "stdout": "+!CSVLINE!+snail-wasm-after,compiler-self,3.735222263\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-after.wat",
+            "snail-wasm-after"
+          ],
+          "seconds": 3.735222263,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 3.735171,
+            "syntax-list->ir-library": 2.013109,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.250593,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.215607,
+            "write-wasm": 0.232831
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 3.7726056069950573,
+          "stdout": "+!CSVLINE!+snail-wasm-after,compiler-self,3.721357781\n",
+          "stderr": "",
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler.wasm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-after.wat",
+            "snail-wasm-after"
+          ],
+          "seconds": 3.721357781,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 3.721307,
+            "syntax-list->ir-library": 2.016325,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.24914,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 1.204173,
+            "write-wasm": 0.223368
+          }
+        }
+      ],
+      "implementation": "after",
+      "artifact_sha256": "4070bc4524b571858034a0ccbcba0729ba9ca563149c54ab550a19a3abb4b920",
+      "reference_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 3.782808493997436,
+        "stdout": "+!CSVLINE!+snail-wasm-after,compiler-self,3.732239099\n",
+        "stderr": "",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/scripts/run-wasi.mjs",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler.wasm",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-wasm-after.wat",
+          "snail-wasm-after"
+        ],
+        "seconds": 3.732239099,
+        "name": "compiler-self",
+        "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+        "stages_seconds": {
+          "source-file->wat-file": 3.732188,
+          "syntax-list->ir-library": 2.022473,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.250404,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 1.212139,
+          "write-wasm": 0.221086
+        }
+      },
+      "median_seconds": 3.721357781
+    },
+    {
+      "system": "snail-native-before",
+      "command": [
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 31.584925820992794,
+          "stdout": "+!CSVLINE!+snail-native-before,compiler-self,31.577248082\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before.wat",
+            "snail-native-before"
+          ],
+          "seconds": 31.577248082,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 31.577237,
+            "syntax-list->ir-library": 10.202565,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 1.130668,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 18.086067,
+            "write-wasm": 0.234025
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 30.94903923200036,
+          "stdout": "+!CSVLINE!+snail-native-before,compiler-self,30.941194086\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before.wat",
+            "snail-native-before"
+          ],
+          "seconds": 30.941194086,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 30.941183,
+            "syntax-list->ir-library": 9.745648,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 1.122733,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 17.919814,
+            "write-wasm": 0.233582
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 31.29662558999553,
+          "stdout": "+!CSVLINE!+snail-native-before,compiler-self,31.288788788\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before.wat",
+            "snail-native-before"
+          ],
+          "seconds": 31.288788788,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 31.288778,
+            "syntax-list->ir-library": 10.004899,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 1.106544,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 18.028948,
+            "write-wasm": 0.227972
+          }
+        }
+      ],
+      "implementation": "before",
+      "artifact_sha256": "ecc28ec0ccf1ecfb6f661ebd2ee94518639fa8b362b780066786f3df6e110722",
+      "reference_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 31.663654845993733,
+        "stdout": "+!CSVLINE!+snail-native-before,compiler-self,31.655948266\n",
+        "stderr": "",
+        "command": [
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before.wat",
+          "snail-native-before"
+        ],
+        "seconds": 31.655948266,
+        "name": "compiler-self",
+        "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+        "stages_seconds": {
+          "source-file->wat-file": 31.655938,
+          "syntax-list->ir-library": 10.235202,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 1.14971,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 18.094034,
+          "write-wasm": 0.228669
+        }
+      },
+      "median_seconds": 31.288788788
+    },
+    {
+      "system": "snail-native-after",
+      "command": [
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 11.029734865995124,
+          "stdout": "+!CSVLINE!+snail-native-after,compiler-self,10.900300146\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-after.wat",
+            "snail-native-after"
+          ],
+          "seconds": 10.900300146,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.900289,
+            "syntax-list->ir-library": 6.926688,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.667594,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 3.072058,
+            "write-wasm": 0.209826
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.881372611998813,
+          "stdout": "+!CSVLINE!+snail-native-after,compiler-self,10.754500534\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-after.wat",
+            "snail-native-after"
+          ],
+          "seconds": 10.754500534,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.75449,
+            "syntax-list->ir-library": 6.815562,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.668228,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 3.040423,
+            "write-wasm": 0.206117
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.809938381993561,
+          "stdout": "+!CSVLINE!+snail-native-after,compiler-self,10.682546774\n",
+          "stderr": "",
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-after.wat",
+            "snail-native-after"
+          ],
+          "seconds": 10.682546774,
+          "name": "compiler-self",
+          "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stages_seconds": {
+            "source-file->wat-file": 10.682535,
+            "syntax-list->ir-library": 6.715416,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.667366,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 3.070621,
+            "write-wasm": 0.205058
+          }
+        }
+      ],
+      "implementation": "after",
+      "artifact_sha256": "af5bd2e39939f7f0cc92c1bf50737bfe8d62025393593bc30dcb5cf479155733",
+      "reference_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.804879880000954,
+        "stdout": "+!CSVLINE!+snail-native-after,compiler-self,10.68101636\n",
+        "stderr": "",
+        "command": [
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/compiler",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-after.wat",
+          "snail-native-after"
+        ],
+        "seconds": 10.68101636,
+        "name": "compiler-self",
+        "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+        "stages_seconds": {
+          "source-file->wat-file": 10.681005,
+          "syntax-list->ir-library": 6.712916,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.666269,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 3.071441,
+          "write-wasm": 0.206066
+        }
+      },
+      "median_seconds": 10.754500534
+    },
+    {
+      "system": "snail-native-before-4gib",
+      "command": [
+        "env",
+        "GC_INITIAL_HEAP_SIZE=4294967296",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler"
+      ],
+      "status": "passed",
+      "samples": [
+        {
+          "round": 1,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 26.38126843899954,
+          "stdout": "+!CSVLINE!+snail-native-before-4gib,compiler-self,26.253121117\n",
+          "stderr": "",
+          "command": [
+            "env",
+            "GC_INITIAL_HEAP_SIZE=4294967296",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before-4gib.wat",
+            "snail-native-before-4gib"
+          ],
+          "seconds": 26.253121117,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 26.25311,
+            "syntax-list->ir-library": 6.886526,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.627019,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 16.220251,
+            "write-wasm": 0.172017
+          }
+        },
+        {
+          "round": 2,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 26.400764685997274,
+          "stdout": "+!CSVLINE!+snail-native-before-4gib,compiler-self,26.272797573\n",
+          "stderr": "",
+          "command": [
+            "env",
+            "GC_INITIAL_HEAP_SIZE=4294967296",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before-4gib.wat",
+            "snail-native-before-4gib"
+          ],
+          "seconds": 26.272797573,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 26.272787,
+            "syntax-list->ir-library": 6.830769,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.626071,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 16.282928,
+            "write-wasm": 0.172849
+          }
+        },
+        {
+          "round": 3,
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 26.439469256991288,
+          "stdout": "+!CSVLINE!+snail-native-before-4gib,compiler-self,26.309564518\n",
+          "stderr": "",
+          "command": [
+            "env",
+            "GC_INITIAL_HEAP_SIZE=4294967296",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before-4gib.wat",
+            "snail-native-before-4gib"
+          ],
+          "seconds": 26.309564518,
+          "name": "compiler-self",
+          "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+          "stages_seconds": {
+            "source-file->wat-file": 26.309553,
+            "syntax-list->ir-library": 6.933466,
+            "analyze-types": 0.0,
+            "partial-evaluate": 0.0,
+            "prepare-module": 0.626069,
+            "generate-procedure-functions": 0.0,
+            "generate-library-functions": 16.232989,
+            "write-wasm": 0.172434
+          }
+        }
+      ],
+      "implementation": "before",
+      "artifact_sha256": "ecc28ec0ccf1ecfb6f661ebd2ee94518639fa8b362b780066786f3df6e110722",
+      "reference_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 26.42569793300936,
+        "stdout": "+!CSVLINE!+snail-native-before-4gib,compiler-self,26.299964345\n",
+        "stderr": "",
+        "command": [
+          "env",
+          "GC_INITIAL_HEAP_SIZE=4294967296",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/compiler",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+          "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+          "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/snail-native-before-4gib.wat",
+          "snail-native-before-4gib"
+        ],
+        "seconds": 26.299964345,
+        "name": "compiler-self",
+        "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+        "stages_seconds": {
+          "source-file->wat-file": 26.299953,
+          "syntax-list->ir-library": 6.854425,
+          "analyze-types": 0.0,
+          "partial-evaluate": 0.0,
+          "prepare-module": 0.626673,
+          "generate-procedure-functions": 0.0,
+          "generate-library-functions": 16.293558,
+          "write-wasm": 0.171326
+        }
+      },
+      "median_seconds": 26.272797573
+    }
+  ],
+  "working_directory": "/tmp",
+  "input_root": "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+  "input_entry": "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+  "input_source_sha256": {
+    "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+    "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+    "benchmarks/compile-self.scm": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+    "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+    "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+    "scripts/run-wasi.mjs": "f262ea291804cf07c548d0e6d8681d87c4d434df3b3c6ea33e69626ad479621f",
+    "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+    "src/awi.rs": "85203b02c38a2211e67aa41e7801de34810751cbf9765688f0cb6ed0ed51e4b6",
+    "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+    "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+    "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+    "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+    "src/lib.rs": "97f37c4343df28675796590eb91eaf20acce6430f754626f28ca42b978aedef2",
+    "src/native.c": "95add385a13829e61b8bd4a4f41906cf3e29695d20e90c10c69b066155ec29d1",
+    "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+    "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+    "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+    "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/llvm.sld": "1ab04853d25f3bffc4062340f98a2d8ee9a8ba2351ab30d5f717f767ff4e9fbf",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+    "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+    "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+    "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+    "src/snail-scheme/wasm-awi.sld": "b9418d05a0c046e5c4f11b7099e9e77bcd3d025f05c6ac0a3733f07a71cfd0e9",
+    "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+    "src/snail-scheme/wasm-literals.sld": "05e6a0a610da91642a2d7234559840918979c222e32ba83609329e2308bdf5af",
+    "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+    "src/snail-scheme/wasm-runtime.sld": "5fc3298ed0a6f341f901ce00994e8cff12d64d6f88e6911e9bb7fb9fbeb9b626",
+    "src/snail-scheme/wasm.sld": "5b6cef53e68b15f557e64c9f40c9a88b4819e71196373082daca0c8a38e614fb"
+  },
+  "output_check": "Each implementation matches its own validated Chibi reference; WAT ordering may differ between implementations.",
+  "references": {
+    "before": {
+      "wat_sha256": "6c18cf1114cf820130feb63930ce38028d3f01d98f2443dfd8c8fd1d9fcaae0a",
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/before-reference.wat",
+        "chibi-before"
+      ],
+      "compile": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 15.532996745998389,
+        "stdout": "+!CSVLINE!+chibi-before,compiler-self,14.918\n",
+        "stderr": ""
+      },
+      "validation": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.2823971320030978,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    "after": {
+      "wat_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-h512M",
+        "-I",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+        "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+        "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-comparison/after-reference.wat",
+        "chibi-after"
+      ],
+      "compile": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 15.49660945899086,
+        "stdout": "+!CSVLINE!+chibi-after,compiler-self,14.884\n",
+        "stderr": ""
+      },
+      "validation": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.2750713510031346,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu_info": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 198\nmodel name\t: Intel(R) Core(TM) Ultra 7 270K Plus\nstepping\t: 2\nmicrocode\t: 0x122\ncpu MHz\t\t: 4111.128\ncache size\t: 36864 KB\nphysical id\t: 0\nsiblings\t: 24\ncore id\t\t: 0\ncpu cores\t: 24\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 35\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs pml ept_violation_ve ept_mode_based_exec tsc_scaling usr_wait_pause notify_vm_exiting ipi_virt\nbugs\t\t: spectre_v1 spectre_v2 spec_store_bypass swapgs bhi spectre_v2_user vmscape\nbogomips\t: 7372.80\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+  "tools": {
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.001461731008021161,
+        "stdout": "10.4.1\n",
+        "stderr": ""
+      }
+    },
+    "GUILE": {
+      "path": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.005905272002564743,
+        "stdout": "guile (GNU Guile) 3.0.11\nCopyright (C) 2024 Free Software Foundation, Inc.\n\nLicense LGPLv3+: GNU LGPL 3 or later <http://gnu.org/licenses/lgpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+        "stderr": ""
+      }
+    },
+    "GUILD": {
+      "path": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.008926155001972802,
+        "stdout": "guild (GNU Guile) 3.0.11\nCopyright (C) 2024 Free Software Foundation, Inc.\n\nLicense LGPLv3+: GNU LGPL 3 or later <http://gnu.org/licenses/lgpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+        "stderr": ""
+      }
+    },
+    "CHIBI": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.04220468101266306,
+        "stdout": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n",
+        "stderr": ""
+      }
+    },
+    "CARGO": {
+      "path": "/run/current-system/sw/bin/cargo",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.019484509000903927,
+        "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n",
+        "stderr": ""
+      }
+    },
+    "RUSTC": {
+      "path": "/run/current-system/sw/bin/rustc",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.022302616998786107,
+        "stdout": "rustc 1.95.0 (59807616e 2026-04-14)\n",
+        "stderr": ""
+      }
+    },
+    "CLANG": {
+      "path": "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.01921095400757622,
+        "stdout": "clang version 21.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/603yaax3l2jmc0hfv6g3hgjr1qk5jfxk-clang-21.1.8/bin\n",
+        "stderr": ""
+      }
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.006573231992661022,
+        "stdout": "v24.19.0\n",
+        "stderr": ""
+      }
+    },
+    "WASM_AS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.003133553997031413,
+        "stdout": "wasm-as version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_MERGE": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0026966680015902966,
+        "stdout": "wasm-merge version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0027414570067776367,
+        "stdout": "wasm-opt version 132\n",
+        "stderr": ""
+      }
+    }
+  },
+  "build_environment": {
+    "BDWGC_INCLUDE": "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+    "BDWGC_LIB": "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1"
+  },
+  "harness_sha256": "2121f649d677df5e521bc5fc5e0bd38894db868bc87f7e1a49e6e3ac5bc0e995",
+  "implementations": {
+    "before": {
+      "revision": "dbc63b640b7b8258bbf4d0aaa4c299fa1b064a82",
+      "working_tree": "",
+      "source_sha256": {
+        "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+        "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+        "benchmarks/compile-self.scm": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+        "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+        "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+        "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+        "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+        "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+        "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+        "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+        "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+        "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+        "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+        "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+        "scripts/run-wasi.mjs": "f262ea291804cf07c548d0e6d8681d87c4d434df3b3c6ea33e69626ad479621f",
+        "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+        "src/awi.rs": "85203b02c38a2211e67aa41e7801de34810751cbf9765688f0cb6ed0ed51e4b6",
+        "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+        "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+        "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+        "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+        "src/lib.rs": "97f37c4343df28675796590eb91eaf20acce6430f754626f28ca42b978aedef2",
+        "src/native.c": "95add385a13829e61b8bd4a4f41906cf3e29695d20e90c10c69b066155ec29d1",
+        "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+        "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+        "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+        "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+        "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+        "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+        "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+        "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+        "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+        "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+        "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+        "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+        "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+        "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+        "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+        "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+        "src/snail-scheme/llvm.sld": "1ab04853d25f3bffc4062340f98a2d8ee9a8ba2351ab30d5f717f767ff4e9fbf",
+        "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+        "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+        "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+        "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+        "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+        "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+        "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+        "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+        "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+        "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+        "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+        "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+        "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+        "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+        "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+        "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+        "src/snail-scheme/wasm-awi.sld": "b9418d05a0c046e5c4f11b7099e9e77bcd3d025f05c6ac0a3733f07a71cfd0e9",
+        "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+        "src/snail-scheme/wasm-literals.sld": "05e6a0a610da91642a2d7234559840918979c222e32ba83609329e2308bdf5af",
+        "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+        "src/snail-scheme/wasm-runtime.sld": "5fc3298ed0a6f341f901ce00994e8cff12d64d6f88e6911e9bb7fb9fbeb9b626",
+        "src/snail-scheme/wasm.sld": "5b6cef53e68b15f557e64c9f40c9a88b4819e71196373082daca0c8a38e614fb"
+      },
+      "builds": [
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/reference.wat",
+            "chibi"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.485592009994434,
+          "stdout": "+!CSVLINE!+chibi,compiler-self,14.939\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/reference.wat",
+            "--all-features",
+            "-o",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/reference.wasm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.2853485469968291,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/link.scm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.921801149001112,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/src",
+            "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/native.scm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 44.55413124100596,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    },
+    "after": {
+      "revision": "0d224c224dadb2b4680d2ea84f9e222ac8d9f505",
+      "working_tree": " M TOUR.md\n M doc/backend.md\n M scripts/test-backend\n M src/awi.rs\n M src/lib.rs\n M src/snail-scheme/llvm.sld\n M src/snail-scheme/wasm-awi.sld\n M src/snail-scheme/wasm-literals.sld\n M src/snail-scheme/wasm-runtime.sld\n M src/snail-scheme/wasm.sld\n M tests/check-awi-roots.mjs\n M tests/native-runner.c\n M tests/programs/backend-errors.scm\n?? benchmarks/typing/compare-schemes.py\n?? src/symbols.rs\n?? tests/programs/backend-symbols.scm\n",
+      "source_sha256": {
+        "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+        "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+        "benchmarks/compile-self.scm": "b351775d3f9462781dcf02be0fa8b5166e4625d8d8f47233af303ea88a3e7449",
+        "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+        "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+        "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+        "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+        "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+        "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+        "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+        "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+        "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+        "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+        "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+        "scripts/run-wasi.mjs": "f262ea291804cf07c548d0e6d8681d87c4d434df3b3c6ea33e69626ad479621f",
+        "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+        "src/awi.rs": "73c35dfbbea1ec04f526dde6bef5ebdad6d69ab4458fecef113b712e316608fa",
+        "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+        "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+        "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+        "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+        "src/lib.rs": "2deb2325ad60dd07d8d02d9b9f8f08decc0a9c5606573d4f495ca351b3d2c7d4",
+        "src/native.c": "820426f57875f9512f08ef59a7b8f571baad00068850459496e93202f6f42550",
+        "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+        "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+        "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+        "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+        "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+        "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+        "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+        "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+        "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+        "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+        "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+        "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+        "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+        "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+        "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+        "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+        "src/snail-scheme/llvm.sld": "cca9f20a33cc38d4201dc2bf77ad86b3f94127dac43e60268138e793249d2dce",
+        "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+        "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+        "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+        "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+        "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+        "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+        "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+        "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+        "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+        "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+        "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+        "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+        "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+        "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+        "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+        "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+        "src/snail-scheme/wasm-awi.sld": "9904d299132d3faaf19146a994acf191740fddfc2d93c6eff4b231a72bbc4549",
+        "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+        "src/snail-scheme/wasm-literals.sld": "cb20440f3427393fe2fa3e15a99b1054a42dbf31b0d851d448ff1eae5a626d54",
+        "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+        "src/snail-scheme/wasm-runtime.sld": "740736ec105f60b4584bbb7320bb622dd70ad5dbd0cd44dbf2ea26fa30895ce3",
+        "src/snail-scheme/wasm.sld": "1472a60ce02fdb32d256d4e8fe3eba7731400ab917ab58465198e0f877ccb449",
+        "src/symbols.rs": "cbc0b4680ae81b3ae657561942efdefc04f98450ace2c46264fe52f7b8b67683"
+      },
+      "builds": [
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/benchmarks/compile-self.scm",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/reference.wat",
+            "chibi"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 15.513323620005394,
+          "stdout": "+!CSVLINE!+chibi,compiler-self,14.966\n",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/reference.wat",
+            "--all-features",
+            "-o",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/reference.wasm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.28769481599738356,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/link.scm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 30.061169502005214,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+            "-h512M",
+            "-I",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/source/src",
+            "/tmp/snail-symbol-fingerprints-20261011/build/rust-interner-prepared/native.scm"
+          ],
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 43.19391993799945,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    }
+  },
+  "control": "The before native executable also runs with a 4 GiB initial BDWGC heap.",
+  "wrapper_sha256": "64bbaee9a5fdc29103e0c68e34118a3db4dc0731cc0c95b848e9b2f3c0a31844"
+}

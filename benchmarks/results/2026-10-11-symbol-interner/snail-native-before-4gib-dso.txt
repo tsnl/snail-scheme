@@ -1,0 +1,21 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 5K of event 'cpu_core/cycles/u'
+# Event count (approx.): 139887291879
+#
+# Overhead  Shared Object
+# ........  ....................
+#
+    80.22%  compiler
+    17.76%  libgc.so.1.5.6
+     1.52%  [unknown]
+     0.42%  ld-linux-x86-64.so.2
+     0.09%  libc.so.6
+
+
+#
+# (Tip: When collecting LBR backtraces use --stitch-lbr to handle more than 32 deep entries: perf record --call-graph lbr ; perf report --stitch-lbr)
+#
