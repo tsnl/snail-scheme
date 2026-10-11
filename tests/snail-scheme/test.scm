@@ -13,6 +13,8 @@
         (only (snail-scheme llvm) test-llvm)
         (only (snail-scheme syntax-parser) test-syntax-parser)
         (only (snail-scheme pattern) test-pattern)
+        (only (snail-scheme types) test-types)
+        (only (snail-scheme type-inference) test-type-inference)
         (only (snail-scheme expand) test-expand))
 
 (test-options)
@@ -33,5 +35,7 @@
       (test-llvm)
       (test-syntax-parser)
       (test-pattern)
+      (test-types)
+      (test-type-inference)
       (test-expand)))))
 (display-error "All tests ok\n")

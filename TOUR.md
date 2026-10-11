@@ -344,3 +344,12 @@ those same sources. The small [Scheme entry](benchmarks/compile-self.scm) owns
 the clock boundary; Python checks output bytes and reuses the suite's process
 and reporting utilities.
 [BENCHMARKS.md](BENCHMARKS.md) provides the commands and measurement scope.
+
+## Type analysis building blocks
+
+[`types.sld`](src/snail-scheme/types.sld) defines the decidable type algebra: shallow
+value categories, structural unions, nominal record identities, function signatures,
+and rank-one `All` schemes. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
+solves fresh argument and result constraints for each use of a polymorphic signature.
+The resolved IR can carry declarations, annotations, explicit instantiations, and
+record schemas. These building blocks are not yet connected to source compilation.
