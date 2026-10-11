@@ -72,7 +72,10 @@ snapshots completed files, and writes the package manifest. Builds with
 dependencies publish a complete generation and atomically switch the public
 symlink. [`(snail artifacts)`](src/snail/artifacts.sld) resolves companions beside
 the physical executable; older generations remain available to running programs.
-See [dependency artifacts](doc/build-artifacts.md).
+[`runtime-artifact.sld`](src/snail-scheme/runtime-artifact.sld) runs Cargo in a
+generator and packages `snail-runtime.wat` for the compiler. Build scripts reuse
+the installed companion, with Cargo as the bootstrap fallback.
+See [generation and packaging](doc/build-artifacts.md).
 
 [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) decorates procedures
 with `chromium-trace` and records spans only when calls return normally.
@@ -361,7 +364,8 @@ root ownership. `scripts/test-backend --target both` compiles each fixture once
 and runs that exact module through both backends. `scripts/test-native` adds
 cross-engine Wasm semantics, traps, bounded native stack use, forced collection,
 Rust callbacks, and resource finalization. `scripts/test-self-host` exercises
-the native CLI, blocks Chibi during a rebuild, and runs the resulting replacement.
+the native CLI, blocks Chibi and Wasm assembly/optimization during a rebuild,
+and runs its replacement. Runtime companion generation still uses `wasm-dis`.
 
 [`benchmarks/`](benchmarks/README.md) contains CPU and allocation workloads.
 CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
