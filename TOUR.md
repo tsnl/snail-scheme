@@ -286,7 +286,10 @@ the initial graph for the module lifetime and leaves unsupported initializers
 on the ordinary runtime path.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
-fixed callees pass arguments directly; unknown calls use a GC argument array.
+fixed callees pass arguments directly. Immutable core names call their existing
+checked primitive adapters directly; those and unknown calls keep a GC argument
+array. Adapter selection preserves the actual closure environment and result-check
+context. Unknown calls retain runtime dispatch.
 Wasm tail-call instructions implement proper tail calls. Captures known to be
 initialized and immutable travel by value; mutable or early captures use cells.
 Recursive initialization preserves unreadable cells until each initializer
