@@ -231,6 +231,28 @@ def check_interop(directory):
     require(invoke([NODE, "--no-warnings", ROOT / "tests/check-awi-roots.mjs", output, "3"], directory), expected)
 
 
+def check_emission_traces(events):
+    expected = ['prepare-module', 'generate-procedure-functions', 'generate-library-functions',
+                'write-module-imports', 'copy-file', 'copy-file',
+                'write-module-definitions', 'write-wasm-module']
+    stages = []
+    for event in events:
+        name = event['name']
+        if name in expected or name.startswith('copy-file '):
+            stages.append(event)
+        elif name == 'write-ir-library-as-wasm':
+            names = ['copy-file' if stage['name'].startswith('copy-file ') else stage['name']
+                     for stage in stages]
+            assert names == expected, names
+            assert stages[4]['name'].endswith('/src/runtime/wasmgc.wat')
+            assert stages[5]['name'].endswith('/src/runtime/awi.wat')
+            for parent, children in ((event, stages), (stages[-1], stages[3:-1])):
+                assert all(parent['ts'] <= child['ts'] <= child['ts'] + child['dur']
+                           <= parent['ts'] + parent['dur'] for child in children)
+            stages = []
+    assert not stages
+
+
 def check_traces(directory):
     names = set()
     for path in directory.glob('*.trace.json'):
@@ -240,6 +262,7 @@ def check_traces(directory):
         events = json.loads(text)
         assert events[0]['ph'] == 'M'
         assert all(event['ph'] == 'X' and event['dur'] >= 0 for event in events[1:])
+        check_emission_traces(events)
         names.update(event['name'] for event in events[1:])
     expected = {'build-wasm', 'build-runtime', 'build.cargo', 'build.link', 'build.run',
                 'source-file->wat-file', 'syntax-list->ir-library'}

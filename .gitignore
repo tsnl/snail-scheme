@@ -6,4 +6,5 @@
 # Intermediate build files
 /build/
 /target/
+*.trace.json
 **/__pycache__/
