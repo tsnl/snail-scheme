@@ -7,6 +7,3 @@
 /build/
 /target/
 **/__pycache__/
-
-# Standalone Cargo build scripts/tests may trace from a crate directory.
-**/build/traces/

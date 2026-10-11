@@ -1,86 +1,98 @@
 # Tracing operations
 
-Timing is always enabled. Each participating process writes a separate Chromium
-trace JSON file under `build/traces/`, relative to its working directory.
-`SNAIL_TRACE_DIR` selects another directory. Build scripts and their children normally share a working directory; use an
-absolute override when a script changes directories. Files remain after temporary build projects are removed.
-Standalone Cargo build scripts and tests can run from their crate directories;
-set an absolute override to collect those files in one place.
+Compiler stages and Scheme programs use `(snail-scheme chromium-trace)`.
+Executable scripts choose a filename and establish a file scope with
+`with-chromium-trace-to`. Importing a compiler or build library creates no trace
+files and performs no traced work.
 
-Open a file in `chrome://tracing` or [Perfetto's trace viewer](https://ui.perfetto.dev).
-The [Chromium JSON format](https://perfetto.dev/docs/getting-started/other-formats)
-uses `B`/`E` events with timestamps in microseconds. Rust uses a monotonic clock;
-Chibi uses its host microsecond wall clock, so clock adjustments can affect
-Chibi intervals. This avoids its standard jiffy clock's millisecond rounding. Each file has its
-own clock origin; files are not automatically merged or aligned across processes.
-Rust assigns separate thread lanes. The Chibi adapter supports the compiler's
-single Scheme execution thread.
+The checked-in `build.scm` writes `<output>.trace.json` (by default,
+`build/snail-scheme.trace.json`). The native interpreter owns
+`<SCRIPT>.trace.json` for script compilation and execution. Benchmark and
+example scripts name their own files beside their artifacts. Integration build
+scripts write `<output>.trace.json`, and unit tests use temporary destinations.
+Parent directories must exist before opening a trace. Opening replaces existing
+contents; use distinct destinations for concurrent workflows.
 
-The default spans cover source reading, parsing, expansion, WAT emission, Cargo,
-Wasm assembly/linking/optimization, and execution. Imported sources appear
-within expansion. Use a viewer's inclusive/exclusive durations to separate
-costs. There are no per-instruction or per-primitive spans. WasmGC does not
-expose portable collector timings; the old `--runtime-stats` and `--timing`
-flags are retired.
+Open a completed file in `chrome://tracing` or
+[Perfetto's trace viewer](https://ui.perfetto.dev).
 
-## Scheme procedures
+## Procedure decoration and file ownership
 
-Import `(snail-scheme trace)` from any module:
+`chromium-trace` takes a string and a procedure and returns a procedure accepting
+the same arguments. It preserves zero, one, or multiple return values. The
+returned procedure reads the current file destination at invocation and raises
+an error before calling the original procedure when invoked outside
+`with-chromium-trace-to`.
 
 ```scheme
-(define-traced (reader->syntax-list reader)
-  (let ((result (s-file reader)))
-    (if (parse-result-err? result)
-        (error "cannot parse source" (reader-loc (parse-result-input result))))
-    (parse-result-value result)))
+(import (scheme base) (snail-scheme chromium-trace))
 
-(call-with-trace "load configuration" (lambda () (load-configuration)))
+(define timed-add (chromium-trace "add" (lambda (x y) (+ x y))))
+
+(with-chromium-trace-to "operations.json"
+  (lambda () (timed-add 20 22)))
 ```
 
-`define-traced` derives its label from the procedure name. It supports fixed,
-rest-only, and dotted argument lists and preserves zero, one, or multiple return
-values. Trace complete operations; wrapping a recursive loop keeps the wrapper
-active until return and defeats that procedure's tail-call behavior.
+`with-chromium-trace-to` opens the named file, initializes the JSON array, runs
+the thunk, then finalizes and closes the file on normal return. It preserves
+the thunk's return values. Nested scopes on different files restore the outer
+destination; each span records to the file selected when it was invoked.
 
-Chibi uses `dynamic-wind`: errors and continuation transfers close the current
-segment, and continuation reentry opens another. The generated runtime does not
-yet implement `dynamic-wind`. Its adapter supports normal returns and terminal
-errors, but continuation escape followed by continued execution can misnest
-trace spans. Do not decorate such procedures until unwinding support lands.
-An unfinished begin event after an abort or explicit exit remains inspectable.
+Initialization always writes a thread-name metadata event, even if the thunk
+runs no decorated procedures. This supplies the first array element, so every
+timed span simply writes a leading comma. There is no session record, event
+counter, or lifecycle flag; the recording port is private to the library.
 
-The adapter lives in `src/snail-scheme/trace.sld`. Its Chibi-only branch owns the
-host file/clock operations; compiled programs call `%trace-begin`/`%trace-end`
-through the shared Rust recorder. These primitives allocate no Scheme objects
-and do not introduce GC safepoints.
+A workflow that returns an exit status must leave the file scope before exiting:
 
-## Rust scopes and WASI
-
-```rust
-fn operation() {
-    let _trace = snail_runtime::trace::span("module.operation");
-    // The guard closes the span on return or panic unwinding.
-}
+```scheme
+(exit
+ (with-chromium-trace-to "build.trace.json"
+   (lambda ()
+     (build-wasm "." "app.scm" "app.wasm")
+     (run-wasm "." "app.wasm" '()))))
 ```
 
-`src/trace.rs` owns destination selection, exclusive file creation, JSON
-escaping, monotonic clocks, thread lanes, and serialized writes. Keep guards on
-the creating thread. `Span::elapsed()` measures a Rust scope without separate profiling clocks. Explicit process exit/abort
-bypasses destructors; the runner returns from its traced scope before exiting.
+This assumes `(scheme process-context)` and `(snail-scheme build)` are imported.
+Even a nonzero program status returns normally through `run-wasm`, allowing the
+trace to be finalized before the script passes that status to `exit`.
 
-The WASI launcher preopens the host trace directory at `/snail-traces` and sets
-the guest override accordingly, including when the directory is outside cwd. If preopening fails, the launcher
-forwards `SNAIL_TRACE_OPEN_ERROR` to the recorder; it reports the failure once
-instead of silently falling back through WASI's cwd preopen.
-Other WASI hosts must provide a writable preopen and a matching guest path.
-WASI preview 1 lacks process IDs; exclusive filenames distinguish executions.
+## Events, clocks, and failures
 
-Every successfully written event leaves a closed JSON array on disk. Recording
-requires no shutdown flush. I/O failure disables that process's recorder with
-one stderr diagnostic and preserves the program's outcome. Abrupt interruption
-in the middle of a write can still leave a partial file.
+Timed events use the Chromium complete-duration phase `X` with integer
+microsecond `ts` and `dur` fields, supported by
+[Perfetto](https://perfetto.dev/docs/getting-started/other-formats). Names escape
+JSON control characters, quotes, and backslashes. Each document uses one logical
+process/thread lane (`pid` and `tid` are both `1`); concurrent writes to the same
+port are unsupported.
 
-## Pass entry points
+Timing uses `(scheme time)`: Chibi's jiffy clock has millisecond resolution and
+uses wall time; compiled programs use a monotonic nanosecond clock. Timestamps
+retain that clock's origin and durations round down to microseconds. Backward
+wall-clock adjustments clamp duration to zero. Files are not automatically
+aligned or merged across processes. Tracing keeps each wrapper active until
+return, so decorating recursive loops affects their tail-call behavior.
+
+The same implementation runs on Chibi and compiled Snail-Scheme. A span is
+written only after the wrapped procedure returns normally. An invocation that
+never returns emits no event; already completed child spans remain. On Chibi,
+an error caught inside the file scope or an escape back to that scope can omit
+the unfinished span and still produce valid JSON when the thunk returns. If
+the whole file scope is abandoned, finalization and explicit close do not run,
+so the file may remain incomplete. Continuation reentry is unsupported. Output
+errors propagate.
+
+Compiled programs use ordinary Scheme file and clock operations through the
+Rust AWI runtime. The Wasm and native launchers expose their working directory
+for file access; trace filenames must lie within the host's accessible paths.
+
+## Compiler stages and checks
+
+Spans cover source reading, parsing, expansion, WAT emission, Cargo, Wasm
+assembly/linking/optimization, execution, and native translation. Imported
+sources appear within expansion. Use a viewer's inclusive/exclusive durations
+to separate costs. There are no per-instruction or per-primitive spans; WasmGC
+does not expose portable collector timings.
 
 | Module | Entry point | Representation |
 | --- | --- | --- |
@@ -88,5 +100,13 @@ in the middle of a write can still leave a partial file.
 | `syntax-parser.sld` | `reader->syntax-list` | Reader → located syntax list |
 | `expand.sld` | `syntax-list->ir-library` | Syntax list → unnamed IR library |
 | `expand.sld` | `syntax->ir-library` | Library syntax → resolved IR library |
-| `wasm.sld` | `write-ir-library-as-wasm` | IR library graph → WAT on a port |
+| `wasm.sld` | `write-ir-library-as-wasm` | Library dependency graph → WAT on a port |
 | `compiler.sld` | `source-file->wat-file` | Source filename → WAT output file |
+
+`make test` checks host values, JSON escaping, nesting, file closure, and omission
+of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded
+by Chibi and linked Wasm and checks missing destinations, file-opening failures,
+and omission of a span on terminal error. Add `--target both` to run the same
+linked module through the native executor. `scripts/test-build` checks compiler
+stage coverage, import side effects, destination ownership, and finalization
+before a script exits with a nonzero execution status.

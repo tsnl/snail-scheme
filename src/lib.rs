@@ -15,7 +15,6 @@ pub mod awi;
 mod build_host;
 mod host;
 mod interop_example;
-pub mod trace;
 
 use crate::awi::{Arguments, Kind, Root};
 use host::Port;
@@ -509,24 +508,6 @@ pub extern "C" fn current_jiffy(raw: u32) -> u32 {
 pub extern "C" fn jiffies_per_second(raw: u32) -> u32 {
     arguments(raw, "jiffies-per-second", 0, 0);
     Root::integer(1_000_000_000).into_handle()
-}
-
-#[unsafe(export_name = "snail:%trace-begin")]
-pub extern "C" fn trace_begin(raw: u32) -> u32 {
-    let args = arguments(raw, "%trace-begin", 1, 1);
-    let name = args
-        .get(0)
-        .and_then(|value| string_text(&value))
-        .unwrap_or_else(|error| fail_message(&error));
-    trace::begin(&name);
-    Root::unspecified().into_handle()
-}
-
-#[unsafe(export_name = "snail:%trace-end")]
-pub extern "C" fn trace_end(raw: u32) -> u32 {
-    arguments(raw, "%trace-end", 0, 0);
-    trace::end();
-    Root::unspecified().into_handle()
 }
 
 #[unsafe(export_name = "snail:error")]
