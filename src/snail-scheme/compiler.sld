@@ -1,54 +1,76 @@
-;; Compile source through located syntax and resolved IR directly to WasmGC.
-;; Both Chibi and the native interpreter host this module. Build libraries own
-;; external tools; this module only reads source and writes its Wasm output.
+;; Portable source compilation: library loading, expansion, and Wasm datums.
+;; A build driver can supply a generator resolver without importing host effects.
 (define-library (snail-scheme compiler)
-  (export source-file->wat-file)
+  (export source-file->wasm source-file->wat-file syntax-list->wasm
+          library-generator read-library-form)
   (import (scheme base) (scheme cxr) (scheme file)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme reader) (snail-scheme syntax-parser)
-          (snail-scheme expand) (snail-scheme wasm)
+          (snail-scheme expand) (snail-scheme wasm) (snail-scheme syntax)
           (only (snail-scheme ir) make-value-definition)
           (only (snail-scheme library) make-library make-named-binding))
   (begin
-    ;; ---- Compilation and output files ----
+
+    ;; ---- Portable compilation ----
+
+    (define source-file->wat-file
+      (chromium-trace
+       "source-file->wat-file"
+       (lambda (root input output . options)
+         (let ((datum (apply source-file->wasm root input options)))
+           (call-with-output-file output (lambda (port) (write-wasm datum port)))))))
+
+    (define source-file->wasm
+      (chromium-trace
+       "source-file->wasm"
+       (lambda (root input . options)
+         (when (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
+         (syntax-list->wasm root (source-file->syntax-list input)
+                            (if (null? options) '() (car options))
+                            (if (< (length options) 2) '() (cadr options))
+                            (if (= (length options) 3) (caddr options) #f)))))
 
     (define (make-extension-library names)
       (make-library '(snail-scheme extensions) '()
                     (map (lambda (name) (make-named-binding name (make-value-definition name #f))) names)
                     '() '() #f))
 
-    (define source-file->wat-file
-      (chromium-trace
-       "source-file->wat-file"
-       (lambda (root input output . options)
-         (if (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
-         (let* ((foreign (if (null? options) '() (car options)))
-                (directories (if (< (length options) 2) '() (cadr options)))
-                (forms (source-file->syntax-list input))
-                (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-                (extensions (make-extension-library (map car foreign)))
-                (program (syntax-list->ir-library forms (library-loader root directories)
-                                                  (list core extensions))))
-           (call-with-output-file output
-             (lambda (port)
-               (apply write-ir-library-as-wasm program (string-append root "/src/runtime/wasmgc.wat")
-                      (string-append root "/src/runtime/awi.wat") port foreign
-                      (if (= (length options) 3) (list (caddr options)) '()))))))))
+    (define (syntax-list->wasm root forms foreign directories entry)
+      (let* ((core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
+             (extensions (make-extension-library (map car foreign)))
+             (program (syntax-list->ir-library forms (library-loader root directories) (list core extensions))))
+        (ir-library->wasm program foreign entry)))
 
-    ;; ---- Source and library loading ----
+    ;; ---- Library loading and the build-stage boundary ----
+
+    ;; The callback returns an ordinary located define-library form. The portable
+    ;; default reports the missing capability at the wrapper, before any effects.
+    (define library-generator
+      (make-parameter (lambda (root path wrapper directories)
+                        (error "generate-library requires a build compilation" path))))
 
     (define source-file->syntax-list
-      (chromium-trace
-       "source-file->syntax-list"
-       (lambda (path) (reader->syntax-list (file->reader path)))))
+      (chromium-trace "source-file->syntax-list"
+                      (lambda (path) (reader->syntax-list (file->reader path)))))
+
+    (define (read-library-form path)
+      (let ((forms (source-file->syntax-list path)))
+        (unless (= (length forms) 1) (error "expected exactly one library declaration" path))
+        (car forms)))
+
+    (define (generated-form? form)
+      (and (list-syntax? form) (pair? (list-syntax-elements form))
+           (eq? (syntax->datum (car (list-syntax-elements form))) 'generate-library)))
 
     (define (library-loader root directories)
       (lambda (name)
-        (let* ((path (library-path root directories name))
-               (forms (source-file->syntax-list path)))
-          (if (not (= (length forms) 1))
-              (error "expected exactly one library declaration" path))
-          (car forms))))
+        (let* ((path (library-path root directories name)) (form (read-library-form path)))
+          (if (not (generated-form? form)) form
+              (begin
+                (unless (and (>= (length (list-syntax-elements form)) 2)
+                             (equal? (syntax->datum (cadr (list-syntax-elements form))) name))
+                  (error "library name does not match import" path name))
+                ((library-generator) root path form directories))))))
 
     ;; Standard libraries belong to the bootstrap runtime. Project directories
     ;; precede the compiler's own sources for every other library name.

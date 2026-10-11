@@ -630,8 +630,20 @@ fn float_text(number: f64) -> String {
     } else if number == f64::NEG_INFINITY {
         "-inf.0".into()
     } else {
-        format!("{number:?}")
+        finite_float_text(number)
     }
+}
+
+fn finite_float_text(number: f64) -> String {
+    let mut text = format!("{number:?}");
+    // Match the bootstrap writer's explicit positive exponent. Both spellings
+    // read identically, but compiler output is compared byte for byte.
+    if let Some(index) = text.find('e') {
+        if text.as_bytes()[index + 1] != b'-' {
+            text.insert(index + 1, '+');
+        }
+    }
+    text
 }
 
 // ---- Inexact mathematics ----
@@ -1065,6 +1077,8 @@ mod tests {
         assert_eq!(strip_radix_prefix("λ", 8), ("λ", 8));
         assert_eq!(float_text(-0.0), "-0.0");
         assert_eq!(float_text(f64::INFINITY), "+inf.0");
+        assert_eq!(float_text(9.223372036854776e18), "9.223372036854776e+18");
+        assert_eq!(float_text(1.25e-18), "1.25e-18");
         assert!(parse_float("+nan.0").unwrap().is_nan());
         assert_eq!(parse_float("3"), None);
         assert_eq!(parse_float("3.5"), Some(3.5));

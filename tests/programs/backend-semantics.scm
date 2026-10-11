@@ -38,6 +38,9 @@
 ((begin (note 'operator) list) (note 'first) (note 'second))
 (check '(operator second first) order)
 (check '#(1 (2 . 3) "héλ😀") '#(1 (2 . 3) "héλ😀"))
+;; Symbols nested in distinct literal containers retain their interned identity.
+(check #t (eq? (car '(same first)) (vector-ref '#(same second) 0)))
+(check #t (eq? (cdr '(different . same)) (string->symbol "same")))
 (check #u8(0 127 255) #u8(0 127 255))
 (check 5.5 (+ 2.5 3))
 (check 4294967296 (+ 4294967295 1))

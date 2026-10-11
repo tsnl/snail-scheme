@@ -51,7 +51,7 @@ Cargo builds/reuses the root runtime crate as Wasm. The runtime exports
 
 ## Root contract
 
-`src/runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
+`src/snail-scheme/wasm-awi.sld` owns a table of GC references and a free list of reusable slots.
 An integer handle does not itself retain a value: the corresponding live table
 slot does. The SDK's `Root` owns exactly one slot in the current instance.
 

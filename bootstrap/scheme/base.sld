@@ -208,12 +208,19 @@
         (if (null? elements) result (loop (cdr elements) (cons (car elements) result)))))
 
     (define (append . lists)
-      (define (copy-prefix elements tail)
-        (if (null? elements) tail (cons (car elements) (copy-prefix (cdr elements) tail))))
-      (let loop ((lists lists))
-        (cond ((null? lists) '())
-              ((null? (cdr lists)) (car lists))
-              (else (copy-prefix (car lists) (loop (cdr lists)))))))
+      ;; Only fresh spine cells are mutated. The final argument remains shared,
+      ;; including an improper tail; long prefixes consume constant stack space.
+      (let ((head (cons #f '())))
+        (let loop ((lists lists) (end head))
+          (cond ((null? lists) (cdr head))
+                ((null? (cdr lists)) (set-cdr! end (car lists)) (cdr head))
+                (else (loop (cdr lists) (append-prefix! (car lists) end)))))))
+
+    (define (append-prefix! elements end)
+      (if (null? elements) end
+          (let ((next (cons (car elements) '())))
+            (set-cdr! end next)
+            (append-prefix! (cdr elements) next))))
 
     (define (length elements)
       (let loop ((elements elements) (size 0))
