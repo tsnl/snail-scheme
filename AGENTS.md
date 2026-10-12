@@ -1,7 +1,7 @@
 # Working on Snail-Scheme
 
 Make the implementation educational to read. Follow the program from located
-syntax through resolved IR, WasmGC, and the Rust AWI runtime.
+syntax through resolved IR, WasmGC, and the Rust ABI library.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Prefer cohesive single-file modules with named sections. A large file can
@@ -31,7 +31,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
   The Wasm engine owns Scheme collection; Rust keeps Scheme values in owned
-  AWI roots across allocations and callbacks. Resource cleanup must not retain
+  ABI roots across allocations and callbacks. Resource cleanup must not retain
   the wrapper it watches.
 - Keep the compiler hosted by Chibi until a separate self-hosting milestone.
   Type inference follows the working, measured backend baseline.
@@ -41,6 +41,6 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 Relevant checks are `make test`, `make check`,
 `cargo test --offline`,
 `cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
-Backend changes should execute linked Wasm. Native executor changes also need
-actual native execution; compilation alone does not test target behavior. See [doc/backend.md](doc/backend.md) for tools
+Backend changes should execute linked Wasm. Host adapter changes also need actual Node execution; compilation alone does
+not test target behavior. See [doc/backend.md](doc/backend.md) for tools
 and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

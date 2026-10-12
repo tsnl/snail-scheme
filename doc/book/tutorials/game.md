@@ -1,39 +1,49 @@
 # A game that reloads while you play
 
-**Planned integration tutorial.** Build a small game whose Scheme library exports
-window handlers. The runtime creates the root actor and invokes resume, input,
-resize, redraw, and close handlers. Scheme authoring starts with ordinary pure
-rules; the [native GUI platform](../platforms/native-gui.md) owns the event loop
-and IO. Its lifecycle, input, and redraw handlers also guide the browser platform.
+In this model example, a game node owns the world and retained graphics
+resources. A [native GUI runtime](../platforms/native-gui.md) delivers input and
+redraw events. A temporary frame node computes the next world and drabing
+commands from a snapshot.
 
-Aim for `build.scm`, `game.sld`, and `frame.sld`. A frame actor receives an owned
-snapshot and computes the next world and drawing commands in a temporary heap.
-It returns independently owned results and retires. The renderer retains meshes
-and textures behind explicit resource references. Input must continue while a
-frame call is suspended; no actor-wide waiting lock is implied.
+## Artifacts and state
 
-## Observable checkpoints
+`build.scm` assembles the game artifact, a replaceable frame artifact, and assets
+such as cooked GLB and shader code. The same pure frame rules can be exercised
+by a test script and compiled into the frame artifact.
 
-- **G01 — Entry and IO:** a real window dispatches handlers; snapshot save/load
-  exercises Rust runtime IO and repeated startup/shutdown cleans up correctly.
-- **G02 — Pure rules:** a fixed input trace produces equivalent results under
-  Chibi and compiled Scheme, without requiring a renderer.
-- **G03 — Frame lifetimes:** 10,000 bounded headless jobs drain back to baseline
-  actor/resource counts. Temporary heaps are isolated; the proposed 32-bit heap
-  model and independent collection controls need explicit runtime support.
-- **G04 — Retained graphics:** delayed GPU completion and resize do not free live
-  buffers. Messages carry small commands, not textures or rendered frames.
-- **G05 — Reload:** new frames use a validated replacement artifact; in-flight
-  work pins the old version. Invalid builds preserve the running version; world
-  schema changes require an explicit migration or reset.
-- **G06 — Failure and budgets:** subordinate failures stay contained, connections
-  clean up pending work, and queues remain bounded. `no-gc` forbids collection;
-  `expect-no-gc` traps in debug and permits release recovery only when requested.
-  WasmGC instances currently do not provide these collection controls.
-- **G07 — Allocation bounds:** a later restricted frame rule has a stated input
-  bound and verifiable allocation formula. Measurements are not a static proof.
+The game keeps meshes and textures. Messages to a frame contain the world
+snapshot and input; replies contain the next world and small drabing commands.
+The nodes' message contract defines the meaning and lifetime of any resource
+names. It does not transfer raw GPU pointers or mutable Scheme objects.
 
-Run pure host, headless lifecycle, and actual graphics profiles separately. Record
-artifact versions, peak heap use, live actors/connections, and retained native/GPU
-resources. The first implementation must choose the graphics backend and measure
-its baseline before claiming frame-time or GC guarantees.
+## One frame at a time
+
+The game spawns a frame node and owns its lifetime. It connects to that node and
+requests a frame computation. Only one frame computation is in flight:
+
+1. Give the frame node a copy of the world and queued input.
+2. Keep collecting new input in a separate queue while the frame runs.
+3. Accept the returned world and commands; use the new input in the next frame.
+4. Hang up and stop the temporary frame node when its work is complete.
+
+The event thread keeps running. A result cannot overwrite newly queued input,
+though a slow frame delays that input's visible effect. The workflow/session
+also bounds queued input. More concurrent simulation requires an explicit rule
+for accepting or merging results.
+
+Stopping a frame releases its temporary state. The game retains graphics
+resources until the GPU has finished using them. Closing a connection cannot
+free resources that already dispatched work still needs.
+
+## Replacing the frame artifact
+
+A completed build publishes a new frame artifact. The game validates its
+contract before choosing it for the next spawn. A frame already running keeps
+the artifact version it started with. A failed build leaves the previous output
+available, and a rejected replacement leaves the running game using its previous
+version.
+
+A changed world schema requires migration or a reset chosen by the game. Node
+isolation alone does not supply migration, a frame-time guarantee, or control
+over the collector. Those guarantees belong to the selected runtime and the
+application's workflow/session.
