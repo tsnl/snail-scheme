@@ -1050,6 +1050,8 @@
 
         (func $string_text (param $value eqref) (result (ref $text))
               (local $object (ref $text_object))
+              (if (i32.eqz (ref.test (ref $text_object) (local.get $value)))
+                  (then (call $fail (i32.const 8))))
               (local.set $object (ref.cast (ref $text_object) (local.get $value)))
               (if (i32.ne (struct.get $text_object 0 (local.get $object)) (i32.const 0))
                   (then (call $fail (i32.const 8))))
