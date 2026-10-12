@@ -1,19 +1,42 @@
-# Baseline workloads
+# Benchmark suite
 
-See [BENCHMARKS.md](../BENCHMARKS.md) for the native comparison, generated plots,
-and the integrated R7RS suite. Run `benchmarks/native` to build and measure the
-complete Fibonacci program, or `python3 benchmarks/r7rs.py` for the pinned
-57-workload suite. Both accept `--plot` to regenerate reports from JSON;
-[`shell.nix`](shell.nix) supplies the measurement and plotting dependencies.
-Initialize the upstream suite with
-`git submodule update --init benchmarks/r7rs-benchmarks` before running it.
-**Workload times exclude compilation and process startup.**
+Run the complete pinned R7RS suite by default:
 
-Use [`compile-self.py`](compile-self.py) to benchmark the compiler compiling its
-own full Scheme source, with byte-checked output and preparation excluded.
-See the [compiler benchmark](../BENCHMARKS.md#compile-the-compiler) for commands
-and timing boundaries. The
-[global interner report](results/2026-10-11-symbol-interner/README.md)
+```sh
+git submodule update --init benchmarks/r7rs-benchmarks
+nix-shell benchmarks/shell.nix
+BENCH_CPU=2 make benchmark
+```
+
+[`native`](native) is a symlink to [`r7rs.py`](r7rs.py), so `make benchmark`,
+`benchmarks/native`, and `python3 benchmarks/r7rs.py` run the same 57 workloads
+across Snail native, Chez, Guile, and Chibi. Original upstream inputs and three
+rotating measured rounds are the defaults. Each successful case first receives
+one discarded preliminary run. Compilation and process startup are excluded
+from workload times.
+
+The runner saves raw JSON, a CSV table, a Markdown index, and one SVG/PNG plot
+per workload under `build/r7rs-report/`. Unsupported cases, failed builds,
+incorrect answers, and timeouts remain in the matrix and cause a nonzero exit.
+Regenerate reports from saved data without running workloads:
+
+```sh
+benchmarks/native --plot build/r7rs-report/results.json
+```
+
+`--count 1 --rounds 1` is an explicitly labelled smoke check, still covering
+all workloads. `--systems` and `--benchmarks` select an explicit diagnostic
+subset; ordinary benchmark commands never select a small showcase by default.
+See [BENCHMARKS.md](../BENCHMARKS.md) for timing boundaries and coverage.
+
+## Compiler throughput
+
+[`compile-self.py`](compile-self.py) separately measures the compiler compiling
+its own frozen Scheme sources, checking every output byte against Chibi. Its
+implementation preparation, process startup, assembly, and linking are outside
+the timer. See [the compiler benchmark](../BENCHMARKS.md#compile-the-compiler).
+
+The [global interner report](results/2026-10-11-symbol-interner/README.md)
 separates the interner improvement from the native heap policy and compares
 Fibonacci execution with Chez and Chibi. It preserves frozen compiler inputs,
 validated outputs, profiles, and heap controls.
@@ -31,21 +54,18 @@ The [call experiment](calls/README.md) keeps the throwaway flow/inlining pass in
 patch with measurements and reproduction instructions. [`render-studio.py`](render-studio.py) renders the
 [studio scene](../BENCHMARKS.md#studio-scene) and reports its elapsed time.
 
-## Complete linked native CPU baseline
+## Historical workloads and visual showcase
 
-The recorded baseline builds one complete Rust-linked Wasm program and
-translates that exact binary with the Scheme LLVM converter. The current
-[`benchmarks/native`](native) runner instead uses the shared datum-to-LLVM backend
-and native Rust archive; rerun it to measure the current pipeline. The historical
-comparison measures native,
-V8, Chez, Guile, and Chibi after all compilation finishes. Eight rotating CPU2
-rounds give native **0.02690s**, Chez **0.02978s**, V8 **0.08347s**, Guile
-**0.09566s**, and Chibi **0.45900s**, for checksum `269118144` in every sample.
-Native takes **0.90× Chez's time** on this workload. Simpler i31 lowering and cold
-numeric fallbacks reduce native runtime by 29.6% in a separate controlled ablation.
-See [the raw report](results/2026-10-10-native-fibonacci.json),
-[the ablation](results/2026-10-10-native-fibonacci-ablation.json), and
-[BENCHMARKS.md](../BENCHMARKS.md) for reproduction, scope, and compile-time costs.
+The standalone Fibonacci and prime-sieve runners are retired. The CPU fixture
+and Chez program builder remain inputs to the explicit typing diagnostics below.
+Their measurements remain in [`results/`](results/) and
+[the historical native benchmark notes](../doc/native-benchmarks.md).
+[`reproduce.py`](reproduce.py) reproduces an older experiment in its pinned
+historical checkout; it is not the default benchmark command.
+
+[`render-studio.py`](render-studio.py) renders the separate deterministic
+[studio scene](../BENCHMARKS.md#studio-scene). It is a visual showcase, not a
+replacement for running the full suite.
 
 ## Typing and i32 specialization
 
@@ -300,29 +320,9 @@ artifact hashes, the compiler/runtime source snapshot, and optimizer controls.
 This measures CPU Fibonacci, not allocation-heavy workloads or native output
 from the new backend.
 
-With the tools described in [doc/backend.md](../doc/backend.md) available:
-
-```sh
-chibi-scheme -I src benchmarks/build.scm
-scheme --script benchmarks/chez.scm benchmarks/cpu.scm build/cpu-chez.so
-taskset -c 2 node scripts/run-wasi.mjs build/cpu.wasm 64
-taskset -c 2 scheme --program build/cpu-chez.so 64
-taskset -c 2 chibi-scheme benchmarks/cpu.scm 64
-```
-
-## Allocation workload
-
-`memory.scm` builds a prime sieve and retains a list of its results. Its checks
-validate the vector, list, and summary before reporting execution time. It runs
-unchanged under Chibi; use the Chez adapter or `build-wasm` to compile it:
-
-```scheme
-(import (scheme base) (snail-scheme build))
-(build-wasm "." "benchmarks/memory.scm" "build/memory.wasm")
-(run-wasm "." "build/memory.wasm" '("1"))
-```
-
-There is no I/O benchmark or collector-counter benchmark. WasmGC does not expose
-portable collection counters. Retired prototypes, tools, and results remain in
-Git history. Compiler throughput can be inspected with the always-on
-[Chromium traces](../doc/tracing.md).
+The builders for this historical report and the retired standalone allocation
+workload belong to their recorded revisions. Reproduce those snapshots using
+[the historical native benchmark notes](../doc/native-benchmarks.md).
+The default R7RS suite includes allocation and IO workloads. WasmGC does not
+expose portable collection counters; compiler throughput can also be inspected
+with the always-on [Chromium traces](../doc/tracing.md).
