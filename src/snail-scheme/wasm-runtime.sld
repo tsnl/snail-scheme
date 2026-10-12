@@ -31,8 +31,8 @@
         (type $record_type (struct (field eqref) (field (ref $vector)) (field i32)))
         (type $record (struct (field (ref $record_type)) (field (ref $vector))))
         (type $extension (struct (field i32) (field i32)))
-        (import "snail.rust" "snail:symbol-length" (func $rust_symbol_length (param i32) (result i32)))
-        (import "snail.rust" "snail:symbol-character" (func $rust_symbol_character (param i32 i32) (result i32)))
+        (import "snail.library" "snail:symbol-length" (func $rust_symbol_length (param i32) (result i32)))
+        (import "snail.library" "snail:symbol-character" (func $rust_symbol_character (param i32 i32) (result i32)))
         (global $false (ref $atom) (struct.new $atom (i32.const 0)))
         (global $true (ref $atom) (struct.new $atom (i32.const 1)))
         (global $nil (ref $atom) (struct.new $atom (i32.const 2)))
@@ -110,7 +110,7 @@
               unreachable)
 
         ;; Successful checks leave the same ordinary value. The sole envelope
-        ;; constructor below never allocates a singleton envelope, and AWI cannot
+        ;; constructor below never allocates a singleton envelope, and ABI cannot
         ;; resize its fixed-length array. This makes repeated normalization idempotent;
         ;; shallow predicates neither mutate nor call user code between checks.
         (func $finish_result (param $value eqref) (param $checks (ref null $result_checks)) (result eqref)
@@ -203,9 +203,8 @@
               (local.set $order (call $compare_integer (local.get $a) (local.get $whole)))
               (if (result i32) (local.get $order) (then (local.get $order))
                   (else (call $compare_float (f64.convert_i64_s (local.get $whole)) (local.get $b)))))
-        ;; The cold. name prefix is an optional native layout hint. These helpers are
-        ;; fallbacks for the immediate-integer path; their full numeric behavior stays
-        ;; available. Stripping the Wasm name section discards only the hint.
+        ;; These helpers handle the full numeric cases outside the immediate-integer
+        ;; path. The cold. names identify those fallbacks in profiles.
         (func $cold.compare (param $a eqref) (param $b eqref) (result i32)
               (local $order i32)
               (if (result i32) (call $is_integer (local.get $a))

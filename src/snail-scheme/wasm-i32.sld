@@ -64,7 +64,7 @@
                                   (i64.const 4294967295)) (then (call $fail (i32.const 8))))
                     (i32.wrap_i64 (local.get ,name))))))
 
-    ;; The native compiler host also has checked i64 arithmetic. Prove each
+    ;; The compiled compiler host also has checked i64 arithmetic. Prove each
     ;; endpoint safe before computing it; #f declines the whole specialization.
     ;; Sign tests keep the thresholds in range and avoid MIN / -1 entirely.
     (define (add-bound left right)

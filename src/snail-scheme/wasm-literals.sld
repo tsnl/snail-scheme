@@ -1,5 +1,5 @@
 ;; Literal objects are module data. Dependencies precede their users, so both
-;; WasmGC constant expressions and native static aggregates share this graph.
+;; WasmGC constant expressions consume this shared, dependency-ordered graph.
 (define-library (snail-scheme wasm-literals)
   (export make-literal-pool literal-reference literal-declarations)
   (import (scheme base) (scheme cxr) (scheme complex) (scheme hash-table))

@@ -1,10 +1,10 @@
 //! Example callable Rust functions, compiled into the standard Wasm runtime.
 //! Roots can outlive a call. Dropping the owner releases its WasmGC table slot.
 
-use crate::awi::{Arguments, Root};
+use crate::abi::{Arguments, Root};
 use std::cell::RefCell;
 
-// ---- AWI exports ----
+// ---- ABI exports ----
 
 #[unsafe(export_name = "snail:rust-triple")]
 pub extern "C" fn triple(raw: u32) -> u32 {
