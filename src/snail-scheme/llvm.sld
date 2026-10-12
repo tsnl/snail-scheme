@@ -44,8 +44,18 @@
         ((nan) (llvm-hex 9221120237041090560))
         ((-inf) (llvm-hex -4503599627370496))
         (else
-         (unless (number? value) (error "unsupported Wasm float literal" value))
-         (float-spelling (number->string value)))))
+         (if (symbol? value) (nan-payload-constant (symbol->string value))
+             (begin
+               (unless (number? value) (error "unsupported Wasm float literal" value))
+               (float-spelling (number->string value)))))))
+
+    (define (nan-payload-constant text)
+      (let* ((negative? (prefix? "-nan:0x" text))
+             (start (if negative? 7 6)))
+        (unless (or negative? (prefix? "nan:0x" text)) (error "unsupported Wasm float literal" text))
+        (let ((payload (string->number (substring text start (string-length text)) 16)))
+          (unless (and payload (<= 1 payload 4503599627370495)) (error "invalid Wasm NaN payload" text))
+          (llvm-hex (if negative? (- payload 4503599627370496) (+ 9218868437227405312 payload))))))
 
     (define (float-spelling text)
       (let loop ((index 0))

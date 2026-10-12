@@ -2,9 +2,10 @@
 
 The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
 by library; `wasm.sld` produces an in-memory WasmGC datum. The Wasm backend
-writes WAT with Scheme's standard writer, then Binaryen assembles, links, and
-optimizes it with the Rust runtime. The native backend resolves the same datum
-and lowers it to LLVM without a Wasm binary reader.
+writes WAT with Scheme's standard writer. Binaryen assembles and optimizes the
+Scheme module before either final backend. Wasm links Rust and receives a final
+optimization; native compilation reads Binaryen's folded disassembly as Scheme
+datums, resolves types and names, and lowers it to LLVM.
 
 The [type checker](typing-prototype.md) runs on resolved identities before
 emission. Opt-in annotations enforce shallow boundaries; occurrence facts can
@@ -66,13 +67,34 @@ memory; Scheme values live in WasmGC and cross the AWI as root handles.
 `rust-toolchain.toml` requests Rust stable, rustfmt and the WASI target; the Nix
 shell includes rustup. First use may download missing components. Pin an exact
 Rust version separately when reproducing historical toolchain measurements.
-`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, and `NODE` select executable paths. Chibi hosts
+`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, `WASM_DIS`, and `NODE` select executable paths. Chibi hosts
 the bootstrap process/filesystem adapter; the native interpreter uses Rust
 operations from the same build library. The Node runner provides
 WASIp1 and finalizer imports; a browser WASI adapter remains future work.
 WasmGC, reference types, tail calls, mutable globals, sign extension, bulk
 memory, and nontrapping float-to-integer conversion are enabled explicitly.
 The last feature is required by Rust's floating-point math implementation.
+
+Binaryen is required for native and Wasm compilation. `nix-shell` already
+provides it. Outside Nix, install the complete tool suite from
+[Binaryen's releases](https://github.com/WebAssembly/binaryen/releases/tag/version_132)
+or your package manager, and put its `bin` directory on `PATH`. Version 132 is
+the measured and tested version. Keep `wasm-as`, `wasm-opt`, `wasm-dis` and
+`wasm-merge` from the same installation; explicit executable-path overrides are
+supported. The CLI checks that its selected tools run before opening a compilation
+trace or workspace. Wasm build operations also check `wasm-merge`. Missing or
+unusable tools produce an installation hint before source compilation; help and
+library imports perform no checks. Preflight verifies availability, not a
+minimum version or every supported Wasm feature.
+
+The shared pass preserves the AWI link contract and uses
+`-O3 --closed-world --always-inline-max-function-size=40 --converge`.
+Final linked Wasm still receives its existing optimization. Native text adaptation
+uses Scheme and the installed native datum reader; it requires no Python or Chibi
+after bootstrap. The frozen comparative evidence is retained separately on
+`experiment/shared-binaryen-20261011` at commit `e3e66bc`; its compiler workload
+improved 24.8% with tuned Immix and 6.3% with V8. Those measurements precede
+this production integration and the newer standard-library runtime.
 
 ## Build ownership
 
@@ -109,6 +131,7 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `artifacts.sld`, `src/snail/artifacts.sld` | Build artifact graph and installed companion lookup |
 | `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
 | `wasm-resolve.sld` | Datum names/types and folded evaluation order for LLVM |
+| `wasm-optimize.sld`, `wasm-read.sld` | Shared Binaryen pre-pass, dependency checks and native text adaptation |
 | `llvm.sld` | Resolved Wasm declarations and instructions to native LLVM |
 | `native-link.sld`, `native.sld` | Datum-to-native linking, publication, and script execution |
 | `build.scm`, `main.scm` | Interpreter build recipe and command entry |
@@ -248,9 +271,9 @@ Linux executable with `build-native(root, source, output-executable)`. Both
 backends start from `source-file->wasm`'s in-memory module datum. Portable builds
 use standard `write-simple` per definition and pass WAT to Binaryen. Import
 names alone require WAT byte escaping; generated function tokens belong to the
-shared Scheme/WAT spelling subset. Native builds resolve names and canonical
-types directly, then emit LLVM through `llvmlite`. They never serialize or read
-Wasm binaries and do not invoke Binaryen. Clang/LLD link the native Rust runtime
+shared Scheme/WAT spelling subset. Both backends consume Binaryen's optimized
+Scheme module. Native builds adapt its disassembly to the host datum reader,
+resolve names and canonical types, then emit LLVM through `llvmlite`. Clang/LLD link the native Rust runtime
 and C GC/trap host. [Native execution](native.md) explains the supported datum
 subset, proper tail calls, GC roots, and resource finalization.
 
