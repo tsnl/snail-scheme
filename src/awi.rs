@@ -42,9 +42,15 @@ mod raw {
         fn call(procedure: u32, arguments: u32) -> u32;
         fn integer(value: i64) -> u32;
         fn real(value: f64) -> u32;
+        fn complex(real: u32, imag: u32) -> u32;
+        fn real_part(root: u32) -> u32;
+        fn imag_part(root: u32) -> u32;
         fn atom(tag: u32) -> u32;
         fn pair(car: u32, cdr: u32) -> u32;
+        fn pair_set_car(root: u32, value: u32);
+        fn pair_set_cdr(root: u32, value: u32);
         fn vector_new(length: u32) -> u32;
+        fn values(root: u32) -> u32;
         fn vector_set(root: u32, index: u32, value: u32);
         fn string_new(length: u32) -> u32;
         fn string_set(root: u32, index: u32, value: u32);
@@ -88,6 +94,7 @@ pub enum Kind {
     Extension,
     Values,
     Uninitialized,
+    Complex,
 }
 
 impl Kind {
@@ -111,6 +118,7 @@ impl Kind {
             Extension,
             Values,
             Uninitialized,
+            Complex,
         ];
         *KINDS.get(value as usize).expect("invalid AWI value kind")
     }
@@ -220,6 +228,22 @@ impl Root {
         unsafe { Self::from_handle(raw::real(value)) }
     }
 
+    pub fn complex(real: &Self, imag: &Self) -> Result<Self, String> {
+        real.as_real()?;
+        imag.as_real()?;
+        Ok(unsafe { Self::from_handle(raw::complex(real.handle, imag.handle)) })
+    }
+
+    pub fn real_part(&self) -> Result<Self, String> {
+        self.require(&[Kind::Integer, Kind::Real, Kind::Complex])?;
+        Ok(unsafe { Self::from_handle(raw::real_part(self.handle)) })
+    }
+
+    pub fn imag_part(&self) -> Result<Self, String> {
+        self.require(&[Kind::Integer, Kind::Real, Kind::Complex])?;
+        Ok(unsafe { Self::from_handle(raw::imag_part(self.handle)) })
+    }
+
     fn atom(tag: u32) -> Self {
         unsafe { Self::from_handle(raw::atom(tag)) }
     }
@@ -242,6 +266,37 @@ impl Root {
 
     pub fn pair(car: &Self, cdr: &Self) -> Self {
         unsafe { Self::from_handle(raw::pair(car.handle, cdr.handle)) }
+    }
+
+    pub fn vector_sized(length: usize) -> Self {
+        let length = u32::try_from(length).expect("AWI vector too long");
+        unsafe { Self::from_handle(raw::vector_new(length)) }
+    }
+
+    pub fn values(values: &[Self]) -> Self {
+        if values.len() == 1 {
+            return values[0].clone();
+        }
+        let vector = Self::vector(values);
+        unsafe { Self::from_handle(raw::values(vector.handle)) }
+    }
+
+    pub fn set_at(&self, index: usize, value: &Self) -> Result<(), String> {
+        self.require(&[Kind::Vector])?;
+        unsafe { raw::vector_set(self.handle, self.index(index)?, value.handle) };
+        Ok(())
+    }
+
+    pub fn set_car(&self, value: &Self) -> Result<(), String> {
+        self.require(&[Kind::Pair])?;
+        unsafe { raw::pair_set_car(self.handle, value.handle) };
+        Ok(())
+    }
+
+    pub fn set_cdr(&self, value: &Self) -> Result<(), String> {
+        self.require(&[Kind::Pair])?;
+        unsafe { raw::pair_set_cdr(self.handle, value.handle) };
+        Ok(())
     }
 
     pub fn vector(values: &[Self]) -> Self {
@@ -289,6 +344,9 @@ impl Root {
     }
 
     pub fn as_real(&self) -> Result<f64, String> {
+        if self.kind() == Kind::Complex && self.imag_part()?.as_real()? == 0.0 {
+            return self.real_part()?.as_real();
+        }
         self.require(&[Kind::Integer, Kind::Real])?;
         Ok(unsafe { raw::as_real(self.handle) })
     }

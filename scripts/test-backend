@@ -20,6 +20,8 @@ SUCCESSES = {
     "backend-inexact": "inexact checks passed\n",
     "backend-hash-tables": "hash table checks passed\n",
     "backend-direct-calls": "direct call checks passed\n",
+    "backend-read": "datum input checks passed\n",
+    "backend-standard-library": "standard library checks passed\n",
     "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
     "backend-symbols": "symbol checks passed\n",
@@ -48,6 +50,16 @@ ERRORS = {
     "inexact-arity": "sqrt: expected 1..=1 arguments",
     "inexact-optional-type": "expected [Integer, Real]",
     "inexact-optional-arity": "atan: expected 1..=2 arguments",
+    "read-incomplete": "read: unexpected end of input",
+    "read-invalid": "read: extra datum after dotted tail",
+    "read-label": "read: datum label has no value",
+    "read-token": "read: invalid numeric token or identifier",
+    "exact-power-overflow": "exact integer overflow",
+    "power-invalid-base-zero": "expected [Integer, Real], found Boolean",
+    "power-type-order": "expected [Integer, Real], found Character",
+    "character-after-false": "expected [Character]",
+    "string-after-false": "expected a string",
+    "read-closed": "port is closed",
 }
 
 
@@ -117,12 +129,32 @@ def check_host_lifetime(name):
              ROOT / "tests" / f"check-{name}.mjs", output])
 
 
+def check_streaming_input(targets):
+    for native in targets:
+        command = execution_command("backend-read-stream", native)
+        with subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, encoding="utf-8") as process:
+            process.stdin.write("(λ 42)")
+            process.stdin.flush()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                raise
+            stdout, stderr = process.stdout.read(), process.stderr.read()
+            if process.returncode != 0 or stdout != "(λ 42)\n" or stderr:
+                raise RuntimeError(f"streaming read: exit={process.returncode}, {stdout!r}, {stderr!r}")
+        print(f"passed {'native' if native else 'Wasm'}: stdin read before EOF", flush=True)
+
+
 def main():
     target = options().target
     targets = (False, True) if target == "both" else (target == "native",)
     BUILD.mkdir(parents=True, exist_ok=True)
     for name in [*SUCCESSES, "backend-errors"]:
         check_fixture(name, targets)
+    check_streaming_input(targets)
     if False in targets:
         check_host_lifetime("finalizers")
         check_host_lifetime("hash-identity")
