@@ -1,0 +1,27 @@
+# Executable byte range [0, 79)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/invoke-callback.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000000 <.data>:
+   0:	49 83 6e 68 01       	subq   $0x1,0x68(%r14)
+   5:	74 3c                	je     0x43
+   7:	48 83 fd 02          	cmp    $0x2,%rbp
+   b:	75 2a                	jne    0x37
+   d:	4d 89 c7             	mov    %r8,%r15
+  10:	49 89 f8             	mov    %rdi,%r8
+  13:	4c 89 f9             	mov    %r15,%rcx
+  16:	48 83 e1 07          	and    $0x7,%rcx
+  1a:	48 83 f9 05          	cmp    $0x5,%rcx
+  1e:	75 0b                	jne    0x2b
+  20:	48 c7 c5 01 00 00 00 	mov    $0x1,%rbp
+  27:	41 ff 67 03          	jmp    *0x3(%r15)
+  2b:	e9 a0 51 14 00       	jmp    0x1451d0
+  30:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  37:	e9 44 78 14 00       	jmp    0x147880
+  3c:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  43:	e9 88 7a 14 00       	jmp    0x147ad0
+  48:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)

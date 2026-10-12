@@ -1,0 +1,102 @@
+[
+  {
+    "benchmark": "cat",
+    "name": "function132",
+    "index": 142,
+    "command": [
+      "node",
+      "--no-warnings",
+      "--no-liftoff",
+      "--no-wasm-lazy-compilation",
+      "--print-wasm-code-function-index=142",
+      "--no-wasm-async-compilation",
+      "-e",
+      "const fs=require(\"node:fs\"); new WebAssembly.Module(fs.readFileSync(process.argv[1]));",
+      "build/v8-worst-five/cases/cat/snail-wasm/program.wasm"
+    ],
+    "returncode": 0,
+    "bytes": 137517,
+    "scope": "Optimizing-tier compilation of the exact original binary, forced eagerly; no workload or comparative timing.",
+    "artifact_sha256": "8edabbb9a75ccb35f286d48fb9ea3c868ca6b65f047f3e3c61b0678e8dd1206d"
+  },
+  {
+    "benchmark": "lattice",
+    "name": "function28",
+    "index": 125,
+    "command": [
+      "node",
+      "--no-warnings",
+      "--no-liftoff",
+      "--no-wasm-lazy-compilation",
+      "--print-wasm-code-function-index=125",
+      "--no-wasm-async-compilation",
+      "-e",
+      "const fs=require(\"node:fs\"); new WebAssembly.Module(fs.readFileSync(process.argv[1]));",
+      "build/v8-worst-five/cases/lattice/snail-wasm/program.wasm"
+    ],
+    "returncode": 0,
+    "bytes": 83843,
+    "scope": "Optimizing-tier compilation of the exact original binary, forced eagerly; no workload or comparative timing.",
+    "artifact_sha256": "73fa439c3e65ac160f84002ec81e4baea744c0449fa521fdd5cd6ca8f90228f0"
+  },
+  {
+    "benchmark": "wc",
+    "name": "function133",
+    "index": 159,
+    "command": [
+      "node",
+      "--no-warnings",
+      "--no-liftoff",
+      "--no-wasm-lazy-compilation",
+      "--print-wasm-code-function-index=159",
+      "--no-wasm-async-compilation",
+      "-e",
+      "const fs=require(\"node:fs\"); new WebAssembly.Module(fs.readFileSync(process.argv[1]));",
+      "build/v8-worst-five/cases/wc/snail-wasm/program.wasm"
+    ],
+    "returncode": 0,
+    "bytes": 235369,
+    "scope": "Optimizing-tier compilation of the exact original binary, forced eagerly; no workload or comparative timing.",
+    "artifact_sha256": "b20c5bc1518bbcb16e659abf910636de9e64dfdc50f8b2240ee3a09ef224f25a"
+  },
+  {
+    "benchmark": "graphs",
+    "name": "function178",
+    "index": 179,
+    "command": [
+      "node",
+      "--no-warnings",
+      "--no-liftoff",
+      "--no-wasm-lazy-compilation",
+      "--print-wasm-code-function-index=179",
+      "--no-wasm-async-compilation",
+      "-e",
+      "const fs=require(\"node:fs\"); new WebAssembly.Module(fs.readFileSync(process.argv[1]));",
+      "build/v8-worst-five/cases/graphs/snail-wasm/program.wasm"
+    ],
+    "returncode": 0,
+    "bytes": 89062,
+    "scope": "Optimizing-tier compilation of the exact original binary, forced eagerly; no workload or comparative timing.",
+    "artifact_sha256": "426f6f43e25282b78007270fda5a15a072220da49d88618c37437f813a161b03"
+  },
+  {
+    "benchmark": "deriv",
+    "name": "function41",
+    "index": 140,
+    "command": [
+      "node",
+      "--no-warnings",
+      "--no-liftoff",
+      "--no-wasm-lazy-compilation",
+      "--print-wasm-code-function-index=140",
+      "--no-wasm-async-compilation",
+      "-e",
+      "const fs=require(\"node:fs\"); new WebAssembly.Module(fs.readFileSync(process.argv[1]));",
+      "build/v8-worst-five/cases/deriv/snail-wasm/program.wasm"
+    ],
+    "returncode": 0,
+    "bytes": 87835,
+    "scope": "Optimizing-tier compilation of the exact original binary, forced eagerly; no workload or comparative timing.",
+    "artifact_sha256": "84b35dcd37cf3adbff302ffbb9fe3c1c739203879a63d6a7d7af1d0b0d5825ec"
+  }
+]

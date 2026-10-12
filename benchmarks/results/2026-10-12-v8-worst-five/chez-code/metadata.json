@@ -1,0 +1,199 @@
+{
+  "scope": "Two representative procedures; no full benchmark binary or performance attribution.",
+  "working_directory": "/tmp/snail-chez-disassembly-20261012",
+  "snail_revision": "648e9aef31c939c64fbb87b1c0fd9f53f29aae9a",
+  "chez_version": "10.4.1",
+  "machine_type": "ta6le",
+  "optimize_level": 2,
+  "unsafe_application": false,
+  "unsafe_variable_reference": false,
+  "interrupt_traps": true,
+  "capture_command": [
+    "taskset",
+    "-c",
+    "4",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "--quiet",
+    "--optimize-level",
+    "2",
+    "--script",
+    "audit/chez/capture.ss"
+  ],
+  "capture_stdout_redirect": "audit/chez/capture.stdout",
+  "capture_stderr_redirect": "audit/chez/capture.stderr",
+  "upstream_layout": "https://github.com/cisco/ChezScheme/blob/v10.4.1/s/cmacros.ss#L1551",
+  "upstream_revision": "e95a7efbafa2cf3bd5343ea542e6bc909a7ab2c4",
+  "code_layout": {
+    "length_displacement": 9,
+    "data_displacement": 65,
+    "header_displacement": 1,
+    "header_mask": 255,
+    "header_tag": 190
+  },
+  "relocation_note": "Binary bytes are copied after Chez linking; absolute targets vary by process.",
+  "raw_decode_note": "Plain objdump treats embedded code-top-link and return metadata as instructions.",
+  "examples": [
+    {
+      "name": "copy-characters",
+      "code_bytes": 639,
+      "excluded_inline_metadata": [
+        [
+          295,
+          311
+        ],
+        [
+          366,
+          382
+        ],
+        [
+          438,
+          454
+        ],
+        [
+          528,
+          544
+        ],
+        [
+          594,
+          610
+        ]
+      ],
+      "executable_segments": [
+        [
+          0,
+          295
+        ],
+        [
+          311,
+          366
+        ],
+        [
+          382,
+          438
+        ],
+        [
+          454,
+          528
+        ],
+        [
+          544,
+          594
+        ],
+        [
+          610,
+          639
+        ]
+      ],
+      "decode_commands": [
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=0",
+          "--stop-address=295",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ],
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=311",
+          "--stop-address=366",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ],
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=382",
+          "--stop-address=438",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ],
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=454",
+          "--stop-address=528",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ],
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=544",
+          "--stop-address=594",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ],
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=610",
+          "--stop-address=639",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin"
+        ]
+      ]
+    },
+    {
+      "name": "invoke-callback",
+      "code_bytes": 79,
+      "excluded_inline_metadata": [],
+      "executable_segments": [
+        [
+          0,
+          79
+        ]
+      ],
+      "decode_commands": [
+        [
+          "/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin/objdump",
+          "-D",
+          "-b",
+          "binary",
+          "-m",
+          "i386:x86-64",
+          "--start-address=0",
+          "--stop-address=79",
+          "/tmp/snail-chez-disassembly-20261012/audit/chez/invoke-callback.bin"
+        ]
+      ]
+    }
+  ],
+  "objdump_version": "GNU objdump (GNU Binutils) 2.46",
+  "sha256": {
+    "capture.ss": "aee7379a63a244f185b7e18659fff74c6a6739c0007b9a30ae68bbd33b494703",
+    "capture.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "capture.stdout": "cef97cab09c4d076b61758e631e2e91a24b069da1e0a09abf8855e3085498348",
+    "cmacros-upstream.ss": "7d191a1c4d98a9909a388b91baa257d787677a09b050d90077b15c9ea94edfaa",
+    "cmacros-v10.4.1.ss": "4fd98e64e8d884d05f653de3338f552fbb5554152b0f9afed63e17332a11fa8e",
+    "copy-characters.bin": "a6799678067770dd3a3ac57d5dbaa897fb137dc3792df9a252585380c4c7cc2c",
+    "copy-characters.code.disassembly": "79a1727913a9b78d3f2193ad36ebee3a5a5f1fa2c2a55b60c6c27e59bb69185c",
+    "copy-characters.compiler.asm": "73bbb1568547b839c0d8c197410c9c48fbce0e676f975e38f4893d27c61237dd",
+    "copy-characters.disassembly": "baaea76444a8ee8c44b69bef3c8a6c64b0a6c4f4d49b18cb5ccd35c014bf6a24",
+    "copy-characters.fast-path.disassembly": "e538c7aa3175711943ebb901a84e3630e4201600a560827b2b9838095a005fcf",
+    "decode.py": "befafbebfca3ef47f9f836e77ea6137375e66639c003fdd50da33ab9f5338aca",
+    "invoke-callback.bin": "399616f670fde2043f95cb8442a66a6e8947ca65d8b910cc9d5d3991aa44e6a6",
+    "invoke-callback.code.disassembly": "e8567c5cd0427ddfb2fe88199fddf9828026cda5aeeab8e2132a6235d2ac33c2",
+    "invoke-callback.compiler.asm": "811da40f8560bbac8deea57f85aea7a30fe5539d9493bd32d1a0fe46041554f6",
+    "invoke-callback.disassembly": "b9ebd327fc9f54912ddc63c0bb19ad62505c2a9aa26eb6f2b302d091fbb1d333"
+  }
+}

@@ -1,0 +1,4107 @@
+{
+  "cat": {
+    "counters": {
+      "constructor_operations": 1115017486,
+      "constructor_types": [
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "count": 892013500,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "count": 223002801,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "count": 662,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$call"
+              ]
+            ],
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "count": 200,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "count": 103,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ],
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "count": 101,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ],
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "count": 100,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "count": 8,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "f64"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "count": 4,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "count": 4,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$text"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "count": 1,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                [
+                  "ref",
+                  "struct"
+                ]
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "eqref"
+            ],
+            [
+              "field",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i8"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$bytes"
+              ]
+            ]
+          ]
+        }
+      ],
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_78",
+          "key": [
+            "function-entry",
+            "$40"
+          ],
+          "static_sites": 1,
+          "count": 1561023948
+        },
+        {
+          "export": "__snail_probe_35",
+          "key": [
+            "function-entry",
+            "$abi_root"
+          ],
+          "static_sites": 1,
+          "count": 1561020763
+        },
+        {
+          "export": "__snail_probe_44",
+          "key": [
+            "function-entry",
+            "$19"
+          ],
+          "static_sites": 1,
+          "count": 669016062
+        },
+        {
+          "export": "__snail_probe_38",
+          "key": [
+            "function-entry",
+            "$abi_take"
+          ],
+          "static_sites": 1,
+          "count": 446005983
+        },
+        {
+          "export": "__snail_probe_336",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+          ],
+          "static_sites": 1,
+          "count": 446005773
+        },
+        {
+          "export": "__snail_probe_908",
+          "key": [
+            "function-entry",
+            "$dlmalloc"
+          ],
+          "static_sites": 1,
+          "count": 223003320
+        },
+        {
+          "export": "__snail_probe_909",
+          "key": [
+            "function-entry",
+            "$dlfree"
+          ],
+          "static_sites": 1,
+          "count": 223003298
+        },
+        {
+          "export": "__snail_probe_363",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+          ],
+          "static_sites": 1,
+          "count": 223002895
+        },
+        {
+          "export": "__snail_probe_220",
+          "key": [
+            "function-entry",
+            "$function132"
+          ],
+          "static_sites": 1,
+          "count": 223002850
+        },
+        {
+          "export": "__snail_probe_665",
+          "key": [
+            "function-entry",
+            "$snail:read-char"
+          ],
+          "static_sites": 1,
+          "count": 223002850
+        },
+        {
+          "export": "__snail_probe_365",
+          "key": [
+            "function-entry",
+            "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+          ],
+          "static_sites": 1,
+          "count": 223002846
+        },
+        {
+          "export": "__snail_probe_414",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E"
+          ],
+          "static_sites": 1,
+          "count": 223002823
+        },
+        {
+          "export": "__snail_probe_375",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE"
+          ],
+          "static_sites": 1,
+          "count": 223002817
+        },
+        {
+          "export": "__snail_probe_334",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E"
+          ],
+          "static_sites": 1,
+          "count": 223002800
+        },
+        {
+          "export": "__snail_probe_756",
+          "key": [
+            "function-entry",
+            "$snail:write-char"
+          ],
+          "static_sites": 1,
+          "count": 223002800
+        },
+        {
+          "export": "__snail_probe_874",
+          "key": [
+            "function-entry",
+            "$read"
+          ],
+          "static_sites": 1,
+          "count": 27301
+        },
+        {
+          "export": "__snail_probe_374",
+          "key": [
+            "function-entry",
+            "$_ZN3std2io8buffered9bufwriter18BufWriter$LT$W$GT$9flush_buf17h05b866eb6182ac6cE"
+          ],
+          "static_sites": 1,
+          "count": 27300
+        },
+        {
+          "export": "__snail_probe_867",
+          "key": [
+            "function-entry",
+            "$_RNvXsa_NtCset5xJoy1xWQ_3std2fsNtB5_4FileNtNtB7_2io4Read8read_buf"
+          ],
+          "static_sites": 1,
+          "count": 27300
+        },
+        {
+          "export": "__snail_probe_876",
+          "key": [
+            "function-entry",
+            "$write"
+          ],
+          "static_sites": 1,
+          "count": 27267
+        },
+        {
+          "export": "__snail_probe_331",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root3len17h732b339cfc858647E"
+          ],
+          "static_sites": 1,
+          "count": 3522
+        }
+      ],
+      "indirect_calls": 756,
+      "host_imports": [
+        {
+          "export": "__snail_probe_350",
+          "key": [
+            "host-import",
+            "$_ZN13snail_runtime7symbols7symbols17h00b4ced91ee5d77eE",
+            "call",
+            "$_RNvNtNtCs9w8RDfpKrLd_4wasi13lib_generated22wasi_snapshot_preview110random_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_371",
+          "key": [
+            "host-import",
+            "$_ZN4core3ptr46drop_in_place$LT$snail_runtime..host..Port$GT$17hc4c6f08ddf91d2e7E",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_close"
+          ],
+          "static_sites": 2,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_413",
+          "key": [
+            "host-import",
+            "$_ZN3std3sys12thread_local10no_threads20LazyStorage$LT$T$GT$10initialize17h8554dea6e6270cf6E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 3,
+          "count": 3
+        },
+        {
+          "export": "__snail_probe_420",
+          "key": [
+            "host-import",
+            "$_ZN13snail_runtime8platform9open_file17h0e628f2d3e4bd1f5E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 1,
+          "count": 100
+        },
+        {
+          "export": "__snail_probe_431",
+          "key": [
+            "host-import",
+            "$_ZN4core3ptr34drop_in_place$LT$std..fs..File$GT$17he4c892285538af7eE",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_close"
+          ],
+          "static_sites": 1,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_537",
+          "key": [
+            "host-import",
+            "$snail:delete-file",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_unlink_file"
+          ],
+          "static_sites": 2,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_840",
+          "key": [
+            "host-import",
+            "$_RNCNvMsi_NtNtNtCset5xJoy1xWQ_3std3sys2fs4unixNtB7_4File4open0Bd_",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_fdstat_get"
+          ],
+          "static_sites": 1,
+          "count": 100
+        },
+        {
+          "export": "__snail_probe_841",
+          "key": [
+            "host-import",
+            "$_RNCNvMsi_NtNtNtCset5xJoy1xWQ_3std3sys2fs4unixNtB7_4File4open0Bd_",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_open"
+          ],
+          "static_sites": 1,
+          "count": 100
+        },
+        {
+          "export": "__snail_probe_873",
+          "key": [
+            "host-import",
+            "$__clock_gettime",
+            "call",
+            "$__imported_wasi_snapshot_preview1_clock_time_get"
+          ],
+          "static_sites": 1,
+          "count": 5
+        },
+        {
+          "export": "__snail_probe_875",
+          "key": [
+            "host-import",
+            "$read",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_read"
+          ],
+          "static_sites": 1,
+          "count": 27301
+        },
+        {
+          "export": "__snail_probe_877",
+          "key": [
+            "host-import",
+            "$write",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_write"
+          ],
+          "static_sites": 1,
+          "count": 27267
+        },
+        {
+          "export": "__snail_probe_879",
+          "key": [
+            "host-import",
+            "$__wasilibc_nocwd_fstatat",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_filestat_get"
+          ],
+          "static_sites": 1,
+          "count": 51
+        },
+        {
+          "export": "__snail_probe_883",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_get"
+          ],
+          "static_sites": 1,
+          "count": 2
+        },
+        {
+          "export": "__snail_probe_884",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_dir_name"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_887",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_sizes_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_889",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        }
+      ],
+      "scope": "Function-body operations over the full invocation, including initialization and result checking. Constant global initializers are excluded.",
+      "caveat": "Constructor operations are allocation requests, not materialized V8 heap objects. Instrumentation alters optimized code and its timing is diagnostic only. Counters increment before operands evaluate; they count reached sites/requests, not completed allocations when operands exit early."
+    },
+    "modes": {
+      "sampling": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 22.752851875993656,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/cat/sampling",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-wasi.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/snail-wasm/program.wasm"
+          ],
+          "artifact_sha256": "8edabbb9a75ccb35f286d48fb9ea3c868ca6b65f047f3e3c61b0678e8dd1206d",
+          "runner_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "sampling",
+          "benchmark": "cat",
+          "seconds": 22.693814098,
+          "name": "cat:50",
+          "cat_bytes_check": {
+            "bytes": 4460056,
+            "input_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+            "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+          }
+        },
+        "gc": {
+          "events": 19602,
+          "types": {
+            "s": 19602
+          },
+          "pause_printed_sum_milliseconds": 3.6,
+          "pause_rounding_interval_milliseconds": [
+            2.1500000000000004,
+            983.7
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 470.89,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            372.88,
+            568.9
+          ],
+          "allocated_bytes_reported_at_gc": 37473337840,
+          "last_live_object_bytes": 5691352,
+          "maximum_start_object_bytes": 7784200,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 21568,
+          "duration_microseconds": 22723972,
+          "self_sample_top_30": [
+            {
+              "function": "function132",
+              "samples": 6609,
+              "sample_fraction": 0.30642618694362017
+            },
+            {
+              "function": "snail:read-char",
+              "samples": 2573,
+              "sample_fraction": 0.11929710682492582
+            },
+            {
+              "function": "snail:write-char",
+              "samples": 2251,
+              "sample_fraction": 0.10436758160237389
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+              "samples": 2123,
+              "sample_fraction": 0.09843286350148368
+            },
+            {
+              "function": "wasm-function[69]",
+              "samples": 1307,
+              "sample_fraction": 0.06059903560830861
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 1022,
+              "sample_fraction": 0.047385014836795254
+            },
+            {
+              "function": "_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE",
+              "samples": 1018,
+              "sample_fraction": 0.047199554896142436
+            },
+            {
+              "function": "abi_root",
+              "samples": 874,
+              "sample_fraction": 0.04052299703264095
+            },
+            {
+              "function": "_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E",
+              "samples": 734,
+              "sample_fraction": 0.034031899109792284
+            },
+            {
+              "function": "abi_take",
+              "samples": 726,
+              "sample_fraction": 0.03366097922848665
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 618,
+              "sample_fraction": 0.028653560830860535
+            },
+            {
+              "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+              "samples": 552,
+              "sample_fraction": 0.02559347181008902
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E",
+              "samples": 391,
+              "sample_fraction": 0.018128709198813056
+            },
+            {
+              "function": "dlmalloc",
+              "samples": 324,
+              "sample_fraction": 0.015022255192878338
+            },
+            {
+              "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+              "samples": 179,
+              "sample_fraction": 0.00829933234421365
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      },
+      "counters": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 23.650235729000997,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/cat/counters",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/cat/instrumented.wasm"
+          ],
+          "artifact_sha256": "fedf78bbe2d0d8d00c3aadb3cdaf756837b5cb7a04c78c560dc7ebc5a662410a",
+          "runner_sha256": "863bd7a8a5310e5d62d8a04992cd3a42d635ededf833e53d0f4f986e27a4c8f7",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "counters",
+          "benchmark": "cat",
+          "seconds": 23.588211815,
+          "name": "cat:50",
+          "cat_bytes_check": {
+            "bytes": 4460056,
+            "input_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+            "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+          }
+        },
+        "gc": {
+          "events": 17871,
+          "types": {
+            "s": 17871
+          },
+          "pause_printed_sum_milliseconds": 2.5,
+          "pause_rounding_interval_milliseconds": [
+            1.55,
+            896.0500000000001
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 389.07,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            299.715,
+            478.425
+          ],
+          "allocated_bytes_reported_at_gc": 37476141224,
+          "last_live_object_bytes": 6125680,
+          "maximum_start_object_bytes": 8101464,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 22369,
+          "duration_microseconds": 23622767,
+          "self_sample_top_30": [
+            {
+              "function": "function132",
+              "samples": 6612,
+              "sample_fraction": 0.29558764361393
+            },
+            {
+              "function": "snail:read-char",
+              "samples": 2693,
+              "sample_fraction": 0.12038982520452411
+            },
+            {
+              "function": "snail:write-char",
+              "samples": 2359,
+              "sample_fraction": 0.10545844695784344
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+              "samples": 2146,
+              "sample_fraction": 0.0959363404711878
+            },
+            {
+              "function": "40",
+              "samples": 1653,
+              "sample_fraction": 0.0738969109034825
+            },
+            {
+              "function": "_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE",
+              "samples": 986,
+              "sample_fraction": 0.04407885913541061
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 940,
+              "sample_fraction": 0.04202244177209531
+            },
+            {
+              "function": "abi_root",
+              "samples": 911,
+              "sample_fraction": 0.04072600473870088
+            },
+            {
+              "function": "abi_take",
+              "samples": 776,
+              "sample_fraction": 0.03469086682462336
+            },
+            {
+              "function": "_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E",
+              "samples": 745,
+              "sample_fraction": 0.033305020340650006
+            },
+            {
+              "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+              "samples": 679,
+              "sample_fraction": 0.030354508471545444
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 505,
+              "sample_fraction": 0.022575886271178864
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E",
+              "samples": 464,
+              "sample_fraction": 0.020742992534310875
+            },
+            {
+              "function": "dlmalloc",
+              "samples": 380,
+              "sample_fraction": 0.016987795609995977
+            },
+            {
+              "function": "dlfree",
+              "samples": 203,
+              "sample_fraction": 0.009075059233761009
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      }
+    }
+  },
+  "lattice": {
+    "counters": {
+      "constructor_operations": 3575353260,
+      "constructor_types": [
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "count": 3109807578,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "count": 226970440,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$call"
+              ]
+            ],
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "count": 202463532,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                [
+                  "ref",
+                  "struct"
+                ]
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "count": 30592001,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ],
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "count": 5519680,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "count": 10,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "count": 8,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "f64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ],
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "count": 3,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$text"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "eqref"
+            ],
+            [
+              "field",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i8"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$bytes"
+              ]
+            ]
+          ]
+        }
+      ],
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_175",
+          "key": [
+            "function-entry",
+            "$function28"
+          ],
+          "static_sites": 1,
+          "count": 2799297480
+        },
+        {
+          "export": "__snail_probe_25",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "count": 2051078150
+        },
+        {
+          "export": "__snail_probe_92",
+          "key": [
+            "function-entry",
+            "$primitive42"
+          ],
+          "static_sites": 1,
+          "count": 2051078150
+        },
+        {
+          "export": "__snail_probe_240",
+          "key": [
+            "function-entry",
+            "$function126"
+          ],
+          "static_sites": 1,
+          "count": 452644100
+        },
+        {
+          "export": "__snail_probe_380",
+          "key": [
+            "function-entry",
+            "$adapter178"
+          ],
+          "static_sites": 1,
+          "count": 359609320
+        },
+        {
+          "export": "__snail_probe_229",
+          "key": [
+            "function-entry",
+            "$function123"
+          ],
+          "static_sites": 1,
+          "count": 325246160
+        },
+        {
+          "export": "__snail_probe_246",
+          "key": [
+            "function-entry",
+            "$adapter126"
+          ],
+          "static_sites": 1,
+          "count": 239802640
+        },
+        {
+          "export": "__snail_probe_90",
+          "key": [
+            "function-entry",
+            "$primitive41"
+          ],
+          "static_sites": 1,
+          "count": 50146380
+        },
+        {
+          "export": "__snail_probe_293",
+          "key": [
+            "function-entry",
+            "$function146"
+          ],
+          "static_sites": 1,
+          "count": 34372170
+        },
+        {
+          "export": "__snail_probe_316",
+          "key": [
+            "function-entry",
+            "$adapter151"
+          ],
+          "static_sites": 1,
+          "count": 34372170
+        },
+        {
+          "export": "__snail_probe_280",
+          "key": [
+            "function-entry",
+            "$function141"
+          ],
+          "static_sites": 1,
+          "count": 28735080
+        },
+        {
+          "export": "__snail_probe_98",
+          "key": [
+            "function-entry",
+            "$primitive59"
+          ],
+          "static_sites": 1,
+          "count": 18347590
+        },
+        {
+          "export": "__snail_probe_301",
+          "key": [
+            "function-entry",
+            "$function143"
+          ],
+          "static_sites": 1,
+          "count": 18292410
+        },
+        {
+          "export": "__snail_probe_258",
+          "key": [
+            "function-entry",
+            "$function134"
+          ],
+          "static_sites": 1,
+          "count": 17086630
+        },
+        {
+          "export": "__snail_probe_324",
+          "key": [
+            "function-entry",
+            "$adapter150"
+          ],
+          "static_sites": 1,
+          "count": 15533060
+        },
+        {
+          "export": "__snail_probe_271",
+          "key": [
+            "function-entry",
+            "$function138"
+          ],
+          "static_sites": 1,
+          "count": 15239710
+        },
+        {
+          "export": "__snail_probe_308",
+          "key": [
+            "function-entry",
+            "$adapter153"
+          ],
+          "static_sites": 1,
+          "count": 12813970
+        },
+        {
+          "export": "__snail_probe_312",
+          "key": [
+            "function-entry",
+            "$adapter154"
+          ],
+          "static_sites": 1,
+          "count": 12813970
+        },
+        {
+          "export": "__snail_probe_197",
+          "key": [
+            "function-entry",
+            "$function38"
+          ],
+          "static_sites": 1,
+          "count": 11038840
+        },
+        {
+          "export": "__snail_probe_277",
+          "key": [
+            "function-entry",
+            "$adapter139"
+          ],
+          "static_sites": 1,
+          "count": 4660710
+        }
+      ],
+      "indirect_calls": 2812117916,
+      "host_imports": [
+        {
+          "export": "__snail_probe_564",
+          "key": [
+            "host-import",
+            "$_ZN3std3sys12thread_local10no_threads20LazyStorage$LT$T$GT$10initialize17h8554dea6e6270cf6E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 3,
+          "count": 3
+        },
+        {
+          "export": "__snail_probe_1024",
+          "key": [
+            "host-import",
+            "$__clock_gettime",
+            "call",
+            "$__imported_wasi_snapshot_preview1_clock_time_get"
+          ],
+          "static_sites": 1,
+          "count": 5
+        },
+        {
+          "export": "__snail_probe_1026",
+          "key": [
+            "host-import",
+            "$read",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_read"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1028",
+          "key": [
+            "host-import",
+            "$write",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_write"
+          ],
+          "static_sites": 1,
+          "count": 17
+        },
+        {
+          "export": "__snail_probe_1030",
+          "key": [
+            "host-import",
+            "$__wasilibc_nocwd_fstatat",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_filestat_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1034",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_get"
+          ],
+          "static_sites": 1,
+          "count": 2
+        },
+        {
+          "export": "__snail_probe_1035",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_dir_name"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1038",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_sizes_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1040",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        }
+      ],
+      "scope": "Function-body operations over the full invocation, including initialization and result checking. Constant global initializers are excluded.",
+      "caveat": "Constructor operations are allocation requests, not materialized V8 heap objects. Instrumentation alters optimized code and its timing is diagnostic only. Counters increment before operands evaluate; they count reached sites/requests, not completed allocations when operands exit early."
+    },
+    "modes": {
+      "sampling": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 25.895045156998094,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/lattice/sampling",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-wasi.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/snail-wasm/program.wasm"
+          ],
+          "artifact_sha256": "73fa439c3e65ac160f84002ec81e4baea744c0449fa521fdd5cd6ca8f90228f0",
+          "runner_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "sampling",
+          "benchmark": "lattice",
+          "seconds": 25.439893423,
+          "name": "lattice:44:10"
+        },
+        "gc": {
+          "events": 12389,
+          "types": {
+            "s": 12389
+          },
+          "pause_printed_sum_milliseconds": 162.20000000000002,
+          "pause_rounding_interval_milliseconds": [
+            82.10000000000001,
+            781.6500000000001
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 478.35,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            416.40500000000003,
+            540.295
+          ],
+          "allocated_bytes_reported_at_gc": 138772768904,
+          "last_live_object_bytes": 8365360,
+          "maximum_start_object_bytes": 25136960,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 23954,
+          "duration_microseconds": 25468634,
+          "self_sample_top_30": [
+            {
+              "function": "function28",
+              "samples": 10410,
+              "sample_fraction": 0.4345829506554229
+            },
+            {
+              "function": "function126",
+              "samples": 3532,
+              "sample_fraction": 0.1474492777824163
+            },
+            {
+              "function": "eqv",
+              "samples": 2454,
+              "sample_fraction": 0.10244635551473658
+            },
+            {
+              "function": "primitive42",
+              "samples": 2034,
+              "sample_fraction": 0.0849127494364198
+            },
+            {
+              "function": "adapter178",
+              "samples": 1794,
+              "sample_fraction": 0.07489354596309593
+            },
+            {
+              "function": "function123",
+              "samples": 1515,
+              "sample_fraction": 0.06324622192535694
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 572,
+              "sample_fraction": 0.023879101611421892
+            },
+            {
+              "function": "function141",
+              "samples": 257,
+              "sample_fraction": 0.010728897052684311
+            },
+            {
+              "function": "adapter151",
+              "samples": 202,
+              "sample_fraction": 0.008432829590047592
+            },
+            {
+              "function": "function146",
+              "samples": 173,
+              "sample_fraction": 0.007222175837020957
+            },
+            {
+              "function": "function134",
+              "samples": 133,
+              "sample_fraction": 0.005552308591466978
+            },
+            {
+              "function": "primitive41",
+              "samples": 113,
+              "sample_fraction": 0.004717374968689989
+            },
+            {
+              "function": "function138",
+              "samples": 112,
+              "sample_fraction": 0.004675628287551139
+            },
+            {
+              "function": "adapter154",
+              "samples": 86,
+              "sample_fraction": 0.0035902145779410535
+            },
+            {
+              "function": "adapter126",
+              "samples": 65,
+              "sample_fraction": 0.002713534274025215
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      },
+      "counters": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 29.399517878016923,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/lattice/counters",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/lattice/instrumented.wasm"
+          ],
+          "artifact_sha256": "30bc296efb67c5daf682f232e400133738c93666ac435b84202df26ba1997bdd",
+          "runner_sha256": "863bd7a8a5310e5d62d8a04992cd3a42d635ededf833e53d0f4f986e27a4c8f7",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "counters",
+          "benchmark": "lattice",
+          "seconds": 28.891211073,
+          "name": "lattice:44:10"
+        },
+        "gc": {
+          "events": 12293,
+          "types": {
+            "s": 12292,
+            "mc": 1
+          },
+          "pause_printed_sum_milliseconds": 171.70000000000002,
+          "pause_rounding_interval_milliseconds": [
+            86.95,
+            786.35
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 473.24,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            411.78000000000003,
+            534.6999999999999
+          ],
+          "allocated_bytes_reported_at_gc": 138774802512,
+          "last_live_object_bytes": 5530864,
+          "maximum_start_object_bytes": 25395368,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 27207,
+          "duration_microseconds": 28928105,
+          "self_sample_top_30": [
+            {
+              "function": "function28",
+              "samples": 10150,
+              "sample_fraction": 0.3730657551365457
+            },
+            {
+              "function": "primitive42",
+              "samples": 4512,
+              "sample_fraction": 0.16583967361340832
+            },
+            {
+              "function": "function126",
+              "samples": 4008,
+              "sample_fraction": 0.14731502922042122
+            },
+            {
+              "function": "adapter178",
+              "samples": 2181,
+              "sample_fraction": 0.08016319329584298
+            },
+            {
+              "function": "eqv",
+              "samples": 2181,
+              "sample_fraction": 0.08016319329584298
+            },
+            {
+              "function": "function123",
+              "samples": 1577,
+              "sample_fraction": 0.05796302422170765
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 579,
+              "sample_fraction": 0.021281287903848273
+            },
+            {
+              "function": "function141",
+              "samples": 286,
+              "sample_fraction": 0.010512000588083948
+            },
+            {
+              "function": "adapter151",
+              "samples": 249,
+              "sample_fraction": 0.009152056456059102
+            },
+            {
+              "function": "adapter126",
+              "samples": 248,
+              "sample_fraction": 0.00911530120924762
+            },
+            {
+              "function": "function146",
+              "samples": 190,
+              "sample_fraction": 0.006983496894181644
+            },
+            {
+              "function": "primitive41",
+              "samples": 123,
+              "sample_fraction": 0.004520895357812328
+            },
+            {
+              "function": "function134",
+              "samples": 118,
+              "sample_fraction": 0.004337119123754916
+            },
+            {
+              "function": "function138",
+              "samples": 90,
+              "sample_fraction": 0.0033079722130334105
+            },
+            {
+              "function": "adapter154",
+              "samples": 86,
+              "sample_fraction": 0.003160951225787481
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      }
+    }
+  },
+  "wc": {
+    "counters": {
+      "constructor_operations": 1698842361,
+      "constructor_types": [
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "count": 1072424208,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "count": 626417300,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "count": 371,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$call"
+              ]
+            ],
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "count": 210,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ],
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "count": 100,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "count": 53,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ],
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "count": 53,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                [
+                  "ref",
+                  "struct"
+                ]
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "count": 50,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "count": 8,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "f64"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "count": 3,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$text"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "eqref"
+            ],
+            [
+              "field",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i8"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$bytes"
+              ]
+            ]
+          ]
+        }
+      ],
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_82",
+          "key": [
+            "function-entry",
+            "$42"
+          ],
+          "static_sites": 1,
+          "count": 669009496
+        },
+        {
+          "export": "__snail_probe_39",
+          "key": [
+            "function-entry",
+            "$abi_root"
+          ],
+          "static_sites": 1,
+          "count": 669008968
+        },
+        {
+          "export": "__snail_probe_35",
+          "key": [
+            "function-entry",
+            "$builtin:char=?"
+          ],
+          "static_sites": 1,
+          "count": 403414500
+        },
+        {
+          "export": "__snail_probe_48",
+          "key": [
+            "function-entry",
+            "$21"
+          ],
+          "static_sites": 1,
+          "count": 223004411
+        },
+        {
+          "export": "__snail_probe_42",
+          "key": [
+            "function-entry",
+            "$abi_take"
+          ],
+          "static_sites": 1,
+          "count": 223002982
+        },
+        {
+          "export": "__snail_probe_389",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+          ],
+          "static_sites": 1,
+          "count": 223002922
+        },
+        {
+          "export": "__snail_probe_416",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+          ],
+          "static_sites": 1,
+          "count": 223002888
+        },
+        {
+          "export": "__snail_probe_270",
+          "key": [
+            "function-entry",
+            "$function133"
+          ],
+          "static_sites": 1,
+          "count": 223002850
+        },
+        {
+          "export": "__snail_probe_718",
+          "key": [
+            "function-entry",
+            "$snail:read-char"
+          ],
+          "static_sites": 1,
+          "count": 223002850
+        },
+        {
+          "export": "__snail_probe_418",
+          "key": [
+            "function-entry",
+            "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+          ],
+          "static_sites": 1,
+          "count": 223002839
+        },
+        {
+          "export": "__snail_probe_927",
+          "key": [
+            "function-entry",
+            "$read"
+          ],
+          "static_sites": 1,
+          "count": 27301
+        },
+        {
+          "export": "__snail_probe_920",
+          "key": [
+            "function-entry",
+            "$_RNvXsa_NtCset5xJoy1xWQ_3std2fsNtB5_4FileNtNtB7_2io4Read8read_buf"
+          ],
+          "static_sites": 1,
+          "count": 27300
+        },
+        {
+          "export": "__snail_probe_384",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root3len17h732b339cfc858647E"
+          ],
+          "static_sites": 1,
+          "count": 672
+        },
+        {
+          "export": "__snail_probe_395",
+          "key": [
+            "function-entry",
+            "$_ZN13snail_runtime3abi4Root7char_at17h1d8f3b2fb62cdd7cE"
+          ],
+          "static_sites": 1,
+          "count": 611
+        },
+        {
+          "export": "__snail_probe_960",
+          "key": [
+            "function-entry",
+            "$strlen"
+          ],
+          "static_sites": 1,
+          "count": 257
+        },
+        {
+          "export": "__snail_probe_961",
+          "key": [
+            "function-entry",
+            "$dlmalloc"
+          ],
+          "static_sites": 1,
+          "count": 234
+        },
+        {
+          "export": "__snail_probe_962",
+          "key": [
+            "function-entry",
+            "$dlfree"
+          ],
+          "static_sites": 1,
+          "count": 222
+        },
+        {
+          "export": "__snail_probe_487",
+          "key": [
+            "function-entry",
+            "$_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h725937d4f7e4f3f6E"
+          ],
+          "static_sites": 1,
+          "count": 158
+        },
+        {
+          "export": "__snail_probe_959",
+          "key": [
+            "function-entry",
+            "$__stpcpy"
+          ],
+          "static_sites": 1,
+          "count": 153
+        },
+        {
+          "export": "__snail_probe_354",
+          "key": [
+            "function-entry",
+            "$_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$7reserve21do_reserve_and_handle17h990a0605fc3a68f1E"
+          ],
+          "static_sites": 1,
+          "count": 138
+        }
+      ],
+      "indirect_calls": 456,
+      "host_imports": [
+        {
+          "export": "__snail_probe_466",
+          "key": [
+            "host-import",
+            "$_ZN3std3sys12thread_local10no_threads20LazyStorage$LT$T$GT$10initialize17h8554dea6e6270cf6E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 3,
+          "count": 3
+        },
+        {
+          "export": "__snail_probe_473",
+          "key": [
+            "host-import",
+            "$_ZN13snail_runtime8platform9open_file17h0e628f2d3e4bd1f5E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 1,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_484",
+          "key": [
+            "host-import",
+            "$_ZN4core3ptr34drop_in_place$LT$std..fs..File$GT$17he4c892285538af7eE",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_close"
+          ],
+          "static_sites": 1,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_893",
+          "key": [
+            "host-import",
+            "$_RNCNvMsi_NtNtNtCset5xJoy1xWQ_3std3sys2fs4unixNtB7_4File4open0Bd_",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_fdstat_get"
+          ],
+          "static_sites": 1,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_894",
+          "key": [
+            "host-import",
+            "$_RNCNvMsi_NtNtNtCset5xJoy1xWQ_3std3sys2fs4unixNtB7_4File4open0Bd_",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_open"
+          ],
+          "static_sites": 1,
+          "count": 50
+        },
+        {
+          "export": "__snail_probe_926",
+          "key": [
+            "host-import",
+            "$__clock_gettime",
+            "call",
+            "$__imported_wasi_snapshot_preview1_clock_time_get"
+          ],
+          "static_sites": 1,
+          "count": 5
+        },
+        {
+          "export": "__snail_probe_928",
+          "key": [
+            "host-import",
+            "$read",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_read"
+          ],
+          "static_sites": 1,
+          "count": 27301
+        },
+        {
+          "export": "__snail_probe_930",
+          "key": [
+            "host-import",
+            "$write",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_write"
+          ],
+          "static_sites": 1,
+          "count": 17
+        },
+        {
+          "export": "__snail_probe_932",
+          "key": [
+            "host-import",
+            "$__wasilibc_nocwd_fstatat",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_filestat_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_936",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_get"
+          ],
+          "static_sites": 1,
+          "count": 2
+        },
+        {
+          "export": "__snail_probe_937",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_dir_name"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_940",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_sizes_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_942",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        }
+      ],
+      "scope": "Function-body operations over the full invocation, including initialization and result checking. Constant global initializers are excluded.",
+      "caveat": "Constructor operations are allocation requests, not materialized V8 heap objects. Instrumentation alters optimized code and its timing is diagnostic only. Counters increment before operands evaluate; they count reached sites/requests, not completed allocations when operands exit early."
+    },
+    "modes": {
+      "sampling": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.642217941000126,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/wc/sampling",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-wasi.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/snail-wasm/program.wasm"
+          ],
+          "artifact_sha256": "b20c5bc1518bbcb16e659abf910636de9e64dfdc50f8b2240ee3a09ef224f25a",
+          "runner_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "sampling",
+          "benchmark": "wc",
+          "seconds": 12.57681359,
+          "name": "wc:inputs/bib:50"
+        },
+        "gc": {
+          "events": 30005,
+          "types": {
+            "s": 30005
+          },
+          "pause_printed_sum_milliseconds": 4.9,
+          "pause_rounding_interval_milliseconds": [
+            3.5500000000000003,
+            1505.15
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 655.49,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            505.465,
+            805.515
+          ],
+          "allocated_bytes_reported_at_gc": 59725938632,
+          "last_live_object_bytes": 5673608,
+          "maximum_start_object_bytes": 7765864,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 11933,
+          "duration_microseconds": 12608342,
+          "self_sample_top_30": [
+            {
+              "function": "function133",
+              "samples": 3620,
+              "sample_fraction": 0.3033604290622643
+            },
+            {
+              "function": "snail:read-char",
+              "samples": 2538,
+              "sample_fraction": 0.21268750523757646
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 1662,
+              "sample_fraction": 0.13927763345344843
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+              "samples": 1007,
+              "sample_fraction": 0.08438783206234811
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 875,
+              "sample_fraction": 0.07332607056063019
+            },
+            {
+              "function": "wasm-function[71]",
+              "samples": 665,
+              "sample_fraction": 0.05572781362607894
+            },
+            {
+              "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+              "samples": 624,
+              "sample_fraction": 0.052291963462666555
+            },
+            {
+              "function": "builtin:char=?",
+              "samples": 512,
+              "sample_fraction": 0.04290622643090589
+            },
+            {
+              "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+              "samples": 165,
+              "sample_fraction": 0.013827201877147406
+            },
+            {
+              "function": "abi_root",
+              "samples": 164,
+              "sample_fraction": 0.013743400653649544
+            },
+            {
+              "function": "abi_take",
+              "samples": 53,
+              "sample_fraction": 0.004441464845386742
+            },
+            {
+              "function": "read",
+              "samples": 25,
+              "sample_fraction": 0.0020950305874465765
+            },
+            {
+              "function": "compileForInternalLoader",
+              "samples": 6,
+              "sample_fraction": 0.0005028073409871785
+            },
+            {
+              "function": "(idle)",
+              "samples": 4,
+              "sample_fraction": 0.0003352048939914523
+            },
+            {
+              "function": "function157",
+              "samples": 2,
+              "sample_fraction": 0.00016760244699572614
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      },
+      "counters": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 13.13146461098222,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/wc/counters",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/wc/instrumented.wasm"
+          ],
+          "artifact_sha256": "cc8dba4a1a7768fea6b55a68f4f0b4a20b7bb5d1e1265f7dc6f3b21bd510693b",
+          "runner_sha256": "863bd7a8a5310e5d62d8a04992cd3a42d635ededf833e53d0f4f986e27a4c8f7",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "counters",
+          "benchmark": "wc",
+          "seconds": 13.062889116,
+          "name": "wc:inputs/bib:50"
+        },
+        "gc": {
+          "events": 28482,
+          "types": {
+            "s": 28482
+          },
+          "pause_printed_sum_milliseconds": 2.2,
+          "pause_rounding_interval_milliseconds": [
+            1.4000000000000001,
+            1426.3000000000002
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 638.51,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            496.09999999999997,
+            780.92
+          ],
+          "allocated_bytes_reported_at_gc": 59727189272,
+          "last_live_object_bytes": 6118816,
+          "maximum_start_object_bytes": 8140784,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 12401,
+          "duration_microseconds": 13098866,
+          "self_sample_top_30": [
+            {
+              "function": "function133",
+              "samples": 4436,
+              "sample_fraction": 0.35771308765422144
+            },
+            {
+              "function": "snail:read-char",
+              "samples": 2654,
+              "sample_fraction": 0.21401499879042013
+            },
+            {
+              "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+              "samples": 1000,
+              "sample_fraction": 0.080638658172728
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 864,
+              "sample_fraction": 0.069671800661237
+            },
+            {
+              "function": "42",
+              "samples": 858,
+              "sample_fraction": 0.06918796871220063
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 766,
+              "sample_fraction": 0.06176921216030965
+            },
+            {
+              "function": "builtin:char=?",
+              "samples": 680,
+              "sample_fraction": 0.05483428755745504
+            },
+            {
+              "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+              "samples": 586,
+              "sample_fraction": 0.04725425368921861
+            },
+            {
+              "function": "abi_root",
+              "samples": 344,
+              "sample_fraction": 0.027739698411418434
+            },
+            {
+              "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+              "samples": 149,
+              "sample_fraction": 0.012015160067736473
+            },
+            {
+              "function": "read",
+              "samples": 29,
+              "sample_fraction": 0.0023385210870091122
+            },
+            {
+              "function": "function157",
+              "samples": 6,
+              "sample_fraction": 0.00048383194903636804
+            },
+            {
+              "function": "compileForInternalLoader",
+              "samples": 5,
+              "sample_fraction": 0.00040319329086364
+            },
+            {
+              "function": "(program)",
+              "samples": 4,
+              "sample_fraction": 0.00032255463269091205
+            },
+            {
+              "function": "(file:///tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs)",
+              "samples": 4,
+              "sample_fraction": 0.00032255463269091205
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      }
+    }
+  },
+  "graphs": {
+    "counters": {
+      "constructor_operations": 2793916966,
+      "constructor_types": [
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "count": 2176716918,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "count": 344697418,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$call"
+              ]
+            ],
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "count": 164545159,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                [
+                  "ref",
+                  "struct"
+                ]
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "count": 105384010,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ],
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "count": 2573439,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "count": 8,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "f64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ],
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "count": 3,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$text"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i64"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "eqref"
+            ],
+            [
+              "field",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i8"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$bytes"
+              ]
+            ]
+          ]
+        }
+      ],
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_107",
+          "key": [
+            "function-entry",
+            "$primitive63"
+          ],
+          "static_sites": 1,
+          "count": 995388837
+        },
+        {
+          "export": "__snail_probe_178",
+          "key": [
+            "function-entry",
+            "$function28"
+          ],
+          "static_sites": 1,
+          "count": 425374389
+        },
+        {
+          "export": "__snail_probe_25",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "count": 261175719
+        },
+        {
+          "export": "__snail_probe_93",
+          "key": [
+            "function-entry",
+            "$primitive42"
+          ],
+          "static_sites": 1,
+          "count": 261175719
+        },
+        {
+          "export": "__snail_probe_13",
+          "key": [
+            "function-entry",
+            "$numeric_equal"
+          ],
+          "static_sites": 1,
+          "count": 191190232
+        },
+        {
+          "export": "__snail_probe_361",
+          "key": [
+            "function-entry",
+            "$function178"
+          ],
+          "static_sites": 1,
+          "count": 162800067
+        },
+        {
+          "export": "__snail_probe_364",
+          "key": [
+            "function-entry",
+            "$adapter178"
+          ],
+          "static_sites": 1,
+          "count": 96956064
+        },
+        {
+          "export": "__snail_probe_366",
+          "key": [
+            "function-entry",
+            "$function175"
+          ],
+          "static_sites": 1,
+          "count": 96956064
+        },
+        {
+          "export": "__snail_probe_319",
+          "key": [
+            "function-entry",
+            "$function160"
+          ],
+          "static_sites": 1,
+          "count": 96233442
+        },
+        {
+          "export": "__snail_probe_343",
+          "key": [
+            "function-entry",
+            "$adapter169"
+          ],
+          "static_sites": 1,
+          "count": 96233442
+        },
+        {
+          "export": "__snail_probe_313",
+          "key": [
+            "function-entry",
+            "$adapter164"
+          ],
+          "static_sites": 1,
+          "count": 68253318
+        },
+        {
+          "export": "__snail_probe_233",
+          "key": [
+            "function-entry",
+            "$function123"
+          ],
+          "static_sites": 1,
+          "count": 59020242
+        },
+        {
+          "export": "__snail_probe_109",
+          "key": [
+            "function-entry",
+            "$primitive64"
+          ],
+          "static_sites": 1,
+          "count": 45177945
+        },
+        {
+          "export": "__snail_probe_97",
+          "key": [
+            "function-entry",
+            "$primitive57"
+          ],
+          "static_sites": 1,
+          "count": 31586007
+        },
+        {
+          "export": "__snail_probe_327",
+          "key": [
+            "function-entry",
+            "$function156"
+          ],
+          "static_sites": 1,
+          "count": 29264052
+        },
+        {
+          "export": "__snail_probe_237",
+          "key": [
+            "function-entry",
+            "$adapter123"
+          ],
+          "static_sites": 1,
+          "count": 28075722
+        },
+        {
+          "export": "__snail_probe_239",
+          "key": [
+            "function-entry",
+            "$function121"
+          ],
+          "static_sites": 1,
+          "count": 28075722
+        },
+        {
+          "export": "__snail_probe_317",
+          "key": [
+            "function-entry",
+            "$adapter163"
+          ],
+          "static_sites": 1,
+          "count": 28075722
+        },
+        {
+          "export": "__snail_probe_324",
+          "key": [
+            "function-entry",
+            "$adapter158"
+          ],
+          "static_sites": 1,
+          "count": 27980124
+        },
+        {
+          "export": "__snail_probe_274",
+          "key": [
+            "function-entry",
+            "$function141"
+          ],
+          "static_sites": 1,
+          "count": 13834317
+        }
+      ],
+      "indirect_calls": 686774595,
+      "host_imports": [
+        {
+          "export": "__snail_probe_641",
+          "key": [
+            "host-import",
+            "$_ZN3std3sys12thread_local10no_threads20LazyStorage$LT$T$GT$10initialize17h8554dea6e6270cf6E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 3,
+          "count": 3
+        },
+        {
+          "export": "__snail_probe_1101",
+          "key": [
+            "host-import",
+            "$__clock_gettime",
+            "call",
+            "$__imported_wasi_snapshot_preview1_clock_time_get"
+          ],
+          "static_sites": 1,
+          "count": 5
+        },
+        {
+          "export": "__snail_probe_1103",
+          "key": [
+            "host-import",
+            "$read",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_read"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1105",
+          "key": [
+            "host-import",
+            "$write",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_write"
+          ],
+          "static_sites": 1,
+          "count": 17
+        },
+        {
+          "export": "__snail_probe_1107",
+          "key": [
+            "host-import",
+            "$__wasilibc_nocwd_fstatat",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_filestat_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1111",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_get"
+          ],
+          "static_sites": 1,
+          "count": 2
+        },
+        {
+          "export": "__snail_probe_1112",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_dir_name"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1115",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_sizes_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_1117",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        }
+      ],
+      "scope": "Function-body operations over the full invocation, including initialization and result checking. Constant global initializers are excluded.",
+      "caveat": "Constructor operations are allocation requests, not materialized V8 heap objects. Instrumentation alters optimized code and its timing is diagnostic only. Counters increment before operands evaluate; they count reached sites/requests, not completed allocations when operands exit early."
+    },
+    "modes": {
+      "sampling": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.53833517699968,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/graphs/sampling",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-wasi.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/snail-wasm/program.wasm"
+          ],
+          "artifact_sha256": "426f6f43e25282b78007270fda5a15a072220da49d88618c37437f813a161b03",
+          "runner_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "sampling",
+          "benchmark": "graphs",
+          "seconds": 12.476880751,
+          "name": "graphs:7:3"
+        },
+        "gc": {
+          "events": 4504,
+          "types": {
+            "s": 4501,
+            "mc": 3
+          },
+          "pause_printed_sum_milliseconds": 415.40000000000003,
+          "pause_rounding_interval_milliseconds": [
+            292.6,
+            640.6
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 454.28000000000003,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            431.775,
+            476.785
+          ],
+          "allocated_bytes_reported_at_gc": 118706998752,
+          "last_live_object_bytes": 5215264,
+          "maximum_start_object_bytes": 169842872,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 11822,
+          "duration_microseconds": 12507560,
+          "self_sample_top_30": [
+            {
+              "function": "function178",
+              "samples": 2597,
+              "sample_fraction": 0.21967518186432075
+            },
+            {
+              "function": "function28",
+              "samples": 1697,
+              "sample_fraction": 0.1435459313144984
+            },
+            {
+              "function": "adapter169",
+              "samples": 1115,
+              "sample_fraction": 0.09431568262561327
+            },
+            {
+              "function": "function175",
+              "samples": 965,
+              "sample_fraction": 0.08162747420064287
+            },
+            {
+              "function": "primitive63",
+              "samples": 883,
+              "sample_fraction": 0.07469125359499239
+            },
+            {
+              "function": "function160",
+              "samples": 844,
+              "sample_fraction": 0.07139231940450008
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 526,
+              "sample_fraction": 0.04449331754356285
+            },
+            {
+              "function": "eqv",
+              "samples": 386,
+              "sample_fraction": 0.03265098968025715
+            },
+            {
+              "function": "adapter164",
+              "samples": 374,
+              "sample_fraction": 0.03163593300625952
+            },
+            {
+              "function": "numeric_equal",
+              "samples": 324,
+              "sample_fraction": 0.02740653019793605
+            },
+            {
+              "function": "primitive42",
+              "samples": 295,
+              "sample_fraction": 0.024953476569108443
+            },
+            {
+              "function": "function123",
+              "samples": 245,
+              "sample_fraction": 0.020724073760784976
+            },
+            {
+              "function": "function156",
+              "samples": 171,
+              "sample_fraction": 0.014464557604466249
+            },
+            {
+              "function": "function194",
+              "samples": 159,
+              "sample_fraction": 0.013449500930468618
+            },
+            {
+              "function": "adapter163",
+              "samples": 124,
+              "sample_fraction": 0.010488918964642192
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      },
+      "counters": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 13.806219530990347,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/graphs/counters",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/graphs/instrumented.wasm"
+          ],
+          "artifact_sha256": "db1690d448edd0cf6fd6082cfdbab6554ea1d19c569603e91e3ee934d620eb10",
+          "runner_sha256": "863bd7a8a5310e5d62d8a04992cd3a42d635ededf833e53d0f4f986e27a4c8f7",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "counters",
+          "benchmark": "graphs",
+          "seconds": 13.740542012,
+          "name": "graphs:7:3"
+        },
+        "gc": {
+          "events": 4423,
+          "types": {
+            "s": 4420,
+            "mc": 3
+          },
+          "pause_printed_sum_milliseconds": 408.2,
+          "pause_rounding_interval_milliseconds": [
+            284.40000000000003,
+            629.35
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 449.40000000000003,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            427.3,
+            471.5
+          ],
+          "allocated_bytes_reported_at_gc": 118709716752,
+          "last_live_object_bytes": 5542184,
+          "maximum_start_object_bytes": 170344712,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 13023,
+          "duration_microseconds": 13776567,
+          "self_sample_top_30": [
+            {
+              "function": "function178",
+              "samples": 2625,
+              "sample_fraction": 0.20156645934116563
+            },
+            {
+              "function": "function28",
+              "samples": 1707,
+              "sample_fraction": 0.13107578898871228
+            },
+            {
+              "function": "adapter169",
+              "samples": 1259,
+              "sample_fraction": 0.09667511326115334
+            },
+            {
+              "function": "primitive63",
+              "samples": 1117,
+              "sample_fraction": 0.08577132765107887
+            },
+            {
+              "function": "function175",
+              "samples": 946,
+              "sample_fraction": 0.07264071258542579
+            },
+            {
+              "function": "function160",
+              "samples": 940,
+              "sample_fraction": 0.07217998924978883
+            },
+            {
+              "function": "primitive42",
+              "samples": 711,
+              "sample_fraction": 0.05459571527297857
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 523,
+              "sample_fraction": 0.04015971742302081
+            },
+            {
+              "function": "adapter164",
+              "samples": 364,
+              "sample_fraction": 0.027950549028641632
+            },
+            {
+              "function": "eqv",
+              "samples": 351,
+              "sample_fraction": 0.026952315134761574
+            },
+            {
+              "function": "adapter178",
+              "samples": 343,
+              "sample_fraction": 0.026338017353912307
+            },
+            {
+              "function": "numeric_equal",
+              "samples": 232,
+              "sample_fraction": 0.017814635644628735
+            },
+            {
+              "function": "function123",
+              "samples": 229,
+              "sample_fraction": 0.01758427397681026
+            },
+            {
+              "function": "function194",
+              "samples": 175,
+              "sample_fraction": 0.013437763956077708
+            },
+            {
+              "function": "function156",
+              "samples": 172,
+              "sample_fraction": 0.013207402288259234
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      }
+    }
+  },
+  "deriv": {
+    "counters": {
+      "constructor_operations": 2040000436,
+      "constructor_types": [
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "count": 880000105,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "count": 770000197,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ],
+            [
+              "field",
+              [
+                "mut",
+                "eqref"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "count": 240000000,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "count": 100000068,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$call"
+              ]
+            ],
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "count": 40000003,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "mut",
+                [
+                  "ref",
+                  "struct"
+                ]
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "count": 10000000,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$vector"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "count": 43,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "count": 8,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "f64"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "count": 3,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "count": 3,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i32"
+            ],
+            [
+              "field",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "i64"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "count": 2,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i32"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "count": 2,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$text"
+              ]
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              "eqref"
+            ],
+            [
+              "field",
+              "eqref"
+            ]
+          ]
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "count": 0,
+          "definition": [
+            "array",
+            [
+              "mut",
+              "i8"
+            ]
+          ]
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "count": 0,
+          "definition": [
+            "struct",
+            [
+              "field",
+              [
+                "ref",
+                "$bytes"
+              ]
+            ]
+          ]
+        }
+      ],
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_202",
+          "key": [
+            "function-entry",
+            "$function38"
+          ],
+          "static_sites": 1,
+          "count": 480000000
+        },
+        {
+          "export": "__snail_probe_196",
+          "key": [
+            "function-entry",
+            "$function37"
+          ],
+          "static_sites": 1,
+          "count": 160000000
+        },
+        {
+          "export": "__snail_probe_209",
+          "key": [
+            "function-entry",
+            "$function41"
+          ],
+          "static_sites": 1,
+          "count": 160000000
+        },
+        {
+          "export": "__snail_probe_146",
+          "key": [
+            "function-entry",
+            "$function0"
+          ],
+          "static_sites": 1,
+          "count": 130000000
+        },
+        {
+          "export": "__snail_probe_272",
+          "key": [
+            "function-entry",
+            "$function145"
+          ],
+          "static_sites": 1,
+          "count": 130000000
+        },
+        {
+          "export": "__snail_probe_31",
+          "key": [
+            "function-entry",
+            "$builtin:apply"
+          ],
+          "static_sites": 1,
+          "count": 120000000
+        },
+        {
+          "export": "__snail_probe_102",
+          "key": [
+            "function-entry",
+            "$primitive58"
+          ],
+          "static_sites": 1,
+          "count": 120000000
+        },
+        {
+          "export": "__snail_probe_104",
+          "key": [
+            "function-entry",
+            "$primitive59"
+          ],
+          "static_sites": 1,
+          "count": 120000000
+        },
+        {
+          "export": "__snail_probe_150",
+          "key": [
+            "function-entry",
+            "$adapter1"
+          ],
+          "static_sites": 1,
+          "count": 110000000
+        },
+        {
+          "export": "__snail_probe_268",
+          "key": [
+            "function-entry",
+            "$adapter146"
+          ],
+          "static_sites": 1,
+          "count": 80000000
+        },
+        {
+          "export": "__snail_probe_213",
+          "key": [
+            "function-entry",
+            "$adapter41"
+          ],
+          "static_sites": 1,
+          "count": 40000000
+        },
+        {
+          "export": "__snail_probe_215",
+          "key": [
+            "function-entry",
+            "$adapter39"
+          ],
+          "static_sites": 1,
+          "count": 40000000
+        },
+        {
+          "export": "__snail_probe_279",
+          "key": [
+            "function-entry",
+            "$adapter145"
+          ],
+          "static_sites": 1,
+          "count": 40000000
+        },
+        {
+          "export": "__snail_probe_314",
+          "key": [
+            "function-entry",
+            "$function168"
+          ],
+          "static_sites": 1,
+          "count": 10000001
+        },
+        {
+          "export": "__snail_probe_26",
+          "key": [
+            "function-entry",
+            "$builtin:call-with-values"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        },
+        {
+          "export": "__snail_probe_109",
+          "key": [
+            "function-entry",
+            "$primitive63"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        },
+        {
+          "export": "__snail_probe_262",
+          "key": [
+            "function-entry",
+            "$adapter109"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        },
+        {
+          "export": "__snail_probe_281",
+          "key": [
+            "function-entry",
+            "$adapter154"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        },
+        {
+          "export": "__snail_probe_298",
+          "key": [
+            "function-entry",
+            "$adapter158"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        },
+        {
+          "export": "__snail_probe_303",
+          "key": [
+            "function-entry",
+            "$adapter160"
+          ],
+          "static_sites": 1,
+          "count": 10000000
+        }
+      ],
+      "indirect_calls": 590000006,
+      "host_imports": [
+        {
+          "export": "__snail_probe_394",
+          "key": [
+            "host-import",
+            "$_ZN13snail_runtime7symbols7symbols17h00b4ced91ee5d77eE",
+            "call",
+            "$_RNvNtNtCs9w8RDfpKrLd_4wasi13lib_generated22wasi_snapshot_preview110random_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_457",
+          "key": [
+            "host-import",
+            "$_ZN3std3sys12thread_local10no_threads20LazyStorage$LT$T$GT$10initialize17h8554dea6e6270cf6E",
+            "call",
+            "$host_register_finalizer"
+          ],
+          "static_sites": 3,
+          "count": 3
+        },
+        {
+          "export": "__snail_probe_917",
+          "key": [
+            "host-import",
+            "$__clock_gettime",
+            "call",
+            "$__imported_wasi_snapshot_preview1_clock_time_get"
+          ],
+          "static_sites": 1,
+          "count": 5
+        },
+        {
+          "export": "__snail_probe_919",
+          "key": [
+            "host-import",
+            "$read",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_read"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_921",
+          "key": [
+            "host-import",
+            "$write",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_write"
+          ],
+          "static_sites": 1,
+          "count": 17
+        },
+        {
+          "export": "__snail_probe_923",
+          "key": [
+            "host-import",
+            "$__wasilibc_nocwd_fstatat",
+            "call",
+            "$__imported_wasi_snapshot_preview1_path_filestat_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_927",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_get"
+          ],
+          "static_sites": 1,
+          "count": 2
+        },
+        {
+          "export": "__snail_probe_928",
+          "key": [
+            "host-import",
+            "$__wasilibc_populate_preopens",
+            "call",
+            "$__imported_wasi_snapshot_preview1_fd_prestat_dir_name"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_931",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_sizes_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        },
+        {
+          "export": "__snail_probe_933",
+          "key": [
+            "host-import",
+            "$getenv",
+            "call",
+            "$__imported_wasi_snapshot_preview1_environ_get"
+          ],
+          "static_sites": 1,
+          "count": 1
+        }
+      ],
+      "scope": "Function-body operations over the full invocation, including initialization and result checking. Constant global initializers are excluded.",
+      "caveat": "Constructor operations are allocation requests, not materialized V8 heap objects. Instrumentation alters optimized code and its timing is diagnostic only. Counters increment before operands evaluate; they count reached sites/requests, not completed allocations when operands exit early."
+    },
+    "modes": {
+      "sampling": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 7.3175171480106656,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/deriv/sampling",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-wasi.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/snail-wasm/program.wasm"
+          ],
+          "artifact_sha256": "84b35dcd37cf3adbff302ffbb9fe3c1c739203879a63d6a7d7af1d0b0d5825ec",
+          "runner_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "sampling",
+          "benchmark": "deriv",
+          "seconds": 7.232832917,
+          "name": "deriv:10000000"
+        },
+        "gc": {
+          "events": 64940,
+          "types": {
+            "s": 64940
+          },
+          "pause_printed_sum_milliseconds": 3.2,
+          "pause_rounding_interval_milliseconds": [
+            2.35,
+            3250.2000000000003
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 1318.95,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            994.25,
+            1643.65
+          ],
+          "allocated_bytes_reported_at_gc": 68094840376,
+          "last_live_object_bytes": 5648064,
+          "maximum_start_object_bytes": 6696576,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 6893,
+          "duration_microseconds": 7269142,
+          "self_sample_top_30": [
+            {
+              "function": "(garbage collector)",
+              "samples": 1760,
+              "sample_fraction": 0.25533149572029595
+            },
+            {
+              "function": "function41",
+              "samples": 1377,
+              "sample_fraction": 0.1997678804584361
+            },
+            {
+              "function": "function38",
+              "samples": 1363,
+              "sample_fraction": 0.19773683446975193
+            },
+            {
+              "function": "function145",
+              "samples": 455,
+              "sample_fraction": 0.0660089946322356
+            },
+            {
+              "function": "builtin:apply",
+              "samples": 449,
+              "sample_fraction": 0.06513854635137095
+            },
+            {
+              "function": "adapter146",
+              "samples": 379,
+              "sample_fraction": 0.054983316407950095
+            },
+            {
+              "function": "function37",
+              "samples": 197,
+              "sample_fraction": 0.028579718555055852
+            },
+            {
+              "function": "adapter39",
+              "samples": 194,
+              "sample_fraction": 0.028144494414623532
+            },
+            {
+              "function": "primitive58",
+              "samples": 180,
+              "sample_fraction": 0.026113448425939358
+            },
+            {
+              "function": "primitive59",
+              "samples": 175,
+              "sample_fraction": 0.025388074858552153
+            },
+            {
+              "function": "adapter1",
+              "samples": 114,
+              "sample_fraction": 0.01653851733642826
+            },
+            {
+              "function": "function168",
+              "samples": 70,
+              "sample_fraction": 0.010155229943420862
+            },
+            {
+              "function": "adapter158",
+              "samples": 55,
+              "sample_fraction": 0.007979109241259249
+            },
+            {
+              "function": "adapter160",
+              "samples": 53,
+              "sample_fraction": 0.0076889598143043665
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 35,
+              "sample_fraction": 0.005077614971710431
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      },
+      "counters": {
+        "execution": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 7.0039183250046335,
+          "command": [
+            "taskset",
+            "-c",
+            "5",
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "--trace-gc-nvp",
+            "--cpu-prof",
+            "--cpu-prof-dir=/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/deriv/counters",
+            "--cpu-prof-name=profile.cpuprofile",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/host/scripts/run-instrumented.mjs",
+            "/tmp/snail-v8-gc-20261012/build/v8-worst-five/diagnostics/deriv/instrumented.wasm"
+          ],
+          "artifact_sha256": "1b0e4e72c9aae2ca3f4a5c46593ec19cee9c489662c46aefe93eb75c4db2107a",
+          "runner_sha256": "863bd7a8a5310e5d62d8a04992cd3a42d635ededf833e53d0f4f986e27a4c8f7",
+          "scope": "Complete fresh Node process, initialization and checks included",
+          "mode": "counters",
+          "benchmark": "deriv",
+          "seconds": 6.934897845,
+          "name": "deriv:10000000"
+        },
+        "gc": {
+          "events": 24164,
+          "types": {
+            "s": 24164
+          },
+          "pause_printed_sum_milliseconds": 5.5,
+          "pause_rounding_interval_milliseconds": [
+            4.3,
+            1213.7
+          ],
+          "scavenge_phase_printed_sum_milliseconds": 582.14,
+          "scavenge_phase_rounding_interval_milliseconds": [
+            461.32,
+            702.96
+          ],
+          "allocated_bytes_reported_at_gc": 68090071032,
+          "last_live_object_bytes": 6091128,
+          "maximum_start_object_bytes": 10094088,
+          "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+          "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+          "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+        },
+        "cpu_profile": {
+          "samples": 6589,
+          "duration_microseconds": 6970657,
+          "self_sample_top_30": [
+            {
+              "function": "function41",
+              "samples": 1445,
+              "sample_fraction": 0.21930490210957657
+            },
+            {
+              "function": "function38",
+              "samples": 1394,
+              "sample_fraction": 0.21156472909394444
+            },
+            {
+              "function": "(garbage collector)",
+              "samples": 740,
+              "sample_fraction": 0.11230839277583853
+            },
+            {
+              "function": "builtin:apply",
+              "samples": 627,
+              "sample_fraction": 0.09515859766277128
+            },
+            {
+              "function": "function145",
+              "samples": 463,
+              "sample_fraction": 0.07026862953407194
+            },
+            {
+              "function": "adapter146",
+              "samples": 437,
+              "sample_fraction": 0.06632265897708302
+            },
+            {
+              "function": "primitive59",
+              "samples": 299,
+              "sample_fraction": 0.04537866140537259
+            },
+            {
+              "function": "primitive58",
+              "samples": 288,
+              "sample_fraction": 0.043709212323569585
+            },
+            {
+              "function": "adapter39",
+              "samples": 253,
+              "sample_fraction": 0.038397328881469114
+            },
+            {
+              "function": "function37",
+              "samples": 210,
+              "sample_fraction": 0.031871300652602824
+            },
+            {
+              "function": "adapter1",
+              "samples": 130,
+              "sample_fraction": 0.019729852784944605
+            },
+            {
+              "function": "function168",
+              "samples": 87,
+              "sample_fraction": 0.013203824556078313
+            },
+            {
+              "function": "adapter160",
+              "samples": 53,
+              "sample_fraction": 0.00804370921232357
+            },
+            {
+              "function": "adapter158",
+              "samples": 51,
+              "sample_fraction": 0.007740173015632114
+            },
+            {
+              "function": "builtin:call-with-values",
+              "samples": 40,
+              "sample_fraction": 0.006070723933829109
+            }
+          ],
+          "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+        }
+      }
+    }
+  }
+}

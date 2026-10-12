@@ -1,0 +1,910 @@
+{
+  "cat": [
+    {
+      "function": "function132",
+      "samples": 6609,
+      "sample_fraction": 0.30642618694362017,
+      "wasm_index": 142,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "x"
+      ],
+      "context": [
+        "catport"
+      ]
+    },
+    {
+      "function": "snail:read-char",
+      "samples": 2573,
+      "sample_fraction": 0.11929710682492582,
+      "wasm_index": 378
+    },
+    {
+      "function": "snail:write-char",
+      "samples": 2251,
+      "sample_fraction": 0.10436758160237389,
+      "wasm_index": 421
+    },
+    {
+      "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+      "samples": 2123,
+      "sample_fraction": 0.09843286350148368,
+      "wasm_index": 205
+    },
+    {
+      "function": "wasm-function[69]",
+      "samples": 1307,
+      "sample_fraction": 0.06059903560830861
+    },
+    {
+      "function": "builtin:call-with-values",
+      "samples": 1022,
+      "sample_fraction": 0.047385014836795254,
+      "wasm_index": 39
+    },
+    {
+      "function": "_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE",
+      "samples": 1018,
+      "sample_fraction": 0.047199554896142436,
+      "wasm_index": 235
+    },
+    {
+      "function": "abi_root",
+      "samples": 874,
+      "sample_fraction": 0.04052299703264095,
+      "wasm_index": 41
+    },
+    {
+      "function": "_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E",
+      "samples": 734,
+      "sample_fraction": 0.034031899109792284,
+      "wasm_index": 266
+    },
+    {
+      "function": "abi_take",
+      "samples": 726,
+      "sample_fraction": 0.03366097922848665,
+      "wasm_index": 43
+    },
+    {
+      "function": "(garbage collector)",
+      "samples": 618,
+      "sample_fraction": 0.028653560830860535
+    },
+    {
+      "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+      "samples": 552,
+      "sample_fraction": 0.02559347181008902,
+      "wasm_index": 224
+    },
+    {
+      "function": "_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E",
+      "samples": 391,
+      "sample_fraction": 0.018128709198813056,
+      "wasm_index": 203
+    },
+    {
+      "function": "dlmalloc",
+      "samples": 324,
+      "sample_fraction": 0.015022255192878338,
+      "wasm_index": 554
+    },
+    {
+      "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+      "samples": 179,
+      "sample_fraction": 0.00829933234421365,
+      "wasm_index": 226
+    }
+  ],
+  "lattice": [
+    {
+      "function": "function28",
+      "samples": 10410,
+      "sample_fraction": 0.4345829506554229,
+      "wasm_index": 125,
+      "binding": "member-by",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 256,
+        "column": 5
+      },
+      "parameters": [
+        "compare",
+        "value",
+        "elements"
+      ],
+      "context": [
+        "member-by"
+      ]
+    },
+    {
+      "function": "function126",
+      "samples": 3532,
+      "sample_fraction": 0.1474492777824163,
+      "wasm_index": 144,
+      "binding": "lex-first",
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 30,
+        "column": 7
+      },
+      "parameters": [
+        "lhs",
+        "rhs"
+      ],
+      "context": [
+        "lexico",
+        "lex-first"
+      ]
+    },
+    {
+      "function": "eqv",
+      "samples": 2454,
+      "sample_fraction": 0.10244635551473658,
+      "wasm_index": 38
+    },
+    {
+      "function": "primitive42",
+      "samples": 2034,
+      "sample_fraction": 0.0849127494364198,
+      "wasm_index": 81
+    },
+    {
+      "function": "adapter178",
+      "samples": 1794,
+      "sample_fraction": 0.07489354596309593,
+      "wasm_index": 181,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 190,
+        "column": 25
+      },
+      "parameters": [
+        "lhs",
+        "rhs"
+      ],
+      "context": [
+        "run"
+      ]
+    },
+    {
+      "function": "function123",
+      "samples": 1515,
+      "sample_fraction": 0.06324622192535694,
+      "wasm_index": 141,
+      "binding": "check",
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 17,
+        "column": 11
+      },
+      "parameters": [
+        "lhs",
+        "rhs"
+      ],
+      "context": [
+        "lexico",
+        "lex-fixed",
+        "check"
+      ]
+    },
+    {
+      "function": "(garbage collector)",
+      "samples": 572,
+      "sample_fraction": 0.023879101611421892
+    },
+    {
+      "function": "function141",
+      "samples": 257,
+      "sample_fraction": 0.010728897052684311,
+      "wasm_index": 155,
+      "binding": "select-a",
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 89,
+        "column": 7
+      },
+      "parameters": [
+        "ac",
+        "lst"
+      ],
+      "context": [
+        "select-map",
+        "select-a"
+      ]
+    },
+    {
+      "function": "adapter151",
+      "samples": 202,
+      "sample_fraction": 0.008432829590047592,
+      "wasm_index": 164,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 138,
+        "column": 12
+      },
+      "parameters": [
+        "t2"
+      ],
+      "context": [
+        "maps-1"
+      ]
+    },
+    {
+      "function": "function146",
+      "samples": 173,
+      "sample_fraction": 0.007222175837020957,
+      "wasm_index": 158,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "rest"
+      ],
+      "context": [
+        "map-and",
+        "drudge"
+      ]
+    },
+    {
+      "function": "function134",
+      "samples": 133,
+      "sample_fraction": 0.005552308591466978,
+      "wasm_index": 149,
+      "binding": "select-a",
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 59,
+        "column": 7
+      },
+      "parameters": [
+        "ac",
+        "lst"
+      ],
+      "context": [
+        "zulu-select",
+        "select-a"
+      ]
+    },
+    {
+      "function": "primitive41",
+      "samples": 113,
+      "sample_fraction": 0.004717374968689989,
+      "wasm_index": 80
+    },
+    {
+      "function": "function138",
+      "samples": 112,
+      "sample_fraction": 0.004675628287551139,
+      "wasm_index": 152,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "next"
+      ],
+      "context": [
+        "rotate"
+      ]
+    },
+    {
+      "function": "adapter154",
+      "samples": 86,
+      "sample_fraction": 0.0035902145779410535,
+      "wasm_index": 163,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 129,
+        "column": 13
+      },
+      "parameters": [
+        "p"
+      ],
+      "context": [
+        "maps-1"
+      ]
+    },
+    {
+      "function": "adapter126",
+      "samples": 65,
+      "sample_fraction": 0.002713534274025215,
+      "wasm_index": 145,
+      "binding": "lex-first",
+      "location": {
+        "file": "build/v8-worst-five/cases/lattice/snail-wasm/program.scm",
+        "line": 30,
+        "column": 7
+      },
+      "parameters": [
+        "lhs",
+        "rhs"
+      ],
+      "context": [
+        "lexico",
+        "lex-first"
+      ]
+    }
+  ],
+  "wc": [
+    {
+      "function": "function133",
+      "samples": 3620,
+      "sample_fraction": 0.3033604290622643,
+      "wasm_index": 159,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "x"
+      ],
+      "context": [
+        "wcport",
+        "loop"
+      ]
+    },
+    {
+      "function": "snail:read-char",
+      "samples": 2538,
+      "sample_fraction": 0.21268750523757646,
+      "wasm_index": 394
+    },
+    {
+      "function": "builtin:call-with-values",
+      "samples": 1662,
+      "sample_fraction": 0.13927763345344843,
+      "wasm_index": 39
+    },
+    {
+      "function": "_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE",
+      "samples": 1007,
+      "sample_fraction": 0.08438783206234811,
+      "wasm_index": 221
+    },
+    {
+      "function": "(garbage collector)",
+      "samples": 875,
+      "sample_fraction": 0.07332607056063019
+    },
+    {
+      "function": "wasm-function[71]",
+      "samples": 665,
+      "sample_fraction": 0.05572781362607894
+    },
+    {
+      "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+      "samples": 624,
+      "sample_fraction": 0.052291963462666555,
+      "wasm_index": 240
+    },
+    {
+      "function": "builtin:char=?",
+      "samples": 512,
+      "sample_fraction": 0.04290622643090589,
+      "wasm_index": 41
+    },
+    {
+      "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+      "samples": 165,
+      "sample_fraction": 0.013827201877147406,
+      "wasm_index": 242
+    },
+    {
+      "function": "abi_root",
+      "samples": 164,
+      "sample_fraction": 0.013743400653649544,
+      "wasm_index": 43
+    },
+    {
+      "function": "abi_take",
+      "samples": 53,
+      "sample_fraction": 0.004441464845386742,
+      "wasm_index": 45
+    },
+    {
+      "function": "read",
+      "samples": 25,
+      "sample_fraction": 0.0020950305874465765,
+      "wasm_index": 545
+    },
+    {
+      "function": "compileForInternalLoader",
+      "samples": 6,
+      "sample_fraction": 0.0005028073409871785
+    },
+    {
+      "function": "(idle)",
+      "samples": 4,
+      "sample_fraction": 0.0003352048939914523
+    },
+    {
+      "function": "function157",
+      "samples": 2,
+      "sample_fraction": 0.00016760244699572614,
+      "wasm_index": 173,
+      "binding": "loop",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "i",
+        "result"
+      ],
+      "context": [
+        "run-r7rs-benchmark",
+        "loop"
+      ]
+    }
+  ],
+  "graphs": [
+    {
+      "function": "function178",
+      "samples": 2597,
+      "sample_fraction": 0.21967518186432075,
+      "wasm_index": 179,
+      "binding": "_-*-",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "y"
+      ],
+      "context": [
+        "cmp-next-vertex",
+        "_-*-"
+      ]
+    },
+    {
+      "function": "function28",
+      "samples": 1697,
+      "sample_fraction": 0.1435459313144984,
+      "wasm_index": 128,
+      "binding": "member-by",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 256,
+        "column": 5
+      },
+      "parameters": [
+        "compare",
+        "value",
+        "elements"
+      ],
+      "context": [
+        "member-by"
+      ]
+    },
+    {
+      "function": "adapter169",
+      "samples": 1115,
+      "sample_fraction": 0.09431568262561327,
+      "wasm_index": 174,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/graphs/snail-wasm/program.scm",
+        "line": 291,
+        "column": 30
+      },
+      "parameters": [
+        "perm-x",
+        "x",
+        "state",
+        "deeper",
+        "accross"
+      ],
+      "context": [
+        "make-minimal?"
+      ]
+    },
+    {
+      "function": "function175",
+      "samples": 965,
+      "sample_fraction": 0.08162747420064287,
+      "wasm_index": 181,
+      "binding": "cmp-next-vertex",
+      "location": {
+        "file": "build/v8-worst-five/cases/graphs/snail-wasm/program.scm",
+        "line": 316,
+        "column": 3
+      },
+      "parameters": [
+        "graph",
+        "perm",
+        "x",
+        "perm-x"
+      ],
+      "context": [
+        "cmp-next-vertex"
+      ]
+    },
+    {
+      "function": "primitive63",
+      "samples": 883,
+      "sample_fraction": 0.07469125359499239,
+      "wasm_index": 88
+    },
+    {
+      "function": "function160",
+      "samples": 844,
+      "sample_fraction": 0.07139231940450008,
+      "wasm_index": 168,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "rest"
+      ],
+      "context": [
+        "fold-over-perm-tree",
+        "_-*-",
+        "_-**-"
+      ]
+    },
+    {
+      "function": "(garbage collector)",
+      "samples": 526,
+      "sample_fraction": 0.04449331754356285
+    },
+    {
+      "function": "eqv",
+      "samples": 386,
+      "sample_fraction": 0.03265098968025715,
+      "wasm_index": 38
+    },
+    {
+      "function": "adapter164",
+      "samples": 374,
+      "sample_fraction": 0.03163593300625952,
+      "wasm_index": 166,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/graphs/snail-wasm/program.scm",
+        "line": 226,
+        "column": 25
+      },
+      "parameters": [
+        "new-t-state"
+      ],
+      "context": [
+        "fold-over-perm-tree",
+        "_-*-",
+        "_-**-"
+      ]
+    },
+    {
+      "function": "numeric_equal",
+      "samples": 324,
+      "sample_fraction": 0.02740653019793605,
+      "wasm_index": 34
+    },
+    {
+      "function": "primitive42",
+      "samples": 295,
+      "sample_fraction": 0.024953476569108443,
+      "wasm_index": 81
+    },
+    {
+      "function": "function123",
+      "samples": 245,
+      "sample_fraction": 0.020724073760784976,
+      "wasm_index": 145,
+      "binding": "loop",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "lst",
+        "state"
+      ],
+      "context": [
+        "fold",
+        "loop"
+      ]
+    },
+    {
+      "function": "function156",
+      "samples": 171,
+      "sample_fraction": 0.014464557604466249,
+      "wasm_index": 170,
+      "binding": "_-*-",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "universe",
+        "b-state",
+        "t-state",
+        "accross"
+      ],
+      "context": [
+        "fold-over-perm-tree",
+        "_-*-"
+      ]
+    },
+    {
+      "function": "function194",
+      "samples": 159,
+      "sample_fraction": 0.013449500930468618,
+      "wasm_index": 191,
+      "binding": "_-*-",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "v",
+        "outs",
+        "efr",
+        "efrr",
+        "state"
+      ],
+      "context": [
+        "fold-over-rdg",
+        "_-*-",
+        "_-*-"
+      ]
+    },
+    {
+      "function": "adapter163",
+      "samples": 124,
+      "sample_fraction": 0.010488918964642192,
+      "wasm_index": 167,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/graphs/snail-wasm/program.scm",
+        "line": 233,
+        "column": 25
+      },
+      "parameters": [
+        "new-b-state",
+        "new-t-state"
+      ],
+      "context": [
+        "fold-over-perm-tree",
+        "_-*-",
+        "_-**-"
+      ]
+    }
+  ],
+  "deriv": [
+    {
+      "function": "(garbage collector)",
+      "samples": 1760,
+      "sample_fraction": 0.25533149572029595
+    },
+    {
+      "function": "function41",
+      "samples": 1377,
+      "sample_fraction": 0.1997678804584361,
+      "wasm_index": 140,
+      "binding": "loop",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "lists"
+      ],
+      "context": [
+        "map",
+        "loop"
+      ]
+    },
+    {
+      "function": "function38",
+      "samples": 1363,
+      "sample_fraction": 0.19773683446975193,
+      "wasm_index": 138,
+      "binding": "map-one",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 279,
+        "column": 5
+      },
+      "parameters": [
+        "procedure",
+        "elements"
+      ],
+      "context": [
+        "map-one"
+      ]
+    },
+    {
+      "function": "function145",
+      "samples": 455,
+      "sample_fraction": 0.0660089946322356,
+      "wasm_index": 158,
+      "binding": "deriv",
+      "location": {
+        "file": "build/v8-worst-five/cases/deriv/snail-wasm/program.scm",
+        "line": 9,
+        "column": 1
+      },
+      "parameters": [
+        "a"
+      ],
+      "context": [
+        "deriv"
+      ]
+    },
+    {
+      "function": "builtin:apply",
+      "samples": 449,
+      "sample_fraction": 0.06513854635137095,
+      "wasm_index": 40
+    },
+    {
+      "function": "adapter146",
+      "samples": 379,
+      "sample_fraction": 0.054983316407950095,
+      "wasm_index": 157,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/deriv/snail-wasm/program.scm",
+        "line": 22,
+        "column": 27
+      },
+      "parameters": [
+        "a"
+      ],
+      "context": [
+        "deriv"
+      ]
+    },
+    {
+      "function": "function37",
+      "samples": 197,
+      "sample_fraction": 0.028579718555055852,
+      "wasm_index": 136,
+      "binding": null,
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 40,
+        "column": 11
+      },
+      "parameters": [
+        "value"
+      ],
+      "context": [
+        "some-empty?"
+      ]
+    },
+    {
+      "function": "adapter39",
+      "samples": 194,
+      "sample_fraction": 0.028144494414623532,
+      "wasm_index": 142,
+      "binding": "map",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 283,
+        "column": 5
+      },
+      "parameters": [
+        "procedure",
+        "first"
+      ],
+      "context": [
+        "map"
+      ]
+    },
+    {
+      "function": "primitive58",
+      "samples": 180,
+      "sample_fraction": 0.026113448425939358,
+      "wasm_index": 86
+    },
+    {
+      "function": "primitive59",
+      "samples": 175,
+      "sample_fraction": 0.025388074858552153,
+      "wasm_index": 87
+    },
+    {
+      "function": "adapter1",
+      "samples": 114,
+      "sample_fraction": 0.01653851733642826,
+      "wasm_index": 118,
+      "binding": "list",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 204,
+        "column": 5
+      },
+      "parameters": [],
+      "context": [
+        "list"
+      ]
+    },
+    {
+      "function": "function168",
+      "samples": 70,
+      "sample_fraction": 0.010155229943420862,
+      "wasm_index": 169,
+      "binding": "loop",
+      "location": {
+        "file": "/tmp/snail-v8-gc-20261012/bootstrap/scheme/base.sld",
+        "line": 43,
+        "column": 14
+      },
+      "parameters": [
+        "i",
+        "result"
+      ],
+      "context": [
+        "run-r7rs-benchmark",
+        "loop"
+      ]
+    },
+    {
+      "function": "adapter158",
+      "samples": 55,
+      "sample_fraction": 0.007979109241259249,
+      "wasm_index": 165,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/deriv/snail-wasm/program.scm",
+        "line": 59,
+        "column": 4
+      },
+      "parameters": [],
+      "context": [
+        "hide"
+      ]
+    },
+    {
+      "function": "adapter160",
+      "samples": 53,
+      "sample_fraction": 0.0076889598143043665,
+      "wasm_index": 166,
+      "binding": null,
+      "location": {
+        "file": "build/v8-worst-five/cases/deriv/snail-wasm/program.scm",
+        "line": 62,
+        "column": 4
+      },
+      "parameters": [
+        "v",
+        "i"
+      ],
+      "context": [
+        "hide"
+      ]
+    },
+    {
+      "function": "builtin:call-with-values",
+      "samples": 35,
+      "sample_fraction": 0.005077614971710431,
+      "wasm_index": 39
+    }
+  ]
+}

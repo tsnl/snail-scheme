@@ -1,0 +1,142 @@
+{
+  "cat": {
+    "status": "ok",
+    "returncode": 0,
+    "wall_seconds": 0.7287014429748524,
+    "seconds": 0.69525901,
+    "name": "cat:50",
+    "statistics": {
+      "allocated_bytes": 58324112,
+      "gc_count": 6,
+      "cpu_seconds": 0.693167582,
+      "real_seconds": 0.695635893,
+      "gc_cpu_seconds": 0.00048307,
+      "gc_real_seconds": 0.000491597
+    },
+    "cat_bytes_check": {
+      "bytes": 4460056,
+      "input_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+    },
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-v8-gc-20261012/build/chez-statistics.ss",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez/program.so",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez/input.txt"
+    ],
+    "artifact_sha256": "2c4836c8710231367af1d1e75759a8f27286b49cab99adf3698dafe263a56cc6",
+    "scope": "Full invocation inside load, after statistics setup; includes initialization and checking. Separate diagnostic, not a clean comparative timing sample."
+  },
+  "lattice": {
+    "status": "ok",
+    "returncode": 0,
+    "wall_seconds": 1.1876751900126692,
+    "seconds": 1.154694558,
+    "name": "lattice:44:10",
+    "statistics": {
+      "allocated_bytes": 1161260288,
+      "gc_count": 138,
+      "cpu_seconds": 1.151890466,
+      "real_seconds": 1.155107105,
+      "gc_cpu_seconds": 0.001607982,
+      "gc_real_seconds": 0.001677718
+    },
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-v8-gc-20261012/build/chez-statistics.ss",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez/program.so",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez/input.txt"
+    ],
+    "artifact_sha256": "1ea0eb0400aeee3540f492ba85360d5d1af4640345b01848166c0df4501d6e45",
+    "scope": "Full invocation inside load, after statistics setup; includes initialization and checking. Separate diagnostic, not a clean comparative timing sample."
+  },
+  "wc": {
+    "status": "ok",
+    "returncode": 0,
+    "wall_seconds": 0.6792001069989055,
+    "seconds": 0.646180195,
+    "name": "wc:inputs/bib:50",
+    "statistics": {
+      "allocated_bytes": 29670800,
+      "gc_count": 3,
+      "cpu_seconds": 0.644924452,
+      "real_seconds": 0.646555939,
+      "gc_cpu_seconds": 0.000356631,
+      "gc_real_seconds": 0.000360477
+    },
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-v8-gc-20261012/build/chez-statistics.ss",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez/program.so",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez/input.txt"
+    ],
+    "artifact_sha256": "750a10c9508e3a4710ff7244e4759c2cf2d8aa8d5234d5c8ece2841c4c1f7c27",
+    "scope": "Full invocation inside load, after statistics setup; includes initialization and checking. Separate diagnostic, not a clean comparative timing sample."
+  },
+  "graphs": {
+    "status": "ok",
+    "returncode": 0,
+    "wall_seconds": 0.7963150299910922,
+    "seconds": 0.763391025,
+    "name": "graphs:7:3",
+    "statistics": {
+      "allocated_bytes": 7419787424,
+      "gc_count": 884,
+      "cpu_seconds": 0.760158568,
+      "real_seconds": 0.763813515,
+      "gc_cpu_seconds": 0.100501772,
+      "gc_real_seconds": 0.101444251
+    },
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-v8-gc-20261012/build/chez-statistics.ss",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez/program.so",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez/input.txt"
+    ],
+    "artifact_sha256": "5e1b125cceb62662fa8d88061cdb0e4cee3c2ef09e9bdb5585b726c46b0530dd",
+    "scope": "Full invocation inside load, after statistics setup; includes initialization and checking. Separate diagnostic, not a clean comparative timing sample."
+  },
+  "deriv": {
+    "status": "ok",
+    "returncode": 0,
+    "wall_seconds": 0.44983075399068184,
+    "seconds": 0.4174845,
+    "name": "deriv:10000000",
+    "statistics": {
+      "allocated_bytes": 8161253984,
+      "gc_count": 970,
+      "cpu_seconds": 0.41664766,
+      "real_seconds": 0.417853642,
+      "gc_cpu_seconds": 0.006557891,
+      "gc_real_seconds": 0.006951736
+    },
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-v8-gc-20261012/build/chez-statistics.ss",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez/program.so",
+      "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez/input.txt"
+    ],
+    "artifact_sha256": "5531caa482569323627ab18b7c3acc32000761bda8abcbacbc664d86538ddac5",
+    "scope": "Full invocation inside load, after statistics setup; includes initialization and checking. Separate diagnostic, not a clean comparative timing sample."
+  }
+}

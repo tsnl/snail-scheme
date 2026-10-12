@@ -1,0 +1,181 @@
+# Executable byte range [0, 295)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000000 <.data>:
+   0:	48 83 fd 02          	cmp    $0x2,%rbp
+   4:	0f 85 69 02 00 00    	jne    0x273
+   a:	4c 89 c1             	mov    %r8,%rcx
+   d:	48 89 ca             	mov    %rcx,%rdx
+  10:	48 83 e2 07          	and    $0x7,%rdx
+  14:	48 83 fa 07          	cmp    $0x7,%rdx
+  18:	0f 85 c8 01 00 00    	jne    0x1e6
+  1e:	48 8b 51 01          	mov    0x1(%rcx),%rdx
+  22:	48 81 e2 ff 05 00 00 	and    $0x5ff,%rdx
+  29:	48 81 fa de 01 00 00 	cmp    $0x1de,%rdx
+  30:	0f 85 b0 01 00 00    	jne    0x1e6
+  36:	48 8b 51 19          	mov    0x19(%rcx),%rdx
+  3a:	48 83 fa 00          	cmp    $0x0,%rdx
+  3e:	0f 84 a2 01 00 00    	je     0x1e6
+  44:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  48:	48 89 71 19          	mov    %rsi,0x19(%rcx)
+  4c:	48 8b 71 31          	mov    0x31(%rcx),%rsi
+  50:	8b 2c 16             	mov    (%rsi,%rdx,1),%ebp
+  53:	48 83 fd 36          	cmp    $0x36,%rbp
+  57:	0f 84 7e 01 00 00    	je     0x1db
+  5d:	49 83 6e 68 01       	subq   $0x1,0x68(%r14)
+  62:	0f 84 27 01 00 00    	je     0x18f
+  68:	48 89 ea             	mov    %rbp,%rdx
+  6b:	48 81 e2 ff 00 00 00 	and    $0xff,%rdx
+  72:	48 83 fa 16          	cmp    $0x16,%rdx
+  76:	0f 85 cc 00 00 00    	jne    0x148
+  7c:	48 89 fa             	mov    %rdi,%rdx
+  7f:	48 83 e2 07          	and    $0x7,%rdx
+  83:	48 83 fa 07          	cmp    $0x7,%rdx
+  87:	0f 85 bb 00 00 00    	jne    0x148
+  8d:	48 8b 57 01          	mov    0x1(%rdi),%rdx
+  91:	48 81 e2 ff 06 00 00 	and    $0x6ff,%rdx
+  98:	48 81 fa de 02 00 00 	cmp    $0x2de,%rdx
+  9f:	0f 85 a3 00 00 00    	jne    0x148
+  a5:	48 8b 57 11          	mov    0x11(%rdi),%rdx
+  a9:	48 83 fa 00          	cmp    $0x0,%rdx
+  ad:	0f 84 95 00 00 00    	je     0x148
+  b3:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  b7:	48 89 77 11          	mov    %rsi,0x11(%rdi)
+  bb:	48 8b 77 21          	mov    0x21(%rdi),%rsi
+  bf:	89 2c 16             	mov    %ebp,(%rsi,%rdx,1)
+  c2:	48 89 ca             	mov    %rcx,%rdx
+  c5:	48 83 e2 07          	and    $0x7,%rdx
+  c9:	48 83 fa 07          	cmp    $0x7,%rdx
+  cd:	75 32                	jne    0x101
+  cf:	48 8b 51 01          	mov    0x1(%rcx),%rdx
+  d3:	48 81 e2 ff 05 00 00 	and    $0x5ff,%rdx
+  da:	48 81 fa de 01 00 00 	cmp    $0x1de,%rdx
+  e1:	75 1e                	jne    0x101
+  e3:	48 8b 51 19          	mov    0x19(%rcx),%rdx
+  e7:	48 83 fa 00          	cmp    $0x0,%rdx
+  eb:	74 14                	je     0x101
+  ed:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  f1:	48 89 71 19          	mov    %rsi,0x19(%rcx)
+  f5:	48 8b 71 31          	mov    0x31(%rcx),%rsi
+  f9:	8b 2c 16             	mov    (%rsi,%rdx,1),%ebp
+  fc:	e9 52 ff ff ff       	jmp    0x53
+ 101:	49 89 c8             	mov    %rcx,%r8
+ 104:	49 89 4d 08          	mov    %rcx,0x8(%r13)
+ 108:	49 89 7d 10          	mov    %rdi,0x10(%r13)
+ 10c:	49 83 c5 18          	add    $0x18,%r13
+ 110:	48 8d 0d 20 00 00 00 	lea    0x20(%rip),%rcx        # 0x137
+ 117:	49 89 4d 00          	mov    %rcx,0x0(%r13)
+ 11b:	e9 10 09 14 00       	jmp    0x140a30
+ 120:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+# Executable byte range [311, 366)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000137 <.data+0x137>:
+ 137:	49 83 ed 18          	sub    $0x18,%r13
+ 13b:	49 8b 4d 08          	mov    0x8(%r13),%rcx
+ 13f:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+ 143:	e9 0b ff ff ff       	jmp    0x53
+ 148:	49 89 e8             	mov    %rbp,%r8
+ 14b:	49 89 4d 08          	mov    %rcx,0x8(%r13)
+ 14f:	49 89 7d 10          	mov    %rdi,0x10(%r13)
+ 153:	49 83 c5 18          	add    $0x18,%r13
+ 157:	48 8d 0d 20 00 00 00 	lea    0x20(%rip),%rcx        # 0x17e
+ 15e:	49 89 4d 00          	mov    %rcx,0x0(%r13)
+ 162:	e9 e9 0d 14 00       	jmp    0x140f50
+ 167:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+# Executable byte range [382, 438)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+000000000000017e <.data+0x17e>:
+ 17e:	49 83 ed 18          	sub    $0x18,%r13
+ 182:	49 8b 4d 08          	mov    0x8(%r13),%rcx
+ 186:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+ 18a:	e9 33 ff ff ff       	jmp    0xc2
+ 18f:	49 89 4d 08          	mov    %rcx,0x8(%r13)
+ 193:	49 89 7d 10          	mov    %rdi,0x10(%r13)
+ 197:	49 89 6d 18          	mov    %rbp,0x18(%r13)
+ 19b:	49 83 c5 20          	add    $0x20,%r13
+ 19f:	48 8d 0d 20 00 00 00 	lea    0x20(%rip),%rcx        # 0x1c6
+ 1a6:	49 89 4d 00          	mov    %rcx,0x0(%r13)
+ 1aa:	e9 31 14 14 00       	jmp    0x1415e0
+ 1af:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+# Executable byte range [454, 528)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+00000000000001c6 <.data+0x1c6>:
+ 1c6:	49 83 ed 20          	sub    $0x20,%r13
+ 1ca:	49 8b 4d 08          	mov    0x8(%r13),%rcx
+ 1ce:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+ 1d2:	49 8b 6d 18          	mov    0x18(%r13),%rbp
+ 1d6:	e9 8d fe ff ff       	jmp    0x68
+ 1db:	48 c7 c5 2e 00 00 00 	mov    $0x2e,%rbp
+ 1e2:	41 ff 65 00          	jmp    *0x0(%r13)
+ 1e6:	49 83 6e 68 01       	subq   $0x1,0x68(%r14)
+ 1eb:	75 3f                	jne    0x22c
+ 1ed:	49 89 4d 08          	mov    %rcx,0x8(%r13)
+ 1f1:	49 89 7d 10          	mov    %rdi,0x10(%r13)
+ 1f5:	49 83 c5 18          	add    $0x18,%r13
+ 1f9:	48 8d 0d 20 00 00 00 	lea    0x20(%rip),%rcx        # 0x220
+ 200:	49 89 4d 00          	mov    %rcx,0x0(%r13)
+ 204:	e9 d7 13 14 00       	jmp    0x1415e0
+ 209:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+# Executable byte range [544, 594)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000220 <.data+0x220>:
+ 220:	49 83 ed 18          	sub    $0x18,%r13
+ 224:	49 8b 4d 08          	mov    0x8(%r13),%rcx
+ 228:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+ 22c:	49 89 c8             	mov    %rcx,%r8
+ 22f:	49 89 4d 08          	mov    %rcx,0x8(%r13)
+ 233:	49 89 7d 10          	mov    %rdi,0x10(%r13)
+ 237:	49 83 c5 18          	add    $0x18,%r13
+ 23b:	48 8d 0d 20 00 00 00 	lea    0x20(%rip),%rcx        # 0x262
+ 242:	49 89 4d 00          	mov    %rcx,0x0(%r13)
+ 246:	e9 e5 07 14 00       	jmp    0x140a30
+ 24b:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+# Executable byte range [610, 639)
+
+
+/tmp/snail-chez-disassembly-20261012/audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000262 <.data+0x262>:
+ 262:	49 83 ed 18          	sub    $0x18,%r13
+ 266:	49 8b 4d 08          	mov    0x8(%r13),%rcx
+ 26a:	49 8b 7d 10          	mov    0x10(%r13),%rdi
+ 26e:	e9 e0 fd ff ff       	jmp    0x53
+ 273:	e9 18 79 14 00       	jmp    0x147b90
+ 278:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)

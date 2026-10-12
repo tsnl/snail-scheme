@@ -1,0 +1,64 @@
+
+audit/chez/copy-characters.bin:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000000 <.data>:
+   0:	48 83 fd 02          	cmp    $0x2,%rbp
+   4:	0f 85 69 02 00 00    	jne    0x273
+   a:	4c 89 c1             	mov    %r8,%rcx
+   d:	48 89 ca             	mov    %rcx,%rdx
+  10:	48 83 e2 07          	and    $0x7,%rdx
+  14:	48 83 fa 07          	cmp    $0x7,%rdx
+  18:	0f 85 c8 01 00 00    	jne    0x1e6
+  1e:	48 8b 51 01          	mov    0x1(%rcx),%rdx
+  22:	48 81 e2 ff 05 00 00 	and    $0x5ff,%rdx
+  29:	48 81 fa de 01 00 00 	cmp    $0x1de,%rdx
+  30:	0f 85 b0 01 00 00    	jne    0x1e6
+  36:	48 8b 51 19          	mov    0x19(%rcx),%rdx
+  3a:	48 83 fa 00          	cmp    $0x0,%rdx
+  3e:	0f 84 a2 01 00 00    	je     0x1e6
+  44:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  48:	48 89 71 19          	mov    %rsi,0x19(%rcx)
+  4c:	48 8b 71 31          	mov    0x31(%rcx),%rsi
+  50:	8b 2c 16             	mov    (%rsi,%rdx,1),%ebp
+  53:	48 83 fd 36          	cmp    $0x36,%rbp
+  57:	0f 84 7e 01 00 00    	je     0x1db
+  5d:	49 83 6e 68 01       	subq   $0x1,0x68(%r14)
+  62:	0f 84 27 01 00 00    	je     0x18f
+  68:	48 89 ea             	mov    %rbp,%rdx
+  6b:	48 81 e2 ff 00 00 00 	and    $0xff,%rdx
+  72:	48 83 fa 16          	cmp    $0x16,%rdx
+  76:	0f 85 cc 00 00 00    	jne    0x148
+  7c:	48 89 fa             	mov    %rdi,%rdx
+  7f:	48 83 e2 07          	and    $0x7,%rdx
+  83:	48 83 fa 07          	cmp    $0x7,%rdx
+  87:	0f 85 bb 00 00 00    	jne    0x148
+  8d:	48 8b 57 01          	mov    0x1(%rdi),%rdx
+  91:	48 81 e2 ff 06 00 00 	and    $0x6ff,%rdx
+  98:	48 81 fa de 02 00 00 	cmp    $0x2de,%rdx
+  9f:	0f 85 a3 00 00 00    	jne    0x148
+  a5:	48 8b 57 11          	mov    0x11(%rdi),%rdx
+  a9:	48 83 fa 00          	cmp    $0x0,%rdx
+  ad:	0f 84 95 00 00 00    	je     0x148
+  b3:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  b7:	48 89 77 11          	mov    %rsi,0x11(%rdi)
+  bb:	48 8b 77 21          	mov    0x21(%rdi),%rsi
+  bf:	89 2c 16             	mov    %ebp,(%rsi,%rdx,1)
+  c2:	48 89 ca             	mov    %rcx,%rdx
+  c5:	48 83 e2 07          	and    $0x7,%rdx
+  c9:	48 83 fa 07          	cmp    $0x7,%rdx
+  cd:	75 32                	jne    0x101
+  cf:	48 8b 51 01          	mov    0x1(%rcx),%rdx
+  d3:	48 81 e2 ff 05 00 00 	and    $0x5ff,%rdx
+  da:	48 81 fa de 01 00 00 	cmp    $0x1de,%rdx
+  e1:	75 1e                	jne    0x101
+  e3:	48 8b 51 19          	mov    0x19(%rcx),%rdx
+  e7:	48 83 fa 00          	cmp    $0x0,%rdx
+  eb:	74 14                	je     0x101
+  ed:	48 8d 72 04          	lea    0x4(%rdx),%rsi
+  f1:	48 89 71 19          	mov    %rsi,0x19(%rcx)
+  f5:	48 8b 71 31          	mov    0x31(%rcx),%rsi
+  f9:	8b 2c 16             	mov    (%rsi,%rdx,1),%ebp
+  fc:	e9 52 ff ff ff       	jmp    0x53

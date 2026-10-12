@@ -1,0 +1,4 @@
+Chez Scheme Version 10.4.1; machine ta6le; safe optimize-level 2
+copy-characters: 639 code bytes
+invoke-callback: 79 code bytes
+representative checks passed
