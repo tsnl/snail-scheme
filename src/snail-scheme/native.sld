@@ -1,15 +1,17 @@
-;; Native compilation consumes in-memory Wasm datums. Public builds own publication;
+;; Native compilation optimizes Wasm datums. Public builds own publication;
 ;; compile-native writes into a caller-owned workspace for composing build scripts.
 (define-library (snail-scheme native)
   (export build-native compile-native native-runtime-path run-script)
   (import (scheme base) (scheme cxr) (scheme process-context)
           (snail-scheme compile-build) (snail-scheme native-link) (snail-scheme build)
-          (snail-scheme build-host) (snail-scheme chromium-trace) (snail-scheme artifacts) (snail artifacts))
+          (snail-scheme build-host) (snail-scheme wasm-optimize)
+          (snail-scheme chromium-trace) (snail-scheme artifacts) (snail artifacts))
   (begin
 
     ;; This stage neither reserves a workspace nor publishes an artifact.
     ;; Entry #f evaluates an ordinary script; a symbol selects a zero-argument handler.
     (define (compile-native root input directory output entry libraries)
+      (check-binaryen-tools 'native)
       (let* ((root (absolute-path root))
              (compiled (source-file->compilation root input directory build-host-imports libraries entry)))
         (link-native root (compilation-wasm compiled) directory output)

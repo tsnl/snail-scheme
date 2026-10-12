@@ -12,8 +12,9 @@
       (names space-names) (count space-count set-space-count!))
 
     (define-record-type <context>
-      (make-context types aliases functions globals tables indices) context?
+      (make-context types groups aliases functions globals tables indices) context?
       (types context-types set-context-types!)
+      (groups context-groups set-context-groups!)
       (aliases context-aliases set-context-aliases!)
       (functions context-functions) (globals context-globals) (tables context-tables)
       (indices context-indices))
@@ -51,23 +52,32 @@
       (let ((entry (assq name (context-aliases context))))
         (if entry (cdr entry) (error "unknown or forward Wasm type" name))))
 
-    (define (heap-type value context self)
-      (cond ((and self (eq? value self)) 'self)
+    (define (heap-type value context)
+      ;; Binaryen prints inferred exact annotations even with descriptors off.
+      ;; Every accepted concrete type is final, so exact and ordinary tests
+      ;; coincide. Nonfinal/subtype declarations still fail in composite-type.
+      (cond ((and (pair? value) (eq? (car value) 'exact) (= (length value) 2))
+             (heap-type (cadr value) context))
             ((identifier? value) (type-index context value))
             ((memq value '(any eq i31 struct array func none nofunc)) value)
             (else (error "unsupported Wasm heap type" value))))
 
-    (define (resolve-type value context self)
+    (define (resolve-type value context)
       (cond ((memq value '(i32 i64 f32 f64 i8 i16)) value)
             ((eq? value 'eqref) '(ref null eq))
             ((eq? value 'funcref) '(ref null func))
             ((eq? value 'anyref) '(ref null any))
+            ((eq? value 'i31ref) '(ref null i31))
+            ((eq? value 'structref) '(ref null struct))
+            ((eq? value 'arrayref) '(ref null array))
+            ((eq? value 'nullref) '(ref null none))
+            ((eq? value 'nullfuncref) '(ref null nofunc))
             ((and (pair? value) (eq? (car value) 'mut) (= (length value) 2))
-             (list 'mut (resolve-type (cadr value) context self)))
+             (list 'mut (resolve-type (cadr value) context)))
             ((and (pair? value) (eq? (car value) 'ref))
-             (cond ((= (length value) 2) (list 'ref (heap-type (cadr value) context self)))
+             (cond ((= (length value) 2) (list 'ref (heap-type (cadr value) context)))
                    ((and (= (length value) 3) (eq? (cadr value) 'null))
-                    (list 'ref 'null (heap-type (caddr value) context self)))
+                    (list 'ref 'null (heap-type (caddr value) context)))
                    (else (error "invalid Wasm reference type" value))))
             (else (error "unsupported Wasm value type" value))))
 
@@ -78,50 +88,72 @@
                (loop (cdr rest) (cons (car rest) found)))
               (else (loop (cdr rest) found)))))
 
-    (define (declaration-types fields tag context self)
+    (define (declaration-types fields tag context)
       (apply append
              (map (lambda (node)
-                    (map (lambda (type) (resolve-type type context self)) (node-fields node)))
+                    (map (lambda (type) (resolve-type type context)) (node-fields node)))
                   (declarations fields tag))))
 
-    (define (signature fields context self)
-      (let ((results (declaration-types fields 'result context self)))
+    (define (signature fields context)
+      (let ((results (declaration-types fields 'result context)))
         (when (> (length results) 1) (error "native multivalue Wasm signatures are unsupported"))
-        (list 'func (declaration-types fields 'param context self) results)))
+        (list 'func (declaration-types fields 'param context) results)))
 
-    (define (composite-type node context self)
+    (define (composite-type node context)
       (case (car node)
-        ((func) (signature (cdr node) context self))
-        ((struct) (cons 'struct (declaration-types (cdr node) 'field context self)))
+        ((func) (signature (cdr node) context))
+        ((struct) (cons 'struct (declaration-types (cdr node) 'field context)))
         ((array) (unless (= (length node) 2) (error "invalid Wasm array type" node))
-         (list 'array (resolve-type (cadr node) context self)))
+         (list 'array (resolve-type (cadr node) context)))
         (else (error "unsupported Wasm composite type" node))))
 
-    ;; Each emitted type is a final singleton recursion group. Canonical keys
-    ;; replace the group's own reference with self and earlier references with
-    ;; canonical indices. Equal keys share one identity, including self cycles.
-    ;; Explicit rec groups, forward references and subtyping are not generated.
-    (define (intern-type! context definition)
-      (let ((found (assoc definition (context-types context))))
-        (if found (cdr found)
-            (let ((index (length (context-types context))))
-              (set-context-types! context (cons (cons definition index) (context-types context)))
-              index))))
+    ;; Canonical identity belongs to the ordered recursion group, not a member's
+    ;; structure alone. Inside references use (group position); outside ones use
+    ;; earlier canonical indices. A singleton cannot merge with a larger group.
+    (define (replace-group value indices)
+      (cond ((and (pair? value) (eq? (car value) 'group)) (list-ref indices (cadr value)))
+            ((pair? value) (map (lambda (item) (replace-group item indices)) value))
+            (else value)))
 
-    (define (register-type! context node)
+    (define (group-indices start definitions)
+      (let loop ((rest definitions) (index start) (indices '()))
+        (if (null? rest) (reverse indices)
+            (loop (cdr rest) (+ index 1) (cons index indices)))))
+
+    (define (intern-group! context definitions)
+      (let ((prior (assoc definitions (context-groups context))))
+        (if prior (cdr prior)
+            (let ((indices (group-indices (length (context-types context)) definitions)))
+              (for-each (lambda (definition index)
+                          (set-context-types! context
+                                              (cons (cons (replace-group definition indices) index) (context-types context))))
+                        definitions indices)
+              (set-context-groups! context (cons (cons definitions indices) (context-groups context)))
+              indices))))
+
+    (define (register-group-name! context node position)
       (unless (and (= (length node) 3) (node-name node)) (error "expected a named Wasm type" node))
       (let ((name (cadr node)))
         (when (assq name (context-aliases context)) (error "duplicate Wasm type" name))
-        (let ((index (intern-type! context (composite-type (caddr node) context name))))
-          (set-context-aliases! context (cons (cons name index) (context-aliases context))))))
+        (let ((alias (cons name (list 'group position))))
+          (set-context-aliases! context (cons alias (context-aliases context)))
+          alias)))
 
-    (define (replace-self value index)
-      (cond ((eq? value 'self) index)
-            ((pair? value) (map (lambda (item) (replace-self item index)) value))
-            (else value)))
+    (define (register-type-group! context nodes)
+      (when (null? nodes) (error "empty Wasm recursion group"))
+      (let* ((positions (group-indices 0 nodes))
+             (aliases (map (lambda (node position) (register-group-name! context node position)) nodes positions))
+             (definitions (map (lambda (node) (composite-type (caddr node) context)) nodes))
+             (indices (intern-group! context definitions)))
+        (for-each (lambda (alias index) (set-cdr! alias index)) aliases indices)))
+
+    (define (register-type! context node)
+      (case (car node)
+        ((type) (register-type-group! context (list node)))
+        ((rec) (register-type-group! context (cdr node)))))
 
     (define (type-declarations context)
-      (map (lambda (entry) (list 'type (cdr entry) (replace-self (car entry) (cdr entry))))
+      (map (lambda (entry) (list 'type (cdr entry) (car entry)))
            (reverse (context-types context))))
 
     ;; ---- Declarations and function headers ----
@@ -160,23 +192,18 @@
         space))
 
     (define (function-signature fields context)
-      (let* ((definition (signature fields context #f)) (uses (declarations fields 'type))
-             (index (intern-signature! context definition)))
-        (when (pair? uses)
-          (unless (and (= (length uses) 1) (= index (type-index context (cadar uses))))
-            (error "Wasm function type use does not match signature" fields)))
-        index))
-
-    (define (intern-signature! context definition)
-      (let loop ((types (reverse (context-types context))))
-        (cond ((null? types) (intern-type! context definition))
-              ((equal? definition (replace-self (caar types) (cdar types))) (cdar types))
-              (else (loop (cdr types))))))
+      (let ((definition (signature fields context)) (uses (declarations fields 'type)))
+        (if (null? uses) (car (intern-group! context (list definition)))
+            (let ((index (type-index context (cadar uses))))
+              (unless (and (= (length uses) 1)
+                           (equal? definition (car (list-ref (reverse (context-types context)) index))))
+                (error "Wasm function type use does not match signature" fields))
+              index))))
 
     (define (resolve-function node context)
       (let* ((fields (node-fields node)) (index (declaration-index context node))
              (type (function-signature fields context)))
-        (list 'func index type (declaration-types fields 'local context #f)
+        (list 'func index type (declaration-types fields 'local context)
               (make-body (function-forms fields) context (function-locals fields) (node-name node)))))
 
     (define (function-names node context)
@@ -189,20 +216,20 @@
     (define (resolve-global node context)
       (let* ((fields (node-fields node))
              (fields (if (and (pair? (car fields)) (eq? (caar fields) 'export)) (cdr fields) fields)))
-        (list 'global (declaration-index context node) (resolve-type (car fields) context #f)
+        (list 'global (declaration-index context node) (resolve-type (car fields) context)
               (reverse (lower-expressions (cdr fields) context (make-space (make-hash-table eq?) 0) '() '())))))
 
     (define (resolve-table node context)
       (let* ((fields (node-fields node)) (minimum (car fields))
              (maximum (if (= (length fields) 3) (cadr fields) 4294967295))
-             (type (resolve-type (car (reverse fields)) context #f)))
+             (type (resolve-type (car (reverse fields)) context)))
         (unless (and (<= 0 minimum maximum 4294967295) (pair? type) (eq? (cadr type) 'null))
           (error "unsupported Wasm table" node))
         (list 'table (declaration-index context node) minimum maximum type)))
 
     (define (resolve-declaration node context)
       (case (car node)
-        ((type) '())
+        ((type rec) '())
         ((import)
          (unless (eq? (car (cadddr node)) 'func) (error "expected a Wasm function import" node))
          (let ((function (resolve-function (cadddr node) context)))
@@ -219,19 +246,27 @@
          (resolve-element node context))
         (else (error "unsupported generated Wasm declaration" node))))
 
+    ;; Binaryen can name the segment, omit its default table, and omit the func
+    ;; keyword for a function-name list. These spellings have the same behavior.
     (define (resolve-element node context)
-      (cond ((equal? (list (cadr node) (caddr node)) '(declare func))
-             (for-each (lambda (name) (index-of (context-functions context) name)) (cdddr node)) '())
-            ((and (pair? (cadr node)) (eq? (caadr node) 'table) (eq? (cadddr node) 'func))
-             (list (list 'elem (index-of (context-tables context) (cadadr node))
-                         (reverse (lower-expressions (list (caddr node)) context (make-space (make-hash-table eq?) 0) '() '()))
-                         (map (lambda (name) (index-of (context-functions context) name)) (cddddr node)))))
-            (else (error "unsupported Wasm element segment" node))))
+      (let ((fields (node-fields node)))
+        (cond ((and (eq? (car fields) 'declare) (eq? (cadr fields) 'func))
+               (for-each (lambda (name) (index-of (context-functions context) name)) (cddr fields)) '())
+              ((and (pair? (car fields)) (eq? (caar fields) 'table))
+               (resolve-active-element (cdr fields) (cadar fields) context))
+              (else (resolve-active-element fields 0 context)))))
+
+    (define (resolve-active-element fields table context)
+      (unless (and (pair? fields) (pair? (car fields))) (error "unsupported Wasm active element" fields))
+      (let ((names (if (and (pair? (cdr fields)) (eq? (cadr fields) 'func)) (cddr fields) (cdr fields))))
+        (list (list 'elem (index-of (context-tables context) table)
+                    (reverse (lower-expressions (list (car fields)) context (make-space (make-hash-table eq?) 0) '() '()))
+                    (map (lambda (name) (index-of (context-functions context) name)) names)))))
 
     (define (resolve-wasm datum)
       (unless (and (pair? datum) (eq? (car datum) 'module)) (error "expected a Wasm module datum"))
-      (let ((context (make-context '() '() (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-hash-table eq?))))
-        (for-each (lambda (node) (register-type! context node)) (declarations (cdr datum) 'type))
+      (let ((context (make-context '() '() '() (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-hash-table eq?))))
+        (for-each (lambda (node) (register-type! context node)) (cdr datum))
         (for-each (lambda (node) (register-declaration! context node)) (cdr datum))
         (let ((nodes (apply append (map (lambda (node) (resolve-declaration node context)) (cdr datum)))))
           (append (type-declarations context) nodes))))
@@ -263,7 +298,7 @@
              (result? (and (pair? fields) (pair? (car fields)) (eq? (caar fields) 'result))))
         (when (and result? (not (= (length (car fields)) 2)))
           (error "unsupported Wasm control result" (car fields)))
-        (cons (if result? (resolve-type (cadar fields) context #f) 'void)
+        (cons (if result? (resolve-type (cadar fields) context) 'void)
               (if result? (cdr fields) fields))))
 
     (define (lower-control node context locals labels output)
@@ -308,23 +343,36 @@
           ((br br_if) (indexed-operation node (branch-index (car args) labels)))
           ((br_table) (branch-table-parts args labels))
           ((call_indirect return_call_indirect)
-           (unless (and (pair? (cadr args)) (eq? (caadr args) 'type))
-             (error "expected indirect call type use" node))
-           (cons (list op (index-of (context-tables context) (car args))
-                       (type-index context (cadadr args))) (cddr args)))
+           (indirect-call-parts node context))
           ((call_ref return_call_ref struct.new struct.new_default array.new array.new_default array.get array.get_s array.get_u array.set)
            (indexed-operation node (type-index context (car args))))
           ((table.get table.set table.size table.grow) (indexed-operation node (index-of (context-tables context) (car args))))
           ((struct.get struct.get_s struct.get_u struct.set array.new_fixed)
            (cons (list op (type-index context (car args)) (cadr args)) (cddr args)))
           ((array.copy) (cons (list op (type-index context (car args)) (type-index context (cadr args))) (cddr args)))
-          ((ref.test ref.cast) (cons (list op (resolve-type (car args) context #f)) (cdr args)))
-          ((ref.null) (cons (list op (heap-type (car args) context #f)) (cdr args)))
+          ((ref.test ref.cast) (cons (list op (resolve-type (car args) context)) (cdr args)))
+          ((ref.null) (cons (list op (heap-type (car args) context)) (cdr args)))
           ((i32.const i64.const f64.const) (cons (list op (car args)) (cdr args)))
-          ((unreachable nop drop return select ref.i31 i31.get_s i31.get_u ref.as_non_null ref.eq ref.is_null array.len)
+          ((select)
+           (if (and (pair? args) (pair? (car args)) (eq? (caar args) 'result))
+               (begin
+                 (unless (= (length (car args)) 2) (error "unsupported typed Wasm select" node))
+                 (resolve-type (cadar args) context)
+                 (cons (list op) (cdr args)))
+               (cons (list op) args)))
+          ((unreachable nop drop return ref.i31 i31.get_s i31.get_u ref.as_non_null ref.eq ref.is_null array.len)
            (cons (list op) args))
           (else (let ((entry (assq op numeric-operations)))
                   (if entry (cons (cdr entry) args) (error "unsupported generated Wasm instruction" op)))))))
+
+    (define (indirect-call-parts node context)
+      (let* ((args (cdr node)) (implicit? (and (pair? (car args)) (eq? (caar args) 'type)))
+             (table (if implicit? 0 (car args)))
+             (type (if implicit? (car args) (cadr args))))
+        (unless (and (pair? type) (eq? (car type) 'type) (= (length type) 2))
+          (error "expected indirect call type use" node))
+        (cons (list (car node) (index-of (context-tables context) table) (type-index context (cadr type)))
+              (if implicit? (cdr args) (cddr args)))))
 
     ;; ---- Numeric operation metadata ----
 
@@ -371,7 +419,7 @@
                                 (type $words (array (mut i32)))))
          '((type 0 (struct (ref null 0))) (type 1 (struct (ref null 0)))
            (type 2 (array (mut i8))) (type 3 (array (mut i32)))))
-        (let ((context (make-context '() '() #f #f #f (make-hash-table eq?))))
+        (let ((context (make-context '() '() '() #f #f #f (make-hash-table eq?))))
           (register-type! context '(type $f (func (param (ref $f)))))
           (expect (function-signature '((type $f) (param (ref $f))) context) 0)))
 
@@ -387,6 +435,24 @@
           (expect (lower-wasm-body (car (cddddr function)))
                   '((local.get 0) (block i32) (i32.const 9) (local.set 0) (local.get 0)
                     (call 0) (end) (numeric "i32" add 2) (end)))))
+
+      (define (test-recursive-groups)
+        (let* ((nodes (resolve-wasm
+                       '(module
+                         (rec (type $a (struct (field (ref null $b))))
+                              (type $b (struct (field (ref null $a)))))
+                         (rec (type $x (struct (field (ref null $y))))
+                              (type $y (struct (field (ref null $x)))))
+                         (type $single (struct (field (ref null $single)))))))
+               (types (declarations nodes 'type)))
+          (expect types '((type 0 (struct (ref null 1))) (type 1 (struct (ref null 0)))
+                          (type 2 (struct (ref null 2))))))
+        (let* ((nodes (resolve-wasm
+                       '(module (rec (type $box (struct)) (type $f (func (param i32) (result i32))))
+                                (func $grouped (type $f) (param i32) (result i32) (local.get 0))
+                                (func $single (param i32) (result i32) (local.get 0)))))
+               (functions (declarations nodes 'func)))
+          (expect (map caddr functions) '(1 2))))
 
       (define (test-label-scope)
         (let* ((module (resolve-wasm
@@ -412,6 +478,7 @@
 
       (define (test-wasm-resolve)
         (run-test test-canonical-types)
+        (run-test test-recursive-groups)
         (run-test test-folded-order)
         (run-test test-label-scope)
         (run-test test-resolution-errors))))))
