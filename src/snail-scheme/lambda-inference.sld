@@ -3,7 +3,8 @@
 ;; A caller may use a summary only after its arguments satisfy that summary.
 (define-library (snail-scheme lambda-inference)
   (export make-lambda-inference inferred-type inferred-lambda-type known-lambda
-          inferred-call-type inference-binding-type inference-procedure-type inference-assigned?)
+          inferred-call-type inference-binding-type inference-procedure-type inference-assigned?
+          known-callee inference-primitive? inferred-primitive-type)
   (import (scheme base) (scheme cxr) (snail-scheme types)
           (snail-scheme type-inference) (snail-scheme type-analysis) (snail-scheme wasm-intrinsics)
           (prefix (snail-scheme ir) ir:))
@@ -44,6 +45,21 @@
                (resolve (lookup (ir:name-definition node) (typing-bindings (state-typing state)) #f)
                         (cons (ir:name-definition node) visited)))
               (else #f))))
+
+    (define (inference-primitive? definition state)
+      (and (memq definition (typing-primitives (state-typing state))) #t))
+    ;; A binding identifies implementation code, never a particular closure's
+    ;; captures. Aliases may preserve that code identity only while immutable.
+    (define (known-callee node state)
+      (let resolve ((node node) (seen '()))
+        (cond ((ir:annotation? node) (resolve (ir:annotation-expression node) seen))
+              ((ir:instantiation? node) (resolve (ir:instantiation-expression node) seen))
+              ((not (ir:name? node)) #f)
+              (else (let* ((definition (ir:name-definition node))
+                           (initializer (lookup definition (typing-bindings (state-typing state)) #f)))
+                      (and (not (assigned? definition state)) (not (memq definition seen))
+                           (if (or (inference-primitive? definition state) (ir:lambda? initializer)) definition
+                               (resolve initializer (cons definition seen)))))))))
 
     (define (inferred-lambda-type node state)
       (or (lookup node (state-summaries state) #f)
@@ -162,6 +178,8 @@
                (all-types? (cdr types) required))))
     (define (constrain-each arguments type)
       (constrain-arguments arguments (map (lambda (argument) type) arguments)))
+
+    (define (inferred-primitive-type name arguments) (primitive-result-type name arguments))
 
     (define (primitive-result-type name arguments)
       (cond ((memq name '(+ - * / quotient remainder modulo)) (numeric-result-type name arguments))

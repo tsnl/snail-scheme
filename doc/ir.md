@@ -583,7 +583,9 @@ and explicit signatures to copy concrete instances within the same resolved IR.
 Original inferred `All` instances become explicit `inst` views, and copied
 lexical contracts receive the same concrete substitutions as their bodies.
 Its internal call view retains the original evaluated procedure and selects a
-copy's code entry. It introduces neither a second expression language nor new
+copy's code entry or a proved immutable callback implementation. Rest copies
+normalize the fresh rest list to an ordinary fixed parameter. Callable identity
+does not reconstruct an absent source `All` instance. The view introduces neither a second expression language nor new
 Scheme closure identity. [`wasm-representation.sld`](../src/snail-scheme/wasm-representation.sld)
 keeps storage choices and boundary conversions explicit in emitted Wasm.
 See [the implementation report](typing-prototype.md) and

@@ -605,27 +605,22 @@
 
     ;; ---- Calls ----
 
-    (define direct-primitives
-      '((+ 2 add) (- 2 subtract) (* 2 multiply) (/ 2 divide)
-        (= 2 numeric_equal) (< 2 less) (<= 2 less_equal) (> 2 greater) (>= 2 greater_equal)
-        (eq? 2 eq) (eqv? 2 eqv) (cons 2 cons) (car 1 car) (cdr 1 cdr)
-        (procedure? 1 is_procedure) (number? 1 is_number) (exact-integer? 1 is_integer_value)
-        (null? 1 is_null) (pair? 1 is_pair)))
+    (define (primitive-binding node module)
+      (let* ((operator (ir:application-operator node))
+             (definition (cond ((ir:name? operator) (ir:name-definition operator))
+                               ((ir:specialization? operator) (ir:specialization-definition operator)) (else #f))))
+        (and (memq definition (module-primitives module)) definition)))
 
     (define (direct-primitive node module)
-      (let ((operator (ir:application-operator node)))
-        (and (ir:name? operator)
-             (memq (ir:name-definition operator) (module-primitives module))
-             (let ((entry (assq (ir:value-definition-name (ir:name-definition operator))
-                                direct-primitives)))
-               (and entry (= (cadr entry) (length (ir:application-operands node)))
-                    (string->symbol (string-append "$" (symbol->string (caddr entry)))))))))
+      (let ((definition (primitive-binding node module)))
+        (and definition (direct-primitive-helper (ir:value-definition-name definition) (length (ir:application-operands node))))))
 
     (define (known-procedure node module)
       (let resolve ((operator (ir:application-operator node)))
         (cond ((ir:lambda? operator) operator)
               ((ir:specialization? operator)
-               (resolve (ir:specialization-expression operator)))
+               (let ((entry (assq (ir:specialization-definition operator) (module-known module))))
+                 (if entry (cdr entry) (resolve (ir:specialization-expression operator)))))
               ((ir:instantiation? operator) (resolve (ir:instantiation-expression operator)))
               ((ir:annotation? operator) (resolve (ir:annotation-expression operator)))
               ((ir:name? operator)
@@ -647,9 +642,9 @@
              (copy (proved-specialization node facts context))
              (intrinsic (application-intrinsic node (function-module context)))
              (native (native-primitive node operands context)))
-        (cond (intrinsic (intrinsic-call intrinsic operands operator context))
+        (cond (intrinsic (intrinsic-call intrinsic node operands operator context))
               (native native)
-              (primitive (cons 'eqref `(call ,primitive ,@(map single-result operands))))
+              (primitive (cons 'eqref (direct-primitive-call primitive node operands operator context)))
               ((and copy (or (not tail?) (equal? (specialized-representation copy) (function-representation context))))
                (copy-call copy operands operator guards tail? context))
               (else (cons 'eqref (procedure-call node (map single-result operands) (single-result operator) facts
@@ -659,30 +654,40 @@
     ;; every operand before evaluating the operator or doing entry conversions;
     ;; a callback-origin entry therefore keeps the original closure evaluation.
     (define (application-intrinsic node module)
-      (let ((operator (ir:application-operator node)))
-        (and (ir:name? operator) (memq (ir:name-definition operator) (module-primitives module))
-             (find-intrinsic (ir:value-definition-name (ir:name-definition operator))
-                             (length (ir:application-operands node))))))
+      (let ((definition (primitive-binding node module)))
+        (and definition (find-intrinsic (ir:value-definition-name definition) (length (ir:application-operands node))))))
 
-    (define (intrinsic-call entry operands operator context)
+    (define (primitive-operator-effects node operator context)
+      (if (and (ir:name? (ir:application-operator node)) (primitive-binding node (function-module context))) '()
+          (list `(drop ,(single-result operator)))))
+
+    (define (direct-primitive-call primitive node operands operator context)
+      (let ((arguments (map (lambda (operand) (temporary! context)) operands)))
+        `(block (result eqref)
+                ,@(map (lambda (name operand) `(local.set ,name ,(single-result operand))) arguments operands)
+                ,@(primitive-operator-effects node operator context)
+                (call ,primitive ,@(map (lambda (name) `(local.get ,name)) arguments)))))
+
+    (define (intrinsic-call entry node operands operator context)
       (let* ((representations (map visited-representation operands))
              (arguments (map (lambda (representation) (temporary! context representation)) representations))
              (representation (type-representation (intrinsic-result entry)))
              (prefix (map (lambda (name value representation)
                             `(local.set ,name ,(represented-result value representation))) arguments operands representations)))
         (cons representation
-              `(block (result ,(representation-wasm representation)) ,@prefix (drop ,(single-result operator))
+              `(block (result ,(representation-wasm representation)) ,@prefix ,@(primitive-operator-effects node operator context)
                       (call ,(intrinsic-entry entry)
-                            ,@(map (lambda (name from operand type) (intrinsic-argument name from operand type context))
+                            ,@(map (lambda (name from operand type) (intrinsic-argument name from operand type))
                                    arguments representations operands (intrinsic-domains entry)))))))
 
-    (define (intrinsic-argument name representation operand type context)
+    (define (intrinsic-argument name representation operand type)
       (if (and (type-optimizations-enabled) (type-subtype? (fact-type (visited-fact operand)) type))
           (convert-representation `(local.get ,name) representation (type-representation type))
           (checked-intrinsic-argument (box-representation `(local.get ,name) representation) type)))
 
     (define (proved-specialization node arguments context)
-      (let ((copy (call-specialization node (function-module context))))
+      (let* ((copy (call-specialization node (function-module context)))
+             (arguments (if copy (copy-worker-facts copy arguments) arguments)))
         (and copy (= (length arguments) (length (specialized-arguments copy)))
              (let loop ((arguments arguments) (types (specialized-arguments copy))
                         (formal (if (specialized-signature copy) (type-arguments (specialized-signature copy))
@@ -691,6 +696,21 @@
                    (and (or (type-subtype? (fact-type (car arguments)) (car types))
                             (type-subtype? (car formal) (car types)))
                         (loop (cdr arguments) (cdr types) (cdr formal))))) copy)))
+
+    (define (copy-worker-facts copy facts)
+      (let ((source (specialized-source copy)))
+        (if (not (ir:lambda-opt-rest-parameter source)) facts
+            (let fixed ((parameters (ir:lambda-parameters source)) (facts facts))
+              (cond ((null? parameters) (list (value-fact (if (null? facts) 'Null 'Pair))))
+                    ((null? facts) '())
+                    (else (cons (car facts) (fixed (cdr parameters) (cdr facts)))))))))
+
+    (define (copy-worker-arguments copy arguments representations domains)
+      (if (ir:lambda-opt-rest-parameter (specialized-source copy))
+          (map (lambda (value to) (unbox-representation value to))
+               (worker-arguments (specialized-source copy)
+                                 (map (lambda (name from) (box-representation `(local.get ,name) from)) arguments representations)) domains)
+          (map (lambda (name from to) (convert-representation `(local.get ,name) from to)) arguments representations domains)))
 
     (define (copy-argument-representations copy module)
       (map (lambda (definition type)
@@ -711,7 +731,7 @@
              (entry (assq (specialized-procedure copy) (module-functions (function-module context))))
              (call `(call ,(identifier "specialized" (cdr entry))
                           (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,closure)))
-                          ,@(map (lambda (name from to) (convert-representation `(local.get ,name) from to)) arguments representations domains)
+                          ,@(copy-worker-arguments copy arguments representations domains)
                           ,(call-checks tail?)))
              (representation (specialized-representation copy)))
         (cons representation (if tail? (tail-call-code call prefix context)
@@ -773,16 +793,8 @@
                (then (call $fail (i32.const 2))))))
 
     (define (native-object name operand)
-      (let ((type (fact-type (visited-fact operand))))
-        (cond ((and (eq? name 'string-length) (eq? type 'String))
-               (cons 'i64 `(i64.extend_i32_u (array.len (struct.get $text_object 1 ,(represented-result operand '(ref $text_object)))))))
-              ((and (eq? name 'vector-length) (eq? type 'Vector))
-               (cons 'i64 `(i64.extend_i32_u (array.len ,(represented-result operand '(ref $vector))))))
-              ((and (eq? name 'bytevector-length) (eq? type 'Bytevector))
-               (cons 'i64 `(i64.extend_i32_u (array.len (struct.get $bytevector 0 ,(represented-result operand '(ref $bytevector)))))))
-              ((and (eq? name 'char->integer) (eq? type 'Char))
-               (cons 'i64 `(i64.extend_i32_u ,(represented-result operand '(i32 character)))))
-              (else #f))))
+      (and (eq? name 'string-length) (eq? (fact-type (visited-fact operand)) 'String)
+           (cons 'i64 `(i64.extend_i32_u (array.len (struct.get $text_object 1 ,(represented-result operand '(ref $text_object))))))))
 
     ;; Category proofs select a helper; representation tests and arithmetic
     ;; overflow remain in that helper. These facts are consumed here.
@@ -814,9 +826,17 @@
              (prefix (append (map (lambda (name operand) `(local.set ,name ,operand)) arguments operands)
                              (list `(local.set ,operator ,operator-code))
                              (argument-checks arguments facts guards context)))
+             (signature (or signature (known-procedure-signature procedure (function-module context))))
              (worker (and procedure (call-worker procedure facts signature (function-module context))))
              (call (procedure-invocation procedure worker operator arguments context tail? node)))
         (if tail? (tail-call-code call prefix context) `(block (result eqref) ,@prefix ,call))))
+
+    (define (known-procedure-signature procedure module)
+      (let find ((bindings (module-known module)))
+        (cond ((or (not procedure) (null? bindings)) #f)
+              ((eq? procedure (cdar bindings))
+               (let ((entry (assq (caar bindings) (typing-declarations (module-typing module))))) (and entry (cdr entry))))
+              (else (find (cdr bindings))))))
 
     (define (argument-checks arguments facts guards context)
       (if (null? guards) '()
@@ -831,11 +851,26 @@
         `(block (result ,(representation-wasm (function-representation context))) ,@prefix
                 ,(if (null? checks) (cons 'return_call (cdr call)) (guarded-tail-call call checks)))))
 
+    (define (matching-worker-arity? procedure count)
+      (let ((required (length (ir:lambda-parameters procedure))))
+        (if (ir:lambda-opt-rest-parameter procedure) (>= count required) (= count required))))
+
+    ;; Rest workers already have one physical rest-list parameter. Known calls
+    ;; build its fresh spine directly from held arguments, after all evaluations,
+    ;; avoiding an intermediate argv vector without sharing a mutable rest list.
+    (define (worker-arguments procedure arguments)
+      (if (not (ir:lambda-opt-rest-parameter procedure)) arguments
+          (let fixed ((parameters (ir:lambda-parameters procedure)) (arguments arguments))
+            (if (null? parameters) (list (rest-list arguments))
+                (cons (car arguments) (fixed (cdr parameters) (cdr arguments)))))))
+    (define (rest-list arguments)
+      (if (null? arguments) '(global.get $nil)
+          `(struct.new $pair ,(car arguments) ,(rest-list (cdr arguments)))))
+
     (define (procedure-invocation procedure worker operator arguments context tail? node)
-      (if (and procedure (not (ir:lambda-opt-rest-parameter procedure))
-               (= (length arguments) (length (ir:lambda-parameters procedure))))
+      (if (and procedure (matching-worker-arity? procedure (length arguments)))
           `(call ,worker (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
-                 ,@(map (lambda (name) `(local.get ,name)) arguments) ,(call-checks tail?))
+                 ,@(worker-arguments procedure (map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks tail?))
           (adapter-invocation node operator arguments context tail?)))
 
     ;; Core bindings are initialized before Scheme code runs. The primitive
@@ -843,13 +878,11 @@
     ;; including imported aliases; their immutable closure code stays known.
     ;; Keep the actual operator, argument vector, and result-check context.
     (define (known-primitive-adapter node module)
-      (let ((operator (ir:application-operator node)))
-        (and (ir:name? operator)
-             (memq (ir:name-definition operator) (module-primitives module))
+      (let ((definition (primitive-binding node module)))
+        (and definition
              (let loop ((names bootstrap-primitive-names) (index 0))
                (cond ((null? names) #f)
-                     ((eq? (car names) (ir:value-definition-name (ir:name-definition operator)))
-                      (identifier "primitive" index))
+                     ((eq? (car names) (ir:value-definition-name definition)) (identifier "primitive" index))
                      (else (loop (cdr names) (+ index 1))))))))
 
     (define (adapter-invocation node operator arguments context checks)

@@ -14,7 +14,7 @@
    cons car cdr set-car! set-cdr! caar cadr cdar cddr
    list append reverse length list-ref list-tail make-list
    member memq memv assoc assq assv map for-each
-   vector vector-ref vector-set! vector-length make-vector vector->list list->vector vector-map vector-for-each
+   vector vector-ref vector-set! vector-length make-vector vector->list list->vector vector-append vector-copy vector-copy! vector-map vector-for-each
    string make-string string-set! string-ref string-length string-append substring string=? string<? string<=? string>? string>=?
    string->list list->string string->symbol symbol->string string->number number->string
    char->integer integer->char char=? char<? char<=? char>? char>=?
@@ -281,14 +281,19 @@
           (cons (procedure (car elements)) (map-one procedure (cdr elements)))))
 
     (define (map procedure first . rest)
-      (let loop ((lists (cons first rest)))
-        (if (some-empty? lists) '()
-            (cons (apply procedure (map-one car lists)) (loop (map-one cdr lists))))))
+      (if (null? rest) (map-one procedure first)
+          (let loop ((lists (cons first rest)))
+            (if (some-empty? lists) '()
+                (cons (apply procedure (map-one car lists)) (loop (map-one cdr lists)))))))
 
+    (define (for-each-one procedure elements)
+      (if (not (null? elements))
+          (begin (procedure (car elements)) (for-each-one procedure (cdr elements)))))
     (define (for-each procedure first . rest)
-      (let loop ((lists (cons first rest)))
-        (if (not (some-empty? lists))
-            (begin (apply procedure (map-one car lists)) (loop (map-one cdr lists))))))
+      (if (null? rest) (for-each-one procedure first)
+          (let loop ((lists (cons first rest)))
+            (if (not (some-empty? lists))
+                (begin (apply procedure (map-one car lists)) (loop (map-one cdr lists)))))))
 
     (define (indexed->list size ref object)
       (let loop ((index (- size 1)) (result '()))
@@ -296,10 +301,62 @@
 
     (define (vector->list object) (indexed->list (vector-length object) vector-ref object))
     (define (list->vector elements) (apply vector elements))
+    ;; ---- Vector combinators over concrete GC operations ----
+
+    (define (vector-total-length vectors)
+      (let loop ((vectors vectors) (size 0))
+        (if (null? vectors) size (loop (cdr vectors) (+ size (vector-length (car vectors)))))))
+    (define (vector-append . vectors)
+      (let ((result (make-vector (vector-total-length vectors))))
+        (let loop ((vectors vectors) (offset 0))
+          (if (null? vectors) result
+              (let ((count (vector-length (car vectors))))
+                (%wasm.vector.copy! result (%wasm.i32.wrap_i64 offset) (car vectors) 0 (%wasm.i32.wrap_i64 count))
+                (loop (cdr vectors) (+ offset count)))))))
+
+    (define (vector-range-length object start end)
+      (let ((size (vector-length object)))
+        (if (and (exact-integer? start) (exact-integer? end) (<= 0 start) (<= start end) (<= end size))
+            (- end start) (error "vector slice index out of range"))))
+    (define (vector-copy object . bounds)
+      (let* ((start (if (null? bounds) 0 (car bounds)))
+             (end (if (or (null? bounds) (null? (cdr bounds))) (vector-length object) (cadr bounds)))
+             (count (vector-range-length object start end)) (result (make-vector count)))
+        (if (and (pair? bounds) (pair? (cdr bounds)) (pair? (cddr bounds))) (error "vector-copy: too many arguments"))
+        (%wasm.vector.copy! result 0 object (%wasm.i32.wrap_i64 start) (%wasm.i32.wrap_i64 count)) result))
+    (define (vector-copy! destination at source . bounds)
+      (let* ((start (if (null? bounds) 0 (car bounds)))
+             (end (if (or (null? bounds) (null? (cdr bounds))) (vector-length source) (cadr bounds)))
+             (count (vector-range-length source start end)) (size (vector-length destination)))
+        (if (and (pair? bounds) (pair? (cdr bounds)) (pair? (cddr bounds))) (error "vector-copy!: too many arguments"))
+        (if (not (and (exact-integer? at) (<= 0 at) (<= (+ at count) size))) (error "vector slice index out of range"))
+        (%wasm.vector.copy! destination (%wasm.i32.wrap_i64 at) source (%wasm.i32.wrap_i64 start) (%wasm.i32.wrap_i64 count))))
+
+    ;; The previous list conversion snapshotted every element and checked its
+    ;; value count, from the last slot backwards, before invoking callbacks.
+    ;; Store each once-normalized reference: foreign envelopes can wrap mutable
+    ;; arrays, so retaining the envelope would observe later callback mutation.
+    (define (vector-snapshot object)
+      (let ((result (vector-copy object)))
+        (let loop ((index (- (vector-length result) 1)))
+          (if (< index 0) result
+              (begin (vector-set! result index (vector-ref result index)) (loop (- index 1)))))))
+
+    (define (vector-map-one procedure object)
+      (let* ((size (vector-length object)) (result (make-vector size)))
+        (let loop ((index 0))
+          (if (= index size) result
+              (begin (vector-set! result index (procedure (vector-ref object index))) (loop (+ index 1)))))))
+    (define (vector-for-each-one procedure object)
+      (let ((size (vector-length object)))
+        (let loop ((index 0))
+          (if (< index size) (begin (procedure (vector-ref object index)) (loop (+ index 1)))))))
     (define (vector-map procedure first . rest)
-      (list->vector (apply map procedure (vector->list first) (map vector->list rest))))
+      (if (null? rest) (vector-map-one procedure (vector-snapshot first))
+          (list->vector (apply map procedure (vector->list first) (map vector->list rest)))))
     (define (vector-for-each procedure first . rest)
-      (apply for-each procedure (vector->list first) (map vector->list rest)))
+      (if (null? rest) (vector-for-each-one procedure (vector-snapshot first))
+          (apply for-each procedure (vector->list first) (map vector->list rest))))
     (define (string->list object) (indexed->list (string-length object) string-ref object))
     (define (list->string elements) (apply string elements))
 

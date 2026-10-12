@@ -229,11 +229,14 @@ obligations, measurements, and the boundary between implemented and proposed rul
 [`specialize.sld`](src/snail-scheme/specialize.sld) runs after the original bodies
 pass checking. Its bounded worklist copies ordinary resolved IR for known calls
 with inferred or explicitly instantiated argument types. Copy keys include
-relevant type substitutions and capture types; lexical contracts are substituted
-alongside the body, and fresh local binding identities
-preserve lexical meaning. Calls still evaluate the original closure and reuse
-its environment. Unknown calls retain their generic entry. A monotone analysis
-widens results to the generic representation wherever tail calls or delayed
+relevant type substitutions, capture types, and immutable callback identities.
+Lexical contracts are substituted alongside the body, and fresh local binding
+identities preserve lexical meaning. Calls still evaluate the original closure and reuse
+its environment. Known rest calls build a fresh rest-list spine directly; their
+copies use an ordinary fixed parameter for that list. Immutable callback bindings
+can select direct builtin or Scheme entries without reconstructing a source
+`All` instance. Unknown or mutable targets retain their generic entry. A monotone
+analysis widens results to the generic representation wherever tail calls or delayed
 checks need it, preserving proper tail recursion across functions.
 
 [`wasm-representation.sld`](src/snail-scheme/wasm-representation.sld) defines

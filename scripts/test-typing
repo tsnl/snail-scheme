@@ -17,6 +17,24 @@ ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
 
 # Expected stdout includes effects that must occur before the failing check.
 CASES = {
+    "rest-arity-fallback": ('(define (rest first second . others) others) '
+                            '(rest 1 2 3) (define (invoke) (display "body") (rest 1)) (invoke)',
+                            "body", "wrong number of arguments"),
+    "inferred-primitive-arity": ('(define (one x) (eq? x)) (one 1)', "", "wrong number of arguments"),
+    "callback-alias-all-order": ('(: observed (All (A) (-> A A))) '
+                                 '(define (observed x) (display "body") x) '
+                                 '(: run (-> Procedure Any String)) '
+                                 '(define (run k x) (define alias k) (alias x)) (run observed 42)',
+                                 "body", "incorrect value type"),
+    "map-callback-values": ('(map (lambda (x) (display x) (values x x)) (list 1 2))',
+                             "1", "expected a single value"),
+    "for-each-callback-values": ('(for-each (lambda (x) (display x) (values x x)) (list 1 2))',
+                                  "12", ""),
+    "vector-map-snapshot-count": (ABI_IMPORT + '(import (prefix (snail unsafe) w:)) ' + ABI_CALL +
+                                  '(lambda (value pair foreign-vector) (define buffer (vector 1 2)) '
+                                  '(w:vector.copy! buffer 1 foreign-vector 0 1) (display "start") '
+                                  '(vector-map (lambda (x) (display "body") x) buffer)))',
+                                  "start", "expected a single value"),
     "unsafe-i32-range": ('(import (prefix (snail unsafe) w:)) '
                          '(w:: id (w:-> w:I32 w:I32)) (define (id x) x) '
                          '(apply id (list 2147483648))', "", "incorrect value type"),

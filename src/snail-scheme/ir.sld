@@ -161,7 +161,7 @@
       (loc instantiation-loc))
 
     ;; Optimization-only call view. The expression still evaluates to the same
-    ;; closure; the definition selects a concrete copy using its environment.
+    ;; closure; the definition selects a concrete copy or an immutable callee.
     (define-record-type <specialization>
       (make-specialization expression definition loc)
       specialization?

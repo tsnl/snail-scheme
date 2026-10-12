@@ -9,7 +9,7 @@
           specialized-substitutions)
   (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme type-inference)
           (snail-scheme type-analysis) (snail-scheme lambda-inference)
-          (snail-scheme wasm-representation)
+          (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
@@ -17,20 +17,23 @@
 
     (define specialization-enabled (make-parameter #t))
     (define-record-type <specialized>
-      (make-specialized definition source arguments signature substitutions captures procedure result representation generics scope)
+      (make-specialized definition source arguments signature substitutions captures callees procedure result representation generics scope)
       specialized?
       (definition specialized-definition) (source specialized-source)
       (arguments specialized-arguments) (signature specialized-signature)
       (substitutions specialized-substitutions)
-      (captures specialized-captures)
+      (captures specialized-captures) (callees specialized-callees)
       (procedure specialized-procedure set-specialized-procedure!)
       (result specialized-result set-specialized-result!)
       (representation specialized-representation set-specialized-representation!)
       (generics specialized-generics set-specialized-generics!) (scope specialized-scope))
+    ;; This scoped environment records immutable code identities while rewriting
+    ;; lexical bodies. A queued copy reinstalls only its own parameter/capture
+    ;; identities; semantic source callable types remain a separate input.
     (define-record-type <work>
-      (make-work inference entries pending instances scopes) work?
+      (make-work inference entries pending instances scopes origins) work?
       (inference work-inference) (entries work-entries set-work-entries!)
-      (pending work-pending set-work-pending!) (instances work-instances) (scopes work-scopes))
+      (pending work-pending set-work-pending!) (instances work-instances) (scopes work-scopes) (origins work-origins))
 
     (define (lookup identity entries default)
       (let ((entry (assq identity entries))) (if entry (cdr entry) default)))
@@ -39,14 +42,15 @@
     (define (every? predicate items)
       (or (null? items) (and (predicate (car items)) (every? predicate (cdr items)))))
 
-    (define (matching-entry source arguments signature substitutions captures entries)
+    (define (matching-entry source arguments signature substitutions captures callees entries)
       (cond ((null? entries) #f)
             ((and (eq? source (specialized-source (car entries)))
                   (type-equal? arguments (specialized-arguments (car entries)))
                   (type-equal? signature (specialized-signature (car entries)))
                   (type-equal? captures (specialized-captures (car entries)))
+                  (type-equal? callees (specialized-callees (car entries)))
                   (type-equal? substitutions (specialized-substitutions (car entries)))) (car entries))
-            (else (matching-entry source arguments signature substitutions captures (cdr entries)))))
+            (else (matching-entry source arguments signature substitutions captures callees (cdr entries)))))
 
     (define (copy-count source entries)
       (if (null? entries) 0
@@ -55,13 +59,13 @@
 
     ;; Reserve before inspecting the body: recursion refers to the same entry.
     ;; The fixed limits bound code growth; exceeding one preserves a generic call.
-    (define (request-copy source arguments signature substitutions captures work)
+    (define (request-copy source arguments signature substitutions captures callees work)
       (let ((substitutions (body-substitutions source substitutions work)))
-        (or (matching-entry source arguments signature substitutions captures (work-entries work))
+        (or (matching-entry source arguments signature substitutions captures callees (work-entries work))
             (and (< (length (work-entries work)) 256) (< (copy-count source (work-entries work)) 8)
                  (let* ((definition (ir:make-value-definition 'specialized (ir:lambda-loc source)))
                         (result (if signature (type-result signature) '?))
-                        (entry (make-specialized definition source arguments signature substitutions captures #f result 'eqref '()
+                        (entry (make-specialized definition source arguments signature substitutions captures callees #f result 'eqref '()
                                                  (lookup source (work-scopes work) #f))))
                    (set-work-entries! work (cons entry (work-entries work)))
                    (set-work-pending! work (append (work-pending work) (list entry))) entry)))))
@@ -90,7 +94,7 @@
 
     (define (specialize-libraries libraries typing . checked)
       (let* ((work (make-work (make-lambda-inference typing) '() '() (if (null? checked) '() (car checked))
-                              (if (or (null? checked) (null? (cdr checked))) '() (cadr checked))))
+                              (if (or (null? checked) (null? (cdr checked))) '() (cadr checked)) (make-parameter '())))
              (rewritten (map (lambda (library) (rewrite-library library work)) libraries)))
         (finish-copies work)
         (let ((entries (reverse (work-entries work))))
@@ -112,12 +116,13 @@
                              (cons definition (ir:make-value-definition (ir:value-definition-name definition)
                                                                         (ir:value-definition-loc definition))))
                            (bound-definitions source)))
-             (environment (append (map cons (ir:lambda-parameters source) (specialized-arguments entry))
+             (environment (append (map cons (lambda-arguments source) (specialized-arguments entry))
                                   (specialized-captures entry)))
-             (body (rewrite (ir:lambda-body source) environment renames (specialized-substitutions entry) work)))
+             (body (parameterize (((work-origins work) (specialized-callees entry)))
+                     (rewrite (ir:lambda-body source) environment renames (specialized-substitutions entry) work))))
         (set-specialized-procedure! entry
                                     (ir:make-lambda (map (lambda (definition) (rename definition renames))
-                                                         (ir:lambda-parameters source)) #f (car body) (ir:lambda-loc source)))
+                                                         (lambda-arguments source)) #f (car body) (ir:lambda-loc source)))
         (unless (specialized-signature entry)
           (set-specialized-result! entry (cond ((function-type? (cdr body)) 'Procedure)
                                                ((runtime-type? (cdr body)) (cdr body)) (else '?))))))
@@ -205,7 +210,7 @@
       (when (and (arrow-type? signature) (not (ir:lambda-opt-rest-parameter source))
                  (every? concrete? (type-arguments signature)))
         (let ((entry (request-copy source (type-arguments signature) signature substitutions
-                                   (capture-types source environment (work-inference work)) work)))
+                                   (capture-types source environment (work-inference work)) (capture-callees source work) work)))
           (when entry (set-specialized-generics! entry (cons procedure (specialized-generics entry)))))))
 
     (define (rewrite-record node renames substitutions)
@@ -231,7 +236,11 @@
       (let* ((definition (ir:value-binding-definition node))
              (initializer (rewrite (ir:value-binding-initializer node) environment renames substitutions work))
              (type (or (inference-binding-type definition (work-inference work)) (cdr initializer)))
-             (tail (rewrite-sequence rest (cons (cons definition type) environment) renames substitutions work)))
+             (origin (and (not (inference-assigned? definition (work-inference work)))
+                          (callee-origin (ir:value-binding-initializer node) work)))
+             (tail (parameterize (((work-origins work) (if origin (cons (cons definition origin) ((work-origins work)))
+                                                           ((work-origins work)))))
+                     (rewrite-sequence rest (cons (cons definition type) environment) renames substitutions work))))
         (cons (cons (ir:make-value-binding (rename definition renames) (car initializer) (ir:value-binding-loc node))
                     (car tail)) (cdr tail))))
 
@@ -264,9 +273,29 @@
     ;; Inferred-only domains must already be justified by the actual argument.
     (define (copy-domains arguments signature)
       (if (and signature (= (length arguments) (length (type-arguments signature))))
-          (map (lambda (actual formal) (if (and (not (memq formal '(WasmI32 WasmF32))) (type-subtype? actual formal)) actual formal))
-               arguments (type-arguments signature))
+          (map copy-domain arguments (type-arguments signature))
           arguments))
+
+    ;; A declared concrete ABI remains authoritative across storage widths.
+    ;; Generic domains still refine from actual facts; equal storage can retain
+    ;; a more precise semantic subtype without creating another width policy.
+    (define (copy-domain actual formal)
+      (if (and (type-subtype? actual formal)
+               (or (eq? (type-representation formal) 'eqref)
+                   (equal? (representation-wasm (type-representation actual))
+                           (representation-wasm (type-representation formal))))) actual formal))
+
+    (define (lambda-arguments source)
+      (append (ir:lambda-parameters source)
+              (if (ir:lambda-opt-rest-parameter source) (list (ir:lambda-opt-rest-parameter source)) '())))
+    (define (matching-arity? source count)
+      (if (ir:lambda-opt-rest-parameter source) (>= count (length (ir:lambda-parameters source)))
+          (= count (length (ir:lambda-parameters source)))))
+    (define (worker-domains source arguments)
+      (if (not (ir:lambda-opt-rest-parameter source)) arguments
+          (let fixed ((parameters (ir:lambda-parameters source)) (arguments arguments))
+            (if (null? parameters) (list (if (null? arguments) 'Null 'Pair))
+                (cons (car arguments) (fixed (cdr parameters) (cdr arguments)))))))
 
     ;; An explicit instantiated view supplies domains even when actual values
     ;; are dynamic. Its call guards establish those domains before the body.
@@ -275,32 +304,78 @@
                (call-instance declared (type-arguments view) loc))
           (call-instance declared arguments loc)))
 
+    ;; Code identity never reconstructs a source All instance. An originally
+    ;; opaque callback reaches the declaration's erased generic contract, even
+    ;; if its body is now known. This keeps result guards after body effects.
+    (define (application-instance node source origin types arguments substitutions work)
+      (let* ((state (work-inference work)) (operator (ir:application-operator node))
+             (declared (and source (or (inference-procedure-type source state) (explicit-signature operator state))))
+             (view (explicit-signature operator state))
+             (view (if (and types (all-type? view)) (instantiate-type view types (ir:application-loc node)) view)))
+        (cond ((not declared) #f)
+              ((and origin (all-type? declared) (not (function-type? view)) (not types))
+               (cons (type-erasure declared) (map (lambda (variable) (cons variable 'Any)) (all-variables declared))))
+              (else (source-instance (substitute declared substitutions) (and view (substitute view substitutions))
+                                     arguments (ir:application-loc node))))))
+
     (define (rewrite-application node environment renames substitutions work)
       (let* ((operands (map (lambda (node) (rewrite node environment renames substitutions work)) (ir:application-operands node)))
              (operator (rewrite (ir:application-operator node) environment renames substitutions work))
              (types (lookup node (work-instances work) #f))
              (types (and types (map (lambda (type) (substitute type substitutions)) types)))
              (operator-node (if types (ir:make-instantiation (car operator) types (ir:application-loc node)) (car operator)))
-             (arguments (map cdr operands))
-             (source (known-lambda (ir:application-operator node) (work-inference work)))
-             (declared (and source (or (inference-procedure-type source (work-inference work))
-                                       (explicit-signature (ir:application-operator node) (work-inference work)))))
-             (view-type (explicit-signature (ir:application-operator node) (work-inference work)))
-             (view-type (if (and types (all-type? view-type))
-                            (instantiate-type (substitute view-type substitutions) types (ir:application-loc node)) view-type))
-             (instance (and declared (source-instance (substitute declared substitutions)
-                                                      (and view-type (substitute view-type substitutions)) arguments (ir:application-loc node))))
-             (domains (copy-domains arguments (and instance (car instance))))
-             (entry (and source (not (ir:lambda-opt-rest-parameter source))
-                         (= (length arguments) (length (ir:lambda-parameters source))) (every? concrete? domains)
-                         (or (not declared) instance)
-                         (request-copy source domains (and instance (car instance))
-                                       (append (if instance (cdr instance) '()) substitutions)
-                                       (capture-types source environment (work-inference work)) work)))
-             (view (if entry (ir:make-specialization operator-node (specialized-definition entry) (ir:application-loc node)) operator-node))
-             (type (if instance (type-result (car instance))
-                       (substitute (inferred-type node environment (work-inference work)) substitutions))))
+             (arguments (map (lambda (operand source)
+                               (if (or (function-type? (cdr operand)) (callee-origin source work)) 'Procedure (cdr operand)))
+                             operands (ir:application-operands node)))
+             (origin (callee-origin (ir:application-operator node) work))
+             (source (known-lambda (if origin (ir:make-name origin #f) (ir:application-operator node)) (work-inference work)))
+             (instance (application-instance node source origin types arguments substitutions work))
+             (entry (application-copy node source arguments instance environment substitutions work))
+             (target (if entry (specialized-definition entry) origin))
+             (view (if (and target (not (and (ir:name? operator-node) (eq? target (ir:name-definition operator-node)))))
+                       (ir:make-specialization operator-node target (ir:application-loc node)) operator-node))
+             (type (cond (instance (type-result (car instance)))
+                         ((and origin (inference-primitive? origin (work-inference work)))
+                          (inferred-primitive-type (ir:value-definition-name origin) arguments))
+                         (else (substitute (inferred-type node environment (work-inference work)) substitutions)))))
         (cons (ir:make-application view (map car operands) (ir:application-loc node)) type)))
+
+    (define (application-copy node source arguments instance environment substitutions work)
+      (and source (matching-arity? source (length arguments))
+           (let* ((domains (copy-domains (worker-domains source arguments) (and instance (car instance))))
+                  (callees (append (argument-callees source (ir:application-operands node) work) (capture-callees source work))))
+             (and (or (every? concrete? domains) (pair? callees))
+                  (every? runtime-type? domains)
+                  (or (not (inference-procedure-type source (work-inference work))) instance)
+                  (request-copy source domains (and instance (car instance))
+                                (append (if instance (cdr instance) '()) substitutions)
+                                (capture-types source environment (work-inference work)) callees work)))))
+
+    (define (callee-origin node work)
+      (cond ((ir:annotation? node) (callee-origin (ir:annotation-expression node) work))
+            ((ir:instantiation? node) (callee-origin (ir:instantiation-expression node) work))
+            ((and (ir:name? node) (not (inference-assigned? (ir:name-definition node) (work-inference work))))
+             (or (lookup (ir:name-definition node) ((work-origins work)) #f) (known-callee node (work-inference work))))
+            (else #f)))
+
+    (define (argument-callees source operands work)
+      (let collect ((parameters (ir:lambda-parameters source)) (operands operands))
+        (if (null? parameters) '()
+            (let ((origin (and (not (inference-assigned? (car parameters) (work-inference work)))
+                               (callee-origin (car operands) work))))
+              (append (if origin (list (cons (car parameters) origin)) '())
+                      (collect (cdr parameters) (cdr operands)))))))
+
+    (define (capture-callees source work)
+      (let ((bound (bound-definitions source)) (seen '()) (result '()))
+        (define (visit node)
+          (if (ir:name? node)
+              (let* ((definition (ir:name-definition node)) (origin (lookup definition ((work-origins work)) #f)))
+                (when (and origin (not (memq definition bound)) (not (memq definition seen))
+                           (not (inference-assigned? definition (work-inference work))))
+                  (set! seen (cons definition seen)) (set! result (cons (cons definition origin) result))))
+              (for-each visit (children node))))
+        (visit source) (reverse result)))
 
     ;; Capture facts are semantic types, never captured values. A body copied
     ;; outside its lexical visitor still needs the enclosing rigid/concrete
@@ -365,12 +440,15 @@
                         (every? (lambda (type) (type-subtype? (specialized-result callee) type)) expected))
                    ;; Primitive applications are leaves in the caller's Wasm
                    ;; frame. Any other tail target uses the generic protocol.
-                   (and (ir:name? operator)
-                        (memq (ir:name-definition operator) primitives)
-                        (memq (ir:value-definition-name (ir:name-definition operator))
-                              '(+ - * / = < <= > >= eq? eqv? cons car cdr
-                                  procedure? number? exact-integer? null? pair?))))))
-            (else #t))))
+                   (primitive-tail? operator (length (ir:application-operands node)) primitives))))
+            (else #t)))
+
+    (define (primitive-tail? operator count primitives)
+      (let* ((definition (cond ((ir:name? operator) (ir:name-definition operator))
+                               ((ir:specialization? operator) (ir:specialization-definition operator)) (else #f)))
+             (name (and (memq definition primitives) (ir:value-definition-name definition))))
+        (and name (or (find-intrinsic name count)
+                      (direct-primitive-helper name count))))))
 
   ;; ---- Tests ----
 
@@ -404,26 +482,47 @@
         (let* ((a (make-type-variable 'A)) (unused (make-type-variable 'Unused))
                (x (ir:make-value-definition 'x #f)) (capture (ir:make-value-definition 'capture #f))
                (source (ir:make-lambda (list x) #f (ir:make-annotation (ir:make-name x #f) a #f) #f))
-               (work (make-work (make-lambda-inference (prepare-types '() '())) '() '() '() '()))
+               (work (make-work (make-lambda-inference (prepare-types '() '())) '() '() '() '() (make-parameter '())))
                (first (request-copy source '(String) '(-> String String) (list (cons a 'String))
-                                    (list (cons capture 'String)) work))
+                                    (list (cons capture 'String)) '() work))
                (again (request-copy source '(String) '(-> String String)
                                     (list (cons unused 'ExactInteger) (cons a 'String) (cons a 'String))
-                                    (list (cons capture 'String)) work))
+                                    (list (cons capture 'String)) '() work))
                (different (request-copy source '(String) '(-> String String) (list (cons a 'String))
-                                        (list (cons capture 'InexactReal)) work)))
+                                        (list (cons capture 'InexactReal)) '() work)))
           (expect (eq? first again) #t)
           (expect (eq? first different) #f)))
+
+      (define (test-callback-identities)
+        (let* ((callback (ir:make-value-definition 'callback #f)) (x (ir:make-value-definition 'x #f))
+               (invoke (ir:make-value-definition 'invoke #f))
+               (first (ir:make-value-definition 'car #f)) (rest (ir:make-value-definition 'cdr #f))
+               (source (ir:make-lambda (list callback x) #f
+                                       (ir:make-application (ir:make-name callback #f) (list (ir:make-name x #f)) #f) #f))
+               (items (cons (ir:make-value-binding invoke source #f)
+                            (map (lambda (target) (ir:make-application (ir:make-name invoke #f)
+                                                                       (list (ir:make-name target #f) (ir:make-literal '(1 2) #f)) #f))
+                                 (list first rest first))))
+               (library (library:make-library #f '() '() '() items #f))
+               (copies (cdr (specialize-libraries (list library) (prepare-types items (list first rest))))))
+          (expect (length copies) 2)
+          (expect (map (lambda (copy) (ir:specialization-definition
+                                       (ir:application-operator (ir:lambda-body (specialized-procedure copy))))) copies)
+                  (list first rest))
+          (expect (copy-domain 'WasmI32 'ExactInteger) 'ExactInteger)
+          (expect (copy-domain 'i32 'WasmI32) 'WasmI32)
+          (expect (copy-domain 'WasmF32 'InexactReal) 'InexactReal)
+          (expect (copy-domain 'String 'Any) 'String)))
 
       (define (test-tail-result-contracts)
         (let* ((target (ir:make-value-definition 'target #f))
                (caller (ir:make-value-definition 'caller #f))
                (callee-body (ir:make-lambda '() #f (ir:make-literal 1 #f) #f))
-               (callee (make-specialized target callee-body '() '(-> ExactInteger) '() '()
+               (callee (make-specialized target callee-body '() '(-> ExactInteger) '() '() '()
                                          callee-body 'ExactInteger 'i64 '() #f))
                (call (ir:make-application (ir:make-specialization (ir:make-name target #f) target #f) '() #f))
                (body (ir:make-lambda '() #f (ir:make-annotation call 'ExactInteger #f) #f))
-               (entry (make-specialized caller body '() '(-> i32) '() '() body 'i32 'i64 '() #f)))
+               (entry (make-specialized caller body '() '(-> i32) '() '() '() body 'i32 'i64 '() #f)))
           ;; The inner annotation cannot erase the stricter enclosing contract.
           (settle-results (list entry callee) '())
           (expect (specialized-representation entry) 'eqref)
@@ -432,4 +531,5 @@
       (define (test-specialize)
         (test-inferred-copies)
         (test-instance-keys)
+        (test-callback-identities)
         (test-tail-result-contracts))))))

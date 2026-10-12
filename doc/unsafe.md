@@ -61,3 +61,21 @@ The implementation currently covers these scalar operations and existing
 non-nullable reference categories. Arbitrary Wasm heap-type declarations,
 nullable-reference syntax, packed typed element vectors, and raw linear-memory
 access are not exposed.
+
+The checked `(scheme base)` library implements `vector-append`, `vector-copy`,
+and `vector-copy!` in Scheme over the raw copying operation. Results are fresh
+shallow vectors; copies preserve element identity and overlapping slices behave
+like `array.copy`. Single-list `map`/`for-each` and single-vector traversal use
+fixed helpers. Vector traversal retains the previous shallow snapshot and
+backward element-count validation before invoking callbacks. The snapshot stores
+the once-normalized references, including foreign singleton envelopes;
+multi-vector calls currently retain their general list-based path.
+
+Known calls to rest procedures pass fixed arguments and one freshly constructed
+rest list directly to the existing worker. Specialization can normalize that
+rest list to an ordinary parameter. Immutable callback binding identities join
+copy keys and select direct entries while retaining the evaluated closure and
+its environment. An originally opaque `Procedure` view of an `All` function
+still uses the erased generic contract, so stronger target knowledge cannot
+move a post-body result check to its arguments. Mutable/unknown callbacks and
+exhausted copy budgets retain generic calls.

@@ -4,11 +4,26 @@
 (define-library (snail-scheme wasm-intrinsics)
   (export find-intrinsic intrinsic-name intrinsic-domains intrinsic-result intrinsic-checked?
           intrinsic-entry intrinsic-argument-names intrinsic-unsafe-names intrinsic-definitions
-          checked-intrinsic-argument)
+          checked-intrinsic-argument direct-primitive-helper)
   (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme wasm-representation))
   (begin
 
     ;; ---- Semantic contracts and concrete operations ----
+
+    ;; Fixed generic helpers are leaves too. Share their exact arities with
+    ;; emission and tail-result analysis so an arity fallback never acquires a
+    ;; concrete result ABI by mistaking a generic error path for a typed leaf.
+    (define direct-primitives
+      '((+ 2 add) (- 2 subtract) (* 2 multiply) (/ 2 divide)
+        (= 2 numeric_equal) (< 2 less) (<= 2 less_equal) (> 2 greater) (>= 2 greater_equal)
+        (eq? 2 eq) (eqv? 2 eqv) (cons 2 cons) (car 1 car) (cdr 1 cdr)
+        (procedure? 1 is_procedure) (number? 1 is_number) (exact-integer? 1 is_integer_value)
+        (null? 1 is_null) (pair? 1 is_pair)))
+    (define (direct-primitive-helper name count)
+      (let ((entry (assq name direct-primitives)))
+        (and entry (= count (cadr entry)) (string->symbol (string-append "$" (symbol->string (caddr entry)))))))
+
+
 
     ;; Rows are name, domains, result, source-contract?, and the Wasm body.
     ;; A ? result is a heap read: its eqref can contain a multiple-value envelope.

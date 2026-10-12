@@ -330,7 +330,7 @@ Scheme. An unresolved operation remains dynamic. Unused inferred `All` binders
 are removed; unused binders in a source declaration remain accepted by `inst`.
 
 `specialize.sld` transforms the existing resolved IR into the same IR. It discovers
-known fixed-arity calls using both ordinary argument inference and declared
+known calls using both ordinary argument inference and declared
 signatures. For example, unannotated `(define (identity x) x)` can have distinct
 integer, floating-point, and String copies, as can an explicitly polymorphic
 identity. Cross-function calls, lexical bindings, captures, conditionals, effects,
@@ -339,12 +339,18 @@ inside the optimizer.
 
 A worklist reserves each copy before traversing its body, so recursive requests
 reuse it. Keys contain the source lambda identity, argument types, instantiated
-contract, relevant substitutions, and immutable capture types. Substitution keys
+contract, relevant substitutions, immutable capture types, and proved callback
+code identities. Substitution keys
 omit unused outer binders and duplicates. Copies alpha-rename locally bound
 identities while retaining the original closure's environment layout. The IR call
 view evaluates that original closure and selects only a different code entry;
-it never allocates a replacement procedure. Unknown or mutable targets, rest
-procedures, unresolved domains, and exhausted budgets use the generic entry.
+it never allocates a replacement procedure. Known rest calls construct the
+required fresh list directly and copies normalize it to a fixed worker parameter.
+A proved immutable callback identity can justify a copy with other generic
+parameters. Its original source callable view still owns All instantiation and
+check order; an opaque view uses the known target's erased generic contract.
+Unknown or mutable targets, unresolved copy requirements, and exhausted budgets
+use the generic entry.
 Budgets currently allow eight copies per source lambda and 256 per linked module,
 including libraries; they are conservative compile-time limits, not a coverage
 claim for every application in a large program.
@@ -394,13 +400,13 @@ The existing fact-driven path still removes independently justified single-value
 checks and selects typed helpers. Initialization evidence, value cardinality,
 mutable/foreign facts, array bounds, and required casts remain separate obligations.
 A value type alone cannot remove them. Generalized container layouts, specialization
-on captured values or higher-order code identities, and greater recursive
-inference precision remain future work. Shallow Pair, Vector, and Procedure
-types do not preserve element types or callback identity; generic container and
-higher-order hotspots therefore remain largely outside these optimizations.
+on captured runtime values, and greater recursive inference precision remain
+future work. Shallow Pair and Vector types do not preserve element types or
+callbacks loaded from heap slots. Proved immutable lexical callback bindings can
+now select direct code, while unknown/heap-loaded callbacks keep the generic ABI.
 
 The [five-workload comparison](../benchmarks/results/2026-10-12-general-specialization/README.md)
-measures this implementation against its predecessor and Chez. Overall execution
+measures the initial type-only implementation against its predecessor and Chez. Overall execution
 is effectively unchanged on that selected subset; the report records individual
 regressions and improvements, compile-phase costs, representation coverage,
 and the remaining precision limits. The numeric measurements below remain historical.
