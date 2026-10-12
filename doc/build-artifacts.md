@@ -109,11 +109,13 @@ reuse it for Wasm linking through `build-runtime`; the Chibi bootstrap falls
 back to building the Rust runtime when no installed companion exists.
 
 Native programs link Rust's native archive directly through AWI. They consume
-Wasm datums through the LLVM backend and do not need Binaryen for that translation.
-Binaryen remains part of preparing and linking portable Wasm artifacts.
+the shared Binaryen optimization and lower its disassembled datums through LLVM.
+The native compiler uses the installed datum reader, with no Python text adapter
+or additional companion file. Binaryen executables remain external dependencies
+for both backends; the Nix shell supplies the complete suite.
 
 `scripts/test-generation` exercises isolation, nested/cache-hit dependencies,
 cycles, rollback, relocation, live generation pinning, and linked Wasm companion
 lookup. `scripts/test-self-host` builds the compiler and uses the installed
-compiler to rebuild itself with Chibi and Wasm assembly/optimization blocked.
+compiler to rebuild itself with Chibi and Python blocked, using Binaryen.
 Preparing the runtime companion still uses Cargo and `wasm-dis`.

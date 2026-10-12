@@ -8,10 +8,10 @@ application Wasm interface (AWI), with matching native C symbols.
 ```text
 build.scm -> compile-native main.scm and its generated installation library
   -> reader -> syntax parser -> expander -> library-grouped IR -> Wasm datums
-  -> name/type resolution -> LLVM
+  -> Binaryen Scheme-module optimization -> name/type resolution -> LLVM
   -> Clang/LLD + native Rust runtime + BDWGC -> build/snail-scheme
 
-Portable backend: Wasm datums -> write-simple -> Binaryen + Rust Wasm -> .wasm
+Portable backend: Wasm datums -> shared Binaryen optimization -> link Rust -> final optimization -> .wasm
 
 snail-scheme [-I DIRECTORY ...] SCRIPT -> compile temporary native script -> run -> return status
 ```
@@ -39,6 +39,10 @@ no special entry name: its forms execute once and normal completion returns zero
 
 [`build.sld`](src/snail-scheme/build.sld) supplies portable Wasm assembly/linking,
 external tool invocation, and atomic artifact publication.
+[`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) checks the selected
+Binaryen tools before compilation and optimizes the Scheme module for both
+backends. The CLI checks dependencies after parsing options, so help needs no
+build tools. The Nix shell supplies Binaryen; executable-path overrides also work.
 The publication operation checks its protected input paths before creating work
 and again before renaming the completed artifact. Native compilation stages share
 that one workspace. `build.scm` supplies the project recipe and generated
@@ -271,7 +275,7 @@ stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
 visible in the generated code. Runtime helpers are quoted datums too.
 `write-wasm` prints each definition with standard `write-simple`; only import
 string leaves need WAT-specific byte escaping. The portable backend passes
-that WAT to Binaryen; the native backend consumes the datums directly.
+that WAT to Binaryen. Both final backends optimize the Scheme-only module first.
 
 [`partial-eval.sld`](src/snail-scheme/partial-eval.sld) attempts bounded evaluation
 of closed scalar computations as the visitor checks and lowers each expression.
@@ -385,8 +389,11 @@ explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
 implemented ownership from this planned support.
 
 [`native.sld`](src/snail-scheme/native.sld) builds x86-64 Linux executables from
-in-memory module datums. [`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld)
-resolves names, canonicalizes final singleton recursive types, and normalizes
+optimized Scheme modules. [`wasm-read.sld`](src/snail-scheme/wasm-read.sld)
+converts Binaryen's WAT name escapes and integer-spelled float constants into
+Scheme text, then uses the host datum reader one declaration at a time.
+[`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld)
+resolves names, canonicalizes complete ordered final recursion groups, and normalizes
 each function into evaluation order. [`llvm.sld`](src/snail-scheme/llvm.sld)
 consumes these numeric declarations and instructions without reading Scheme IR,
 WAT, or Wasm binaries. Unsupported generated shapes fail explicitly. This
@@ -436,8 +443,9 @@ root ownership. `scripts/test-backend --target both` builds and executes each
 fixture through both backends. `scripts/test-native` adds
 cross-engine Wasm semantics, traps, bounded native stack use, forced collection,
 Rust callbacks, and resource finalization. `scripts/test-self-host` exercises
-the native CLI, blocks Chibi and Wasm assembly/optimization during a rebuild,
-and runs its replacement. Runtime companion generation still uses `wasm-dis`.
+the native CLI, checks missing Binaryen dependencies, blocks Chibi and Python
+during a rebuild, and runs its replacement. `scripts/test-binaryen` compares
+recursive groups, eager select, float bits and escaped names with V8.
 
 `scripts/test-typing` compares fully guarded and optimized linked Wasm, including
 diagnostics, effect order, mutation, record identity, numeric boundaries, and

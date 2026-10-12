@@ -56,16 +56,18 @@ a helper named `main` inside a script does not become an entry point.
 
 The interpreter embeds its source checkout's absolute path. `SNAIL_ROOT` can
 select a compatible checkout. It still needs those compiler/runtime sources and
-external Cargo, Clang/LLD, and BDWGC tools; this is a self-hosting build
+external Cargo, Binaryen, Clang/LLD, and BDWGC tools; this is a self-hosting build
 interpreter, not a standalone compiler distribution. It does not need Chibi after
-the initial bootstrap. `scripts/test-self-host` verifies that by blocking Chibi and Binaryen,
+the initial bootstrap. The CLI verifies its selected Binaryen tools before
+compilation; `--help` works without them. See the [tool installation instructions](../backend.md).
+`scripts/test-self-host` verifies the installed path by blocking Chibi and Python,
 rebuilding the interpreter, and executing scripts with the replacement.
 
 ## Build policy belongs to libraries
 
 `(snail-scheme compiler)` constructs Wasm datums and optionally writes unlinked
 WAT. `(snail-scheme build)` uses Binaryen to assemble and link portable Wasm.
-`(snail-scheme native)` builds executables directly from the generated datums and
+`(snail-scheme native)` lowers Binaryen's optimized Scheme module to LLVM and
 runs ordinary scripts. Its `build-native` procedure publishes an executable
 atomically. `compile-native` is the composition stage used by the
 build script above: it writes a private candidate into the caller's workspace,

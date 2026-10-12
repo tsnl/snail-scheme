@@ -1,9 +1,10 @@
 # Native execution through Wasm
 
-`(snail-scheme native)` lowers in-memory Wasm datums to LLVM and links an
-x86-64 Linux executable with the native Rust runtime and BDWGC. The portable
-backend prints the same datums and uses Binaryen to assemble, link and optimize
-Wasm. Native builds never print WAT or consume binary Wasm.
+`(snail-scheme native)` optimizes the generated Scheme module with Binaryen,
+reads its folded disassembly into datums, lowers those datums to LLVM, and links
+an x86-64 Linux executable with the native Rust runtime and BDWGC. Portable
+Wasm uses the same Scheme-module optimization, then links Rust and optimizes the
+complete program. AWI import/export names remain intact in the shared pass.
 
 ```scheme
 (import (scheme base) (snail-scheme build) (snail-scheme native))
@@ -14,29 +15,41 @@ Wasm. Native builds never print WAT or consume binary Wasm.
 `build-native` publishes an executable; `run-script` uses a private execution
 directory. The interpreter recipe and installation data live in `build.scm`.
 Bootstrap with `chibi-scheme -h512M -I src build.scm`. The resulting
-`build/snail-scheme -Isrc build.scm` rebuilds the interpreter without Chibi or Binaryen.
+`build/snail-scheme -Isrc build.scm` rebuilds the interpreter without Chibi,
+using Binaryen and its installed native Scheme datum reader.
 The CLI accepts `-I DIRECTORY` or `-IDIRECTORY` before the script; each option
 prepends a search directory. `--` ends option parsing, and arguments after the
 script are passed literally.
 See the [build chapter](book/builds.md) and [inline CLI ABI](book/platforms/native-cli.md).
 
-Native builds require Chibi, Cargo, Clang/LLD, BDWGC headers/library and the C math
-library; the Nix shell supplies these. `CLANG` overrides the compiler path.
+Native builds require Cargo, Binaryen, Clang/LLD, BDWGC headers/library and the
+C math library; Chibi is needed for bootstrap. The Nix shell supplies these.
+`CLANG` and `LLD` override the compiler and linker paths. `WASM_AS`, `WASM_OPT`
+and `WASM_DIS` override Binaryen executables. The CLI checks these tools before
+compiling a script, while help remains independent of them. See
+[installation and preflight](backend.md#build-and-run).
 `BDWGC_INCLUDE` and `BDWGC_LIB` identify a separate collector installation; the
 latter adds both a link path and runtime library search path. Translation, `-O3`
 optimization and LLVM LTO happen automatically. Successful builds publish
 atomically; failures preserve existing output and report the directory retaining
-`module.ll`. There is no arbitrary `.wasm`-to-native entry point or binary reader.
+`module.ll` and optimized Scheme intermediates. There is no arbitrary
+`.wasm`-to-native entry point or native Wasm binary reader.
 
 ## Compiler stages
 
 `source-file->wasm` returns a complete folded module datum, including the quoted
-runtime and AWI helper definitions. Neither consumer mutates it. `wasm-resolve.sld`
-resolves names and canonicalizes final singleton recursive types. A canonical
-key distinguishes a type's own recursive reference from references to earlier
-types, and retains field mutability, nullability and packed widths. Equal keys
-share identity. Explicit recursion groups, forward references and subtyping are
-outside the generated subset.
+runtime and AWI helper definitions. Neither consumer mutates it.
+`wasm-optimize.sld` assembles and optimizes it before LLVM lowering.
+`wasm-read.sld` converts WAT byte escapes and integer-spelled floats into Scheme
+spelling, preserving negative zero and avoiding the reader's integer range limit,
+then reads one declaration at a time with the host datum reader.
+`wasm-resolve.sld` canonicalizes complete ordered final recursion groups.
+Its keys use member positions for internal edges and canonical identities for
+earlier groups, retaining field mutability, nullability and packed widths.
+Equal groups share member identities; a singleton stays distinct from a similar
+member of a larger group. Forward references within a group are supported;
+nonfinal/subtyping declarations remain unsupported. Explicit function type uses
+retain their declared identity after validating their inline signature.
 
 Function bodies are normalized one at a time into flat evaluation order, then
 `llvm.sld` emits LLVM. Operands evaluate left to right before their operation;
@@ -55,7 +68,8 @@ layout. It introduces no type facts or removed checks; LLVM decides inlining.
 `llvmlite.sld` composes immutable output fragments without repeated formatting.
 Only one function's body is buffered so allocations can precede it in the entry
 block. Finite f64 literals use round-tripping decimal spelling, preserving
-negative zero and subnormals; canonical infinities and NaNs use LLVM hex literals.
+negative zero and subnormals; infinities and NaNs use LLVM hex literals,
+including explicit NaN signs and payload bits from Binaryen.
 Initialization creates tables, evaluates globals and active element segments,
 and invokes any module start function before the native CLI calls `snail:main`.
 
@@ -117,7 +131,7 @@ The converter covers operations emitted by the current Scheme compiler and its q
 | --- | --- |
 | Control | Blocks, loops, if, branches, branch tables, returns, direct/reference/indirect calls and tail calls |
 | Numeric | Scalar i32/i64/f64 arithmetic used by the runtime, comparisons, shifts, rotations, bit counts, conversions, sign extension, IEEE bit reinterpretation |
-| GC | Final struct/array types, singleton recursive types, allocation, fields/elements, packed access, copy, reference tests/casts, i31 |
+| GC | Final struct/array types, ordered recursive groups, allocation, fields/elements, packed access, copy, reference tests/casts, i31 |
 | Tables | Nullable table32, active function elements, get/set, size/grow, indirect-call checks |
 | Host | Native Rust AWI services and deferred resource finalizers |
 
@@ -142,8 +156,11 @@ compares results, checks thirteen traps, proper tail calls, float boundaries,
 recursive type identity, shadowed labels and evaluation order. It checks that
 printing and repeated lowering preserve the datum. Forced collection exercises
 Rust-retained roots, reentrant callbacks and actual resource cleanup.
-`scripts/test-self-host` checks CLI behavior and publication, then blocks both
-Chibi and Binaryen during a rebuild and runs its replacement. Set
+`scripts/test-binaryen` compares original and optimized modules in V8 and native
+execution, covering recursive identity, indirect-call traps, eager typed select,
+escaped names and float bits. `scripts/test-self-host` checks dependency
+preflight, CLI behavior and publication, then uses Binaryen while blocking
+Chibi and Python during a rebuild and runs its replacement. Set
 `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every N native allocations;
 leave it unset for ordinary execution.
 

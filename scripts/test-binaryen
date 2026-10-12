@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Compare optimized recursion groups, eager select and float bits with V8."""
+
+import argparse
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/binaryen-tests"
+FEATURES = ["--mvp-features", "--enable-gc", "--enable-reference-types", "--enable-tail-call",
+            "--enable-mutable-globals", "--enable-sign-ext", "--enable-bulk-memory",
+            "--enable-nontrapping-float-to-int"]
+
+
+# ---- Shared input and actual execution ----
+
+
+def checked(command, **environment):
+    subprocess.run([str(value) for value in command], cwd=ROOT, check=True,
+                   env={**os.environ, "BINARYEN_CORES": "1", **environment}, timeout=300)
+
+
+def collector_flags():
+    flags = ["-lgc", "-lm"]
+    if "BDWGC_INCLUDE" in os.environ:
+        flags += ["-I", os.environ["BDWGC_INCLUDE"]]
+    if "BDWGC_LIB" in os.environ:
+        library = os.environ["BDWGC_LIB"]
+        flags += ["-L", library, f"-Wl,-rpath,{library}"]
+    return flags
+
+
+def check_variant(variant, interpreter):
+    wasm, wat, llvm, executable = [BUILD / (variant + suffix) for suffix in (".wasm", ".wat", ".ll", "")]
+    checked([os.environ.get("WASM_DIS", "wasm-dis"), wasm, "-o", wat])
+    checked([interpreter or os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+             ROOT / "tests/translate-binaryen.scm", wat, llvm])
+    checked([os.environ.get("CLANG", "clang"), "-O3", "-flto",
+             "-fuse-ld=" + os.environ.get("LLD", "lld"), "-DSNAIL_NATIVE_LIBRARY",
+             llvm, ROOT / "src/native.c", ROOT / "tests/binaryen-groups.c",
+             *collector_flags(), "-o", executable])
+    checked([os.environ.get("NODE", "node"), ROOT / "tests/binaryen-groups.mjs", wasm])
+    checked([executable], SNAIL_NATIVE_GC_INTERVAL="1")
+    result = subprocess.run([executable, "trap"], cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode == 1 and result.stderr == "WebAssembly trap\n", result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--interpreter", type=Path, help="exercise the installed native datum reader")
+    options = parser.parse_args()
+    BUILD.mkdir(parents=True, exist_ok=True)
+    original, optimized = BUILD / "original.wasm", BUILD / "optimized.wasm"
+    checked([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/binaryen-groups.wat",
+             *FEATURES, "-g", "-o", original])
+    checked([os.environ.get("WASM_OPT", "wasm-opt"), original, *FEATURES, "-g", "-O3",
+             "--closed-world", "--always-inline-max-function-size=40", "--converge", "-o", optimized])
+    for variant in ("original", "optimized"):
+        check_variant(variant, options.interpreter)
+    print("Binaryen original/optimized V8 and native checks passed")
+
+
+if __name__ == "__main__":
+    main()

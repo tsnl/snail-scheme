@@ -77,9 +77,27 @@ def check_import(directory):
         raise RuntimeError("importing build library performed traced work")
 
 
+def check_preflight(directory):
+    source, output = directory / "absent.scm", directory / "preflight.wasm"
+    output.write_text("previous successful build")
+    for variable in ("WASM_AS", "WASM_OPT", "WASM_DIS", "WASM_MERGE"):
+        result = require(script(directory, compile_source(source, output),
+                                **{variable: "/nonexistent/binaryen-tool"}), failure=True)
+        if ("Binaryen tool is missing or unusable" not in result.stderr or
+                variable not in result.stderr or "absent.scm" in result.stderr or
+                list(directory.glob(".snail-build-*")) or output.read_text() != "previous successful build"):
+            raise RuntimeError(f"dependency check did not precede compilation: {result.stderr}")
+
+
 def check_build_and_run(directory, source):
     output = directory / "portable 'program.wasm"
-    require(script(directory, compile_source(source, output)), "")
+    tools = {}
+    for variable, name in (("WASM_AS", "wasm-as"), ("WASM_OPT", "wasm-opt"),
+                           ("WASM_DIS", "wasm-dis"), ("WASM_MERGE", "wasm-merge")):
+        path = directory / ("tool '$(literal)`text` " + name)
+        path.symlink_to(shutil.which(os.environ.get(variable, name)))
+        tools[variable] = str(path)
+    require(script(directory, compile_source(source, output), **tools), "")
     runtime = ROOT / "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"
     stamp = runtime.stat().st_mtime_ns
     source.write_text(SOURCE + '; Changed Scheme source, unchanged Rust.\n')
@@ -102,8 +120,13 @@ def check_explicit_stages(directory, source):
 def check_failures(directory, source):
     output = directory / "existing.wasm"
     output.write_text("previous successful build")
-    result = require(script(directory, compile_source(source, output),
-                            WASM_OPT="/nonexistent/wasm-opt"), failure=True)
+    optimizer = directory / "failed-final-optimization"
+    optimizer.write_text('#!/bin/sh\nfor arg do\n'
+                         '  if [ "$arg" = "--remove-exports" ]; then exit 99; fi\n'
+                         'done\nexec "$SNAIL_REAL_WASM_OPT" "$@"\n')
+    optimizer.chmod(0o755)
+    result = require(script(directory, compile_source(source, output), WASM_OPT=str(optimizer),
+                            SNAIL_REAL_WASM_OPT=shutil.which(os.environ.get("WASM_OPT", "wasm-opt"))), failure=True)
     retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
     if len(retained) != 1:
         raise RuntimeError(f"missing unique failed-build location: {result.stderr}")
@@ -275,6 +298,7 @@ def main():
         source = directory / "quoted 'source.scm"
         source.write_text(SOURCE)
         check_import(directory)
+        check_preflight(directory)
         check_build_and_run(directory, source)
         check_explicit_stages(directory, source)
         check_failures(directory, source)

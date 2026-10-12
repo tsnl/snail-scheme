@@ -254,24 +254,42 @@ def check_failed_build(interpreter, directory, **environment):
     print("passed failed-build publication and retained diagnostics", flush=True)
 
 
+def check_binaryen_preflight(interpreter, directory):
+    temporary = directory / "preflight-temporaries"
+    temporary.mkdir()
+    source = write_script(directory, "preflight.scm", '(error "source should not run")\n')
+    for variable in ("WASM_AS", "WASM_OPT", "WASM_DIS"):
+        environment = {variable: "/nonexistent/binaryen-tool", "TMPDIR": str(temporary)}
+        result = invoke([interpreter, source], directory, **environment)
+        if (result.returncode == 0 or result.stdout or
+                "Binaryen tool is missing or unusable" not in result.stderr or variable not in result.stderr or
+                Path(str(source) + ".trace.json").exists() or list(temporary.iterdir())):
+            raise RuntimeError(f"compiler did not preflight before starting work: {result}")
+        help_result = invoke([interpreter, "--help"], directory, **environment)
+        if help_result.returncode or help_result.stderr or "Options:" not in help_result.stdout:
+            raise RuntimeError(f"compiler help required Binaryen: {help_result}")
+    print("passed installed compiler Binaryen preflight and independent help", flush=True)
+
+
 def check_self_host(interpreter, directory):
     blocked = write_script(directory, "blocked-tool", '#!/bin/sh\necho unexpected-tool >&2\nexit 99\n')
     blocked.chmod(0o755)
     tools = directory / "tools"
     tools.mkdir()
-    for name in ("chibi-scheme", "wasm-as", "wasm-opt", "wasm-merge"):
+    for name in ("chibi-scheme", "python3"):
         (tools / name).symlink_to(blocked)
-    environment = {name: str(blocked) for name in ("CHIBI", "WASM_AS", "WASM_OPT", "WASM_MERGE")}
+    environment = {name: str(blocked) for name in ("CHIBI", "PYTHON")}
     environment["PATH"] = str(tools) + os.pathsep + os.environ["PATH"]
     replacement = directory / "rebuilt-snail-scheme"
     require(invoke([interpreter, "-Isrc", ROOT / "build.scm", replacement], **environment))
     require_native(replacement)
+    check_binaryen_preflight(replacement, directory)
     check_script(replacement, directory, **environment)
     check_library_options(replacement, directory, **environment)
     check_option_errors(replacement, directory, **environment)
     check_application_options(replacement, directory, **environment)
     check_failed_build(replacement, directory, **environment)
-    print("passed native compiler self-hosting with Chibi and Wasm assembly/optimization blocked", flush=True)
+    print("passed native compiler rebuild using Binaryen, with Chibi and Python blocked", flush=True)
 
 
 # ---- Test entry point ----
