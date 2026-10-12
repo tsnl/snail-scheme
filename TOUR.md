@@ -200,7 +200,12 @@ forms keep their meaning.
 [`types.sld`](src/snail-scheme/types.sld) defines shallow categories, structural
 unions, nominal records, rigid type variables, internal occurrence intersections,
 and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
-solves rank-one `All` instantiations from arguments and expected results.
+solves rank-one `All` instantiations from arguments and expected results. Its
+separate flexible variables support deterministic equality constraints without
+solving rigid source binders. [`lambda-inference.sld`](src/snail-scheme/lambda-inference.sld)
+builds conditional summaries for later optimization, deferring generalization
+until an active inference group has settled. These summaries add no source
+typing requirements; backend specialization is connected in the next stack layer.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
 rules that take child facts as arguments. One declaration scan collects assignments,
 initializers, and nominal identities before narrowing. Typing, closure analysis,

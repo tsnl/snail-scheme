@@ -1,9 +1,79 @@
 ;; Rank-one instantiation for shallow signatures. Rigid definition variables
 ;; never unify. Each use collects immutable lower/upper bounds independently.
 (define-library (snail-scheme type-inference)
-  (export infer-type-arguments instantiate-type)
+  (export infer-type-arguments instantiate-type
+          make-inference fresh-inference-variable! inference-variable? inference-variable-id
+          resolve-inference unify-inference! generalize-inference instantiate-inference)
   (import (scheme base) (scheme cxr) (snail-scheme types))
   (begin
+
+    ;; ---- Flexible inference variables ----
+
+    ;; These are solver cells, deliberately distinct from rigid All identities.
+    ;; Each inference session numbers its cells in deterministic traversal order.
+    (define-record-type <inference-variable>
+      (make-inference-variable id solution) inference-variable?
+      (id inference-variable-id) (solution inference-solution set-inference-solution!))
+
+    (define (make-inference) (vector 0))
+    (define (fresh-inference-variable! inference)
+      (let ((id (vector-ref inference 0)))
+        (vector-set! inference 0 (+ id 1))
+        (make-inference-variable id #f)))
+
+    (define (resolve-inference type)
+      (cond ((and (inference-variable? type) (inference-solution type))
+             (resolve-inference (inference-solution type)))
+            ((nominal-type? type) type)
+            ((pair? type) (cons (resolve-inference (car type)) (resolve-inference (cdr type))))
+            (else type)))
+
+    (define (inference-occurs? variable type)
+      (let ((type (resolve-inference type)))
+        (or (eq? variable type)
+            (and (pair? type) (not (nominal-type? type))
+                 (or (inference-occurs? variable (car type))
+                     (inference-occurs? variable (cdr type)))))))
+
+    (define (solve-inference! variable type)
+      (and (not (inference-occurs? variable type))
+           (begin (set-inference-solution! variable type) #t)))
+
+    ;; Variable-variable equality always chooses the lowest stable identifier.
+    ;; A failed solve is an optimization miss; it never changes a rigid binder.
+    (define (unify-inference! left right)
+      (let ((left (resolve-inference left)) (right (resolve-inference right)))
+        (cond ((eq? left right) #t)
+              ((and (inference-variable? left) (inference-variable? right))
+               (if (< (inference-variable-id left) (inference-variable-id right))
+                   (solve-inference! right left) (solve-inference! left right)))
+              ((inference-variable? left) (solve-inference! left right))
+              ((inference-variable? right) (solve-inference! right left))
+              ((or (nominal-type? left) (nominal-type? right)) (type-equal? left right))
+              ((and (pair? left) (pair? right))
+               (and (unify-inference! (car left) (car right))
+                    (unify-inference! (cdr left) (cdr right))))
+              (else (type-equal? left right)))))
+
+    (define (generalize-inference type)
+      (let ((substitutions '()))
+        (define (replace type)
+          (cond ((assq type substitutions) => cdr)
+                ((inference-variable? type)
+                 (let ((variable (make-type-variable (string->symbol
+                                                      (string-append "t" (number->string (inference-variable-id type)))))))
+                   (set! substitutions (cons (cons type variable) substitutions)) variable))
+                ((nominal-type? type) type)
+                ((pair? type) (cons (replace (car type)) (replace (cdr type))))
+                (else type)))
+        (let ((body (replace (resolve-inference type))))
+          (clean-all-type (list 'All (map cdr (reverse substitutions)) body)))))
+
+    (define (instantiate-inference type inference)
+      (if (not (all-type? type)) type
+          (type-substitute (all-body type)
+                           (map (lambda (variable) (cons variable (fresh-inference-variable! inference)))
+                                (all-variables type)))))
 
     ;; ---- Explicit instantiation ----
 
@@ -82,7 +152,9 @@
             (type-error-at loc "typed call has wrong arity" signature))
         (let* ((lower (argument-bounds arguments (type-arguments signature) bounds))
                (complete (add-upper (type-result signature) expected lower))
-               (types (map (lambda (entry) (solve-bounds entry loc)) complete)))
+               (used (type-variables signature))
+               (types (map (lambda (entry)
+                             (if (memq (bounds-variable entry) used) (solve-bounds entry loc) 'Any)) complete)))
           (validate-instance (instantiate-type scheme types loc) arguments expected loc)
           types)))
 
@@ -121,6 +193,24 @@
                   '(String String))))
 
       (define (test-type-inference)
+        (let* ((inference (make-inference))
+               (first (fresh-inference-variable! inference))
+               (second (fresh-inference-variable! inference))
+               (rigid (make-type-variable 'A)))
+          (expect (unify-inference! second first) #t)
+          (expect (eq? (resolve-inference second) first) #t)
+          (expect (unify-inference! rigid 'String) #f)
+          (expect (unify-inference! first (list '-> first 'String)) #f)
+          (expect (unify-inference! first 'String) #t)
+          (expect (resolve-inference second) 'String))
+        (let* ((inference (make-inference))
+               (argument (fresh-inference-variable! inference))
+               (scheme (generalize-inference (list '-> argument argument)))
+               (one (instantiate-inference scheme inference))
+               (two (instantiate-inference scheme inference)))
+          (expect (all-type? scheme) #t)
+          (expect (eq? (cadr one) (caddr one)) #t)
+          (expect (eq? (cadr one) (cadr two)) #f))
         (test-independent-bounds)
         (test-union-context)
         (let* ((a (make-type-variable 'A))

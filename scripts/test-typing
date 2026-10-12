@@ -17,6 +17,8 @@ ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
 
 # Expected stdout includes effects that must occur before the failing check.
 CASES = {
+    "poly-unused-variable": ('(: f (All (A) (-> ExactInteger))) (define (f) 1) (write (f))',
+                             "1", ""),
     "poly-renamed": ('(import (prefix (snail typing) t:)) '
                      '(t:: id (t:All (A) (t:-> A A))) (define (id x) x) '
                      '(write ((t:inst id t:String) "renamed"))', '"renamed"', ""),
@@ -249,8 +251,6 @@ REJECTED = {
                               '(define (f x y) (if (test x y) (string-length y) 0))', "type mismatch"),
     "poly-unresolved": ('(: id (All (A) (-> A A))) (define (id x) x) (id (car (list 1)))',
                         "cannot infer type argument; use inst"),
-    "poly-unused-variable": ('(: f (All (A) (-> ExactInteger))) (define (f) 1) (f)',
-                             "cannot infer type argument; use inst"),
     "poly-contradiction": ('(: choose (All (A) (-> Boolean A A A))) '
                            '(define (choose p x y) (if p x y)) '
                            '(: f (-> String)) (define (f) (choose #t "text" #f))', "type mismatch"),

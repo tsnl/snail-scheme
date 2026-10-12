@@ -5,7 +5,8 @@
           type-equal? type-subtype? type-union type-intersect type-subtract literal-type
           runtime-type? dynamic-type? type-compatible? nominal-type?
           make-type-variable type-variable? type-variable-name all-type? all-variables all-body
-          function-type? shallow-type? type-substitute type-erasure type-error-at)
+          function-type? shallow-type? type-substitute type-erasure type-error-at
+          type-variables clean-all-type)
   (import (scheme base) (scheme cxr) (snail-scheme source)
           (prefix (snail-scheme ir) ir:))
   (begin
@@ -139,11 +140,44 @@
     ;; not leave an unsimplified alternative that changes equality or inference.
     (define (type-substitute type substitutions)
       (cond ((assq type substitutions) => cdr)
+            ((all-type? type)
+             (list 'All (all-variables type)
+                   (type-substitute (all-body type)
+                                    (let keep ((entries substitutions))
+                                      (cond ((null? entries) '())
+                                            ((memq (caar entries) (all-variables type)) (keep (cdr entries)))
+                                            (else (cons (car entries) (keep (cdr entries)))))))))
             ((union-type? type)
              (apply type-union (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
+            ((intersection-type? type)
+             (let loop ((parts (cdr type)) (result 'Any))
+               (if (null? parts) result
+                   (loop (cdr parts) (type-intersect result (type-substitute (car parts) substitutions))))))
             ((arrow-type? type)
              (cons '-> (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
             (else type)))
+
+    (define (type-variables type)
+      (cond ((type-variable? type) (list type))
+            ((nominal-type? type) '())
+            ((all-type? type)
+             (let free ((variables (type-variables (all-body type))))
+               (cond ((null? variables) '())
+                     ((memq (car variables) (all-variables type)) (free (cdr variables)))
+                     (else (cons (car variables) (free (cdr variables)))))))
+            ((pair? type) (append (type-variables (car type)) (type-variables (cdr type))))
+            (else '())))
+
+    ;; Explicit inst retains its source binder arity. Cleanup is for generated
+    ;; summaries/copies, after source instantiation has consumed every binder.
+    (define (clean-all-type type)
+      (if (not (all-type? type)) type
+          (let ((used (type-variables (all-body type))))
+            (let keep ((variables (all-variables type)) (result '()))
+              (cond ((null? variables)
+                     (if (null? result) (all-body type) (list 'All (reverse result) (all-body type))))
+                    ((memq (car variables) used) (keep (cdr variables) (cons (car variables) result)))
+                    (else (keep (cdr variables) result)))))))
 
     (define (type-erasure type)
       (cond ((type-variable? type) 'Any)
