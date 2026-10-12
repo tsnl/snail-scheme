@@ -188,6 +188,21 @@ chibi-scheme -I src examples/iverson-ghost/typed-build.scm
 
 ## Compiler responsibilities and checks
 
+Predicate refinements preserve a generic argument's declared class membership,
+including joins of different refinements of the same type parameter. Distinct
+type parameters remain distinct. A selected method's result carries its declared
+type rather than the input's incidental refinement.
+Inferred heads preserve a declared `Boolean` or `Number` lower bound when its
+joined union is equivalent. Narrower heads, partial unions, and explicit union
+views stay distinct;
+normalization does not search for a more general available instance.
+This normalization happens in the shared inference rule, so expected function
+views and polymorphic instance implementations use those same named heads.
+
+The preflight also checks constraints present only in annotations, including
+inside unused functions. Nominal class arguments use the normal stable record
+type checks even when they are phantom parameters absent from method arrows.
+
 Expansion adds class and instance metadata to resolved IR and retains qualified
 signatures. [`typeclasses.sld`](../src/snail-scheme/typeclasses.sld) prepares the
 instance universe and checks implementations and obligations with the existing

@@ -51,6 +51,20 @@
 (check 21 (refined 21))
 (check "yy" (refined "y"))
 
+;; Different predicate facets of one rigid T still select its declared instance.
+(define-class (Choose T) (: choose (-> T T T)))
+(define-instance (Choose Any) (choose (lambda (x y) y)))
+(define-instance (Choose String) (choose (lambda (x y) (string-append x y))))
+(: chosen (All (T) (=> ((Choose T)) (-> T T T))))
+(define (chosen x y)
+  (if (string? x) (if (exact-integer? y) (choose x y) x) x))
+(check 42 ((inst chosen Any) "a" 42))
+(check "a" (chosen "a" "b"))
+(: joined (All (T) (=> ((Choose T)) (-> Boolean T T T))))
+(define (joined flag x y)
+  (if (string? x) (if (exact-integer? y) (choose (if flag x y) x) x) x))
+(check "a" ((inst joined Any) #f "a" 42))
+
 ;; Class names may be shadowed by ordinary mutable lexical bindings.
 (: shadowed (All (T) (=> ((Combine T)) (-> T T))))
 (define (shadowed x)
@@ -66,6 +80,27 @@
 (check "zz" (even "z" 2))
 
 ;; ---- Multiparameter classes and result-directed selection ----
+
+;; Named scalar heads survive inference's complete Boolean and Number unions.
+(define-class (Describe T) (: describe (-> T String)))
+(define-instance (Describe Boolean) (describe (lambda (x) "boolean")))
+(define-instance (Describe Number) (describe (lambda (x) "number")))
+(define-instance (Describe True) (describe (lambda (x) "true")))
+(define-instance (Describe i32) (describe (lambda (x) "i32")))
+(: flag Boolean)
+(define flag #t)
+(: num Number)
+(define num 42)
+(check "boolean" (describe flag))
+(check "number" (describe num))
+(check "true" (describe #t))
+(check "i32" (describe 42))
+(: describe-boolean (-> Boolean String))
+(define describe-boolean describe)
+(: describe-number (-> Number String))
+(define describe-number describe)
+(check "boolean" (describe-boolean #t))
+(check "number" (describe-number 42))
 
 (define-class (Convert From To)
   (: convert (-> From To)))
@@ -99,6 +134,15 @@
 (define (count-down n) (if (= n 0) 0 (count-down (- n 1))))
 (check 0 ((inst count-down i32) 3))
 
+;; Phantom class arguments use the same stable nominal types as method arrows.
+(define-class (Marker T) (: mark (-> i32)))
+(define-instance (Marker <token>) (mark (lambda () 7)))
+(define-record-type <token> (token) token?)
+(: retained (All (T) (=> ((Marker <token>)) (-> T T))))
+(define (retained x) x)
+(check 42 (retained 42))
+(check 7 ((inst mark <token>)))
+
 (define-class (Zero T) (: zero (-> T)))
 (define-instance (Zero String) (zero (lambda () "")))
 (: empty String)
@@ -114,6 +158,8 @@
 ;; class operations under the surrounding generic's declared obligations.
 (: identity (All (A) (-> A A)))
 (define (identity x) x)
+(define-instance (Keep Boolean) (keep identity))
+(check #t ((inst keep Boolean) #t))
 (: view-effect (All (T) (=> ((Combine T)) (-> T T))))
 (define (view-effect x) ((inst (begin (display (combine x x)) identity) i32) 1) x)
 (let ((output (open-output-string)))

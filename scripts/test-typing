@@ -295,6 +295,9 @@ REJECTED = {
 COMBINE = '(define-class (Combine T) (: combine (-> T T T))) '
 INT_COMBINE = COMBINE + '(define-instance (Combine i32) (combine (lambda (x y) (+ x y)))) '
 TWICE = '(: twice (All (T) (=> ((Combine T)) (-> T T)))) (define (twice x) (combine x x)) '
+CHOOSE = '(define-class (Choose T) (: choose (-> T T T))) '
+MARKER = '(define-class (Marker T) (: mark (-> i32))) '
+SHOW = '(define-class (Show T) (: show (-> T String))) '
 
 CASES.update({
     "class-exact-explicit": (COMBINE + '(define-instance (Combine ExactInteger) '
@@ -319,6 +322,38 @@ CASES.update({
     "class-view-uninitialized": (INT_COMBINE + '(: view (-> i32 i32 i32)) '
                                 '(view 20 22) (define view (inst combine i32))', "", "read of an uninitialized binding"),
     "class-auxiliary-arrow": ('(write (cond (42 => (lambda (x) (+ x 1))) (else 0)))', "43", ""),
+    "class-joined-refinements": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                 '(: f (All (T) (=> ((Choose T)) (-> T T T)))) '
+                                 '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x)) '
+                                 '(write ((inst f Any) "a" 42))', "42", ""),
+    "class-phantom-nominal": (MARKER + '(define-instance (Marker <token>) (mark (lambda () 7))) '
+                             '(define-record-type <token> (token) token?) '
+                             '(: f (All (T) (=> ((Marker <token>)) (-> T T)))) '
+                             '(define (f x) x) (write (f 42))', "42", ""),
+    "class-boolean-head": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: flag Boolean) (define flag #t) (write (show flag))', '"boolean"', ""),
+    "class-number-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: num Number) (define num 42) (write (show num))', '"number"', ""),
+    "class-boolean-view": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: selected (-> Boolean String)) (define selected show) '
+                           '(write (selected #t))', '"boolean"', ""),
+    "class-number-view": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: selected (-> Number String)) (define selected show) '
+                          '(write (selected 42))', '"number"', ""),
+    "class-polymorphic-scalar-member": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                         '(define-class (Keep T) (: keep (-> T T))) '
+                                         '(define-instance (Keep Boolean) (keep identity)) '
+                                         '(write ((inst keep Boolean) #t))', "#t", ""),
+    "poly-scalar-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                         '(: selected (-> Boolean Boolean)) (define selected identity) '
+                         '(write (selected #t))', "#t", ""),
+    "poly-boolean-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                '(: selected (-> (U False True) (U False True))) (define selected identity) '
+                                '(write (selected #t))', "#t", ""),
+    "poly-number-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                               '(: selected (-> (U ExactInteger InexactReal Complex) '
+                               '(U ExactInteger InexactReal Complex))) (define selected identity) '
+                               '(write (selected 42))', "42", ""),
 })
 
 REJECTED.update({
@@ -365,6 +400,47 @@ REJECTED.update({
                              '(define-instance (Keep Any) (keep (lambda (x) 42))) '
                              '(: measure (All (T) (=> ((Keep T)) (-> T ExactInteger)))) '
                              '(define (measure x) (if (string? x) (string-length (keep x)) 0))', "type mismatch"),
+    "class-joined-refined-result": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                    '(: f (All (T) (=> ((Choose T)) (-> T T ExactInteger)))) '
+                                    '(define (f x y) (if (string? x) '
+                                    '(if (exact-integer? y) (string-length (choose x y)) 0) 0))', "type mismatch"),
+    "class-joined-distinct-variables": (CHOOSE +
+                                       '(: f (All (A B) (=> ((Choose A) (Choose B)) (-> A B Any)))) '
+                                       '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x))',
+                                       "concrete static type or a declared constraint"),
+    "class-annotation-no-class": ('(define Fake 7) '
+                                  '(define f (ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T))))) '
+                                  '(f 42)', "unknown typeclass"),
+    "class-unused-annotation-no-class": ('(define Fake 7) (define (unused) '
+                                         '(ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T)))))',
+                                         "unknown typeclass"),
+    "class-phantom-nominal-instance": ('(define bogus 7) ' + MARKER +
+                                      '(define-instance (Marker bogus) (mark (lambda () 1)))',
+                                      "nominal type requires a stable top-level record declaration"),
+    "class-phantom-nominal-constraint": ('(define bogus 7) ' + MARKER +
+                                        '(: f (All (T) (=> ((Marker bogus)) (-> T T)))) (define (f x) x)',
+                                        "nominal type requires a stable top-level record declaration"),
+    "class-phantom-unstable": (MARKER + '(define-record-type <r> (make-r) r?) (set! <r> 7) '
+                               '(define-instance (Marker <r>) (mark (lambda () 1)))',
+                               "nominal type requires a stable top-level record declaration"),
+    "class-boolean-no-fallback": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                  '(show #t)', "no typeclass instance"),
+    "class-number-no-fallback": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                 '(show 42)', "no typeclass instance"),
+    "class-number-narrow-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                                    '(define-instance (Keep Number) (keep (lambda (x) 3.5))) '
+                                    '(: f (-> Number ExactInteger)) (define (f x) (keep x))', "type mismatch"),
+    "class-partial-numeric-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(: f (-> (U ExactInteger InexactReal) String)) (define (f x) (show x))',
+                                   "concrete static type or a declared constraint"),
+    "class-mixed-union-head": (SHOW + '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                               '(: f (-> (U String i32) String)) (define (f x) (show x))',
+                               "concrete static type or a declared constraint"),
+    "class-explicit-boolean-union": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                    '(inst show (U False True))', "concrete static type or a declared constraint"),
+    "class-explicit-number-union": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(inst show (U ExactInteger InexactReal Complex))',
+                                   "concrete static type or a declared constraint"),
     "class-inline-alias-assignment": (COMBINE + '(define alias combine) '
                                       '(define-instance (Combine i32) '
                                       '(combine (lambda (x y) (set! alias (lambda (a b) a)) x)))',

@@ -74,14 +74,16 @@
     (define (nodes items)
       (apply append (map (lambda (node) (cons node (nodes (children node)))) items)))
     (define (class-node? node) (or (ir:class-declaration? node) (ir:instance-declaration? node)))
-    (define (qualified-declaration? node)
-      (and (ir:type-declaration? node) (constrained-type? (ir:type-declaration-type node))))
+    (define (qualified-node? node)
+      (cond ((ir:type-declaration? node) (constrained-type? (ir:type-declaration-type node)))
+            ((ir:annotation? node) (constrained-type? (ir:annotation-type node)))
+            (else #f)))
 
     ;; ---- Whole-program preparation ----
 
     (define (elaborate-typeclasses libraries primitives)
       (let* ((items (apply append (map library:library-body libraries))) (all (nodes items)))
-        (if (not (find (lambda (node) (or (class-node? node) (qualified-declaration? node))) all)) libraries
+        (if (not (find (lambda (node) (or (class-node? node) (qualified-node? node))) all)) libraries
             (parameterize ((current-state (initial-state items all)))
               (require-top-level-classes items all)
               (prepare-classes!)
@@ -148,6 +150,14 @@
         (if (not (= (length (cdr constraint)) (length (ir:class-declaration-variables class))))
             (located-error node "wrong number of typeclass arguments" constraint))
         class))
+
+    ;; Phantom parameters still name actual types. Validate every class argument
+    ;; against the ordinary scope, even when no method arrow mentions it.
+    (define (check-constraints constraints scope node)
+      (for-each (lambda (constraint)
+                  (check-constraint constraint node)
+                  (for-each (lambda (type) (validate-type type scope (location node))) (cdr constraint)))
+                constraints))
 
     (define (prepare-instances! items)
       (for-each prepare-instance! (select ir:instance-declaration? items)))
@@ -248,11 +258,15 @@
            (ir:class-declaration-methods (instance-class instance))))
 
     (define (analyze-program! items primitives)
-      (let ((input (append (apply append (map prototype-items (state-methods (state))))
-                           (state-extras (state)) (prepared-items items)
-                           (apply append (map member-checks (state-instances (state)))))))
+      (let* ((input (append (apply append (map prototype-items (state-methods (state))))
+                            (state-extras (state)) (prepared-items items)
+                            (apply append (map member-checks (state-instances (state))))))
+             (scope (make-type-scope (prepare-types input primitives))))
+        (for-each (lambda (instance)
+                    (check-constraints (list (class-constraint (instance-class instance) (instance-types instance)))
+                                       scope (instance-source instance))) (state-instances (state)))
         (set-state-analysis! (state) (make-evidence '() '() '() '()))
-        (check-sequence input (make-type-scope (prepare-types input primitives)) #f)
+        (check-sequence input scope #f)
         (check-recursive-instances (evidence-edges (state-analysis (state))))))
 
     (define (fact node) (or (entry-value node (evidence-uses (state-analysis (state)))) (unknown-fact)))
@@ -280,6 +294,7 @@
             ((ir:annotation? node)
              (let ((type (ir:annotation-type node)))
                (validate-type type scope (location node))
+               (check-constraints (type-constraints type) scope node)
                (checked-fact (check-result node (check-expression (ir:annotation-expression node)
                                                                   (strict-scope scope) (and (function-type? type) type)) type))))
             ((ir:instantiation? node)
@@ -290,7 +305,10 @@
             ((ir:assignment? node)
              (check-initializer (ir:name-definition (ir:assignment-target node)) (ir:assignment-value node) scope)
              (value-fact 'Unspecified))
-            ((or (ir:type-declaration? node) (ir:record-schema? node)) (value-fact 'Unspecified))
+            ((ir:type-declaration? node)
+             (check-constraints (type-constraints (ir:type-declaration-type node)) scope node)
+             (value-fact 'Unspecified))
+            ((ir:record-schema? node) (value-fact 'Unspecified))
             (else (located-error node "unknown expression during typeclass checking"))))
 
     (define (check-initializer definition node scope)
@@ -390,10 +408,12 @@
 
     ;; Predicate refinements preserve a rigid variable's membership. Call checking
     ;; and selection use its declared class; a T result need not preserve the
-    ;; argument's incidental narrower category.
+    ;; argument's incidental narrower category. A join of refinements of the same
+    ;; variable retains that variable; different heads remain a union.
     (define (head-type type)
-      (if (and (pair? type) (eq? (car type) 'I))
-          (or (find type-variable? (cdr type)) type) type))
+      (cond ((union-type? type) (apply type-union (map head-type (cdr type))))
+            ((and (pair? type) (eq? (car type) 'I)) (or (find type-variable? (cdr type)) type))
+            (else type)))
 
     (define (use-constraints origin types)
       (let ((scheme (origin-signature origin)))
@@ -613,7 +633,7 @@
     ;; can reach the emitter. This checks the compile-time-only contract itself.
     (define (validate-erasure libraries)
       (for-each (lambda (node)
-                  (if (or (class-node? node) (qualified-declaration? node) (static-name? node))
+                  (if (or (class-node? node) (qualified-node? node) (static-name? node))
                       (located-error node "unresolved typeclass operation survived elaboration")))
                 (nodes (apply append (map library:library-body libraries))))))
 
@@ -629,7 +649,7 @@
             (only (snail-scheme parser) parse-result-value))
     (begin
       (define (test-elaboration text)
-        (let* ((core (make-core-library '(scheme base) '(+ error string? string-length)))
+        (let* ((core (make-core-library '(scheme base) '(+ error string? string-length exact-integer?)))
                (forms (parse-result-value (s-file (string->reader "classes.scm" text))))
                (root (syntax-list->ir-library forms (lambda (name) (error "unexpected library" name)) (list core)))
                (primitives (map library:named-binding-definition (select (lambda (entry) (ir:value-definition? (library:named-binding-definition entry)))
@@ -652,7 +672,7 @@
           (expect (length (select (lambda (name) (not (eq? name 'combine))) names)) 2)
           (expect (memq 'twice names) #f)
           (expect (find class-node? (nodes body)) #f)
-          (expect (find qualified-declaration? (nodes body)) #f)))
+          (expect (find qualified-node? (nodes body)) #f)))
 
       (define (test-class-obligations)
         (expect (guard (ex ((error-object? ex) #t))
@@ -696,6 +716,51 @@
                        (define (measure x) (if (string? x) (string-length (keep x)) 0))"))
           (expect (guard (ex ((error-object? ex) #t)) (test-elaboration source) #f) #t)))
 
+      (define (test-class-joined-refinements)
+        (let ((prefix "(import (scheme base))
+                       (define-class (Choose T) (: choose (-> T T T)))
+                       (define-instance (Choose Any) (choose (lambda (x y) y))) "))
+          (expect (pair? (test-elaboration
+                          (string-append prefix
+                                         "(: f (All (T) (=> ((Choose T)) (-> T T T))))
+                                          (define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x))
+                                          ((inst f Any) \"a\" 42)"))) #t)
+          (expect (guard (ex ((error-object? ex) #t))
+                    (test-elaboration
+                     (string-append prefix
+                                    "(: f (All (A B) (=> ((Choose A) (Choose B)) (-> A B Any))))
+                                     (define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x))")) #f) #t)))
+
+      (define (test-qualified-annotations)
+        (for-each
+         (lambda (body)
+           (expect (guard (ex ((error-object? ex) #t))
+                     (test-elaboration (string-append "(import (scheme base)) (define Fake 7) " body)) #f) #t))
+         '("(define f (ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T))))) (f 42)"
+           "(define (unused) (ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T)))))")))
+
+      (define (test-scalar-class-heads)
+        (let ((prefix "(import (scheme base))
+                       (define-class (Show T) (: show (-> T String)))
+                       (define-instance (Show Boolean) (show (lambda (x) \"boolean\")))
+                       (define-instance (Show Number) (show (lambda (x) \"number\"))) "))
+          (expect (pair? (test-elaboration
+                          (string-append prefix "(: flag Boolean) (define flag #t)
+                                                 (: num Number) (define num 42) (show flag) (show num)"))) #t)
+          (for-each (lambda (call)
+                      (expect (guard (ex ((error-object? ex) #t)) (test-elaboration (string-append prefix call)) #f) #t))
+                    '("(show #t)" "(show 42)" "(inst show (U False True))"))))
+
+      (define (test-phantom-class-types)
+        (for-each
+         (lambda (body)
+           (expect (guard (ex ((error-object? ex) #t))
+                     (test-elaboration
+                      (string-append "(import (scheme base)) (define bogus 7)
+                                      (define-class (Marker T) (: mark (-> i32))) " body)) #f) #t))
+         '("(define-instance (Marker bogus) (mark (lambda () 1)))"
+           "(: f (All (T) (=> ((Marker bogus)) (-> T T)))) (define (f x) x)")))
+
       (define (test-instance-assignment-inventory)
         (let ((prefix "(import (scheme base))
                        (define-class (C T) (: c (-> T T))) (define alias c) "))
@@ -712,4 +777,8 @@
         (run-test test-unused-overloaded-values)
         (run-test test-unused-class-assignment)
         (run-test test-class-result-refinement)
+        (run-test test-class-joined-refinements)
+        (run-test test-scalar-class-heads)
+        (run-test test-qualified-annotations)
+        (run-test test-phantom-class-types)
         (run-test test-instance-assignment-inventory))))))

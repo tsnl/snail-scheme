@@ -69,11 +69,19 @@ information cannot silently select it. A result-only method needs a concrete
 expected result type or an explicit instantiation. Available instances do not
 fill in missing type information.
 
+For inferred calls and function views, a `Boolean` or `Number` lower bound keeps
+that named scalar head when its joined union is equivalent. A narrower `True`
+or `i32` still selects its own exact head. Explicit union instantiations remain
+unsupported.
+
 A predicate such as `string?` can narrow a generic argument within a branch.
 The instance remains the one selected for its declared type `T`. A method
 `(-> T T)` can return another value of `T`, so its result does not inherit the
 argument's String refinement. Check the result with `string?` before using
 String operations, or select the concrete String instance with `inst`.
+Joining different refinements of that same `T` still selects its declared
+instance. Refinements of distinct type variables do not make those variables
+interchangeable.
 
 Classes can have multiple parameters. Both argument and result contexts can
 determine those parameters. Instance heads currently support concrete scalar and
@@ -106,6 +114,9 @@ Constrained functions require explicit `All` signatures and immutable
 module-level lambda definitions. Their constraints are not inferred. Ordinary
 and mutual recursion can reuse a specialization; type-changing polymorphic
 recursion remains rejected.
+Constraints in annotations are also validated, including inside unused
+functions. Every nominal class argument must name a stable top-level record
+type, even when no method parameter or result mentions that argument.
 
 ## Follow the compiler
 
