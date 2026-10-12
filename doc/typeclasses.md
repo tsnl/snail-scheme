@@ -184,8 +184,6 @@ Run the example from the repository root:
 
 ```sh
 chibi-scheme -I src examples/iverson-ghost/typed-build.scm
-chibi-scheme -I src tests/build-native.scm . examples/iverson-ghost/typed.scm build/iverson-typed
-build/iverson-typed
 ```
 
 ## Compiler responsibilities and checks
@@ -208,6 +206,6 @@ initialization reads. No class selection logic enters the runtime.
 `make test` checks elaboration and erasure. `scripts/test-typing` exercises
 successes and failures in guarded and optimized modes, including exact heads,
 unknown types, missing/duplicate instances, initialization, effects, aliases,
-renamed imports, macros, and recursive generics. `scripts/test-backend --target
-both` executes ordinary overloads and eager/symbolic tensor programs through
-Wasm and native translation.
+renamed imports, macros, and recursive generics. `scripts/test-backend` executes
+ordinary overloads and eager/symbolic tensor
+programs as linked Wasm on Node.js.

@@ -346,6 +346,8 @@ Rust-owned external resources need explicit close. The additional JS
 [`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
 `FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;
 [`run-wasi.mjs`](scripts/run-wasi.mjs) supplies the Node WASIp1 runner.
+Its kind-2 cleanup goes to the common numeric library's `snail:drop-array`
+export; kind-1 cleanup goes to the selected platform's port provider.
 
 [`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
 Scheme values, invoking callbacks, and returning rooted values. It is compiled

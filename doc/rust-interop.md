@@ -74,14 +74,19 @@ the search pattern and accesses the Scheme haystack by Unicode scalar index.
 ## External resources and finalization
 
 An extension wrapper contains a resource kind and ID, not a native address or
-Rust trait object. The initial runtime reserves kind 1 for ports; IDs are never
-reused. Current ports have durable roots. Explicit `close-port` closes promptly;
+Rust trait object. Kind 1 identifies ports and kind 2 identifies numeric tensors;
+IDs are never reused within a kind. Current ports have durable roots.
+Explicit `close-port` closes promptly;
 an output-string port remains readable after close until its wrapper dies.
 
 ABI imports `snail.host/register-finalizer(object, kind, id)`. The browser/Node
 implementation in `src/runtime/host.mjs` uses `FinalizationRegistry`, holding only
-resource IDs. Cleanup invokes `ports/drop-resource`; the Rust implementation
-drops the port payload and marks its slot closed. Repeated cleanup is harmless.
+resource IDs. Kind-1 cleanup invokes the selected `ports/drop-resource` provider;
+the default Rust implementation drops the port payload and marks its slot closed.
+Kind-2 cleanup invokes the common library's `snail:drop-array` export, which
+releases that wrapper's ownership of its numeric buffer. Reshapes can share
+`Rc` storage, so collecting one wrapper leaves another live view intact.
+Repeated cleanup is harmless.
 `Root::from_raw_extension` is unsafe: create exactly one owning wrapper per
 resource and clone its roots to share it. Constructing a second wrapper for
 one ID could finalize the resource while the first wrapper is still live.
@@ -93,7 +98,8 @@ The registry and its held values must not strongly retain the watched object.
 A Rust resource that retains its own Scheme wrapper through `Root` creates such
 a cycle and requires explicit release. Finalization is nondeterministic and is
 not guaranteed at shutdown. Explicit close/cancel remains the prompt path.
-The Node loader forwards scalar cleanup notices to the selected ports handler.
+The Node loader routes scalar notices by resource kind. Replacing the ports
+handler does not change ownership or cleanup of common-library numeric buffers.
 
 ## Continuations: planned, not implemented
 

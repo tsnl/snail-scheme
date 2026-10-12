@@ -31,12 +31,8 @@ chibi-scheme -I src examples/iverson-ghost/main.scm
 # Build and execute linked Wasm.
 chibi-scheme -I src examples/iverson-ghost/build.scm
 
-# Compile the same Scheme program to a native executable.
-chibi-scheme -I src tests/build-native.scm . examples/iverson-ghost/main.scm build/iverson-ghost
-build/iverson-ghost
-
-# Exercise contracts and diagnostics through both backends.
-scripts/test-backend --target both
+# Exercise contracts and diagnostics in linked Wasm.
+scripts/test-backend
 ```
 
 ## Implemented interface
@@ -129,8 +125,10 @@ shape and reference-counted numeric payload in a resource registry. The registry
 retains no Scheme roots, and a wrapper's finalizer holds only scalar resource
 IDs. Reshapes share numeric payloads, and finalization releases each wrapper's
 ownership. Object tensors instead keep their slots in Scheme record fields so
-cycles remain visible to the Scheme collector. Resource cleanup is eventual;
-the native adapter drains finalizers after guest frames return.
+cycles remain visible to the Scheme collector. Resource cleanup is eventual.
+The host routes numeric collection notices to
+the common library's `snail:drop-array` export, independently of the selected
+platform's port provider. Only scalar resource IDs cross that cleanup boundary.
 
 ## Compiler and typing direction
 
@@ -139,7 +137,7 @@ The implemented boundary is in
 [`iverson.rs`](../src/iverson.rs), and the primitive inventory/lowering in
 [`bootstrap.sld`](../src/snail-scheme/bootstrap.sld) and
 [`wasm.sld`](../src/snail-scheme/wasm.sld). Immutable primitive identities lower
-directly to whole-operation calls; one AWI argument vector crosses the boundary
+directly to whole-operation calls; one ABI argument vector crosses the boundary
 per operation. The numeric element loops contain no Scheme callbacks or boxed
 element arithmetic. Passing an operation as a first-class procedure still works
 through ordinary dispatch.

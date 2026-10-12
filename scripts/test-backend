@@ -122,6 +122,9 @@ def check_fixture(name):
         require_result(command, SUCCESSES[name])
         for argument, diagnostic in ARRAY_ERRORS.items():
             require_result(command, "", diagnostic, [argument])
+        require_result([os.environ.get("NODE", "node"), "--no-warnings", "--expose-gc",
+                        str(ROOT / "tests/check-iverson-lifetimes.mjs"), command[-1]],
+                       SUCCESSES[name] + "Iverson buffer ownership and cleanup routing checks passed\n")
     else:
         require_result(command, SUCCESSES[name])
     if name == "backend-hash-tables":

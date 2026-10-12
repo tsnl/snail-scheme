@@ -179,7 +179,9 @@ fn publish(array: Array) -> Result<Root, String> {
     Ok(unsafe { Root::from_raw_extension(ARRAY_KIND, id) })
 }
 
-pub(crate) fn drop_array(id: u32) {
+// Array cleanup belongs to this library, independently of platform port handlers.
+#[unsafe(export_name = "snail:drop-array")]
+pub extern "C" fn drop_array(id: u32) {
     ARRAYS.with_borrow_mut(|arrays| arrays.live.remove(&id));
 }
 

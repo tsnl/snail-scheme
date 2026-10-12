@@ -53,15 +53,7 @@ Expected output:
 "xx"
 ```
 
-The first command compiles, links, and executes Wasm. Compile and execute the
-same Scheme program natively with:
-
-```sh
-chibi-scheme -I src tests/build-native.scm . examples/typeclasses/main.scm build/typeclasses
-build/typeclasses
-```
-
-Both targets produce the output above.
+The command compiles, links, and executes Wasm on the Node.js platform.
 
 ## Selection uses exact static types
 
@@ -130,8 +122,8 @@ their ordinary execution order.
 
 The pass removes class declarations, qualified signatures, and unresolved
 overloads, then checks that none remain. Normal type analysis and Wasm emission
-receive ordinary resolved IR. The same lowered program can run through WasmGC
-or the native translator.
+receive ordinary resolved IR. The linked program runs through WasmGC on the
+selected platform.
 
 The [tensor tutorial](tutorials/tensors.md) applies this mechanism to two nominal
 representations: immediate tensors and symbolic graphs. Carrier selection is

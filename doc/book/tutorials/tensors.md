@@ -104,15 +104,13 @@ Build with `examples/iverson-ghost/typed-build.scm`:
 {{#include ../../../examples/iverson-ghost/typed-build.scm}}
 ```
 
-Run the program through Wasm, then compile and execute it natively:
+Run the linked Wasm program:
 
 ```sh
 chibi-scheme -I src examples/iverson-ghost/typed-build.scm
-chibi-scheme -I src tests/build-native.scm . examples/iverson-ghost/typed.scm build/iverson-typed
-build/iverson-typed
 ```
 
-Both executions produce:
+Expected output:
 
 ```text
 #(10.0 14.0 14.0 20.0)
@@ -126,7 +124,7 @@ Both executions produce:
 Carrier selection and generic specialization use static type information.
 Element dtype, rank, and dimensions are runtime metadata with checked operation
 contracts. Numeric storage is unboxed; object storage contains GC-visible Scheme
-values. Current kernels use scalar CPU loops on both Wasm and native targets.
+values. Current kernels use scalar CPU loops in Wasm.
 
 The symbolic interpreter evaluates a tree without memoization or graph
 optimization. Graph-to-program compilation, static shape and dtype refinements,
@@ -135,5 +133,18 @@ deliberately omitted from the MVP.
 
 `make test` checks host behavior and compiler elaboration. `scripts/test-typing`
 checks static successes and failures in guarded and optimized modes.
-`scripts/test-backend --target both` executes concrete arrays, overloads, and
-eager/symbolic tensor programs through Wasm and native translation.
+`scripts/test-backend` executes concrete arrays, overloads, and eager/symbolic
+tensor programs as linked Wasm on Node.js.
+
+## Training nodes and artifacts (planned)
+
+A future tensor compiler can publish graph programs alongside a training node
+and browser artifacts. Compiling the graph performs no training. The training
+node can own parameters and device buffers while a browser workbook sends pause,
+resume, checkpoint, or cancellation requests and receives progress messages.
+
+The [node model](../nodes.md) separates those states and lifetimes. Device work
+must retain its buffers until completion. Checkpoints also need optimizer state,
+random-number state, and dataset position. The application decides whether
+closing a workbook only disconnects it or stops training. These workflows and
+graph compilation extend beyond the runnable array and interpreter prototype.
