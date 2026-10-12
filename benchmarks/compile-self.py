@@ -12,8 +12,10 @@ from pathlib import Path
 
 from plots import GRAY, ORANGE, duration_chart
 from r7rs import (
+    check_hashes,
     digest,
     execute,
+    experiment_environment,
     parse_result,
     positive,
     save_report,
@@ -26,7 +28,6 @@ ROOT = Path(__file__).resolve().parents[1]
 ENTRY = "benchmarks/compile-self.scm"
 LABELS = {
     "chibi": "Chibi host",
-    "snail-native": "Snail native",
     "snail-wasm": "Snail Wasm / V8",
 }
 
@@ -38,7 +39,7 @@ def snapshot(output):
     frozen = output / "source"
     frozen.mkdir()  # A fresh directory keeps previous measurements and sources intact.
     paths = [ROOT / name for name in [ENTRY, "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
-                                     "src/native.c", "src/runtime/host.mjs", "scripts/run-wasi.mjs"]]
+                                     "src/runtime/host.mjs", "src/runtime/build.mjs", "scripts/run-wasi.mjs"]]
     for pattern in ["src/**/*.sld", "bootstrap/**/*.sld", "src/**/*.rs"]:
         paths.extend(sorted(ROOT.glob(pattern)))
     for path in paths:
@@ -56,9 +57,11 @@ def manifest(directory, *, exclude_build=False):
     }
 
 
-def checked_build(report, command, args):
-    result = execute(list(map(str, command)), args.output, args.build_timeout)
+def checked_build(report, command, args, *, capture=None):
+    environment = {"SNAIL_CAPTURE_DIRECTORY": str(capture)} if capture else {}
+    result = execute(list(map(str, command)), args.output, args.build_timeout, environment=environment)
     report["builds"].append({"command": list(map(str, command)), **result})
+    save_report(report, args.output)
     if result["status"] != "ok":
         raise RuntimeError(f"compiler preparation {result['status']}: {result['stderr']}")
 
@@ -80,32 +83,26 @@ def prepare(report, args):
         args,
     )
     for case in report["cases"]:
+        directory = args.output / "cases/compiler-self" / case["system"]
+        directory.mkdir(parents=True, exist_ok=True)
+        case["directory"] = str(directory)
         try:
-            case["command"] = compiler_command(case["system"], chibi, report, args)
+            case["command"] = compiler_command(case, chibi, report, args)
+            case["artifact_sha256"] = manifest(directory)
             case["status"] = "ready"
         except (OSError, RuntimeError) as error:
             case.update(
                 status="unavailable" if isinstance(error, OSError) else "build-error",
                 diagnostic=str(error),
             )
+        save_report(report, args.output)
 
 
-def compiler_command(system, chibi, report, args):
+def compiler_command(case, chibi, report, args):
+    system, directory = case["system"], Path(case["directory"])
     if system == "chibi":
         return chibi
     frozen = args.output / "source"
-    if system == "snail-native":
-        binary = args.output / "compiler"
-        script = args.output / "native.scm"
-        script.write_text(
-            "(import (scheme base) (snail-scheme native) (snail-scheme chromium-trace))\n"
-            '(with-chromium-trace-to "native.trace.json" (lambda ()\n'
-            f'(build-native {json.dumps(str(frozen))} {json.dumps(str(frozen / ENTRY))} "compiler")))\n'
-        )
-        checked_build(report, [chibi[0], "-h512M", "-I", frozen / "src", script], args)
-        report["compiler_native_sha256"] = digest(binary.read_bytes())
-        report["compiler_native_artifacts"] = artifact_hashes(binary)
-        return [str(binary)]
     wasm = args.output / "compiler.wasm"
     if not wasm.exists():
         link = args.output / "link.scm"
@@ -114,23 +111,14 @@ def compiler_command(system, chibi, report, args):
             '(with-chromium-trace-to "link.trace.json" (lambda ()\n'
             f'(link-wasm "reference.wat" (build-runtime {json.dumps(str(frozen))}) "compiler.wasm")))\n'
         )
-        checked_build(report, [chibi[0], "-h512M", "-I", frozen / "src", link], args)
+        checked_build(report, [chibi[0], "-h512M", "-I", frozen / "src", link], args, capture=directory)
         report["compiler_wasm_sha256"] = digest(wasm.read_bytes())
     return [tool("NODE", "node"), "--no-warnings", str(frozen / "scripts/run-wasi.mjs"), str(wasm)]
 
 
-def artifact_hashes(entry):
-    payload = entry.resolve()
-    directory = payload.parent / "artifacts"
-    return {"entry": digest(payload.read_bytes()),
-            "dependencies": manifest(directory) if directory.is_dir() else {}}
-
-
-# ---- Checked fresh-process measurements ----
-
-
-def sample(case, report, args):
-    output, frozen = args.output / f"{case['system']}.wat", args.output / "source"
+def sample(case, report, args, index):
+    output = Path(case["directory"]) / f"attempt-{index}.wat"
+    frozen = args.output / "source"
     output.unlink(missing_ok=True)
     command = [
         *case["command"],
@@ -171,13 +159,18 @@ def measure(report, args):
             for case in cases[offset:] + cases[:offset]:
                 if case["status"] == "ready":
                     record_sample(case, index, report, args)
+                else:
+                    case.setdefault("blocked_attempts", []).append(
+                        {"round": index, "reason": case["status"]})
             save_report(report, args.output)
     finally:
         os.sched_setaffinity(0, allowed)
 
 
 def record_sample(case, index, report, args):
-    result = sample(case, report, args)
+    report["active_attempt"] = [index, case["system"]]
+    save_report(report, args.output)
+    result = sample(case, report, args, index)
     if index == 0:
         case["preliminary"] = result
     else:
@@ -185,6 +178,8 @@ def record_sample(case, index, report, args):
     if result["status"] != "ok":
         case["status"] = "runtime-" + result["status"]
     report["order"].append([index, case["system"]])
+    report["active_attempt"] = None
+    save_report(report, args.output)
     print(
         f"{case['system']} {'preliminary' if index == 0 else index}: "
         f"{result.get('seconds', result['status'])}",
@@ -231,13 +226,15 @@ def render(report, output):
 
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--systems", nargs="+", choices=LABELS, default=["chibi", "snail-native"])
+    parser.add_argument("--systems", nargs="+", choices=LABELS, default=["chibi", "snail-wasm"])
     parser.add_argument("--rounds", type=positive, default=3)
     parser.add_argument("--cpu", type=int)
     parser.add_argument("--timeout", type=positive, default=300)
     parser.add_argument("--build-timeout", type=positive, default=600)
     parser.add_argument("--output", type=Path, default=ROOT / "build/compiler-report")
     parser.add_argument("--plot", type=Path, help="plot saved JSON without running the compiler")
+    parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--measure", type=Path, help="measure a prepared compiler without rebuilding")
     args = parser.parse_args()
     if len(set(args.systems)) != len(args.systems):
         parser.error("choose each system only once")
@@ -259,11 +256,12 @@ def metadata(args):
         "cpu": args.cpu,
         "rounds": args.rounds,
         "tools": tool_versions(),
-        "native_backend": "Wasm datums -> LLVM -> native Rust archive",
+        "experiment_environment": experiment_environment(),
+        "runtime": "Binaryen-optimized WasmGC on V8",
         "timeout": args.timeout,
         "build_timeout": args.build_timeout,
         "build_environment": {name: os.environ.get(name) for name in
-                              ("BDWGC_INCLUDE", "BDWGC_LIB", "RUSTFLAGS", "BINARYEN_CORES")},
+                              ("RUSTFLAGS", "BINARYEN_CORES")},
         "source_sha256": snapshot(args.output),
         "harness_sha256": {
             name: digest((ROOT / "benchmarks" / name).read_bytes())
@@ -271,6 +269,7 @@ def metadata(args):
         },
         "builds": [],
         "order": [],
+        "active_attempt": None,
         "cases": [
             {
                 "system": system,
@@ -285,8 +284,11 @@ def metadata(args):
 
 def run(args):
     report = metadata(args)
+    save_report(report, args.output)
     try:
         prepare(report, args)
+        if args.prepare_only:
+            return 0
         measure(report, args)
         if manifest(args.output / "source", exclude_build=True) != report["source_sha256"]:
             raise ValueError("frozen compiler sources changed during measurement")
@@ -300,6 +302,31 @@ def run(args):
     return int(any(case["status"] != "passed" for case in report["cases"]))
 
 
+def measure_prepared(report, args):
+    if report["complete"] or any(case["samples"] or case.get("preliminary") for case in report["cases"]):
+        raise ValueError("compiler report already contains timing attempts")
+    if report["experiment_environment"] != experiment_environment():
+        raise ValueError("prepared compiler environment changed")
+    check_hashes(args.output / "source", report["source_sha256"])
+    check_hashes(ROOT / "benchmarks", report["harness_sha256"])
+    check_hashes(args.output, {"reference.wat": report["reference_sha256"]})
+    for case in report["cases"]:
+        check_hashes(Path(case["directory"]), case.get("artifact_sha256", {}))
+    if report.get("compiler_wasm_sha256"):
+        check_hashes(args.output, {"compiler.wasm": report["compiler_wasm_sha256"]})
+    for key in ("cpu", "rounds", "timeout"):
+        setattr(args, key, report[key])
+    measure(report, args)
+    check_hashes(args.output / "source", report["source_sha256"])
+    for case in report["cases"]:
+        if case["status"] == "ready":
+            case["status"] = "passed"
+    report["complete"] = True
+    save_report(report, args.output)
+    render(report, args.output)
+    return int(any(case["status"] != "passed" for case in report["cases"]))
+
+
 def main():
     args = arguments()
     args.output = args.output.resolve()
@@ -308,6 +335,9 @@ def main():
     if args.plot:
         render(json.loads(args.plot.read_text()), args.output)
         return 0
+    if args.measure:
+        args.output = args.measure.resolve().parent
+        return measure_prepared(json.loads(args.measure.read_text()), args)
     allowed = sorted(os.sched_getaffinity(0))
     args.cpu = allowed[0] if args.cpu is None else args.cpu
     if args.cpu not in allowed:
