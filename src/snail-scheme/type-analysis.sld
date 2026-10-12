@@ -7,9 +7,9 @@
           infer-literal infer-name infer-procedure infer-conditional infer-instantiation
           infer-call check-result check-recursive-instances validate-type
           checked-fact checked-guard call-fact call-guards call-edges
-          value-fact unknown-fact normalized-fact fact-type fact-single? fact-callee
+          value-fact unknown-fact normalized-fact specialized-fact fact-type fact-single? fact-callee
           fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
-          type-optimizations-enabled predicate-type)
+          type-optimizations-enabled predicate-type scope-initialized?)
   (import (scheme base) (scheme cxr)
           (snail-scheme types) (snail-scheme type-inference)
           (prefix (snail-scheme ir) ir:))
@@ -41,6 +41,8 @@
     (define (normalized-fact fact)
       (make-fact (fact-type fact) #t (fact-object fact)
                  (fact-yes fact) (fact-no fact) (fact-callee fact)))
+    (define (specialized-fact fact type)
+      (make-fact type #t (fact-object fact) (fact-yes fact) (fact-no fact) (fact-callee fact)))
     (define (entry-value key entries default)
       (let ((entry (assq key entries))) (if entry (cdr entry) default)))
 
@@ -63,6 +65,8 @@
                   (scope-path scope) #t (scope-procedure scope)))
     (define (binding-type definition scope)
       (entry-value definition (scope-declarations scope) #f))
+    (define (scope-initialized? definition scope)
+      (and (assq definition (scope-environment scope)) #t))
     (define (bind-fact definition fact scope)
       (make-scope (scope-typing scope) (scope-declarations scope)
                   (cons (cons definition (normalized-fact fact)) (scope-environment scope))
@@ -87,6 +91,7 @@
             ((ir:assignment? node) (list (ir:assignment-value node)))
             ((ir:annotation? node) (list (ir:annotation-expression node)))
             ((ir:instantiation? node) (list (ir:instantiation-expression node)))
+            ((ir:specialization? node) (list (ir:specialization-expression node)))
             (else '())))
 
     (define (all-nodes items)
@@ -565,6 +570,9 @@
                    (and (not (eq? name '/))
                         (every? (lambda (fact) (type-subtype? (fact-type fact) 'ExactInteger)) arguments)))
                (value-fact 'ExactInteger))
+              ((and (pair? arguments)
+                    (every? (lambda (fact) (eq? (fact-type fact) 'InexactReal)) arguments))
+               (value-fact 'InexactReal))
               (else (value-fact 'Number)))))
 
     (define primitive-contracts

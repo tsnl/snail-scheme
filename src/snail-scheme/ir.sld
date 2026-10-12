@@ -36,6 +36,7 @@
    type-declaration-type type-declaration-loc
    make-annotation annotation? annotation-expression annotation-type annotation-loc
    make-instantiation instantiation? instantiation-expression instantiation-types instantiation-loc
+   make-specialization specialization? specialization-expression specialization-definition specialization-loc
    make-record-schema record-schema? record-schema-definition record-schema-constructor
    record-schema-predicate record-schema-arguments record-schema-fields record-schema-loc
 
@@ -157,6 +158,15 @@
       (expression instantiation-expression)
       (types instantiation-types)
       (loc instantiation-loc))
+
+    ;; Optimization-only call view. The expression still evaluates to the same
+    ;; closure; the definition selects a concrete copy using its environment.
+    (define-record-type <specialization>
+      (make-specialization expression definition loc)
+      specialization?
+      (expression specialization-expression)
+      (definition specialization-definition)
+      (loc specialization-loc))
 
     ;; Compile-time description emitted by the bootstrap record macro. Fields
     ;; are (name type accessor-definition optional-mutator-definition).
