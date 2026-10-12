@@ -100,7 +100,10 @@ linking the returned Cargo artifact. There is no separate runtime cache manager.
 | `src/snail-scheme/wasm-runtime.sld` | Value representations, checked primitives, calls |
 | `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |
 | `src/awi.rs` | Rust ownership and checked conversions over AWI |
-| `src/lib.rs` | Rust ports, formatting, inexact math, text search, clocks, process services |
+| `src/lib.rs` | Rust ports, formatting, real/complex math, text search, clocks, process services |
+| `src/datum.rs` | Iterative native datum parsing and rooted graph construction |
+| `src/host.rs` | Buffered ports, shared UTF-8 lookahead, resource ownership |
+| `src/text.rs`, `src/unicode.rs` | Native text comparisons, simple/full casing, generated Unicode data |
 | `build.sld` | Cargo, linking, execution and artifact publication |
 | `compile-build.sld`, `generation.sld` | Isolated library generators and their returned dependencies |
 | `artifacts.sld`, `src/snail/artifacts.sld` | Build artifact graph and installed companion lookup |
@@ -123,11 +126,14 @@ called directly. Library initialization follows dependency order.
 
 `(scheme inexact)` exports the twelve standard mathematical and classification
 procedures, including the optional second arguments to `log` and `atan`.
-Mathematical results use binary64 even for exact integer inputs; classification
-returns booleans. Real-domain failures such as `(sqrt -1)` produce NaN, as
-permitted for real-only implementations by [R7RS §6.2.3](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html).
-Complex numbers are not supported. Wasm and native tests exercise ordinary and
-first-class calls, argument errors, signed zero, infinities, and NaNs. The native
+Transcendental results use binary64 components even for exact integer inputs;
+classification returns booleans. Complex arguments and real inputs outside a
+real function's domain produce complex results, for example `(sqrt -1)` gives
+`0.0+1.0i`. `(scheme complex)` provides rectangular and polar construction,
+component extraction, magnitude, and angle. Basic arithmetic and nonnegative
+integer powers preserve exact complex integer components when they fit.
+Wasm and native tests exercise ordinary and first-class calls, argument errors,
+complex values, signed zero, infinities, and NaNs. The native
 translator supports all eight Wasm saturating float-to-integer conversions
 used by Rust math through LLVM's
 [saturating intrinsics](https://llvm.org/docs/LangRef.html#saturating-floating-point-to-integer-conversions).
@@ -146,7 +152,10 @@ Nonfinal block expressions discard any value count.
 ## Representations and ownership
 
 Scheme values are `eqref`. Signed31 integers use `i31ref`; larger exact integers
-use an `i64` box and inexact numbers an `f64` box. Pairs, vectors, text, closures,
+use an `i64` box and inexact numbers an `f64` box. Complex values contain two
+immutable real references; an exact zero imaginary component collapses to its
+real component. Exact noninteger rationals and arbitrary precision integers
+remain unsupported. Pairs, vectors, text, closures,
 cells, records, and multiple-value packets use WasmGC structs and arrays.
 Equivalent Wasm types are structural: names alone do not distinguish them.
 Atoms and text wrappers therefore carry explicit category tags.
@@ -179,6 +188,34 @@ Scheme roots: owned AWI handles retain references in a Wasm table. Temporary
 arguments and results use that same mechanism. The Rust `Root` wrapper releases
 its table slot on `Drop`, retains a separate slot on `Clone`, and transfers
 ownership on return. See [AWI](rust-interop.md).
+
+`(scheme read)` parses a single datum in Rust before making Scheme allocations.
+Its heap-based frames handle deep nesting, comments, escapes, abbreviations,
+vectors, bytevectors, and shared/cyclic labels. Every object in the parsed graph
+has an owned AWI root while its edges are installed. Text input uses one buffered
+UTF-8 cursor, including the character saved by `peek-char`; reader case directives
+persist on the port. Explicit exact decimal input is converted from digits
+without a binary64 rounding step. Numeric input follows the same signed 64-bit
+and binary64 representation limits as compiled literals.
+
+Native ports also provide string input, line input, flushing, substring output,
+direction/type/open predicates, and file deletion. `(scheme char)` uses Unicode
+16 simple mappings for characters and full mappings for string case folding;
+decimal digits exclude other numeric Unicode characters. Pure derived operations
+such as `do`, `gcd`, `lcm`, and vector callbacks remain in the bootstrap libraries.
+
+The Unicode exception tables are generated from the official Unicode 16
+[UnicodeData](https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt) and
+[CaseFolding](https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt) files:
+
+```sh
+python3 scripts/generate-unicode UnicodeData.txt CaseFolding.txt src/unicode.rs
+cargo fmt --all
+```
+
+The generator compares simple/full mappings with the installed Rust compiler's
+native casing, emits only exceptions, and retains the module's final tests.
+The generated data's [Unicode license](unicode-license.txt) is included.
 
 WasmGC removes the single 32-bit linear-memory address-space limit from Scheme's
 object heap. It does not promise an unlimited heap or arrays; engines still

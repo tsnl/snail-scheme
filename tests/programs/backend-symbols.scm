@@ -1,4 +1,4 @@
-(import (scheme base) (scheme write) (scheme process-context) (scheme hash-table) (snail typing)
+(import (scheme base) (scheme read) (scheme write) (scheme process-context) (scheme hash-table) (snail typing)
         (only (snail-scheme core) %make-record-type %make-record %record-ref))
 
 (define (check expected actual)
@@ -40,7 +40,8 @@
 (check "" (symbol->string (string->symbol "")))
 (define output (open-output-string))
 (write '|λ😀| output)
-(check "λ😀" (get-output-string output))
+(check "|λ😀|" (get-output-string output))
+(check #t (eq? '|λ😀| (read (open-input-string (get-output-string output)))))
 (close-port output)
 
 ;; Registry names survive collection of the Scheme strings and symbol boxes.

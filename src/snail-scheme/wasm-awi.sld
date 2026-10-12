@@ -99,6 +99,7 @@
               (if (ref.test (ref $record_type) (local.get $value)) (then (return (i32.const 13))))
               (if (ref.test (ref $extension) (local.get $value)) (then (return (i32.const 14))))
               (if (ref.test (ref $values) (local.get $value)) (then (return (i32.const 15))))
+              (if (ref.test (ref $complex) (local.get $value)) (then (return (i32.const 17))))
               unreachable)
 
         ;; ---- Constructors ----
@@ -107,6 +108,15 @@
               (call $awi_root (call $pack_integer (local.get $value))))
         (func (export "real") (param $value f64) (result i32)
               (call $awi_root (struct.new $float (local.get $value))))
+
+        (func (export "complex") (param $real i32) (param $imag i32) (result i32)
+              (call $awi_root (call $make_complex (call $awi_get (local.get $real)) (call $awi_get (local.get $imag)))))
+
+        (func (export "real_part") (param $root i32) (result i32)
+              (call $awi_root (call $real_part (call $awi_get (local.get $root)))))
+
+        (func (export "imag_part") (param $root i32) (result i32)
+              (call $awi_root (call $imag_part (call $awi_get (local.get $root)))))
         (func (export "atom") (param $tag i32) (result i32)
               (if (i32.eqz (local.get $tag)) (then (return (call $awi_root (global.get $false)))))
               (if (i32.eq (local.get $tag) (i32.const 1)) (then (return (call $awi_root (global.get $true)))))
@@ -116,6 +126,12 @@
               (call $awi_root (struct.new $atom (local.get $tag))))
         (func (export "pair") (param $car i32) (param $cdr i32) (result i32)
               (call $awi_root (struct.new $pair (call $awi_get (local.get $car)) (call $awi_get (local.get $cdr)))))
+
+        (func (export "pair_set_car") (param $root i32) (param $value i32)
+              (struct.set $pair 0 (ref.cast (ref $pair) (call $awi_get (local.get $root))) (call $awi_get (local.get $value))))
+
+        (func (export "pair_set_cdr") (param $root i32) (param $value i32)
+              (struct.set $pair 1 (ref.cast (ref $pair) (call $awi_get (local.get $root))) (call $awi_get (local.get $value))))
         (func (export "extension") (param $kind i32) (param $id i32) (result i32)
               (local $object (ref $extension))
               (local.set $object (struct.new $extension (local.get $kind) (local.get $id)))
@@ -123,6 +139,9 @@
               (call $awi_root (local.get $object)))
         (func (export "vector_new") (param $length i32) (result i32)
               (call $awi_root (array.new $vector (global.get $unspecified) (local.get $length))))
+
+        (func (export "values") (param $root i32) (result i32)
+              (call $awi_root (struct.new $values (ref.cast (ref $vector) (call $awi_get (local.get $root))))))
         (func (export "vector_set") (param $root i32) (param $index i32) (param $value i32)
               (array.set $vector (ref.cast (ref $vector) (call $awi_get (local.get $root))) (local.get $index) (call $awi_get (local.get $value))))
         (func (export "string_new") (param $length i32) (result i32)

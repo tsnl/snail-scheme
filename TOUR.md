@@ -329,6 +329,7 @@ and identity hashing use that ID. `wasm-literals.sld` assigns the literal prefix
 and emits its names as constant data. The registry copies that prefix on first
 use, before assigning dynamic IDs. It never retains Scheme roots or reuses IDs;
 its mutex is released before allocating Scheme values.
+The native datum reader and `string->symbol` share this interning boundary.
 
 [`src/snail-scheme/wasm-awi.sld`](src/snail-scheme/wasm-awi.sld) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
@@ -340,12 +341,30 @@ Rust uses ordinary `extern "C"` functions and the same explicit export names;
 there is no procedural-macro crate or implicit argument conversion.
 
 [`src/lib.rs`](src/lib.rs) implements Rust services: ports,
-printing, numeric text conversion, inexact mathematics, substring search, Unicode classification,
+printing, numeric text conversion, mathematics, substring search, Unicode classification,
 process arguments, environment, binary IO/UTF-8, clocks, traces, and diagnostics.
-The `(scheme inexact)` procedures operate on binary64 reals through this rooted
-boundary. They accept exact integers, return inexact mathematical results, and
-preserve NaNs, infinities, and signed zero; complex numbers remain unsupported.
-[`host.rs`](src/host.rs) owns port data and UTF-8 stream handling.
+Complex numbers have immutable real and imaginary GC references. Basic Wasm
+arithmetic preserves exact integer components; Rust implements complex
+transcendentals and polar operations with binary64 components. Exact integers
+remain limited to signed 64 bits, and exact noninteger rationals are unsupported.
+
+[`datum.rs`](src/datum.rs) implements `(scheme read)` in native Rust. An iterative
+parser builds a flat Rust graph, then allocates rooted Scheme objects and installs
+their edges. This permits shared and cyclic datum labels without using the Rust
+call stack or exposing unrooted Scheme references. Comments, abbreviations,
+escaped strings/symbols, vectors, bytevectors, and numeric prefixes share one
+streaming reader. [`host.rs`](src/host.rs) owns buffered ports and their UTF-8
+cursor; `read`, `peek-char`, `read-char`, and `read-line` share its lookahead.
+The port retains fold-case state between datums and never retains its GC wrapper.
+
+[`text.rs`](src/text.rs) implements native Unicode casing and ordered comparisons.
+[`unicode.rs`](src/unicode.rs) supplies generated Unicode 16 casing exceptions
+and decimal digit ranges. Character operations use simple scalar mappings;
+string operations can expand characters. [`scripts/generate-unicode`](scripts/generate-unicode)
+rebuilds the exceptions from UnicodeData and CaseFolding against Rust's native
+casing operations, preserving the module's final tests.
+[`hash.rs`](src/hash.rs) uses those same full folds for case-insensitive text
+keys, and hashes complex numeric components according to `eqv?`.
 Rust-owned external resources need explicit close. The additional JS
 [`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
 `FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;

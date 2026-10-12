@@ -297,7 +297,7 @@
 
     (define (predicate-type name)
       (case name
-        ((exact-integer?) 'ExactInteger) ((number? real?) 'Number) ((inexact?) 'InexactReal)
+        ((exact-integer?) 'ExactInteger) ((number?) 'Number)
         ((boolean?) 'Boolean) ((string?) 'String) ((symbol?) 'Symbol) ((char?) 'Char)
         ((pair?) 'Pair) ((null?) 'Null) ((vector?) 'Vector) ((bytevector?) 'Bytevector)
         ((procedure?) 'Procedure) (else #f)))
@@ -306,6 +306,12 @@
       (let ((object (fact-object argument)))
         (make-fact 'Boolean #t #f (if object (list (list object #t type)) '())
                    (if object (list (list object #f type)) '()) #f)))
+
+    ;; These predicates admit some complex representations. Their true arm
+    ;; proves Number; their false arm cannot exclude all numbers.
+    (define (numeric-predicate-fact argument)
+      (let ((object (fact-object argument)))
+        (make-fact 'Boolean #t #f (if object (list (list object #t 'Number)) '()) '() #f)))
 
     ;; ---- Local checking rules ----
 
@@ -527,6 +533,8 @@
     (define (primitive-result node name arguments scope)
       (let ((predicate (predicate-type name)) (count (length arguments)))
         (cond ((and predicate (= count 1)) (predicate-fact predicate (car arguments)))
+              ((and (= count 1) (memq name '(real? inexact? exact? integer?)))
+               (numeric-predicate-fact (car arguments)))
               ((memq name '(%make-record %record?)) (record-result name arguments (scope-typing scope)))
               ((memq name '(+ - * / = < <= > >= quotient remainder modulo))
                (numeric-result node name arguments (scope-strict? scope)))

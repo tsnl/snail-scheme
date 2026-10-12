@@ -2,7 +2,7 @@
 ;; WasmGC constant expressions and native static aggregates share this graph.
 (define-library (snail-scheme wasm-literals)
   (export make-literal-pool literal-reference literal-declarations)
-  (import (scheme base) (scheme cxr) (scheme hash-table))
+  (import (scheme base) (scheme cxr) (scheme complex) (scheme hash-table))
   (begin
 
     ;; ---- Pool and object identity ----
@@ -90,7 +90,10 @@
             ((null? value) '(global.get $nil))
             ((char? value) `(struct.new $atom (i32.const ,(+ 256 (char->integer value)))))
             ((exact-integer? value) (integer-expression value))
-            ((and (real? value) (inexact? value)) `(struct.new $float ,(float-expression value)))
+            ((and (number? value) (not (real? value)))
+             `(struct.new $complex ,(scalar-expression (real-part value))
+                          ,(scalar-expression (imag-part value))))
+            ((and (real? value) (inexact? value)) `(struct.new $float ,(float-expression (real-part value))))
             (else (error "unsupported literal value" value))))
 
     (define (text-expression text)
@@ -169,8 +172,14 @@
                      `(struct.new $float (f64.const ,(string->symbol token)))))
            '("+inf.0" "-inf.0" "+nan.0") '("inf" "-inf" "nan"))))
 
+      (define (test-literal-complex)
+        (let ((value (string->number "3+4i")))
+          (expect (literal-reference value (make-literal-pool))
+                  '(struct.new $complex (ref.i31 (i32.const 3)) (ref.i31 (i32.const 4))))))
+
       (define (test-wasm-literals)
         (run-test test-literal-identity)
         (run-test test-literal-cycles)
         (run-test test-literal-symbols)
-        (run-test test-literal-floats))))))
+        (run-test test-literal-floats)
+        (run-test test-literal-complex))))))

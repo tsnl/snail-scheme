@@ -20,6 +20,8 @@
         (type $pair (struct (field (mut eqref)) (field (mut eqref))))
         (type $integer (struct (field i64)))
         (type $float (struct (field f64)))
+
+        (type $complex (struct (field eqref) (field eqref)))
         (type $atom (struct (field i32)))
         (type $text (array (mut i32)))
         (type $text_object (struct (field i32) (field (ref $text))))
@@ -163,6 +165,11 @@
                        (then (struct.get $integer 0 (ref.cast (ref $integer) (local.get $value))))
                        (else (call $fail (i32.const 1)) unreachable)))))
         (func $float_value (param $value eqref) (result f64)
+              (if (ref.test (ref $complex) (local.get $value))
+                  (then
+                   (if (f64.ne (call $float_value (call $imag_part (local.get $value))) (f64.const 0))
+                       (then (call $fail (i32.const 1))))
+                   (return (call $float_value (call $real_part (local.get $value))))))
               (if (result f64) (ref.test (ref $float) (local.get $value))
                   (then (struct.get $float 0 (ref.cast (ref $float) (local.get $value))))
                   (else (f64.convert_i64_s (call $integer_value (local.get $value))))))
@@ -216,6 +223,8 @@
 
         (func $cold.checked_add (param $a eqref) (param $b eqref) (result eqref)
               (local $x i64) (local $y i64) (local $n i64)
+              (if (call $has_complex (local.get $a) (local.get $b))
+                  (then (return (call $complex_add (local.get $a) (local.get $b)))))
               (if (result eqref) (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
                   (then
                    (local.set $x (call $integer_value (local.get $a)))
@@ -226,6 +235,8 @@
                   (else (struct.new $float (f64.add (call $float_value (local.get $a)) (call $float_value (local.get $b)))))))
         (func $cold.checked_subtract (param $a eqref) (param $b eqref) (result eqref)
               (local $x i64) (local $y i64) (local $n i64)
+              (if (call $has_complex (local.get $a) (local.get $b))
+                  (then (return (call $complex_subtract (local.get $a) (local.get $b)))))
               (if (result eqref) (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
                   (then
                    (local.set $x (call $integer_value (local.get $a)))
@@ -258,6 +269,10 @@
                   (else (call $cold.checked_subtract (local.get $a) (local.get $b)))))
         (func $numeric_equal (param $a eqref) (param $b eqref) (result eqref)
               (local $x i32) (local $y i32) (local $n i32) (local $order i32)
+              (if (call $has_complex (local.get $a) (local.get $b))
+                  (then (return (call $pack_boolean (i32.and
+                                                     (call $truthy (call $numeric_equal (call $real_part (local.get $a)) (call $real_part (local.get $b))))
+                                                     (call $truthy (call $numeric_equal (call $imag_part (local.get $a)) (call $imag_part (local.get $b)))))))))
               (if (result eqref)
                   (i32.and (ref.test (ref i31) (local.get $a)) (ref.test (ref i31) (local.get $b)))
                   (then
@@ -313,6 +328,8 @@
                                                      (i32.ge_s (local.get $order) (i32.const 0)))))))
         (func $multiply (param $a eqref) (param $b eqref) (result eqref)
               (local $x i64) (local $y i64) (local $product i64)
+              (if (call $has_complex (local.get $a) (local.get $b))
+                  (then (return (call $complex_multiply (local.get $a) (local.get $b)))))
               (if (result eqref) (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
                   (then
                    (local.set $x (call $integer_value (local.get $a)))
@@ -332,6 +349,8 @@
                            (i64.eq (local.get $y) (i64.const -1))) (then (call $fail (i32.const 2)))))
         (func $divide (param $a eqref) (param $b eqref) (result eqref)
               (local $x i64) (local $y i64)
+              (if (call $has_complex (local.get $a) (local.get $b))
+                  (then (return (call $complex_divide (local.get $a) (local.get $b)))))
               (if (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
                   (then
                    (local.set $x (call $integer_value (local.get $a)))
@@ -440,6 +459,87 @@
                               (i64.ge_s (call $known_integer_value (local.get $a))
                                         (call $known_integer_value (local.get $b)))))))
 
+        ;; ---- Complex numbers ----
+
+        ;; Real components keep their exactness. Immutable fields distinguish
+        ;; complex values from pairs; only an exact imaginary zero collapses.
+        (func $has_complex (param $a eqref) (param $b eqref) (result i32)
+              (i32.or (ref.test (ref $complex) (local.get $a)) (ref.test (ref $complex) (local.get $b))))
+
+        (func $real_part (param $value eqref) (result eqref)
+              (if (result eqref) (ref.test (ref $complex) (local.get $value))
+                  (then (struct.get $complex 0 (ref.cast (ref $complex) (local.get $value))))
+                  (else (drop (call $float_value (local.get $value))) (local.get $value))))
+
+        (func $imag_part (param $value eqref) (result eqref)
+              (if (result eqref) (ref.test (ref $complex) (local.get $value))
+                  (then (struct.get $complex 1 (ref.cast (ref $complex) (local.get $value))))
+                  (else (drop (call $float_value (local.get $value))) (ref.i31 (i32.const 0)))))
+
+        (func $make_complex (param $real eqref) (param $imag eqref) (result eqref)
+              (drop (call $float_value (local.get $real)))
+              (drop (call $float_value (local.get $imag)))
+              (local.set $real (call $real_part (local.get $real)))
+              (local.set $imag (call $real_part (local.get $imag)))
+              (if (call $is_integer (local.get $imag))
+                  (then (if (i64.eqz (call $integer_value (local.get $imag))) (then (return (local.get $real))))))
+              (struct.new $complex (local.get $real) (local.get $imag)))
+
+        (func $is_exact (param $value eqref) (result i32)
+              (if (result i32) (ref.test (ref $complex) (local.get $value))
+                  (then (i32.and (call $is_integer (call $real_part (local.get $value)))
+                                 (call $is_integer (call $imag_part (local.get $value)))))
+                  (else (call $is_integer (local.get $value)))))
+
+        (func $is_real (param $value eqref) (result i32)
+              (if (result i32) (ref.test (ref $complex) (local.get $value))
+                  (then (f64.eq (call $float_value (call $imag_part (local.get $value))) (f64.const 0)))
+                  (else (i32.or (call $is_integer (local.get $value)) (ref.test (ref $float) (local.get $value))))))
+
+        (func $complex_add (param $a eqref) (param $b eqref) (result eqref)
+              (call $make_complex
+                    (call $add (call $real_part (local.get $a)) (call $real_part (local.get $b)))
+                    (call $add (call $imag_part (local.get $a)) (call $imag_part (local.get $b)))))
+
+        (func $complex_subtract (param $a eqref) (param $b eqref) (result eqref)
+              (call $make_complex
+                    (call $subtract (call $real_part (local.get $a)) (call $real_part (local.get $b)))
+                    (call $subtract (call $imag_part (local.get $a)) (call $imag_part (local.get $b)))))
+
+        (func $complex_multiply (param $a eqref) (param $b eqref) (result eqref)
+              (local $ar eqref) (local $ai eqref) (local $br eqref) (local $bi eqref)
+              (local.set $ar (call $real_part (local.get $a))) (local.set $ai (call $imag_part (local.get $a)))
+              (local.set $br (call $real_part (local.get $b))) (local.set $bi (call $imag_part (local.get $b)))
+              (call $make_complex
+                    (call $subtract (call $multiply (local.get $ar) (local.get $br)) (call $multiply (local.get $ai) (local.get $bi)))
+                    (call $add (call $multiply (local.get $ar) (local.get $bi)) (call $multiply (local.get $ai) (local.get $br)))))
+
+        (func $complex_divide (param $a eqref) (param $b eqref) (result eqref)
+              (local $ar eqref) (local $ai eqref) (local $br eqref) (local $bi eqref) (local $denominator eqref)
+              (local.set $ar (call $real_part (local.get $a))) (local.set $ai (call $imag_part (local.get $a)))
+              (local.set $br (call $real_part (local.get $b))) (local.set $bi (call $imag_part (local.get $b)))
+              (local.set $denominator (call $add (call $multiply (local.get $br) (local.get $br)) (call $multiply (local.get $bi) (local.get $bi))))
+              (call $make_complex
+                    (call $divide (call $add (call $multiply (local.get $ar) (local.get $br)) (call $multiply (local.get $ai) (local.get $bi))) (local.get $denominator))
+                    (call $divide (call $subtract (call $multiply (local.get $ai) (local.get $br)) (call $multiply (local.get $ar) (local.get $bi))) (local.get $denominator))))
+
+        (func $builtin:make-rectangular (param $arguments (ref $vector)) (result eqref)
+              (call $arity (local.get $arguments) (i32.const 2) (i32.const 0))
+              (call $make_complex (array.get $vector (local.get $arguments) (i32.const 0)) (array.get $vector (local.get $arguments) (i32.const 1))))
+
+        (func $builtin:real-part (param $arguments (ref $vector)) (result eqref)
+              (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
+              (call $real_part (array.get $vector (local.get $arguments) (i32.const 0))))
+
+        (func $builtin:imag-part (param $arguments (ref $vector)) (result eqref)
+              (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
+              (call $imag_part (array.get $vector (local.get $arguments) (i32.const 0))))
+
+        (func $builtin:exact? (param $arguments (ref $vector)) (result eqref)
+              (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
+              (call $pack_boolean (call $is_exact (array.get $vector (local.get $arguments) (i32.const 0)))))
+
+
         ;; ---- Identity and predicates ----
 
         ;; The emitter supplies String or the exact nominal record identity as a proof.
@@ -473,6 +573,10 @@
               (call $pack_boolean (call $same (local.get $a) (local.get $b))))
         (func $eqv (param $a eqref) (param $b eqref) (result eqref)
               (if (ref.eq (local.get $a) (local.get $b)) (then (return (global.get $true))))
+              (if (i32.and (ref.test (ref $complex) (local.get $a)) (ref.test (ref $complex) (local.get $b)))
+                  (then (return (call $pack_boolean (i32.and
+                                                     (call $truthy (call $eqv (call $real_part (local.get $a)) (call $real_part (local.get $b))))
+                                                     (call $truthy (call $eqv (call $imag_part (local.get $a)) (call $imag_part (local.get $b)))))))))
               (if (i32.and (call $is_integer (local.get $a)) (call $is_integer (local.get $b)))
                   (then (return (call $numeric_equal (local.get $a) (local.get $b)))))
               (if (i32.and (ref.test (ref $float) (local.get $a)) (ref.test (ref $float) (local.get $b)))
@@ -485,8 +589,7 @@
                                               (struct.get $atom 0 (ref.cast (ref $atom) (local.get $b))))))))
               (global.get $false))
         (func $is_number (param $value eqref) (result eqref)
-              (call $pack_boolean (i32.or (call $is_integer (local.get $value))
-                                          (ref.test (ref $float) (local.get $value)))))
+              (call $pack_boolean (i32.or (call $is_real (local.get $value)) (ref.test (ref $complex) (local.get $value)))))
         (func $is_integer_value (param $value eqref) (result eqref)
               (call $pack_boolean (call $is_integer (local.get $value))))
         (func $is_null (param $value eqref) (result eqref)
@@ -611,7 +714,7 @@
 
         (func $builtin:real? (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (call $is_number (array.get $vector (local.get $arguments) (i32.const 0))))
+              (call $pack_boolean (call $is_real (array.get $vector (local.get $arguments) (i32.const 0)))))
 
         (func $builtin:exact-integer? (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
@@ -651,15 +754,21 @@
 
         (func $builtin:inexact? (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (call $pack_boolean (ref.test (ref $float) (array.get $vector (local.get $arguments) (i32.const 0)))))
+              (call $pack_boolean (i32.and
+                                   (call $truthy (call $is_number (array.get $vector (local.get $arguments) (i32.const 0))))
+                                   (i32.eqz (call $is_exact (array.get $vector (local.get $arguments) (i32.const 0)))))))
 
         (func $builtin:integer? (param $arguments (ref $vector)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 1) (i32.const 0))
-              (if (result eqref) (ref.test (ref $float) (array.get $vector (local.get $arguments) (i32.const 0)))
-                  (then (call $pack_boolean (i32.and
-                                             (f64.eq (f64.trunc (call $float_value (array.get $vector (local.get $arguments) (i32.const 0)))) (call $float_value (array.get $vector (local.get $arguments) (i32.const 0))))
-                                             (f64.lt (f64.abs (call $float_value (array.get $vector (local.get $arguments) (i32.const 0)))) (f64.const inf)))))
-                  (else (call $is_integer_value (array.get $vector (local.get $arguments) (i32.const 0))))))
+              (call $pack_boolean (call $is_integral (array.get $vector (local.get $arguments) (i32.const 0)))))
+
+        (func $is_integral (param $value eqref) (result i32)
+              (local $real f64)
+              (if (call $is_integer (local.get $value)) (then (return (i32.const 1))))
+              (if (i32.eqz (call $is_real (local.get $value))) (then (return (i32.const 0))))
+              (local.set $real (call $float_value (local.get $value)))
+              (i32.and (f64.eq (f64.trunc (local.get $real)) (local.get $real))
+                       (f64.lt (f64.abs (local.get $real)) (f64.const inf))))
 
         (func $builtin:+ (param $arguments (ref $vector)) (result eqref)
               (local $result eqref) (local $index i32)
@@ -941,6 +1050,8 @@
 
         (func $string_text (param $value eqref) (result (ref $text))
               (local $object (ref $text_object))
+              (if (i32.eqz (ref.test (ref $text_object) (local.get $value)))
+                  (then (call $fail (i32.const 8))))
               (local.set $object (ref.cast (ref $text_object) (local.get $value)))
               (if (i32.ne (struct.get $text_object 0 (local.get $object)) (i32.const 0))
                   (then (call $fail (i32.const 8))))
@@ -965,6 +1076,22 @@
                                  (local.set $index (i32.add (local.get $index) (i32.const 1)))
                                  (br $next)))
               (struct.new $text_object (i32.const 0) (local.get $text)))
+        (func $builtin:make-string (param $arguments (ref $vector)) (result eqref)
+              (local $fill i32)
+              (call $arity (local.get $arguments) (i32.const 1) (i32.const 1))
+              (if (i32.gt_u (array.len (local.get $arguments)) (i32.const 2)) (then (call $fail (i32.const 4))))
+              (if (i32.eq (array.len (local.get $arguments)) (i32.const 2))
+                  (then (local.set $fill (call $character_value (array.get $vector (local.get $arguments) (i32.const 1))))))
+              (struct.new $text_object (i32.const 0) (array.new $text (local.get $fill)
+                                                                (call $index (array.get $vector (local.get $arguments) (i32.const 0))))))
+
+        (func $builtin:string-set! (param $arguments (ref $vector)) (result eqref)
+              (call $arity (local.get $arguments) (i32.const 3) (i32.const 0))
+              (array.set $text (call $string_text (array.get $vector (local.get $arguments) (i32.const 0)))
+                         (call $index (array.get $vector (local.get $arguments) (i32.const 1)))
+                         (call $character_value (array.get $vector (local.get $arguments) (i32.const 2))))
+              (global.get $unspecified))
+
         (func $builtin:string-append (param $arguments (ref $vector)) (result eqref)
               (local $index i32) (local $length i32) (local $offset i32)
               (local $text (ref $text)) (local $part (ref $text))
@@ -998,6 +1125,16 @@
               (struct.new $text_object (i32.const 0) (local.get $result)))
 
         ;; ---- Bytevectors ----
+
+        (func $builtin:make-bytevector (param $arguments (ref $vector)) (result eqref)
+              (local $fill i32)
+              (call $arity (local.get $arguments) (i32.const 1) (i32.const 1))
+              (if (i32.gt_u (array.len (local.get $arguments)) (i32.const 2)) (then (call $fail (i32.const 4))))
+              (if (i32.eq (array.len (local.get $arguments)) (i32.const 2))
+                  (then (local.set $fill (call $index (array.get $vector (local.get $arguments) (i32.const 1))))))
+              (if (i32.gt_u (local.get $fill) (i32.const 255)) (then (call $fail (i32.const 3))))
+              (struct.new $bytevector (array.new $bytes (local.get $fill)
+                                                 (call $index (array.get $vector (local.get $arguments) (i32.const 0))))))
 
         (func $builtin:bytevector (param $arguments (ref $vector)) (result eqref)
               (local $bytes (ref $bytes)) (local $index i32) (local $value i32)
