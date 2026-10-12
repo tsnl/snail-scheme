@@ -2,7 +2,64 @@
   (export abi-definitions)
   (import (scheme base))
   (begin
-    (define abi-definitions
+
+    ;; ---- Value categories ----
+
+    ;; A membership query tests the requested shape, not every other category.
+    ;; Keep its predicates shared with classification so successful checks and
+    ;; failure diagnostics agree. The integer predicate accepts both layouts.
+    (define object-kind-tests
+      '((4 (call $is_integer (local.get $value)))
+        (9 (ref.test (ref $text_object) (local.get $value)))
+        (5 (ref.test (ref $float) (local.get $value)))
+        (7 (ref.test (ref $pair) (local.get $value)))
+        (8 (ref.test (ref $vector) (local.get $value)))
+        (11 (ref.test (ref $bytevector) (local.get $value)))
+        (12 (ref.test (ref $closure) (local.get $value)))
+        (13 (i32.or (ref.test (ref $record) (local.get $value))
+                    (ref.test (ref $record_type) (local.get $value))))
+        (14 (ref.test (ref $extension) (local.get $value)))
+        (15 (ref.test (ref $values) (local.get $value)))
+        (17 (ref.test (ref $complex) (local.get $value)))))
+
+    (define (classify-object test)
+      `(if ,(cadr test) (then (return (i32.const ,(car test))))))
+    (define (test-object-kind test)
+      `(if (i32.eq (local.get $kind) (i32.const ,(car test)))
+           (then (return ,(cadr test)))))
+
+    (define kind-definitions
+      `((func $abi_atom_kind (param $tag i32) (result i32)
+              ;; ABI categories describe tags; scalar validity is checked on
+              ;; extraction. Preserve Character for every nonnegative tag >= 6.
+              (if (i32.lt_s (local.get $tag) (i32.const 0)) (then (return (i32.const 10))))
+              (if (i32.lt_u (local.get $tag) (i32.const 2)) (then (return (i32.const 1))))
+              (if (i32.eq (local.get $tag) (i32.const 2)) (then (return (i32.const 2))))
+              (if (i32.eq (local.get $tag) (i32.const 3)) (then (return (i32.const 0))))
+              (if (i32.eq (local.get $tag) (i32.const 4)) (then (return (i32.const 3))))
+              (if (i32.eq (local.get $tag) (i32.const 5)) (then (return (i32.const 16))))
+              (i32.const 6))
+        (func (export "kind") (param $handle i32) (result i32)
+              (local $value eqref)
+              (local.set $value (call $abi_get (local.get $handle)))
+              ,(classify-object (car object-kind-tests))
+              (if (ref.test (ref $atom) (local.get $value))
+                  (then (return (call $abi_atom_kind
+                                      (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value)))))))
+              ,@(map classify-object (cdr object-kind-tests))
+              unreachable)
+        (func (export "is_kind") (param $handle i32) (param $kind i32) (result i32)
+              (local $value eqref)
+              ;; Resolve even for an unknown category: stale handles still trap.
+              (local.set $value (call $abi_get (local.get $handle)))
+              ,@(map test-object-kind object-kind-tests)
+              (if (result i32) (ref.test (ref $atom) (local.get $value))
+                  (then (i32.eq (local.get $kind)
+                                (call $abi_atom_kind
+                                      (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value))))))
+                  (else (i32.const 0))))))
+
+    (define core-definitions
       '(
         ;; ABI v0: owned integer handles into a GC-reference table. Each exported
         ;; getter returning a handle allocates a distinct root; callers release it.
@@ -70,37 +127,6 @@
               (call $identity_hash (call $abi_get (local.get $handle))))
         (func (export "literal_symbol_names") (result i32)
               (call $abi_root (global.get $symbol_names)))
-
-        ;; ---- Value categories ----
-
-        ;; Discriminants match snail_abi::Kind, not the private object tag values.
-        (func (export "kind") (param $handle i32) (result i32)
-              (local $value eqref) (local $tag i32)
-              (local.set $value (call $abi_get (local.get $handle)))
-              (if (call $is_integer (local.get $value)) (then (return (i32.const 4))))
-              (if (ref.test (ref $atom) (local.get $value))
-                  (then
-                   (local.set $tag (struct.get $atom 0 (ref.cast (ref $atom) (local.get $value))))
-                   (if (i32.lt_s (local.get $tag) (i32.const 0)) (then (return (i32.const 10))))
-                   (if (i32.lt_u (local.get $tag) (i32.const 2)) (then (return (i32.const 1))))
-                   (if (i32.eq (local.get $tag) (i32.const 2)) (then (return (i32.const 2))))
-                   (if (i32.eq (local.get $tag) (i32.const 3)) (then (return (i32.const 0))))
-                   (if (i32.eq (local.get $tag) (i32.const 4)) (then (return (i32.const 3))))
-                   (if (i32.eq (local.get $tag) (i32.const 5)) (then (return (i32.const 16))))
-                   (return (i32.const 6))))
-              (if (ref.test (ref $text_object) (local.get $value))
-                  (then (return (i32.const 9))))
-              (if (ref.test (ref $float) (local.get $value)) (then (return (i32.const 5))))
-              (if (ref.test (ref $pair) (local.get $value)) (then (return (i32.const 7))))
-              (if (ref.test (ref $vector) (local.get $value)) (then (return (i32.const 8))))
-              (if (ref.test (ref $bytevector) (local.get $value)) (then (return (i32.const 11))))
-              (if (ref.test (ref $closure) (local.get $value)) (then (return (i32.const 12))))
-              (if (ref.test (ref $record) (local.get $value)) (then (return (i32.const 13))))
-              (if (ref.test (ref $record_type) (local.get $value)) (then (return (i32.const 13))))
-              (if (ref.test (ref $extension) (local.get $value)) (then (return (i32.const 14))))
-              (if (ref.test (ref $values) (local.get $value)) (then (return (i32.const 15))))
-              (if (ref.test (ref $complex) (local.get $value)) (then (return (i32.const 17))))
-              unreachable)
 
         ;; ---- Constructors ----
 
@@ -208,4 +234,7 @@
         (func (export "call") (param $procedure i32) (param $arguments i32) (result i32)
               (call $abi_root (call $apply (call $abi_get (local.get $procedure))
                                     (ref.cast (ref $vector) (call $abi_get (local.get $arguments))) (ref.null $result_context))))
-        ))))
+        ))
+
+    (define abi-definitions (append core-definitions kind-definitions))
+    ))

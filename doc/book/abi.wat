@@ -42,6 +42,11 @@
   ;; internal object tag. The discriminants are listed above.
   (import "snail.abi" "kind" (func (param $root i32) (result i32)))
 
+  ;; Tests one semantic category without classifying unrelated shapes. This
+  ;; observes the borrowed root and allocates no slots. Unknown categories
+  ;; return zero; invalid handles still trap. Tags distinguish shared structs.
+  (import "snail.abi" "is_kind" (func (param $root i32) (param $kind i32) (result i32)))
+
   ;; Returns 1 for reference identity and 0 otherwise. This is not structural
   ;; equality.
   (import "snail.abi" "same" (func (param $a i32) (param $b i32) (result i32)))

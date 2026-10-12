@@ -26,6 +26,40 @@ if (status !== 0) throw new Error(`program exited ${status}`);
 // Every payload bit survives boxing. Synthetic IDs test representation only;
 // they never reach the name registry, which has far fewer than 2^31 entries.
 const abi = instance.exports;
+
+function checkKind(root, expectedKind) {
+  const retained = abi.retain(root), live = abi.abi_live_roots.value;
+  if (abi.kind(root) !== expectedKind) throw new Error(`kind: expected ${expectedKind}`);
+  for (const kind of [...Array(18).keys(), 99, 0xffffffff]) {
+    if (abi.is_kind(root, kind) !== Number(kind === expectedKind))
+      throw new Error(`is_kind: expected ${expectedKind}, tested ${kind}`);
+  }
+  if (abi.abi_live_roots.value !== live || !abi.same(root, retained))
+    throw new Error('category tests changed root ownership or value');
+  abi.release(retained);
+}
+
+for (const [tag, kind] of [[0, 1], [1, 1], [2, 2], [3, 0], [4, 3], [5, 16],
+  [6, 6], [255, 6], [256, 6], [0x7fffffff, 6], [-1, 10], [-0x80000000, 10]]) {
+  const root = abi.atom(tag);
+  checkKind(root, kind);
+  abi.release(root);
+}
+const small = abi.integer(1n), large = abi.integer(1n << 40n), vector = abi.vector_new(0);
+const roots = [[small, 4], [large, 4], [vector, 8], [abi.real(1.5), 5],
+  [abi.pair(small, large), 7], [abi.string_new(0), 9], [abi.bytes_new(0), 11],
+  [abi.extension(0, 0), 14], [abi.values(vector), 15], [abi.complex(small, small), 17]];
+for (const [root, kind] of roots) checkKind(root, kind);
+for (const [root] of roots) abi.release(root);
+for (const invalid of [roots.at(-1)[0], 0xffffffff]) {
+  let trapped = false;
+  try { abi.is_kind(invalid, 99); } catch (error) {
+    if (!(error instanceof WebAssembly.RuntimeError)) throw error;
+    trapped = true;
+  }
+  if (!trapped) throw new Error('invalid root did not trap for unknown category');
+}
+
 for (const id of [0, 0x3fffffff, 0x40000000, 0x7fffffff]) {
   const tag = id | 0x80000000;
   const a = abi.atom(tag), b = abi.atom(tag), character = abi.atom(256 + 955);

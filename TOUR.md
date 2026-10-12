@@ -312,6 +312,9 @@ The Rust datum reader and `string->symbol` share this interning boundary.
 [`src/snail-scheme/wasm-abi.sld`](src/snail-scheme/wasm-abi.sld) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
+Classification and direct category tests share their Wasm shape and tag rules.
+Rust singleton checks use the direct test; failures classify the value to keep
+the existing expected/found diagnostic.
 The [Rust ABI module](src/abi.rs) expresses that ownership through `Root`:
 clone retains, drop releases, return transfers. Raw handles are unsafe and bound
 to their instance. Imports bind to the linked Scheme module's ABI exports.

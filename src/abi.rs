@@ -34,6 +34,7 @@ mod raw {
         fn retain(root: u32) -> u32;
         fn release(root: u32);
         fn kind(root: u32) -> u32;
+        fn is_kind(root: u32, kind: u32) -> u32;
         fn same(a: u32, b: u32) -> u32;
         fn identity_hash(root: u32) -> u32;
         fn literal_symbol_names() -> u32;
@@ -200,11 +201,16 @@ impl Root {
     }
 
     fn require(&self, kinds: &[Kind]) -> Result<(), String> {
-        let found = self.kind();
-        if kinds.contains(&found) {
+        // A successful singleton check tests only its Wasm shape. Classify the
+        // value on failure so the existing expected/found diagnostic is exact.
+        let matches = match kinds {
+            [kind] => unsafe { raw::is_kind(self.handle, *kind as u32) != 0 },
+            _ => kinds.contains(&self.kind()),
+        };
+        if matches {
             Ok(())
         } else {
-            Err(format!("expected {kinds:?}, found {found:?}"))
+            Err(format!("expected {kinds:?}, found {:?}", self.kind()))
         }
     }
 
