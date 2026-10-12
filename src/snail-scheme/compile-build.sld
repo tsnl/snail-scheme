@@ -5,7 +5,7 @@
   (import (scheme base) (scheme cxr) (scheme file) (scheme write)
           (snail-scheme compiler) (snail-scheme chromium-trace) (snail-scheme syntax)
           (snail-scheme build-host) (snail-scheme artifacts)
-          (snail-scheme generation) (snail-scheme native-link))
+          (snail-scheme generation) (snail-scheme wasm-link))
   (begin
 
     ;; ---- Compilation results and dependency ownership ----
@@ -81,16 +81,18 @@
 
     (define (execute-generator root path wrapper directories)
       (let* ((directory (generator-directory)) (output (string-append directory "/result.scm"))
-             (program (string-append directory "/program")) (source (source-directory path))
+             (program (string-append directory "/program.wasm")) (source (source-directory path))
              (forms (generator-program wrapper output source directory))
              (compiled (collect-compilation
                         (lambda () (syntax-list->wasm root forms build-host-imports directories #f)))))
         (call-with-output-file (string-append directory "/generator.scm")
           (lambda (port) (for-each (lambda (form) (write (syntax->datum form) port) (newline port)) forms)))
-        (link-native root (compilation-wasm compiled) directory program)
-        (stage-artifacts (compilation-artifacts compiled) directory "program")
+        (link-wasm-datum root (compilation-wasm compiled) directory program)
+        (stage-artifacts (compilation-artifacts compiled) directory "program.wasm")
         (run-command "build.generate-library"
-                     (list "env" (string-append "SNAIL_ARTIFACT_ROOT=" directory "/artifacts") program) source)
+                     (list "env" (string-append "SNAIL_ARTIFACT_ROOT=" directory "/artifacts")
+                           (tool-name "NODE" "node") "--no-warnings"
+                           (string-append root "/scripts/run-wasi.mjs") program) source)
         (let* ((result (syntax->datum (read-library-form output)))
                (form (generated-library-form wrapper result))
                (artifacts (snapshot-artifacts (decode-generation-artifacts result)

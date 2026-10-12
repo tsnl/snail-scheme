@@ -35,14 +35,18 @@ def require(result, stdout="", diagnostic=None):
         raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
 
 
-def build(directory, output, target="native"):
+def wasm_command(output):
+    return [os.environ.get("NODE", "node"), "--no-warnings", str(ROOT / "scripts/run-wasi.mjs"), str(output)]
+
+
+def build(directory, output, target="wasm"):
     source = directory / "build.scm"
     libraries = f"(list {quote(directory)})"
-    arguments = f"#f {libraries}" if target == "native" else f"'() {libraries}"
-    source.write_text('(import (scheme base) (snail-scheme native) (snail-scheme build) '
+    arguments = f"'() {libraries}"
+    source.write_text('(import (scheme base) (snail-scheme build) '
                       '(snail-scheme chromium-trace))\n'
                       f'(with-chromium-trace-to {quote(str(output) + ".trace.json")} (lambda ()\n'
-                      f'(build-{target} {quote(ROOT)} {quote(directory / "main.scm")} '
+                      f'(build-wasm {quote(ROOT)} {quote(directory / "main.scm")} '
                       f'{quote(output)} {arguments})))\n')
     return invoke([CHIBI, "-h512M", "-I", ROOT / "src", source], directory)
 
@@ -89,7 +93,7 @@ def write_fixtures(directory):
 def check_generation(directory):
     output = directory / "application"
     require(build(directory, output))
-    require(invoke([output], "/tmp"), "42\ngenerator only\n")
+    require(invoke(wasm_command(output), "/tmp"), "42\ngenerator only\n")
     package = output.resolve().parent
     if not output.is_symlink() or (directory / "project/count").read_text() != "x":
         raise RuntimeError("generation was not cached across generator compilations")
@@ -102,12 +106,12 @@ def check_generation(directory):
     relocated.mkdir()
     shutil.copytree(output.resolve().parent, relocated / output.resolve().parent.name)
     (relocated / output.name).symlink_to(os.readlink(output))
-    require(invoke([relocated / output.name], "/tmp"), "43\ngenerator only\n")
+    require(invoke(wasm_command(relocated / output.name), "/tmp"), "43\ngenerator only\n")
     print("passed generator isolation, shared cache, relocation and live generations", flush=True)
 
 
 def check_running_generation(directory, output):
-    old = subprocess.Popen([output, "wait"], cwd="/tmp", text=True,
+    old = subprocess.Popen([*wasm_command(output), "wait"], cwd="/tmp", text=True,
                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         if not select.select([old.stdout], [], [], 20)[0] or old.stdout.readline() != "ready\n":
@@ -117,7 +121,7 @@ def check_running_generation(directory, output):
         stdout, stderr = old.communicate("x", timeout=20)
         if old.returncode or stdout != "42\ngenerator only\n" or stderr:
             raise RuntimeError(f"old executable lost its generation: {stdout!r} {stderr!r}")
-        require(invoke([output], "/tmp"), "43\ngenerator only\n")
+        require(invoke(wasm_command(output), "/tmp"), "43\ngenerator only\n")
     finally:
         if old.poll() is None:
             old.kill()
@@ -137,7 +141,7 @@ def check_failures(directory):
         require(build(directory, output), diagnostic=diagnostic)
         if output.resolve() != generation:
             raise RuntimeError("failed generation replaced the public executable")
-        require(invoke([output], "/tmp"), "43\ngenerator only\n")
+        require(invoke(wasm_command(output), "/tmp"), "43\ngenerator only\n")
     library.write_text(original)
     print("passed failed generation without replacing a completed package", flush=True)
 

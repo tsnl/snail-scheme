@@ -75,9 +75,9 @@ impl Symbols {
     }
 }
 
-// One table per native process or linked Wasm instance, never per OS thread.
+// One table per linked Wasm instance, never per OS thread.
 // Initialization reads only strings from the private literal vector: these
-// AWI operations cannot reenter symbol services. Copy before taking even the
+// ABI operations cannot reenter symbol services. Copy before taking even the
 // OnceLock initialization gate, then publish only the complete, root-free table.
 // The current executable links one Scheme module; separately loaded modules
 // would need to register and relocate their literal IDs instead.
@@ -100,11 +100,11 @@ pub(crate) fn spelling(id: u32) -> Result<Arc<str>, String> {
     Ok(symbols()?.name(id)?.spelling.clone())
 }
 
-// ---- Scheme and AWI boundaries ----
+// ---- Scheme and ABI boundaries ----
 
 pub(crate) fn intern(text: &str) -> Result<Root, String> {
     let id = symbols()?.intern(text.into())?;
-    // The native name table never holds an AWI root or crosses an allocation.
+    // The Rust name table never holds an ABI root or crosses an allocation.
     Ok(Root::symbol(id))
 }
 

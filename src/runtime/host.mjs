@@ -1,4 +1,4 @@
-// Host implementation of AWI finalization for browsers and Node. Keep the
+// Host implementation of ABI finalization for browsers and Node. Keep the
 // returned imports alive with their Wasm instance. Held resource IDs must not
 // retain the watched object, directly or through a rooted Scheme reference.
 // Explicit close remains necessary for timely cleanup; shutdown need not run

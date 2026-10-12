@@ -1,8 +1,8 @@
 //! Native datum input. Parsing builds a compact graph of Rust-owned values;
-//! only after its syntax is complete does AWI allocate the Scheme graph.
+//! only after its syntax is complete does ABI allocate the Scheme graph.
 //! Every allocated object stays in an owned root until all edges are installed.
 
-use crate::{awi::Root, host::TextInput};
+use crate::{abi::Root, host::TextInput};
 use std::collections::BTreeMap;
 
 // ---- Parsed values ----

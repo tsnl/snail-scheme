@@ -11,7 +11,7 @@
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
           (prefix (snail-scheme partial-eval) pe:)
-          (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-awi)
+          (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
@@ -801,10 +801,10 @@
         (if (and name (not definition)) (error "CLI handler is not defined" name))
         `(func (export "snail:main") (param $arguments i32) (result i32)
                (local $args (ref $vector))
-               (local.set $args (ref.cast (ref $vector) (call $awi_get (local.get $arguments))))
+               (local.set $args (ref.cast (ref $vector) (call $abi_get (local.get $arguments))))
                (call $arity (local.get $args) (i32.const 0) (i32.const 0))
                (drop (call $program))
-               (call $awi_root ,(if definition
+               (call $abi_root ,(if definition
                                     `(call $apply ,(read-binding definition (make-function module '() '()))
                                            (local.get $args) (ref.null $result_context))
                                     '(ref.i31 (i32.const 0)))))))
@@ -827,7 +827,7 @@
                     (map (lambda (definition) (primitive-slot definition (car entry) module))
                          (library-primitives (car entry)))) libraries)))
 
-    ;; ---- Rust services through AWI ----
+    ;; ---- Rust services through ABI ----
 
     ;; Each service has its own Wasm import. Rust borrows the argument root and
     ;; returns a separately owned root; resolve its value before releasing roots.
@@ -852,14 +852,15 @@
                   command-line exit get-environment-variable current-second current-jiffy jiffies-per-second string-contains))
 
     (define (module-services module)
-      (append (map (lambda (name) (cons name "snail.rust")) rust-primitives)
+      (append (map (lambda (name) (or (assq name standard-effect-imports) (cons name "snail.library"))) rust-primitives)
               (module-foreign module)))
 
     (define (module-primitive-names module)
       (append bootstrap-primitive-names (map car (module-foreign module))))
 
     (define (rust-import entry)
-      `(import ,(cdar entry) ,(string-append "snail:" (symbol->string (caar entry)))
+      `(import ,(if (string? (cdar entry)) (cdar entry) (cadar entry))
+               ,(if (string? (cdar entry)) (string-append "snail:" (symbol->string (caar entry))) (caddar entry))
                (func ,(identifier "rust" (cdr entry)) (param i32) (result i32))))
 
     (define (service-function-name entry)
@@ -871,9 +872,9 @@
       `(func ,(service-function-name entry)
              (param $arguments (ref $vector)) (result eqref)
              (local $root i32) (local $result eqref)
-             (local.set $root (call $awi_root (local.get $arguments)))
-             (local.set $result (call $awi_take (call ,(identifier "rust" (cdr entry)) (local.get $root))))
-             (call $awi_release (local.get $root))
+             (local.set $root (call $abi_root (local.get $arguments)))
+             (local.set $result (call $abi_take (call ,(identifier "rust" (cdr entry)) (local.get $root))))
+             (call $abi_release (local.get $root))
              (local.get $result)))
 
     ;; ---- Serialization ----
@@ -946,12 +947,12 @@
                                                   (program (module-entry libraries module)))
                                              (check-recursive-instances (output-calls output))
                                              (cons 'module
-                                                   (append '((import "snail.rust" "snail:fail" (func $rust_fail (param i32) (result i32)))
+                                                   (append '((import "snail.platform" "diagnostics/fail" (func $rust_fail (param i32) (result i32)))
                                                              (import "snail.host" "register-finalizer"
                                                                      (func $host_register_finalizer (param eqref i32 i32)))
                                                              (import "snail.host" "hash-identity" (func $host_hash_identity (param eqref) (result i32))))
                                                            (map rust-import (numbered (module-services module)))
-                                                           runtime-definitions awi-definitions
+                                                           runtime-definitions abi-definitions
                                                            (module-definitions libraries module procedures (car visited) output program)
                                                            (if (and (pair? options) (pair? (cdr options)))
                                                                (list (cli-entry root module (cadr options))) '())))))))
