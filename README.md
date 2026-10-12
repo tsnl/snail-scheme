@@ -1,5 +1,10 @@
 # Snail Scheme
 
+> 🚧 Work in progress, claims may change.
+>
+> We are still slower than Chez Scheme and Guile, but we very much aim to be
+> faster.
+
 Snail Scheme compiles Scheme to WebAssembly GC. The Wasm engine owns Scheme
 memory. A common library supplies value operations; a selected platform supplies
 named effect handlers for files, ports, clocks, diagnostics, and host services.
