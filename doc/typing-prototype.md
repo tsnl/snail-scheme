@@ -148,7 +148,9 @@ use declared signatures, but cannot borrow an unverified body summary.
 An expression returns its fact, code, and output obligations to its parent. No
 expression-to-type or expression-to-guard map is built by the checker. The
 optimization inference pass separately caches conditional lambda summaries.
-Call-site checks and recursive-instantiation edges are returned explicitly.
+The checker retains inferred `All` call instances and checked lambda lexical
+scopes for rewriting; these preserve source boundary decisions when optimization
+strengthens a fact. Call-site checks and recursive-instantiation edges are returned explicitly.
 Partial evaluation also returns a candidate value directly, after all source
 children have been checked. Generic closure identity and source contracts remain intact. Specialization
 clones local binding identities and selects concrete storage after checking.
@@ -320,7 +322,9 @@ Scheme procedure, including when it escapes through `apply` or a container.
 `type-inference.sld` also provides distinct flexible inference variables for
 unannotated lambda arguments. Equal variables choose the lowest stable identity;
 occurs checks prevent recursive types. `lambda-inference.sld` summarizes argument
-and result relationships, freshening generalized variables for each use. These
+and result relationships, freshening generalized variables for each use. Active
+recursive groups share monomorphic variables until all their constraints settle;
+only then are their summaries generalized. These
 are conditional optimization summaries, not new static restrictions on untyped
 Scheme. An unresolved operation remains dynamic. Unused inferred `All` binders
 are removed; unused binders in a source declaration remain accepted by `inst`.
@@ -345,6 +349,14 @@ Budgets currently allow eight copies per source lambda and 256 per linked module
 including libraries; they are conservative compile-time limits, not a coverage
 claim for every application in a large program.
 
+Copies preserve the original checked lexical scope, substituting its semantic
+types alongside the body while retaining binding identities, initialization,
+and cardinality evidence. A mutable captured parameter therefore keeps its
+assignment contract. Original inferred `All` instances become explicit IR `inst`
+views before rewriting: a stronger argument fact cannot move a required guard
+past effects in the callee. Rechecking an already validated copy emits runtime
+checks for incompatible strengthened facts instead of rejecting valid source.
+
 `wasm-representation.sld` maps semantic types to storage and explicit conversions.
 Exact integers, including checked `i32` values, use `i64`; inexact reals use `f64`;
 booleans and characters use `i32`; strings, pairs, vectors, bytevectors, procedures,
@@ -367,8 +379,12 @@ as a bridge to a concrete copy, so opaque calls retain the same contract.
 
 Result representations are solved by a monotone tail-call analysis. A copy keeps
 a concrete result only when every tail target uses the same representation and
-all enclosing result contracts are already justified. A generic tail target or
-deferred result check widens that component to `eqref`. Proper tail calls then
+all enclosing result contracts are already justified. Tail entries must also
+have source contracts establishing their copy domains, so the emitter cannot
+decline a planned concrete target when it has weaker facts than inference. A
+generic or inferred-only tail target, or a deferred result check, widens that
+component to `eqref`. Leaf and non-tail inferred calls can still return concrete
+values. Proper tail calls then
 use the existing Wasm tail-call and pending-check protocol. The generic bridge to
 a concrete result adds at most one boxing frame around that tail component.
 Unknown callbacks therefore remain sound even when this loses return precision.
@@ -377,8 +393,10 @@ The existing fact-driven path still removes independently justified single-value
 checks and selects typed helpers. Initialization evidence, value cardinality,
 mutable/foreign facts, array bounds, and required casts remain separate obligations.
 A value type alone cannot remove them. Generalized container layouts, specialization
-on captured values or higher-order code identities, and a complete recursive
-inference algorithm remain future work.
+on captured values or higher-order code identities, and greater recursive
+inference precision remain future work. Shallow Pair, Vector, and Procedure
+types do not preserve element types or callback identity; generic container and
+higher-order hotspots therefore remain largely outside these optimizations.
 
 ## Historical measurements before general specialization
 

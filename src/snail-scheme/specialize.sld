@@ -5,7 +5,8 @@
 (define-library (snail-scheme specialize)
   (export specialization-enabled specialize-libraries
           specialized-definition specialized-source specialized-procedure specialized-arguments
-          specialized-signature specialized-result specialized-representation specialized-captures specialized-generics)
+          specialized-signature specialized-result specialized-representation specialized-captures specialized-generics specialized-scope
+          specialized-substitutions)
   (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme type-inference)
           (snail-scheme type-analysis) (snail-scheme lambda-inference)
           (snail-scheme wasm-representation)
@@ -16,7 +17,7 @@
 
     (define specialization-enabled (make-parameter #t))
     (define-record-type <specialized>
-      (make-specialized definition source arguments signature substitutions captures procedure result representation generics)
+      (make-specialized definition source arguments signature substitutions captures procedure result representation generics scope)
       specialized?
       (definition specialized-definition) (source specialized-source)
       (arguments specialized-arguments) (signature specialized-signature)
@@ -25,11 +26,11 @@
       (procedure specialized-procedure set-specialized-procedure!)
       (result specialized-result set-specialized-result!)
       (representation specialized-representation set-specialized-representation!)
-      (generics specialized-generics set-specialized-generics!))
+      (generics specialized-generics set-specialized-generics!) (scope specialized-scope))
     (define-record-type <work>
-      (make-work inference entries pending) work?
+      (make-work inference entries pending instances scopes) work?
       (inference work-inference) (entries work-entries set-work-entries!)
-      (pending work-pending set-work-pending!))
+      (pending work-pending set-work-pending!) (instances work-instances) (scopes work-scopes))
 
     (define (lookup identity entries default)
       (let ((entry (assq identity entries))) (if entry (cdr entry) default)))
@@ -55,34 +56,41 @@
     ;; Reserve before inspecting the body: recursion refers to the same entry.
     ;; The fixed limits bound code growth; exceeding one preserves a generic call.
     (define (request-copy source arguments signature substitutions captures work)
-      (let ((substitutions (body-substitutions source substitutions)))
+      (let ((substitutions (body-substitutions source substitutions work)))
         (or (matching-entry source arguments signature substitutions captures (work-entries work))
             (and (< (length (work-entries work)) 256) (< (copy-count source (work-entries work)) 8)
                  (let* ((definition (ir:make-value-definition 'specialized (ir:lambda-loc source)))
                         (result (if signature (type-result signature) '?))
-                        (entry (make-specialized definition source arguments signature substitutions captures #f result 'eqref '())))
+                        (entry (make-specialized definition source arguments signature substitutions captures #f result 'eqref '()
+                                                 (lookup source (work-scopes work) #f))))
                    (set-work-entries! work (cons entry (work-entries work)))
                    (set-work-pending! work (append (work-pending work) (list entry))) entry)))))
 
     ;; Keep only binders used by this body's types, in source occurrence order.
     ;; Recursive requests cannot accumulate duplicate/irrelevant outer binders.
-    (define (body-substitutions source substitutions)
-      (let collect ((variables (body-type-variables source)) (seen '()) (result '()))
+    (define (body-substitutions source substitutions work)
+      (let collect ((variables (body-type-variables source #f work)) (seen '()) (result '()))
         (cond ((null? variables) (reverse result))
               ((memq (car variables) seen) (collect (cdr variables) seen result))
               (else (let ((entry (assq (car variables) substitutions)))
                       (collect (cdr variables) (cons (car variables) seen)
                                (if entry (cons entry result) result)))))))
 
-    (define (body-type-variables node)
-      (append (cond ((ir:annotation? node) (type-variables (ir:annotation-type node)))
-                    ((ir:type-declaration? node) (type-variables (ir:type-declaration-type node)))
-                    ((ir:instantiation? node) (apply append (map type-variables (ir:instantiation-types node))))
-                    (else '()))
-              (apply append (map body-type-variables (children node)))))
+    (define (body-type-variables node scope work)
+      (let ((scope (if (ir:lambda? node) (lookup node (work-scopes work) scope) scope)))
+        (append (cond ((ir:lambda? node)
+                       (type-variables (all-body (inference-procedure-type node (work-inference work)))))
+                      ((ir:name? node) (scope-binding-variables (ir:name-definition node) scope))
+                      ((ir:annotation? node) (type-variables (ir:annotation-type node)))
+                      ((ir:type-declaration? node) (type-variables (ir:type-declaration-type node)))
+                      ((ir:instantiation? node) (apply append (map type-variables (ir:instantiation-types node))))
+                      ((ir:application? node) (apply append (map type-variables (lookup node (work-instances work) '()))))
+                      (else '()))
+                (apply append (map (lambda (child) (body-type-variables child scope work)) (children node))))))
 
-    (define (specialize-libraries libraries typing)
-      (let* ((work (make-work (make-lambda-inference typing) '() '()))
+    (define (specialize-libraries libraries typing . checked)
+      (let* ((work (make-work (make-lambda-inference typing) '() '() (if (null? checked) '() (car checked))
+                              (if (or (null? checked) (null? (cdr checked))) '() (cadr checked))))
              (rewritten (map (lambda (library) (rewrite-library library work)) libraries)))
         (finish-copies work)
         (let ((entries (reverse (work-entries work))))
@@ -125,7 +133,7 @@
              (list (ir:conditional-test node) (ir:conditional-consequent node) (ir:conditional-opt-alternate node)))
             ((ir:annotation? node) (list (ir:annotation-expression node)))
             ((ir:instantiation? node) (list (ir:instantiation-expression node)))
-            ((ir:assignment? node) (list (ir:assignment-value node)))
+            ((ir:assignment? node) (list (ir:assignment-target node) (ir:assignment-value node)))
             (else '())))
 
     (define (bound-definitions node)
@@ -270,11 +278,16 @@
     (define (rewrite-application node environment renames substitutions work)
       (let* ((operands (map (lambda (node) (rewrite node environment renames substitutions work)) (ir:application-operands node)))
              (operator (rewrite (ir:application-operator node) environment renames substitutions work))
+             (types (lookup node (work-instances work) #f))
+             (types (and types (map (lambda (type) (substitute type substitutions)) types)))
+             (operator-node (if types (ir:make-instantiation (car operator) types (ir:application-loc node)) (car operator)))
              (arguments (map cdr operands))
              (source (known-lambda (ir:application-operator node) (work-inference work)))
              (declared (and source (or (inference-procedure-type source (work-inference work))
                                        (explicit-signature (ir:application-operator node) (work-inference work)))))
              (view-type (explicit-signature (ir:application-operator node) (work-inference work)))
+             (view-type (if (and types (all-type? view-type))
+                            (instantiate-type (substitute view-type substitutions) types (ir:application-loc node)) view-type))
              (instance (and declared (source-instance (substitute declared substitutions)
                                                       (and view-type (substitute view-type substitutions)) arguments (ir:application-loc node))))
              (domains (copy-domains arguments (and instance (car instance))))
@@ -284,8 +297,7 @@
                          (request-copy source domains (and instance (car instance))
                                        (append (if instance (cdr instance) '()) substitutions)
                                        (capture-types source environment (work-inference work)) work)))
-             (view (if entry (ir:make-specialization (car operator) (specialized-definition entry) (ir:application-loc node))
-                       (car operator)))
+             (view (if entry (ir:make-specialization operator-node (specialized-definition entry) (ir:application-loc node)) operator-node))
              (type (if instance (type-result (car instance))
                        (substitute (inferred-type node environment (work-inference work)) substitutions))))
         (cons (ir:make-application view (map car operands) (ir:application-loc node)) type)))
@@ -326,6 +338,14 @@
                       (set-specialized-representation! entry 'eqref) (set! changed? #t))) entries)
         (if changed? (settle-results entries primitives))))
 
+    ;; The visitor may know less than conditional inference at a call. A source
+    ;; contract guarantees these domains even then, so the selected tail entry
+    ;; cannot be declined later. Inferred-only tail entries keep eqref results.
+    (define (guaranteed-entry? entry)
+      (and (specialized-signature entry)
+           (every? (lambda (pair) (type-subtype? (car pair) (cdr pair)))
+                   (map cons (type-arguments (specialized-signature entry)) (specialized-arguments entry)))))
+
     (define (compatible-tail? node caller entries primitives expected)
       (cond ((ir:block? node)
              (or (null? (ir:block-items node))
@@ -340,7 +360,8 @@
              (let* ((operator (ir:application-operator node))
                     (callee (and (ir:specialization? operator) (entry-for (ir:specialization-definition operator) entries))))
                (if callee
-                   (and (equal? (specialized-representation caller) (specialized-representation callee))
+                   (and (guaranteed-entry? callee)
+                        (equal? (specialized-representation caller) (specialized-representation callee))
                         (every? (lambda (type) (type-subtype? (specialized-result callee) type)) expected))
                    ;; Primitive applications are leaves in the caller's Wasm
                    ;; frame. Any other tail target uses the generic protocol.
@@ -383,7 +404,7 @@
         (let* ((a (make-type-variable 'A)) (unused (make-type-variable 'Unused))
                (x (ir:make-value-definition 'x #f)) (capture (ir:make-value-definition 'capture #f))
                (source (ir:make-lambda (list x) #f (ir:make-annotation (ir:make-name x #f) a #f) #f))
-               (work (make-work (make-lambda-inference (prepare-types '() '())) '() '()))
+               (work (make-work (make-lambda-inference (prepare-types '() '())) '() '() '() '()))
                (first (request-copy source '(String) '(-> String String) (list (cons a 'String))
                                     (list (cons capture 'String)) work))
                (again (request-copy source '(String) '(-> String String)
@@ -399,10 +420,10 @@
                (caller (ir:make-value-definition 'caller #f))
                (callee-body (ir:make-lambda '() #f (ir:make-literal 1 #f) #f))
                (callee (make-specialized target callee-body '() '(-> ExactInteger) '() '()
-                                         callee-body 'ExactInteger 'i64 '()))
+                                         callee-body 'ExactInteger 'i64 '() #f))
                (call (ir:make-application (ir:make-specialization (ir:make-name target #f) target #f) '() #f))
                (body (ir:make-lambda '() #f (ir:make-annotation call 'ExactInteger #f) #f))
-               (entry (make-specialized caller body '() '(-> i32) '() '() body 'i32 'i64 '())))
+               (entry (make-specialized caller body '() '(-> i32) '() '() body 'i32 'i64 '() #f)))
           ;; The inner annotation cannot erase the stricter enclosing contract.
           (settle-results (list entry callee) '())
           (expect (specialized-representation entry) 'eqref)

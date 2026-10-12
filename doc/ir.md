@@ -580,6 +580,8 @@ with transient child facts and immutable binding contracts.
 [`lambda-inference.sld`](../src/snail-scheme/lambda-inference.sld) infers conditional
 lambda summaries; [`specialize.sld`](../src/snail-scheme/specialize.sld) uses these
 and explicit signatures to copy concrete instances within the same resolved IR.
+Original inferred `All` instances become explicit `inst` views, and copied
+lexical contracts receive the same concrete substitutions as their bodies.
 Its internal call view retains the original evaluated procedure and selects a
 copy's code entry. It introduces neither a second expression language nor new
 Scheme closure identity. [`wasm-representation.sld`](../src/snail-scheme/wasm-representation.sld)

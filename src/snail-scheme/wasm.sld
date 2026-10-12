@@ -270,27 +270,35 @@
     ;; ---- Type-directed visitor ----
 
     ;; Only the parent consumes an expression's fact. Output contains emitted
-    ;; functions, result-guard recipes, and recursive-call obligations, never a
-    ;; map from expressions to facts. Scope extensions are immutable.
+    ;; functions, result-guard recipes, and recursive-call obligations. Original
+    ;; All decisions and immutable lambda scopes survive for copying; there is
+    ;; no map from expressions to facts.
     (define-record-type <output>
-      (make-output functions guards guard-count calls) output?
+      (make-output functions guards guard-count calls instances scopes) output?
       (functions output-functions) (guards output-guards)
-      (guard-count output-guard-count) (calls output-calls))
+      (guard-count output-guard-count) (calls output-calls) (instances output-instances)
+      (scopes output-scopes))
     (define-record-type <visited>
       (make-visited fact code output scope known fold-safe? representation) visited?
       (fact visited-fact) (code visited-code) (output visited-output)
       (scope visited-scope) (known visited-known) (fold-safe? visited-fold-safe?)
       (representation visited-representation))
 
-    (define (empty-output) (make-output '() '() 0 '()))
+    (define (empty-output) (make-output '() '() 0 '() '() '()))
     (define (result fact code output scope fold-safe? . representation)
       (make-visited fact code output scope pe:unknown fold-safe? (if (null? representation) 'eqref (car representation))))
-    (define (with-calls output calls)
+    (define (with-call output node plan)
       (make-output (output-functions output) (output-guards output) (output-guard-count output)
-                   (append calls (output-calls output))))
+                   (append (if plan (call-edges plan) '()) (output-calls output))
+                   (if (and plan (call-instantiation plan))
+                       (cons (cons node (call-instantiation plan)) (output-instances output)) (output-instances output))
+                   (output-scopes output)))
     (define (with-function output definitions)
       (make-output (cons definitions (output-functions output)) (output-guards output)
-                   (output-guard-count output) (output-calls output)))
+                   (output-guard-count output) (output-calls output) (output-instances output) (output-scopes output)))
+    (define (with-lexical-scope output node scope)
+      (make-output (output-functions output) (output-guards output) (output-guard-count output)
+                   (output-calls output) (output-instances output) (cons (cons node scope) (output-scopes output))))
 
     (define (visit node scope environment expected tail? context output)
       (let* ((raw (visit-expression node scope environment expected tail? context output))
@@ -357,7 +365,7 @@
                                 (guard (guard-value (boxed-code visited) guard context))
                                 (else (visited-code visited)))
                           (if site (make-output (output-functions output) (cons site (output-guards output))
-                                                (+ 1 (output-guard-count output)) (output-calls output)) output)
+                                                (+ 1 (output-guard-count output)) (output-calls output) (output-instances output) (output-scopes output)) output)
                           (visited-scope visited) pe:unknown (and (not guard) (visited-fold-safe? visited))
                           (cond (site (function-representation context)) (guard 'eqref) (else (visited-representation visited)))))))
 
@@ -458,7 +466,7 @@
                     (specialized-fact (if plan (call-fact plan) (fact-body (visited-fact callee))) (specialized-result copy))
                     (if plan (call-fact plan) (fact-body (visited-fact callee))))
                 (cdr lowered)
-                (with-calls (visited-output callee) (if plan (call-edges plan) '())) scope
+                (with-call (visited-output callee) node plan) scope
                 (and (visited-fold-safe? callee) (every-fold-safe? (car operands))
                      (or (not plan) (null? (call-guards plan)))) (car lowered))))
 
@@ -475,7 +483,8 @@
              (code (emit-code (visited-code body) (visited-representation body) '() body-context))
              (definitions (procedure-definitions entry signature code body-context)))
         (result (infer-procedure node signature (visited-fact body)) (closure-expression node context)
-                (with-function (visited-output body) definitions) scope (and (not signature) (visited-fold-safe? body)))))
+                (with-lexical-scope (with-function (visited-output body) definitions) node scope)
+                scope (and (not signature) (visited-fold-safe? body)))))
 
     ;; ---- Expression assembly ----
 
@@ -896,7 +905,9 @@
             (emit-copies (cdr entries) module (with-function (visited-output body) definitions)))))
 
     (define (copy-scope copy module)
-      (let bind ((entries (specialized-captures copy)) (scope (module-scope module)))
+      (let bind ((entries (specialized-captures copy))
+                 (scope (scope-for-copy (or (specialized-scope copy) (module-scope module))
+                                        (module-typing module) (specialized-substitutions copy))))
         (cond ((null? entries) scope)
               ((assq (caar entries) (module-globals module)) (bind (cdr entries) scope))
               (else (bind (cdr entries) (bind-fact (caar entries) (value-fact (cdar entries)) scope))))))
@@ -1173,11 +1184,15 @@
                                                   (checked (generate-library-functions libraries original))
                                                   (validated (check-recursive-instances (output-calls (cdr checked))))
                                                   (specialized (and (type-optimizations-enabled) (representation-optimizations-enabled) (specialization-enabled)
-                                                                    (specialize-libraries (map car libraries) (module-typing original))))
+                                                                    (specialize-libraries (map car libraries) (module-typing original)
+                                                                                          (output-instances (cdr checked)) (output-scopes (cdr checked)))))
                                                   (libraries (if specialized (numbered (car specialized)) libraries))
                                                   (module (if specialized (prepare-module (map car libraries) foreign (cdr specialized)) original))
-                                                  (visited (if specialized (generate-library-functions libraries module) checked))
-                                                  (output (emit-copies (module-copies module) module (cdr visited)))
+                                                  (visited (if specialized
+                                                               (parameterize ((original-body-checking? #f))
+                                                                 (generate-library-functions libraries module)) checked))
+                                                  (output (parameterize ((original-body-checking? (not specialized)))
+                                                            (emit-copies (module-copies module) module (cdr visited))))
                                                   (procedures (apply append (reverse (output-functions output))))
                                                   (program (module-entry libraries module)))
                                              (cons 'module

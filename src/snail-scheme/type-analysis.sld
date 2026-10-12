@@ -1,15 +1,16 @@
 ;; Pure type rules over resolved binding identities. The visitor supplies child
-;; facts and consumes the returned evidence immediately; no expression is indexed.
+;; facts and consumes the returned evidence immediately. The optimizer retains
+;; checked lambda scopes and inferred All instances, not an expression fact map.
 ;; Facts describe values after their explicit guards have executed.
 (define-library (snail-scheme type-analysis)
   (export prepare-types make-type-scope scope-strict? strict-scope binding-type
-          bind-fact branch-scope procedure-scope procedure-signature
+          bind-fact branch-scope procedure-scope procedure-signature scope-for-copy scope-binding-variables
           infer-literal infer-name infer-procedure infer-conditional infer-instantiation
           infer-call check-result check-recursive-instances validate-type
-          checked-fact checked-guard call-fact call-guards call-edges
+          checked-fact checked-guard call-fact call-guards call-edges call-instantiation
           value-fact unknown-fact normalized-fact specialized-fact fact-type fact-single? fact-callee
           fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
-          type-optimizations-enabled predicate-type scope-initialized?)
+          type-optimizations-enabled original-body-checking? predicate-type scope-initialized?)
   (import (scheme base) (scheme cxr)
           (snail-scheme types) (snail-scheme type-inference)
           (prefix (snail-scheme ir) ir:))
@@ -17,6 +18,10 @@
     ;; ---- Transient evidence and immutable scopes ----
 
     (define type-optimizations-enabled (make-parameter #t))
+    ;; Optimized emission can strengthen facts but must retain an original
+    ;; dynamic failure at runtime, after the same effects. Source checking is
+    ;; always performed first with this parameter true.
+    (define original-body-checking? (make-parameter #t))
     (define-record-type <instance>
       (make-instance callee types) instance?
       (callee instance-callee) (types instance-types))
@@ -33,8 +38,10 @@
       (make-checked fact guard) checked?
       (fact checked-fact) (guard checked-guard))
     (define-record-type <call>
-      (make-call fact guards edges) call?
-      (fact call-fact) (guards call-guards) (edges call-edges))
+      (%make-call fact guards edges instantiation) call?
+      (fact call-fact) (guards call-guards) (edges call-edges)
+      (instantiation call-instantiation))
+    (define (make-call fact guards edges) (%make-call fact guards edges #f))
 
     (define (value-fact type) (make-fact type #t #f '() '() #f))
     (define (unknown-fact) (make-fact '? #f #f '() '() #f))
@@ -67,6 +74,60 @@
       (entry-value definition (scope-declarations scope) #f))
     (define (scope-initialized? definition scope)
       (and (assq definition (scope-environment scope)) #t))
+    ;; Copies retain checked lexical contracts and initialization/cardinality
+    ;; evidence. Only semantic types change; object and binding identities still
+    ;; describe the original closure. The new typing scan owns cloned locals.
+    (define (scope-for-copy scope typing substitutions)
+      (make-scope typing
+                  (append (map (lambda (entry) (cons (car entry) (type-substitute (cdr entry) substitutions)))
+                               (scope-declarations scope)) (typing-declarations typing))
+                  (map (lambda (entry) (cons (car entry) (substitute-fact (cdr entry) substitutions)))
+                       (scope-environment scope))
+                  (substitute-filter-types (scope-path scope) substitutions)
+                  (scope-strict? scope) (substitute-callee (scope-procedure scope) substitutions)))
+
+    (define (substitute-filter-types filters substitutions)
+      (map (lambda (filter) (list (car filter) (cadr filter) (type-substitute (caddr filter) substitutions))) filters))
+    (define (substitute-fact fact substitutions)
+      (make-fact (type-substitute (fact-type fact) substitutions) (fact-single? fact) (fact-object fact)
+                 (substitute-filter-types (fact-yes fact) substitutions)
+                 (substitute-filter-types (fact-no fact) substitutions)
+                 (substitute-callee (fact-callee fact) substitutions)))
+    (define (substitute-callee callee substitutions)
+      (cond ((procedure-fact? callee)
+             (let* ((signature (callable-signature callee))
+                    (bound (if (all-type? signature) (all-variables signature) '()))
+                    (body-substitutions (select (lambda (entry) (not (memq (car entry) bound))) substitutions)))
+               (make-procedure (procedure-node callee) (type-substitute signature substitutions)
+                               (substitute-fact (procedure-result-fact callee) body-substitutions))))
+            ((instance? callee)
+             (make-instance (substitute-callee (instance-callee callee) substitutions)
+                            (map (lambda (type) (type-substitute type substitutions)) (instance-types callee))))
+            ((callees? callee)
+             (make-callees (map (lambda (member) (substitute-callee member substitutions)) (callees-members callee))))
+            (else callee)))
+
+    ;; Key relevance includes contracts carried only by captured lexical names.
+    ;; Bound variables inside a captured All remain bound, including its result.
+    (define (scope-binding-variables definition scope)
+      (if (not scope) '()
+          (append (type-variables (binding-type definition scope))
+                  (fact-variables (binding-fact definition scope)))))
+    (define (fact-variables fact)
+      (append (type-variables (fact-type fact)) (callee-variables (fact-callee fact))
+              (apply append (map (lambda (filter) (type-variables (caddr filter)))
+                                 (append (fact-yes fact) (fact-no fact))))))
+    (define (callee-variables callee)
+      (cond ((procedure-fact? callee)
+             (let* ((signature (callable-signature callee)) (bound (if (all-type? signature) (all-variables signature) '())))
+               (append (type-variables signature)
+                       (select (lambda (variable) (not (memq variable bound)))
+                               (fact-variables (procedure-result-fact callee))))))
+            ((instance? callee)
+             (append (callee-variables (instance-callee callee))
+                     (apply append (map type-variables (instance-types callee)))))
+            ((callees? callee) (apply append (map callee-variables (callees-members callee))))
+            (else '())))
     (define (bind-fact definition fact scope)
       (make-scope (scope-typing scope) (scope-declarations scope)
                   (cons (cons definition (normalized-fact fact)) (scope-environment scope))
@@ -335,7 +396,8 @@
                (if (not (type-equal? actual expected))
                    (type-error-at (node-location node) "unsupported opaque function annotation" expected))
                (make-checked fact #f))
-              ((not (or (type-compatible? actual expected) (and (ir:annotation? node) (eq? actual 'Any))))
+              ((and (original-body-checking?)
+                    (not (or (type-compatible? actual expected) (and (ir:annotation? node) (eq? actual 'Any)))))
                (type-error node actual expected))
               (else (checked-value node fact expected)))))
 
@@ -349,7 +411,8 @@
                                  (fact-yes fact) (fact-no fact) (fact-callee fact)) guard)))
 
     (define (type-error node actual expected)
-      (type-error-at (node-location node) "type mismatch" actual 'expected expected))
+      (if (original-body-checking?)
+          (type-error-at (node-location node) "type mismatch" actual 'expected expected)))
     (define (require-runtime-type type node)
       (if (not (runtime-type? type))
           (type-error-at (node-location node) "cannot check an erased type variable at a dynamic boundary" type)))
@@ -433,7 +496,7 @@
 
     (define (infer-instantiation node fact scope)
       (for-each (lambda (type)
-                  (if (not (runtime-type? type))
+                  (if (not ((if (original-body-checking?) runtime-type? shallow-type?) type))
                       (type-error-at (node-location node) "type arguments must be shallow types" type))
                   (validate-type type scope (node-location node))) (ir:instantiation-types node))
       (instantiate-fact fact (ir:instantiation-types node) node))
@@ -492,8 +555,9 @@
         (if (and (scope-strict? scope) (not (or (function-type? type) (memq type '(? Procedure Never)))))
             (type-error node type 'Procedure))
         (cond ((all-type? type)
-               (infer-call node (instantiate-fact operator (call-type-arguments node operator arguments expected scope) node)
-                           arguments expected scope))
+               (let* ((types (call-type-arguments node operator arguments expected scope))
+                      (plan (infer-call node (instantiate-fact operator types node) arguments expected scope)))
+                 (%make-call (call-fact plan) (call-guards plan) (call-edges plan) types)))
               ((symbol? callee) (make-call (primitive-result node callee arguments scope) '() '()))
               ((or (arrow-type? type) (procedure-fact? callee) (instance? callee) (callees? callee))
                (checked-call-result node operator arguments scope))
@@ -627,10 +691,31 @@
             (expect (fact-type (infer-name name scope)) 'Procedure)
             (expect (fact-type (infer-name (ir:make-name shadow #f) scope)) 'String))))
 
+      (define (test-copy-scope-contracts)
+        (let* ((a (make-type-variable 'A)) (x (ir:make-value-definition 'x #f))
+               (local (ir:make-value-definition 'local #f))
+               (typing (make-typing (list (cons local 'ExactInteger)) '() '() '() '()))
+               (signature (list 'All (list a) (list '-> a a)))
+               (callee (make-procedure #f signature (value-fact a)))
+               (fact (make-fact a #f x (list (list x #t a)) '() callee))
+               (scope (make-scope typing (list (cons x a)) (list (cons x fact)) '() #t #f))
+               (copy (scope-for-copy scope typing (list (cons a 'String))))
+               (copied (binding-fact x copy)))
+          (expect (binding-type x copy) 'String)
+          (expect (binding-type local copy) 'ExactInteger)
+          (expect (scope-initialized? x copy) #t)
+          (expect (fact-single? copied) #f)
+          (expect (eq? (fact-object copied) x) #t)
+          (expect (caddar (fact-yes copied)) 'String)
+          (expect (type-equal? (fact-signature copied) signature) #t)
+          (expect (eq? (fact-type (fact-body copied)) a) #t)
+          (expect (and (memq a (scope-binding-variables x scope)) #t) #t)))
+
       (define (test-type-analysis)
         (run-test test-scoped-facts)
         (run-test test-guard-evidence)
         (run-test test-primitive-stability)
+        (run-test test-copy-scope-contracts)
         (let ((first (ir:make-value-definition 'same-name #f))
               (second (ir:make-value-definition 'same-name #f)))
           (expect (common-filters (list (list first #t 'String)) (list (list second #t 'String))) '()))

@@ -19,6 +19,17 @@ ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
 CASES = {
     "poly-unused-variable": ('(: f (All (A) (-> ExactInteger))) (define (f) 1) (write (f))',
                              "1", ""),
+    "poly-optimized-guard-order": ('(: id (All (A) (-> A A))) (define (id x) (display "body") x) '
+                                   '(define (f x) (: result String) (define result (begin (display "before") (id x))) result) (f 7)',
+                                   "before", "incorrect value type"),
+    "poly-optimized-result-context": ('(: observed (All (A) (-> A A))) '
+                                      '(define (observed x) (display "body") x) '
+                                      '(define (inferred x) x) (: f (-> Any String)) '
+                                      '(define (f x) (observed (inferred x))) (f 42)',
+                                      "", "incorrect value type"),
+    "optimized-assertion-order": ('(define (f x) (display "before") (ann x String)) '
+                                  '(f (begin (display "argument") 7))',
+                                  "argumentbefore", "incorrect value type"),
     "poly-renamed": ('(import (prefix (snail typing) t:)) '
                      '(t:: id (t:All (A) (t:-> A A))) (define (id x) x) '
                      '(write ((t:inst id t:String) "renamed"))', '"renamed"', ""),

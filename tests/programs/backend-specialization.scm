@@ -66,4 +66,24 @@
 (define (remember x) (set! effects (cons x effects)) x)
 (check 'argument ((begin (remember 'operator) identity) (remember 'argument)))
 (check '(operator argument) effects)
+
+;; Recursive summaries cannot generalize variables still shared by the group.
+(define (mutual-f x) (mutual-g x))
+(define (mutual-g y) (if (pair? y) (mutual-f "string") y))
+(define (mutual-h x) (mutual-g x))
+(check "string" (identity (mutual-h (cons 1 2))))
+
+;; A budget miss gives the visitor less evidence than conditional inference.
+;; The enclosing tail call must keep the generic result ABI in that case.
+(define (crowded x) x)
+(define (budget-forward x) (identity (crowded x)))
+(crowded 1)
+(crowded 2147483648)
+(crowded 1.5)
+(crowded #f)
+(crowded #t)
+(crowded #\a)
+(crowded "text")
+(crowded '(1 2))
+(check '#(3 4) (budget-forward '#(3 4)))
 (display "specialization checks passed\n")

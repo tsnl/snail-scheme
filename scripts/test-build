@@ -255,8 +255,8 @@ def check_interop(directory):
 
 
 def check_emission_traces(events):
-    # Procedure bodies are checked and emitted during their lexical visit.
-    expected = ['prepare-module', 'generate-library-functions']
+    # Original bodies are checked rigidly before the rewritten IR is emitted.
+    expected = ['prepare-module', 'generate-library-functions'] * 2
     stages = []
     for event in events:
         name = event['name']
