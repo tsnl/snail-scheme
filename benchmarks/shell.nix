@@ -14,8 +14,5 @@ pkgs.mkShell {
     llvmPackages.clang
     llvmPackages.lld
     llvm
-    boehmgc
   ];
-  BDWGC_INCLUDE = "${pkgs.boehmgc.dev}/include";
-  BDWGC_LIB = "${pkgs.boehmgc}/lib";
 }

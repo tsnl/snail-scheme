@@ -1,7 +1,7 @@
 # Runtime benchmarks
 
 This page archives the earlier single-workload experiments. Current
-`make benchmark` and `benchmarks/native` run the entire R7RS suite; see
+`make benchmark` and `benchmarks/r7rs.py` run the entire R7RS suite on Wasm; see
 [BENCHMARKS.md](../BENCHMARKS.md). The custom Fibonacci and sieve runners
 are retired. To use the historical commands below, first check out their
 original implementation:

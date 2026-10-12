@@ -16,24 +16,7 @@ ROOT = measure.ROOT
 BUILD = ROOT / "build/scheme-comparison"
 
 
-# ---- Identical workloads and native lowering ----
-
-
-def build_native(wasm):
-    output = wasm.with_suffix("")
-    wat = wasm.with_suffix(".wasm.wat")
-    script = output.with_suffix(".native.scm")
-    quoted = [json.dumps(str(path)) for path in (output, ROOT, wat, BUILD)]
-    program, root, source, directory = quoted
-    script.write_text(
-        "(import (scheme base) (scheme file) (scheme read) (snail-scheme native-link) "
-        "(snail-scheme chromium-trace))\n"
-        f"(with-chromium-trace-to {json.dumps(str(output) + '.native.trace.json')} "
-        f"(lambda () (link-native {root} (call-with-input-file {source} read) "
-        f"{directory} {program})))\n"
-    )
-    measure.run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", script])
-    return [output]
+# ---- Identical Wasm and reference workloads ----
 
 
 def build_variants(workload):
@@ -49,7 +32,6 @@ def build_variants(workload):
         wat = command[-1].with_suffix(".wasm.wat").read_text()
         assert measure.count_i32_workers(wat) == workers
         commands[f"snail-wasm-{name}"] = command
-        commands[f"snail-native-{name}"] = build_native(command[-1])
     source_path = BUILD / f"{workload}-untyped.scm"
     chez = BUILD / f"{workload}-chez.so"
     measure.run([os.environ.get("CHEZ", "scheme"), "--script", "benchmarks/chez.scm", source_path, chez])
@@ -87,8 +69,7 @@ def provenance():
             "platform": platform.platform(), "versions": versions,
             "environment": {name: os.environ.get(name) for name in (
                 "CHIBI", "CHEZ", "NODE", "CLANG", "WASM_OPT", "WASM_AS", "WASM_MERGE", "CARGO",
-                "BDWGC_INCLUDE", "BDWGC_LIB", "BINARYEN_CORES", "RUSTFLAGS", "GC_INITIAL_HEAP_SIZE",
-                "GC_FREE_SPACE_DIVISOR", "SNAIL_NATIVE_GC_INTERVAL")},
+                "BINARYEN_CORES", "RUSTFLAGS")},
             "cpu_model": next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
                               if line.startswith("model name"))}
 
