@@ -25,21 +25,24 @@ nix-shell benchmarks/shell.nix
 BENCH_CPU=2 make benchmark
 ```
 
-`make benchmark`, `benchmarks/native`, and `python3 benchmarks/r7rs.py` all
-select every workload with its original upstream iteration count by default.
-`benchmarks/native` is a symlink to the suite runner. The standalone Fibonacci
-and prime-sieve runners are retired.
+`make benchmark` and `python3 benchmarks/r7rs.py` select every workload with
+its original upstream input. Default participants are Snail Wasm/V8, Chez,
+Guile, and Chibi. Programs compile through `(snail-scheme build)`, including the
+required Binaryen optimization. Missing tools and failed builds remain visible.
 
-The runner compiles each complete program through `(snail-scheme native)`: the
-Wasm datum is resolved into LLVM and linked with the native Rust archive.
-Default participants are Snail native, Chez, Guile, and Chibi. Missing tools and
-failed builds remain visible in the report; requested native cases execute
-native code. The retired binary-reader override is no longer accepted.
+The [October 12 comparison](benchmarks/results/2026-10-12-native-v8/README.md)
+completed all requested attempts for archived Native, V8, and Chez with three
+measured rounds. Native passed 48/57, V8 47/57, and Chez 57/57. Among the 47
+common successes, V8 won 37 with a 2.00× geometric-mean speedup. This conditional
+comparison is not a score for the full suite. Compiler self-compilation took
+3.769 s on V8 and 16.829 s on Native; outputs were byte-identical.
+The report preserves exact inputs, hashes, failures, and an interrupted earlier
+five-system run separately. These are pre-migration baseline measurements.
 
 For a smoke check of the entire suite on the reference implementations:
 
 ```sh
-benchmarks/native --systems chez guile chibi --count 1 --rounds 1 --timeout 30
+python3 benchmarks/r7rs.py --systems chez guile chibi --count 1 --rounds 1 --timeout 30
 ```
 
 `--count` replaces only the upstream iteration count and labels the result as a
@@ -78,8 +81,7 @@ upstream result checks, including `mbrotZ`, FFT, ray pixels, and the file/reader
 workloads. Five cases require unsupported `call/cc`; `pi`, `chudnovsky`, and
 `compiler` exceed the exact integer range. `takl`, `earley`, `graphs`, and `equal`
 hit the 60-second smoke timeout. This validation used native `-O1` without LTO
-to shorten builds, so its times are not performance comparison results. Normal
-benchmark commands retain `-O3` with LTO and original iteration counts.
+to shorten builds, so its times are not performance comparison results. That native configuration is historical; current benchmark commands execute Wasm.
 
 The report retains all requested cases, including unsupported libraries and
 language features. A successful harness invocation is not evidence that every
@@ -119,7 +121,7 @@ has no published Snail timing yet.
 ## Compile the compiler
 
 The compiler passes child facts through the visitor, with immutable binding
-scopes and no expression caches. The latest simplification shares binding
+scopes and no expression caches. The historical October 10 simplification shares binding
 metadata across checking, closure analysis, and constant evaluation:
 
 | Compiler host | Before | After | Change in time |
@@ -179,21 +181,20 @@ reference byte for byte.
 python3 benchmarks/compile-self.py --cpu 2
 ```
 
-The default comparison is Chibi-hosted versus Snail native, using the checkout's
-translator. To also exercise the compiled Wasm compiler:
+The default comparison is Chibi-hosted versus the compiled Wasm compiler:
 
 ```sh
-python3 benchmarks/compile-self.py --systems chibi snail-native snail-wasm \
+python3 benchmarks/compile-self.py --systems chibi snail-wasm \
   --rounds 3 --output build/compiler-all-report
 ```
 
 Each case gets one discarded preliminary run and rotating fresh-process
 samples on one CPU. The runner records commands, source/artifact hashes, raw
 times, and failures in `results.json`, and generates `compiler-self.svg`/`.png`.
-Native availability never changes a case into a Wasm run. Missing tools,
+Missing tools,
 timeouts, or differing output fail the comparison and remain in the report.
 Choose a fresh output directory for each run; `--plot PATH` regenerates charts
-from saved JSON. Chibi bootstraps the native interpreter; see the
+from saved JSON. Chibi bootstraps the Wasm command; see the
 [build guide](doc/book/builds.md) for rebuilding it with Snail.
 
 ## Language scope
