@@ -1,9 +1,9 @@
-;; The same Scheme-only Binaryen optimization feeds both final backends.
+;; Binaryen optimizes Scheme-only Wasm before the complete program is linked.
 ;; Importing this library performs no tool checks or compilation.
 (define-library (snail-scheme wasm-optimize)
-  (export wasm-features check-binaryen-tools assemble-wasm optimize-scheme-wasm prepare-native-wasm)
+  (export wasm-features check-binaryen-tools assemble-wasm optimize-scheme-wasm)
   (import (scheme base) (scheme file) (scheme write)
-          (snail-scheme build-host) (snail-scheme wasm-read)
+          (snail-scheme build-host)
           (only (snail-scheme wasm) write-wasm))
   (begin
 
@@ -21,11 +21,10 @@
                                 ". Install Binaryen on PATH (the repository nix-shell includes it), or set " variable
                                 " to its executable path.")))))
 
-    (define (check-binaryen-tools backend)
-      (unless (memq backend '(native wasm)) (error "unknown build backend" backend))
+    (define (check-binaryen-tools)
       (for-each (lambda (entry) (check-binaryen-tool (car entry) (cdr entry)))
-                (append '(("WASM_AS" . "wasm-as") ("WASM_OPT" . "wasm-opt") ("WASM_DIS" . "wasm-dis"))
-                        (if (eq? backend 'wasm) '(("WASM_MERGE" . "wasm-merge")) '()))))
+                '(("WASM_AS" . "wasm-as") ("WASM_OPT" . "wasm-opt")
+                  ("WASM_DIS" . "wasm-dis") ("WASM_MERGE" . "wasm-merge"))))
 
     ;; ---- Shared Wasm optimization ----
 
@@ -39,7 +38,7 @@
                    (append (list (tool-name "WASM_AS" "wasm-as") "-g") wasm-features
                            (list input "-o" output))))
 
-    ;; Exports are the AWI link contract. Preserve them here; complete Wasm
+    ;; Exports are the ABI link contract. Preserve them here; complete Wasm
     ;; programs receive a separate optimization after linking the Rust runtime.
     (define (optimize-scheme-wasm input output)
       (run-command "build.optimize-scheme"
@@ -47,17 +46,4 @@
                            (list "-O3" "--closed-world" "--always-inline-max-function-size=40"
                                  "--converge" input "-o" output))))
 
-    ;; ---- Optimized native input ----
-
-    (define (prepare-native-wasm datum directory)
-      (let ((wat (string-append directory "/scheme.input.wat"))
-            (input (string-append directory "/scheme.input.wasm"))
-            (optimized (string-append directory "/scheme.optimized.wasm"))
-            (text (string-append directory "/scheme.optimized.wat"))
-            (reader-text (string-append directory "/scheme.reader.scm")))
-        (call-with-output-file wat (lambda (port) (write-wasm datum port)))
-        (assemble-wasm wat input)
-        (optimize-scheme-wasm input optimized)
-        (run-command "build.disassemble-scheme"
-                     (list (tool-name "WASM_DIS" "wasm-dis") optimized "-o" text))
-        (read-binaryen-module text reader-text)))))
+    ))

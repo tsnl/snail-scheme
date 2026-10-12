@@ -10,8 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build/typing-tests"
 IMPORTS = "(import (scheme base) (scheme write) (scheme process-context) (snail typing))\n"
-AWI_IMPORT = "(import (only (snail-scheme extensions) rust-call-with-result))\n"
-AWI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
+ABI_IMPORT = "(import (only (snail-scheme extensions) rust-call-with-result))\n"
+ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
 
 # ---- Counterexamples and observable behavior ----
 
@@ -32,8 +32,8 @@ CASES = {
                        "", "incorrect value type"),
     "poly-concrete-entry": ('(: f (All (A) (-> A String A))) (define (f x y) x) '
                             '(apply f (list 7 8))', "", "incorrect value type"),
-    "poly-count-entry": (AWI_IMPORT + '(: id (All (A) (-> A A))) (define (id x) x) ' +
-                         AWI_CALL + '(lambda (value pair vector) '
+    "poly-count-entry": (ABI_IMPORT + '(: id (All (A) (-> A A))) (define (id x) x) ' +
+                         ABI_CALL + '(lambda (value pair vector) '
                          '(display "a") ((inst id String) value)))',
                          "a", "expected a single value"),
     "poly-count-result": ('(: f (All (A) (-> A Any))) (define (f x) (values 1 2)) '
@@ -54,8 +54,8 @@ CASES = {
                           '(f)', "", "incorrect value type"),
     "poly-instance-arity": ('(: id (All (A) (-> A A))) (define (id x) x) '
                             '((inst id String) "one" "two")', "", "wrong number of arguments"),
-    "tail-host-isolation": (AWI_IMPORT +
-                            '(: f (-> ExactInteger)) (define (f) ' + AWI_CALL +
+    "tail-host-isolation": (ABI_IMPORT +
+                            '(: f (-> ExactInteger)) (define (f) ' + ABI_CALL +
                             '(lambda (value pair vector) 42))) (write (f))', "42", ""),
     "tail-count-any": ('(: f (-> ExactInteger Procedure Any)) '
                        '(define (f n next) (next n)) '
@@ -87,37 +87,37 @@ CASES = {
                         '(: b (-> Procedure String)) (define (b next) (next)) '
                         '(a (lambda () (b (lambda () (display "done") '
                         '(+ 9223372036854775807 1)))))', "done", "integer overflow"),
-    "awi-argument-count": (AWI_IMPORT + AWI_CALL +
+    "abi-argument-count": (ABI_IMPORT + ABI_CALL +
                            '(lambda (value pair vector) (display "a") (+ value 1)))',
                            "a", "expected a single value"),
-    "awi-car-count": (AWI_IMPORT + AWI_CALL +
+    "abi-car-count": (ABI_IMPORT + ABI_CALL +
                       '(lambda (value pair vector) (display "a") (+ (car pair) 1)))',
                       "a", "expected a single value"),
-    "awi-cdr-count": (AWI_IMPORT + AWI_CALL +
+    "abi-cdr-count": (ABI_IMPORT + ABI_CALL +
                       '(lambda (value pair vector) (display "a") (+ (cdr pair) 1)))',
                       "a", "expected a single value"),
-    "awi-vector-count": (AWI_IMPORT + AWI_CALL +
+    "abi-vector-count": (ABI_IMPORT + ABI_CALL +
                          '(lambda (value pair vector) (display "a") (+ (vector-ref vector 0) 1)))',
                          "a", "expected a single value"),
-    "awi-order": (AWI_IMPORT + AWI_CALL +
+    "abi-order": (ABI_IMPORT + ABI_CALL +
                   '(lambda (value pair vector) (display "a") '
                   '((begin (display "o") +) value (begin (display "b") 1))))',
                   "a", "expected a single value"),
-    "awi-heap-order": (AWI_IMPORT + AWI_CALL +
+    "abi-heap-order": (ABI_IMPORT + ABI_CALL +
                        '(lambda (value pair vector) (display "a") '
                        '((begin (display "o") +) (car pair) (begin (display "b") 1))))',
                        "a", "expected a single value"),
-    "awi-alias-count": (AWI_IMPORT + AWI_CALL +
+    "abi-alias-count": (ABI_IMPORT + ABI_CALL +
                         '(lambda (value pair vector) (display "a") '
                         '(let ((saved value)) (display "b") saved)))',
                         "a", "expected a single value"),
-    "awi-unused-count": (AWI_IMPORT + '(write ' + AWI_CALL +
+    "abi-unused-count": (ABI_IMPORT + '(write ' + ABI_CALL +
                          '(lambda (value pair vector) 42)))', "42", ""),
-    "awi-return-count": (AWI_IMPORT + '(write (call-with-values (lambda () ' + AWI_CALL +
+    "abi-return-count": (ABI_IMPORT + '(write (call-with-values (lambda () ' + ABI_CALL +
                          '(lambda (value pair vector) value))) list))', "(1 2)", ""),
-    "awi-assigned-count": (AWI_IMPORT + '(write ' + AWI_CALL +
+    "abi-assigned-count": (ABI_IMPORT + '(write ' + ABI_CALL +
                            '(lambda (value pair vector) (set! value 3) (+ value 1))))', "4", ""),
-    "awi-typed-count": (AWI_IMPORT + AWI_CALL +
+    "abi-typed-count": (ABI_IMPORT + ABI_CALL +
                         '(ann (lambda (value pair vector) 42) (-> Any Any Any ExactInteger)))',
                         "", "expected a single value"),
     "entry": ('(: f (-> ExactInteger ExactInteger)) (define (f x) (+ x 1)) '

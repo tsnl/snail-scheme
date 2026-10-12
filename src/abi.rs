@@ -6,27 +6,25 @@
 //! shared between instances or threads. A fatal trap may bypass Rust cleanup;
 //! discard the instance after such a failure.
 
+// Resource kind 1 denotes a port in this ABI revision.
+pub(crate) const PORT_KIND: u32 = 1;
+
 use std::{marker::PhantomData, rc::Rc};
 
 // ---- Scalar Wasm imports ----
 
 // Native translation exports C adapters named wasm.<operation>. Both routes
 // address the Scheme module's own root table; Rust never invents a second heap.
-// Without native-runtime, stubs let pure Rust helper tests link independently.
+// Host-only stubs let pure Rust helper tests link independently of an engine.
 macro_rules! imports {
     ($(fn $name:ident($($arg:ident: $ty:ty),*) $(-> $result:ty)?;)*) => {
         #[cfg(target_arch = "wasm32")]
-        #[link(wasm_import_module = "snail.awi")]
+        #[link(wasm_import_module = "snail.abi")]
         unsafe extern "C" { $(pub fn $name($($arg: $ty),*) $(-> $result)?;)* }
-        #[cfg(all(not(target_arch = "wasm32"), feature = "native-runtime", not(test)))]
-        unsafe extern "C" {
-            $(#[link_name = concat!("wasm.", stringify!($name))]
-            pub fn $name($($arg: $ty),*) $(-> $result)?;)*
-        }
-        $(#[cfg(all(not(target_arch = "wasm32"), any(not(feature = "native-runtime"), test)))]
+        $(#[cfg(not(target_arch = "wasm32"))]
         pub unsafe fn $name($($arg: $ty),*) $(-> $result)? {
             $(let _ = $arg;)*
-            panic!("AWI imports require a Wasm instance");
+            panic!("ABI imports require a Wasm instance");
         })*
     };
 }
@@ -73,7 +71,7 @@ mod raw {
 
 // ---- Owned roots ----
 
-/// Discriminants are part of AWI v0 and match `src/snail-scheme/wasm-awi.sld`.
+/// Discriminants are part of ABI v0 and match `src/snail-scheme/wasm-abi.sld`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Kind {
@@ -120,7 +118,7 @@ impl Kind {
             Uninitialized,
             Complex,
         ];
-        *KINDS.get(value as usize).expect("invalid AWI value kind")
+        *KINDS.get(value as usize).expect("invalid ABI value kind")
     }
 }
 
@@ -269,7 +267,7 @@ impl Root {
     }
 
     pub fn vector_sized(length: usize) -> Self {
-        let length = u32::try_from(length).expect("AWI vector too long");
+        let length = u32::try_from(length).expect("ABI vector too long");
         unsafe { Self::from_handle(raw::vector_new(length)) }
     }
 
@@ -300,7 +298,7 @@ impl Root {
     }
 
     pub fn vector(values: &[Self]) -> Self {
-        let length = u32::try_from(values.len()).expect("AWI vector too long");
+        let length = u32::try_from(values.len()).expect("ABI vector too long");
         let root = unsafe { Self::from_handle(raw::vector_new(length)) };
         for (index, value) in values.iter().enumerate() {
             unsafe { raw::vector_set(root.handle, index as u32, value.handle) };
@@ -309,7 +307,7 @@ impl Root {
     }
 
     pub fn string(text: &str) -> Self {
-        let length = u32::try_from(text.chars().count()).expect("AWI string too long");
+        let length = u32::try_from(text.chars().count()).expect("ABI string too long");
         let root = unsafe { Self::from_handle(raw::string_new(length)) };
         for (index, ch) in text.chars().enumerate() {
             unsafe { raw::string_set(root.handle, index as u32, ch as u32) };
@@ -318,7 +316,7 @@ impl Root {
     }
 
     pub fn bytevector(bytes: &[u8]) -> Self {
-        let length = u32::try_from(bytes.len()).expect("AWI bytevector too long");
+        let length = u32::try_from(bytes.len()).expect("ABI bytevector too long");
         let root = unsafe { Self::from_handle(raw::bytes_new(length)) };
         for (index, byte) in bytes.iter().enumerate() {
             unsafe { raw::byte_set(root.handle, index as u32, u32::from(*byte)) };

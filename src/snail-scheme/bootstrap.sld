@@ -1,4 +1,4 @@
-;; Core value bindings implemented by WasmGC helpers and AWI Rust services.
+;; Core value bindings implemented by WasmGC helpers and ABI Rust services.
 ;; Higher-level procedures and derived syntax live in bootstrap/scheme.
 (define-library (snail-scheme bootstrap)
   (export bootstrap-primitive-names)

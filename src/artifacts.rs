@@ -1,7 +1,7 @@
 //! Companion files belong to a published executable generation. The operating
 //! system's executable path pins lookup to that generation across rebuilds.
 
-use crate::{arguments, awi::Root, finish, string_text};
+use crate::{abi::Root, arguments, finish, string_text};
 use std::{io, path::PathBuf};
 
 // ---- Installed artifact lookup ----
@@ -35,16 +35,7 @@ fn find(name: &str) -> Result<Option<PathBuf>, String> {
     }
     let root = match std::env::var_os("SNAIL_ARTIFACT_ROOT") {
         Some(path) => PathBuf::from(path),
-        None => match std::env::current_exe() {
-            Ok(path) => path
-                .parent()
-                .ok_or("executable has no directory")?
-                .join("artifacts"),
-            // WASI has no executable-location facility. Its host supplies a
-            // preopened artifact directory through SNAIL_ARTIFACT_ROOT.
-            Err(_) if cfg!(target_arch = "wasm32") => return Ok(None),
-            Err(error) => return Err(format!("cannot locate executable: {error}")),
-        },
+        None => return Ok(None),
     };
     find_in(root, name)
 }

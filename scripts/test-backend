@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile Scheme fixtures through the Wasm and native backends and execute them."""
+"""Compile Scheme fixtures to linked Wasm and execute them on V8."""
 
 import argparse
 import os
@@ -68,7 +68,7 @@ ERRORS = {
 
 def options():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=("native", "wasm", "both"), default="wasm")
+    parser.add_argument("--target", choices=("wasm",), default="wasm")
     return parser.parse_args()
 
 
@@ -76,13 +76,10 @@ def checked(command):
     subprocess.run([str(arg) for arg in command], cwd=ROOT, check=True)
 
 
-def execution_command(name, native):
-    output = BUILD / (name if native else f"{name}.wasm")
-    harness = "tests/build-native.scm" if native else "tests/build-program.scm"
+def execution_command(name):
+    output = BUILD / f"{name}.wasm"
     checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
-             ROOT / harness, ROOT, ROOT / "tests/programs" / f"{name}.scm", output])
-    if native:
-        return [str(output)]
+             ROOT / "tests/build-program.scm", ROOT, ROOT / "tests/programs" / f"{name}.scm", output])
     return [os.environ.get("NODE", "node"), "--no-warnings",
             str(ROOT / "scripts/run-wasi.mjs"), str(output)]
 
@@ -98,27 +95,23 @@ def require_result(command, stdout, diagnostic="", arguments=(), environment=Non
                            f"stderr={result.stderr!r}")
 
 
-def check_fixture(name, targets):
-    for native in targets:
-        command = execution_command(name, native)
-        if name == "backend-errors":
-            for argument, diagnostic in ERRORS.items():
-                require_result(command, "", diagnostic, [argument])
-        elif name == "backend-symbols":
-            for mode in ("literal-first", "dynamic-first", "reverse-first"):
-                require_result(command, SUCCESSES[name], arguments=[mode],
-                               environment={"SNAIL_NATIVE_GC_INTERVAL": "97"} if native else {})
-            if not native:
-                require_result([os.environ.get("NODE", "node"), "--no-warnings",
-                                str(ROOT / "tests/check-awi-roots.mjs"), command[-1], "3", "literal-first"],
-                               SUCCESSES[name])
-        else:
-            stress = {"SNAIL_NATIVE_GC_INTERVAL": "97"} if native and name == "backend-hash-tables" else {}
-            require_result(command, SUCCESSES[name], environment=stress)
-        if not native and name == "backend-hash-tables":
-            require_result([os.environ.get("NODE", "node"), "--no-warnings",
-                            str(ROOT / "tests/check-awi-roots.mjs"), command[-1], "3"], SUCCESSES[name])
-        print(f"passed {'native' if native else 'Wasm'}: {name}", flush=True)
+def check_fixture(name):
+    command = execution_command(name)
+    if name == "backend-errors":
+        for argument, diagnostic in ERRORS.items():
+            require_result(command, "", diagnostic, [argument])
+    elif name == "backend-symbols":
+        for mode in ("literal-first", "dynamic-first", "reverse-first"):
+            require_result(command, SUCCESSES[name], arguments=[mode])
+        require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                        str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3", "literal-first"],
+                       SUCCESSES[name])
+    else:
+        require_result(command, SUCCESSES[name])
+    if name == "backend-hash-tables":
+        require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                        str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3"], SUCCESSES[name])
+    print(f"passed Wasm: {name}", flush=True)
 
 
 def check_host_lifetime(name):
@@ -129,35 +122,31 @@ def check_host_lifetime(name):
              ROOT / "tests" / f"check-{name}.mjs", output])
 
 
-def check_streaming_input(targets):
-    for native in targets:
-        command = execution_command("backend-read-stream", native)
-        with subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True, encoding="utf-8") as process:
-            process.stdin.write("(λ 42)")
-            process.stdin.flush()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                raise
-            stdout, stderr = process.stdout.read(), process.stderr.read()
-            if process.returncode != 0 or stdout != "(λ 42)\n" or stderr:
-                raise RuntimeError(f"streaming read: exit={process.returncode}, {stdout!r}, {stderr!r}")
-        print(f"passed {'native' if native else 'Wasm'}: stdin read before EOF", flush=True)
+def check_streaming_input():
+    command = execution_command("backend-read-stream")
+    with subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          text=True, encoding="utf-8") as process:
+        process.stdin.write("(λ 42)")
+        process.stdin.flush()
+        try: process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise
+        stdout, stderr = process.stdout.read(), process.stderr.read()
+        if process.returncode != 0 or stdout != "(λ 42)\n" or stderr:
+            raise RuntimeError(f"streaming read: exit={process.returncode}, {stdout!r}, {stderr!r}")
+    print("passed Wasm: stdin read before EOF", flush=True)
 
 
 def main():
-    target = options().target
-    targets = (False, True) if target == "both" else (target == "native",)
+    options()
     BUILD.mkdir(parents=True, exist_ok=True)
     for name in [*SUCCESSES, "backend-errors"]:
-        check_fixture(name, targets)
-    check_streaming_input(targets)
-    if False in targets:
-        check_host_lifetime("finalizers")
-        check_host_lifetime("hash-identity")
+        check_fixture(name)
+    check_streaming_input()
+    check_host_lifetime("finalizers")
+    check_host_lifetime("hash-identity")
     print("WasmGC backend checks passed; call/cc remains unsupported future work")
 
 
