@@ -25,7 +25,7 @@ The table owns ordinary strong Scheme references. WasmGC owns collection on
 Wasm; BDWGC owns it on native. Wasm identity hashing uses weak JavaScript keys
 and scalar IDs; native hashing mixes the nonmoving tagged reference. Neither
 keeps an otherwise unreachable key or self-referential table alive. Rust
-structural hashing uses owned AWI roots and bounded unfolding, so cyclic keys
+structural hashing uses owned ABI roots and bounded unfolding, so cyclic keys
 terminate and bisimilar cyclic values receive compatible hashes.
 
 Insertion grows the bucket array at a bounded load. Entries cache their hash,
@@ -51,5 +51,5 @@ Legacy optional hash arguments are accepted and ignored as specified by SRFI 125
 `make test` checks the Scheme table operations under Chibi.
 `scripts/test-backend --target both` executes compiled tables, forced collisions,
 cyclic structural keys, callback mutation, immutable tables, and numeric keys.
-The suite checks AWI root balance, stresses native collection, and checks that
+The suite checks ABI root balance, stresses native collection, and checks that
 Wasm identity hashing does not retain discarded objects.

@@ -1,310 +1,120 @@
 # WebAssembly backend
 
-The compiler can run under Chibi or the native `snail-scheme` interpreter. Source expands into resolved IR, grouped
-by library; `wasm.sld` produces an in-memory WasmGC datum. The Wasm backend
-writes WAT with Scheme's standard writer. Binaryen assembles and optimizes the
-Scheme module before either final backend. Wasm links Rust and receives a final
-optimization; native compilation reads Binaryen's folded disassembly as Scheme
-datums, resolves types and names, and lowers it to LLVM.
-
-The [type checker](typing-prototype.md) runs on resolved identities before
-emission. Opt-in annotations enforce shallow boundaries; occurrence facts can
-remove redundant checks. Eligible closed i32 functions additionally receive
-unboxed workers, with the ordinary Scheme ABI at closure boundaries. The report
-documents limits, guarded/optimized ablations, and C comparisons.
+The compiler emits WasmGC. Binaryen optimizes the Scheme module, links the common
+Rust-to-Wasm library and selected platform handlers, then optimizes the complete
+module. The engine collects Scheme objects. There is one execution path for
+command programs and portable artifacts; the current installed host is Node.js.
 
 ## Build and run
 
-Run ordinary Scheme build scripts with Chibi:
-
 ```sh
+nix-shell
+rustup target add wasm32-wasip1
 chibi-scheme -h512M -I src build.scm
+node --no-warnings scripts/run-wasi.mjs build/snail-scheme.wasm examples/fibonacci.scm
 chibi-scheme -I src examples/rust-interop/build.scm
 ```
 
-`(snail-scheme compiler)` exports `source-file->wat-file(root, input, output)`.
-`(snail-scheme build)` supplies complete build operations:
+Chibi remains the bootstrap host. The built command accepts `-I DIRECTORY`,
+`-IDIRECTORY`, `--help`, and `SCRIPT [ARGUMENT ...]`. Script arguments remain
+literal, including empty strings. An ordinary script runs its forms once and
+returns zero on normal completion. A build can explicitly select a zero-argument
+`main`, which runs after initialization and must return an integer in 0..255.
+A helper named `main` does not change ordinary script behavior.
 
-- `build-runtime(root)` finds the installed runtime WAT companion or builds the
-  Rust Wasm runtime, then returns its path. Binaryen accepts either form.
-- `link-wasm(wat, runtime, output)` assembles, links, optimizes and publishes Wasm.
-- `build-wasm(root, input, output)` combines source emission and linking.
-- `run-wasm(root, module, arguments)` runs Node/WASI and returns its exit code.
-- `run-command(stage, argv)` runs a subprocess with tracing and raises on failure.
+Binaryen is required. The Nix shell supplies its complete tool suite. Otherwise
+install [Binaryen](https://github.com/WebAssembly/binaryen/releases/tag/version_132)
+on PATH. `WASM_AS`, `WASM_OPT`, `WASM_DIS`, and `WASM_MERGE` override individual
+executables. Compiler startup checks all four before compiling; help works
+without them. `CARGO` and `NODE` select Cargo and the command host.
+Rust/Cargo must have the `wasm32-wasip1` target and offline dependencies available.
+`rust-toolchain.toml` requests stable Rust and rustfmt. Historical measurements
+record exact tool versions separately.
 
-`source-file->wat-file` and `build-wasm` accept two optional arguments, in order:
-foreign declarations (an alist of Scheme names to Wasm import modules), then
-project library directories. For example:
+## Compiler and build APIs
 
-```scheme
-(build-wasm "." "app/main.scm" "build/app.wasm" '() '("app/lib" "shared/lib"))
-```
+| Library / operation | Result |
+| --- | --- |
+| `(snail-scheme compiler)` `source-file->wasm(root, input)` | Complete in-memory Wasm datum; no process execution. |
+| `source-file->wat-file(root, input, output)` | Write that unlinked module. |
+| `(snail-scheme build)` `build-wasm(root, input, output)` | Compile, link, optimize, and atomically publish. |
+| `compile-wasm(root, input, directory, output)` | Compile into a caller-owned workspace and return its dependency artifact. |
+| `build-runtime(root)` | Installed runtime companion, or a Cargo-built Wasm library. |
+| `link-wasm(wat, runtime, output)` | Link an already emitted Scheme module with a platform. |
+| `run-wasm(root, module, arguments)` | Execute Node/WASI and return the process status. |
+| `run-script(root, script, arguments)` | Build and execute an ordinary temporary Wasm script. |
 
-Paths are relative to the calling script's working directory. For nonstandard
-libraries, the first existing `name/parts.sld` in those directories wins, followed
-by the compiler's `src/`. Its parse/declaration errors are reported without trying
-another copy. Transitive imports use the same search order. Missing-library
-errors include the import name and all searched paths. `(scheme ...)` imports
-always use the checkout's bootstrap runtime libraries and cannot be shadowed by
-project directories. Foreign declarations do not package separate Rust crates.
+Compiler and build operations require a `with-chromium-trace-to` scope. Paths
+are explicit and relative to the caller's working directory. Optional compilation
+arguments are foreign declarations, project library directories, and selected
+entry, in that order. Foreign declarations can map a Scheme name to a module
+with a `snail:NAME` export, or use `(NAME "MODULE" "EXPORT")` explicitly.
+`(snail-scheme effects)` supplies selected platform bindings; see
+[effect interfaces](book/effects.md).
 
-The compiler installation includes `snail-runtime.wat` as a dependency artifact;
-see [generation and packaging](build-artifacts.md). The bootstrap fallback uses
-the single root Cargo crate containing all Rust services under `src/`.
-`build-runtime` invokes Cargo with a stable manifest and target directory;
-Scheme-only changes do not rebuild Rust. To prebuild the identical runtime:
-
-```sh
-cargo rustc --crate-type=cdylib --offline --release --target wasm32-wasip1 --target-dir build/wasm-runtime
-```
-
-The artifact is `build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm`.
-Release LTO settings live in the root manifest. Scripts can build it once and
-link several Scheme modules against it. Runtime initialization occurs once in
-the linked Wasm entry before Scheme executes. Rust pointers address one linear
-memory; Scheme values live in WasmGC and cross the AWI as root handles.
-
-`rust-toolchain.toml` requests Rust stable, rustfmt and the WASI target; the Nix
-shell includes rustup. First use may download missing components. Pin an exact
-Rust version separately when reproducing historical toolchain measurements.
-`CARGO`, `WASM_AS`, `WASM_MERGE`, `WASM_OPT`, `WASM_DIS`, and `NODE` select executable paths. Chibi hosts
-the bootstrap process/filesystem adapter; the native interpreter uses Rust
-operations from the same build library. The Node runner provides
-WASIp1 and finalizer imports; a browser WASI adapter remains future work.
-WasmGC, reference types, tail calls, mutable globals, sign extension, bulk
-memory, and nontrapping float-to-integer conversion are enabled explicitly.
-The last feature is required by Rust's floating-point math implementation.
-
-Binaryen is required for native and Wasm compilation. `nix-shell` already
-provides it. Outside Nix, install the complete tool suite from
-[Binaryen's releases](https://github.com/WebAssembly/binaryen/releases/tag/version_132)
-or your package manager, and put its `bin` directory on `PATH`. Version 132 is
-the measured and tested version. Keep `wasm-as`, `wasm-opt`, `wasm-dis` and
-`wasm-merge` from the same installation; explicit executable-path overrides are
-supported. The CLI checks that its selected tools run before opening a compilation
-trace or workspace. Wasm build operations also check `wasm-merge`. Missing or
-unusable tools produce an installation hint before source compilation; help and
-library imports perform no checks. Preflight verifies availability, not a
-minimum version or every supported Wasm feature.
-
-The shared pass preserves the AWI link contract and uses
-`-O3 --closed-world --always-inline-max-function-size=40 --converge`.
-Final linked Wasm still receives its existing optimization. Native text adaptation
-uses Scheme and the installed native datum reader; it requires no Python or Chibi
-after bootstrap. The frozen comparative evidence is retained separately on
-`experiment/shared-binaryen-20261011` at commit `e3e66bc`; its compiler workload
-improved 24.8% with tuned Immix and 6.3% with V8. Those measurements precede
-this production integration and the newer standard-library runtime.
+For nonstandard libraries, project search directories precede `src/`. The first
+existing file wins, and its parse errors do not fall through. `(scheme ...)`
+always resolves to the bootstrap library. The frontend loads and expands located
+syntax into identity-based IR, then emits Wasm. Type annotations and measured
+check elimination are described in [typing](typing-prototype.md).
 
 ## Build ownership
 
-Scripts own artifact paths and decide whether failures abort or are caught.
-Linking stages use unique temporary directories on the destination filesystem;
-failed builds preserve existing output and report the directory retaining their
-intermediates. Successful builds remove the directory. Cleanup failure after
-publication prints a warning instead of claiming the completed build failed.
-Tool arguments are passed literally, without shell quoting or interpolation.
-Concurrent builds with distinct output paths have independent intermediates;
-concurrent successful publishers to one path replace it atomically, last wins.
-Do not mutate runtime sources or build configurations while another script is
-linking the returned Cargo artifact. There is no separate runtime cache manager.
+Builds own private workspaces. Protected inputs are checked before work and
+before publication. Failure preserves the last published artifact and reports
+retained intermediates. A completed artifact and its dependencies are published
+as one generation through one relative symlink. The Node runner resolves that
+payload once; later dependency lookup stays in the selected generation.
+See [generation and packaging](build-artifacts.md).
 
-## Source to WebAssembly
+Generators also run as linked Wasm programs. Their result is located Scheme
+syntax and an explicit dependency graph. Chibi and the compiled command use the
+same build recipe; Chibi supplies bootstrap process operations, and Node supplies
+the compiled command's build effects. Subprocess arguments never pass through a
+shell. Build tools receive EOF; executed scripts inherit standard input.
 
-| Module | Responsibility |
-| --- | --- |
-| `ir.sld` | Seven resolved expression forms and shared binding identities |
-| `library.sld` | Library containers, imports, exports, dependency order |
-| `expand.sld` | Located syntax to IR, including `syntax-rules` expansion |
-| `type-analysis.sld` | Pure child-fact rules and immutable binding scopes |
-| `partial-eval.sld` | Bounded scalar candidates consumed directly by the visitor |
-| `wasm.sld` | Type-directed visitor, binding/capture analysis, Wasm datums, WAT printing |
-| `src/snail-scheme/wasm-runtime.sld` | Value representations, checked primitives, calls |
-| `src/snail-scheme/wasm-awi.sld` | Root handles and scalar accessors for foreign Wasm code |
-| `src/awi.rs` | Rust ownership and checked conversions over AWI |
-| `src/lib.rs` | Rust ports, formatting, real/complex math, text search, clocks, process services |
-| `src/datum.rs` | Iterative native datum parsing and rooted graph construction |
-| `src/host.rs` | Buffered ports, shared UTF-8 lookahead, resource ownership |
-| `src/text.rs`, `src/unicode.rs` | Native text comparisons, simple/full casing, generated Unicode data |
-| `build.sld` | Cargo, linking, execution and artifact publication |
-| `compile-build.sld`, `generation.sld` | Isolated library generators and their returned dependencies |
-| `artifacts.sld`, `src/snail/artifacts.sld` | Build artifact graph and installed companion lookup |
-| `build-host.sld`, `build_host.rs` | Bootstrap and native implementations of build effects |
-| `wasm-resolve.sld` | Datum names/types and folded evaluation order for LLVM |
-| `wasm-optimize.sld`, `wasm-read.sld` | Shared Binaryen pre-pass, dependency checks and native text adaptation |
-| `llvm.sld` | Resolved Wasm declarations and instructions to native LLVM |
-| `native-link.sld`, `native.sld` | Datum-to-native linking, publication, and script execution |
-| `build.scm`, `main.scm` | Interpreter build recipe and command entry |
-
-IR expressions are names, literals, applications, lambdas, blocks, conditionals,
-and assignments. A library owns its body and dependencies. Expansion retains
-binding identity; shadowing a primitive cannot silently select its fast helper.
-There is no second internal IR or compiler-managed operand stack.
-
-The emitter analyzes assignment, captures, and initialization. Immutable,
-already-initialized captures travel as values; assigned or early-captured
-bindings use shared cells. Recursive cells exist before their initializers run.
-Reading an uninitialized binding fails, including when a known callee can be
-called directly. Library initialization follows dependency order.
-
-`(scheme inexact)` exports the twelve standard mathematical and classification
-procedures, including the optional second arguments to `log` and `atan`.
-Transcendental results use binary64 components even for exact integer inputs;
-classification returns booleans. Complex arguments and real inputs outside a
-real function's domain produce complex results, for example `(sqrt -1)` gives
-`0.0+1.0i`. `(scheme complex)` provides rectangular and polar construction,
-component extraction, magnitude, and angle. Basic arithmetic and nonnegative
-integer powers preserve exact complex integer components when they fit.
-Wasm and native tests exercise ordinary and first-class calls, argument errors,
-complex values, signed zero, infinities, and NaNs. The native
-translator supports all eight Wasm saturating float-to-integer conversions
-used by Rust math through LLVM's
-[saturating intrinsics](https://llvm.org/docs/LangRef.html#saturating-floating-point-to-integer-conversions).
-
-A fixed-arity lambda has a worker taking its environment and individual
-arguments, plus a uniform closure adapter taking an argument array. Proven
-immutable fixed callees call workers directly, so Fibonacci does not allocate
-argument vectors. Unknown calls and `apply` use adapters. Tail positions emit
-`return_call` or `return_call_ref`; different argument counts need no trampoline.
-`apply` and `call-with-values` invoke Scheme in Wasm, preserving tail calls.
-
-A single return value is an ordinary reference. Zero or multiple values use a
-private packet, checked at single-value contexts and propagated at returns.
-Nonfinal block expressions discard any value count.
+Cargo reuses `build/wasm-runtime`. The Rust library is a reactor; the entry calls
+its initializer once, then initializes the selected environment, then Scheme.
+The common library and default WASI implementations currently share one linear
+memory. Selected provider modules must honor that memory and root ABI.
 
 ## Representations and ownership
 
-Scheme values are `eqref`. Signed31 integers use `i31ref`; larger exact integers
-use an `i64` box and inexact numbers an `f64` box. Complex values contain two
-immutable real references; an exact zero imaginary component collapses to its
-real component. Exact noninteger rationals and arbitrary precision integers
-remain unsupported. Pairs, vectors, text, closures,
-cells, records, and multiple-value packets use WasmGC structs and arrays.
-Equivalent Wasm types are structural: names alone do not distinguish them.
-Atoms and text wrappers therefore carry explicit category tags.
+Scheme heap values are WasmGC objects. Small exact integers and symbol/character
+immediates use `i31ref`; larger signed integers use boxed i64. Exact integers
+beyond signed 64-bit, general rationals, and `call/cc` remain unsupported.
+An extension borrows an i32 argument-vector root and returns one owned i32 root.
+Rust's `Root` keeps values reachable across allocation and callbacks. Accessors
+return owned roots; dropping one releases its table slot. See [the ABI](book/abi.md).
 
-Symbols are atoms whose tag has its sign bit set; the low 31 bits hold a Rust
-intern-table ID. The native process has one global `OnceLock<Mutex<Symbols>>`;
-each Wasm instance owns its own table in the Rust runtime's linear memory.
-Rust's standard `HashMap` compares exact names, handles hash collisions, and
-shares owned name storage with a reverse vector used by `symbol->string` and
-`write`. Names and IDs live until the runtime ends and IDs are never reused.
-Symbols compare and hash by ID even when their Scheme boxes differ.
-
-The compiler assigns consecutive IDs to the final module's literal symbols and
-emits a private vector of their names as constant data. The first interner or
-reverse-lookup operation copies and validates the complete prefix before
-publishing the Rust table. Copying performs no symbol operations and holds
-neither the table mutex nor the initialization lock across AWI calls. Subsequent
-operations release the mutex before creating Scheme values or reporting errors.
-The registry contains no Scheme roots. Its global scope does not make AWI roots
-or the Scheme heap safe to access from another thread.
-
-These IDs belong to one final linked program, including all its Scheme libraries.
-Separately loaded modules are not supported: they would need symbol registration
-and ID relocation instead of independently assigning literal IDs. IDs must never
-cross runtime instances, and the table must never be reset to load another module.
-
-The Wasm engine sees references in globals, locals, arrays, tables, and active
-frames. It owns collection and relocation. Rust does not scan its own stack for
-Scheme roots: owned AWI handles retain references in a Wasm table. Temporary
-arguments and results use that same mechanism. The Rust `Root` wrapper releases
-its table slot on `Drop`, retains a separate slot on `Clone`, and transfers
-ownership on return. See [AWI](rust-interop.md).
-
-`(scheme read)` parses a single datum in Rust before making Scheme allocations.
-Its heap-based frames handle deep nesting, comments, escapes, abbreviations,
-vectors, bytevectors, and shared/cyclic labels. Every object in the parsed graph
-has an owned AWI root while its edges are installed. Text input uses one buffered
-UTF-8 cursor, including the character saved by `peek-char`; reader case directives
-persist on the port. Explicit exact decimal input is converted from digits
-without a binary64 rounding step. Numeric input follows the same signed 64-bit
-and binary64 representation limits as compiled literals.
-
-Native ports also provide string input, line input, flushing, substring output,
-direction/type/open predicates, and file deletion. `(scheme char)` uses Unicode
-16 simple mappings for characters and full mappings for string case folding;
-decimal digits exclude other numeric Unicode characters. Pure derived operations
-such as `do`, `gcd`, `lcm`, and vector callbacks remain in the bootstrap libraries.
-
-The Unicode exception tables are generated from the official Unicode 16
-[UnicodeData](https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt) and
-[CaseFolding](https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt) files:
-
-```sh
-python3 scripts/generate-unicode UnicodeData.txt CaseFolding.txt src/unicode.rs
-cargo fmt --all
-```
-
-The generator compares simple/full mappings with the installed Rust compiler's
-native casing, emits only exceptions, and retains the module's final tests.
-The generated data's [Unicode license](unicode-license.txt) is included.
-
-WasmGC removes the single 32-bit linear-memory address-space limit from Scheme's
-object heap. It does not promise an unlimited heap or arrays; engines still
-impose implementation limits. Rust currently targets ordinary wasm32 linear
-memory and retains its own address-space limit.
-
-Portable WasmGC does not expose forced collection, collector statistics, or
-finalizers. Explicit close releases external resources promptly.
-The JS host additionally registers extension objects with `FinalizationRegistry`
-and calls the Rust resource-release export when cleanup occurs. This is a
-host service, not a WasmGC opcode; it is neither timely nor guaranteed at shutdown.
-
-## Continuations and native execution
-
-`call/cc` and `call-with-current-continuation` are unsupported in this backend.
-The accepted direction is single-shot, delimited continuations through Wasm
-stack switching, with an independent native Wasm-to-LLVM execution backend.
-A consumed continuation cannot be resumed again. Ordinary Rust-to-Scheme
-callbacks are supported; allowing suspension or escape across Rust frames
-requires a separate ownership and cleanup contract.
-
-Suspending preserves a stack; abandoning a Rust frame must account for its
-pending destructors. A future cancellation operation can unwind a suspended
-stack when the toolchain supports it. Host finalization could schedule that
-cancellation, but does not itself implement unwinding. Current Rust release
-builds use `panic = "abort"`; no Rust forced-unwind support is promised.
-
-The Scheme [`native` library](../src/snail-scheme/native.sld) builds an x86-64
-Linux executable with `build-native(root, source, output-executable)`. Both
-backends start from `source-file->wasm`'s in-memory module datum. Portable builds
-use standard `write-simple` per definition and pass WAT to Binaryen. Import
-names alone require WAT byte escaping; generated function tokens belong to the
-shared Scheme/WAT spelling subset. Both backends consume Binaryen's optimized
-Scheme module. Native builds adapt its disassembly to the host datum reader,
-resolve names and canonical types, then emit LLVM through `llvmlite`. Clang/LLD link the native Rust runtime
-and C GC/trap host. [Native execution](native.md) explains the supported datum
-subset, proper tail calls, GC roots, and resource finalization.
+Ports own host resources. Explicit close provides timely cleanup; the JS
+finalization hook holds only resource kind and ID, never the watched wrapper.
+Fatal diagnostics and traps terminate the command. Discard a failed instance;
+there is no recoverable exception or continuation protocol across Rust frames.
 
 ## Validation and measurements
 
-Run `make test`, `make check`, `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend --target both`,
-`scripts/test-native`, `scripts/test-build`, and `scripts/test-self-host`.
-The integration suites execute real linked Wasm, including closures, mutation,
-recursive initialization, rest arguments, values, numeric boundaries, proper
-tail calls, errors, and Rust callbacks with retained roots, native CLI startup, and self-hosted rebuilds. Unit tests remain in
-implementation modules; integration fixtures remain in `tests/`.
+```sh
+make test
+make check
+cargo test --offline
+cargo fmt --all -- --check
+scripts/test-backend
+scripts/test-build
+scripts/test-effects
+scripts/test-generation
+scripts/test-self-host
+scripts/test-typing
+scripts/test-binaryen
+scripts/test-chromium-trace
+scripts/book build
+```
 
-The frontend-only [examples/compile.scm](../examples/compile.scm) script has been
-compiled to Wasm, then executed to emit Fibonacci WAT, which was linked and run
-successfully. It imports `(snail-scheme compiler)` without the Chibi-specific
-build module. The root `build.scm` now builds the native interpreter;
-running `build/snail-scheme build.scm` rebuilds it through that same library API.
-See [the build chapter](book/builds.md) for bootstrap requirements and the current
-checkout-bound installation model.
+Backend checks execute linked Wasm, including diagnostics, streams, callback
+roots, and finalizers. The compiled-command check executes scripts and rebuilds
+the command as Wasm. The provider check executes two clock implementations and
+rejects incompatible bindings. Formatting and compilation alone are insufficient.
 
-The [production WasmGC report](../benchmarks/results/2026-10-10-wasmgc-production.json)
-measures the full linked CPU benchmark under Node/V8: 0.08627s versus Chez
-0.03053s and Chibi 0.48150s. That is 2.83× Chez's time and 5.58× faster than
-Chibi. Binaryen inlining threshold 40 plus convergence reduced execution time
-from 0.33860s, with representation checks preserved. Eight rotating rounds use
-the same source and checksum; compilation and process startup are excluded.
-V8 tiering during the timed workload remains included.
-
-The [complete native comparison](../benchmarks/results/2026-10-10-binary-runtime.json)
-translates the exact Rust-linked module used by V8. Native takes 0.03850s, Chez
-0.03039s, V8 0.08477s, Guile 0.09555s, and Chibi 0.46300s. See
-[BENCHMARKS.md](../BENCHMARKS.md) for scope, reproduction, the remaining native
-compile-time cost, and the older bounded experiment's distinct measurements.
+[Benchmarks](../BENCHMARKS.md) describe the full pinned R7RS suite, compiler
+baseline, failures, and reproducibility. The LLVM emitter and collector are
+preserved on [the archive branch](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).

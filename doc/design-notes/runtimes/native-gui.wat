@@ -11,7 +11,7 @@
 ;; Bodies are stubs.
 ;;
 ;; Run callbacks on the owning event thread; queue callbacks arriving during a
-;; foreign call until it returns. Keep handlers short; use subordinate actors
+;; foreign call until it returns. Keep handlers short; spawn actors
 ;; for long work. Future suspended calls must allow other calls to progress.
 ;; This does not specify an actor-wide waiting lock or suspension across Rust/C
 ;; frames.
@@ -21,9 +21,12 @@
 ;; and memory warnings are optional native capabilities, not portable browser
 ;; guarantees. The game must exercise real events, temporary frame heaps, and
 ;; hot reload.
+;;
+;; This is the application's view: it calls imported runtime operations
+;; and supplies exported handlers for the runtime to call.
 (module
 
-  ;; ---- Operations provided by the platform ----
+  ;; ---- Operations provided by the runtime ----
 
   ;; [options] -> surface-ref. Create a native window after resumed; options
   ;; describe title and initial logical size. The runtime owns the window and
@@ -53,9 +56,9 @@
   ;; notifications must not duplicate ownership.
   (func (export "snail:resumed") (param $arguments i32) (result i32) unreachable)
 
-  ;; [] -> unspecified. Pause presentation and release platform-invalid surface
-  ;; bindings before returning. Retained application state is separate from
-  ;; presentation resources; platform requirements govern which resources can
+  ;; [] -> unspecified. Pause presentation and release surface bindings
+  ;; invalidated by suspension. Retained application state is separate from
+  ;; presentation resources; runtime requirements govern which resources can
   ;; survive.
   (func (export "snail:suspended") (param $arguments i32) (result i32) unreachable)
 
@@ -73,7 +76,7 @@
   (func (export "snail:user-event") (param $arguments i32) (result i32) unreachable)
 
   ;; [] -> unspecified. Final best-effort notification when this application is
-  ;; exiting. It cannot veto shutdown. The supervisor/runtime must close
+  ;; exiting. It cannot veto shutdown. The owning runtime must close
   ;; connections and release resources even if this callback fails or cannot run.
   (func (export "snail:exiting") (param $arguments i32) (result i32) unreachable)
 
