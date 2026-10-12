@@ -1,4 +1,5 @@
-(import (scheme base) (scheme inexact) (scheme process-context) (scheme hash-table) (scheme comparator))
+(import (scheme base) (scheme char) (scheme read) (scheme inexact)
+        (scheme process-context) (scheme hash-table) (scheme comparator))
 
 ;; Compile the shared bootstrap once, then exercise independent failure paths.
 (case (string->symbol (cadr (command-line)))
@@ -34,4 +35,14 @@
      (hash-table-find (lambda (key value)
                         (hash-table-delete! table key) (hash-table-set! table 'b 2) #t)
                       table (lambda () #f))))
+  ((read-incomplete) (read (open-input-string "(a")))
+  ((read-invalid) (read (open-input-string "(a . b c)")))
+  ((read-label) (read (open-input-string "#1=#1#")))
+  ((read-token) (read (open-input-string "+2oops")))
+  ((exact-power-overflow) (expt 2 63))
+  ((power-invalid-base-zero) (expt #f 0))
+  ((power-type-order) (expt #\x #f))
+  ((character-after-false) (char-ci<? #\z #\a 1))
+  ((string-after-false) (string-ci<? "z" "a" 1))
+  ((read-closed) (let ((port (open-input-string "1"))) (close-port port) (read port)))
   (else (error "unknown backend error case")))

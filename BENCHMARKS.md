@@ -71,6 +71,16 @@ original inputs. None reached execution: 56 stopped at missing `(scheme read)`;
 reported blockers, not a complete list of remaining implementation work.
 There are no Snail runtime medians for that suite check.
 
+The standard-library implementation's October 11 native correctness smoke check
+attempted the same 57 unchanged program bodies, preserving algorithm inputs and
+setting only the iteration count to one. It built 56 programs and passed 45
+upstream result checks, including `mbrotZ`, FFT, ray pixels, and the file/reader
+workloads. Five cases require unsupported `call/cc`; `pi`, `chudnovsky`, and
+`compiler` exceed the exact integer range. `takl`, `earley`, `graphs`, and `equal`
+hit the 60-second smoke timeout. This validation used native `-O1` without LTO
+to shorten builds, so its times are not performance comparison results. Normal
+benchmark commands retain `-O3` with LTO and original iteration counts.
+
 The report retains all requested cases, including unsupported libraries and
 language features. A successful harness invocation is not evidence that every
 Snail case ran. There is no suite-wide speedup when cases are missing.

@@ -35,7 +35,7 @@ have binding identities, so import renaming and shadowing behave like other
 syntax. Field order in a constructor need not match declaration order.
 
 The type vocabulary is `?`, `Any`, `Never`, `False`, `True`, `Boolean`, `Null`,
-`ExactInteger`, `InexactReal`, `Number`, `String`, `Symbol`, `Char`, `Pair`,
+`ExactInteger`, `InexactReal`, `Complex`, `Number`, `String`, `Symbol`, `Char`, `Pair`,
 `Vector`, `Bytevector`, `Procedure`, `Record`, `Unspecified`, `i32`, nominal
 record names, `(U ...)`, fixed-arity `(-> argument ... result)` signatures, and
 rank-one `(All (variable ...) (-> argument ... result))` signatures.
@@ -201,6 +201,9 @@ Subtraction is an overapproximation: `ExactInteger` minus `i32` remains
 `ExactInteger`, since the remaining disjoint intervals are not represented.
 `integer?` deliberately does not prove `ExactInteger`: integral floats satisfy
 the former. `exact-integer?` provides the stronger fact.
+`Number` includes stored complex values; `Complex` checks that representation.
+The `real?`, `inexact?`, `exact?`, and `integer?` predicates prove `Number` only
+on their true branches. Their false branches retain other numeric possibilities.
 
 ## Soundness audit
 

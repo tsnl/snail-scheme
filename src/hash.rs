@@ -11,6 +11,11 @@ fn mix(hash: u32, value: u64) -> u32 {
 }
 
 fn eqv_hash(value: &Root) -> Result<u32, String> {
+    if value.kind() == Kind::Complex {
+        let real = eqv_hash(&value.real_part()?)?;
+        let imag = eqv_hash(&value.imag_part()?)?;
+        return Ok(mix(mix(Kind::Complex as u32, real as u64), imag as u64));
+    }
     let scalar = match value.kind() {
         Kind::Integer => value.as_integer()? as u64,
         Kind::Real => real_bits(value.as_real()?),
@@ -29,11 +34,14 @@ fn real_bits(value: f64) -> u64 {
 
 fn text_hash(value: &Root, fold_case: bool) -> Result<u32, String> {
     let mut hash = 2166136261;
+    let mut folded = String::new();
     for index in 0..value.len()? {
         let character = value.char_at(index)?;
         if fold_case {
-            for folded in character.to_lowercase() {
-                hash = mix(hash, folded as u64);
+            folded.clear();
+            crate::unicode::fold_into(character, &mut folded);
+            for character in folded.chars() {
+                hash = mix(hash, character as u64);
             }
         } else {
             hash = mix(hash, character as u64);
