@@ -574,13 +574,18 @@ are not implemented yet.
 
 [`wasm.sld`](../src/snail-scheme/wasm.sld) consumes resolved IR, analyzes
 captures, mutation, and initialization, then emits structured WasmGC directly.
-Binding identities survive import renaming and source shadowing. Representation
-choices belong beyond expansion. The implemented
-[`type-analysis.sld`](../src/snail-scheme/type-analysis.sld) records per-expression
-facts, required guards, function signatures, and verified summaries before
-emission. [`wasm-i32.sld`](../src/snail-scheme/wasm-i32.sld) attempts bounded
-monomorphic representation specialization. See [the implementation report](typing-prototype.md)
-and [the broader proposal](occurrence-typing.md).
+Binding identities survive import renaming and source shadowing. The implemented
+[`type-analysis.sld`](../src/snail-scheme/type-analysis.sld) checks original bodies
+with transient child facts and immutable binding contracts.
+[`lambda-inference.sld`](../src/snail-scheme/lambda-inference.sld) infers conditional
+lambda summaries; [`specialize.sld`](../src/snail-scheme/specialize.sld) uses these
+and explicit signatures to copy concrete instances within the same resolved IR.
+Its internal call view retains the original evaluated procedure and selects a
+copy's code entry. It introduces neither a second expression language nor new
+Scheme closure identity. [`wasm-representation.sld`](../src/snail-scheme/wasm-representation.sld)
+keeps storage choices and boundary conversions explicit in emitted Wasm.
+See [the implementation report](typing-prototype.md) and
+[the broader proposal](occurrence-typing.md).
 
 The executable backend preserves proper tail calls, assignment, quoted data,
 recursive initialization, and multiple values. `values` and `call-with-values`

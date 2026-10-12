@@ -36,7 +36,8 @@
    type-declaration-type type-declaration-loc
    make-annotation annotation? annotation-expression annotation-type annotation-loc
    make-instantiation instantiation? instantiation-expression instantiation-types instantiation-loc
-   make-specialization specialization? specialization-expression specialization-definition specialization-loc
+   make-specialization specialization? specialization-expression
+   specialization-definition specialization-loc
    make-record-schema record-schema? record-schema-definition record-schema-constructor
    record-schema-predicate record-schema-arguments record-schema-fields record-schema-loc
 

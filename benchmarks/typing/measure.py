@@ -63,9 +63,9 @@ def build_scheme(name, annotation, mode, contents=None):
     return [os.environ.get("NODE", "node"), "--no-warnings", "scripts/run-wasi.mjs", output]
 
 
-def count_i32_workers(wat):
+def count_specialized_workers(wat):
     # Function definitions have fields after the name; export references do not.
-    return len(re.findall(r"\(func \$i32_[^\s()]+\s+\(", wat))
+    return len(re.findall(r"\(func \$specialized[^\s()]+\s+\(", wat))
 
 
 def check_specialization(commands):
@@ -73,10 +73,10 @@ def check_specialization(commands):
         if name.startswith("c-"):
             continue
         wat = Path(command[-1]).with_suffix(".wasm.wat").read_text()
-        expected = 1 if name.startswith("i32-specialized") else 0
-        actual = count_i32_workers(wat)
-        if actual != expected:
-            raise RuntimeError(f"{name}: expected {expected} i32 workers, emitted {actual}")
+        expected = name.endswith("specialized")
+        actual = count_specialized_workers(wat)
+        if bool(actual) != expected:
+            raise RuntimeError(f"{name}: expected specialization={expected}, emitted {actual} workers")
 
 
 def wasm_compiler():
@@ -106,8 +106,10 @@ def variants(workload):
     return {
         "untyped-guarded": build_scheme("untyped-guarded", "", "guarded"),
         "untyped-boxed": build_scheme("untyped", "", "boxed"),
+        "untyped-specialized": build_scheme("untyped-specialized", "", "optimized"),
         "integer-guarded": build_scheme("integer-guarded", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger))", "guarded"),
-        "integer-optimized": build_scheme("integer", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger))", "boxed"),
+        "integer-boxed": build_scheme("integer", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger))", "boxed"),
+        "integer-specialized": build_scheme("integer-specialized", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger))", "optimized"),
         "i32-guarded": build_scheme("guarded", "(: fibonacci (-> i32 i32 i32))", "guarded"),
         "i32-boxed": build_scheme("boxed", "(: fibonacci (-> i32 i32 i32))", "boxed"),
         "i32-specialized": build_scheme("specialized", "(: fibonacci (-> i32 i32 i32))", "optimized"),
@@ -123,15 +125,16 @@ def tail_variants():
     variants = {}
     for name, annotation, mode in (
         ("untyped-guarded", "", "guarded"), ("untyped-boxed", "", "boxed"),
+        ("untyped-specialized", "", "optimized"),
         ("integer-guarded", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger ExactInteger))", "guarded"),
-        ("integer-optimized", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger ExactInteger))", "boxed"),
+        ("integer-boxed", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger ExactInteger))", "boxed"),
+        ("integer-specialized", "(: fibonacci (-> ExactInteger ExactInteger ExactInteger ExactInteger))", "optimized"),
         ("i32-guarded", "(: fibonacci (-> i32 i32 i32 i32))", "guarded"),
         ("i32-boxed", "(: fibonacci (-> i32 i32 i32 i32))", "boxed"),
         ("i32-specialized", "(: fibonacci (-> i32 i32 i32 i32))", "optimized"),
     ):
         variants[name] = build_scheme("tail-" + name, annotation, mode, tail_source(annotation))
     variants.update({
-        "i32-specialized-kernel": build_tail_kernel(),
         "c-native-O3": build_c("tail-c-native", "fibonacci-tail", tail=True),
         "c-native-checked": build_c("tail-c-checked", "fibonacci-tail-checked", tail=True),
         "c-native-no-sibling-calls": build_c("tail-c-recursive", "fibonacci-tail", extra=["-fno-optimize-sibling-calls"], tail=True),
@@ -139,29 +142,6 @@ def tail_variants():
         "c-wasm-checked": build_c("tail-c-wasm-checked", "fibonacci-tail-checked", wasm=True, tail=True),
     })
     return variants
-
-
-def build_tail_kernel():
-    """Expose the existing pure worker for the same JS driver used by C-to-Wasm."""
-    source = "(import (scheme base) (snail typing))\n(: fibonacci (-> i32 i32 i32 i32))\n" + TAIL_FUNCTION
-    command = build_scheme("tail-i32-kernel", "", "optimized", source)
-    output = command[-1]
-    wat = output.with_suffix(".wasm.wat")
-    export_i32_worker(wat)
-    link = f"(link-wasm {json.dumps(str(wat))} (build-runtime {json.dumps(str(ROOT))}) {json.dumps(str(output))})"
-    link = f"(with-chromium-trace-to {json.dumps(str(output) + '.link.trace.json')} (lambda () {link}))"
-    run([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src", "-m", "snail-scheme.build",
-         "-m", "snail-scheme.chromium-trace", "-e", link])
-    return [os.environ.get("NODE", "node"), "--no-warnings", "benchmarks/typing/run-tail-kernel.mjs", output]
-
-
-def export_i32_worker(wat):
-    contents = wat.read_text()
-    workers = re.findall(r"^\(func (\$i32_\d+) ", contents, re.MULTILINE)
-    if len(workers) != 1:
-        raise RuntimeError(f"expected exactly one specialized tail kernel, got {workers}")
-    contents = contents.rstrip().removesuffix(")") + f'(export "fibonacci" (func {workers[0]}))\n)\n'
-    wat.write_text(contents)
 
 
 # ---- Execution measurements ----
@@ -183,12 +163,12 @@ def describe(command, samples):
     wat = artifact.with_suffix(artifact.suffix + ".wat")
     if wat.exists():
         emitted = "\n".join(line for line in wat.read_text().splitlines()
-                            if line.startswith(("(func $function", "(func $library", "(func $i32_")))
+                            if line.startswith(("(func $function", "(func $library", "(func $specialized")))
         result["emitted_single_calls"] = emitted.count("(call $single ")
         result["integer_helper_calls"] = emitted.count("$integer_")
         result["string_helper_calls"] = emitted.count("$known_string_length")
         result["record_helper_calls"] = emitted.count("$known_record_ref")
-        result["i32_workers"] = count_i32_workers(emitted)
+        result["specialized_workers"] = count_specialized_workers(emitted)
     return result
 
 
@@ -229,7 +209,7 @@ def main():
               "warmup_repetitions": args.repetitions if args.workload == "tail-fibonacci" else 0,
               "versions": {tool: run([tool, "--version"]).splitlines()[0] for tool in ("node", "clang", "wasm-opt")},
               "variants": {name: describe(commands[name], results[name]) for name in names}}
-    output = args.output or ROOT / f"benchmarks/results/2026-10-10-typing-{args.workload}.json"
+    output = args.output or ROOT / f"benchmarks/results/2026-10-12-specialization-{args.workload}.json"
     output.write_text(json.dumps(report, indent=2) + "\n")
     for name, result in report["variants"].items():
         print(f"{name}: {result['median_seconds']:.6f}s")

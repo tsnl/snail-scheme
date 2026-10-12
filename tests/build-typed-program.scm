@@ -1,6 +1,6 @@
 ;; Preserve required annotation checks in both modes; toggle only optimizations.
 (import (scheme base) (scheme cxr) (scheme process-context) (snail-scheme build)
-        (snail-scheme compiler) (snail-scheme type-analysis) (snail-scheme specialize)
+        (snail-scheme compiler) (snail-scheme type-analysis) (snail-scheme specialize) (snail-scheme wasm-representation)
         (snail-scheme chromium-trace) (snail-scheme partial-eval))
 (let* ((arguments (cdr (command-line))) (root (car arguments))
        (source (cadr arguments)) (output (caddr arguments))
@@ -9,6 +9,7 @@
                           (lambda ()
                             (parameterize ((partial-evaluation-enabled (equal? mode "folded"))
                                            (type-optimizations-enabled (not (equal? mode "guarded")))
+                                           (representation-optimizations-enabled (not (equal? mode "boxed")))
                                            (specialization-enabled (or (equal? mode "optimized") (equal? mode "folded"))))
                               (source-file->wat-file root source (string-append output ".wat")
                                                      '((rust-call-with-result . "snail.library"))

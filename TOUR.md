@@ -201,18 +201,20 @@ forms keep their meaning.
 unions, nominal records, rigid type variables, internal occurrence intersections,
 and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
 solves rank-one `All` instantiations from arguments and expected results. Its
-separate flexible variables support deterministic equality constraints without
-solving rigid source binders. [`lambda-inference.sld`](src/snail-scheme/lambda-inference.sld)
-builds conditional summaries for later optimization, deferring generalization
-until an active inference group has settled. These summaries add no source
-typing requirements; backend specialization is connected in the next stack layer.
+separate flexible inference variables keep those rigid source binders distinct
+from inferred lambda relationships. [`lambda-inference.sld`](src/snail-scheme/lambda-inference.sld)
+uses them to construct conditional summaries for ordinary calls, settling shared
+recursive constraints before generalization.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
 rules that take child facts as arguments. One declaration scan collects assignments,
 initializers, and nominal identities before narrowing. Typing, closure analysis,
 and constant evaluation share its binding stability decisions; immutable scopes
 retain declared types and verified contracts under binding identities. The visitor in `wasm.sld` passes
 transient facts directly to these rules and to emission. There are no expression
-type caches or separate signature and guard lookup tables. Checked callable views
+type caches or separate signature and guard lookup tables. The checker retains
+inferred `All` call instances and lambda lexical scopes for specialization, so
+stronger copy facts preserve the original call and captured assignment contracts.
+Checked callable views
 retain implementation origins for recursive-instantiation checks. A guard's
 postcondition can justify a later optimization, never removal of that guard.
 The emitter checks local returns inline. The first guarded tail transfer owns
@@ -224,12 +226,22 @@ capture this state.
 See [the implementation report](doc/typing-prototype.md) for syntax, soundness
 obligations, measurements, and the boundary between implemented and proposed rules.
 
-[`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) optionally specializes closed
-monomorphic i32 functions. Code and interval bounds travel together; unsupported
-expressions or possible i64 overflow cause whole-function fallback. Public
-closures keep the ordinary Scheme ABI, while eligible recursive workers use i32
-parameters/results and checked, widened arithmetic. Self tail calls save every
-operand before replacing parameters and branching to a local Wasm loop.
+[`specialize.sld`](src/snail-scheme/specialize.sld) runs after the original bodies
+pass checking. Its bounded worklist copies ordinary resolved IR for known calls
+with inferred or explicitly instantiated argument types. Copy keys include
+relevant type substitutions and capture types; lexical contracts are substituted
+alongside the body, and fresh local binding identities
+preserve lexical meaning. Calls still evaluate the original closure and reuse
+its environment. Unknown calls retain their generic entry. A monotone analysis
+widens results to the generic representation wherever tail calls or delayed
+checks need it, preserving proper tail recursion across functions.
+
+[`wasm-representation.sld`](src/snail-scheme/wasm-representation.sld) defines
+concrete scalar/reference storage and visible boxing/unboxing operations. The
+shared Wasm visitor uses those choices for values, initialized immutable locals,
+and specialized parameters/results. Monomorphic declared entries can bridge to
+concrete workers after their ordinary guards. Containers, closure environments,
+mutable cells, and unknown calls keep their generic Scheme representation.
 
 ## Emitting WebAssembly
 

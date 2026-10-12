@@ -1,4 +1,4 @@
-# Typing, check elimination, and i32 specialization
+# Typing, inference, and representation specialization
 
 This describes the implemented checker and optimizations, developed from the
 measured WasmGC backend at `ed2ad32d0bdc46601d11aa6af6013ba35dd729f5`. The broader
@@ -146,11 +146,12 @@ verified predicate contract, and implementation origin. Forward references can
 use declared signatures, but cannot borrow an unverified body summary.
 
 An expression returns its fact, code, and output obligations to its parent. No
-expression-to-type, expression-to-guard, or lambda-to-signature map is built.
+expression-to-type or expression-to-guard map is built by the checker. The
+optimization inference pass separately caches conditional lambda summaries.
 Call-site checks and recursive-instantiation edges are returned explicitly.
 Partial evaluation also returns a candidate value directly, after all source
-children have been checked. IR binding identities and the ordinary Scheme value
-representation remain unchanged.
+children have been checked. Generic closure identity and source contracts remain intact. Specialization
+clones local binding identities and selects concrete storage after checking.
 
 Tail code is assembled after enclosing guards are known. A tail builder captures
 only selected WAT fragments and runtime check recipes; it cannot inspect facts,
@@ -308,62 +309,83 @@ The type algebra now compares opaque binding leaves by `eq?`, and filter joins
 do the same. A linked regression passes a value from one expansion to the
 other expansion's accessor and requires the original type error in both modes.
 
-## Optimizations
+## Inference and specialization
 
-The boxed path removes single-value checks with independent count evidence,
-bypasses redundant typed entry checks at known calls, selects integer-only
-addition/subtraction/comparison helpers, and selects known String and nominal
-record access helpers. Runtime i31/boxed dispatch, overflow checks, field-name
-lookup, field-result guards, array bounds, and required Wasm casts remain.
-This is why fewer checks need not mean a large speedup on boxed arithmetic.
+Original bodies are checked before optimization. An explicit `All` variable is
+rigid: `(All (A) (-> A A))` cannot justify arithmetic on `A` or return a constant
+of some unrelated concrete type. A specialized copy substitutes concrete types
+only after that contract has passed checking. `inst` still evaluates to the same
+Scheme procedure, including when it escapes through `apply` or a container.
 
-The optional representation pass accepts this uncurried signature:
+`type-inference.sld` also provides distinct flexible inference variables for
+unannotated lambda arguments. Equal variables choose the lowest stable identity;
+occurs checks prevent recursive types. `lambda-inference.sld` summarizes argument
+and result relationships, freshening generalized variables for each use. These
+are conditional optimization summaries, not new static restrictions on untyped
+Scheme. An unresolved operation remains dynamic. Unused inferred `All` binders
+are removed; unused binders in a source declaration remain accepted by `inst`.
 
-```scheme
-(: fibonacci (-> i32 i32 i32))
-(define (fibonacci n offset)
-  (if (< n 2)
-      (+ n offset)
-      (+ (fibonacci (- n 1) offset)
-         (fibonacci (- n 2) offset))))
-```
+`specialize.sld` transforms the existing resolved IR into the same IR. It discovers
+known fixed-arity calls using both ordinary argument inference and declared
+signatures. For example, unannotated `(define (identity x) x)` can have distinct
+integer, floating-point, and String copies, as can an explicitly polymorphic
+identity. Cross-function calls, lexical bindings, captures, conditionals, effects,
+and recursive calls use the ordinary emitter; there is no integer-only language
+inside the optimizer.
 
-`i32` is a checked signed range, not wrapping arithmetic. The current Scheme
-integer runtime itself has checked signed 64-bit arithmetic. Specialized workers
-use an i32 ABI and widened i64 intermediates, retaining unproved i32 checks at
-returns and recursive entries. Thus `(- (+ a b) b)` still works for two maximum
-i32 arguments, while returning `(+ a 1)` at that maximum fails. Intermediates
-that might overflow i64 force ordinary emission for the whole function.
-Range-endpoint calculations check their own i64 bounds before performing
-arithmetic, allowing the same analysis to run on the compiled Wasm compiler host.
-An unrepresentable endpoint declines specialization without clipping its range
-or overflowing during compilation.
+A worklist reserves each copy before traversing its body, so recursive requests
+reuse it. Keys contain the source lambda identity, argument types, instantiated
+contract, relevant substitutions, and immutable capture types. Substitution keys
+omit unused outer binders and duplicates. Copies alpha-rename locally bound
+identities while retaining the original closure's environment layout. The IR call
+view evaluates that original closure and selects only a different code entry;
+it never allocates a replacement procedure. Unknown or mutable targets, rest
+procedures, unresolved domains, and exhausted budgets use the generic entry.
+Budgets currently allow eight copies per source lambda and 256 per linked module,
+including libraries; they are conservative compile-time limits, not a coverage
+claim for every application in a large program.
 
-Eligibility is deliberately narrow: an immutable top-level bare lambda, only i32
-parameters/result, integer literals/parameters, binary `+`, `-`, `*`, comparisons,
-conditionals, and self recursion. Calls to other functions, captures, mutation,
-local bindings, and unsupported syntax fall back. The range analysis recognizes
-parameter-left/literal-right comparisons. Impossible refinements retain the old
-ordered interval, which can conservatively force fallback on dead code.
-Comparisons use i32 instructions only when both computed operand ranges fit;
-otherwise they keep i64 width, including sums that exceed i32 before comparison.
+`wasm-representation.sld` maps semantic types to storage and explicit conversions.
+Exact integers, including checked `i32` values, use `i64`; inexact reals use `f64`;
+booleans and characters use `i32`; strings, pairs, vectors, bytevectors, procedures,
+records, and complex numbers can use their WasmGC reference types. Unknown values
+and unsupported type combinations use `eqref`. Declared range or nominal checks
+remain separate from representation conversion. Integers retain the runtime's
+checked signed 64-bit arithmetic: widened intermediates are allowed and overflow
+still raises the same error. Known primitive arithmetic expands to visible Wasm
+operations and checks, giving Binaryen ordinary code to simplify.
 
-The recursive emitter returns code with interval bounds or failure; it does not
-retain a second planning tree. A failed candidate publishes no partial worker.
-Recursive operands that need range checks are all evaluated before those entry
-checks. Tail self calls update parameter locals and branch to a Wasm loop.
-All operands are saved before any parameter is replaced, so permutations and
-nested ordinary calls see the previous iteration's values. Checked narrowing
-reestablishes i32 domains before the next iteration. A million-step three-argument
-case executes in tests; ordinary recursive calls retain their call semantics.
-Only immutable self initialization is elided: entering that bare-lambda worker
-proves its own initializer completed. Other initialization checks remain.
+The shared Wasm visitor uses these representations for expression values,
+immutable initialized locals, concrete parameters, and eligible results. Mutable
+cells, captured environments, containers, public closures, and foreign boundaries
+retain their generic storage. A concrete local may keep a generic slot for its
+initialization and capture obligations; dead boxing can then be removed by
+Binaryen. Specialized calls evaluate each operand once, then the operator, then
+required call-view and declared entry guards, before converting arguments.
+Monomorphic declared procedures also keep their original checked generic entry
+as a bridge to a concrete copy, so opaque calls retain the same contract.
 
-Ordinary closures still use eqref arguments and results, with a boxed bridge
-around the specialized worker. This is monomorphic representation specialization,
-not a generic `All` monomorphizer or a change to record/container layout.
+Result representations are solved by a monotone tail-call analysis. A copy keeps
+a concrete result only when every tail target uses the same representation and
+all enclosing result contracts are already justified. A generic tail target or
+deferred result check widens that component to `eqref`. Proper tail calls then
+use the existing Wasm tail-call and pending-check protocol. The generic bridge to
+a concrete result adds at most one boxing frame around that tail component.
+Unknown callbacks therefore remain sound even when this loses return precision.
 
-## Measurements
+The existing fact-driven path still removes independently justified single-value
+checks and selects typed helpers. Initialization evidence, value cardinality,
+mutable/foreign facts, array bounds, and required casts remain separate obligations.
+A value type alone cannot remove them. Generalized container layouts, specialization
+on captured values or higher-order code identities, and a complete recursive
+inference algorithm remain future work.
+
+## Historical measurements before general specialization
+
+The measurements in this section describe the removed, restricted i32 emitter
+at the named revisions. They do not measure the general IR transformation above.
+The current benchmark script rebuilds guarded, boxed, and general-specialization
+variants; the old isolated i32 worker export is no longer a current benchmark.
 
 The [latest runtime and compiler report](../benchmarks/results/2026-10-10-compiler-simplification/README.md)
 refreshes these workloads after the visitor refactor and binding-summary cleanup.
@@ -404,7 +426,7 @@ The full tables, raw [recursive Fibonacci](../benchmarks/results/2026-10-10-typi
 [tail Fibonacci](../benchmarks/results/2026-10-10-typing-production-tail-fibonacci.json),
 and [occurrence](../benchmarks/results/2026-10-10-typing-production-occurrence.json)
 reports, source/artifact hashes, historical comparisons, and reproduction
-commands are in [the benchmark guide](../benchmarks/README.md#typing-and-i32-specialization).
+commands are in [the benchmark guide](../benchmarks/README.md#typing-and-general-specialization).
 Measurements exclude compilation and startup. V8's default tiering remains
 enabled; only the tail workload uses a full in-process warmup. The isolated
 worker comparison bypasses the boxed Scheme entry and outer driver. No native
@@ -419,7 +441,7 @@ addresses stack use, independently of numeric range. The self tail loop preserve
 argument checks; reassociating the non-tail recursion would need a separate
 argument that failures and their order are preserved, or tighter input bounds.
 
-## Validation and simplification
+## Historical validation and simplification of the typed baseline
 
 `make test` includes a finite membership model checking subtyping, union,
 intersection, and conservative subtraction over scalar regions and distinct

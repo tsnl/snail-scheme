@@ -415,6 +415,7 @@ def main():
     run_case("success", ROOT / "tests/programs/backend-typing.scm", "typing checks passed\n", "")
     run_case("typed-tail", ROOT / "tests/programs/backend-typed-tail.scm", "typed tail checks passed\n", "")
     run_case("polymorphism", ROOT / "tests/programs/backend-polymorphism.scm", "polymorphism checks passed\n", "")
+    run_case("specialization", ROOT / "tests/programs/backend-specialization.scm", "specialization checks passed\n", "")
     arithmetic = BUILD / "arithmetic.scm"
     arithmetic.write_text(arithmetic_examples())
     run_case("arithmetic", arithmetic, "arithmetic checks passed\n", "")

@@ -66,7 +66,13 @@ historical checkout; it is not the default benchmark command.
 [studio scene](../BENCHMARKS.md#studio-scene). It is a visual showcase, not a
 replacement for running the full suite.
 
-## Typing and i32 specialization
+## Typing and general specialization
+
+The historical tables below measure the removed i32-only pass at their named
+revisions. Current builds use general resolved-IR specialization, with inferred
+and declared argument types; they need new measurements. The current script
+includes untyped, ExactInteger, and i32 specialization, and no longer exports
+the old isolated i32 worker.
 
 The [historical complete-program comparison](results/2026-10-11-symbol-interner/README.md#running-fibonacci-on-snail-chez-and-chibi)
 uses the same emitted WAT for native and Wasm and includes Chez and Chibi on
@@ -261,8 +267,10 @@ Use `--cpu` for an available logical CPU and `--output` to save a new report.
 `TYPING_CC` selects native Clang; `TYPING_WASM_CC` selects Wasm Clang. The script
 unwraps Nix's native Clang wrapper for Wasm so native linker/hardening flags do
 not leak into that target. The guarded mode disables optional type optimizations,
-the boxed mode enables check elimination, and the optimized mode also enables
-i32 specialization. All modes enforce the same declared type contracts.
+the boxed mode enables check elimination while retaining generic values, and
+the optimized mode also enables concrete representations and general IR
+specialization. All modes enforce the same declared type contracts. Reports
+count `$specialized` workers; library copies are included in that count.
 
 ## Historical native LLVM CPU experiment
 

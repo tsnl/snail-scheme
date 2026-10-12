@@ -102,14 +102,14 @@
       (let* ((source (specialized-source entry))
              (renames (map (lambda (definition)
                              (cons definition (ir:make-value-definition (ir:value-definition-name definition)
-                                                                       (ir:value-definition-loc definition))))
+                                                                        (ir:value-definition-loc definition))))
                            (bound-definitions source)))
              (environment (append (map cons (ir:lambda-parameters source) (specialized-arguments entry))
-                                   (specialized-captures entry)))
+                                  (specialized-captures entry)))
              (body (rewrite (ir:lambda-body source) environment renames (specialized-substitutions entry) work)))
         (set-specialized-procedure! entry
                                     (ir:make-lambda (map (lambda (definition) (rename definition renames))
-                                                        (ir:lambda-parameters source)) #f (car body) (ir:lambda-loc source)))
+                                                         (ir:lambda-parameters source)) #f (car body) (ir:lambda-loc source)))
         (unless (specialized-signature entry)
           (set-specialized-result! entry (cond ((function-type? (cdr body)) 'Procedure)
                                                ((runtime-type? (cdr body)) (cdr body)) (else '?))))))
@@ -140,9 +140,9 @@
 
     (define (rewrite-library library work)
       (library:make-library (library:library-name library) (library:library-imports library)
-                           (library:library-exports library) (library:library-dependencies library)
-                           (car (rewrite-sequence (library:library-body library) '() '() '() work))
-                           (library:library-loc library)))
+                            (library:library-exports library) (library:library-dependencies library)
+                            (car (rewrite-sequence (library:library-body library) '() '() '() work))
+                            (library:library-loc library)))
 
     ;; The exhaustive copy keeps each node's lexical and evaluation contract
     ;; visible. There is no alternate expression language for concrete workers.
@@ -165,12 +165,12 @@
               ((ir:instantiation? node)
                (let ((child (rewrite (ir:instantiation-expression node) environment renames substitutions work)))
                  (cons (ir:make-instantiation (car child) (map (lambda (type) (substitute type substitutions))
-                                                              (ir:instantiation-types node)) (ir:instantiation-loc node))
+                                                               (ir:instantiation-types node)) (ir:instantiation-loc node))
                        (substitute (inferred-type node environment state) substitutions))))
               ((ir:assignment? node)
                (let ((value (rewrite (ir:assignment-value node) environment renames substitutions work)))
                  (cons (ir:make-assignment (ir:make-name (rename (ir:name-definition (ir:assignment-target node)) renames)
-                                                       (ir:name-loc (ir:assignment-target node)))
+                                                         (ir:name-loc (ir:assignment-target node)))
                                            (car value) (ir:assignment-loc node)) 'Unspecified)))
               ((ir:type-declaration? node)
                (cons (ir:make-type-declaration (rename (ir:type-declaration-definition node) renames)
@@ -186,8 +186,8 @@
              (body (rewrite (ir:lambda-body node) (append (map cons (ir:lambda-parameters node) arguments) environment)
                             renames substitutions work))
              (procedure (ir:make-lambda (map (lambda (definition) (rename definition renames)) (ir:lambda-parameters node))
-                                       (and (ir:lambda-opt-rest-parameter node) (rename (ir:lambda-opt-rest-parameter node) renames))
-                                       (car body) (ir:lambda-loc node))))
+                                        (and (ir:lambda-opt-rest-parameter node) (rename (ir:lambda-opt-rest-parameter node) renames))
+                                        (car body) (ir:lambda-loc node))))
         (register-concrete-entry node procedure signature environment substitutions work)
         (cons procedure (inferred-lambda-type node (work-inference work)))))
 
@@ -255,10 +255,17 @@
     ;; Source contracts can strengthen an argument after their ordinary guard.
     ;; Inferred-only domains must already be justified by the actual argument.
     (define (copy-domains arguments signature)
-      (if signature
+      (if (and signature (= (length arguments) (length (type-arguments signature))))
           (map (lambda (actual formal) (if (type-subtype? actual formal) actual formal))
                arguments (type-arguments signature))
           arguments))
+
+    ;; An explicit instantiated view supplies domains even when actual values
+    ;; are dynamic. Its call guards establish those domains before the body.
+    (define (source-instance declared view arguments loc)
+      (or (and (all-type? declared) (arrow-type? view)
+               (call-instance declared (type-arguments view) loc))
+          (call-instance declared arguments loc)))
 
     (define (rewrite-application node environment renames substitutions work)
       (let* ((operands (map (lambda (node) (rewrite node environment renames substitutions work)) (ir:application-operands node)))
@@ -267,7 +274,9 @@
              (source (known-lambda (ir:application-operator node) (work-inference work)))
              (declared (and source (or (inference-procedure-type source (work-inference work))
                                        (explicit-signature (ir:application-operator node) (work-inference work)))))
-             (instance (and declared (call-instance (substitute declared substitutions) arguments (ir:application-loc node))))
+             (view-type (explicit-signature (ir:application-operator node) (work-inference work)))
+             (instance (and declared (source-instance (substitute declared substitutions)
+                                                      (and view-type (substitute view-type substitutions)) arguments (ir:application-loc node))))
              (domains (copy-domains arguments (and instance (car instance))))
              (entry (and source (not (ir:lambda-opt-rest-parameter source))
                          (= (length arguments) (length (ir:lambda-parameters source))) (every? concrete? domains)
@@ -313,7 +322,7 @@
                     (unless (or (eq? (specialized-representation entry) 'eqref)
                                 (compatible-tail? (ir:lambda-body (specialized-procedure entry))
                                                   entry entries primitives (if (specialized-signature entry)
-                                                                                (list (type-result (specialized-signature entry))) '())))
+                                                                               (list (type-result (specialized-signature entry))) '())))
                       (set-specialized-representation! entry 'eqref) (set! changed? #t))) entries)
         (if changed? (settle-results entries primitives))))
 
@@ -340,4 +349,66 @@
                         (memq (ir:value-definition-name (ir:name-definition operator))
                               '(+ - * / = < <= > >= eq? eqv? cons car cdr
                                   procedure? number? exact-integer? null? pair?))))))
-            (else #t)))))
+            (else #t))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-specialize)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (test-inferred-copies)
+        (let* ((x (ir:make-value-definition 'x #f)) (id (ir:make-value-definition 'id #f))
+               (unknown (ir:make-value-definition 'unknown #f))
+               (source (ir:make-lambda (list x) #f (ir:make-name x #f) #f))
+               (values (list (ir:make-literal 1 #f) (ir:make-literal 2 #f)
+                             (ir:make-literal "text" #f) (ir:make-literal (string->number "1.5") #f)
+                             (ir:make-name unknown #f)))
+               (items (cons (ir:make-value-binding id source #f)
+                            (map (lambda (value) (ir:make-application (ir:make-name id #f) (list value) #f)) values)))
+               (library (library:make-library #f '() '() '() items #f))
+               (result (specialize-libraries (list library) (prepare-types items '())))
+               (calls (cdr (library:library-body (caar result))))
+               (copies (cdr result)))
+          (expect (length copies) 3)
+          (expect (map specialized-representation copies) '(i64 (ref $text_object) f64))
+          (expect (eq? (ir:specialization-definition (ir:application-operator (car calls)))
+                       (ir:specialization-definition (ir:application-operator (cadr calls)))) #t)
+          (expect (ir:name? (ir:application-operator (car (reverse calls)))) #t)
+          (expect (eq? x (car (ir:lambda-parameters (specialized-procedure (car copies))))) #f)
+          (expect (eq? id (ir:name-definition (ir:specialization-expression (ir:application-operator (car calls))))) #t)))
+
+      (define (test-instance-keys)
+        (let* ((a (make-type-variable 'A)) (unused (make-type-variable 'Unused))
+               (x (ir:make-value-definition 'x #f)) (capture (ir:make-value-definition 'capture #f))
+               (source (ir:make-lambda (list x) #f (ir:make-annotation (ir:make-name x #f) a #f) #f))
+               (work (make-work (make-lambda-inference (prepare-types '() '())) '() '()))
+               (first (request-copy source '(String) '(-> String String) (list (cons a 'String))
+                                    (list (cons capture 'String)) work))
+               (again (request-copy source '(String) '(-> String String)
+                                    (list (cons unused 'ExactInteger) (cons a 'String) (cons a 'String))
+                                    (list (cons capture 'String)) work))
+               (different (request-copy source '(String) '(-> String String) (list (cons a 'String))
+                                        (list (cons capture 'InexactReal)) work)))
+          (expect (eq? first again) #t)
+          (expect (eq? first different) #f)))
+
+      (define (test-tail-result-contracts)
+        (let* ((target (ir:make-value-definition 'target #f))
+               (caller (ir:make-value-definition 'caller #f))
+               (callee-body (ir:make-lambda '() #f (ir:make-literal 1 #f) #f))
+               (callee (make-specialized target callee-body '() '(-> ExactInteger) '() '()
+                                         callee-body 'ExactInteger 'i64 '()))
+               (call (ir:make-application (ir:make-specialization (ir:make-name target #f) target #f) '() #f))
+               (body (ir:make-lambda '() #f (ir:make-annotation call 'ExactInteger #f) #f))
+               (entry (make-specialized caller body '() '(-> i32) '() '() body 'i32 'i64 '())))
+          ;; The inner annotation cannot erase the stricter enclosing contract.
+          (settle-results (list entry callee) '())
+          (expect (specialized-representation entry) 'eqref)
+          (expect (specialized-representation callee) 'i64)))
+
+      (define (test-specialize)
+        (test-inferred-copies)
+        (test-instance-keys)
+        (test-tail-result-contracts))))))

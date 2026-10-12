@@ -1,12 +1,14 @@
 ;; Storage choices and explicit conversions shared by every emitted procedure.
 ;; Semantic types retain their contracts even when they use identical storage.
 (define-library (snail-scheme wasm-representation)
-  (export type-representation representation-wasm box-representation unbox-representation
+  (export representation-optimizations-enabled type-representation representation-wasm box-representation unbox-representation
           convert-representation)
   (import (scheme base) (snail-scheme types))
   (begin
 
     ;; ---- Storage and the generic Scheme boundary ----
+
+    (define representation-optimizations-enabled (make-parameter #t))
 
     (define (type-representation type)
       (cond ((type-subtype? type 'Never) 'eqref)

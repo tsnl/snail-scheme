@@ -80,11 +80,6 @@
                                        foreign (make-literal-pool) typing
                                        (pe:make-partial-state assigned (map car (typing-declarations typing)) primitives) copies)))))
 
-    (define (procedure-binding procedure known globals)
-      (cond ((null? known) #f)
-            ((and (eq? procedure (cdar known)) (memq (caar known) globals)) (caar known))
-            (else (procedure-binding procedure (cdr known) globals))))
-
     ;; ---- Binding and capture analysis ----
     (define (library-global-definitions library)
       (unique-identities (append (library-primitives library) (item-definitions (library:library-body library)))))
@@ -338,7 +333,8 @@
 
     (define (visit-literal node scope context output)
       (let* ((fact (infer-literal node))
-             (representation (if (type-optimizations-enabled) (type-representation (fact-type fact)) 'eqref))
+             (representation (if (and (type-optimizations-enabled) (representation-optimizations-enabled))
+                                 (type-representation (fact-type fact)) 'eqref))
              (value (literal-value (ir:literal-value node) (function-module context))))
         (result fact (unbox-representation value representation) output scope #t representation)))
 
@@ -411,9 +407,9 @@
 
     (define (initialize-binding definition child context)
       (let* ((place (binding-place definition context))
-             (representation (if (and (type-optimizations-enabled) (eq? (cadr place) 'local)
-                                       (not (boxed-place? place context)))
-                                  (type-representation (fact-type (visited-fact child))) 'eqref)))
+             (representation (if (and (type-optimizations-enabled) (representation-optimizations-enabled) (eq? (cadr place) 'local)
+                                      (not (boxed-place? place context)))
+                                 (type-representation (fact-type (visited-fact child))) 'eqref)))
         (if (eq? representation 'eqref) (store-binding definition (single-result child) context)
             (let ((name (temporary! context representation)))
               (set-function-cached! context (cons (list definition name representation) (function-cached context)))
@@ -501,12 +497,12 @@
       (if (procedure? code) (code checks)
           (if (null? checks) (convert-representation code representation (function-representation context))
               (unbox-representation (finish-expression (box-representation code representation) checks context)
-                                     (function-representation context)))))
+                                    (function-representation context)))))
     (define (guarded-code code representation site context)
       (lambda (checks) (emit-code code representation (cons site checks) context)))
     (define (sequence-code first rest representation tail? context)
       (if tail? (lambda (checks) `(block (result ,(representation-wasm (function-representation context)))
-                                        (drop ,first) ,(emit-code rest representation checks context)))
+                                         (drop ,first) ,(emit-code rest representation checks context)))
           `(block (result ,(representation-wasm representation)) (drop ,first) ,rest)))
     (define (conditional-code test yes no tail? context)
       (if tail?
@@ -697,7 +693,7 @@
     ;; evaluates once, and signed overflow remains an explicit Wasm check.
     (define (native-primitive node operands context)
       (let ((operator (ir:application-operator node)))
-        (and (type-optimizations-enabled) (ir:name? operator)
+        (and (type-optimizations-enabled) (representation-optimizations-enabled) (ir:name? operator)
              (memq (ir:name-definition operator) (module-primitives (function-module context)))
              (let ((name (ir:value-definition-name (ir:name-definition operator))))
                (or (and (= (length operands) 2) (native-numeric name operands context))
@@ -708,10 +704,10 @@
              (integer? (and (type-subtype? (car types) 'ExactInteger) (type-subtype? (cadr types) 'ExactInteger)))
              (float? (and (eq? (car types) 'InexactReal) (eq? (cadr types) 'InexactReal)))
              (comparison (assq name '((= i64.eq f64.eq) (< i64.lt_s f64.lt) (<= i64.le_s f64.le)
-                                     (> i64.gt_s f64.gt) (>= i64.ge_s f64.ge)))))
+                                      (> i64.gt_s f64.gt) (>= i64.ge_s f64.ge)))))
         (cond ((and comparison (or integer? float?))
                (cons 'boolean `(,(if integer? (cadr comparison) (caddr comparison))
-                                 ,@(map (lambda (operand) (represented-result operand (if integer? 'i64 'f64))) operands))))
+                                ,@(map (lambda (operand) (represented-result operand (if integer? 'i64 'f64))) operands))))
               ((and integer? (memq name '(+ - *))) (cons 'i64 (checked-integer-code name operands context)))
               ((and float? (assq name '((+ . f64.add) (- . f64.sub) (* . f64.mul) (/ . f64.div))))
                => (lambda (operation) (cons 'f64 `(,(cdr operation) ,@(map (lambda (operand) (represented-result operand 'f64)) operands)))))
@@ -1176,7 +1172,7 @@
                                                   (original (prepare-module (map car libraries) foreign))
                                                   (checked (generate-library-functions libraries original))
                                                   (validated (check-recursive-instances (output-calls (cdr checked))))
-                                                  (specialized (and (type-optimizations-enabled) (specialization-enabled)
+                                                  (specialized (and (type-optimizations-enabled) (representation-optimizations-enabled) (specialization-enabled)
                                                                     (specialize-libraries (map car libraries) (module-typing original))))
                                                   (libraries (if specialized (numbered (car specialized)) libraries))
                                                   (module (if specialized (prepare-module (map car libraries) foreign (cdr specialized)) original))
