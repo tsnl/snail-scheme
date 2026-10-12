@@ -6,6 +6,7 @@
   (import (scheme base) (scheme file) (scheme write)
           (scheme process-context) (snail-scheme compile-build) (snail-scheme chromium-trace)
           (snail-scheme build-host) (snail-scheme artifacts) (snail artifacts)
+          (snail-scheme wasm-optimize)
           (only (snail-scheme wasm) write-wasm))
   (begin
     ;; ---- Processes and owned build directories ----
@@ -71,22 +72,13 @@
     ;; ---- Linking a complete Wasm program ----
 
     ;; Preserve the standard name section for Wasm inspection and profiling.
-    ;; Native compilation consumes module datums before these portable stages.
-    (define wasm-features
-      '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
-        "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"
-        "--enable-nontrapping-float-to-int"))
+    ;; Both final backends consume the same Scheme-only Binaryen stage.
 
     (define entry-module
       "(module
   (import \"snail.awi\" \"snail_main\" (func $main (result eqref)))
   (import \"snail.rust\" \"_initialize\" (func $initialize))
   (func (export \"_start\") (call $initialize) (drop (call $main))))\n")
-
-    (define (assemble-wasm input output)
-      (run-command "build.assemble"
-                   (append (list (tool-name "WASM_AS" "wasm-as") "-g") wasm-features
-                           (list input "-o" output))))
 
     (define (merge-wasm scheme runtime entry output)
       (run-command "build.link"
@@ -102,19 +94,22 @@
 
     (define (link-in-directory wat runtime directory output)
       (let ((scheme (string-append directory "/scheme.wasm"))
+            (optimized (string-append directory "/scheme.optimized.wasm"))
             (entry (string-append directory "/entry.wasm"))
             (linked (string-append directory "/linked.wasm")))
         (call-with-output-file (string-append directory "/entry.wat")
           (lambda (port) (display entry-module port)))
         (assemble-wasm wat scheme)
         (assemble-wasm (string-append directory "/entry.wat") entry)
-        (merge-wasm scheme runtime entry linked)
+        (optimize-scheme-wasm scheme optimized)
+        (merge-wasm optimized runtime entry linked)
         (optimize-wasm linked output)))
 
     (define link-wasm
       (chromium-trace
        "link-wasm"
        (lambda (wat runtime output)
+         (check-binaryen-tools 'wasm)
          (call-with-build-output output (list wat runtime)
                                  (lambda (directory finished)
                                    (link-in-directory wat runtime directory finished))))))
@@ -123,6 +118,7 @@
     ;; build-runtime once, emit each WAT file, and call link-wasm themselves.
     (define build-wasm
       (chromium-trace "build-wasm" (lambda (root input output . options)
+                                     (check-binaryen-tools 'wasm)
                                      (call-with-build-output output (list input (wasm-runtime-path root))
                                                              (lambda (directory finished)
                                                                (let ((wat (string-append directory "/program.wat"))
