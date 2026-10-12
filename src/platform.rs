@@ -360,9 +360,11 @@ pub extern "C" fn read_line(raw: u32) -> u32 {
 pub extern "C" fn write_char(raw: u32) -> u32 {
     let args = arguments(raw, "write-char", 1, 2);
     finish((|| {
-        let text = args.get(0)?.as_character()?.to_string();
+        let character = args.get(0)?.as_character()?;
+        let mut bytes = [0; 4];
+        let text = character.encode_utf8(&mut bytes);
         let port = selected_port(&args, 1, 1)?;
-        HOST.with_borrow_mut(|host| host.port(&port)?.write(&text))?;
+        HOST.with_borrow_mut(|host| host.port(&port)?.write(text))?;
         Ok(Root::unspecified())
     })())
 }
