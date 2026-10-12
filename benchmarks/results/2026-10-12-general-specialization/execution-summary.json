@@ -1,0 +1,251 @@
+{
+  "revision": "d2770aba4ee4c6a4c855a39b146d5f939c7fc22f",
+  "passed_executions": 60,
+  "retained_executions": 45,
+  "rounds": 3,
+  "selection": "Five largest previously observed baseline V8/Chez ratios, not a representative suite.",
+  "geometric_mean_baseline_over_candidate": 1.000610140974932,
+  "geometric_mean_candidate_over_chez": 19.87114135726808,
+  "rows": [
+    {
+      "benchmark": "cat",
+      "baseline": {
+        "seconds": [
+          22.597349279,
+          22.644782661,
+          22.610322579
+        ],
+        "median": 22.610322579,
+        "minimum": 22.597349279,
+        "maximum": 22.644782661
+      },
+      "candidate": {
+        "seconds": [
+          22.425934774,
+          22.373621373,
+          22.361906342
+        ],
+        "median": 22.373621373,
+        "minimum": 22.361906342,
+        "maximum": 22.425934774
+      },
+      "chez": {
+        "seconds": [
+          0.699362175,
+          0.700231627,
+          0.699943474
+        ],
+        "median": 0.699943474,
+        "minimum": 0.699362175,
+        "maximum": 0.700231627
+      },
+      "baseline_over_candidate": 1.0105794766995408,
+      "candidate_elapsed_change_percent": -1.0468723087562082,
+      "candidate_over_chez": 31.96489745827675,
+      "artifacts": {
+        "baseline_wasm_bytes": 495958,
+        "candidate_wasm_bytes": 495891,
+        "candidate_wasm_sha256": "a01a4d6d72bd85f501cdb9b9ac37f7c806995e6d85bc9b8e57324c01889bac87",
+        "specialization_copies": 28,
+        "copy_result_representations": {
+          "boolean": 2,
+          "(ref $closure)": 14,
+          "eqref": 11,
+          "(ref $text_object)": 1
+        }
+      }
+    },
+    {
+      "benchmark": "lattice",
+      "baseline": {
+        "seconds": [
+          24.916334961,
+          25.01039643,
+          24.95793122
+        ],
+        "median": 24.95793122,
+        "minimum": 24.916334961,
+        "maximum": 25.01039643
+      },
+      "candidate": {
+        "seconds": [
+          24.960295107,
+          24.943232577,
+          24.924299866
+        ],
+        "median": 24.943232577,
+        "minimum": 24.924299866,
+        "maximum": 24.960295107
+      },
+      "chez": {
+        "seconds": [
+          1.156674097,
+          1.182566191,
+          1.158755119
+        ],
+        "median": 1.158755119,
+        "minimum": 1.156674097,
+        "maximum": 1.182566191
+      },
+      "baseline_over_candidate": 1.0005892838049208,
+      "candidate_elapsed_change_percent": -0.058893675402948986,
+      "candidate_over_chez": 21.52588771174179,
+      "artifacts": {
+        "baseline_wasm_bytes": 519202,
+        "candidate_wasm_bytes": 520555,
+        "candidate_wasm_sha256": "ec38306fd03e2cfb23337d20af7f3767968b6eaf35e1ba803e12b9ff28926e7e",
+        "specialization_copies": 36,
+        "copy_result_representations": {
+          "boolean": 3,
+          "(ref $closure)": 15,
+          "eqref": 17,
+          "(ref $text_object)": 1
+        }
+      }
+    },
+    {
+      "benchmark": "wc",
+      "baseline": {
+        "seconds": [
+          12.341537053,
+          12.370766243,
+          12.324857019
+        ],
+        "median": 12.341537053,
+        "minimum": 12.324857019,
+        "maximum": 12.370766243
+      },
+      "candidate": {
+        "seconds": [
+          12.429108476,
+          12.40730645,
+          12.513476795
+        ],
+        "median": 12.429108476,
+        "minimum": 12.40730645,
+        "maximum": 12.513476795
+      },
+      "chez": {
+        "seconds": [
+          0.650613001,
+          0.653011791,
+          0.645160222
+        ],
+        "median": 0.650613001,
+        "minimum": 0.645160222,
+        "maximum": 0.653011791
+      },
+      "baseline_over_candidate": 0.9929543278852947,
+      "candidate_elapsed_change_percent": 0.709566584971788,
+      "candidate_over_chez": 19.10368906999447,
+      "artifacts": {
+        "baseline_wasm_bytes": 504909,
+        "candidate_wasm_bytes": 512465,
+        "candidate_wasm_sha256": "d61dbce78b7b3a84baba14cd7759896b618da0250c93fc8b0eeb4a5253148186",
+        "specialization_copies": 35,
+        "copy_result_representations": {
+          "boolean": 2,
+          "(ref $closure)": 14,
+          "eqref": 18,
+          "(ref $text_object)": 1
+        }
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "baseline": {
+        "seconds": [
+          12.339736257,
+          12.31291766,
+          12.288896144
+        ],
+        "median": 12.31291766,
+        "minimum": 12.288896144,
+        "maximum": 12.339736257
+      },
+      "candidate": {
+        "seconds": [
+          12.398948249,
+          12.515446387,
+          12.530997866
+        ],
+        "median": 12.515446387,
+        "minimum": 12.398948249,
+        "maximum": 12.530997866
+      },
+      "chez": {
+        "seconds": [
+          0.764623929,
+          0.764065966,
+          0.766771856
+        ],
+        "median": 0.764623929,
+        "minimum": 0.764065966,
+        "maximum": 0.766771856
+      },
+      "baseline_over_candidate": 0.9838176984873371,
+      "candidate_elapsed_change_percent": 1.644847570596042,
+      "candidate_over_chez": 16.36810713387967,
+      "artifacts": {
+        "baseline_wasm_bytes": 528898,
+        "candidate_wasm_bytes": 532624,
+        "candidate_wasm_sha256": "f3dac8f8eb14c7a90228d6821a3cc6f8e34f063c979eca0d4ebb2073d3deeb53",
+        "specialization_copies": 49,
+        "copy_result_representations": {
+          "boolean": 3,
+          "(ref $closure)": 29,
+          "eqref": 16,
+          "(ref $text_object)": 1
+        }
+      }
+    },
+    {
+      "benchmark": "deriv",
+      "baseline": {
+        "seconds": [
+          5.999128748,
+          6.110991319,
+          6.103570296
+        ],
+        "median": 6.103570296,
+        "minimum": 5.999128748,
+        "maximum": 6.110991319
+      },
+      "candidate": {
+        "seconds": [
+          6.010763993,
+          6.04367749,
+          6.003410283
+        ],
+        "median": 6.010763993,
+        "minimum": 6.003410283,
+        "maximum": 6.04367749
+      },
+      "chez": {
+        "seconds": [
+          0.417527947,
+          0.417412738,
+          0.417116215
+        ],
+        "median": 0.417412738,
+        "minimum": 0.417116215,
+        "maximum": 0.417527947
+      },
+      "baseline_over_candidate": 1.0154400177927598,
+      "candidate_elapsed_change_percent": -1.5205248485598788,
+      "candidate_over_chez": 14.400049269699096,
+      "artifacts": {
+        "baseline_wasm_bytes": 504575,
+        "candidate_wasm_bytes": 504619,
+        "candidate_wasm_sha256": "bd96dd1a3819dcee9ad2734a218aef945c1a08c20d1c290d22e98aa926cbcdf1",
+        "specialization_copies": 28,
+        "copy_result_representations": {
+          "boolean": 2,
+          "(ref $closure)": 14,
+          "eqref": 11,
+          "(ref $text_object)": 1
+        }
+      }
+    }
+  ]
+}

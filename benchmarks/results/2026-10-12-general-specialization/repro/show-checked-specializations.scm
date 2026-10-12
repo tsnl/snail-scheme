@@ -1,0 +1,37 @@
+(import (scheme base) (scheme cxr) (scheme write) (scheme process-context)
+        (chibi modules) (snail-scheme compiler) (snail-scheme expand)
+        (snail-scheme bootstrap) (snail-scheme library) (snail-scheme source)
+        (snail-scheme wasm) (snail-scheme specialize) (snail-scheme type-analysis) (snail-scheme chromium-trace)
+        (prefix (snail-scheme ir) ir:))
+
+;; Read-only plan inspection for checked fixture and benchmark sources.
+(define root (cadr (command-line)))
+(define input (caddr (command-line)))
+(define trace (cadddr (command-line)))
+
+(define (inspect-plan)
+  (let* ((program (syntax-list->ir-library
+                   ((module-ref '(snail-scheme compiler) 'source-file->syntax-list) input)
+                   ((module-ref '(snail-scheme compiler) 'library-loader) root '())
+                   (list (make-core-library '(snail-scheme core) bootstrap-primitive-names)
+                         ((module-ref '(snail-scheme compiler) 'make-extension-library) '()))))
+         (libraries (library-dependency-order program))
+         (module ((module-ref '(snail-scheme wasm) 'prepare-module) libraries '()))
+         (checked ((module-ref '(snail-scheme wasm) 'generate-library-functions)
+                   ((module-ref '(snail-scheme wasm) 'numbered) libraries) module))
+         (output (cdr checked))
+         (validated (check-recursive-instances ((module-ref '(snail-scheme wasm) 'output-calls) output)))
+         (result (specialize-libraries libraries ((module-ref '(snail-scheme wasm) 'module-typing) module)
+                   ((module-ref '(snail-scheme wasm) 'output-instances) output)
+                   ((module-ref '(snail-scheme wasm) 'output-scopes) output))))
+    (for-each print-copy (cdr result))))
+
+(define (print-copy entry)
+  (let* ((source (specialized-source entry)) (loc (ir:lambda-loc source)))
+    (write (list (and loc (list (loc-filename loc) (loc-line loc) (loc-column loc)))
+                 (map ir:value-definition-name (ir:lambda-parameters source))
+                 (specialized-arguments entry) (specialized-result entry)
+                 (specialized-representation entry)))
+    (newline)))
+
+(with-chromium-trace-to trace inspect-plan)

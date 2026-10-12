@@ -1,0 +1,120 @@
+{
+  "revision": "d2770aba4ee4c6a4c855a39b146d5f939c7fc22f",
+  "validated_source_snapshot": "ceded211197844fc1cebfba2a3773bec5c9a4779",
+  "source_snapshot_match_verified": true,
+  "report_path": "/tmp/snail-v8-candidate-d2770ab-20261012/build/v8-worst-five/results.json",
+  "report_sha256": "66e41f5b99e7e72df5a6518440e374d1fd641ca13c9418bca8dbdb23157e65b4",
+  "candidate_count": 5,
+  "samples_taken": 0,
+  "comparison_prepare_only_passed": true,
+  "matching_fields": [
+    "source_sha256",
+    "input_sha256",
+    "whole corpus input_sha256",
+    "harness_sha256",
+    "host_sha256",
+    "Node engine sha256",
+    "experiment_environment",
+    "build_environment"
+  ],
+  "inspection_script": "/tmp/snail-v8-candidate-d2770ab-20261012/build/show-checked-specializations.scm",
+  "inspection_script_sha256": "0fcc824beb4ba694979edbdfd704bf925df967e5426f682efd4ded2379f3f477",
+  "earlier_6066_report_sha256": "44ac96fc002f96ad5a989938d9efb7670e7e3a10b382a256840d4967aacfe938",
+  "cases": [
+    {
+      "benchmark": "cat",
+      "source_bytes": 3372,
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+      "candidate_wasm_bytes": 495891,
+      "baseline_wasm_bytes": 495958,
+      "earlier_6066_wasm_bytes": 495665,
+      "candidate_wasm_sha256": "a01a4d6d72bd85f501cdb9b9ac37f7c806995e6d85bc9b8e57324c01889bac87",
+      "byte_identical_to_6066": false,
+      "specialization_copies": 28,
+      "copy_result_representations": {
+        "boolean": 2,
+        "(ref $closure)": 14,
+        "eqref": 11,
+        "(ref $text_object)": 1
+      },
+      "copy_count_scope": "Static plan after original checked generation and recursive-instance validation, using output-instances/output-scopes; not dynamic invocation or allocation counts."
+    },
+    {
+      "benchmark": "lattice",
+      "source_bytes": 9127,
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+      "candidate_wasm_bytes": 520555,
+      "baseline_wasm_bytes": 519202,
+      "earlier_6066_wasm_bytes": 519702,
+      "candidate_wasm_sha256": "ec38306fd03e2cfb23337d20af7f3767968b6eaf35e1ba803e12b9ff28926e7e",
+      "byte_identical_to_6066": false,
+      "specialization_copies": 36,
+      "copy_result_representations": {
+        "boolean": 3,
+        "(ref $closure)": 15,
+        "eqref": 17,
+        "(ref $text_object)": 1
+      },
+      "copy_count_scope": "Static plan after original checked generation and recursive-instance validation, using output-instances/output-scopes; not dynamic invocation or allocation counts."
+    },
+    {
+      "benchmark": "wc",
+      "source_bytes": 3394,
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "candidate_wasm_bytes": 512465,
+      "baseline_wasm_bytes": 504909,
+      "earlier_6066_wasm_bytes": 511784,
+      "candidate_wasm_sha256": "d61dbce78b7b3a84baba14cd7759896b618da0250c93fc8b0eeb4a5253148186",
+      "byte_identical_to_6066": false,
+      "specialization_copies": 35,
+      "copy_result_representations": {
+        "boolean": 2,
+        "(ref $closure)": 14,
+        "eqref": 18,
+        "(ref $text_object)": 1
+      },
+      "copy_count_scope": "Static plan after original checked generation and recursive-instance validation, using output-instances/output-scopes; not dynamic invocation or allocation counts."
+    },
+    {
+      "benchmark": "graphs",
+      "source_bytes": 26052,
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "candidate_wasm_bytes": 532624,
+      "baseline_wasm_bytes": 528898,
+      "earlier_6066_wasm_bytes": 532129,
+      "candidate_wasm_sha256": "f3dac8f8eb14c7a90228d6821a3cc6f8e34f063c979eca0d4ebb2073d3deeb53",
+      "byte_identical_to_6066": false,
+      "specialization_copies": 49,
+      "copy_result_representations": {
+        "boolean": 3,
+        "(ref $closure)": 29,
+        "eqref": 16,
+        "(ref $text_object)": 1
+      },
+      "copy_count_scope": "Static plan after original checked generation and recursive-instance validation, using output-instances/output-scopes; not dynamic invocation or allocation counts."
+    },
+    {
+      "benchmark": "deriv",
+      "source_bytes": 3734,
+      "source_sha256": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+      "candidate_wasm_bytes": 504619,
+      "baseline_wasm_bytes": 504575,
+      "earlier_6066_wasm_bytes": 504357,
+      "candidate_wasm_sha256": "bd96dd1a3819dcee9ad2734a218aef945c1a08c20d1c290d22e98aa926cbcdf1",
+      "byte_identical_to_6066": false,
+      "specialization_copies": 28,
+      "copy_result_representations": {
+        "boolean": 2,
+        "(ref $closure)": 14,
+        "eqref": 11,
+        "(ref $text_object)": 1
+      },
+      "copy_count_scope": "Static plan after original checked generation and recursive-instance validation, using output-instances/output-scopes; not dynamic invocation or allocation counts."
+    }
+  ]
+}

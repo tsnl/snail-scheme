@@ -1,0 +1,44 @@
+{
+  "compiler_revision": "d2770aba4ee4c6a4c855a39b146d5f939c7fc22f",
+  "code_pr_head": "79bf941d0f5e8e06b902a605d2ed724083599f60",
+  "head_difference": "Four test-only lines add the separately executed callback-order regression; compiler/runtime/host unchanged.",
+  "typing_matrix": {
+    "matrix_counts_at_pr_head": {
+      "CASES": 67,
+      "REJECTED": 35
+    },
+    "shard_case_jobs_passed": 71,
+    "shard_failures": {},
+    "additional_callback_case": "guarded and optimized passed",
+    "modes": [
+      "guarded",
+      "optimized"
+    ]
+  },
+  "rejection_and_fold_shard": {
+    "exit": 0,
+    "static_rejections": 35,
+    "fold_run_cases": 21,
+    "dead_source_rejections": 2
+  },
+  "root_checks": {
+    "scripts/test-backend": 0,
+    "scripts/test-build": 0,
+    "independent_baseline_differential_runs": 6
+  },
+  "agent_checks": {
+    "make test": 0,
+    "make check": 0,
+    "cargo test --offline": {
+      "exit": 0,
+      "tests": 26
+    },
+    "cargo fmt --all -- --check": 0
+  },
+  "linked_typing_benchmark_smoke": {
+    "variants": 7,
+    "checksum": 4204971,
+    "timings": "Discarded because jobs overlapped."
+  },
+  "scope": "All correctness work finished before clean timing; no full 57-workload candidate suite was run."
+}

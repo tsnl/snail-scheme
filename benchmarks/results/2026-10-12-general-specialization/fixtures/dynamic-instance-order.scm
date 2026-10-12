@@ -1,0 +1,6 @@
+(import (scheme base) (scheme write) (snail typing))
+(: observed (All (A) (-> A A)))
+(define (observed x) (display "body") x)
+(: run (-> Procedure Any String))
+(define (run k x) (k x))
+(run observed 42)

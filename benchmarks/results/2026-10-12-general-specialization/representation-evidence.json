@@ -1,0 +1,32 @@
+{
+  "compiler_revision": "d2770ab",
+  "artifact": "/tmp/snail-specialization-fix-20261012/build/typing-tests/specialization-optimized.wasm.wat",
+  "workers": 104,
+  "checks": {
+    "inferred_float_identity": [
+      "$specialized222",
+      "$specialized241"
+    ],
+    "inferred_string_identity": [
+      "$specialized199",
+      "$specialized226",
+      "$specialized251"
+    ],
+    "integer_result": [
+      "$specialized212",
+      "$specialized220",
+      "$specialized221",
+      "$specialized231",
+      "$specialized290"
+    ],
+    "float_tail_transfer": [
+      "$specialized207",
+      "$specialized208"
+    ],
+    "reference_tail_transfer": [
+      "$specialized209",
+      "$specialized210",
+      "$specialized211"
+    ]
+  }
+}

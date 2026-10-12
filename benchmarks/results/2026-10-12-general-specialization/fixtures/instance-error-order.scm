@@ -1,0 +1,7 @@
+(import (scheme base) (scheme write) (snail typing))
+(: observed-identity (All (A) (-> A A)))
+(define (observed-identity value) (display "entered body\n") value)
+(define (inferred-identity value) value)
+(: checked-forward (-> Any String))
+(define (checked-forward value) (observed-identity (inferred-identity value)))
+(checked-forward 42)

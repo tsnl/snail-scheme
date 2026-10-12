@@ -398,6 +398,12 @@ inference precision remain future work. Shallow Pair, Vector, and Procedure
 types do not preserve element types or callback identity; generic container and
 higher-order hotspots therefore remain largely outside these optimizations.
 
+The [five-workload comparison](../benchmarks/results/2026-10-12-general-specialization/README.md)
+measures this implementation against its predecessor and Chez. Overall execution
+is effectively unchanged on that selected subset; the report records individual
+regressions and improvements, compile-phase costs, representation coverage,
+and the remaining precision limits. The numeric measurements below remain historical.
+
 ## Historical measurements before general specialization
 
 The measurements in this section describe the removed, restricted i32 emitter

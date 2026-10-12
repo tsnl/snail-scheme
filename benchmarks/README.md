@@ -28,6 +28,13 @@ all workloads. `--systems` and `--benchmarks` select an explicit diagnostic
 subset; ordinary benchmark commands never select a small showcase by default.
 See [BENCHMARKS.md](../BENCHMARKS.md) for timing boundaries and coverage.
 
+The [five largest V8/Chez gaps](results/2026-10-12-v8-worst-five/README.md)
+have separate clean timings, original-binary CPU/GC profiles, heavy instrumentation,
+disassembly, and a controlled allocation ablation. The
+[general specialization comparison](results/2026-10-12-general-specialization/README.md)
+repeats those workloads against the new compiler: overall execution is effectively
+unchanged, with the remaining Chez gaps and compilation costs recorded explicitly.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
@@ -70,7 +77,8 @@ replacement for running the full suite.
 
 The historical tables below measure the removed i32-only pass at their named
 revisions. Current builds use general resolved-IR specialization, with inferred
-and declared argument types; they need new measurements. The current script
+and declared argument types. The five-case comparison above measures that pass;
+the numeric typing workloads below still need refreshed measurements. The current script
 includes untyped, ExactInteger, and i32 specialization, and no longer exports
 the old isolated i32 worker.
 

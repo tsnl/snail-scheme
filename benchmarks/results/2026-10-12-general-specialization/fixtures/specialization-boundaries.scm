@@ -1,0 +1,50 @@
+(import (scheme base) (scheme write))
+
+(define (check label expected actual)
+  (unless (equal? expected actual) (error label expected actual))
+  (display label) (newline))
+
+;; More independent argument categories than the per-procedure copy budget.
+;; Falling back to the original entry must preserve values and object identity.
+(define (identity value) value)
+(check 'integer 2147483648 (identity 2147483648))
+(check 'float 1.25 (identity 1.25))
+(check 'text "text" (identity "text"))
+(check 'symbol 'symbol (identity 'symbol))
+(check 'character #\x3bb (identity #\x3bb))
+(check 'pair '(1 . 2) (identity (cons 1 2)))
+(check 'vector '#(1 2) (identity (vector 1 2)))
+(check 'bytes #u8(1 2) (identity (bytevector 1 2)))
+(check 'null '() (identity '()))
+(check 'true #t (identity #t))
+(check 'false #f (identity #f))
+(check 'procedure #t (eq? identity (identity identity)))
+(define object (vector "shared"))
+(check 'same-object #t (eq? object (identity object)))
+(vector-set! (identity object) 0 "changed")
+(check 'shared-mutation "changed" (vector-ref object 0))
+
+;; Recursive components change the input category before returning. A helper
+;; inferred while its caller is active cannot generalize a shared variable.
+(define (pair-start value) (pair-next value))
+(define (pair-next value)
+  (if (pair? value) (pair-start "string") value))
+(define (pair-helper value) (pair-next value))
+(check 'recursive-pair "string" (identity (pair-helper (cons 1 2))))
+(check 'recursive-pair-scalar 42 (identity (pair-helper 42)))
+
+(define (text-start value) (text-middle value))
+(define (text-middle value) (text-next value))
+(define (text-next value)
+  (if (string? value) (text-start 1.5) value))
+(define (text-helper value) (text-middle value))
+(check 'recursive-text 1.5 (identity (text-helper "string")))
+(check 'recursive-text-scalar #f (identity (text-helper #f)))
+
+(define (vector-start value) (vector-next value))
+(define (vector-next value)
+  (if (vector? value) (vector-start (cons 3 4)) value))
+(define (vector-helper value) (vector-next value))
+(check 'recursive-vector '(3 . 4) (identity (vector-helper (vector 1 2))))
+(check 'recursive-vector-scalar 'kept (identity (vector-helper 'kept)))
+(display "specialization boundaries passed\n")

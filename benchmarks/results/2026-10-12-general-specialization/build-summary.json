@@ -1,0 +1,126 @@
+{
+  "scope": "Fresh Chibi process and complete linked Wasm build; existing local Rust caches and warm file cache; excludes prior compiler/runtime setup.",
+  "all_eight_rebuilds_match_frozen_hash": true,
+  "candidate_elapsed_change_percent": -1.8549385267721208,
+  "phase_scope": "Named trace intervals may include each other; do not add different rows. Repeated generate-library-functions calls are sequential and summed within each build.",
+  "rows": [
+    {
+      "system": "baseline",
+      "wall_seconds": [
+        13.500681809004163,
+        13.501858706993517,
+        13.500990970002022
+      ],
+      "median_seconds": 13.500990970002022,
+      "phase_seconds": {
+        "source-file->compilation": {
+          "samples": [
+            5.715,
+            5.704,
+            5.72
+          ],
+          "median": 5.715
+        },
+        "ir-library->wasm": {
+          "samples": [
+            0.247,
+            0.251,
+            0.244
+          ],
+          "median": 0.247
+        },
+        "generate-library-functions": {
+          "samples": [
+            0.117,
+            0.12,
+            0.116
+          ],
+          "median": 0.117
+        },
+        "build.optimize-scheme": {
+          "samples": [
+            1.825,
+            1.823,
+            1.824
+          ],
+          "median": 1.824
+        },
+        "build.optimize": {
+          "samples": [
+            4.956,
+            4.971,
+            4.962
+          ],
+          "median": 4.962
+        },
+        "build-wasm": {
+          "samples": [
+            12.641,
+            12.644,
+            12.652
+          ],
+          "median": 12.644
+        }
+      }
+    },
+    {
+      "system": "candidate",
+      "wall_seconds": [
+        13.25124359401525,
+        13.203888795978855,
+        13.25055588700343
+      ],
+      "median_seconds": 13.25055588700343,
+      "phase_seconds": {
+        "source-file->compilation": {
+          "samples": [
+            4.917,
+            4.909,
+            4.962
+          ],
+          "median": 4.917
+        },
+        "ir-library->wasm": {
+          "samples": [
+            0.508,
+            0.512,
+            0.509
+          ],
+          "median": 0.509
+        },
+        "generate-library-functions": {
+          "samples": [
+            0.192,
+            0.199,
+            0.192
+          ],
+          "median": 0.192
+        },
+        "build.optimize-scheme": {
+          "samples": [
+            2.278,
+            2.272,
+            2.274
+          ],
+          "median": 2.274
+        },
+        "build.optimize": {
+          "samples": [
+            5.015,
+            5.005,
+            5.008
+          ],
+          "median": 5.008
+        },
+        "build-wasm": {
+          "samples": [
+            12.367,
+            12.344,
+            12.402
+          ],
+          "median": 12.367
+        }
+      }
+    }
+  ]
+}
