@@ -290,6 +290,88 @@ REJECTED = {
 }
 
 
+# ---- Static instance selection ----
+
+COMBINE = '(define-class (Combine T) (: combine (-> T T T))) '
+INT_COMBINE = COMBINE + '(define-instance (Combine i32) (combine (lambda (x y) (+ x y)))) '
+TWICE = '(: twice (All (T) (=> ((Combine T)) (-> T T)))) (define (twice x) (combine x x)) '
+
+CASES.update({
+    "class-exact-explicit": (COMBINE + '(define-instance (Combine ExactInteger) '
+                             '(combine (lambda (x y) (+ x y)))) '
+                             '(write ((inst combine ExactInteger) 20 22))', "42", ""),
+    "class-any-explicit": ('(define-class (Show T) (: show (-> T String))) '
+                           '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                           '(write ((inst show Any) (car (list 42))))', '"any"', ""),
+    "class-order": (INT_COMBINE + '((begin (display "o") (inst combine i32)) '
+                    '(begin (display "a") 20) (begin (display "b") 22))', "abo", ""),
+    "class-view-effects": (INT_COMBINE + '(ann (begin (display "e") (inst combine i32)) '
+                           '(-> i32 i32 i32)) (write (combine 20 22))', "e42", ""),
+    "class-dynamic-check": (INT_COMBINE + '(: f (-> ? i32)) '
+                            '(define (f x) ((inst combine i32) x 1)) '
+                            '(f (begin (display "a") "bad"))', "a", "incorrect value type"),
+    "class-member-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                  '(combine (begin (display "a") 20) 22) '
+                                  '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-generic-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                   + TWICE + '(twice (begin (display "a") 21)) '
+                                   '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-view-uninitialized": (INT_COMBINE + '(: view (-> i32 i32 i32)) '
+                                '(view 20 22) (define view (inst combine i32))', "", "read of an uninitialized binding"),
+    "class-auxiliary-arrow": ('(write (cond (42 => (lambda (x) (+ x 1))) (else 0)))', "43", ""),
+})
+
+REJECTED.update({
+    "class-missing": (COMBINE + '(combine 1 2)', "no typeclass instance"),
+    "class-exact-no-fallback": (COMBINE + '(define-instance (Combine ExactInteger) '
+                                '(combine (lambda (x y) (+ x y)))) (combine 1 2)', "no typeclass instance"),
+    "class-duplicate": (INT_COMBINE + '(define-instance (Combine i32) '
+                        '(combine (lambda (x y) (+ x y))))', "duplicate typeclass instance"),
+    "class-incomplete": (COMBINE + '(define-instance (Combine i32))', "every class method exactly once"),
+    "class-head-variable": (COMBINE + '(define-instance (Combine ?) '
+                            '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-head-union": (COMBINE + '(define-instance (Combine (U String i32)) '
+                         '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-method-body": (COMBINE + '(define-instance (Combine i32) '
+                          '(combine (lambda (x y) "bad")))', "type mismatch"),
+    "class-method-arity": (COMBINE + '(define-instance (Combine i32) '
+                           '(combine (lambda (x) x)))', "fixed-arity lambda of matching arity"),
+    "class-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                            '(define (twice x) (combine x x))', "concrete static type or a declared constraint"),
+    "class-let-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                                '(define (twice x) (let ((y x)) (combine y y)))', "concrete static type or a declared constraint"),
+    "class-inst-no-constraint": (INT_COMBINE +
+                                 '(define-class (Pick T) (: pick (-> T T))) '
+                                 '(define-instance (Pick i32) (pick (lambda (x) x))) '
+                                 '(: id (All (A) (-> A A))) (define (id x) x) '
+                                 '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                 '(define (hidden x) (inst (begin (pick x) id) i32) x)',
+                                 "concrete static type or a declared constraint"),
+    "class-unknown-selection": ('(define-class (Show T) (: show (-> T String))) '
+                                 '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                                 '(: f (-> ? String)) (define (f x) (show x))', "cannot infer type argument"),
+    "class-explicit-unknown": (INT_COMBINE + '(inst combine ?)', "concrete static type or a declared constraint"),
+    "class-unresolved-value": (INT_COMBINE + '(write combine)', "overloaded callable requires inst"),
+    "class-unused-unresolved-value": (INT_COMBINE + TWICE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (write combine) x)', "overloaded callable requires inst"),
+    "class-unused-class-value": (INT_COMBINE + TWICE +
+                                '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                '(define (hidden x) (write Combine) x)', "typeclasses have no runtime value"),
+    "class-effectful-alias": (INT_COMBINE + '(define alias (begin (display "e") combine))', "immutable identifier reference"),
+    "class-effectful-inst": (INT_COMBINE + '(inst (begin (display "e") combine) i32)', "requires an identifier or static view"),
+    "class-mutable-member": (COMBINE + '(define (plus x y) (+ x y)) '
+                            '(define-instance (Combine i32) (combine plus)) '
+                            '(set! plus (lambda (x y) x))', "immutable function bindings"),
+    "class-local-generic": (INT_COMBINE + '(define (outer) ' + TWICE + '(twice 1))', "stable module-level lambdas"),
+    "class-local-instance": (COMBINE + '(define (outer) (define-instance (Combine i32) '
+                             '(combine (lambda (x y) (+ x y)))) 1)', "require module scope"),
+    "class-poly-recursion": (INT_COMBINE + '(: loop (All (T) (=> ((Combine T)) (-> T T)))) '
+                             '(define (loop x) ((inst loop i32) 1))', "type mismatch"),
+    "class-class-value": (INT_COMBINE + '(write Combine)', "typeclasses have no runtime value"),
+})
+
+
 # ---- Build and execute ----
 
 
@@ -415,6 +497,9 @@ def main():
     run_case("success", ROOT / "tests/programs/backend-typing.scm", "typing checks passed\n", "")
     run_case("typed-tail", ROOT / "tests/programs/backend-typed-tail.scm", "typed tail checks passed\n", "")
     run_case("polymorphism", ROOT / "tests/programs/backend-polymorphism.scm", "polymorphism checks passed\n", "")
+    run_case("typeclasses", ROOT / "tests/programs/backend-typeclasses.scm", "typeclass checks passed\n", "")
+    run_case("typeclass-tensors", ROOT / "tests/programs/backend-typeclass-tensors.scm", "typeclass tensor checks passed\n", "")
+    run_case("typeclass-imports", ROOT / "tests/programs/backend-typeclass-imports.scm", "typeclass import checks passed\n", "")
     arithmetic = BUILD / "arithmetic.scm"
     arithmetic.write_text(arithmetic_examples())
     run_case("arithmetic", arithmetic, "arithmetic checks passed\n", "")

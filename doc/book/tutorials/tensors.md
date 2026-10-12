@@ -1,44 +1,139 @@
-# A graph that learns handwritten digits
+# Eager tensors and symbolic graphs
 
-This model example separates building a tensor computation from executing it.
-A training node loads compiled artifacts, owns device buffers, and exchanges
-progress messages with a browser workbook.
+**Runnable CPU prototype.** Iverson Ghost provides concrete arrays and a typed
+operation interface. The same generic function either computes immediately or
+constructs a symbolic graph, according to its argument's static type. A graph
+interpreter evaluates symbolic operations using concrete tensors.
 
-## Build the computation
+Enter the development shell and run the commands below from the repository
+root. [The build guide](../builds.md) describes the required tools.
 
-An ordinary `build.scm` calls the application's chosen tensor compiler libraries.
-Those libraries capture a graph, check types and shapes, differentiate it, and
-generate CPU or GPU code. The script publishes that code alongside the training
-and browser artifacts.
+## Concrete arrays, including ordinary vectors
 
-A shader declaration is compiler input; it need not be a callable Scheme
-procedure. Compiler calls are ordinary local library calls. They need no node
-boundary, and compiling a graph performs no training.
+`(snail-scheme iverson-ghost)` provides row-major tensors with a shape and an
+explicit dtype. `(array dimensions flat-elements dtype)` constructs one.
+Omitting the dtype selects `f64`.
 
-## Run the computation
+| Dtype | Element storage | Use |
+| --- | --- | --- |
+| `object` | Tagged Scheme values | Mixed values and ordinary vectors. |
+| `f64` | Unboxed 64-bit floats | Double-precision numeric operations. |
+| `f32` | Unboxed 32-bit floats | Single-precision numeric operations. |
+| `i32` | Unboxed signed 32-bit integers | Dense integer data and gather/scatter indices. |
 
-A runtime starts the training node with the graph artifacts and dataset
-configuration. The training node initializes its parameters and device buffers,
-then runs training steps. A browser workbook connects to it to request pause,
-resume, checkpoint, or cancellation and receive progress messages.
+A standard Scheme vector participates as a rank-one `object` tensor with its
+existing mutability. Constructed arrays are immutable values. Operations return
+new values; numeric reshapes can share private storage. `array->vector` returns
+a fresh vector of the flattened elements.
 
-The runtimes handle connection setup, encoding, communication, and errors.
-Parameters stay with the training node. Progress messages contain values such
-as the step, loss, and accuracy; their size need not grow with the weight buffers.
-The training node retains buffers until dispatched device work completes.
+The library implements elementwise arithmetic with trailing-axis broadcasting,
+reductions, reshape, transpose, rank-two matrix multiplication, gather, and
+functional scatter. Gather uses flattened `i32` indices. Repeated scatter
+indices are processed in order: `scatter` keeps the last update and
+`scatter-add` accumulates each update. Integer arithmetic wraps at 32 bits;
+integer division and means produce `f64`.
 
-## Define the workflow/session
+This complete program, `examples/iverson-ghost/main.scm`, centers `f32` samples,
+computes their covariance, accumulates an `i32` histogram, and gathers Scheme
+objects from an ordinary vector:
 
-The application decides whether closing the browser merely hangs up or also
-asks the lifetime owner to stop training. A disconnected workbook can reconnect
-to the same running node and request its current progress.
+```scheme
+{{#include ../../../examples/iverson-ghost/main.scm}}
+```
 
-A resumable checkpoint includes parameters, optimizer state, random-number
-state, and dataset position. Replacing a computation artifact requires checking
-compatibility with that state. In-flight work keeps the resources and artifact
-version it started with.
+Its build script, `examples/iverson-ghost/build.scm`, links and executes Wasm:
 
-Pure reference calculations, actual device execution, and complete training
-establish different facts. A graph compiling successfully does not establish
-correct derivatives or device behavior. The model supplies ownership and
-communication rules; the tensor libraries and runtime supply the computation.
+```scheme
+{{#include ../../../examples/iverson-ghost/build.scm}}
+```
+
+Run it with:
+
+```sh
+chibi-scheme -I src examples/iverson-ghost/build.scm
+```
+
+Expected output:
+
+```text
+centered: (f32 (3 2) #(-2.0 -2.0 0.0 0.0 2.0 2.0))
+covariance: (f32 (2 2) #(2.6666667461395264 2.6666667461395264 2.6666667461395264 2.6666667461395264))
+histogram: (i32 (3) #(1 1 3))
+gathered names: (object (5) #(two zero two one two))
+```
+
+## One algorithm, two representations
+
+`(snail-scheme iverson-typed)` defines the `TensorOperations` class and two nominal
+carrier types. The immediate carrier wraps a concrete array; the symbolic
+carrier stores an operation and its operands in Scheme records. Each implements
+addition, multiplication, transpose, sum, and matrix multiplication.
+
+The library's shared Gram-matrix algorithm is:
+
+```scheme
+(: tensor-gram (All (T) (=> ((TensorOperations T)) (-> T T))))
+(define (tensor-gram x) (tensor-matmul (tensor-transpose x) x))
+```
+
+The constraint makes these operations available while checking the generic
+body. Concrete uses select either `<immediate-tensor>` or `<symbolic-tensor>`
+and request a specialization. [Static typeclasses](../typeclasses.md) explains
+instance selection and first-class specialized procedures.
+
+This complete program, `examples/iverson-ghost/typed.scm`, computes a Gram matrix,
+builds the equivalent symbolic expression, and interprets it:
+
+```scheme
+{{#include ../../../examples/iverson-ghost/typed.scm}}
+```
+
+`tensor` constructs the immediate carrier. `symbolic-input` introduces a named
+input. `evaluate` looks up each input with the supplied callback, checks that it
+returns an immediate carrier, and evaluates the graph with the eager instance.
+Its operation dispatch interprets graph nodes; typeclass instance selection was
+already completed by the compiler.
+
+The final `inst` explicitly selects a first-class immediate `tensor-square`
+procedure. The numeric array remains a language value available to ordinary
+Scheme code and to compiler-recognized kernel calls.
+
+Build with `examples/iverson-ghost/typed-build.scm`:
+
+```scheme
+{{#include ../../../examples/iverson-ghost/typed-build.scm}}
+```
+
+Run the program through Wasm, then compile and execute it natively:
+
+```sh
+chibi-scheme -I src examples/iverson-ghost/typed-build.scm
+chibi-scheme -I src tests/build-native.scm . examples/iverson-ghost/typed.scm build/iverson-typed
+build/iverson-typed
+```
+
+Both executions produce:
+
+```text
+#(10.0 14.0 14.0 20.0)
+(matmul (transpose x) x)
+#(10.0 14.0 14.0 20.0)
+#(1.0 4.0 9.0 16.0)
+```
+
+## What the prototype establishes
+
+Carrier selection and generic specialization use static type information.
+Element dtype, rank, and dimensions are runtime metadata with checked operation
+contracts. Numeric storage is unboxed; object storage contains GC-visible Scheme
+values. Current kernels use scalar CPU loops on both Wasm and native targets.
+
+The symbolic interpreter evaluates a tree without memoization or graph
+optimization. Graph-to-program compilation, static shape and dtype refinements,
+explicit SIMD kernels, and GPU execution are future work. Differentiation is
+deliberately omitted from the MVP.
+
+`make test` checks host behavior and compiler elaboration. `scripts/test-typing`
+checks static successes and failures in guarded and optimized modes.
+`scripts/test-backend --target both` executes concrete arrays, overloads, and
+eager/symbolic tensor programs through Wasm and native translation.

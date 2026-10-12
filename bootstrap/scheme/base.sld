@@ -30,7 +30,8 @@
     ;; Introduced identifiers retain their definition-site bindings. Auxiliary
     ;; keywords have bindings too, so a locally shadowed `else` is not special.
     (define-syntax else (syntax-rules ()))
-    (define-syntax => (syntax-rules ()))
+    ;; => also names the typing constraint form; its core identity is shared
+    ;; with (snail typing), while cond/case still match it as an auxiliary word.
     (define-syntax unquote (syntax-rules ()))
     (define-syntax unquote-splicing (syntax-rules ()))
 

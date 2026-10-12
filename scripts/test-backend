@@ -26,6 +26,10 @@ SUCCESSES = {
     "backend-semantics": "backend checks passed\n",
     "backend-symbols": "symbol checks passed\n",
     "backend-control": "control-flow checks passed\n",
+    "backend-iverson-ghost": "iverson-ghost checks passed\n",
+    "backend-iverson-rebinding": "iverson rebinding checks passed\n",
+    "backend-typeclasses": "typeclass checks passed\n",
+    "backend-typeclass-tensors": "typeclass tensor checks passed\n",
 }
 ERRORS = {
     "arity": "wrong number of arguments",

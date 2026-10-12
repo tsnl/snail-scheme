@@ -9,7 +9,7 @@
           checked-fact checked-guard call-fact call-guards call-edges
           value-fact unknown-fact normalized-fact fact-type fact-single? fact-callee
           fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
-          type-optimizations-enabled predicate-type)
+          type-optimizations-enabled predicate-type fact-procedure fact-type-arguments call-type-arguments)
   (import (scheme base) (scheme cxr)
           (snail-scheme types) (snail-scheme type-inference)
           (prefix (snail-scheme ir) ir:))
@@ -519,6 +519,14 @@
     (define (fact-signature fact)
       (let ((procedure (callee-procedure (fact-callee fact))))
         (and procedure (callable-signature procedure))))
+
+    (define (fact-procedure fact)
+      (let ((procedure (callee-procedure (fact-callee fact))))
+        (and procedure (procedure-node procedure))))
+
+    (define (fact-type-arguments fact)
+      (let ((callee (fact-callee fact)))
+        (and (instance? callee) (instance-types callee))))
 
     (define (fact-body fact)
       (procedure-result-fact (callee-procedure (fact-callee fact))))

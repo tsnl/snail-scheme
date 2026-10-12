@@ -38,6 +38,10 @@
    make-instantiation instantiation? instantiation-expression instantiation-types instantiation-loc
    make-record-schema record-schema? record-schema-definition record-schema-constructor
    record-schema-predicate record-schema-arguments record-schema-fields record-schema-loc
+   make-class-declaration class-declaration? class-declaration-definition
+   class-declaration-variables class-declaration-methods class-declaration-loc
+   make-instance-declaration instance-declaration? instance-declaration-class
+   instance-declaration-types instance-declaration-methods instance-declaration-loc
 
    ;; ---- Identity ----
 
@@ -166,6 +170,24 @@
       (definition record-schema-definition) (constructor record-schema-constructor)
       (predicate record-schema-predicate) (arguments record-schema-arguments)
       (fields record-schema-fields) (loc record-schema-loc))
+
+    ;; ---- Static interfaces ----
+
+    ;; Methods and classes have ordinary resolved identities, with no runtime
+    ;; value until a method is instantiated. Method rows are (definition type).
+    (define-record-type <class-declaration>
+      (make-class-declaration definition variables methods loc)
+      class-declaration?
+      (definition class-declaration-definition) (variables class-declaration-variables)
+      (methods class-declaration-methods) (loc class-declaration-loc))
+
+    ;; Instance rows pair method identity with a named implementation or lambda.
+    ;; The elaborator checks members and erases the declaration before emission.
+    (define-record-type <instance-declaration>
+      (make-instance-declaration class types methods loc)
+      instance-declaration?
+      (class instance-declaration-class) (types instance-declaration-types)
+      (methods instance-declaration-methods) (loc instance-declaration-loc))
 
     ;; Defining nodes and references share this object; neither stores a scope.
     (define-record-type <value-definition>
