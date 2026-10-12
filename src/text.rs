@@ -1,9 +1,8 @@
 //! Native Unicode transformations and ordered text comparisons.
 
 use crate::{
-    arguments,
-    awi::{Arguments, Root},
-    finish, string_text, unicode,
+    abi::{Arguments, Root},
+    arguments, finish, string_text, unicode,
 };
 use std::cmp::Ordering;
 

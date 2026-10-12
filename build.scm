@@ -1,14 +1,14 @@
 ;; Bootstrap from the checkout, then rebuild using the resulting executable:
 ;;   chibi-scheme -h512M -I src build.scm
-;;   build/snail-scheme -Isrc build.scm
+;;   node scripts/run-wasi.mjs build/snail-scheme.wasm -Isrc build.scm
 ;; An optional argument selects the complete output filename.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context)
-        (snail-scheme build) (snail-scheme build-host) (snail-scheme native)
+        (snail-scheme build) (snail-scheme build-host)
         (snail-scheme chromium-trace))
 
 (define arguments (cdr (command-line)))
 (if (> (length arguments) 1) (error "usage: build.scm [OUTPUT]"))
-(define output (if (null? arguments) "build/snail-scheme" (car arguments)))
+(define output (if (null? arguments) "build/snail-scheme.wasm" (car arguments)))
 (define trace-file (string-append output ".trace.json"))
 (define root (absolute-path "."))
 (define source (string-append root "/main.scm"))
@@ -33,7 +33,7 @@
 (create-directory* (output-directory output))
 (with-chromium-trace-to trace-file
                         (lambda ()
-                          (call-with-build-output output (list source (native-runtime-path root))
+                          (call-with-build-output output (list source)
                                                   (lambda (directory artifact)
                                                     (write-installation directory)
-                                                    (compile-native root source directory artifact 'main (list directory))))))
+                                                    (compile-wasm root source directory artifact build-host-imports (list directory) 'main)))))

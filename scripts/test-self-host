@@ -1,321 +1,91 @@
 #!/usr/bin/env python3
-"""Run the native interpreter, rebuild it without Chibi, then run its replacement."""
+"""Run the compiled Wasm command and rebuild it with Node host effects."""
 
 import argparse
+import json
 import os
 from pathlib import Path
-import re
-import shutil
 import subprocess
-import sys
 import tempfile
 
-ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build/self-host-tests"
-ARGUMENTS = ["space in argument", "", "--help", "$(literal)`text`"]
+ROOT = Path(__file__).resolve().parents[1]
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+NODE = os.environ.get("NODE", "node")
+
+# ---- Compiled command execution ----
+
+def execute(command, *, environment=None):
+    return subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True, text=True,
+                          timeout=600, env={**os.environ, **(environment or {})})
 
 
-# ---- Literal scripts and native execution ----
-
-
-def quote(value):
-    return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
-
-
-def invoke(command, directory=ROOT, input="", **environment):
-    return subprocess.run([str(value) for value in command], cwd=directory,
-                          input=input, text=True, capture_output=True, timeout=1800,
-                          env={**os.environ, "BINARYEN_CORES": "1", **environment})
-
-
-def require(result, stdout="", status=0):
-    if result.returncode != status or result.stdout != stdout:
+def require(result, output=None, *, failure=False):
+    if bool(result.returncode) != failure or (output is not None and result.stdout != output):
         raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
-    if status == 0 and result.stderr:
-        raise RuntimeError(result.stderr)
     return result
 
 
-def require_native(path):
-    with path.open("rb") as stream:
-        if stream.read(4) != b"\x7fELF":
-            raise RuntimeError(f"not a native ELF executable: {path}")
+def command(module, *arguments):
+    return [NODE, "--no-warnings", ROOT / "scripts/run-wasi.mjs", module, *arguments]
 
 
-def write_script(directory, name, source):
-    path = directory / name
-    path.write_text(source)
-    return path
-
-
-def write_build_script(directory, name, body):
-    trace = directory / (name + ".build.trace.json")
-    source = ('(import (scheme base) (snail-scheme native) (snail-scheme chromium-trace))\n'
-              f'(with-chromium-trace-to {quote(trace)} (lambda ()\n{body}))\n')
-    return write_script(directory, name, source)
-
-
-# ---- Program handlers and script statements ----
+def check_arguments(module, directory):
+    source = directory / "args.scm"
+    source.write_text('(import (scheme base) (scheme write) (scheme process-context))\n'
+                      '(write (command-line)) (newline)\n')
+    arguments = ['space in argument', '', '--help', '$(literal)`text`']
+    expected = '(' + ' '.join(json.dumps(str(x)) for x in [source, *arguments]) + ')\n'
+    require(execute(command(module, source, *arguments)), expected)
+    require(execute(command(module, "--help")))
+    require(execute(command(module, "--help"), environment={"WASM_OPT": "/missing/tool"}))
+    failure = require(execute(command(module, source), environment={"WASM_OPT": "/missing/tool"}), failure=True)
+    if "Binaryen tool is missing or unusable" not in failure.stderr:
+        raise RuntimeError("compiler preflight lost its actionable diagnostic")
 
 
 def check_entry(directory):
-    source = write_script(directory, "entry.scm", """(import (scheme base) (scheme write))
-(display "initialize\\n")
-(define (main) (display "main\\n") 7)
-""")
-    command, script = directory / "command", directory / "script"
-    build = write_build_script(directory, "entry-build.scm",
-                         f"(build-native {quote(ROOT)} {quote(source)} {quote(command)} 'main)\n" +
-                         f"(build-native {quote(ROOT)} {quote(source)} {quote(script)})\n")
-    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
-    require_native(command)
-    require_native(script)
-    require(invoke([command]), "initialize\nmain\n", 7)
-    require(invoke([script]), "initialize\n")
-    require(invoke([command], SNAIL_NATIVE_GC_INTERVAL="1"), "initialize\nmain\n", 7)
-    check_input_aliases(directory, source)
-    check_link_failure(directory, source)
-    print("passed explicit main and ordinary script entry", flush=True)
+    source = directory / "entry.scm"
+    source.write_text('(import (scheme base) (scheme write))\n'
+                      '(display "initialized\n")\n'
+                      '(define (main) (display "called\n") 7)\n')
+    build = directory / "build.scm"
+    quote = lambda value: json.dumps(str(value))
+    main, script = directory / "main.wasm", directory / "script.wasm"
+    build.write_text('(import (scheme base) (snail-scheme build) (snail-scheme chromium-trace))\n'
+                     f'(with-chromium-trace-to {quote(directory / "build.trace.json")} (lambda ()\n'
+                     f'(build-wasm {quote(ROOT)} {quote(source)} {quote(main)} (quote ()) (quote ()) (quote main))\n'
+                     f'(build-wasm {quote(ROOT)} {quote(source)} {quote(script)})))\n')
+    require(execute([CHIBI, "-I", ROOT / "src", build]))
+    result = execute(command(main))
+    if result.returncode != 7 or result.stdout != "initialized\ncalled\n":
+        raise RuntimeError("explicit main did not initialize and execute exactly once")
+    require(execute(command(script)), "initialized\n")
 
 
-def check_input_aliases(directory, source):
-    alias = directory / "source-alias.scm"
-    alias.symlink_to(source)
-    runtime = ROOT / "build/native-runtime/release/libsnail_runtime.a"
-    stamp = runtime.stat().st_mtime_ns
-    calls = [f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})'
-             for output in (source, alias, runtime)]
-    body = '\n'.join(f'(unless (guard (failure (else #t)) {call} #f) (error "accepted input alias"))'
-                     for call in calls)
-    build = write_build_script(directory, "aliases.scm", body)
-    require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build]))
-    rejected = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
-                       ROOT / "build.scm", ROOT / "main.scm"])
-    if (rejected.returncode == 0 or "output must not replace" not in rejected.stderr or
-            "intermediates retained" in rejected.stderr):
-        raise RuntimeError(f"self-build did not reject its input before staging: {rejected}")
-    if runtime.stat().st_mtime_ns != stamp or list(directory.glob('.snail-build-*')):
-        raise RuntimeError("input alias check rebuilt runtime or created intermediates")
+def check_rebuild(module, directory):
+    replacement = directory / "replacement.wasm"
+    require(execute(command(module, "-Isrc", ROOT / "build.scm", replacement)))
+    if not replacement.read_bytes().startswith(b"\x00asm"):
+        raise RuntimeError("replacement is not WebAssembly")
+    check_arguments(replacement, directory)
 
 
-def check_link_failure(directory, source):
-    output = directory / "link-output"
-    output.write_text("previous executable")
-    build = write_build_script(directory, "failed-link.scm",
-                         f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
-    result = invoke([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src", build], CLANG="/missing/clang")
-    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
-    if result.returncode == 0 or output.read_text() != "previous executable" or len(retained) != 1:
-        raise RuntimeError(f"native link failure lost output or split its workspace: {result.stderr}")
-    workspace = Path(retained[0])
-    if workspace.parent != directory or not (workspace / "module.ll").is_file():
-        raise RuntimeError("native link failure did not retain its LLVM")
-    shutil.rmtree(workspace)
-
-
-def check_script(interpreter, directory, **environment):
-    temporary = directory / "script-temporaries"
-    temporary.mkdir()
-    environment = {**environment, "TMPDIR": str(temporary)}
-    source = write_script(directory, "literal 'script.scm", """(import (scheme base) (scheme write) (scheme process-context) (snail typing))
-(display "first\\n")
-(define (main) (error "a script's helper must not become its entry"))
-(write (command-line)) (newline)
-(write (read-string 3)) (newline)
-(write (utf8->string (bytevector-append (string->utf8 "λ") (bytevector 0 255)) 0 2)) (newline)
-(write (bytevector-copy (bytevector 0 128 255) 1)) (newline)
-(: identity (All (A) (-> A A)))
-(define (identity value) value)
-(: cancel (-> i32 i32 i32))
-(define (cancel a b) (- (+ a b) b))
-(: product (-> i32 i32 i32 i32))
-(define (product a b c) (* (* a b) c))
-(write (list (identity "typed") (cancel 2147483647 2147483647) (product 2 3 4))) (newline)
-(display "last\\n")
-42
-""")
-    expected = ("first\n(" + " ".join(map(quote, [source.name, *ARGUMENTS])) +
-                ')\n"aλ😀"\n"λ"\n#u8(128 255)\n("typed" 2147483647 24)\nlast\n')
-    require(invoke([interpreter, source.name, *ARGUMENTS], directory, input="aλ😀z", **environment), expected)
-    exit_source = write_script(directory, "exit.scm", '(import (scheme process-context)) (exit 7)\n')
-    require(invoke([interpreter, exit_source], **environment), status=7)
-    if list(temporary.iterdir()):
-        raise RuntimeError("completed script retained temporary files")
-    print("passed script order, stdin, argv, UTF-8, and exit status", flush=True)
-
-
-# ---- Interpreter library options ----
-
-
-def write_project_script(directory):
-    first, second = directory / "first libraries", directory / "second libraries"
-    for path in (first / "project", second / "project"):
-        path.mkdir(parents=True)
-    for path, increment in ((first, 2), (second, 59)):
-        (path / "project/answer.sld").write_text(
-            '(define-library (project answer) (export answer) '
-            '(import (scheme base) (project helper)) '
-            f'(begin (define answer (+ base {increment}))))')
-    (first / "project/helper.sld").write_text(
-        '(define-library (project helper) (export base) '
-        '(import (scheme base)) (begin (define base 40)))')
-    source = write_script(directory, "project.scm", """(import (scheme base) (scheme write)
-        (scheme process-context) (project answer))
-(write answer) (newline)
-(write (command-line)) (newline)
-""")
-    return source, first.name, second.name
-
-
-def check_library_options(interpreter, directory, **environment):
-    source, first, second = write_project_script(directory)
-    for name in ("-dash libraries", "--"):
-        (directory / name).symlink_to(first, target_is_directory=True)
-    arguments = [*ARGUMENTS, "-I", "literal directory", "-Iscript-only", "--"]
-    cases = [([f"-I{first}"], 42), (["-I", first], 42),
-             ([f"-I{first}", "-I", second], 99), (["-I", second, f"-I{first}"], 42),
-             (["-I", "-dash libraries"], 42), (["-I--"], 42)]
-    for options, answer in cases:
-        expected = f"{answer}\n(" + " ".join(map(quote, [source.name, *arguments])) + ")\n"
-        require(invoke([interpreter, *options, source.name, *arguments], directory, **environment), expected)
-    source.rename(directory / "-Iscript.scm")
-    expected = '42\n("-Iscript.scm" "-I" "literal")\n'
-    require(invoke([interpreter, f"-I{first}", "--", "-Iscript.scm", "-I", "literal"],
-                   directory, **environment), expected)
-    ordinary = write_script(directory, "empty-directory.scm", '(import (scheme write)) (display "empty path\\n")')
-    require(invoke([interpreter, "-I", "", ordinary], directory, **environment), "empty path\n")
-    print("passed attached/separate -I, prepending, transitive imports, literal argv, and --", flush=True)
-
-
-def check_option_errors(interpreter, directory, **environment):
-    temporary = directory / "option-temporaries"
-    temporary.mkdir()
-    cases = [([], "usage:"), (["-I"], "option requires an argument"),
-             (["-Isrc", "-I"], "option requires an argument"),
-             (["-I", "--", "unused.scm"], "option requires an argument"),
-             (["-Isrc"], "usage:"), (["-I", "src"], "usage:"),
-             (["--"], "usage:"), (["-Isrc", "--"], "usage:"),
-             (["-Z"], "unknown option")]
-    for arguments, diagnostic in cases:
-        result = invoke([interpreter, *arguments], directory, TMPDIR=str(temporary), **environment)
-        if (result.returncode == 0 or diagnostic not in result.stderr or
-                "usage: snail-scheme [-I DIRECTORY]... [-h]" not in result.stderr):
-            raise RuntimeError(f"missing interpreter option diagnostic: {result}")
-    if list(temporary.iterdir()):
-        raise RuntimeError("invalid options created compilation intermediates")
-    for flag in ("-h", "--help"):
-        result = invoke([interpreter, flag], directory, TMPDIR=str(temporary), **environment)
-        if (result.returncode or result.stderr or "Options:\n  -I DIRECTORY" not in result.stdout or
-                "  -h, --help\n" not in result.stdout or list(temporary.iterdir())):
-            raise RuntimeError(f"help failed or created compilation intermediates: {result}")
-    print("passed missing script, missing -I directory, and unknown option diagnostics", flush=True)
-
-
-def check_application_options(interpreter, directory, **environment):
-    source = ROOT / "tests/programs/backend-options.scm"
-    arguments = ["--verbose", "file", "--file", "a", "-o", "", "--output=a=b",
-                 "-fb", "-vvv", "--", "-v", "--", ""]
-    expected = ('("file" "-v" "--" "")\n'
-                '(("-I") ("--output" . "a=b") ("--file" "b" "a") '
-                '("-v" . 4) ("-h" . #f))\n')
-    require(invoke([interpreter, source, *arguments], directory, **environment), expected)
-    help_result = invoke([interpreter, source, "--help"], directory, **environment)
-    if (help_result.returncode or help_result.stderr or "  --file, -f FILE\n" not in help_result.stdout or
-            "usage: options-demo [-I DIRECTORY]... [--output FILE] [--file FILE]... [-v]... [-h]" not in help_result.stdout or
-            "Demonstrate typed options in an ordinary Scheme application." not in help_result.stdout):
-        raise RuntimeError(f"application help did not use its specification: {help_result}")
-    for arguments, diagnostic in ((["--file", "--"], "option requires an argument"),
-                                  (["--verbose="], "option does not take an argument"),
-                                  (["--unknown"], "unknown option")):
-        result = invoke([interpreter, source, *arguments], directory, **environment)
-        if (result.returncode == 0 or diagnostic not in result.stderr or
-                "usage: options-demo" not in result.stderr or "  --file, -f FILE" not in result.stderr):
-            raise RuntimeError(f"missing application option diagnostic: {result}")
-    print("passed reusable options library in an ordinary native application", flush=True)
-
-
-# ---- Failed publication and self-hosted replacement ----
-
-
-def check_failed_build(interpreter, directory, **environment):
-    output = directory / "keep-output"
-    output.write_text("last successful artifact")
-    source = write_script(directory, "broken.scm", "(")
-    build = write_build_script(directory, "failed-build.scm",
-                         f'(build-native {quote(ROOT)} {quote(source)} {quote(output)})\n')
-    result = invoke([interpreter, build], **environment)
-    if result.returncode == 0 or output.read_text() != "last successful artifact":
-        raise RuntimeError(f"failed build replaced output: {result}")
-    retained = [Path(path) for path in re.findall(r"build failed; intermediates retained: (.+)", result.stderr)]
-    if len(retained) != 1 or not retained[0].is_dir() or retained[0].parent != directory:
-        raise RuntimeError(f"failure did not retain one build workspace: {result.stderr}")
-    # All reported paths belong to this test invocation, never to another build.
-    shutil.rmtree(retained[0])
-    print("passed failed-build publication and retained diagnostics", flush=True)
-
-
-def check_binaryen_preflight(interpreter, directory):
-    temporary = directory / "preflight-temporaries"
-    temporary.mkdir()
-    source = write_script(directory, "preflight.scm", '(error "source should not run")\n')
-    for variable in ("WASM_AS", "WASM_OPT", "WASM_DIS"):
-        environment = {variable: "/nonexistent/binaryen-tool", "TMPDIR": str(temporary)}
-        result = invoke([interpreter, source], directory, **environment)
-        if (result.returncode == 0 or result.stdout or
-                "Binaryen tool is missing or unusable" not in result.stderr or variable not in result.stderr or
-                Path(str(source) + ".trace.json").exists() or list(temporary.iterdir())):
-            raise RuntimeError(f"compiler did not preflight before starting work: {result}")
-        help_result = invoke([interpreter, "--help"], directory, **environment)
-        if help_result.returncode or help_result.stderr or "Options:" not in help_result.stdout:
-            raise RuntimeError(f"compiler help required Binaryen: {help_result}")
-    print("passed installed compiler Binaryen preflight and independent help", flush=True)
-
-
-def check_self_host(interpreter, directory):
-    blocked = write_script(directory, "blocked-tool", '#!/bin/sh\necho unexpected-tool >&2\nexit 99\n')
-    blocked.chmod(0o755)
-    tools = directory / "tools"
-    tools.mkdir()
-    for name in ("chibi-scheme", "python3"):
-        (tools / name).symlink_to(blocked)
-    environment = {name: str(blocked) for name in ("CHIBI", "PYTHON")}
-    environment["PATH"] = str(tools) + os.pathsep + os.environ["PATH"]
-    replacement = directory / "rebuilt-snail-scheme"
-    require(invoke([interpreter, "-Isrc", ROOT / "build.scm", replacement], **environment))
-    require_native(replacement)
-    check_binaryen_preflight(replacement, directory)
-    check_script(replacement, directory, **environment)
-    check_library_options(replacement, directory, **environment)
-    check_option_errors(replacement, directory, **environment)
-    check_application_options(replacement, directory, **environment)
-    check_failed_build(replacement, directory, **environment)
-    print("passed native compiler rebuild using Binaryen, with Chibi and Python blocked", flush=True)
-
-
-# ---- Test entry point ----
-
+# ---- Tests ----
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--interpreter", type=Path, help="reuse an already bootstrapped executable")
-    options = parser.parse_args()
-    BUILD.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
-        directory = Path(name)
+    parser.add_argument("--interpreter", type=Path)
+    args = parser.parse_args()
+    module = args.interpreter or ROOT / "build/snail-scheme.wasm"
+    if args.interpreter is None:
+        require(execute([CHIBI, "-h512M", "-I", ROOT / "src", ROOT / "build.scm"]))
+    with tempfile.TemporaryDirectory(prefix="snail-wasm-command-") as temporary:
+        directory = Path(temporary)
         check_entry(directory)
-        interpreter = options.interpreter.resolve() if options.interpreter else directory / "snail-scheme"
-        if not options.interpreter:
-            # Give Chibi room for the full compiler's syntax, IR and module datums.
-            require(invoke([os.environ.get("CHIBI", "chibi-scheme"), "-h512M", "-I", ROOT / "src",
-                            ROOT / "build.scm", interpreter]))
-        require_native(interpreter)
-        check_self_host(interpreter, directory)
-    print("native self-hosting checks passed")
+        check_arguments(module, directory)
+        check_rebuild(module, directory)
+    print("Wasm command and compiler rebuild checks passed")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
-        print(f"self-host test failed: {error}", file=sys.stderr)
-        sys.exit(1)
+    main()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check trace files in Chibi, linked Wasm, and optionally native execution."""
+"""Check completed and abandoned trace files in Chibi and linked Wasm."""
 
 import argparse
 import json
@@ -67,7 +67,7 @@ def check_execution(command):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=("wasm", "both"), default="wasm")
+    parser.add_argument("--target", choices=("wasm",), default="wasm")
     target = parser.parse_args().target
     BUILD.mkdir(parents=True, exist_ok=True)
     source = ROOT / "tests/programs/chromium-trace.scm"
@@ -79,12 +79,7 @@ def main():
     check_execution([os.environ.get("NODE", "node"), "--no-warnings",
                      str(ROOT / "scripts/run-wasi.mjs"), str(wasm)])
     print("passed Wasm: Chromium trace decorator", flush=True)
-    if target == "both":
-        native = BUILD / "trace"
-        subprocess.run([CHIBI, "-I", str(ROOT / "src"), str(ROOT / "tests/build-native.scm"),
-                        str(ROOT), str(source), str(native)], cwd=ROOT, check=True)
-        check_execution([str(native)])
-        print("passed native: Chromium trace decorator", flush=True)
+
 
 
 if __name__ == "__main__":

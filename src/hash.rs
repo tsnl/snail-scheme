@@ -1,4 +1,4 @@
-//! Hashing reads owned AWI roots; tables and their entries stay in the GC heap.
+//! Hashing reads owned ABI roots; tables and their entries stay in the GC heap.
 //! Structural hashing bounds its unfolding, so cyclic equal? keys terminate.
 
 use crate::{Kind, Root, arguments, finish};

@@ -4,7 +4,7 @@
         (only (chibi filesystem) create-directory*))
 
 (define foreign
-  (map (lambda (name) (cons name "snail.rust"))
+  (map (lambda (name) (cons name "snail.library"))
        '(rust-triple rust-remember rust-recalled rust-call rust-forget rust-root-stress)))
 
 (create-directory* "build")

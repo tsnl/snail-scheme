@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Execute replaceable clock providers and reject invalid platform bindings."""
+
+import os
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / 'build/effect-tests'
+CHIBI = os.environ.get('CHIBI', 'chibi-scheme')
+NODE = os.environ.get('NODE', 'node')
+
+
+def checked(command, failure=False):
+    result = subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True,
+                            text=True, timeout=180)
+    if bool(result.returncode) != failure:
+        raise RuntimeError(f'{command}\n{result.stdout}\n{result.stderr}')
+    return result
+
+
+def clock_module(ticks, wrong=False):
+    signature = '(result f64) (f64.const 1)' if wrong else f'(result i32) (call $integer (i64.const {ticks}))'
+    return f'''(module
+      (import "snail.abi" "integer" (func $integer (param i64) (result i32)))
+      (import "snail.abi" "real" (func $real (param f64) (result i32)))
+      (func (export "seconds") (param i32) (result i32) (call $real (f64.const 123.5)))
+      (func (export "ticks") (param i32) {signature})
+      (func (export "frequency") (param i32) (result i32) (call $integer (i64.const 1000))))'''
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    (BUILD / 'program.scm').write_text('''(import (scheme base) (scheme write) (scheme time))
+      (write (list (current-second) (current-jiffy) (jiffies-per-second))) (newline)''')
+    for name, ticks, wrong in [('first', 100, False), ('second', 200, False), ('wrong', 0, True)]:
+        (BUILD / f'{name}.wat').write_text(clock_module(ticks, wrong))
+    (BUILD / 'build.scm').write_text('''
+(import (scheme base) (scheme write) (scheme process-context)
+        (snail-scheme compiler) (snail-scheme build) (snail-scheme effects)
+        (snail-scheme chromium-trace))
+(define args (cdr (command-line)))
+(define mode (car args))
+(define bindings '((current-jiffy . "ticks") (jiffies-per-second . "frequency") (current-second . "seconds")))
+(define interface
+  (if (string=? mode "contract") (make-effect-interface 'clock 2 (effect-operations clock-interface)) clock-interface))
+(define provider
+  (make-effect-handler interface "test.clock" (if (string=? mode "missing") (cdr bindings) bindings)))
+(define handlers
+  (map (lambda (handler) (if (eq? (effect-name (handler-interface handler)) 'clock) provider handler))
+       (platform-handlers node-platform)))
+(when (string=? mode "build-contract")
+  (set! handlers
+    (map (lambda (handler)
+           (if (eq? (effect-name (handler-interface handler)) 'build)
+               (make-effect-handler (make-effect-interface 'build 2 (effect-operations build-interface))
+                                    (handler-module handler) (handler-bindings handler)) handler)) handlers)))
+(define platform (make-platform 'test handlers (list (cons "test.clock" (cadr args)))))
+(with-chromium-trace-to "build/effect-tests/trace.json"
+  (lambda ()
+    (parameterize ((current-platform platform))
+      (validate-platform platform)
+      (link-wasm "build/effect-tests/program.wat" (build-runtime ".") (list-ref args 2)))))
+''')
+    compile_script = BUILD / 'compile.scm'
+    compile_script.write_text('''(import (scheme base) (snail-scheme compiler) (snail-scheme chromium-trace))
+(with-chromium-trace-to "build/effect-tests/compile.trace.json"
+  (lambda () (source-file->wat-file "." "build/effect-tests/program.scm" "build/effect-tests/program.wat")))''')
+    checked([CHIBI, '-I', ROOT / 'src', compile_script])
+    for name, ticks in [('first', 100), ('second', 200)]:
+        output = BUILD / f'{name}.wasm'
+        checked([CHIBI, '-I', ROOT / 'src', BUILD / 'build.scm', name, BUILD / f'{name}.wat', output])
+        run = checked([NODE, '--no-warnings', ROOT / 'scripts/run-wasi.mjs', output])
+        assert run.stdout == f'(123.5 {ticks} 1000)\n', run.stdout
+        inspection = checked([NODE, '-e', '''const fs=require('node:fs');
+          const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
+          if(WebAssembly.Module.exports(m).some(x=>x.name==='snail:current-jiffy')) process.exit(1);
+          console.log(WebAssembly.Module.exports(m).some(x=>x.name==='clock/current-jiffy'));''', output])
+        assert inspection.stdout == 'true\n'
+    original = (BUILD / 'first.wat').read_bytes()
+    rejected = checked([CHIBI, '-I', ROOT / 'src', BUILD / 'build.scm', 'first',
+                        BUILD / 'first.wat', BUILD / 'first.wat'], failure=True)
+    assert 'must not replace a compilation input' in rejected.stderr
+    assert (BUILD / 'first.wat').read_bytes() == original
+    for mode, diagnostic in [('missing', 'complete interface'), ('contract', 'contract does not match'), ('build-contract', 'contract does not match'), ('wrong', '')]:
+        result = checked([CHIBI, '-I', ROOT / 'src', BUILD / 'build.scm', mode,
+                          BUILD / 'wrong.wat', BUILD / 'rejected.wasm'], failure=True)
+        assert diagnostic in result.stderr, result.stderr
+        assert not (BUILD / 'rejected.wasm').exists()
+    print('passed effect provider substitution, completeness, contracts, and native signatures')
+
+
+if __name__ == '__main__':
+    main()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise ordinary Scheme build scripts, publication, runtime reuse and Rust AWI."""
+"""Exercise ordinary Scheme build scripts, publication, runtime reuse and Rust ABI."""
 
 import json
 import os
@@ -247,11 +247,11 @@ def check_project_libraries(directory):
 def check_interop(directory):
     output = directory / "interop.wasm"
     names = '(rust-triple rust-remember rust-recalled rust-call rust-forget rust-root-stress)'
-    foreign = f'(map (lambda (name) (cons name "snail.rust")) \'{names})'
+    foreign = f'(map (lambda (name) (cons name "snail.library")) \'{names})'
     body = f'(build-wasm {quote(ROOT)} {quote(ROOT / "examples/rust-interop/main.scm")} {quote(output)} {foreign})'
     require(script(directory, body), "")
     expected = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
-    require(invoke([NODE, "--no-warnings", ROOT / "tests/check-awi-roots.mjs", output, "3"], directory), expected)
+    require(invoke([NODE, "--no-warnings", ROOT / "tests/check-abi-roots.mjs", output, "3"], directory), expected)
 
 
 def check_emission_traces(events):
@@ -308,7 +308,7 @@ def main():
         check_interop(directory)
         check_project_libraries(directory)
         check_traces(directory)
-    print("Scheme build library and Rust AWI checks passed")
+    print("Scheme build library and Rust ABI checks passed")
 
 
 if __name__ == '__main__':

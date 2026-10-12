@@ -1,4 +1,4 @@
-//! Operating-system resources behind AWI. IDs never name GC memory.
+//! Operating-system resources behind ABI. IDs never name GC memory.
 //!
 //! Explicit close releases file/input resources. An optional host finalization
 //! callback releases any remaining payload when its GC wrapper dies; WasmGC

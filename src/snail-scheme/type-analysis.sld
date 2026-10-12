@@ -541,7 +541,7 @@
               ((assq name primitive-contracts)
                => (lambda (contract)
                     (if (scope-strict? scope) (check-arguments node arguments (cadr contract)))
-                    ;; AWI can store callback result envelopes in pairs/vectors.
+                    ;; ABI can store callback result envelopes in pairs/vectors.
                     ;; A heap read has no independent ordinary-value guarantee.
                     (if (and (= count (length (cadr contract))) (not (eq? (caddr contract) '?)))
                         (value-fact (caddr contract)) (unknown-fact))))

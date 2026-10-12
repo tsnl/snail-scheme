@@ -1,9 +1,10 @@
 ;; The build library's OS operations. Chibi supplies the bootstrap adapter;
-;; compiled commands import these same operations from the native Rust runtime.
+;; compiled commands import these same operations from their selected platform.
 (define-library (snail-scheme build-host)
   (export build-host-imports absolute-path same-file? process-status create-directory*
           call-with-build-directory publish-file copy-file publish-bundle run-command tool-name)
-  (import (scheme base) (scheme cxr) (scheme process-context) (scheme write) (snail-scheme chromium-trace))
+  (import (scheme base) (scheme cxr) (scheme process-context) (scheme write)
+          (snail-scheme chromium-trace) (snail-scheme effects))
   (begin
     (define (tool-name variable default)
       (or (get-environment-variable variable) default))
@@ -16,9 +17,7 @@
                            (if (not (zero? status)) (error "build command failed" arguments status)))))))
 
     (define build-host-imports
-      (map (lambda (name) (cons name "snail.cli"))
-           '(%absolute-path %same-file? %process-status %publish-file %copy-file %publish-bundle %create-directory*
-                            %reserve-build-directory %clean-build-directory))))
+      (effect-imports build-interface)))
   (cond-expand
    (snail-scheme
     (import (snail-scheme extensions))
@@ -31,7 +30,7 @@
       (define publish-bundle %publish-bundle)
       (define create-directory* %create-directory*)
 
-      ;; Terminal faults report registered directories in Rust. Ordinary returns
+      ;; Terminal faults report registered directories in the Node loader. Ordinary returns
       ;; clean them, including a completed child with a nonzero exit status.
       (define (call-with-build-directory output procedure)
         (let* ((directory (%reserve-build-directory output))

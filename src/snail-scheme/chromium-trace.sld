@@ -41,7 +41,8 @@
     ;; The first array element names the Scheme thread lane.
     (define (initialize-trace-file port)
       (display "[\n{\"ph\":\"M\",\"pid\":1,\"tid\":1,\"name\":\"thread_name\"," port)
-      (display "\"args\":{\"name\":\"Scheme\"}}" port))
+      (display "\"args\":{\"name\":\"Scheme\"}}" port)
+      (flush-output-port port))
 
     (define (finish-trace-file port)
       (display "\n]\n" port)
@@ -61,7 +62,9 @@
       (display (jiffies->microseconds start) port)
       (display ",\"dur\":" port)
       (display (jiffies->microseconds (if (< finish start) 0 (- finish start))) port)
-      (display "}" port))
+      (display "}" port)
+      ;; Keep completed events observable even if a later terminal error skips close.
+      (flush-output-port port))
 
     (define (write-json-string text port)
       (display "\"" port)

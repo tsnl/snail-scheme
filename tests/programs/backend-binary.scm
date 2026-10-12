@@ -3,7 +3,7 @@
 (define (expect actual expected)
   (unless (equal? actual expected) (error "binary value differs" actual expected)))
 
-;; Binary data crosses AWI only through owned roots, including empty results.
+;; Binary data crosses ABI only through owned roots, including empty results.
 (expect (bytevector-append) (bytevector))
 (expect (bytevector-append (bytevector 0 255) (bytevector 128)) (bytevector 0 255 128))
 (define original (bytevector 1 2 3))

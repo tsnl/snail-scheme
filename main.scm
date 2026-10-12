@@ -1,7 +1,7 @@
-;; The native CLI platform initializes this module and invokes main once.
+;; The Node CLI platform initializes this module and invokes main once.
 ;; Compilation, artifact paths, and execution are ordinary library operations.
 (import (scheme base) (scheme process-context) (scheme write)
-        (snail-scheme options) (snail-scheme native) (snail-scheme installation)
+        (snail-scheme options) (snail-scheme build) (snail-scheme installation)
         (snail-scheme runtime-artifact)
         (only (snail-scheme wasm-optimize) check-binaryen-tools)
         (snail-scheme chromium-trace) (only (snail-scheme build-host) same-file?))
@@ -20,7 +20,7 @@
   (let* ((arguments (args-posargs args)) (script (car arguments))
          (trace-file (string-append script ".trace.json")))
     (if (same-file? script trace-file) (error "trace file must not replace script" script))
-    (check-binaryen-tools 'native)
+    (check-binaryen-tools)
     (with-chromium-trace-to trace-file
                             (lambda ()
                               (run-script (or (get-environment-variable "SNAIL_ROOT") installation-root)
