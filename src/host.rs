@@ -88,26 +88,18 @@ impl Port {
     }
 
     pub(crate) fn close(&mut self) -> Result<(), String> {
+        if let Self::Output { closed, .. } = self {
+            *closed = true;
+            return Ok(());
+        }
         let closed = Self::Closed {
             input: self.is_input(),
             binary: self.is_binary(),
         };
-        match self {
-            Self::Output { closed, .. } => *closed = true,
-            Self::FileOutput(file) => {
-                file.flush().map_err(|e| e.to_string())?;
-                *self = closed;
-            }
-            Self::Stdout => {
-                std::io::stdout().flush().map_err(|e| e.to_string())?;
-                *self = closed;
-            }
-            Self::Stderr => {
-                std::io::stderr().flush().map_err(|e| e.to_string())?;
-                *self = closed;
-            }
-            _ => *self = closed,
+        if self.is_open() && self.is_output() {
+            self.flush()?;
         }
+        *self = closed;
         Ok(())
     }
 
@@ -306,6 +298,8 @@ mod tests {
         assert_eq!(port.read_string(0).unwrap(), Some(String::new()));
         port.close().unwrap();
         assert!(port.read_string(0).is_err());
+        port.close().unwrap();
+        assert!(port.is_input() && !port.is_binary() && !port.is_open());
     }
 
     #[test]
@@ -330,5 +324,6 @@ mod tests {
         assert!(port.write("x").is_err());
         port.close().unwrap();
         assert_eq!(port.captured_output().unwrap(), "λ\n");
+        assert!(port.is_output() && !port.is_binary() && !port.is_open());
     }
 }

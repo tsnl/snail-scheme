@@ -40,6 +40,8 @@
   ((read-label) (read (open-input-string "#1=#1#")))
   ((read-token) (read (open-input-string "+2oops")))
   ((exact-power-overflow) (expt 2 63))
+  ((power-invalid-base-zero) (expt #f 0))
+  ((power-type-order) (expt #\x #f))
   ((character-after-false) (char-ci<? #\z #\a 1))
   ((string-after-false) (string-ci<? "z" "a" 1))
   ((read-closed) (let ((port (open-input-string "1"))) (close-port port) (read port)))

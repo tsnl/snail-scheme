@@ -7,6 +7,8 @@ use crate::{
 };
 use std::cmp::Ordering;
 
+pub(crate) use crate::unicode::fold_character;
+
 // ---- Case transformations ----
 
 pub(crate) fn fold_string(text: &str) -> String {
@@ -15,10 +17,6 @@ pub(crate) fn fold_string(text: &str) -> String {
         unicode::fold_into(character, &mut result);
     }
     result
-}
-
-pub(crate) fn fold_character(character: char) -> char {
-    unicode::fold_character(character)
 }
 
 #[unsafe(export_name = "snail:char-upcase")]

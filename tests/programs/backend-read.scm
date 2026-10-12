@@ -1,4 +1,4 @@
-(import (scheme base) (scheme read) (scheme write))
+(import (scheme base) (scheme complex) (scheme read) (scheme write))
 
 (define (check expected actual)
   (unless (equal? expected actual) (error "datum input mismatch" expected actual)))
@@ -31,6 +31,8 @@
 (check #t (eq? (car shared) (cadr shared)))
 (define vector-cycle (read (open-input-string "#1=#(#1#)")))
 (check #t (eq? vector-cycle (vector-ref vector-cycle 0)))
+(define chained-cycle (read (open-input-string "#1=#2=(a . #1#)")))
+(check #t (eq? chained-cycle (cdr chained-cycle)))
 
 (define lines (open-input-string "λ\r\nnext\rfinal"))
 (check "λ" (read-line lines))
@@ -61,6 +63,8 @@
 (check 9223372036854775808.0 (read (open-input-string "#i9223372036854775808")))
 (check 18446744073709551616.0 (read (open-input-string "#i#x10000000000000000")))
 (check -inf.0 (/ 1 (read (open-input-string "#i-0"))))
+(check #t (inexact? (read (open-input-string "#i3+4i"))))
+(check -inf.0 (/ 1 (imag-part (read (open-input-string "#i1-0i")))))
 (check #f (string->number "9223372036854775808oops"))
 (check (string->symbol "line\r\nend") (read (open-input-string "|line\r\nend|")))
 (for-each

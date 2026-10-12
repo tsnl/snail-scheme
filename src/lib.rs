@@ -979,32 +979,49 @@ pub extern "C" fn expt(raw: u32) -> u32 {
 fn power(args: &Arguments) -> Result<Root, String> {
     let base = args.get(0)?;
     let exponent = args.get(1)?;
-    if base.kind() == Kind::Complex
-        && exponent.kind() == Kind::Integer
-        && exponent.as_integer()? >= 0
-    {
-        let real = base.real_part()?;
-        let imag = base.imag_part()?;
-        if real.kind() == Kind::Integer && imag.kind() == Kind::Integer {
-            let (real, imag) = complex_integer_power(
-                (real.as_integer()?, imag.as_integer()?),
-                exponent.as_integer()? as u64,
-            )?;
-            return Root::complex(&Root::integer(real), &Root::integer(imag));
+    if let Some(result) = exact_power(&base, &exponent)? {
+        return Ok(result);
+    }
+    inexact_power(&base, &exponent)
+}
+
+// None means this representation needs inexact math; an exact overflow remains
+// an error. In particular, exponent zero does not excuse an invalid base.
+fn exact_power(base: &Root, exponent: &Root) -> Result<Option<Root>, String> {
+    if exponent.kind() != Kind::Integer {
+        return Ok(None);
+    }
+    let exponent = exponent.as_integer()?;
+    if exponent < 0 {
+        return Ok(None);
+    }
+    let exponent = exponent as u64;
+    match base.kind() {
+        Kind::Integer => {
+            integer_power(base.as_integer()?, exponent).map(|value| Some(Root::integer(value)))
         }
+        Kind::Complex => {
+            let real = base.real_part()?;
+            let imag = base.imag_part()?;
+            if real.kind() != Kind::Integer || imag.kind() != Kind::Integer {
+                return Ok(None);
+            }
+            let (real, imag) =
+                complex_integer_power((real.as_integer()?, imag.as_integer()?), exponent)?;
+            Root::complex(&Root::integer(real), &Root::integer(imag)).map(Some)
+        }
+        _ => Ok(None),
     }
+}
+
+fn inexact_power(base: &Root, exponent: &Root) -> Result<Root, String> {
     if base.kind() == Kind::Complex || exponent.kind() == Kind::Complex {
-        return complex_root(complex_value(&base)?.powc(complex_value(&exponent)?));
+        return complex_root(complex_value(base)?.powc(complex_value(exponent)?));
     }
-    if base.kind() == Kind::Integer
-        && exponent.kind() == Kind::Integer
-        && exponent.as_integer()? >= 0
-    {
-        return integer_power(base.as_integer()?, exponent.as_integer()? as u64).map(Root::integer);
-    }
-    let result = base.as_real()?.powf(exponent.as_real()?);
-    if result.is_nan() && base.as_real()?.is_finite() && exponent.as_real()?.is_finite() {
-        complex_root(complex_value(&base)?.powc(complex_value(&exponent)?))
+    let (base, exponent) = (base.as_real()?, exponent.as_real()?);
+    let result = base.powf(exponent);
+    if result.is_nan() && base.is_finite() && exponent.is_finite() {
+        complex_root(Complex64::new(base, 0.0).powc(Complex64::new(exponent, 0.0)))
     } else {
         Ok(Root::real(result))
     }
@@ -1231,12 +1248,7 @@ fn arctangent(args: &Arguments) -> Result<Root, String> {
         return unary_math(args.get(0)?, f64::atan, Complex64::atan);
     }
     let y = args.get(0)?.as_real()?;
-    let result = if args.len() == 2 {
-        y.atan2(args.get(1)?.as_real()?)
-    } else {
-        y.atan()
-    };
-    Ok(Root::real(result))
+    Ok(Root::real(y.atan2(args.get(1)?.as_real()?)))
 }
 
 #[unsafe(export_name = "snail:log")]

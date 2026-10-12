@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 pub(crate) enum Number {
     Integer(i64),
     Real(f64),
-    Complex(Box<Number>, Box<Number>),
+    Complex(Scalar, Scalar),
 }
 
 impl Number {
@@ -20,6 +20,37 @@ impl Number {
             Self::Integer(value) => Root::integer(*value),
             Self::Real(value) => Root::real(*value),
             Self::Complex(real, imag) => Root::complex(&real.root(), &imag.root()).unwrap(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum Scalar {
+    Integer(i64),
+    Real(f64),
+}
+
+impl Scalar {
+    fn value(&self) -> f64 {
+        match self {
+            Self::Integer(value) => *value as f64,
+            Self::Real(value) => *value,
+        }
+    }
+
+    fn root(&self) -> Root {
+        match self {
+            Self::Integer(value) => Root::integer(*value),
+            Self::Real(value) => Root::real(*value),
+        }
+    }
+}
+
+impl From<Scalar> for Number {
+    fn from(value: Scalar) -> Self {
+        match value {
+            Scalar::Integer(value) => Self::Integer(value),
+            Scalar::Real(value) => Self::Real(value),
         }
     }
 }
@@ -41,42 +72,53 @@ enum Node {
 
 pub(crate) struct Datum {
     nodes: Vec<Node>,
+    // Construction resolves every label before Scheme allocation. These
+    // immutable indices always identify concrete nodes, including in cycles.
+    targets: Vec<usize>,
     root: usize,
 }
 
 impl Datum {
-    pub(crate) fn into_root(self) -> Result<Root, String> {
-        let targets = self.alias_targets()?;
-        let mut roots: Vec<_> = self.nodes.iter().map(allocate).collect();
-        for (index, node) in self.nodes.iter().enumerate() {
-            connect(node, roots[index].as_ref(), &roots, &targets)?;
-        }
-        Ok(roots[targets[self.root]].take().unwrap())
+    fn new(nodes: Vec<Node>, root: usize) -> Result<Self, String> {
+        let targets = alias_targets(&nodes)?;
+        Ok(Self {
+            nodes,
+            targets,
+            root,
+        })
     }
 
-    fn alias_targets(&self) -> Result<Vec<usize>, String> {
-        let mut targets = vec![usize::MAX; self.nodes.len()];
-        for index in 0..self.nodes.len() {
-            let mut path = Vec::new();
-            let mut current = index;
-            while targets[current] == usize::MAX {
-                targets[current] = current;
-                path.push(current);
-                match self.nodes[current] {
-                    Node::Alias(next) => current = next,
-                    Node::Pending => return Err("undefined datum label".into()),
-                    _ => break,
-                }
-            }
-            if matches!(self.nodes[targets[current]], Node::Alias(_)) {
-                return Err("datum label has no value".into());
-            }
-            for item in path {
-                targets[item] = targets[current];
+    pub(crate) fn into_root(self) -> Result<Root, String> {
+        let mut roots: Vec<_> = self.nodes.iter().map(allocate).collect();
+        for (index, node) in self.nodes.iter().enumerate() {
+            connect(node, roots[index].as_ref(), &roots, &self.targets)?;
+        }
+        Ok(roots[self.targets[self.root]].take().unwrap())
+    }
+}
+
+fn alias_targets(nodes: &[Node]) -> Result<Vec<usize>, String> {
+    let mut targets = vec![usize::MAX; nodes.len()];
+    for index in 0..nodes.len() {
+        let mut path = Vec::new();
+        let mut current = index;
+        while targets[current] == usize::MAX {
+            targets[current] = current;
+            path.push(current);
+            match nodes[current] {
+                Node::Alias(next) => current = next,
+                Node::Pending => return Err("undefined datum label".into()),
+                _ => break,
             }
         }
-        Ok(targets)
+        if matches!(nodes[targets[current]], Node::Alias(_)) {
+            return Err("datum label has no value".into());
+        }
+        for item in path {
+            targets[item] = targets[current];
+        }
     }
+    Ok(targets)
 }
 
 fn allocate(node: &Node) -> Option<Root> {
@@ -126,25 +168,35 @@ pub(crate) fn number(text: &str, radix: u32) -> Result<Option<Number>, String> {
         return complex_number(body, radix, exactness);
     }
     if let Some((radius, angle)) = text.split_once('@') {
-        let Some(radius) = real_number(radius, radix, exactness)? else {
-            return Ok(None);
-        };
-        let Some(angle) = real_number(angle, radix, exactness)? else {
-            return Ok(None);
-        };
-        if exactness == Some(true) {
-            if real_value(&angle) == 0.0 {
-                return Ok(Some(radius));
-            }
-            return Err("exact polar number is not supported".into());
-        }
-        let (radius, angle) = (real_value(&radius), real_value(&angle));
-        return Ok(Some(Number::Complex(
-            Box::new(Number::Real(radius * angle.cos())),
-            Box::new(Number::Real(radius * angle.sin())),
-        )));
+        return polar_number(radius, angle, radix, exactness);
     }
-    real_number(text, radix, exactness)
+    Ok(real_number(text, radix, exactness)?.map(Number::from))
+}
+
+fn polar_number(
+    radius: &str,
+    angle: &str,
+    radix: u32,
+    exactness: Option<bool>,
+) -> Result<Option<Number>, String> {
+    let Some(radius) = real_number(radius, radix, exactness)? else {
+        return Ok(None);
+    };
+    let Some(angle) = real_number(angle, radix, exactness)? else {
+        return Ok(None);
+    };
+    if exactness == Some(true) {
+        return if angle.value() == 0.0 {
+            Ok(Some(radius.into()))
+        } else {
+            Err("exact polar number is not supported".into())
+        };
+    }
+    let (radius, angle) = (radius.value(), angle.value());
+    Ok(Some(Number::Complex(
+        Scalar::Real(radius * angle.cos()),
+        Scalar::Real(radius * angle.sin()),
+    )))
 }
 
 fn complex_number(
@@ -170,41 +222,34 @@ fn complex_number(
         real_number(real, radix, exactness)?,
         real_number(imag, radix, exactness)?,
     ) {
-        (Some(real), Some(imag)) => Ok(Some(Number::Complex(Box::new(real), Box::new(imag)))),
+        (Some(real), Some(imag)) => Ok(Some(Number::Complex(real, imag))),
         _ => Ok(None),
     }
 }
 
-fn real_value(number: &Number) -> f64 {
-    match number {
-        Number::Integer(value) => *value as f64,
-        Number::Real(value) => *value,
-        Number::Complex(..) => unreachable!(),
-    }
-}
-
-fn real_number(text: &str, radix: u32, exactness: Option<bool>) -> Result<Option<Number>, String> {
-    if let Ok(integer) = i64::from_str_radix(text, radix) {
+fn real_number(text: &str, radix: u32, exactness: Option<bool>) -> Result<Option<Scalar>, String> {
+    let integer = i64::from_str_radix(text, radix);
+    if let Ok(integer) = integer {
         return Ok(Some(if exactness == Some(false) {
-            Number::Real(if integer == 0 && text.starts_with('-') {
+            Scalar::Real(if integer == 0 && text.starts_with('-') {
                 -0.0
             } else {
                 integer as f64
             })
         } else {
-            Number::Integer(integer)
+            Scalar::Integer(integer)
         }));
     }
     if radix == 10
         && let Some(real) = crate::parse_float(text)
     {
         return Ok(Some(if exactness == Some(true) {
-            Number::Integer(exact_decimal(text)?)
+            Scalar::Integer(exact_decimal(text)?)
         } else {
-            Number::Real(real)
+            Scalar::Real(real)
         }));
     }
-    if i64::from_str_radix(text, radix).is_err_and(|error| {
+    if integer.is_err_and(|error| {
         matches!(
             error.kind(),
             std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow
@@ -214,7 +259,7 @@ fn real_number(text: &str, radix: u32, exactness: Option<bool>) -> Result<Option
             .all(|c| c.to_digit(radix).is_some())
     }) {
         if exactness == Some(false) {
-            return Ok(inexact_integer(text, radix).map(Number::Real));
+            return Ok(inexact_integer(text, radix).map(Scalar::Real));
         }
         return Err("integer overflow".into());
     }
@@ -382,12 +427,7 @@ impl Reader<'_> {
             if let Some(value) = value
                 && let Some(root) = self.accept(value, &mut frames)?
             {
-                let datum = Datum {
-                    nodes: self.nodes,
-                    root,
-                };
-                datum.alias_targets()?;
-                return Ok(Some(datum));
+                return Datum::new(self.nodes, root).map(Some);
             }
         }
     }
@@ -874,7 +914,7 @@ mod tests {
     #[test]
     fn labels_preserve_cycles_and_reject_unproductive_aliases() {
         let datum = parse("#1=(a . #1#)");
-        let targets = datum.alias_targets().unwrap();
+        let targets = &datum.targets;
         let root = targets[datum.root];
         assert!(matches!(datum.nodes[root], Node::Pair(_, tail) if targets[tail] == root));
         for source in [
@@ -889,6 +929,20 @@ mod tests {
             let mut port = Port::input_string(source.into());
             assert!(read(port.text_input().unwrap()).is_err(), "{source}");
         }
+    }
+
+    #[test]
+    fn label_chains_resolve_without_recursion() {
+        let mut source = String::new();
+        for label in 0..10_000 {
+            source.push_str(&format!("#{label}="));
+        }
+        source.push_str("42");
+        let datum = parse(&source);
+        let target = datum.targets[datum.root];
+        assert_eq!(datum.nodes[target], Node::Number(Number::Integer(42)));
+        assert_eq!(datum.targets.len(), datum.nodes.len());
+        assert!(datum.targets.iter().all(|index| *index == target));
     }
 
     #[test]

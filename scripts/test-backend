@@ -55,6 +55,8 @@ ERRORS = {
     "read-label": "read: datum label has no value",
     "read-token": "read: invalid numeric token or identifier",
     "exact-power-overflow": "exact integer overflow",
+    "power-invalid-base-zero": "expected [Integer, Real], found Boolean",
+    "power-type-order": "expected [Integer, Real], found Character",
     "character-after-false": "expected [Character]",
     "string-after-false": "expected a string",
     "read-closed": "port is closed",
