@@ -146,7 +146,50 @@ so their sizes and instructions illustrate mechanisms without establishing
 benchmark-wide cost attribution. The exact capture source, bytes, decoding,
 commands, source version, and scope are retained.
 
-## Controlled next experiments
+## One measured environment-allocation ablation
+
+The copied ports in `catport` stay constant through the character loop, but its
+optimized Wasm reconstructs their two-element environment vector on every
+recursive call. A program-specific WAT ablation replaces that one vector with
+the existing environment. It still evaluates and drops the original two
+operands, preserving their checks, local updates, and evaluation order. It
+changes no character operations, argument vectors, or Rust/port code.
+
+The control is an unmodified disassemble/assemble roundtrip of the same frozen
+binary. Both artifacts use the same explicit Wasm features and receive no
+further Binaryen optimization. In a build-free CPU-5 window, each ran one
+discarded preliminary execution and three rotating measured executions with
+the full original input. All eight executions matched the complete output-byte
+SHA256.
+
+| Artifact | Retained seconds | Median seconds |
+| --- | --- | ---: |
+| WAT roundtrip control | 22.696425, 22.636908, 22.874399 | 22.696425 |
+| Reuse unchanged environment | 22.510486, 22.370319, 22.344782 | 22.370319 |
+
+This removes one reached vector allocation per copied character and gives a
+1.015x observed speedup, or 1.44% less elapsed time. This particular allocation
+therefore accounts for little of the measured 32x Chez gap. The result does
+not assign a cost to the other allocations, checks, or root operations; those
+remain separate experiments. This is a diagnostic modification to one frozen
+program, with no production compiler/runtime change.
+
+[Raw measurements and summaries](cat-environment-ablation) retain every result,
+artifact hashes, both Wasm binaries and WAT forms, the exact measured scripts,
+and the two earlier output-only validation runs. Those earlier runs overlapped
+build work and are excluded from the timing comparison. From the checkout root:
+
+```sh
+REPORT=benchmarks/results/2026-10-12-v8-worst-five
+python3 "$REPORT/repro/cat-environment-ablation.py" \
+  build/v8-worst-five/cases/cat/snail-wasm/program.wasm \
+  --reader "$REPORT/repro/instrument-wasm.py" --output build/cat-env-artifacts
+python3 "$REPORT/repro/measure-cat-ablation.py" \
+  build/v8-worst-five/results.json build/cat-env-artifacts \
+  --output build/cat-env-measurements --cpu 5 --rounds 3
+```
+
+## Further controlled experiments
 
 1. Measure the shared Rust boundary separately from file decoding: preserve the
    same character sequence and buffered calls while varying argument-vector
@@ -164,8 +207,8 @@ commands, source version, and scope are retained.
    construction separately from value checks. Preserve mutation and early
    capture invariants; compare constructor requests and managed allocation.
 
-These are proposed ablations. No speedup or production fix is established by
-the current observations.
+These four experiments remain proposals. The small environment-reuse result
+above is the only measured ablation here; it establishes no production fix.
 
 ## Reproduction and retained artifacts
 

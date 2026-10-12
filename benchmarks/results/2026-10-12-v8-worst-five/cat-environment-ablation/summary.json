@@ -1,0 +1,21 @@
+{
+  "roundtrip": {
+    "samples_seconds": [
+      22.696424839,
+      22.63690787,
+      22.874398603
+    ],
+    "median_seconds": 22.696424839
+  },
+  "reuse-environment": {
+    "samples_seconds": [
+      22.510485745,
+      22.37031927,
+      22.344781988
+    ],
+    "median_seconds": 22.37031927
+  },
+  "control_over_reuse": 1.014577600125597,
+  "elapsed_reduction_percent": 1.436814702373923,
+  "scope": "Original cat input and iteration count, one discarded preliminary and three rotating fresh-process rounds. All eight runs validated full output SHA256. Unmodified WAT roundtrip control versus one environment-vector reuse. No other compiler/runtime change."
+}

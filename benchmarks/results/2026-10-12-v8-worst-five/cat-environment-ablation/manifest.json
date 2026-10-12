@@ -1,0 +1,44 @@
+{
+  "input": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/snail-wasm/program.wasm",
+  "input_sha256": "8edabbb9a75ccb35f286d48fb9ea3c868ca6b65f047f3e3c61b0678e8dd1206d",
+  "commands": [
+    [
+      "wasm-as",
+      "build/cat-environment-ablation/roundtrip.wat",
+      "-o",
+      "build/cat-environment-ablation/roundtrip.wasm",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "-g"
+    ],
+    [
+      "wasm-as",
+      "build/cat-environment-ablation/reuse-environment.wat",
+      "-o",
+      "build/cat-environment-ablation/reuse-environment.wasm",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "-g"
+    ]
+  ],
+  "reader_sha256": "98081d38f3aff06021d316126a897ef6193153d402303f37737c12181795e8c3",
+  "script_sha256": "4639137d723d15ddb76548f84d3d5ecde7172fae19e32b02419fb89d27777e5f",
+  "removed_environment": "(array.new_fixed $vector 2 (block $block5 (result eqref) (br_if $block (i32.or (ref.is_null (local.tee $7 (array.get $vector (local.get $0) (i32.const 0)))) (ref.eq (local.get $7) (global.get $uninitialized)))) (if (ref.test (ref $values) (local.get $7)) (then (br_if $block2 (i32.ne (array.len (local.tee $8 (struct.get $values 0 (ref.cast (ref $values) (local.get $7))))) (i32.const 1))) (br $block5 (array.get $vector (local.get $8) (i32.const 0))))) (local.get $7)) (block (result eqref) (br_if $block (ref.is_null (local.tee $10 (global.get $g251)))) (drop (ref.as_non_null (local.get $10))) (local.set $7 (block $block6 (result eqref) (br_if $block (i32.or (ref.is_null (local.get $1)) (ref.eq (local.get $1) (global.get $uninitialized)))) (if (ref.test (ref $values) (local.get $1)) (then (br_if $block2 (i32.ne (array.len (local.tee $8 (struct.get $values 0 (ref.cast (ref $values) (local.get $1))))) (i32.const 1))) (br $block6 (array.get $vector (local.get $8) (i32.const 0))))) (local.get $1))) (local.get $1)))",
+  "scope": "Remove one invariant loop environment allocation in the frozen cat program.\n\nThis is a program-specific diagnostic, not a compiler optimization. Both ports\nare constant throughout catport; the two environment operands retain all their\nchecks and side effects. No argument arrays or character/port code is changed.\n",
+  "artifacts": {
+    "reuse-environment.wasm": "5c0298014175e4f9e6a71a70005cf3e4f06df61e60befd1e82d38bf74b28f616",
+    "roundtrip.wasm": "d8a10bcb87f9c2638ec8c882ae16fbb6ae8ab1ea03f73a32813e503f7f88a8fe"
+  }
+}
