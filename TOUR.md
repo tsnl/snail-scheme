@@ -425,23 +425,17 @@ diagnostics, effect order, mutation, record identity, numeric boundaries, and
 proper tail calls. `benchmarks/typing/measure.py` measures check elimination and
 i32 specialization against checked and unchecked C kernels.
 
-[`benchmarks/`](benchmarks/README.md) contains CPU and allocation workloads.
-CPU uses recursive Fibonacci with an independent oracle; memory uses a sieve.
-Record execution time separately from compilation and startup, verify answers,
-and retain raw samples and Chez/Chibi ratios when comparing backends. Retired
-prototypes and measurements remain in Git history.
-
-[`benchmarks/reproduce.py`](benchmarks/reproduce.py) rebuilds the recorded native
-Fibonacci comparison in its pinned historical worktree, checks answers,
-collects rotating samples, and renders
-plots from saved JSON. [`benchmarks/r7rs.py`](benchmarks/r7rs.py) runs the
-upstream R7RS suite across Snail native, Chez, Guile, and Chibi using the pinned
+`make benchmark` invokes [`benchmarks/native`](benchmarks/native), a symlink to
+[`benchmarks/r7rs.py`](benchmarks/r7rs.py). The default runs the entire upstream
+R7RS suite across Snail native, Chez, Guile, and Chibi using the pinned
 [`r7rs-benchmarks`](benchmarks/r7rs-benchmarks) submodule. Preparation,
 measurement, and reporting are separate; failed and unavailable cases stay in
 the result matrix. Its small [Chez adapter](benchmarks/r7rs-chez.scm) supplies
 monotonic timing alongside upstream's language compatibility prelude.
-[`benchmarks/plots.py`](benchmarks/plots.py) draws sorted duration bars for both
-runners, with a compact README comparison and one chart per suite workload.
+[`benchmarks/plots.py`](benchmarks/plots.py) draws sorted duration bars, with
+one chart per suite workload. Bespoke Fibonacci and sieve runners are retired;
+[`benchmarks/reproduce.py`](benchmarks/reproduce.py) reproduces the earlier
+Fibonacci experiment in a pinned historical worktree.
 [`benchmarks/studio.scm`](benchmarks/studio.scm) is a deterministic color
 ray-tracing showcase: rays, intersections, lighting, reflections, and pixels
 follow one another in a single file. Its small
