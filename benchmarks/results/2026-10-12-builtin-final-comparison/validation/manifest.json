@@ -1,0 +1,73 @@
+{
+  "recorded_utc": "2026-10-12T22:52:46.878268+00:00",
+  "implementation_commit": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+  "checkout_commit": "70a5231a2dd24e02973521e0016950c8b35658da",
+  "worktree": "/tmp/snail-wasm-builtin-optimization-20261012",
+  "implementation_paths_unchanged": [
+    "src",
+    "bootstrap",
+    "scripts",
+    "tests",
+    "Cargo.toml",
+    "Cargo.lock",
+    "Makefile",
+    "shell.nix"
+  ],
+  "commands": [
+    {
+      "command": "make test",
+      "exit_code": 0,
+      "log": "builtin-unit.log",
+      "log_bytes": 5784,
+      "log_sha256": "5f340a8b5b9ad7fe6abf418a95ba6df027f0d5170346fc60e8abfe1569fbe250"
+    },
+    {
+      "command": "make check",
+      "exit_code": 0,
+      "log": "builtin-check.log",
+      "log_bytes": 247,
+      "log_sha256": "b89a360f8ff47650fd4d4fcecf3205527e3574dc911ab20cff6231cb0b8a121f"
+    },
+    {
+      "command": "cargo test --offline",
+      "exit_code": 0,
+      "log": "builtin-cargo.log",
+      "log_bytes": 2287,
+      "log_sha256": "43212b4715ef9d14f5e38fc54b27ba9137aeeea540366b816fd02ad6b4f198a4"
+    },
+    {
+      "command": "scripts/test-backend",
+      "exit_code": 0,
+      "log": "builtin-test-backend.log",
+      "log_bytes": 768,
+      "log_sha256": "86782de786bd9b7a86002c13d49401c5d5b4e55e8c187234dd5ef6d2b879650e"
+    },
+    {
+      "command": "scripts/test-build",
+      "exit_code": 0,
+      "log": "builtin-test-build.log",
+      "log_bytes": 48,
+      "log_sha256": "56796a3f314036295a09309c73f827fa7a41ad1229eb196a9967451fc6315fb9"
+    },
+    {
+      "command": "scripts/test-typing",
+      "exit_code": 0,
+      "log": "builtin-test-typing.log",
+      "log_bytes": 4824,
+      "log_sha256": "00fd1343dbd11263d370b9a83f289765837855e52a05431e2273e2e1046b420e"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "log": null,
+      "note": "Passed earlier in the same combined validation; no output log retained."
+    }
+  ],
+  "typing": {
+    "passed_case_pairs": 102,
+    "linked_executions": 204,
+    "static_rejections": 35,
+    "before_folding_rejections_in_two_modes": 2
+  },
+  "scope": "Compiler hosted by Chibi; linked Wasm executed under Node/V8. Full backend and build checks plus guarded/optimized and optimized/folded typing pairs. Performance timings are separate experiments."
+}

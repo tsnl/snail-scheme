@@ -1,0 +1,17 @@
+{
+  "verified_at_utc": "2026-10-12T23:20:01.209324+00:00",
+  "archive_sha256": "6e95244f3a289f7c803324a8860f1f7803fc80070b6d5fec95a771df646dbdf0",
+  "archive_bytes": 17866368,
+  "verified_blobs": 1119,
+  "logical_files": 1799,
+  "uncompressed_blob_bytes": 518588124,
+  "scope": "Independent parent verification of archive identity, every content-addressed blob, and complete logical-file hash coverage. No benchmark reruns.",
+  "independent_restore_only": {
+    "all_blob_hashes_valid": true,
+    "blob_count": 1119,
+    "logical_file_count": 1799,
+    "case_count": 15,
+    "comparator_preflight_passed": true
+  },
+  "restore_command": "python3 benchmarks/results/2026-10-12-builtin-final-comparison/repro/run-frozen.py --output /tmp/snail-final-evidence-parent-restored-20261012 --restore-only"
+}

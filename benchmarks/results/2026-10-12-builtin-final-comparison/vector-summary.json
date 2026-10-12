@@ -1,0 +1,604 @@
+[
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "direct-one",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.192172301,
+          0.192200728,
+          0.192249938
+        ],
+        "median_seconds": 0.192200728,
+        "min_seconds": 0.192172301,
+        "max_seconds": 0.192249938
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.121600127,
+          0.121814555,
+          0.121691356
+        ],
+        "median_seconds": 0.121691356,
+        "min_seconds": 0.121600127,
+        "max_seconds": 0.121814555
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.095659941,
+          0.096117277,
+          0.096443071
+        ],
+        "median_seconds": 0.096117277,
+        "min_seconds": 0.095659941,
+        "max_seconds": 0.096443071
+      }
+    ],
+    "d277_reference_over_public": 1.999648075756453,
+    "d4_reference_over_public": 1.2660716137432815
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "direct-two",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.340913516,
+          0.340556313,
+          0.338270494
+        ],
+        "median_seconds": 0.340556313,
+        "min_seconds": 0.338270494,
+        "max_seconds": 0.340913516
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.216773021,
+          0.216717134,
+          0.217142902
+        ],
+        "median_seconds": 0.216773021,
+        "min_seconds": 0.216717134,
+        "max_seconds": 0.217142902
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.158985627,
+          0.159676845,
+          0.158739651
+        ],
+        "median_seconds": 0.158985627,
+        "min_seconds": 0.158739651,
+        "max_seconds": 0.159676845
+      }
+    ],
+    "d277_reference_over_public": 2.142057237664635,
+    "d4_reference_over_public": 1.3634755863811514
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "direct-three",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.465698663,
+          0.465099844,
+          0.466203408
+        ],
+        "median_seconds": 0.465698663,
+        "min_seconds": 0.465099844,
+        "max_seconds": 0.466203408
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.306622205,
+          0.305444617,
+          0.305538359
+        ],
+        "median_seconds": 0.305538359,
+        "min_seconds": 0.305444617,
+        "max_seconds": 0.306622205
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.212518056,
+          0.213170647,
+          0.213002473
+        ],
+        "median_seconds": 0.213002473,
+        "min_seconds": 0.212518056,
+        "max_seconds": 0.213170647
+      }
+    ],
+    "d277_reference_over_public": 2.1863533152500065,
+    "d4_reference_over_public": 1.4344357354010626
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "typed-three",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.472500002,
+          0.471418963,
+          0.474110899
+        ],
+        "median_seconds": 0.472500002,
+        "min_seconds": 0.471418963,
+        "max_seconds": 0.474110899
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.30580079,
+          0.305349,
+          0.30681168
+        ],
+        "median_seconds": 0.30580079,
+        "min_seconds": 0.305349,
+        "max_seconds": 0.30681168
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.218385441,
+          0.218880052,
+          0.222648367
+        ],
+        "median_seconds": 0.218880052,
+        "min_seconds": 0.218385441,
+        "max_seconds": 0.222648367
+      }
+    ],
+    "d277_reference_over_public": 2.158716601547591,
+    "d4_reference_over_public": 1.397115850465898
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "opaque-three",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.469475002,
+          0.472304625,
+          0.46645566
+        ],
+        "median_seconds": 0.469475002,
+        "min_seconds": 0.46645566,
+        "max_seconds": 0.472304625
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.308701678,
+          0.307619406,
+          0.310031002
+        ],
+        "median_seconds": 0.308701678,
+        "min_seconds": 0.307619406,
+        "max_seconds": 0.310031002
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.221710197,
+          0.222782191,
+          0.222310569
+        ],
+        "median_seconds": 0.222310569,
+        "min_seconds": 0.221710197,
+        "max_seconds": 0.222782191
+      }
+    ],
+    "d277_reference_over_public": 2.1117979415544563,
+    "d4_reference_over_public": 1.3886054963045862
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "apply-three",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.475303047,
+          0.474099017,
+          0.481567683
+        ],
+        "median_seconds": 0.475303047,
+        "min_seconds": 0.474099017,
+        "max_seconds": 0.481567683
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.324621239,
+          0.322161511,
+          0.324067455
+        ],
+        "median_seconds": 0.324067455,
+        "min_seconds": 0.322161511,
+        "max_seconds": 0.324621239
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.225401816,
+          0.223652263,
+          0.22572492
+        ],
+        "median_seconds": 0.225401816,
+        "min_seconds": 0.223652263,
+        "max_seconds": 0.22572492
+      }
+    ],
+    "d277_reference_over_public": 2.1086921810780797,
+    "d4_reference_over_public": 1.4377322274990012
+  },
+  {
+    "kind": "integer",
+    "size": 8,
+    "mode": "checksum-three",
+    "repetitions": 667520,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.222300256,
+          0.224449687,
+          0.221528783
+        ],
+        "median_seconds": 0.222300256,
+        "min_seconds": 0.221528783,
+        "max_seconds": 0.224449687
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.160660277,
+          0.159907914,
+          0.160649596
+        ],
+        "median_seconds": 0.160649596,
+        "min_seconds": 0.159907914,
+        "max_seconds": 0.160660277
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.161120527,
+          0.161424461,
+          0.162301755
+        ],
+        "median_seconds": 0.161424461,
+        "min_seconds": 0.161120527,
+        "max_seconds": 0.162301755
+      }
+    ],
+    "d277_reference_over_public": 1.3771162971391306,
+    "d4_reference_over_public": 0.9951998291014892
+  },
+  {
+    "kind": "integer",
+    "size": 1024,
+    "mode": "typed-three",
+    "repetitions": 10176,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.671068307,
+          0.679575205,
+          0.671481436
+        ],
+        "median_seconds": 0.671481436,
+        "min_seconds": 0.671068307,
+        "max_seconds": 0.679575205
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.451306354,
+          0.44819045,
+          0.447833296
+        ],
+        "median_seconds": 0.44819045,
+        "min_seconds": 0.447833296,
+        "max_seconds": 0.451306354
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.272970283,
+          0.27196647,
+          0.269052567
+        ],
+        "median_seconds": 0.27196647,
+        "min_seconds": 0.269052567,
+        "max_seconds": 0.272970283
+      }
+    ],
+    "d277_reference_over_public": 2.4689861070006165,
+    "d4_reference_over_public": 1.6479621550406562
+  },
+  {
+    "kind": "integer",
+    "size": 1024,
+    "mode": "opaque-three",
+    "repetitions": 10176,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.672297591,
+          0.670519706,
+          0.670343887
+        ],
+        "median_seconds": 0.670519706,
+        "min_seconds": 0.670343887,
+        "max_seconds": 0.672297591
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.447710214,
+          0.446292568,
+          0.444423425
+        ],
+        "median_seconds": 0.446292568,
+        "min_seconds": 0.444423425,
+        "max_seconds": 0.447710214
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.273718109,
+          0.274540637,
+          0.272607581
+        ],
+        "median_seconds": 0.273718109,
+        "min_seconds": 0.272607581,
+        "max_seconds": 0.274540637
+      }
+    ],
+    "d277_reference_over_public": 2.4496724328897073,
+    "d4_reference_over_public": 1.6304824318364701
+  },
+  {
+    "kind": "integer",
+    "size": 1024,
+    "mode": "apply-three",
+    "repetitions": 10176,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.667168099,
+          0.669973014,
+          0.66872655
+        ],
+        "median_seconds": 0.66872655,
+        "min_seconds": 0.667168099,
+        "max_seconds": 0.669973014
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.449390428,
+          0.447185881,
+          0.446595473
+        ],
+        "median_seconds": 0.447185881,
+        "min_seconds": 0.446595473,
+        "max_seconds": 0.449390428
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.275223943,
+          0.271736923,
+          0.274532043
+        ],
+        "median_seconds": 0.274532043,
+        "min_seconds": 0.271736923,
+        "max_seconds": 0.275223943
+      }
+    ],
+    "d277_reference_over_public": 2.43587794959148,
+    "d4_reference_over_public": 1.6289023172424357
+  },
+  {
+    "kind": "integer",
+    "size": 1024,
+    "mode": "checksum-three",
+    "repetitions": 10176,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.343651661,
+          0.349042882,
+          0.341569587
+        ],
+        "median_seconds": 0.343651661,
+        "min_seconds": 0.341569587,
+        "max_seconds": 0.349042882
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.259585548,
+          0.259699487,
+          0.25881649
+        ],
+        "median_seconds": 0.259585548,
+        "min_seconds": 0.25881649,
+        "max_seconds": 0.259699487
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.260243319,
+          0.261230982,
+          0.259032984
+        ],
+        "median_seconds": 0.260243319,
+        "min_seconds": 0.259032984,
+        "max_seconds": 0.261230982
+      }
+    ],
+    "d277_reference_over_public": 1.3205013766366853,
+    "d4_reference_over_public": 0.9974724769015109
+  },
+  {
+    "kind": "reference",
+    "size": 8,
+    "mode": "typed-three",
+    "repetitions": 609856,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.440755928,
+          0.440048619,
+          0.439992602
+        ],
+        "median_seconds": 0.440048619,
+        "min_seconds": 0.439992602,
+        "max_seconds": 0.440755928
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.312193368,
+          0.314060256,
+          0.309813694
+        ],
+        "median_seconds": 0.312193368,
+        "min_seconds": 0.309813694,
+        "max_seconds": 0.314060256
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.228756653,
+          0.229618618,
+          0.228557558
+        ],
+        "median_seconds": 0.228756653,
+        "min_seconds": 0.228557558,
+        "max_seconds": 0.229618618
+      }
+    ],
+    "d277_reference_over_public": 1.9236538619928136,
+    "d4_reference_over_public": 1.3647400585109979
+  },
+  {
+    "kind": "reference",
+    "size": 8,
+    "mode": "opaque-three",
+    "repetitions": 609856,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.443588915,
+          0.438396484,
+          0.438894206
+        ],
+        "median_seconds": 0.438894206,
+        "min_seconds": 0.438396484,
+        "max_seconds": 0.443588915
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.310233333,
+          0.308925666,
+          0.308928354
+        ],
+        "median_seconds": 0.308928354,
+        "min_seconds": 0.308925666,
+        "max_seconds": 0.310233333
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.222032264,
+          0.224735679,
+          0.22272429
+        ],
+        "median_seconds": 0.22272429,
+        "min_seconds": 0.222032264,
+        "max_seconds": 0.224735679
+      }
+    ],
+    "d277_reference_over_public": 1.9705718042697544,
+    "d4_reference_over_public": 1.3870438379217642
+  },
+  {
+    "kind": "reference",
+    "size": 8,
+    "mode": "apply-three",
+    "repetitions": 609856,
+    "systems": [
+      {
+        "label": "d277-reference",
+        "samples": [
+          0.445785259,
+          0.445481737,
+          0.44679026
+        ],
+        "median_seconds": 0.445785259,
+        "min_seconds": 0.445481737,
+        "max_seconds": 0.44679026
+      },
+      {
+        "label": "d4-reference",
+        "samples": [
+          0.319040273,
+          0.319384582,
+          0.318306872
+        ],
+        "median_seconds": 0.319040273,
+        "min_seconds": 0.318306872,
+        "max_seconds": 0.319384582
+      },
+      {
+        "label": "d4-public",
+        "samples": [
+          0.237698131,
+          0.237464913,
+          0.235133059
+        ],
+        "median_seconds": 0.237464913,
+        "min_seconds": 0.235133059,
+        "max_seconds": 0.237698131
+      }
+    ],
+    "d277_reference_over_public": 1.877267901889994,
+    "d4_reference_over_public": 1.3435259507159274
+  }
+]

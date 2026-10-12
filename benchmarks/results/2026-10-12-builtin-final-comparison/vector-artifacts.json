@@ -1,0 +1,251 @@
+{
+  "d277-reference": {
+    "compiler_revision": "d2770aba4ee4c6a4c855a39b146d5f939c7fc22f",
+    "directory": "/tmp/snail-vector-reference-d2770ab-20261012/build/vector-append/reference",
+    "files": [
+      {
+        "name": "build.scm",
+        "bytes": 444,
+        "sha256": "0a14ae00b0f53daeb290dee63325469292e64a665ff5d3466acab0205966e4cc"
+      },
+      {
+        "name": "build.stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.stdout.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.trace.json",
+        "bytes": 3454,
+        "sha256": "9eaa5840e68a1d1a0e813c8570e63e16b7b4f53478b308fd8b5ce60a0b2a2805"
+      },
+      {
+        "name": "capture-commands.jsonl",
+        "bytes": 2778,
+        "sha256": "122afe9416d956500d0dcb1c3c53650f763eed8e80a37519d90b62ed6e06fc42"
+      },
+      {
+        "name": "capture-entry.wasm",
+        "bytes": 194,
+        "sha256": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e"
+      },
+      {
+        "name": "capture-entry.wat",
+        "bytes": 304,
+        "sha256": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df"
+      },
+      {
+        "name": "capture-platform.wasm",
+        "bytes": 4697,
+        "sha256": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733"
+      },
+      {
+        "name": "capture-platform.wat",
+        "bytes": 9189,
+        "sha256": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965"
+      },
+      {
+        "name": "capture-program.wat",
+        "bytes": 678953,
+        "sha256": "37f20251d66d0a06c1d3ca68194a6dcfb4f4c411c4b046ce10673eb682934627"
+      },
+      {
+        "name": "capture-scheme.optimized.wasm",
+        "bytes": 55641,
+        "sha256": "b733e6b64645db6ec1ddd1a5cefbe1fefc5b9891398406aa8cf3121c383fa6c4"
+      },
+      {
+        "name": "capture-scheme.wasm",
+        "bytes": 121087,
+        "sha256": "11d98e49995d99f279e0564537557626c7a6bf40aac8cef31cab48b90a4a36b7"
+      },
+      {
+        "name": "capture-snail_runtime.wasm",
+        "bytes": 433131,
+        "sha256": "2da6c0275078eddf1c36e12310ac9f5c6e68cd443f8f8edb5ed77e28df588184"
+      },
+      {
+        "name": "program.scm",
+        "bytes": 5362,
+        "sha256": "369ea586a34fa7ac619d33f90ab793aef91a5ac852a7e3e574d3352ad774b0a1"
+      },
+      {
+        "name": "program.wasm",
+        "bytes": 525054,
+        "sha256": "546809af701a575a0f6ab42e897daf4b45b8d963d1d268c8dfecdf95cb27463a"
+      }
+    ]
+  },
+  "d4-reference": {
+    "compiler_revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+    "directory": "/tmp/snail-builtin-final-d4f0d42-20261012/build/vector-append/reference",
+    "files": [
+      {
+        "name": "build.scm",
+        "bytes": 432,
+        "sha256": "ec6b4c4c390aa4cdd29453f685c0d20b60effc0e7651887c9e81da80690a274f"
+      },
+      {
+        "name": "build.stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.stdout.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.trace.json",
+        "bytes": 3456,
+        "sha256": "9a0789ac1d49f8124950e5d84db7e5e518fa7b183a2449e2c866223c9842ccc8"
+      },
+      {
+        "name": "capture-commands.jsonl",
+        "bytes": 2739,
+        "sha256": "28ec19baff5c41ae10674b11f94da3a7d37b74e16dafb3f1a8fac9f5f53e5478"
+      },
+      {
+        "name": "capture-entry.wasm",
+        "bytes": 194,
+        "sha256": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e"
+      },
+      {
+        "name": "capture-entry.wat",
+        "bytes": 304,
+        "sha256": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df"
+      },
+      {
+        "name": "capture-platform.wasm",
+        "bytes": 4697,
+        "sha256": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733"
+      },
+      {
+        "name": "capture-platform.wat",
+        "bytes": 9189,
+        "sha256": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965"
+      },
+      {
+        "name": "capture-program.wat",
+        "bytes": 1228202,
+        "sha256": "c7d9771fce5d3ee8e96fe60bb3fa59447fb0e0fdbcde609b94fb01e94ca41943"
+      },
+      {
+        "name": "capture-scheme.optimized.wasm",
+        "bytes": 71713,
+        "sha256": "ef7b7cfa4d86554a32385a56fa987715c194747e434c93d8015ee63acdc24bc0"
+      },
+      {
+        "name": "capture-scheme.wasm",
+        "bytes": 205221,
+        "sha256": "82f4404868c63ca3fbc45a80b7d16a820c5a3659ebf194d027b3fd58125af33c"
+      },
+      {
+        "name": "capture-snail_runtime.wasm",
+        "bytes": 432335,
+        "sha256": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586"
+      },
+      {
+        "name": "program.scm",
+        "bytes": 5362,
+        "sha256": "369ea586a34fa7ac619d33f90ab793aef91a5ac852a7e3e574d3352ad774b0a1"
+      },
+      {
+        "name": "program.wasm",
+        "bytes": 544915,
+        "sha256": "c7d83436aaafe93b58d32d9df76ba6c0448e725e0a82c93d94ffc4f72a0a4fd0"
+      }
+    ]
+  },
+  "d4-public": {
+    "compiler_revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+    "directory": "/tmp/snail-builtin-final-d4f0d42-20261012/build/vector-append/public",
+    "files": [
+      {
+        "name": "build-initial.stderr.txt",
+        "bytes": 406,
+        "sha256": "7ad80b7a54750ece4e612d27140fbe17212aaf28036d74f5446cba7ceebcf006"
+      },
+      {
+        "name": "build.scm",
+        "bytes": 423,
+        "sha256": "f97ba4f87ea170d910634c3d39a74eed5b4841b540da1344870d4e8968cf63a4"
+      },
+      {
+        "name": "build.stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.stdout.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build.trace.json",
+        "bytes": 3457,
+        "sha256": "662f31a39c43be3dc07fe6b548623a7f3d9b68a3212d2179198c97c15eb10b6e"
+      },
+      {
+        "name": "capture-commands.jsonl",
+        "bytes": 2706,
+        "sha256": "a59a115879f03f907e6b38e089e3d954e6441bc66517c19dab12114b1b90453a"
+      },
+      {
+        "name": "capture-entry.wasm",
+        "bytes": 194,
+        "sha256": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e"
+      },
+      {
+        "name": "capture-entry.wat",
+        "bytes": 304,
+        "sha256": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df"
+      },
+      {
+        "name": "capture-platform.wasm",
+        "bytes": 4697,
+        "sha256": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733"
+      },
+      {
+        "name": "capture-platform.wat",
+        "bytes": 9189,
+        "sha256": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965"
+      },
+      {
+        "name": "capture-program.wat",
+        "bytes": 1242014,
+        "sha256": "ad697b9b58d5f5b10b6c8a70afc63d6d5d687c6018d86000800bb658b9c65f29"
+      },
+      {
+        "name": "capture-scheme.optimized.wasm",
+        "bytes": 76076,
+        "sha256": "1b413a26d7c920ec3aae4920ed01935ab35a238fe3e51094fa8a9226e1d31073"
+      },
+      {
+        "name": "capture-scheme.wasm",
+        "bytes": 207489,
+        "sha256": "b632e1576f18a9a32ed2952382e27a4a5f293ce3151c4f22945926285575680b"
+      },
+      {
+        "name": "capture-snail_runtime.wasm",
+        "bytes": 432335,
+        "sha256": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586"
+      },
+      {
+        "name": "program.scm",
+        "bytes": 5282,
+        "sha256": "fd539cb2a69a170cfd7a839e29f2e15059cce63bd0ec5fe95010eb4627a2c872"
+      },
+      {
+        "name": "program.wasm",
+        "bytes": 550376,
+        "sha256": "24dc2e29848c69c4c13298ca3891fc5ef3251bcdff22746e1fb7769dfcb9eb3c"
+      }
+    ]
+  },
+  "source_adapter_scope": "Frozen d277 has no public vector-append. Both reference variants use the same portable Scheme reference source; d4-public changes only the explicit @@TARGET@@ substitution in a shared template. Typed wrapper retains Vector inputs; opaque runtime choice and apply preserve generic ABI. Containers store generic eqref elements."
+}

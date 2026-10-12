@@ -1,0 +1,139 @@
+passed typing: success
+passed typing: typed-tail
+passed typing: polymorphism
+passed typing: specialization
+passed typing: arithmetic
+passed typing: rest-arity-fallback
+passed typing: inferred-primitive-arity
+passed typing: callback-alias-all-order
+passed typing: map-callback-values
+passed typing: for-each-callback-values
+passed typing: vector-map-snapshot-count
+passed typing: unsafe-i32-range
+passed typing: unsafe-f32-range
+passed typing: unsafe-call-order
+passed typing: poly-unused-variable
+passed typing: poly-optimized-guard-order
+passed typing: poly-optimized-result-context
+passed typing: poly-dynamic-result-order
+passed typing: optimized-assertion-order
+passed typing: poly-renamed
+passed typing: poly-call-order
+passed typing: poly-inferred-guard
+passed typing: poly-i32-guard
+passed typing: poly-concrete-entry
+passed typing: poly-count-entry
+passed typing: poly-count-result
+passed typing: poly-predicate-mutation
+passed typing: poly-predicate-effect
+passed typing: poly-erased-apply
+passed typing: poly-apply-result
+passed typing: poly-instance-arity
+passed typing: tail-host-isolation
+passed typing: tail-count-any
+passed typing: tail-range
+passed typing: tail-check-order
+passed typing: tail-delayed-check
+passed typing: tail-local-check-order
+passed typing: tail-body-error
+passed typing: abi-argument-count
+passed typing: abi-car-count
+passed typing: abi-cdr-count
+passed typing: abi-vector-count
+passed typing: abi-order
+passed typing: abi-heap-order
+passed typing: abi-alias-count
+passed typing: abi-unused-count
+passed typing: abi-return-count
+passed typing: abi-assigned-count
+passed typing: abi-typed-count
+passed typing: entry
+passed typing: order
+passed typing: values
+passed typing: uninitialized
+passed typing: mutation
+passed typing: mutable-predicate
+passed typing: field-mutation
+passed typing: result
+passed typing: overflow
+passed typing: shadow
+passed typing: one-sided
+passed typing: record-bypass
+passed typing: i32-entry
+passed typing: i32-entry-low
+passed typing: i32-result
+passed typing: i32-result-low
+passed typing: i32-tail-fibonacci-overflow
+passed typing: i32-wide
+passed typing: i32-dead-branch
+passed typing: i32-multiply-overflow
+passed typing: i32-fallback-overflow
+passed typing: any-assertion
+passed typing: any-assertion-fail
+passed typing: nested-write
+passed typing: predicate-effects
+passed typing: initializer-count
+passed typing: record-standard
+passed typing: record-generative
+passed typing: record-nominal
+passed typing: record-hygiene
+passed typing: snapshot
+passed typing: rename
+rejected as expected: inexact-complex-domain
+rejected as expected: result-mismatch
+rejected as expected: argument-mismatch
+rejected as expected: nominal-any
+rejected as expected: false-summary
+rejected as expected: integer-float
+rejected as expected: opaque
+rejected as expected: function-union
+rejected as expected: any-call
+rejected as expected: record-static-nominal
+rejected as expected: record-omitted
+rejected as expected: record-local
+rejected as expected: record-schema-alias
+rejected as expected: poly-constant
+rejected as expected: poly-forged-All
+rejected as expected: poly-abstract-boundary
+rejected as expected: poly-abstract-write
+rejected as expected: poly-mutable-local
+rejected as expected: poly-narrowing-origin
+rejected as expected: poly-union-origin
+rejected as expected: poly-summary-position
+rejected as expected: poly-unresolved
+rejected as expected: poly-contradiction
+rejected as expected: poly-inst-arity
+rejected as expected: poly-inst-monomorphic
+rejected as expected: poly-inst-arrow
+rejected as expected: poly-infer-arrow
+rejected as expected: poly-nested-All
+rejected as expected: poly-assigned
+rejected as expected: poly-recursive-inst
+rejected as expected: poly-recursive-alias
+rejected as expected: poly-recursive-join
+rejected as expected: poly-recursive-context
+rejected as expected: poly-recursive-helper
+rejected as expected: poly-mutual-change
+passed typing: stream-checked-alias
+passed typing: stream-untyped-result-guard
+passed typing: stream-count-through-iife
+passed typing: stream-guard-after-fold
+passed typing: stream-folded-false
+passed typing: stream-folded-null
+passed typing: stream-forward-alias
+passed typing: stream-ignored-effect
+passed typing: stream-operator-effect
+passed typing: stream-ignored-count
+passed typing: stream-private-candidate
+passed typing: stream-inherited-guard-bad
+passed typing: stream-inherited-guard-good
+passed typing: stream-higher-order-guard-bad
+passed typing: stream-higher-order-guard-good
+passed typing: stream-factory-guard-bad
+passed typing: stream-factory-guard-good
+passed typing: stream-let-guard-bad
+passed typing: stream-let-guard-good
+passed typing: stream-branch-guard-bad
+passed typing: stream-branch-guard-good
+rejected before folding: dead-branch
+rejected before folding: unused-body

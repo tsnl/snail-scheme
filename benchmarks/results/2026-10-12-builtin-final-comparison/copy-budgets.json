@@ -1,0 +1,1673 @@
+{
+  "revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+  "script_sha256": "1d2138fcb60a16e3e51de71be50c392a63558da3740d411ef6de90ae0909cb07",
+  "scope": "Read-only original checking plus process-local request-copy observer; identical request arguments/results, not the compiler used for timed artifacts. Counts are static IR planning only.",
+  "rows": [
+    {
+      "benchmark": "cat",
+      "total_copies": 81,
+      "total_budget": 256,
+      "per_source_budget": 8,
+      "request_copy_invocations": 152,
+      "denied_requests": 0,
+      "denied_total_only": 0,
+      "denied_source_only": 0,
+      "denied_both": 0,
+      "maximum_copies_per_source": 4,
+      "sources_at_budget": [],
+      "source_groups": [
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 0 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 203 5) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 7 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 11 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 15 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 14 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 20 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 26 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 28 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 256 5) (compare value elements) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 32 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 266 5) (compare key entries) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 37 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 38 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 279 5) (procedure elements) 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 40 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 44 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 47 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 46 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 298 5) (size ref object) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 52 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 56 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 67 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 66 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 74 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 73 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 77 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 83 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 82 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 87 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 39 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 283 5) (procedure first) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 99 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 97 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 96 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 369 7) (left right length ref seen) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 112 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 111 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 402 5) (compare first rest) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 119 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 126 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 117 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 410 5) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 123 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 130 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 145 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 137 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 442 5) (get put convert) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 1 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 204 5) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 184 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 183 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (name) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 187 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/cat/snail-wasm/program.scm\" 39 1) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 205 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 198 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 197 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 175 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/cat/snail-wasm/program.scm\" 24 1) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 48 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index result) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 41 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lists) 1 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 98 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index) 4 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 113 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (best rest approximate) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 140 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 139 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        }
+      ]
+    },
+    {
+      "benchmark": "lattice",
+      "total_copies": 113,
+      "total_budget": 256,
+      "per_source_budget": 8,
+      "request_copy_invocations": 229,
+      "denied_requests": 0,
+      "denied_total_only": 0,
+      "denied_source_only": 0,
+      "denied_both": 0,
+      "maximum_copies_per_source": 6,
+      "sources_at_budget": [],
+      "source_groups": [
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 0 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 203 5) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 7 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 11 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 15 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 14 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 20 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 26 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 28 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 256 5) (compare value elements) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 32 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 266 5) (compare key entries) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 37 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 38 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 279 5) (procedure elements) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 40 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 44 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 47 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 46 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 298 5) (size ref object) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 52 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 56 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 67 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 66 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 74 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 73 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 77 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 83 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 82 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 87 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 39 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 283 5) (procedure first) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 99 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 97 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 96 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 369 7) (left right length ref seen) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 112 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 111 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 402 5) (compare first rest) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 119 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 126 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 117 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 410 5) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 123 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 130 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 145 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 137 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 442 5) (get put convert) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 164 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 175 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 183 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 179 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 87 3) (test func lst) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 188 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (less more) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 187 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (scmp tcmp) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 186 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 117 1) (source target pas new) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 1 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 204 5) () 1 0)"
+        },
+        {
+          "copies": 6,
+          "denied_requests": 0,
+          "source_s_expression": "(source 194 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 147 1) (source target pas rest to-1 to-collect) 6 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 171 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 48 1) (elem-list cmp-func) 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 197 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 164 1) (source target) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 200 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 174 1) (source target) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 207 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 204 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (l2) 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 234 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 233 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (name) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 237 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 240 1) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 255 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 248 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 247 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 227 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 227 1) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 48 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index result) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 41 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lists) 2 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 98 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index) 4 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 113 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (best rest approximate) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 140 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 139 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 181 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 180 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/program.scm\" 89 7) (ac lst) 2 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 195 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (next rest) 4 0)"
+        }
+      ]
+    },
+    {
+      "benchmark": "wc",
+      "total_copies": 90,
+      "total_budget": 256,
+      "per_source_budget": 8,
+      "request_copy_invocations": 184,
+      "denied_requests": 0,
+      "denied_total_only": 0,
+      "denied_source_only": 0,
+      "denied_both": 0,
+      "maximum_copies_per_source": 7,
+      "sources_at_budget": [],
+      "source_groups": [
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 0 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 203 5) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 7 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 11 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 15 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 14 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 20 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 26 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 28 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 256 5) (compare value elements) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 32 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 266 5) (compare key entries) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 37 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 38 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 279 5) (procedure elements) 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 40 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 44 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 47 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 46 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 298 5) (size ref object) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 52 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 56 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 67 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 66 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 74 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 73 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 77 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 83 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 82 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 87 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 39 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 283 5) (procedure first) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 99 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 97 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 96 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 369 7) (left right length ref seen) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 112 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 111 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 402 5) (compare first rest) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 119 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 126 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 117 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 410 5) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 123 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 130 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 145 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 137 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 442 5) (get put convert) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 1 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 204 5) () 1 0)"
+        },
+        {
+          "copies": 7,
+          "denied_requests": 0,
+          "source_s_expression": "(source 171 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/wc/snail-wasm/program.scm\" 8 3) (nl nw nc inword?) 7 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 160 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/file.sld\" 6 5) (path procedure) 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 181 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 180 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (name) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 184 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/wc/snail-wasm/program.scm\" 36 1) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 202 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 195 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 194 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 174 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/wc/snail-wasm/program.scm\" 23 1) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 48 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index result) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 41 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lists) 1 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 98 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index) 4 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 113 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (best rest approximate) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 140 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 139 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 157 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 493 5) (port procedure) 1 0)"
+        }
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "total_copies": 130,
+      "total_budget": 256,
+      "per_source_budget": 8,
+      "request_copy_invocations": 421,
+      "denied_requests": 0,
+      "denied_total_only": 0,
+      "denied_source_only": 0,
+      "denied_both": 0,
+      "maximum_copies_per_source": 4,
+      "sources_at_budget": [],
+      "source_groups": [
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 0 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 203 5) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 7 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 11 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 15 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 14 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 20 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 26 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 28 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 256 5) (compare value elements) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 32 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 266 5) (compare key entries) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 37 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 38 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 279 5) (procedure elements) 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 40 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 44 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 47 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 46 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 298 5) (size ref object) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 52 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 56 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 67 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 66 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 74 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 73 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 77 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 83 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 82 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 87 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 39 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 283 5) (procedure first) 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 99 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 97 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 96 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 369 7) (left right length ref seen) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 112 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 111 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 402 5) (compare first rest) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 119 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 126 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 117 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 410 5) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 123 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 130 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 145 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 137 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 442 5) (get put convert) 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 161 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 165 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 169 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 172 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 176 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 179 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 184 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 182 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 186 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 190 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 160 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 11 3) (lst folder state) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 201 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 196 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 194 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 163 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 28 3) (size f) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 216 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 258 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (cont) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 252 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (cont) 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 234 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 232 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 250 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 246 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 240 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 229 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 228 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 227 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (root-minimal?) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 226 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (non-root-minimal?) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 220 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 360 3) (size max-out folder state) 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 280 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 279 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (name) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 283 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 613 1) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 301 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 294 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 293 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 273 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 600 1) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 48 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index result) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 41 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lists) 1 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 98 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index) 4 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 113 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (best rest approximate) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 140 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 139 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 162 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lst state) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 171 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/program.scm\" 69 3) (limit) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 166 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (i) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 164 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (x) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 233 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (v outs efr efrr state) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 231 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (reach? from-root) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 230 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (vertex state) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 225 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (minimal-folder) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 224 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (out-degrees) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 223 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (edges) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 222 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (edge?) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 221 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (root) 1 0)"
+        }
+      ]
+    },
+    {
+      "benchmark": "deriv",
+      "total_copies": 85,
+      "total_budget": 256,
+      "per_source_budget": 8,
+      "request_copy_invocations": 171,
+      "denied_requests": 0,
+      "denied_total_only": 0,
+      "denied_source_only": 0,
+      "denied_both": 0,
+      "maximum_copies_per_source": 4,
+      "sources_at_budget": [],
+      "source_groups": [
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 0 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 203 5) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 7 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 11 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 15 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 14 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (head) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 20 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 26 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 28 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 256 5) (compare value elements) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 32 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 266 5) (compare key entries) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 37 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 38 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 279 5) (procedure elements) 4 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 40 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 44 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 47 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 46 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 298 5) (size ref object) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 52 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 56 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 67 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 66 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 74 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 73 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 77 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 83 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 82 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 87 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 39 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 283 5) (procedure first) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 99 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 97 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 96 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 369 7) (left right length ref seen) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 112 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 3 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 111 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 402 5) (compare first rest) 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 119 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 126 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 117 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 410 5) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 123 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 130 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 145 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 137 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 442 5) (get put convert) 3 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 1 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 204 5) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 192 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 2 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 191 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (name) 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 195 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/deriv/snail-wasm/program.scm\" 49 1) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 213 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 206 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 42 12) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 205 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) () 1 0)"
+        },
+        {
+          "copies": 1,
+          "denied_requests": 0,
+          "source_s_expression": "(source 186 (\"/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/deriv/snail-wasm/program.scm\" 37 1) () 1 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 48 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index result) 2 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 41 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (lists) 2 0)"
+        },
+        {
+          "copies": 4,
+          "denied_requests": 0,
+          "source_s_expression": "(source 98 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (index) 4 0)"
+        },
+        {
+          "copies": 2,
+          "denied_requests": 0,
+          "source_s_expression": "(source 113 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 43 14) (best rest approximate) 2 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 140 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        },
+        {
+          "copies": 3,
+          "denied_requests": 0,
+          "source_s_expression": "(source 139 (\"/tmp/snail-builtin-final-d4f0d42-20261012/bootstrap/scheme/base.sld\" 40 11) (value) 3 0)"
+        }
+      ]
+    }
+  ],
+  "finding": "No denied requests or reached total/per-source caps in these five. Generic residual calls include unknown or mutable operators, anonymous lambda operands/let lambdas with no named origin, contracts, representation fallback and foreign boundaries; budget fallback is absent."
+}

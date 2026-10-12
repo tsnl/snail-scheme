@@ -1,0 +1,127 @@
+(import (scheme base) (scheme read) (scheme write) (scheme time) (snail typing))
+
+;; ---- Portable reference for the frozen baseline ----
+
+(define (vector-total vectors)
+  (if (null? vectors) 0 (+ (vector-length (car vectors)) (vector-total (cdr vectors)))))
+(define (copy-elements input output offset)
+  (let loop ((index 0))
+    (when (< index (vector-length input))
+      (vector-set! output (+ offset index) (vector-ref input index))
+      (loop (+ index 1)))))
+(define (reference-vector-append . vectors)
+  (let ((output (make-vector (vector-total vectors))))
+    (let loop ((remaining vectors) (offset 0))
+      (unless (null? remaining)
+        (copy-elements (car remaining) output offset)
+        (loop (cdr remaining) (+ offset (vector-length (car remaining))))))
+    output))
+(define (alternate-append . vectors) (apply reference-vector-append vectors))
+
+;; ---- Checked public and opaque entries ----
+
+(define (check expected actual)
+  (unless (equal? expected actual) (error "vector append mismatch" expected actual)))
+(define (check-append append-procedure)
+  (let* ((element (cons 17 29)) (input (vector element 2))
+         (single (append-procedure input))
+         (output (append-procedure input (vector) input)))
+    (check #f (eq? input single))
+    (check #f (eq? (append-procedure) (append-procedure)))
+    (check 4 (vector-length output))
+    (check #t (eq? element (vector-ref output 0)))
+    (check #t (eq? element (vector-ref output 2)))
+    (vector-set! output 1 99)
+    (check 2 (vector-ref input 1))
+    (vector-set! single 1 55)
+    (check 2 (vector-ref input 1))
+    (vector-set! input 1 77)
+    (check 2 (vector-ref output 3))
+    (set-car! element 41)
+    (check 41 (car (vector-ref output 0)))))
+
+(define mode (read))
+(define kind (read))
+(define size (read))
+(define repetitions (read))
+(define choose-public (read))
+;; A runtime choice between distinct closures prevents a transparent alias
+;; from being mistaken for a generic-call control. WAT/counters must verify it.
+(define opaque-append (if choose-public @@TARGET@@ alternate-append))
+(check 0 (vector-length (@@TARGET@@)))
+(check-append @@TARGET@@)
+(check-append opaque-append)
+(check 0 (vector-length (apply opaque-append '())))
+(check #(1 2 3) (@@TARGET@@ #(1) #() #(2 3)))
+
+;; ---- Runtime input construction and observable checksum ----
+
+(define (element value)
+  (cond ((eq? kind 'integer) value)
+        ((eq? kind 'character) (integer->char (+ 955 (modulo value 26))))
+        ((eq? kind 'reference) (cons value 7))
+        (else (error "unknown element kind" kind))))
+(define (score value)
+  (cond ((char? value) (char->integer value))
+        ((pair? value) (+ (car value) (cdr value)))
+        (else value)))
+(define (make-input length offset)
+  (let ((result (make-vector length)))
+    (let loop ((index 0))
+      (when (< index length)
+        (vector-set! result index (element (+ offset index)))
+        (loop (+ index 1))))
+    result))
+(define (checksum object)
+  (let loop ((index 0) (sum 0))
+    (if (= index (vector-length object)) sum
+        (loop (+ index 1) (+ sum (score (vector-ref object index)))))))
+(define left (make-input size 0))
+(define right (make-input size 1000))
+(define third (make-input size 2000))
+(define vectors (list left right third))
+(define control (reference-vector-append left right third))
+
+(: typed-append (-> Vector Vector Vector Vector))
+(define (typed-append first second third) (@@TARGET@@ first second third))
+
+;; Distinct direct call sites expose fixed arities to the compiler. The opaque
+;; fixed-arity and dynamic apply rows use the same input objects and outputs.
+(define (append-row)
+  (cond ((eq? mode 'direct-one) (@@TARGET@@ left))
+        ((eq? mode 'direct-two) (@@TARGET@@ left right))
+        ((eq? mode 'direct-three) (@@TARGET@@ left right third))
+        ((eq? mode 'typed-three) (typed-append left right third))
+        ((eq? mode 'opaque-three) (opaque-append left right third))
+        ((eq? mode 'apply-three) (apply opaque-append vectors))
+        ((eq? mode 'checksum-three) control)
+        (else (error "unknown append row" mode))))
+(define base-checksum (checksum (append-row)))
+(define original-score (if (= size 0) 0 (score (vector-ref left 0))))
+(define (expected-checksum)
+  (let loop ((index 0) (sum 0))
+    (if (= index repetitions) sum
+        (loop (+ index 1)
+              (+ sum base-checksum
+                 (if (= size 0) 0 (- (score (element (modulo index 97))) original-score)))))))
+(define expected (expected-checksum))
+(define (run)
+  (let loop ((index 0) (sum 0))
+    (if (= index repetitions) sum
+        (begin
+          (when (> size 0)
+            (let ((value (element (modulo index 97))))
+              (vector-set! left 0 value)
+              (when (eq? mode 'checksum-three) (vector-set! control 0 value))))
+          (loop (+ index 1) (+ sum (checksum (append-row))))))))
+
+;; ---- Workload timing, excluding setup and result checking ----
+
+(define start (current-jiffy))
+(define actual (run))
+(define elapsed (/ (exact (- (current-jiffy) start)) (inexact (jiffies-per-second))))
+(check expected actual)
+(display "+!VECTOR_APPEND!+")
+(for-each (lambda (value) (write value) (display ","))
+          (list mode kind size repetitions actual elapsed))
+(newline)

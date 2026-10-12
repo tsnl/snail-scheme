@@ -1,0 +1,209 @@
+{
+  "all_60_executions_passed": true,
+  "rows": [
+    {
+      "benchmark": "cat",
+      "baseline_seconds": 22.91876668,
+      "candidate_seconds": 20.292531175,
+      "chez_seconds": 0.701265851,
+      "baseline_over_candidate": 1.1294188232286897,
+      "candidate_over_chez": 28.93700177480908,
+      "candidate_elapsed_reduction_percent": 11.458886691716174,
+      "samples": {
+        "baseline": [
+          22.593116165,
+          22.91876668,
+          23.812069744
+        ],
+        "candidate": [
+          20.284202172,
+          20.292531175,
+          20.601360517
+        ],
+        "chez": [
+          0.701265851,
+          0.709301677,
+          0.697356214
+        ]
+      },
+      "ranges": {
+        "baseline": [
+          22.593116165,
+          23.812069744
+        ],
+        "candidate": [
+          20.284202172,
+          20.601360517
+        ],
+        "chez": [
+          0.697356214,
+          0.709301677
+        ]
+      }
+    },
+    {
+      "benchmark": "lattice",
+      "baseline_seconds": 25.172924535,
+      "candidate_seconds": 16.197472984,
+      "chez_seconds": 1.168691941,
+      "baseline_over_candidate": 1.5541266566621859,
+      "candidate_over_chez": 13.85948890016347,
+      "candidate_elapsed_reduction_percent": 35.65517998721478,
+      "samples": {
+        "baseline": [
+          25.172924535,
+          25.151484797,
+          25.216320395
+        ],
+        "candidate": [
+          16.186247911,
+          16.238929344,
+          16.197472984
+        ],
+        "chez": [
+          1.158856594,
+          1.168691941,
+          1.17362748
+        ]
+      },
+      "ranges": {
+        "baseline": [
+          25.151484797,
+          25.216320395
+        ],
+        "candidate": [
+          16.186247911,
+          16.238929344
+        ],
+        "chez": [
+          1.158856594,
+          1.17362748
+        ]
+      }
+    },
+    {
+      "benchmark": "wc",
+      "baseline_seconds": 12.485604477,
+      "candidate_seconds": 10.475406116,
+      "chez_seconds": 0.647150409,
+      "baseline_over_candidate": 1.1918969382895475,
+      "candidate_over_chez": 16.186972874183876,
+      "candidate_elapsed_reduction_percent": 16.100128469574937,
+      "samples": {
+        "baseline": [
+          12.583903424,
+          12.482179758,
+          12.485604477
+        ],
+        "candidate": [
+          10.475406116,
+          10.38435081,
+          10.498794148
+        ],
+        "chez": [
+          0.650390962,
+          0.646741958,
+          0.647150409
+        ]
+      },
+      "ranges": {
+        "baseline": [
+          12.482179758,
+          12.583903424
+        ],
+        "candidate": [
+          10.38435081,
+          10.498794148
+        ],
+        "chez": [
+          0.646741958,
+          0.650390962
+        ]
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "baseline_seconds": 12.540422922,
+      "candidate_seconds": 7.789372307,
+      "chez_seconds": 0.767625359,
+      "baseline_over_candidate": 1.6099401116994265,
+      "candidate_over_chez": 10.147361881253326,
+      "candidate_elapsed_reduction_percent": 37.885888255531675,
+      "samples": {
+        "baseline": [
+          12.540422922,
+          12.461628636,
+          12.618119419
+        ],
+        "candidate": [
+          7.789372307,
+          7.823431041,
+          7.783423653
+        ],
+        "chez": [
+          0.771093618,
+          0.767625359,
+          0.7655123
+        ]
+      },
+      "ranges": {
+        "baseline": [
+          12.461628636,
+          12.618119419
+        ],
+        "candidate": [
+          7.783423653,
+          7.823431041
+        ],
+        "chez": [
+          0.7655123,
+          0.771093618
+        ]
+      }
+    },
+    {
+      "benchmark": "deriv",
+      "baseline_seconds": 6.02951413,
+      "candidate_seconds": 2.167025424,
+      "chez_seconds": 0.417435278,
+      "baseline_over_candidate": 2.7823919660667533,
+      "candidate_over_chez": 5.191284824757911,
+      "candidate_elapsed_reduction_percent": 64.05970071090951,
+      "samples": {
+        "baseline": [
+          6.02951413,
+          6.010871409,
+          6.041389776
+        ],
+        "candidate": [
+          2.179731476,
+          2.167025424,
+          2.148410613
+        ],
+        "chez": [
+          0.417435278,
+          0.41758498,
+          0.417228867
+        ]
+      },
+      "ranges": {
+        "baseline": [
+          6.010871409,
+          6.041389776
+        ],
+        "candidate": [
+          2.148410613,
+          2.179731476
+        ],
+        "chez": [
+          0.417228867,
+          0.41758498
+        ]
+      }
+    }
+  ],
+  "selected_five_geomean_speedup": 1.5644498047204412,
+  "selected_five_geomean_candidate_over_chez": 12.78788959812801,
+  "results_sha256": "d9de34e16e672f06c6bf95aadc2c7a3333cbcb76a581a3e5209736ca6cff191e",
+  "scope": "Original inputs; one discarded preliminary and three rotating retained observations per case in a quiet window. Workload time excludes process startup. Three observations are descriptive; no population confidence interval or full-corpus extrapolation."
+}

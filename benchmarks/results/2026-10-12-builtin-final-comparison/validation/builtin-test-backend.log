@@ -1,0 +1,22 @@
+passed Wasm: backend-wasmgc
+passed Wasm: backend-bootstrap
+passed Wasm: backend-options
+passed Wasm: backend-binary
+passed Wasm: backend-numeric
+passed Wasm: backend-builtin-specialization
+passed Wasm: backend-intrinsics
+passed Wasm: backend-inexact
+passed Wasm: backend-hash-tables
+passed Wasm: backend-direct-calls
+passed Wasm: backend-read
+passed Wasm: backend-standard-library
+passed Wasm: backend-numeric-rebinding
+passed Wasm: backend-semantics
+passed Wasm: backend-symbols
+passed Wasm: backend-control
+passed Wasm: backend-errors
+passed Wasm: stdin read before EOF
+passed Wasm: vector snapshot envelope timing
+WasmGC host finalization checks passed
+Wasm identity hash lifetime checks passed
+WasmGC backend checks passed; call/cc remains unsupported future work

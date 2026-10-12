@@ -1,0 +1,39 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/lib.rs (target/debug/deps/snail_runtime-8c5e78b311a00e8a)
+
+running 26 tests
+test abi::tests::value_kind_discriminants_match_the_wire_contract ... ok
+test artifacts::tests::names_are_single_components ... ok
+test datum::tests::identifiers_follow_the_sign_and_dot_grammar ... ok
+test datum::tests::comments_prefixes_and_escapes_are_datums ... ok
+test datum::tests::labels_preserve_cycles_and_reject_unproductive_aliases ... ok
+test hash::tests::real_hashing_agrees_with_numeric_zero_equality ... ok
+test datum::tests::one_datum_leaves_the_delimiter_for_character_input ... ok
+test datum::tests::numbers_preserve_radix_exactness_and_range ... ok
+test artifacts::tests::lookup_distinguishes_missing_files_and_directories ... ok
+test host::tests::empty_reads_and_eof_remain_distinct ... ok
+test datum::tests::datum_comments_have_isolated_labels_and_nested_comments ... ok
+test host::tests::lookahead_and_line_endings_share_the_character_cursor ... ok
+test host::tests::reads_unicode_without_consuming_the_next_scalar ... ok
+test host::tests::string_output_survives_close_but_rejects_further_writes ... ok
+test symbols::tests::identifiers_fit_the_tag_payload ... ok
+test symbols::tests::literal_and_dynamic_names_share_ids ... ok
+test tests::exact_powers_check_overflow_and_keep_complex_components ... ok
+test tests::numeric_text_preserves_sign_radix_and_nonfinite_values ... ok
+test tests::printed_strings_and_characters_keep_scheme_escaping ... ok
+test tests::substring_search_counts_scalars_without_copying_the_haystack ... ok
+test text::tests::case_folding_distinguishes_characters_from_strings ... ok
+test unicode::tests::unicode_folding_and_decimal_digits ... ok
+test symbols::tests::threads_share_the_literal_prefix_and_dynamic_identities ... ok
+test datum::tests::nesting_does_not_use_the_native_call_stack ... ok
+test symbols::tests::empty_names_and_growth_preserve_identity ... ok
+test datum::tests::label_chains_resolve_without_recursion ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests snail_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

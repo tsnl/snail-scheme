@@ -1,0 +1,42 @@
+[
+  {
+    "benchmark": "cat",
+    "baseline_bytes": 495891,
+    "candidate_bytes": 505755,
+    "signed_delta_bytes": 9864,
+    "baseline_sha256": "a01a4d6d72bd85f501cdb9b9ac37f7c806995e6d85bc9b8e57324c01889bac87",
+    "candidate_sha256": "37680bd20eb332ce367f9f03d76db51f89d28f39f91424c49aade7ac76596f55"
+  },
+  {
+    "benchmark": "lattice",
+    "baseline_bytes": 520555,
+    "candidate_bytes": 560327,
+    "signed_delta_bytes": 39772,
+    "baseline_sha256": "ec38306fd03e2cfb23337d20af7f3767968b6eaf35e1ba803e12b9ff28926e7e",
+    "candidate_sha256": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4"
+  },
+  {
+    "benchmark": "wc",
+    "baseline_bytes": 512465,
+    "candidate_bytes": 527224,
+    "signed_delta_bytes": 14759,
+    "baseline_sha256": "d61dbce78b7b3a84baba14cd7759896b618da0250c93fc8b0eeb4a5253148186",
+    "candidate_sha256": "8eaf9b3348b5608454d88af7efeae55494a6de8ac4d3bbeb5ec47cad3c9b674b"
+  },
+  {
+    "benchmark": "graphs",
+    "baseline_bytes": 532624,
+    "candidate_bytes": 576156,
+    "signed_delta_bytes": 43532,
+    "baseline_sha256": "f3dac8f8eb14c7a90228d6821a3cc6f8e34f063c979eca0d4ebb2073d3deeb53",
+    "candidate_sha256": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1"
+  },
+  {
+    "benchmark": "deriv",
+    "baseline_bytes": 504619,
+    "candidate_bytes": 531774,
+    "signed_delta_bytes": 27155,
+    "baseline_sha256": "bd96dd1a3819dcee9ad2734a218aef945c1a08c20d1c290d22e98aa926cbcdf1",
+    "candidate_sha256": "3f8e99c6cfee0f1c8ae2650fb0f99db7d2969d0643eef494a5b170a100ff43e5"
+  }
+]

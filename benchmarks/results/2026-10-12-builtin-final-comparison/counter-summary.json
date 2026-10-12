@@ -1,0 +1,2912 @@
+{
+  "baseline_commit": "d2770aba4ee4c6a4c855a39b146d5f939c7fc22f",
+  "candidate_commit": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+  "scope": "Whole successful invocation including initialization, result checking, and output; global constant initializers excluded. Both sides use the same request observer. Counts precede operand evaluation, describe reached operation sites/requests, and do not imply materialized physical allocations. Counter-only execution coexisted with integration tests; durations are excluded from comparative evidence.",
+  "benchmarks": [
+    {
+      "benchmark": "cat",
+      "baseline": {
+        "label": "d277",
+        "status": "passed",
+        "constructor_request_total": 1115017486,
+        "indirect_request_total": 756,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 892013500
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 223002801
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 662
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 200
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 103
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 101
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 100
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 4
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 4
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 1
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 223003320,
+        "dlfree_entries": 223003298,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_78",
+            "key": [
+              "function-entry",
+              "$40"
+            ],
+            "static_sites": 1,
+            "value": 1561023948
+          },
+          {
+            "export": "__snail_probe_35",
+            "key": [
+              "function-entry",
+              "$abi_root"
+            ],
+            "static_sites": 1,
+            "value": 1561020763
+          },
+          {
+            "export": "__snail_probe_44",
+            "key": [
+              "function-entry",
+              "$19"
+            ],
+            "static_sites": 1,
+            "value": 669016062
+          },
+          {
+            "export": "__snail_probe_38",
+            "key": [
+              "function-entry",
+              "$abi_take"
+            ],
+            "static_sites": 1,
+            "value": 446005983
+          },
+          {
+            "export": "__snail_probe_339",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+            ],
+            "static_sites": 1,
+            "value": 446005773
+          },
+          {
+            "export": "__snail_probe_911",
+            "key": [
+              "function-entry",
+              "$dlmalloc"
+            ],
+            "static_sites": 1,
+            "value": 223003320
+          },
+          {
+            "export": "__snail_probe_912",
+            "key": [
+              "function-entry",
+              "$dlfree"
+            ],
+            "static_sites": 1,
+            "value": 223003298
+          },
+          {
+            "export": "__snail_probe_366",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+            ],
+            "static_sites": 1,
+            "value": 223002895
+          },
+          {
+            "export": "__snail_probe_217",
+            "key": [
+              "function-entry",
+              "$function132"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_668",
+            "key": [
+              "function-entry",
+              "$snail:read-char"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_368",
+            "key": [
+              "function-entry",
+              "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+            ],
+            "static_sites": 1,
+            "value": 223002846
+          },
+          {
+            "export": "__snail_probe_417",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E"
+            ],
+            "static_sites": 1,
+            "value": 223002823
+          },
+          {
+            "export": "__snail_probe_378",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE"
+            ],
+            "static_sites": 1,
+            "value": 223002817
+          },
+          {
+            "export": "__snail_probe_337",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E"
+            ],
+            "static_sites": 1,
+            "value": 223002800
+          },
+          {
+            "export": "__snail_probe_759",
+            "key": [
+              "function-entry",
+              "$snail:write-char"
+            ],
+            "static_sites": 1,
+            "value": 223002800
+          }
+        ],
+        "raw_counts_sha256": "547d14a89045f3cab8bba43330c0ff266fa4c90e27ca56cd474f0c0b0c0de1d8",
+        "cat_check": {
+          "input_bytes": 4460056,
+          "output_bytes": 4460056,
+          "input_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+        }
+      },
+      "candidate": {
+        "label": "d4",
+        "status": "passed",
+        "constructor_request_total": 1115017385,
+        "indirect_request_total": 754,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 892013399
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 223002801
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 662
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 200
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 103
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 101
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 100
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 4
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 4
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 1
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 519,
+        "dlfree_entries": 497,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_85",
+            "key": [
+              "function-entry",
+              "$45"
+            ],
+            "static_sites": 1,
+            "value": 1561023927
+          },
+          {
+            "export": "__snail_probe_43",
+            "key": [
+              "function-entry",
+              "$abi_root"
+            ],
+            "static_sites": 1,
+            "value": 1561020760
+          },
+          {
+            "export": "__snail_probe_96",
+            "key": [
+              "function-entry",
+              "$55"
+            ],
+            "static_sites": 1,
+            "value": 669008574
+          },
+          {
+            "export": "__snail_probe_46",
+            "key": [
+              "function-entry",
+              "$abi_take"
+            ],
+            "static_sites": 1,
+            "value": 446005982
+          },
+          {
+            "export": "__snail_probe_357",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+            ],
+            "static_sites": 1,
+            "value": 446005773
+          },
+          {
+            "export": "__snail_probe_384",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+            ],
+            "static_sites": 1,
+            "value": 223002895
+          },
+          {
+            "export": "__snail_probe_232",
+            "key": [
+              "function-entry",
+              "$function171"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_686",
+            "key": [
+              "function-entry",
+              "$snail:read-char"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_386",
+            "key": [
+              "function-entry",
+              "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+            ],
+            "static_sites": 1,
+            "value": 223002846
+          },
+          {
+            "export": "__snail_probe_435",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime8platform13selected_port17he67e16fc59065ef9E"
+            ],
+            "static_sites": 1,
+            "value": 223002823
+          },
+          {
+            "export": "__snail_probe_396",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host4Port5write17hc602c20d7b3b68ddE"
+            ],
+            "static_sites": 1,
+            "value": 223002817
+          },
+          {
+            "export": "__snail_probe_355",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root12as_character17h7d61a69dbe72b3d9E"
+            ],
+            "static_sites": 1,
+            "value": 223002800
+          },
+          {
+            "export": "__snail_probe_777",
+            "key": [
+              "function-entry",
+              "$snail:write-char"
+            ],
+            "static_sites": 1,
+            "value": 223002800
+          },
+          {
+            "export": "__snail_probe_895",
+            "key": [
+              "function-entry",
+              "$read"
+            ],
+            "static_sites": 1,
+            "value": 27301
+          },
+          {
+            "export": "__snail_probe_395",
+            "key": [
+              "function-entry",
+              "$_ZN3std2io8buffered9bufwriter18BufWriter$LT$W$GT$9flush_buf17h05b866eb6182ac6cE"
+            ],
+            "static_sites": 1,
+            "value": 27300
+          }
+        ],
+        "raw_counts_sha256": "3c01eab9947fe0a480600b3b3ccce1e2f91ad699d86b8cfc6feaa3972b027e7d",
+        "cat_check": {
+          "input_bytes": 4460056,
+          "output_bytes": 4460056,
+          "input_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+        }
+      },
+      "constructor_requests_removed": 101,
+      "indirect_requests_removed": 2,
+      "constructor_signed_deltas": [
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "baseline": 200,
+          "candidate": 200,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "baseline": 4,
+          "candidate": 4,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "baseline": 892013500,
+          "candidate": 892013399,
+          "candidate_minus_baseline": -101
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "baseline": 223002801,
+          "candidate": 223002801,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "baseline": 1,
+          "candidate": 1,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "baseline": 662,
+          "candidate": 662,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "baseline": 103,
+          "candidate": 103,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "baseline": 8,
+          "candidate": 8,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "baseline": 101,
+          "candidate": 101,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "baseline": 4,
+          "candidate": 4,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "baseline": 100,
+          "candidate": 100,
+          "candidate_minus_baseline": 0
+        }
+      ],
+      "constructor_request_signed_delta": -101,
+      "indirect_request_signed_delta": -2
+    },
+    {
+      "benchmark": "lattice",
+      "baseline": {
+        "label": "d277",
+        "status": "passed",
+        "constructor_request_total": 3575353260,
+        "indirect_request_total": 2812117916,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 3109807578
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 226970440
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 202463532
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 30592001
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 5519680
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 10
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 72,
+        "dlfree_entries": 62,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_169",
+            "key": [
+              "function-entry",
+              "$function28"
+            ],
+            "static_sites": 1,
+            "value": 2799297480
+          },
+          {
+            "export": "__snail_probe_25",
+            "key": [
+              "function-entry",
+              "$eqv"
+            ],
+            "static_sites": 1,
+            "value": 2051078150
+          },
+          {
+            "export": "__snail_probe_92",
+            "key": [
+              "function-entry",
+              "$primitive42"
+            ],
+            "static_sites": 1,
+            "value": 2051078150
+          },
+          {
+            "export": "__snail_probe_225",
+            "key": [
+              "function-entry",
+              "$function126"
+            ],
+            "static_sites": 1,
+            "value": 452644100
+          },
+          {
+            "export": "__snail_probe_348",
+            "key": [
+              "function-entry",
+              "$adapter178"
+            ],
+            "static_sites": 1,
+            "value": 359609320
+          },
+          {
+            "export": "__snail_probe_214",
+            "key": [
+              "function-entry",
+              "$function123"
+            ],
+            "static_sites": 1,
+            "value": 325246160
+          },
+          {
+            "export": "__snail_probe_231",
+            "key": [
+              "function-entry",
+              "$adapter126"
+            ],
+            "static_sites": 1,
+            "value": 239802640
+          },
+          {
+            "export": "__snail_probe_90",
+            "key": [
+              "function-entry",
+              "$primitive41"
+            ],
+            "static_sites": 1,
+            "value": 50146380
+          },
+          {
+            "export": "__snail_probe_284",
+            "key": [
+              "function-entry",
+              "$adapter151"
+            ],
+            "static_sites": 1,
+            "value": 34372170
+          },
+          {
+            "export": "__snail_probe_420",
+            "key": [
+              "function-entry",
+              "$function266"
+            ],
+            "static_sites": 1,
+            "value": 34372170
+          },
+          {
+            "export": "__snail_probe_256",
+            "key": [
+              "function-entry",
+              "$function141"
+            ],
+            "static_sites": 1,
+            "value": 28735080
+          },
+          {
+            "export": "__snail_probe_98",
+            "key": [
+              "function-entry",
+              "$primitive59"
+            ],
+            "static_sites": 1,
+            "value": 18347590
+          },
+          {
+            "export": "__snail_probe_269",
+            "key": [
+              "function-entry",
+              "$function143"
+            ],
+            "static_sites": 1,
+            "value": 18292410
+          },
+          {
+            "export": "__snail_probe_243",
+            "key": [
+              "function-entry",
+              "$function134"
+            ],
+            "static_sites": 1,
+            "value": 17086630
+          },
+          {
+            "export": "__snail_probe_292",
+            "key": [
+              "function-entry",
+              "$adapter150"
+            ],
+            "static_sites": 1,
+            "value": 15533060
+          }
+        ],
+        "raw_counts_sha256": "479dfbf51547ebfe1e920ce0b4dd3f23047a81cca40130b04c88991f092636e9",
+        "cat_check": null
+      },
+      "candidate": {
+        "label": "d4",
+        "status": "passed",
+        "constructor_request_total": 1428346780,
+        "indirect_request_total": 685124914,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 978501033
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 225416745
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 200909832
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 23518881
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 260
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 10
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 72,
+        "dlfree_entries": 62,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_31",
+            "key": [
+              "function-entry",
+              "$eqv"
+            ],
+            "static_sites": 1,
+            "value": 2051078150
+          },
+          {
+            "export": "__snail_probe_204",
+            "key": [
+              "function-entry",
+              "$function31"
+            ],
+            "static_sites": 1,
+            "value": 1798075510
+          },
+          {
+            "export": "__snail_probe_274",
+            "key": [
+              "function-entry",
+              "$function165"
+            ],
+            "static_sites": 1,
+            "value": 452644100
+          },
+          {
+            "export": "__snail_probe_386",
+            "key": [
+              "function-entry",
+              "$adapter217"
+            ],
+            "static_sites": 1,
+            "value": 359609320
+          },
+          {
+            "export": "__snail_probe_263",
+            "key": [
+              "function-entry",
+              "$function162"
+            ],
+            "static_sites": 1,
+            "value": 325246160
+          },
+          {
+            "export": "__snail_probe_280",
+            "key": [
+              "function-entry",
+              "$adapter165"
+            ],
+            "static_sites": 1,
+            "value": 239802640
+          },
+          {
+            "export": "__snail_probe_200",
+            "key": [
+              "function-entry",
+              "$function30"
+            ],
+            "static_sites": 1,
+            "value": 34372170
+          },
+          {
+            "export": "__snail_probe_327",
+            "key": [
+              "function-entry",
+              "$function185"
+            ],
+            "static_sites": 1,
+            "value": 34372170
+          },
+          {
+            "export": "__snail_probe_467",
+            "key": [
+              "function-entry",
+              "$adapter380"
+            ],
+            "static_sites": 1,
+            "value": 34372170
+          },
+          {
+            "export": "__snail_probe_497",
+            "key": [
+              "function-entry",
+              "$specialized519"
+            ],
+            "static_sites": 1,
+            "value": 25627940
+          },
+          {
+            "export": "__snail_probe_335",
+            "key": [
+              "function-entry",
+              "$function182"
+            ],
+            "static_sites": 1,
+            "value": 18292410
+          },
+          {
+            "export": "__snail_probe_292",
+            "key": [
+              "function-entry",
+              "$function173"
+            ],
+            "static_sites": 1,
+            "value": 17086630
+          },
+          {
+            "export": "__snail_probe_475",
+            "key": [
+              "function-entry",
+              "$adapter379"
+            ],
+            "static_sites": 1,
+            "value": 15533060
+          },
+          {
+            "export": "__snail_probe_305",
+            "key": [
+              "function-entry",
+              "$function177"
+            ],
+            "static_sites": 1,
+            "value": 15239710
+          },
+          {
+            "export": "__snail_probe_479",
+            "key": [
+              "function-entry",
+              "$adapter387"
+            ],
+            "static_sites": 1,
+            "value": 12813970
+          }
+        ],
+        "raw_counts_sha256": "700c8a3dbcd261e8285e43daa161ab2afcdfe3cf3d3ef1a03261470d019a6055",
+        "cat_check": null
+      },
+      "constructor_requests_removed": 2147006480,
+      "indirect_requests_removed": 2126993002,
+      "constructor_signed_deltas": [
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "baseline": 5519680,
+          "candidate": 260,
+          "candidate_minus_baseline": -5519420
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "baseline": 3109807578,
+          "candidate": 978501033,
+          "candidate_minus_baseline": -2131306545
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "baseline": 202463532,
+          "candidate": 200909832,
+          "candidate_minus_baseline": -1553700
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "baseline": 226970440,
+          "candidate": 225416745,
+          "candidate_minus_baseline": -1553695
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "baseline": 8,
+          "candidate": 8,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "baseline": 30592001,
+          "candidate": 23518881,
+          "candidate_minus_baseline": -7073120
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "baseline": 10,
+          "candidate": 10,
+          "candidate_minus_baseline": 0
+        }
+      ],
+      "constructor_request_signed_delta": -2147006480,
+      "indirect_request_signed_delta": -2126993002
+    },
+    {
+      "benchmark": "wc",
+      "baseline": {
+        "label": "d277",
+        "status": "passed",
+        "constructor_request_total": 1698842361,
+        "indirect_request_total": 456,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 1072424208
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 626417300
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 371
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 210
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 100
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 53
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 53
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 50
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 235,
+        "dlfree_entries": 223,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_82",
+            "key": [
+              "function-entry",
+              "$42"
+            ],
+            "static_sites": 1,
+            "value": 669009496
+          },
+          {
+            "export": "__snail_probe_39",
+            "key": [
+              "function-entry",
+              "$abi_root"
+            ],
+            "static_sites": 1,
+            "value": 669008968
+          },
+          {
+            "export": "__snail_probe_35",
+            "key": [
+              "function-entry",
+              "$builtin:char=?"
+            ],
+            "static_sites": 1,
+            "value": 403414500
+          },
+          {
+            "export": "__snail_probe_48",
+            "key": [
+              "function-entry",
+              "$21"
+            ],
+            "static_sites": 1,
+            "value": 223004411
+          },
+          {
+            "export": "__snail_probe_42",
+            "key": [
+              "function-entry",
+              "$abi_take"
+            ],
+            "static_sites": 1,
+            "value": 223002982
+          },
+          {
+            "export": "__snail_probe_416",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+            ],
+            "static_sites": 1,
+            "value": 223002922
+          },
+          {
+            "export": "__snail_probe_443",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+            ],
+            "static_sites": 1,
+            "value": 223002888
+          },
+          {
+            "export": "__snail_probe_745",
+            "key": [
+              "function-entry",
+              "$snail:read-char"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_445",
+            "key": [
+              "function-entry",
+              "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+            ],
+            "static_sites": 1,
+            "value": 223002839
+          },
+          {
+            "export": "__snail_probe_359",
+            "key": [
+              "function-entry",
+              "$function256"
+            ],
+            "static_sites": 1,
+            "value": 222999650
+          },
+          {
+            "export": "__snail_probe_954",
+            "key": [
+              "function-entry",
+              "$read"
+            ],
+            "static_sites": 1,
+            "value": 27301
+          },
+          {
+            "export": "__snail_probe_947",
+            "key": [
+              "function-entry",
+              "$_RNvXsa_NtCset5xJoy1xWQ_3std2fsNtB5_4FileNtNtB7_2io4Read8read_buf"
+            ],
+            "static_sites": 1,
+            "value": 27300
+          },
+          {
+            "export": "__snail_probe_353",
+            "key": [
+              "function-entry",
+              "$function251"
+            ],
+            "static_sites": 1,
+            "value": 3150
+          },
+          {
+            "export": "__snail_probe_411",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root3len17h732b339cfc858647E"
+            ],
+            "static_sites": 1,
+            "value": 672
+          },
+          {
+            "export": "__snail_probe_422",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root7char_at17h1d8f3b2fb62cdd7cE"
+            ],
+            "static_sites": 1,
+            "value": 611
+          }
+        ],
+        "raw_counts_sha256": "41f5a12a29555e24ad1dd301cb8fb9ae0bde8f5f8bd0f2031fe6fb2ed6c05bc7",
+        "cat_check": null
+      },
+      "candidate": {
+        "label": "d4",
+        "status": "passed",
+        "constructor_request_total": 892013211,
+        "indirect_request_total": 354,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 669009558
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 223002800
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 371
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 210
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 100
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 53
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 53
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 50
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 235,
+        "dlfree_entries": 223,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_87",
+            "key": [
+              "function-entry",
+              "$46"
+            ],
+            "static_sites": 1,
+            "value": 669009496
+          },
+          {
+            "export": "__snail_probe_45",
+            "key": [
+              "function-entry",
+              "$abi_root"
+            ],
+            "static_sites": 1,
+            "value": 669008968
+          },
+          {
+            "export": "__snail_probe_48",
+            "key": [
+              "function-entry",
+              "$abi_take"
+            ],
+            "static_sites": 1,
+            "value": 223002982
+          },
+          {
+            "export": "__snail_probe_98",
+            "key": [
+              "function-entry",
+              "$56"
+            ],
+            "static_sites": 1,
+            "value": 223002929
+          },
+          {
+            "export": "__snail_probe_455",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root15extension_parts17h4a2bf9ed1f5b56faE"
+            ],
+            "static_sites": 1,
+            "value": 223002922
+          },
+          {
+            "export": "__snail_probe_482",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E"
+            ],
+            "static_sites": 1,
+            "value": 223002888
+          },
+          {
+            "export": "__snail_probe_784",
+            "key": [
+              "function-entry",
+              "$snail:read-char"
+            ],
+            "static_sites": 1,
+            "value": 223002850
+          },
+          {
+            "export": "__snail_probe_484",
+            "key": [
+              "function-entry",
+              "$_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8"
+            ],
+            "static_sites": 1,
+            "value": 223002839
+          },
+          {
+            "export": "__snail_probe_401",
+            "key": [
+              "function-entry",
+              "$function420"
+            ],
+            "static_sites": 1,
+            "value": 222999650
+          },
+          {
+            "export": "__snail_probe_993",
+            "key": [
+              "function-entry",
+              "$read"
+            ],
+            "static_sites": 1,
+            "value": 27301
+          },
+          {
+            "export": "__snail_probe_986",
+            "key": [
+              "function-entry",
+              "$_RNvXsa_NtCset5xJoy1xWQ_3std2fsNtB5_4FileNtNtB7_2io4Read8read_buf"
+            ],
+            "static_sites": 1,
+            "value": 27300
+          },
+          {
+            "export": "__snail_probe_390",
+            "key": [
+              "function-entry",
+              "$function408"
+            ],
+            "static_sites": 1,
+            "value": 3150
+          },
+          {
+            "export": "__snail_probe_97",
+            "key": [
+              "function-entry",
+              "$55"
+            ],
+            "static_sites": 1,
+            "value": 1482
+          },
+          {
+            "export": "__snail_probe_439",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root7require17hc9e65519c1aa99d7E"
+            ],
+            "static_sites": 1,
+            "value": 1349
+          },
+          {
+            "export": "__snail_probe_461",
+            "key": [
+              "function-entry",
+              "$_ZN13snail_runtime3abi4Root7char_at17h1d8f3b2fb62cdd7cE"
+            ],
+            "static_sites": 1,
+            "value": 611
+          }
+        ],
+        "raw_counts_sha256": "01c8f129510b7ddaad91b2e357a28a82a5d1d8b6fa63c5011140c497c48d5f31",
+        "cat_check": null
+      },
+      "constructor_requests_removed": 806829150,
+      "indirect_requests_removed": 102,
+      "constructor_signed_deltas": [
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "baseline": 100,
+          "candidate": 100,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "baseline": 1072424208,
+          "candidate": 669009558,
+          "candidate_minus_baseline": -403414650
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "baseline": 626417300,
+          "candidate": 223002800,
+          "candidate_minus_baseline": -403414500
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "baseline": 53,
+          "candidate": 53,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "baseline": 371,
+          "candidate": 371,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "baseline": 53,
+          "candidate": 53,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "baseline": 8,
+          "candidate": 8,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "baseline": 210,
+          "candidate": 210,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "baseline": 50,
+          "candidate": 50,
+          "candidate_minus_baseline": 0
+        }
+      ],
+      "constructor_request_signed_delta": -806829150,
+      "indirect_request_signed_delta": -102
+    },
+    {
+      "benchmark": "graphs",
+      "baseline": {
+        "label": "d277",
+        "status": "passed",
+        "constructor_request_total": 2794647871,
+        "indirect_request_total": 686774595,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 2177447823
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 344697418
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 164545159
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 105384010
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 2573439
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 3
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 72,
+        "dlfree_entries": 62,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_107",
+            "key": [
+              "function-entry",
+              "$primitive63"
+            ],
+            "static_sites": 1,
+            "value": 995388837
+          },
+          {
+            "export": "__snail_probe_174",
+            "key": [
+              "function-entry",
+              "$function28"
+            ],
+            "static_sites": 1,
+            "value": 425374389
+          },
+          {
+            "export": "__snail_probe_25",
+            "key": [
+              "function-entry",
+              "$eqv"
+            ],
+            "static_sites": 1,
+            "value": 261175719
+          },
+          {
+            "export": "__snail_probe_93",
+            "key": [
+              "function-entry",
+              "$primitive42"
+            ],
+            "static_sites": 1,
+            "value": 261175719
+          },
+          {
+            "export": "__snail_probe_13",
+            "key": [
+              "function-entry",
+              "$numeric_equal"
+            ],
+            "static_sites": 1,
+            "value": 191190232
+          },
+          {
+            "export": "__snail_probe_505",
+            "key": [
+              "function-entry",
+              "$function349"
+            ],
+            "static_sites": 1,
+            "value": 162800067
+          },
+          {
+            "export": "__snail_probe_302",
+            "key": [
+              "function-entry",
+              "$function175"
+            ],
+            "static_sites": 1,
+            "value": 96956064
+          },
+          {
+            "export": "__snail_probe_508",
+            "key": [
+              "function-entry",
+              "$adapter349"
+            ],
+            "static_sites": 1,
+            "value": 96956064
+          },
+          {
+            "export": "__snail_probe_284",
+            "key": [
+              "function-entry",
+              "$adapter169"
+            ],
+            "static_sites": 1,
+            "value": 96233442
+          },
+          {
+            "export": "__snail_probe_497",
+            "key": [
+              "function-entry",
+              "$function333"
+            ],
+            "static_sites": 1,
+            "value": 96233442
+          },
+          {
+            "export": "__snail_probe_493",
+            "key": [
+              "function-entry",
+              "$adapter337"
+            ],
+            "static_sites": 1,
+            "value": 68253318
+          },
+          {
+            "export": "__snail_probe_458",
+            "key": [
+              "function-entry",
+              "$function306"
+            ],
+            "static_sites": 1,
+            "value": 59020242
+          },
+          {
+            "export": "__snail_probe_109",
+            "key": [
+              "function-entry",
+              "$primitive64"
+            ],
+            "static_sites": 1,
+            "value": 45177945
+          },
+          {
+            "export": "__snail_probe_97",
+            "key": [
+              "function-entry",
+              "$primitive57"
+            ],
+            "static_sites": 1,
+            "value": 31586007
+          },
+          {
+            "export": "__snail_probe_268",
+            "key": [
+              "function-entry",
+              "$function156"
+            ],
+            "static_sites": 1,
+            "value": 29264052
+          }
+        ],
+        "raw_counts_sha256": "fd720bd9c06a018a9faa865030c2547e7264a4ad9ef8ebbfc341858100f68cdb",
+        "cat_check": null
+      },
+      "candidate": {
+        "label": "d4",
+        "status": "passed",
+        "constructor_request_total": 1454167266,
+        "indirect_request_total": 392345737,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 841132396
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 344245400
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 164093143
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 103527430
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 1168875
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 3
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 72,
+        "dlfree_entries": 62,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_30",
+            "key": [
+              "function-entry",
+              "$eqv"
+            ],
+            "static_sites": 1,
+            "value": 261175719
+          },
+          {
+            "export": "__snail_probe_187",
+            "key": [
+              "function-entry",
+              "$function31"
+            ],
+            "static_sites": 1,
+            "value": 261154734
+          },
+          {
+            "export": "__snail_probe_18",
+            "key": [
+              "function-entry",
+              "$numeric_equal"
+            ],
+            "static_sites": 1,
+            "value": 191190232
+          },
+          {
+            "export": "__snail_probe_380",
+            "key": [
+              "function-entry",
+              "$function217"
+            ],
+            "static_sites": 1,
+            "value": 162800067
+          },
+          {
+            "export": "__snail_probe_382",
+            "key": [
+              "function-entry",
+              "$adapter217"
+            ],
+            "static_sites": 1,
+            "value": 96956064
+          },
+          {
+            "export": "__snail_probe_332",
+            "key": [
+              "function-entry",
+              "$function199"
+            ],
+            "static_sites": 1,
+            "value": 96233442
+          },
+          {
+            "export": "__snail_probe_356",
+            "key": [
+              "function-entry",
+              "$adapter208"
+            ],
+            "static_sites": 1,
+            "value": 96233442
+          },
+          {
+            "export": "__snail_probe_322",
+            "key": [
+              "function-entry",
+              "$adapter203"
+            ],
+            "static_sites": 1,
+            "value": 68253318
+          },
+          {
+            "export": "__snail_probe_580",
+            "key": [
+              "function-entry",
+              "$specialized725"
+            ],
+            "static_sites": 1,
+            "value": 30944520
+          },
+          {
+            "export": "__snail_probe_340",
+            "key": [
+              "function-entry",
+              "$function195"
+            ],
+            "static_sites": 1,
+            "value": 29264052
+          },
+          {
+            "export": "__snail_probe_326",
+            "key": [
+              "function-entry",
+              "$adapter202"
+            ],
+            "static_sites": 1,
+            "value": 28075722
+          },
+          {
+            "export": "__snail_probe_583",
+            "key": [
+              "function-entry",
+              "$adapter727"
+            ],
+            "static_sites": 1,
+            "value": 28075722
+          },
+          {
+            "export": "__snail_probe_337",
+            "key": [
+              "function-entry",
+              "$adapter197"
+            ],
+            "static_sites": 1,
+            "value": 27980124
+          },
+          {
+            "export": "__snail_probe_287",
+            "key": [
+              "function-entry",
+              "$function180"
+            ],
+            "static_sites": 1,
+            "value": 13834317
+          },
+          {
+            "export": "__snail_probe_466",
+            "key": [
+              "function-entry",
+              "$adapter268"
+            ],
+            "static_sites": 1,
+            "value": 8693874
+          }
+        ],
+        "raw_counts_sha256": "64ab820656be6f8ccb53526e21541f1f0465483cef3a91f36bc82db2a5246bdd",
+        "cat_check": null
+      },
+      "constructor_requests_removed": 1340480605,
+      "indirect_requests_removed": 294428858,
+      "constructor_signed_deltas": [
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "baseline": 2573439,
+          "candidate": 1168875,
+          "candidate_minus_baseline": -1404564
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "baseline": 2177447823,
+          "candidate": 841132396,
+          "candidate_minus_baseline": -1336315427
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "baseline": 164545159,
+          "candidate": 164093143,
+          "candidate_minus_baseline": -452016
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "baseline": 344697418,
+          "candidate": 344245400,
+          "candidate_minus_baseline": -452018
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "baseline": 8,
+          "candidate": 8,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "baseline": 105384010,
+          "candidate": 103527430,
+          "candidate_minus_baseline": -1856580
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        }
+      ],
+      "constructor_request_signed_delta": -1340480605,
+      "indirect_request_signed_delta": -294428858
+    },
+    {
+      "benchmark": "deriv",
+      "baseline": {
+        "label": "d277",
+        "status": "passed",
+        "constructor_request_total": 2040000436,
+        "indirect_request_total": 590000006,
+        "constructor_requests": [
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 880000105
+          },
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 770000197
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 240000000
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 100000068
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 40000003
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 10000000
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 43
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 394,
+        "dlfree_entries": 362,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_199",
+            "key": [
+              "function-entry",
+              "$function38"
+            ],
+            "static_sites": 1,
+            "value": 480000000
+          },
+          {
+            "export": "__snail_probe_317",
+            "key": [
+              "function-entry",
+              "$specialized190"
+            ],
+            "static_sites": 1,
+            "value": 160000000
+          },
+          {
+            "export": "__snail_probe_320",
+            "key": [
+              "function-entry",
+              "$function192"
+            ],
+            "static_sites": 1,
+            "value": 160000000
+          },
+          {
+            "export": "__snail_probe_263",
+            "key": [
+              "function-entry",
+              "$function145"
+            ],
+            "static_sites": 1,
+            "value": 130000000
+          },
+          {
+            "export": "__snail_probe_31",
+            "key": [
+              "function-entry",
+              "$builtin:apply"
+            ],
+            "static_sites": 1,
+            "value": 120000000
+          },
+          {
+            "export": "__snail_probe_102",
+            "key": [
+              "function-entry",
+              "$primitive58"
+            ],
+            "static_sites": 1,
+            "value": 120000000
+          },
+          {
+            "export": "__snail_probe_104",
+            "key": [
+              "function-entry",
+              "$primitive59"
+            ],
+            "static_sites": 1,
+            "value": 120000000
+          },
+          {
+            "export": "__snail_probe_150",
+            "key": [
+              "function-entry",
+              "$adapter1"
+            ],
+            "static_sites": 1,
+            "value": 110000000
+          },
+          {
+            "export": "__snail_probe_259",
+            "key": [
+              "function-entry",
+              "$adapter146"
+            ],
+            "static_sites": 1,
+            "value": 80000000
+          },
+          {
+            "export": "__snail_probe_206",
+            "key": [
+              "function-entry",
+              "$adapter39"
+            ],
+            "static_sites": 1,
+            "value": 40000000
+          },
+          {
+            "export": "__snail_probe_270",
+            "key": [
+              "function-entry",
+              "$adapter145"
+            ],
+            "static_sites": 1,
+            "value": 40000000
+          },
+          {
+            "export": "__snail_probe_324",
+            "key": [
+              "function-entry",
+              "$adapter192"
+            ],
+            "static_sites": 1,
+            "value": 40000000
+          },
+          {
+            "export": "__snail_probe_326",
+            "key": [
+              "function-entry",
+              "$function227"
+            ],
+            "static_sites": 1,
+            "value": 10000001
+          },
+          {
+            "export": "__snail_probe_26",
+            "key": [
+              "function-entry",
+              "$builtin:call-with-values"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_109",
+            "key": [
+              "function-entry",
+              "$primitive63"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          }
+        ],
+        "raw_counts_sha256": "d3c51bf865e6af3797a971feab9862bbd338c4c837264fe1522032f5c3e70cfa",
+        "cat_check": null
+      },
+      "candidate": {
+        "label": "d4",
+        "status": "passed",
+        "constructor_request_total": 800000438,
+        "indirect_request_total": 160000004,
+        "constructor_requests": [
+          {
+            "operation": "struct.new",
+            "type": "$pair",
+            "value": 490000197
+          },
+          {
+            "operation": "array.new_fixed",
+            "type": "$vector",
+            "value": 240000106
+          },
+          {
+            "operation": "struct.new",
+            "type": "$closure",
+            "value": 60000069
+          },
+          {
+            "operation": "struct.new",
+            "type": "$values",
+            "value": 10000000
+          },
+          {
+            "operation": "struct.new",
+            "type": "$atom",
+            "value": 43
+          },
+          {
+            "operation": "struct.new",
+            "type": "$float",
+            "value": 8
+          },
+          {
+            "operation": "array.new",
+            "type": "$text",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$extension",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$cell",
+            "value": 3
+          },
+          {
+            "operation": "struct.new",
+            "type": "$integer",
+            "value": 2
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$text",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$text_object",
+            "value": 2
+          },
+          {
+            "operation": "struct.new",
+            "type": "$complex",
+            "value": 0
+          },
+          {
+            "operation": "array.new",
+            "type": "$vector",
+            "value": 0
+          },
+          {
+            "operation": "array.new_default",
+            "type": "$bytes",
+            "value": 0
+          },
+          {
+            "operation": "struct.new",
+            "type": "$bytevector",
+            "value": 0
+          }
+        ],
+        "dlmalloc_entries": 394,
+        "dlfree_entries": 362,
+        "top_function_entries": [
+          {
+            "export": "__snail_probe_212",
+            "key": [
+              "function-entry",
+              "$function38"
+            ],
+            "static_sites": 1,
+            "value": 160000000
+          },
+          {
+            "export": "__snail_probe_292",
+            "key": [
+              "function-entry",
+              "$function184"
+            ],
+            "static_sites": 1,
+            "value": 130000000
+          },
+          {
+            "export": "__snail_probe_289",
+            "key": [
+              "function-entry",
+              "$adapter185"
+            ],
+            "static_sites": 1,
+            "value": 80000000
+          },
+          {
+            "export": "__snail_probe_225",
+            "key": [
+              "function-entry",
+              "$function39"
+            ],
+            "static_sites": 1,
+            "value": 40000000
+          },
+          {
+            "export": "__snail_probe_297",
+            "key": [
+              "function-entry",
+              "$adapter184"
+            ],
+            "static_sites": 1,
+            "value": 40000000
+          },
+          {
+            "export": "__snail_probe_335",
+            "key": [
+              "function-entry",
+              "$function207"
+            ],
+            "static_sites": 1,
+            "value": 10000001
+          },
+          {
+            "export": "__snail_probe_36",
+            "key": [
+              "function-entry",
+              "$builtin:call-with-values"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_283",
+            "key": [
+              "function-entry",
+              "$adapter148"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_299",
+            "key": [
+              "function-entry",
+              "$adapter193"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_316",
+            "key": [
+              "function-entry",
+              "$adapter197"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_322",
+            "key": [
+              "function-entry",
+              "$adapter199"
+            ],
+            "static_sites": 1,
+            "value": 10000000
+          },
+          {
+            "export": "__snail_probe_241",
+            "key": [
+              "function-entry",
+              "$function94"
+            ],
+            "static_sites": 1,
+            "value": 489
+          },
+          {
+            "export": "__snail_probe_164",
+            "key": [
+              "function-entry",
+              "$function2"
+            ],
+            "static_sites": 1,
+            "value": 429
+          },
+          {
+            "export": "__snail_probe_47",
+            "key": [
+              "function-entry",
+              "$abi_root"
+            ],
+            "static_sites": 1,
+            "value": 419
+          },
+          {
+            "export": "__snail_probe_998",
+            "key": [
+              "function-entry",
+              "$dlmalloc"
+            ],
+            "static_sites": 1,
+            "value": 394
+          }
+        ],
+        "raw_counts_sha256": "46d67dc1dfadfc166f5b17c38373b74f58d1cfa98b6bad4b4a77c727ad111720",
+        "cat_check": null
+      },
+      "constructor_requests_removed": 1239999998,
+      "indirect_requests_removed": 430000002,
+      "constructor_signed_deltas": [
+        {
+          "operation": "array.new",
+          "type": "$text",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new",
+          "type": "$vector",
+          "baseline": 240000000,
+          "candidate": 0,
+          "candidate_minus_baseline": -240000000
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$bytes",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_default",
+          "type": "$text",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "array.new_fixed",
+          "type": "$vector",
+          "baseline": 880000105,
+          "candidate": 240000106,
+          "candidate_minus_baseline": -639999999
+        },
+        {
+          "operation": "struct.new",
+          "type": "$atom",
+          "baseline": 43,
+          "candidate": 43,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$bytevector",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$cell",
+          "baseline": 40000003,
+          "candidate": 3,
+          "candidate_minus_baseline": -40000000
+        },
+        {
+          "operation": "struct.new",
+          "type": "$closure",
+          "baseline": 100000068,
+          "candidate": 60000069,
+          "candidate_minus_baseline": -39999999
+        },
+        {
+          "operation": "struct.new",
+          "type": "$complex",
+          "baseline": 0,
+          "candidate": 0,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$extension",
+          "baseline": 3,
+          "candidate": 3,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$float",
+          "baseline": 8,
+          "candidate": 8,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$integer",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$pair",
+          "baseline": 770000197,
+          "candidate": 490000197,
+          "candidate_minus_baseline": -280000000
+        },
+        {
+          "operation": "struct.new",
+          "type": "$text_object",
+          "baseline": 2,
+          "candidate": 2,
+          "candidate_minus_baseline": 0
+        },
+        {
+          "operation": "struct.new",
+          "type": "$values",
+          "baseline": 10000000,
+          "candidate": 10000000,
+          "candidate_minus_baseline": 0
+        }
+      ],
+      "constructor_request_signed_delta": -1239999998,
+      "indirect_request_signed_delta": -430000002
+    }
+  ]
+}
