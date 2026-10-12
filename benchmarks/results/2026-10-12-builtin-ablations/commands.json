@@ -1,0 +1,252 @@
+{
+  "python": "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+  "recorded_commands": [
+    {
+      "phase": "prepare-only",
+      "cwd": "/tmp/snail-write-char-utf8-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "benchmarks/r7rs.py",
+        "--output",
+        "build/cat-prepared",
+        "--benchmarks",
+        "cat",
+        "--systems",
+        "snail-wasm",
+        "--rounds",
+        "3",
+        "--cpu",
+        "5",
+        "--prepare-only",
+        "--build-timeout",
+        "900"
+      ],
+      "runtime_cache": "build/wasm-runtime; private copied cache, then ordinary source fingerprint validation/rebuild"
+    },
+    {
+      "phase": "prepare-only",
+      "cwd": "/tmp/snail-write-char-utf8-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "benchmarks/r7rs.py",
+        "--output",
+        "build/wc-prepared",
+        "--benchmarks",
+        "wc",
+        "--systems",
+        "snail-wasm",
+        "--rounds",
+        "3",
+        "--cpu",
+        "5",
+        "--prepare-only",
+        "--build-timeout",
+        "900"
+      ],
+      "runtime_cache": "build/wasm-runtime; private copied cache, then ordinary source fingerprint validation/rebuild"
+    },
+    {
+      "phase": "prepare-only",
+      "cwd": "/tmp/snail-is-kind-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "benchmarks/r7rs.py",
+        "--output",
+        "build/cat-wc-prepared",
+        "--benchmarks",
+        "cat",
+        "wc",
+        "--systems",
+        "snail-wasm",
+        "--rounds",
+        "3",
+        "--cpu",
+        "5",
+        "--prepare-only",
+        "--build-timeout",
+        "900"
+      ],
+      "runtime_cache": "build/wasm-runtime; private copied cache, then ordinary source fingerprint validation/rebuild"
+    },
+    {
+      "phase": "clean comparison",
+      "cwd": "/tmp/snail-write-char-utf8-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "build/compare-cat.py",
+        "/tmp/snail-v8-candidate-d2770ab-20261012/build/v8-worst-five/results.json",
+        "/tmp/snail-write-char-utf8-20261012/build/cat-prepared/results.json",
+        "--output",
+        "/tmp/snail-write-char-utf8-20261012/build/cat-clean",
+        "--cpu",
+        "5",
+        "--rounds",
+        "3"
+      ]
+    },
+    {
+      "phase": "clean comparison",
+      "cwd": "/tmp/snail-is-kind-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "build/compare-pair.py",
+        "/tmp/snail-write-char-utf8-20261012/build/cat-wc-control/results.json",
+        "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/results.json",
+        "--output",
+        "/tmp/snail-is-kind-20261012/build/cat-wc-clean",
+        "--cpu",
+        "5",
+        "--rounds",
+        "3"
+      ]
+    },
+    {
+      "phase": "prepare-only",
+      "cwd": "/tmp/snail-native-builtins-ff8b873-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "benchmarks/r7rs.py",
+        "--output",
+        "build/graphs-wc-prepared",
+        "--benchmarks",
+        "graphs",
+        "wc",
+        "--systems",
+        "snail-wasm",
+        "--rounds",
+        "3",
+        "--cpu",
+        "5",
+        "--prepare-only",
+        "--build-timeout",
+        "900"
+      ]
+    },
+    {
+      "phase": "prepare-only",
+      "cwd": "/tmp/snail-is-kind-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "benchmarks/r7rs.py",
+        "--output",
+        "build/graphs-prepared",
+        "--benchmarks",
+        "graphs",
+        "--systems",
+        "snail-wasm",
+        "--rounds",
+        "3",
+        "--cpu",
+        "5",
+        "--prepare-only",
+        "--build-timeout",
+        "900"
+      ]
+    },
+    {
+      "phase": "clean comparison",
+      "cwd": "/tmp/snail-native-builtins-ff8b873-20261012",
+      "PATH_prefix": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin",
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin"
+      ],
+      "environment_overrides": {
+        "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+        "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/3rpxj4nlh9pxbshncijy78acnajnybky-python3-3.14.6-env/bin/python3",
+        "build/compare-pair.py",
+        "/tmp/snail-is-kind-20261012/build/graphs-wc-control/results.json",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/results.json",
+        "--output",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-clean",
+        "--cpu",
+        "5",
+        "--rounds",
+        "3"
+      ]
+    }
+  ],
+  "note": "PATH prefix precedes inherited system PATH; all resolved executable paths/hashes and complete experiment environment are retained in the prepared reports."
+}

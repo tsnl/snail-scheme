@@ -1,0 +1,82 @@
+{
+  "comparisons": [
+    {
+      "benchmark": "cat",
+      "baseline_seconds": 21.54608088,
+      "candidate_seconds": 20.377087874,
+      "baseline_over_candidate": 1.0573680112304746,
+      "elapsed_reduction_fraction": 0.05425548212274234
+    },
+    {
+      "benchmark": "wc",
+      "baseline_seconds": 12.580414796,
+      "candidate_seconds": 11.96550845,
+      "baseline_over_candidate": 1.0513899052906523,
+      "elapsed_reduction_fraction": 0.04887806610283729
+    }
+  ],
+  "report_sha256": "5a79b17fddb169fc6c99d3d03ec256a03e1b3c162f481b11a0529c7d9a6fbb0a",
+  "rows": [
+    {
+      "benchmark": "cat",
+      "variant": "baseline",
+      "preliminary_seconds": 22.413906064,
+      "retained_seconds": [
+        21.479586994,
+        21.562768999,
+        21.54608088
+      ],
+      "range_seconds": [
+        21.479586994,
+        21.562768999
+      ],
+      "program_sha256": "f5388b1ffa3c6f792c4361e9e8b166c8947e659d8f549202d7118c76be20ed74"
+    },
+    {
+      "benchmark": "wc",
+      "variant": "baseline",
+      "preliminary_seconds": 12.518836124,
+      "retained_seconds": [
+        12.59030228,
+        12.580414796,
+        12.527390469
+      ],
+      "range_seconds": [
+        12.527390469,
+        12.59030228
+      ],
+      "program_sha256": "f9a14a22800a8eb70b466e6d9bc6e91373263e52160f3f8f0d533a85b5bb0d54"
+    },
+    {
+      "benchmark": "cat",
+      "variant": "candidate",
+      "preliminary_seconds": 20.37963719,
+      "retained_seconds": [
+        20.377087874,
+        20.333047503,
+        20.666314994
+      ],
+      "range_seconds": [
+        20.333047503,
+        20.666314994
+      ],
+      "program_sha256": "11a56dc8c16b36cd683e194e55bd491ee6fb9661a9e5e880375df7bb89716213"
+    },
+    {
+      "benchmark": "wc",
+      "variant": "candidate",
+      "preliminary_seconds": 12.008938958,
+      "retained_seconds": [
+        11.972782405,
+        11.96550845,
+        11.902813138
+      ],
+      "range_seconds": [
+        11.902813138,
+        11.972782405
+      ],
+      "program_sha256": "05bd4c6253f5d6c0d408849c546acab93981bf578d8bce0b0ec3383b5ee7d841"
+    }
+  ],
+  "all_sixteen_outputs_passed": true
+}

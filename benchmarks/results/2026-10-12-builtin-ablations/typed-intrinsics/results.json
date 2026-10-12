@@ -1,0 +1,897 @@
+{
+  "schema": 1,
+  "kind": "r7rs",
+  "complete": true,
+  "output": "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-clean",
+  "upstream": "https://github.com/ecraven/r7rs-benchmarks",
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "date": "2026-10-12T21:52:24.064029+00:00",
+  "revision": "910b1858d286a37b125d31e973858564fc3093cf",
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu": 5,
+  "allowed_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "rounds": 3,
+  "count": null,
+  "timeout": 300,
+  "build_timeout": 900,
+  "tools": {
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.002225753996754065,
+        "stdout": "10.4.1\n",
+        "stderr": ""
+      }
+    },
+    "GUILE": {
+      "path": null
+    },
+    "GUILD": {
+      "path": null
+    },
+    "CHIBI": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.04177084501134232,
+        "stdout": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n",
+        "stderr": ""
+      }
+    },
+    "CARGO": {
+      "path": "/run/current-system/sw/bin/cargo",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.03084971001953818,
+        "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n",
+        "stderr": ""
+      }
+    },
+    "RUSTC": {
+      "path": "/run/current-system/sw/bin/rustc",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.023409367015119642,
+        "stdout": "rustc 1.95.0 (59807616e 2026-04-14)\n",
+        "stderr": ""
+      }
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.010422589984955266,
+        "stdout": "v24.19.0\n",
+        "stderr": ""
+      },
+      "versions": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.02304170301067643,
+        "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+        "stderr": ""
+      }
+    },
+    "WASM_AS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.004622818989446387,
+        "stdout": "wasm-as version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_MERGE": {
+      "path": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+      "sha256": "0b36b60216d2d7626934fa21b462c722937cc2c88932bfe6189297873c495a36",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.028078545990865678,
+        "stdout": "wasm-merge version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0030071439978200942,
+        "stdout": "wasm-opt version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_DIS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.00492824797402136,
+        "stdout": "wasm-dis version 132\n",
+        "stderr": ""
+      }
+    }
+  },
+  "host_sha256": {
+    "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+    "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+    "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+  },
+  "cpu_info": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 198\nmodel name\t: Intel(R) Core(TM) Ultra 7 270K Plus\nstepping\t: 2\nmicrocode\t: 0x122\ncpu MHz\t\t: 1615.512\ncache size\t: 36864 KB\nphysical id\t: 0\nsiblings\t: 24\ncore id\t\t: 0\ncpu cores\t: 24\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 35\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs pml ept_violation_ve ept_mode_based_exec tsc_scaling usr_wait_pause notify_vm_exiting ipi_virt\nbugs\t\t: spectre_v1 spectre_v2 spec_store_bypass swapgs bhi spectre_v2_user vmscape\nbogomips\t: 7372.80\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+  "environment": {},
+  "benchmarks": [
+    "graphs",
+    "wc"
+  ],
+  "systems": [
+    "baseline",
+    "candidate"
+  ],
+  "cases": [
+    {
+      "benchmark": "graphs",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.545123622985557,
+          "stdout": "Running graphs:7:3\nElapsed time: 12.501697432 seconds (12.502) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,12.501697432\n",
+          "stderr": "",
+          "seconds": 12.501697432,
+          "name": "graphs:7:3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.530359591008164,
+          "stdout": "Running graphs:7:3\nElapsed time: 12.489592181 seconds (12.49) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,12.489592181\n",
+          "stderr": "",
+          "seconds": 12.489592181,
+          "name": "graphs:7:3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.554375826002797,
+          "stdout": "Running graphs:7:3\nElapsed time: 12.510743707 seconds (12.511) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,12.510743707\n",
+          "stderr": "",
+          "seconds": 12.510743707,
+          "name": "graphs:7:3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-is-kind-20261012/build/graphs-prepared/cases/graphs/snail-wasm",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-is-kind-20261012/src",
+        "/tmp/snail-is-kind-20261012/build/graphs-prepared/cases/graphs/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-is-kind-20261012/build/graphs-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-is-kind-20261012/build/graphs-prepared/cases/graphs/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 16.170907299005194,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "8e57c71ccd17eec5d978a762f79472fa311f03707bbe6c31954922f93c7d578e",
+        "capture-scheme.wasm": "e2f764945275d84d8795c8eb9bd92e6f54a25d4a1068e4b1b0eccd4a1b0debbc",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "dbf3e8defaa2969b662255a5c6b6358c19791e937cd8d528d507e933a1a0eaed",
+        "build.scm": "d11936e5f24aa5aec4d216fda655968c1b5ccf9e08a3a6c2fb5c4fbc3d3f5f9f",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+        "capture-program.wat": "d2f5f9c290a1aeb3ec6d5053fa7b367c093cbb1fd7c0d0e788a8bb7f1b9ff862"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 12.451890525000636,
+        "stdout": "Running graphs:7:3\nElapsed time: 12.408799589 seconds (12.409) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,12.408799589\n",
+        "stderr": "",
+        "seconds": 12.408799589,
+        "name": "graphs:7:3"
+      }
+    },
+    {
+      "benchmark": "wc",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.046924027003115,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 12.010410411 seconds (12.01) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,12.010410411\n",
+          "stderr": "",
+          "seconds": 12.010410411,
+          "name": "wc:inputs/bib:50",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.080188986990834,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 12.044183389 seconds (12.044) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,12.044183389\n",
+          "stderr": "",
+          "seconds": 12.044183389,
+          "name": "wc:inputs/bib:50",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 12.442101527005434,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 12.407732842 seconds (12.408) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,12.407732842\n",
+          "stderr": "",
+          "seconds": 12.407732842,
+          "name": "wc:inputs/bib:50",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/cases/wc/snail-wasm",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-is-kind-20261012/src",
+        "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/cases/wc/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/cases/wc/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.689578974997858,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "05bd4c6253f5d6c0d408849c546acab93981bf578d8bce0b0ec3383b5ee7d841",
+        "capture-scheme.wasm": "c9093f751c4ea7210a41a610e75f0c5835fd93404192db3cba1f643f9ca898f1",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "e9b81cfeeea4d12c77d6501384bd44cb6b33376d0493db61f0f7d00507968e91",
+        "build.scm": "fcda497b02b684c62a8490e1fc790a2a36ced579082af1aa35f546178e6c2367",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+        "capture-program.wat": "85e47590f2895b86b767beb17add523617118e83a79fca974f2d30d17fd2807a"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 12.052263858990045,
+        "stdout": "Running wc:inputs/bib:50\nElapsed time: 12.017407221 seconds (12.017) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,12.017407221\n",
+        "stderr": "",
+        "seconds": 12.017407221,
+        "name": "wc:inputs/bib:50"
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 9.051800215005642,
+          "stdout": "Running graphs:7:3\nElapsed time: 9.010889884 seconds (9.011) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,9.010889884\n",
+          "stderr": "",
+          "seconds": 9.010889884,
+          "name": "graphs:7:3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 9.076329077011906,
+          "stdout": "Running graphs:7:3\nElapsed time: 9.035650446 seconds (9.036) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,9.035650446\n",
+          "stderr": "",
+          "seconds": 9.035650446,
+          "name": "graphs:7:3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 9.10763065199717,
+          "stdout": "Running graphs:7:3\nElapsed time: 9.0660618 seconds (9.066) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,9.0660618\n",
+          "stderr": "",
+          "seconds": 9.0660618,
+          "name": "graphs:7:3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/graphs/snail-wasm",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-native-builtins-ff8b873-20261012/src",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/graphs/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/graphs/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 13.17470778900315,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "d3c439298fce3d16956b869f97ece8423ba0af88a13f14d9c5d9fa81e31b81f8",
+        "capture-scheme.wasm": "6809fb871fe911765ea972bcf351703031de3f5ffe6a8a1bfbb0535676efb906",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "908f02d439515311b11ebafdab65fe6c73e0b7544507f97219d52942833190fe",
+        "build.scm": "3be8a02530137a12e02a707e84ba7231358cdfadbc2d9aaa0864dbb7e5aad33b",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+        "capture-program.wat": "c763981e8b8dc5a22b34dc5b0a4dc7c009ece192eeb8eddc62f0a53b0a1b196f"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 9.123535577004077,
+        "stdout": "Running graphs:7:3\nElapsed time: 9.083471687 seconds (9.083) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,9.083471687\n",
+        "stderr": "",
+        "seconds": 9.083471687,
+        "name": "graphs:7:3"
+      }
+    },
+    {
+      "benchmark": "wc",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.26687531801872,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.233230766 seconds (10.233) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.233230766\n",
+          "stderr": "",
+          "seconds": 10.233230766,
+          "name": "wc:inputs/bib:50",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.517372603993863,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.484963949 seconds (10.485) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.484963949\n",
+          "stderr": "",
+          "seconds": 10.484963949,
+          "name": "wc:inputs/bib:50",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.472237996000331,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.437997736 seconds (10.438) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.437997736\n",
+          "stderr": "",
+          "seconds": 10.437997736,
+          "name": "wc:inputs/bib:50",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/wc/snail-wasm",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-native-builtins-ff8b873-20261012/src",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/wc/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/cases/wc/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.017755615001079,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "9c83fe85c351dad636adf285ad67205d5d060e87dad9a68fa0327a8edbaa9827",
+        "capture-scheme.wasm": "d2f9d270fd5d8bac5dae5419c27b9dea92f291ef717e739d02b589698cef12ad",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "0854aebde4a102d2b4ef4225b68f535722bfdffa42efd7bd0cd17a6e745711c3",
+        "build.scm": "0641f1905f347dd7042a3dd901e05c75abf38e1753a935abd3790d8f2be43363",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+        "capture-program.wat": "2db261303613564aac1a230d044aaebe551e4c3c487537235be8fe3b80348f2d"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.673824730998604,
+        "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.641192074 seconds (10.641) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.641192074\n",
+        "stderr": "",
+        "seconds": 10.641192074,
+        "name": "wc:inputs/bib:50"
+      }
+    }
+  ],
+  "order": [
+    [
+      0,
+      "graphs",
+      "baseline"
+    ],
+    [
+      0,
+      "graphs",
+      "candidate"
+    ],
+    [
+      0,
+      "wc",
+      "baseline"
+    ],
+    [
+      0,
+      "wc",
+      "candidate"
+    ],
+    [
+      1,
+      "graphs",
+      "candidate"
+    ],
+    [
+      1,
+      "graphs",
+      "baseline"
+    ],
+    [
+      1,
+      "wc",
+      "candidate"
+    ],
+    [
+      1,
+      "wc",
+      "baseline"
+    ],
+    [
+      2,
+      "graphs",
+      "baseline"
+    ],
+    [
+      2,
+      "graphs",
+      "candidate"
+    ],
+    [
+      2,
+      "wc",
+      "baseline"
+    ],
+    [
+      2,
+      "wc",
+      "candidate"
+    ],
+    [
+      3,
+      "graphs",
+      "candidate"
+    ],
+    [
+      3,
+      "graphs",
+      "baseline"
+    ],
+    [
+      3,
+      "wc",
+      "candidate"
+    ],
+    [
+      3,
+      "wc",
+      "baseline"
+    ]
+  ],
+  "active_attempt": null,
+  "experiment_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+    "CHIBI": null,
+    "CHEZ": null,
+    "GUILE": null,
+    "GUILD": null,
+    "NODE": null,
+    "CARGO": null,
+    "RUSTC": null,
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1",
+    "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+    "BDWGC_INCLUDE": null,
+    "BDWGC_LIB": null,
+    "NODE_OPTIONS": null,
+    "GUILE_AUTO_COMPILE": null
+  },
+  "runtime": "WasmGC on V8 with the selected platform and Rust-to-Wasm common library",
+  "compiler_sha256": {
+    "src/abi.rs": "4aade73740d1f2e9981d0bd9bf38a51e3b718b28c9adc1841643139ddb62bc3d",
+    "src/artifacts.rs": "746efbcfc6b6248657b459890823b9386c6057bb0fddd89593c22ab59fe9007b",
+    "src/datum.rs": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+    "src/hash.rs": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+    "src/host.rs": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+    "src/interop_example.rs": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+    "src/lib.rs": "567d3bc066549235554e4c177af676fa11240d9c4abb26feaa0ea753394f3330",
+    "src/platform.rs": "abf1de5eac0c1aee6286bbc829cda1e9cd87d642f250727dd3bd8aa3994e4e15",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "31eb3013a694cf051ab49cad2487fda31557d246c43272f7ca96a92460ab3110",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "bfcef1922d783fbfa747dc2a9352f0aabc8d26d7159f4a585e0561fcfce40ee2",
+    "src/snail-scheme/build-host.sld": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+    "src/snail-scheme/build.sld": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+    "src/snail-scheme/chromium-trace.sld": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/effects.sld": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "6594827b1e5947ec8bd2f6042c21616a9522903d70bbeccd088add599c5b4f6c",
+    "src/snail-scheme/lambda-inference.sld": "4011564245006917d69c1e3783598575d4defcc3368cc30eac542dad8c05d622",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/specialize.sld": "5192c34005811c89f1c5edce2cf39f07bb44140763c8b9d0da345ac70ccd8f39",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "6414b18b4dbabaec7c858aa6b4af3867e4a3ad302cd8cb8457a3caf4bc5bee36",
+    "src/snail-scheme/type-inference.sld": "98d30fd55d4cfbe394711870bc40cf407db5886e38638455e492ecbcfa86cbab",
+    "src/snail-scheme/types.sld": "4702f054afcdbac087c67984b69b405e7f6939f93568aed16e06cf7ac3a2b46d",
+    "src/snail-scheme/wasm-abi.sld": "c4c938e4f1f3476928f38b3093894bdeb6bcd72eb5fa74204bf03921a1dcff9f",
+    "src/snail-scheme/wasm-link.sld": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+    "src/snail-scheme/wasm-literals.sld": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+    "src/snail-scheme/wasm-optimize.sld": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+    "src/snail-scheme/wasm-representation.sld": "493f28a5610a33e880790d4e5c6427b3570f2ff330b9983158819de2a980beb0",
+    "src/snail-scheme/wasm-runtime.sld": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+    "src/snail-scheme/wasm.sld": "569f8566b894293ab29de3ffe7bbd8ef33b9c887d5d26b0b9ac29c4ec11729ef",
+    "src/symbols.rs": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+    "src/text.rs": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+    "src/unicode.rs": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+    "bootstrap/scheme/base.sld": "930b3726119b46a31c890ce557894558dbf973b97419c439bb47fbced9272bdb",
+    "bootstrap/scheme/char.sld": "eb1fe107d799adefcadb588343f5f314c974f382314008b3df28753e6ef3a6b5",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/complex.sld": "69c4e9428c1aec70c0dad35cde4d5f7a56fc030071d44f01476057fccdcd15ae",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "3825ffc6c8eb2d965a242861f3c16a1fe1704c162c8d4c7e43abac33d44cb9dd",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/read.sld": "3d38815e76e6db4ef427ee300a74c5960b8586e5098a16a9455379ffca7dcdff",
+    "bootstrap/scheme/time.sld": "94ac12c393ff9be36608be85896e33f0c0393fc7c609d182fe87f2e5ab014c75",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e"
+  },
+  "build_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1"
+  },
+  "input_sha256": {
+    "inputs/ack.input": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c",
+    "inputs/array1.input": "4d2849350d93d926d9880fd2ebe416c73824eb4846654de3d9e1e4ba74e8cdfd",
+    "inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+    "inputs/browse.input": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f",
+    "inputs/bv2string.input": "d024a11a192c89d8353c52144a35a292077f4a702f9ab262fbaaf52c015ae2a9",
+    "inputs/cat.input": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+    "inputs/chudnovsky.input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c",
+    "inputs/compiler.input": "baba2d35f2c354ccd96dc3d1797bf2bc164f6f94884b9c9cad50419f791e6105",
+    "inputs/conform.input": "9c0f8f0e5a9e61836442b9b85a6f5b844b31f05f14ed3586a9280f4edf138794",
+    "inputs/cpstak.input": "a6bb105b10c70bb3373951ea3e76ce6d6f32b6c4127bff30217757bff5904dae",
+    "inputs/ctak.input": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+    "inputs/deriv.input": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+    "inputs/destruc.input": "f9b248ac8534b9740b3df348a58211949c8ae65000f07021fdb6e8a56f946596",
+    "inputs/diviter.input": "c4df45a46786daf9e66a4f0731c30b21c6e6a2415feae8c27c16698531638e09",
+    "inputs/divrec.input": "c4df45a46786daf9e66a4f0731c30b21c6e6a2415feae8c27c16698531638e09",
+    "inputs/dynamic.data": "2c896bb85bea43f91ea10e187bf1c9cac7de8a3289a947556983fb6d70a8a3b9",
+    "inputs/dynamic.input": "f6b5cc925c2716f0d60d53d16ec87ca21d1f8560e316cc9e24a24b4efbf2ecb6",
+    "inputs/earley.input": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+    "inputs/equal.input": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03",
+    "inputs/fft.input": "764ca3870170e6c1ed69c0526ecd16944beef998394509b8434ae9d8c134d5b9",
+    "inputs/fib.input": "d857d40b3504e7d1848da7ee42adecc4ff333cd2df369e4244f2d1bf096ecb00",
+    "inputs/fibc.input": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+    "inputs/fibfp.input": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5",
+    "inputs/gcbench.input": "d3c713afeed5d19923fdd124b4a4fd3c15de725e41da6e352ab59b18e4063f19",
+    "inputs/graphs.input": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+    "inputs/lattice.input": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+    "inputs/matrix.input": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
+    "inputs/maze.input": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+    "inputs/mazefun.input": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+    "inputs/mbrot.input": "347767b5626b9b7220127d7fc9d8f463e4a34dcbc84b1f4849bf158535e41af8",
+    "inputs/mbrotZ.input": "347767b5626b9b7220127d7fc9d8f463e4a34dcbc84b1f4849bf158535e41af8",
+    "inputs/mperm.input": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941",
+    "inputs/nboyer.input": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88",
+    "inputs/nqueens.input": "758d4996647ce971a25e27cd3839b832a6cc435e18bfea27bc4014a7dbcbd9a5",
+    "inputs/ntakl.input": "36a534a6b4611f04b773aa24874eb2159766126ad8d42417e5c78e80407bcdc5",
+    "inputs/nucleic.input": "95b327158e27a5a9f564a7ede0300361c05d50a455bca721043b7531b4b7003a",
+    "inputs/paraffins.input": "0bf0a5242d10ae18d7ec196029710db19f92333a7520448c03fc068d0af7d74a",
+    "inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+    "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65",
+    "inputs/peval.input": "28e8a5fcdd67e7cd48bcebcff0a05677c3fb5a1ff20b796c80a2f5998a508810",
+    "inputs/pi.input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197",
+    "inputs/pnpoly.input": "f64dd1ec74e2278a40db33a0eb419cf71a8438a2903086d5be5e3dfe35fe8db4",
+    "inputs/primes.input": "8f9768aba2c4a773906ab306a3be5209e602f89e9f4906da7772ff51d6da395e",
+    "inputs/puzzle.input": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91",
+    "inputs/quicksort.input": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f",
+    "inputs/ray.input": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c",
+    "inputs/read0.input": "f097127a5b0f6204d484ffa154209d83d174b61722dbc01b0b8c063abdea13f0",
+    "inputs/read1.input": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1",
+    "inputs/sboyer.input": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6",
+    "inputs/scheme.input": "13e09802d518125cf9374c90296d973828307d889e23a276207326d07ca8e0b5",
+    "inputs/simplex.input": "73260b28bb02454f35673cf4ece62eb11f2fd25df016bbb837332426e657de0c",
+    "inputs/slatex-data/slatex.sty": "ed7e700ae213a4124bf239cb7417d9123b1b3b68d784f98c80b0dff841cef712",
+    "inputs/slatex-data/test.tex": "e542000d14fc2a7391d0401d4aa449852cd03d3996e1092bfdc13034f51e0a52",
+    "inputs/slatex.input": "f4e3ad8af0fa20edc5f2ef9e12039f0c03de7265931b1336745ee72a99e1874e",
+    "inputs/string.input": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9",
+    "inputs/sum.input": "24958cb3696208ccc2b2fe326348bb574da13c5f086790eb96be6ef33e553334",
+    "inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+    "inputs/sum1.input": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+    "inputs/sumfp.input": "f721830ef52dc3db368fd4e9ec9b7ead4cd15a3ffbedca97581a650cb8edf601",
+    "inputs/tail.input": "b06e57a58d1410fbe92f4724a9b36e4cc61f8c110f30e29abdd5aa5a473e9a16",
+    "inputs/tak.input": "ed71c06998311ad37920d13febbb4357e97b397b31a27eb7613e1e351a301f97",
+    "inputs/takl.input": "36a534a6b4611f04b773aa24874eb2159766126ad8d42417e5c78e80407bcdc5",
+    "inputs/triangl.input": "76f80213dca277bc207db6bfc248ffc59516f7c8b9618c452ca23b35887fb7a1",
+    "inputs/wc.input": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+    "src/Bigloo-prelude.scm": "6d063ce024a6dd0a20dc2b009894f98989f9a0b02a7dc0ed0e1ac0a12437b9b6",
+    "src/Bones-prelude.scm": "6dfafdff487e50f638b1621310446eda340ea9dbc907e0341b5a48c0413ef271",
+    "src/Chez-postlude.scm": "cdec8719a46c9a1656a7e13fc287cd1baa137500ebefa74f6f3e6ff40c713672",
+    "src/Chez-prelude.scm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/Chibi-postlude.scm": "af9a6bbd826486948b56eec48d32f83e19bab3441e6f0c25b353e406d0bd65a8",
+    "src/Chibi-prelude.scm": "0bf50c0f2d8ace5177f029695544aff476fb43140a86ec8f59522940e58c7f1f",
+    "src/Chicken-prelude.scm": "8776af3b9830613427d17a9ad9e0d6c2d29566e90883c672a2d5c601f723cf54",
+    "src/ChickenCSI-prelude.scm": "905c0a9d127729b55fa03eb13dea9bf5fe7c75e08ff2b4917f6f12e339e5a118",
+    "src/Cyclone-postlude.scm": "bd9dcde3c2aeea8215dcf0637f030592290e77e754a3fac659042714664c2063",
+    "src/Femtolisp-prelude.scm": "ff2892cf45dc156161b0d0f06bac06f3fda8e48680a9377c7688bf8d2b7ab34d",
+    "src/Foment-postlude.scm": "cbde65997960078ad52a6261b2c5d7e439cbaf64f851a800f4740a38e82ba78d",
+    "src/Foment-prelude.scm": "2b123b52e77e6ae8a001d40429cc2b365f9a41dd196defe104de3b39d26c4d8e",
+    "src/GambitC-prelude.scm": "8407ef6485f65cf98bedec66fd4c52f79c01bead4a878a50e20c7c0532bf8fcc",
+    "src/Gauche-postlude.scm": "95621bce8152feba0540255ab81024cacc6d7ec984e874d6387c737423ea2791",
+    "src/Gerbil-postlude.scm": "5a41c42fb1504a0347e9b87020ae33b0a699a36686df71b58b3b258248bfe007",
+    "src/Gerbil-prelude.scm": "451f38241ca59d00fb4ee5aeab16bfdf506733460e66ff224ebf4268710fc6c7",
+    "src/Guile-prelude.scm": "89b5052d02e8053ba9b3c55a8d4ebf1285561064b2a93b059f5963cb75004828",
+    "src/Guile3-prelude.scm": "34c145fd9152804cc6cd2aca0d64b26fdfb41fbab4ce0be3b3def0d6559f1c65",
+    "src/IronScheme-prelude.scm": "f7b199d2fd0eb7ff1e537a5b46175f6ea08d36dbb25ec821109d5099f678d0a2",
+    "src/Kawa-prelude.scm": "3d250708f14ef7e420203d30438144040f7b494fd998da00ca767f7fcc6ecdeb",
+    "src/Larceny-postlude.scm": "8fbfe84c0c790977d14c89fe86de3e3790c26060c8bbad5f5aa7c31f816be815",
+    "src/Loko-postlude.scm": "c38afe22624e092c9f6a09d6c7fe79fae9e8cb0abf03711d6ef4a401ab5a23d8",
+    "src/Loko-prelude.scm": "9adf25fc1d327403a7edc487223e43ed08f8441e20536dc831cdb5c3f6b574dc",
+    "src/MIT-prelude.scm": "6272412e9f3d4fa31a0dbb969fdbe688f88c8970e6d92a9101d7f49d56c40e29",
+    "src/Mosh-prelude.scm": "3da20ca04e154d438512b034fa35f2c4c5e2dea74b636a0613bd0102bd9fd0da",
+    "src/Petite-Chez-postlude.scm": "cad040b3d9ec86458fa16eb9f6390a7f325fecbca0037bcab54621b5f692d561",
+    "src/Petite-Chez-prelude.scm": "808eb2aaec93e84097c7bda2070916fc425afedae04146d84542df8dc1e2ed14",
+    "src/Picrin-postlude.scm": "ce5c6de0788aa4e51213f8966835ed1e5e805f95265f5e7a1524570928d573a0",
+    "src/RScheme-prelude.scm": "ce437bbf0d07edfee583110e3418c1239856070438887d4c037d232d5fb9f508",
+    "src/Racket-prelude.scm": "07f5c938ed7e52090b880f6efebc3e194af8611d1693987542181fb71ccdddd6",
+    "src/Rhizome-postlude.scm": "c7be4ea961365a4541c2ead4c7dedf226d301312e4e2fe9fa94ed8e598b15501",
+    "src/Rhizome-prelude.scm": "006e050698a853a586a0819ebeaaab8abfbe6d6810a8608219b58aa4b910594d",
+    "src/S7-prelude.scm": "5ec7640c529e2dcfb9f696d3691b5a53c9dc4d291164706749c97e8390e27ca0",
+    "src/S9fES-prelude.scm": "54341762589a9f73cea64ccac8a196cc5ef2a5649597a704323ca157b196d79e",
+    "src/SISC-prelude.scm": "61ec2ff0788ca32f8dd6acd0b874ff00e2011f835f73da298274b6ba780e2b49",
+    "src/STklos-prelude.scm": "1c303b26d3f3766034e4a28874ba10102ac8476c96f9543ad5ed6ff5f222b33b",
+    "src/Sagittarius-postlude.scm": "9f98213c1f063a3edbb6e9ee80518a46f3e6c8fe17213b055132963a880bc9ed",
+    "src/Scheme48-prelude.scm": "85bbeadd83b2c16cb7aa9b5dc71a197d2d775aeef0c9315b83b5fd5f9855e498",
+    "src/Stalin-prelude.scm": "fc8464b6d6b6f2afa0d76e2f01a93bb070e7fdca7aa19bcc6d64857ec86b5c29",
+    "src/TR7-prelude.scm": "2559cf56c6addec725c2682568250524a15b7621c922ab073851e1aeda3b27a4",
+    "src/TinyScheme-prelude.scm": "16cc462fc86a3781d78a983b626b6824f4d87d077d9a606624feea8e4e0ed76e",
+    "src/Vicare-prelude.scm": "53172f121d3e5cdca6ea42e743c5e971dd4fd5a07520ab42214f043dc88ea517",
+    "src/Ypsilon-prelude.scm": "5d789f71b3e9f190b9617bccb981a8a34085c24c32c2237fd05b3d52f606f967",
+    "src/ack.scm": "63de11cf70b1b785261e63685d1b5e1f5801ccde8b60af00f6d303cc5d4a7546",
+    "src/alexpander.scm": "67c8681963fe1c51ca0a1ec8a6f31d8d0960b44128ed88e214fedfaabfc003a4",
+    "src/array1.scm": "dca69b51f6ef6711713505f6f944ef97dbb0e463bc9b4d03fa7312437cfc3174",
+    "src/browse.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776",
+    "src/bv2string.scm": "35f0046a3170258c6ed37aafce34676fada15b6cd4d340fbff92eeb22049b125",
+    "src/cat.scm": "63835925d09ce503e795005dd75c2a662ebb81bfe0ea15e427c2f4f401c11c9b",
+    "src/chudnovsky.scm": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
+    "src/common-postlude.scm": "7ee9d44c8e4a46b3ff5e2eee6baa7ab83055b82448b9a963e0d886b9769c1763",
+    "src/common.scm": "2dc037f8c6001046b54e4d1712dc6b0c6fecd0ce56afcf195d7c041b26684a07",
+    "src/compiler.scm": "e4444c65d55712d7141f147661efcc744df5e4b5699bbbf73b27d16eaf441209",
+    "src/conform.scm": "5b544ec3ea2416df03ef935d45ad96b7204c35ecaf7344118d3d34bbb3dc9de5",
+    "src/cpstak.scm": "8170edb24095aa3ecefbda33f61711686940cb7ce92d6516411c0289890c2b86",
+    "src/ctak.scm": "bebf372e926b8193d7d2fa78cb02a16d9e3b83b00ee3aeff7074e567e8be05da",
+    "src/deriv.scm": "0fecc79684014008dc78d520f3dd3b7093d3e4a8e3ab56ec9a88827f812823ba",
+    "src/destruc.scm": "4582b733af6d449ab5f5ad7aa745e2504b855c37d8355e253bccd6b1f98bd913",
+    "src/diviter.scm": "c2c9cc35f4da9689842ddffb261e60e9590836dbb54f90204cd6a374f88bba59",
+    "src/divrec.scm": "3decbd0f84084eb1c7edea6272d9056512090580d490efd7099ee631bd80a71d",
+    "src/dynamic.scm": "0eeea6384253fcb915180b18f0743260f2faa7aa1422be72f6bf7bb927e9cec7",
+    "src/earley.scm": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+    "src/equal.scm": "931f53304a38b231470c38985be2d595723cb5bbd2c70ba983616e75058fe533",
+    "src/fft.scm": "bfe366562310242fe8b37bf6e5b7952a7452ae0e847400fa6f9da671375425b6",
+    "src/fib.scm": "a0800c88ef5d98f5a3b199375c8d2a0a5f8aad4aa2768e861900c2ab188f6fab",
+    "src/fibc.scm": "0542fcfb58e03322c534139bae7466422fe8ae96e2eef2b45dd9a1cb3d36ccc2",
+    "src/fibfp.scm": "cd1612b63b75e9e547116c4e3a233297242f17bab92d21b9e37d5b97a3858ff1",
+    "src/gcbench.scm": "0735b3a5450eafd256cd65387ce25068d1aef924022df09e2d71795ff788e55e",
+    "src/graphs.scm": "9abde79ddc1b28dd69c5e9eb3486003149a60610df1ec0c3c7c29933b24ff968",
+    "src/lattice.scm": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
+    "src/matrix.scm": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
+    "src/maze.scm": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
+    "src/mazefun.scm": "465f258a7968062f3142f72f0819994e685ca558aa74c0b1f66aff7fc7b8e2a4",
+    "src/mbrot.scm": "6736d8a814e0dd71be489ae2102cef3fc21ed0942605cb10c71f5c8b191f7ef4",
+    "src/mbrotZ.scm": "5d612880dc3caf39bc84f549e59b5dbddf3e80545f67b54c94d7c9ca816f71f4",
+    "src/mperm.scm": "651a233315d94ce36b8e07a1edb61b5b5eee4483fc14acc44a55046acaacd9f3",
+    "src/nboyer.scm": "0597caf3d1434c2aedcc57c6bdbd6aec3bdb10c3d606cd240e4b949a334a71bf",
+    "src/nqueens.scm": "d2a22ada337d3e4a2425fd5088f43f0928081139bbe5e8451b78ce57b083a9b5",
+    "src/ntakl.scm": "2d8ad85a6bdcb66d979373301edde511fb9647a37564a6c4a9e388a99bb1b144",
+    "src/nucleic.scm": "1bf8e055ddf51d5560f7217ff95bc4c50967514d036362bff77045ab73b61fa4",
+    "src/paraffins.scm": "461e3cc6a025d87c0576d3758b20318474657c799a29b06393c90c3085fcf14f",
+    "src/parsing.scm": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
+    "src/peval.scm": "4a29c25654fc85ab8ed76a039cb56a16ccb9c9928c234395ea6b4a2a134eab43",
+    "src/pi.scm": "f9317c5ada556aee4fde4c3c959bd4b604e45cbf05c9b5f84157c32ce346faa9",
+    "src/pnpoly.scm": "9c4cd59d2bd888214fdd81308ebbc582bc41b8f84df46ce9535bfdcdd7489c9e",
+    "src/primes.scm": "3c6662de37ea94808b8de6f2881d8f898ced56bc842b8e7f1a1dc7469c0d37e3",
+    "src/puzzle.scm": "6730fba3bd4713d603c72b31970b3aef25881a40ea0b6e8bd175e09d22464129",
+    "src/quicksort.scm": "3034cc893760b19563752cca0f722ffd31ae8ffacc9413e8c94fc0de69384bcc",
+    "src/ray.scm": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e",
+    "src/read0.scm": "f4bdc63815b503ff563e119755fea2663fd36470b4bf351e09d385b19764a978",
+    "src/read1.scm": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
+    "src/sboyer.scm": "df46ebaa16879a5366b8b550dfbb2115bce378ffb854c4468c9c0af1df53d9e4",
+    "src/scheme.scm": "011966fa9a691e2bdaa6444206af5ae0f290e835fab5b2d14f3fb7e708cbaada",
+    "src/simplex.scm": "f309787ad2da1f943abf83031dedfb4f81447b11306dcd9e4d2bd836df5bfec1",
+    "src/slatex.scm": "712ab7e3b6d89f4ceb3b1b23f813229d6be43a9bdc1252f48457c9dc4dcabd2b",
+    "src/string.scm": "7bda79f59eda5dccbd770c560a3f6908c16f52ee10aedeb4d8f9904d9b6d3d7d",
+    "src/sum.scm": "f5ea0c62081f643572cf04184bc9ba25a155aea13dad2ea869b506f0adb91ca3",
+    "src/sum1.scm": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
+    "src/sumfp.scm": "1c91c1631900a692572af3cfe817ddaa23ce6d92213cec5f57ba3477b80f0649",
+    "src/tail.scm": "016f368f6cbd29b2ebe0f1ddc522c46c7726d6655185bcbb9086518dd67ee6ae",
+    "src/tak.scm": "9dab75f72009971e76fe7e0ac02ab6a6af8d27061d10c9048a8c3726ab3cb86b",
+    "src/takl.scm": "fb77f3f5f3489c27f5687c83ff37458df09d46ebef8803284b3251d8810c74c8",
+    "src/triangl.scm": "b3ccd12f6d5cc83552fe897e42daf9d9ea86cfb043a2d88003a4eedd04b91353",
+    "src/wc.scm": "4ec7f6bdc5f91f236281dd92b67addf8be8914498c82506a47fa8518c321c370"
+  },
+  "harness_sha256": {
+    "benchmarks/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "benchmarks/r7rs-chez.scm": "18861bdbad3006c77aeaed491d3036793c9bf18aab0a7b09de235f1a04e45946",
+    "benchmarks/capture-tool.py": "0b36b60216d2d7626934fa21b462c722937cc2c88932bfe6189297873c495a36",
+    "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+    "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b"
+  },
+  "composed_sources": [
+    {
+      "path": "/tmp/snail-is-kind-20261012/build/graphs-prepared/results.json",
+      "sha256": "6084fdee1cc4d1e8bbb135d54a7c7c04aa19e2df3908feeb09bcd8468e54659b"
+    },
+    {
+      "path": "/tmp/snail-is-kind-20261012/build/cat-wc-prepared/results.json",
+      "sha256": "22b8edf17e0912657bc093ec8d7f4502de650e8bc23bca6ea721462d3e916b6d"
+    }
+  ],
+  "comparison_sources": {
+    "baseline": {
+      "path": "/tmp/snail-is-kind-20261012/build/graphs-wc-control/results.json",
+      "sha256": "782c7d518c0f3cd47c35f5689e6021e202315010d874e24aacf916b53f0a18ff",
+      "revision": "910b1858d286a37b125d31e973858564fc3093cf"
+    },
+    "candidate": {
+      "path": "/tmp/snail-native-builtins-ff8b873-20261012/build/graphs-wc-prepared/results.json",
+      "sha256": "be6230554e545500d19e2dea94c24b083ca39bb1c48df74a988360f14cfb41dc",
+      "revision": "ff8b87346d4228842597843457418f8c3b91b332"
+    }
+  },
+  "comparison_harness_sha256": "69ba2c4e6587249cec03bb72fb6cdc70611bd40dd3344c4116d2496a617aba8f",
+  "comparison_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+    "CHIBI": null,
+    "CHEZ": null,
+    "GUILE": null,
+    "GUILD": null,
+    "NODE": null,
+    "CARGO": null,
+    "RUSTC": null,
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1",
+    "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+    "BDWGC_INCLUDE": null,
+    "BDWGC_LIB": null,
+    "NODE_OPTIONS": null,
+    "GUILE_AUTO_COMPILE": null
+  },
+  "scope": "Clean typed-intrinsic ablation; original inputs, fresh processes, upstream workload timers."
+}

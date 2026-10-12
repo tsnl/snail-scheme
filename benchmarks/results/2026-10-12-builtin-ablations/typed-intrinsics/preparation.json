@@ -1,0 +1,78 @@
+{
+  "revision": "ff8b87346d4228842597843457418f8c3b91b332",
+  "report_sha256": "be6230554e545500d19e2dea94c24b083ca39bb1c48df74a988360f14cfb41dc",
+  "comparability": {
+    "benchmarks": true,
+    "upstream_revision": true,
+    "host_sha256": true,
+    "harness_sha256": true,
+    "build_environment": true,
+    "experiment_environment": true,
+    "input_sha256": true,
+    "tools": {
+      "CHEZ": true,
+      "GUILE": true,
+      "GUILD": true,
+      "CHIBI": true,
+      "CARGO": true,
+      "RUSTC": true,
+      "NODE": true,
+      "WASM_AS": true,
+      "WASM_MERGE": true,
+      "WASM_OPT": true,
+      "WASM_DIS": true
+    }
+  },
+  "source_changes": {
+    "src/snail/unsafe.sld": [
+      null,
+      "663ad4e24fc8c87eb8116704ac1dd83907874f02e49a803ffe7159eb170099e6"
+    ],
+    "src/snail-scheme/bootstrap.sld": [
+      "bfcef1922d783fbfa747dc2a9352f0aabc8d26d7159f4a585e0561fcfce40ee2",
+      "5bcc34e4e457893643e489ad2fe34239d78f1e8b62e01512c00308d5d881c948"
+    ],
+    "src/snail-scheme/lambda-inference.sld": [
+      "4011564245006917d69c1e3783598575d4defcc3368cc30eac542dad8c05d622",
+      "812c269ab712621d28e87cd285e93547fb77495bab96e67413cfa3af5f6a3b2d"
+    ],
+    "src/snail-scheme/specialize.sld": [
+      "5192c34005811c89f1c5edce2cf39f07bb44140763c8b9d0da345ac70ccd8f39",
+      "b3b302b2a74e7a5917b178745c9a0dc5c0f0b0d043a98c6a5d840587f4599407"
+    ],
+    "src/snail-scheme/type-analysis.sld": [
+      "6414b18b4dbabaec7c858aa6b4af3867e4a3ad302cd8cb8457a3caf4bc5bee36",
+      "9611e49b59e862fa696d47edceb9f559410cd650d8105eb9651e6ad2e263f8a6"
+    ],
+    "src/snail-scheme/types.sld": [
+      "4702f054afcdbac087c67984b69b405e7f6939f93568aed16e06cf7ac3a2b46d",
+      "802bda5ef6209b0e7b22155827589d1e6016900340bb6e79a0980f8d4b91e404"
+    ],
+    "src/snail-scheme/wasm-intrinsics.sld": [
+      null,
+      "2bd8eb0093b4b6ac391fc1f786fa967fddf1c4e50a6409d5d8f33829e783954c"
+    ],
+    "src/snail-scheme/wasm-representation.sld": [
+      "493f28a5610a33e880790d4e5c6427b3570f2ff330b9983158819de2a980beb0",
+      "0d7a46f70ccd30c67a4f37b5c4d2a5a90315ca9fc365a169d12e69c1f7ee9392"
+    ],
+    "src/snail-scheme/wasm.sld": [
+      "569f8566b894293ab29de3ffe7bbd8ef33b9c887d5d26b0b9ac29c4ec11729ef",
+      "3a9e60f70fc2d325397ccef2596f165a7992025d1e6c41394532fbe2a20b47b5"
+    ]
+  },
+  "rows": [
+    {
+      "benchmark": "graphs",
+      "status": "ready",
+      "program_sha256": "d3c439298fce3d16956b869f97ece8423ba0af88a13f14d9c5d9fa81e31b81f8",
+      "program_bytes": 536302
+    },
+    {
+      "benchmark": "wc",
+      "status": "ready",
+      "program_sha256": "9c83fe85c351dad636adf285ad67205d5d060e87dad9a68fa0327a8edbaa9827",
+      "program_bytes": 512454
+    }
+  ]
+}

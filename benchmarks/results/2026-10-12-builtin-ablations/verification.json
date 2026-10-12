@@ -1,0 +1,21 @@
+{
+  "clean_records": [
+    {
+      "experiment": "write-char",
+      "report_sha256": "ef9bdb1338cd9aa3ce9f58cb35fdf183533a552ade158a718b05a157f85da23e",
+      "checked_executions": 8
+    },
+    {
+      "experiment": "requested-kind",
+      "report_sha256": "5a79b17fddb169fc6c99d3d03ec256a03e1b3c162f481b11a0529c7d9a6fbb0a",
+      "checked_executions": 16
+    },
+    {
+      "experiment": "typed-intrinsics",
+      "report_sha256": "1107deef4063e063715061733346f1b449964828aa55aab0b0004ea15466c2d9",
+      "checked_executions": 16
+    }
+  ],
+  "restored_preflights": "All three archive-restored comparisons passed original artifact/tool/host/input/source preflight; no timing rerun.",
+  "observer_scope": "All 40 executions uninstrumented; no profiler, GC tracing, heavy counters or forced optimizing-tier flags."
+}

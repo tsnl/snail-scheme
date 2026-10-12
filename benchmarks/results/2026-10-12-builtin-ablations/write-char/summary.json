@@ -1,0 +1,38 @@
+{
+  "baseline_seconds": 22.543792658,
+  "candidate_seconds": 21.684831498,
+  "baseline_over_candidate": 1.0396111521585594,
+  "elapsed_reduction_fraction": 0.03810189230493943,
+  "report_sha256": "ef9bdb1338cd9aa3ce9f58cb35fdf183533a552ade158a718b05a157f85da23e",
+  "rows": [
+    {
+      "variant": "baseline",
+      "preliminary_seconds": 22.540734614,
+      "retained_seconds": [
+        22.445162018,
+        22.543792658,
+        22.686817832
+      ],
+      "range_seconds": [
+        22.445162018,
+        22.686817832
+      ],
+      "program_sha256": "a01a4d6d72bd85f501cdb9b9ac37f7c806995e6d85bc9b8e57324c01889bac87"
+    },
+    {
+      "variant": "candidate",
+      "preliminary_seconds": 21.658429554,
+      "retained_seconds": [
+        21.491718553,
+        22.137453931,
+        21.684831498
+      ],
+      "range_seconds": [
+        21.491718553,
+        22.137453931
+      ],
+      "program_sha256": "f5388b1ffa3c6f792c4361e9e8b166c8947e659d8f549202d7118c76be20ed74"
+    }
+  ],
+  "all_eight_full_output_checks_passed": true
+}

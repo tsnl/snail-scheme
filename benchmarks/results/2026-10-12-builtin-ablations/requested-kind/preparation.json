@@ -1,0 +1,52 @@
+{
+  "revision": "910b1858d286a37b125d31e973858564fc3093cf",
+  "report_sha256": "22b8edf17e0912657bc093ec8d7f4502de650e8bc23bca6ea721462d3e916b6d",
+  "comparability": {
+    "benchmarks": true,
+    "upstream_revision": true,
+    "host_sha256": true,
+    "harness_sha256": true,
+    "build_environment": true,
+    "experiment_environment": true,
+    "input_sha256": true,
+    "tool_hashes": {
+      "CHEZ": true,
+      "GUILE": true,
+      "GUILD": true,
+      "CHIBI": true,
+      "CARGO": true,
+      "RUSTC": true,
+      "NODE": true,
+      "WASM_AS": true,
+      "WASM_MERGE": true,
+      "WASM_OPT": true,
+      "WASM_DIS": true
+    }
+  },
+  "source_changes": {
+    "src/abi.rs": [
+      "1279629b76d4840b0309ae1ae522c8eaddfd7c2477ef6275a48d45e9ad328b57",
+      "4aade73740d1f2e9981d0bd9bf38a51e3b718b28c9adc1841643139ddb62bc3d"
+    ],
+    "src/snail-scheme/wasm-abi.sld": [
+      "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+      "c4c938e4f1f3476928f38b3093894bdeb6bcd72eb5fa74204bf03921a1dcff9f"
+    ]
+  },
+  "rows": [
+    {
+      "benchmark": "cat",
+      "status": "ready",
+      "program_sha256": "11a56dc8c16b36cd683e194e55bd491ee6fb9661a9e5e880375df7bb89716213",
+      "runtime_sha256": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+      "program_bytes": 495652
+    },
+    {
+      "benchmark": "wc",
+      "status": "ready",
+      "program_sha256": "05bd4c6253f5d6c0d408849c546acab93981bf578d8bce0b0ec3383b5ee7d841",
+      "runtime_sha256": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+      "program_bytes": 512226
+    }
+  ]
+}
