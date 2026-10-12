@@ -1,0 +1,12 @@
+{
+  "CLANG": "/tmp/snail-r7rs-native-v8-20261012/build/tools/capture-clang",
+  "WASM_MERGE": "/tmp/snail-r7rs-native-v8-20261012/build/tools/capture-wasm-merge",
+  "SNAIL_REAL_CLANG": "/nix/store/mw4gasdvwgscgpxpzihjgchfhs3hhqhn-clang-wrapper-21.1.8/bin/clang",
+  "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+  "LLD": "/nix/store/5rhnyy8qnwnasmadd83bbrp1agylvwjs-lld-21.1.8/bin/ld.lld",
+  "BDWGC_INCLUDE": "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+  "BDWGC_LIB": "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+  "GUILE": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+  "GUILD": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+  "BINARYEN_CORES": "1"
+}

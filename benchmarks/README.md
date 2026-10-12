@@ -8,9 +8,8 @@ nix-shell benchmarks/shell.nix
 BENCH_CPU=2 make benchmark
 ```
 
-[`native`](native) is a symlink to [`r7rs.py`](r7rs.py), so `make benchmark`,
-`benchmarks/native`, and `python3 benchmarks/r7rs.py` run the same 57 workloads
-across Snail native, Chez, Guile, and Chibi. Original upstream inputs and three
+`make benchmark` and `python3 benchmarks/r7rs.py` run the same 57 workloads
+across Snail Wasm/V8, Chez, Guile, and Chibi. Original upstream inputs and three
 rotating measured rounds are the defaults. Each successful case first receives
 one discarded preliminary run. Compilation and process startup are excluded
 from workload times.
@@ -21,7 +20,7 @@ incorrect answers, and timeouts remain in the matrix and cause a nonzero exit.
 Regenerate reports from saved data without running workloads:
 
 ```sh
-benchmarks/native --plot build/r7rs-report/results.json
+python3 benchmarks/r7rs.py --plot build/r7rs-report/results.json
 ```
 
 `--count 1 --rounds 1` is an explicitly labelled smoke check, still covering
@@ -69,10 +68,11 @@ replacement for running the full suite.
 
 ## Typing and i32 specialization
 
-The [latest complete-program comparison](results/2026-10-11-symbol-interner/README.md#running-fibonacci-on-snail-chez-and-chibi)
+The [historical complete-program comparison](results/2026-10-11-symbol-interner/README.md#running-fibonacci-on-snail-chez-and-chibi)
 uses the same emitted WAT for native and Wasm and includes Chez and Chibi on
 both Fibonacci workloads. Run `python3 benchmarks/typing/compare-schemes.py`
-inside the benchmark Nix shell to reproduce it.
+inside the benchmark Nix shell for the current Wasm-only comparison. The native
+comparison is reproducible on the LLVM archive branch.
 
 The [previous runtime refresh](results/2026-10-10-compiler-simplification/README.md#runtime-measurements)
 measures recursive i32 Fibonacci at 0.173772 s (2.26× faster than
