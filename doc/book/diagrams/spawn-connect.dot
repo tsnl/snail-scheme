@@ -1,0 +1,27 @@
+digraph spawn_connect {
+  graph [rankdir=TB, bgcolor="#fafaf7", pad=0.3, nodesep=0.35, ranksep=0.45,
+         fontname="sans-serif", fontsize=17, label="Spawn creates; connect communicates", labelloc=t];
+  node [shape=box, style="rounded,filled", fillcolor="white", color="#455565",
+        fontname="sans-serif", fontsize=15, margin="0.16,0.12"];
+  edge [color="#455565", fontname="sans-serif", fontsize=13];
+  subgraph cluster_spawn {
+    label="spawn"; color="#bcc8d0"; style=rounded;
+    spawn_a [label="Node A\nlifetime owner"];
+    spawner [label="Spawner", fillcolor="#e8eff5"];
+    artifact [label="Configured artifact"];
+    new_b [label="New node B\ninitializes, then ready"];
+    spawn_a -> spawner [label="spawn"];
+    artifact -> spawner [label="load"];
+    spawner -> new_b [label="create + observe + stop"];
+  }
+  subgraph cluster_connect {
+    label="connect"; color="#bcc8d0"; style=rounded;
+    connect_a [label="Node A"];
+    ca [label="Client A", fillcolor="#e8eff5"];
+    cb [label="Client B", fillcolor="#e8eff5"];
+    old_b [label="Existing node B\nlifetime owner unchanged"];
+    connect_a -> ca [label="connect"];
+    ca -> cb [dir=both, label="connection"];
+    cb -> old_b [dir=both, label="messages"];
+  }
+}

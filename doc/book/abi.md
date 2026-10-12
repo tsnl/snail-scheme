@@ -1,104 +1,98 @@
 # The ABI
 
-The ABI describes how compiled Scheme, the Rust runtime, and a platform call one
-another. Wasm signatures are the reference notation. Native compilation gives
-those signatures an explicit mapping to the target C ABI.
+The application binary interface (ABI) specifies **local calls** between
+compiled Scheme and its runtime.
+Node connections use serialized messages instead. All implemented extension
+operations are ordinary Wasm functions.
 
-**Implemented:** scalar [AWI extension calls](awi.md) in linked Wasm and the
-[native CLI](platforms/native-cli.md), including direct linkage to Rust's native
-archive. **Planned:** native and browser GUI hosting, multiple native instances,
-and actor connections. AWI remains the extension boundary; the supported
-functions come from Snail's runtime. There is no arbitrary Rust extension
-packaging.
+## Who calls whom
 
-| Output | Scheme compilation | Rust compilation | Linkage |
-| --- | --- | --- | --- |
-| Bootstrap Wasm, current | Scheme → WasmGC | Rust → Wasm | Merge the modules for the existing test runner. |
-| Browser, planned | Scheme → WasmGC | Rust → browser-compatible Wasm | Link with the browser bindings; the browser owns DOM access. |
-| Native CLI, current | Scheme → WasmGC → LLVM → native object | Rust → native library | Resolve runtime calls using the target C ABI. |
+Imports and exports are relative to the module being described:
 
-The native route can translate the Scheme module while its runtime calls remain
-imports. It need not translate Rust's Wasm output or link the runtime twice.
-Translating an already linked Wasm module is also implemented;
-it does not establish this native Rust linkage by itself.
+| Reference | Imports supplied by the other side | Exports supplied by this module |
+| --- | --- | --- |
+| [Application runtime contracts](platforms/index.md) | Runtime operations called by Scheme | Scheme handlers called by the runtime |
+| [Rust runtime module](abi-reference.md) | Value operations supplied by compiled Scheme support | Runtime procedures called by Scheme |
+
+The command runtime links Scheme's WasmGC module, the common Rust-to-Wasm
+library, and a selected [platform](effects.md). The loader supplies WASI and
+JavaScript host operations. Rust is an implementation language for the current
+common library; a provider can be any compatible Wasm module.
 
 ## Values and ownership
 
-| Meaning | Wasm type | Native C representation |
-| --- | --- | --- |
-| Signed/unsigned scalar | `i32` | `int32_t` / `uint32_t`, as declared |
-| Signed/unsigned scalar | `i64` | `int64_t` / `uint64_t`, as declared |
-| Floating-point scalar | `f32`, `f64` | Matching-width `float`, `double` |
-| Owned or borrowed Scheme root | `i32` | Opaque `uint32_t` handle |
-| Resource ID | `i32` | Opaque `uint32_t`, in a stated instance/resource domain |
-| Linear-memory range | `i32` offset and length | The same offsets, resolved against the selected instance's memory |
-| Internal GC reference | `anyref`, `eqref`, typed references | Collector-managed representation; an adapter roots it before a runtime C call |
+| Meaning | Wasm representation |
+| --- | --- |
+| Scalar | `i32`, `i64`, `f32`, or `f64`, as declared |
+| Owned or borrowed Scheme root | Opaque `i32` table handle |
+| Resource ID | Opaque `i32` in a stated node/resource domain |
+| Linear-memory range | `i32` offset and byte length in the shared memory |
+| Internal GC value | `anyref`, `eqref`, or a typed reference |
 
-An `i32` does not reveal whether it is an integer, root, or offset. Each symbol
-must state that meaning. An offset is never converted into a native pointer by
-casting it. A root is never a network ID. External storage can use explicit
-64-bit offsets without enlarging the Scheme heap's addressing model; checked
-binary copying is a separate operation from passing a message.
+Each symbol states which meaning applies. An integer root handle identifies a
+slot in a GC-visible table; releasing it permits slot reuse. An offset must be
+resolved against memory, never cast to a pointer. A resource ID identifies a
+resource in its stated domain. None of these integers is automatically a node
+identity. External storage may use explicit 64-bit offsets without enlarging
+the Scheme heap's addressing model.
 
-AWI keeps Scheme values in a GC-visible table. The Rust runtime borrows the root
-of an argument vector and returns one owned root. Accessors returning children
-create separately owned roots; retaining allocates another slot and releasing
-invalidates that slot. Slots can be reused, so stale integers are unsafe. Rust's
-`Root` expresses ownership and prevents transfer between threads. Raw handles
-must also remain within the instance that allocated them.
+A runtime procedure borrows its argument-vector root and returns an owned result
+root. A child accessor already returns an owned slot. Retaining that root again
+creates a second slot that also needs release.
+For example:
 
-`anyref` and `eqref` remain meaningful Wasm types. They do not acquire a portable
-C pointer representation just because native objects happen to use pointers.
-The current finalization hook, described beside `extension` in the
-[AWI interface](awi.md), takes a GC reference. Its native adapter needs collector
-integration, not a scalar bitcast.
+1. Borrow the argument vector and obtain an owned root for a child.
+2. Keep that root live while a Scheme callback allocates or reenters Rust.
+3. Release the child root after the callback; transfer the owned result to the
+   caller, which releases it when done. The argument vector's owner releases it.
 
-Use `extern "C"` for function calling conventions and explicit unmangled symbols
-for native linkage. `#[repr(C)]` describes exposed data layout; it does not select
-a function calling convention. The first ABI uses scalars and handles, avoiding
-platform-sized integers, Rust containers, aggregate returns, and raw callbacks.
-[Rust's function ABI](https://doc.rust-lang.org/reference/items/external-blocks.html#abi),
+Rust's `Root` encodes this ownership and prevents transfer between threads.
+Handles remain in the instance that allocated them. Ordinary Rust helper error
+returns release owned roots normally. `Root::call` can report an
+argument-validation error inside Rust. This does not add an error channel to a
+Scheme-callable ABI export: current CLI runtime errors terminate the command with
+status 1. Scheme traps and aborts are also fatal; they are not `Result` errors.
+
+`anyref` and `eqref` have no portable C pointer representation. The finalization
+hook beside `extension` in the [ABI reference](abi-reference.md) takes a GC reference. Cleanup data must not retain the
+Scheme wrapper it watches.
+
+Use `extern "C"` for calling conventions and unmangled symbols for linkage.
+`#[repr(C)]` selects data layout. The ABI uses fixed-width scalars and
+handles; Rust containers, platform-sized integers, aggregate returns, and raw
+callbacks need additional contracts. See Rust's
+[function ABI](https://doc.rust-lang.org/reference/items/external-blocks.html#abi),
 [symbol linkage](https://doc.rust-lang.org/reference/abi.html#the-no_mangle-attribute),
-and [data layout](https://doc.rust-lang.org/reference/type-layout.html#the-c-representation)
-have distinct roles.
+and [data layout](https://doc.rust-lang.org/reference/type-layout.html#the-c-representation).
 
-## Calls stay inside an actor; connections cross actors
+## Calls stay inside a node; connections cross nodes
 
-An ABI call is local to one instance. Scheme callbacks may allocate and reenter
-Rust; roots must remain live, and Rust cannot hold a borrow or lock that the
-callback could reacquire. The current call returns synchronously. It cannot
-suspend or unwind through arbitrary Rust/C frames. A fatal trap can bypass Rust
-destructors, so the failed instance must be discarded.
+Local calls are synchronous. Before invoking a callback, release any borrow or
+lock it could reacquire. Arbitrary Rust/C frames cannot be suspended or unwound
+through. A fatal trap may bypass destructors; the outer runtime must discard
+the failed instance instead of reusing its roots.
 
-Actor connections have a separate protocol. Typed message declarations should
-derive S-expression encoders and decoders, including validation; received forms
-are data and are never evaluated. Copying applies even within one process. A
-GPU buffer reference or database key can travel in a message when both endpoints
-agree on its namespace, access, and lifetime. Bulk textures and model weights
-need not be serialized for every invocation.
+[Connections](runtime-contracts.md#a-connection-has-a-client-on-each-end)
+encode values, transfer them, and decode new values in the receiving node,
+including within one process. Received S-expressions are data, never code to
+evaluate. GPU resources or database records may be named in messages only when
+both nodes agree on namespace, access, and lifetime. Bulk data can stay with its
+owner. A runtime can also adapt a subprocess's IO and completion to messages.
 
-An actor owns its heap, globals, and resources. Each connection endpoint owns
-its pending calls or streams. Spawning creates a subordinate and establishes
-supervision; connecting selects an existing recipient without acquiring its
-lifetime. A platform's control service can expose spawning through that same
-model. An OS subprocess can participate through an adapter for its streams and
-completion; the executable need not understand Scheme messages itself.
-
-The current native CLI deliberately hosts one instance per OS process. A future
-host supporting several actors in one process must preserve per-instance state.
-One process-global root table or
-unscoped thread-local port table is insufficient when several actors share a
-thread. Native entry must select the correct instance and restore that context
-across callbacks; future suspension needs an equally explicit contract.
+The Node.js command host runs one instance per process. A runtime with
+several nodes in one process must select each instance's roots, memory, and
+resources before entry and restore that context across callbacks. Process-global
+roots or unscoped thread-local port tables cannot provide that isolation.
 
 ## Compatibility
 
-The current `snail.awi`, `snail.rust`, and `snail.host` names are unversioned
-implementation interfaces. AWI is informally v0. The platform pages record that
-fact; this book does not introduce a version negotiation implementation.
+The linked modules are `snail.abi` (Scheme root operations), `snail.library`
+(common library and default provider implementations), `snail.platform`
+(selected effect functions), and `snail.entry`. The loader supplies `snail.host`,
+`snail.node`, and WASI imports. An effect handler declares the exact interface
+revision and complete operation contract. The linker checks descriptors and
+Wasm function types; it does not prove documented semantics.
 
-Artifacts should eventually identify required ABI revisions and Wasm features,
-independently of an engine's release. Reject unsupported requirements before
-entry. A platform page records exact symbol names, signatures, ownership, effects,
-and lifecycle. Breaking changes to those rules require a matching compiler and
-runtime change; future artifact metadata must make that match explicit.
+Artifacts must match root ownership, resource lifetimes, shared-memory layout,
+and engine features. There is no dynamic ABI-version negotiation. Missing
+imports, incompatible signatures, or unsupported Wasm features prevent startup.

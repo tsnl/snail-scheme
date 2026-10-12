@@ -8,7 +8,7 @@ and the broader polymorphic rules below remain proposals.
 Add occurrence typing to resolved Scheme IR, using verified predicate summaries
 to narrow types at individual uses. Use the same facts to check optional
 annotations and remove redundant runtime checks. Keep the current WasmGC value
-representations and AWI ownership contract.
+representations and ABI ownership contract.
 
 Occurrence typing is the refinement mechanism in scope: propositions describe
 membership in types, their negations, and Boolean combinations. Arithmetic
@@ -654,7 +654,7 @@ Narrowing a reference does not change object layout. Otherwise retain the cast.
 Array access retains Wasm's bounds-trapping semantics. See the
 [WasmGC operations](https://github.com/WebAssembly/gc/blob/main/proposals/gc/Overview.md).
 
-Keep generic runtime and AWI entries checked for callers without evidence.
+Keep generic runtime and ABI entries checked for callers without evidence.
 Any internal helper accepting proven inputs must state those preconditions next
 to its implementation. Preserve GC roots, tail calls, initialization order,
 argument evaluation, and the existing failure path for every retained check.

@@ -1,32 +1,33 @@
 # Snail Scheme
 
-> 🚧 Work in progress, claims may change; the previous implementation lives on
-> branch [`v3`](https://github.com/tsnl/snail-scheme/tree/v3).
+Snail Scheme compiles Scheme to WebAssembly GC. The Wasm engine owns Scheme
+memory. A common library supplies value operations; a selected platform supplies
+named effect handlers for files, ports, clocks, diagnostics, and host services.
+The available command runtime uses Node.js, WASI, and a small JavaScript adapter
+for subprocesses and build publication.
 
-Snail Scheme is a fast, modern, type-safe Scheme implementation with a framework
-for distributed, heterogeneous applications. Its
-[actors](https://en.wikipedia.org/wiki/Actor_model) model processes across
-browsers, servers, GPUs, and database clusters, handling communication so you
-can focus on your application's behavior and reuse logic across platforms.
-
-The [benchmark suite](BENCHMARKS.md) compares all 57 pinned R7RS workloads
-against Chez, Guile, and Chibi, retaining unsupported cases and failures in
-the report. Run `make benchmark` inside `nix-shell benchmarks/shell.nix`.
-
-[![Snail compiling its own compiler: elapsed times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)](BENCHMARKS.md#compile-the-compiler)
+The [book](doc/book/index.md) explains the longer-term model of nodes, artifacts,
+spawn, connect, and messages. Node connections and browser GUI adapters are still
+unimplemented; the book distinguishes that model from runnable examples.
 
 ## Getting started
-
-Install Rust/Cargo, then run from the repository root
-([toolchain setup](doc/backend.md#build-and-run)):
 
 ```sh
 nix-shell
 rustup target add wasm32-wasip1
-chibi-scheme -I src build.scm
-build/snail-scheme examples/fibonacci.scm
+chibi-scheme -h512M -I src build.scm
+node --no-warnings scripts/run-wasi.mjs build/snail-scheme.wasm examples/fibonacci.scm
 ```
 
-[Tour](TOUR.md) · [Build, tests, and limitations](doc/backend.md) ·
-[Application framework](https://github.com/tsnl/snail-scheme/pull/9) ·
-[Roadmap](https://github.com/tsnl/snail-scheme/issues/11) · [Apache-2.0](LICENSE)
+Chibi remains the bootstrap host. Binaryen is a required build dependency,
+provided by `nix-shell` and checked before compilation. See
+[build and toolchain setup](doc/backend.md).
+
+The [benchmark suite](BENCHMARKS.md) retains all 57 pinned R7RS workloads,
+including unsupported cases. The completed Native/V8 comparison and compiler
+baseline are in [the migration report](benchmarks/results/2026-10-12-native-v8/README.md).
+The removed LLVM emitter and native collector remain on
+[`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
+
+[Tour](TOUR.md) · [Effect interfaces](doc/book/effects.md) ·
+[Build and tests](doc/backend.md) · [Apache-2.0](LICENSE)

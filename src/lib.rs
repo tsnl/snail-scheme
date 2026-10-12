@@ -1,4 +1,4 @@
-//! Rust services for the application Wasm interface (ABI).
+//! Rust services for the application binary interface (ABI).
 //!
 //! Every exported primitive borrows a rooted argument vector and returns one
 //! owned result handle. Rust sees table indices, never WasmGC pointers. The

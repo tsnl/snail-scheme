@@ -1,46 +1,49 @@
 # A chat application in two places
 
-**Planned integration tutorial.** A vendorable application library builds a native
-server and browser Wasm. Two browsers run their own Scheme reducer and functional
-view; the server connects to a native history service. Static document rendering
-and the live DOM share the same ordinary tree-composition API. The server uses
-[native CLI](../platforms/native-cli.md); clients use
-[browser GUI](../platforms/browser-gui.md), including real DOM input and composition
-events alongside the shared GUI lifecycle.
+In this model example, two browser nodes keep local drafts and connect to one
+server node. The server connects to an existing history node. Committed posts
+are shared; each browser's draft belongs to that browser.
 
-Aim for `build.scm`, `protocol.sld`, and `chat.sld`, with separate browser and
-server roots in the application source. Top-level typed message declarations
-derive S-expression codecs. Reducers consume records; there are no `use-state`
-slots or separately maintained JSON schemas. HTML/DOM is the first UI backend.
+## Artifacts and startup
 
-## Observable checkpoints
+`build.scm` builds server and browser artifacts from separate entry points.
+They share message declarations and pure application rules. Server credentials
+and database code belong in the server artifact or its runtime configuration.
+They do not belong in browser artifacts.
 
-- **C01 — Message types:** one type source drives local and WebSocket codecs for
-  arguments, results, failures, and stream items. Reject malformed/unknown data
-  and excessive depth or size before dispatch. Decode, never evaluate.
-- **C02 — Views:** Chibi static rendering and browser rendering agree on content.
-  Generic elements, fragments, and components compose trees; DOM updates retain
-  focus and selection. Application code and library code remain separately readable.
-- **C03 — Multiple targets:** two actual browsers execute Scheme handlers, retain
-  local drafts while offline, and receive the same committed post. The native
-  server's credentials and database implementation never enter browser artifacts.
-- **C04 — Composition and discovery:** a separate consumer imports the application,
-  selects targets, and builds artifacts plus service requirements. Runtime binds
-  real instances and credentials. Connecting to an existing database does not
-  confer supervision; spawning a client and connecting are distinct operations.
-- **C05 — Streams:** room ordering, operation-ID deduplication, replay, and bounded
-  subscriber queues are explicit protocol guarantees. A slow browser cannot block
-  another. Pub/sub is a service, not the definition of every connection.
-- **C06 — Failure and reload:** connection endpoints settle their own outstanding
-  exchanges. History survives worker/session failure. Reload validates compatibility,
-  pins old artifacts as needed, and requires migration/reconnection when necessary.
-- **C07 — Documents:** a later `generate-library` reads explicit foreign paths,
-  with generator imports separate from generated imports. Its one generator
-  `begin` preserves locations, hygiene, and dependencies. Embedded runtime Scheme
-  does not run during generation. Publish static and interactive guides through
-  the same view API, eventually replacing this mdBook frontend.
+The server's runtime is configured with the browser artifacts and a browser
+spawner. The server spawns each browser with its running identity in the initial
+data. Browser navigation loads the artifacts and reports readiness. Each browser
+then connects to the server; the server connects to the configured, already
+running history node.
 
-Use a host profile for reducers/codecs, then a native server plus two real browser
-clients, and a deployment profile with a remote service. Authentication, store,
-discovery, protocol versions, and reconnect policy must be chosen and documented
-before the distributed integration test is considered complete.
+The server owns the browsers it spawns. Connecting to history gives it a way to
+send messages, without ownership of history's lifetime.
+
+## Connections across runtimes
+
+The browser and server runtimes cooperate to establish each connection. They
+check the nodes' identities and message contracts, encode and transfer messages,
+and decode values for the receiving node. A client at each end handles replies,
+timeouts, errors, and hang-up. Application code calls operations such as
+`post` and `subscribe` without implementing WebSocket handling or codecs.
+
+The message contract defines room ordering, committed post IDs, and the meaning
+of a subscription. Bounded subscriber queues keep a slow browser from blocking
+the other. Each browser retains its own draft while disconnected.
+
+## Failure and reconnection
+
+If a post commits but its reply is lost, retrying can post it twice. This
+application avoids that by assigning an operation ID before sending and storing
+the result with that ID in history. A retry uses the same ID; connection request
+IDs alone cannot identify the operation across new connections.
+
+Reloading a browser creates a new node and connection. Its workflow/session
+supplies the server identity again and requests posts after its last stored
+position. Persisting a draft across reload is a separate application rule.
+
+When one browser leaves, its client hangs up. The server client closes that
+connection, and the other browser continues. If the server fails, history
+survives because the server never owned its lifetime. Recovery still requires a
+workflow/session to start or find a server and give browsers its new identity.

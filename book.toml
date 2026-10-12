@@ -15,3 +15,8 @@ edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{pa
 
 [output.html.playground]
 runnable = false
+
+[output.html.redirect]
+"actors.html" = "nodes.html"
+"actor-runtime-contracts.html" = "runtime-contracts.html"
+"awi.html" = "abi-reference.html"

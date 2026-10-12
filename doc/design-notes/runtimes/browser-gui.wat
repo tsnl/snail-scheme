@@ -15,7 +15,7 @@
 ;; and issues DOM edits. The browser owns layout, painting, and native text
 ;; editing. Keep heavy work off the document thread. Queue callbacks raised
 ;; during edits until the current call returns. Worker actors must serialize
-;; commands/events to the DOM owner; raw AWI roots cannot cross that boundary.
+;; commands/events to the DOM owner; raw ABI roots cannot cross that boundary.
 ;;
 ;; Batching, hydration, focus/selection/layout APIs, CSS, custom elements,
 ;; shadow roots, and the recoverable DOM-error boundary remain open design
@@ -23,6 +23,9 @@
 ;; user-activation path; an arbitrary deferred actor callback cannot promise
 ;; activation eligibility. See
 ;; https://html.spec.whatwg.org/multipage/interaction.html#tracking-user-activation
+;;
+;; This is the application's view: it calls imported runtime operations
+;; and supplies exported handlers for the runtime to call.
 (module
 
   ;; ---- Shared surface operations ----
@@ -54,7 +57,7 @@
 
   ;; [surface] -> node-ref. Obtain the owned DOM root for this surface.
   ;; References identify entries in the runtime's DOM table; neither DOM objects
-  ;; nor AWI root integers become actor message payloads. Destroy the surface to
+  ;; nor ABI root integers become actor message payloads. Destroy the surface to
   ;; retire its root.
   (import "snail.dom" "root"
     (func (param $arguments i32) (result i32)))

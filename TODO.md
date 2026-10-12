@@ -3,23 +3,23 @@
 The compiler stays Chibi-hosted. Current behavior is described in [TOUR.md](TOUR.md);
 this list contains work that has not landed.
 
-- [ ] Rebaseline the allocation workload on the current backend
-- [ ] Make native allocation and GC throughput competitive with V8
-  - Start from the [GC measurements and handoff](benchmarks/results/2026-10-11-prefault-heap/README.md): one compiler self-compilation allocates about 556 million objects / 16.34 GB, with only tens of MiB reachable.
-  - Isolate allocation, explicit-root publication and barriers with the same generated LLVM; the resident bump control currently omits the custom collector's root protocol.
-  - Measure a small allocation fast path with collection/refill out of line, constructor initialization without redundant zeroing, and fewer redundant root copies; these are unmeasured proposals.
-  - Investigate compiler allocation churn and single-value handling alongside collection; the nursery spends about 1.2 s collecting in a 14.1 s compiler run.
-  - Retain checked tail calls, Rust AWI roots, identity hashing and weak resource cleanup; keep nursery/Immix prototypes experimental until repeated native execution and performance checks justify integration.
-  - Report heap preparation, resident memory and execution separately, with matching inputs and verified outputs. Parallel marking and Immix evacuation remain deferred.
-- [ ] Browser runner with a WASI adapter
-- [ ] Source mappings for generated Wasm and native debugging
+- [ ] Follow up the [57-workload comparison](benchmarks/results/2026-10-12-native-v8/README.md)
+  - Reduce measured compiler allocation churn and repeated single-value handling
+  - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC
+  - Retain original inputs and all failures when measuring improvements
+- [ ] Browser loader and browser implementations of selected effect interfaces
+- [ ] Node spawn/connect, serialization, supervision, and asynchronous host effects
+  - Follow the recovered [runtime contracts](doc/book/runtime-contracts.md)
+  - Keep terminal CLI faults distinct from recoverable connection failures
+- [ ] Independently packaged Wasm providers and explicit shared-resource domains
+- [ ] Source mappings for generated Wasm
 - [ ] Frontend conformance
   - Complete the syntax parser's remaining R7RS forms
   - Phase-aware resolution to shared definition identities
   - Retain `syntax-rules` repetition extents, including empty and variable-free repetitions
   - Diagnose unbound literal identifiers and missing imported auxiliary keywords
   - Handle interacting macro-generated binders
-- [ ] Rust interop and embedding ([AWI](doc/rust-interop.md))
+- [ ] Rust interop and embedding ([ABI](doc/rust-interop.md))
   - Version/instance checks for externally stored raw handles
   - Resource-kind registration and release callbacks
   - Recoverable errors/traps and explicit instance shutdown

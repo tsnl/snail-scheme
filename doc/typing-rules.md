@@ -579,7 +579,7 @@ workers require facts valid at every entry, including generic adapters.
 Eliding a check preserves evaluation of its operands. Knowing the outcome
 of an effectful predicate preserves the predicate call even if the subsequent
 branch can be selected statically. The Wasm emitter must still meet Wasm's
-reference typing requirements and preserve AWI roots and lifetime rules.
+reference typing requirements and preserve ABI roots and lifetime rules.
 
 ## Worked derivation
 

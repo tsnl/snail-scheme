@@ -1,4 +1,4 @@
-//! Application Wasm interface: owned roots into the engine's GC heap.
+//! Application binary interface: owned roots into the engine's GC heap.
 //!
 //! Handles are table indices, not pointers. Each `Root` owns a distinct live
 //! table slot in the current instance; dropping it releases that slot. Raw

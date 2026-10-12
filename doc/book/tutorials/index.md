@@ -1,32 +1,17 @@
-# Tutorials: the integration milestones
+# Model examples
 
-**Planned.** These are specifications for the three prototype PRs above the book
-foundation. They are not runnable tutorials yet. First finish self-hosting and
-the runtime ABI needed by build scripts; then build the prototypes in this order.
+These examples explain the node model through three applications. They describe
+state, artifacts, messages, and lifetimes; they are not executable tutorials.
+Use the [runtime pages](../platforms/index.md) for supported operations and run
+commands.
 
-| Order | Project | Functionality it adds |
-| --- | --- | --- |
-| 1 | [Game](game.md) | Runtime-dispatched handlers, isolated frame jobs, retained resources, reload and supervision. |
-| 2 | [Chat](chat.md) | Browser/native targets, typed S-expression connections, reducers and DOM views, discovery and streams. |
-| 3 | [Tensor training](tensors.md) | Graph capture, typed IR, autodiff, GPU compilation, retained data and an interactive workbook. |
+| Example | What it explains |
+| --- | --- |
+| [Game](game.md) | Temporary frame nodes, retained resources, and replacing an artifact. |
+| [Chat](chat.md) | Separate browser state, connections across runtimes, and shared history. |
+| [Tensor training](tensors.md) | Building domain-specific artifacts and running them with retained data. |
 
-Each finished tutorial gets one webpage and ideally two or three complete source
-files, including its `build.scm`. Show one included code block per file, with
-explanations beside it. Separate reusable libraries from application policy.
-Include exact run commands and expected output only after executing them.
-
-The small host tests and the real integration profile serve different purposes.
-A headless test does not prove a window works; a generated Wasm file does not
-prove the UI ran in the browser; a toy tensor fixture does not prove MNIST trained
-on a GPU. Missing hardware or capabilities remain explicit missing coverage.
-
-## Requirements that need deliberate extensions
-
-The basic demos exercise the platform's core model. Several earlier requirements
-need more than those demos: chat's generated document tests reader staging;
-the game needs separate GC-policy and allocation-bound cases; tensor training
-needs a typed-kernel extension and external offsets beyond 4 GiB. The following
-pages retain those requirements without making them prerequisites for the first
-small runnable checkpoint.
-
-Track implementation in the [TODO issue](https://github.com/tsnl/snail-scheme/issues/11).
+Each application uses an ordinary `build.scm`. Compiler and runtime libraries
+supply reusable operations; application code defines its messages and
+workflow/session rules. A build can share source between artifacts without
+sharing the state of their running nodes.

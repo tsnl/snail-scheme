@@ -6,7 +6,7 @@ Executable scripts choose a filename and establish a file scope with
 files and performs no traced work.
 
 The checked-in `build.scm` writes `<output>.trace.json` (by default,
-`build/snail-scheme.trace.json`). The native interpreter owns
+`build/snail-scheme.wasm.trace.json`). The Wasm command owns
 `<SCRIPT>.trace.json` for script compilation and execution. Benchmark and
 example scripts name their own files beside their artifacts. Integration build
 scripts write `<output>.trace.json`, and unit tests use temporary destinations.
@@ -22,7 +22,7 @@ Run the viewer on the development server:
 
 ```sh
 nix-shell
-scripts/view-traces build/snail-scheme.trace.json
+scripts/view-traces build/snail-scheme.wasm.trace.json
 ```
 
 On your laptop, forward its loopback port and open
@@ -117,13 +117,13 @@ so the file may remain incomplete. Continuation reentry is unsupported. Output
 errors propagate.
 
 Compiled programs use ordinary Scheme file and clock operations through the
-Rust AWI runtime. The Wasm and native launchers expose their working directory
+Rust ABI runtime. The Node host initializes the guest working directory
 for file access; trace filenames must lie within the host's accessible paths.
 
 ## Compiler stages and checks
 
 Spans cover source reading, parsing, expansion, WAT emission, Cargo, Wasm
-assembly/linking/optimization, execution, and native translation. Imported
+assembly/linking/optimization, and execution. Imported
 sources appear within expansion. Parsing is recorded as `reader->syntax-list`;
 each loaded source produces its own span. Use a viewer's inclusive/exclusive
 durations to separate costs. There are no per-instruction or per-primitive spans;
@@ -150,18 +150,17 @@ Type inference and partial evaluation run inside the visitor. Each expression's
 facts and fold candidate are consumed by its parent and emission; there are no
 separate fact-indexing or procedure-generation spans. The visitor registers
 literals in source traversal order. The separate `write-wasm` span measures
-serialization of the completed datum; native builds instead trace name/type
-resolution and LLVM emission. Runtime definitions are ordinary in-memory datums,
+serialization of the completed datum. Runtime definitions are ordinary in-memory datums,
 so there are no runtime text-copy spans.
 
 Build-stage `generate-library` processes have their own trace files. Their
-parent records compilation, native linking, and subprocess execution; it does
+parent records compilation, Wasm linking, and subprocess execution; it does
 not combine clocks from separate processes into one trace.
 
 `make test` checks host values, JSON escaping, nesting, file closure, and omission
 of failed or escaped calls. `scripts/test-chromium-trace` parses files recorded
 by Chibi and linked Wasm and checks missing destinations, file-opening failures,
-and omission of a span on terminal error. Add `--target both` to run the same
-linked module through the native executor. `scripts/test-build` checks compiler
+and omission of a span on terminal error. Completed events are flushed before
+a later fatal failure can abandon the file scope. `scripts/test-build` checks compiler
 stage coverage and nesting, import side effects, destination ownership, and
 finalization before a script exits with a nonzero execution status.

@@ -174,7 +174,7 @@ the category of a value does not prove its initialization, result count, numeric
 representation, or field contents.
 
 Unknown untyped parameters and heap reads have no single-value guarantee: Rust
-AWI can retain a callback's multiple-value envelope and pass it back directly or
+ABI can retain a callback's multiple-value envelope and pass it back directly or
 inside a pair/vector. Ordinary binding stores normalize their initializers, and
 typed entries normalize parameters. Those operations establish count evidence;
 a name read does not manufacture it. Immediate lambda arguments also normalize
@@ -256,7 +256,7 @@ returns the value directly for a singleton; envelopes contain zero or at least
 two values, so successful single-value normalization is also idempotent.
 The number of retained entries is bounded by the program's static check sites.
 `apply` forwards the pending set; `call-with-values` gives its producer a fresh
-set and transfers the caller's set to its consumer. The public AWI handle ABI
+set and transfers the caller's set to its consumer. The public ABI handle ABI
 is unchanged, and no pending state is captured in Scheme closures.
 
 This repairs a concrete space leak: an annotated function tail-calling an
@@ -283,7 +283,7 @@ subtyping, and conservative subtraction against a membership oracle.
 
 This is an audit and proof outline, **not a completed soundness theorem**. A
 formal operational semantics, preservation proof, and simulation of the complete
-Wasm/AWI runtime remain work. The implementation assumes the existing runtime's
+Wasm/ABI runtime remain work. The implementation assumes the existing runtime's
 primitive contracts and one initialization of the program's libraries. It does
 not establish blame theorems, parametricity, or a full gradual guarantee.
 
@@ -293,7 +293,7 @@ nominality from metadata alone, trusting opaque arrow annotations, and deleting
 initialization/count checks merely from a value type. Regression cases cover
 each applicable boundary.
 
-The AWI audit produced a concrete failing counterexample: a multi-value callback
+The ABI audit produced a concrete failing counterexample: a multi-value callback
 argument used by `+` raised the baseline single-value error in guarded mode but
 reached a numeric error after an unjustified count-check removal. The corrected
 analysis derives count evidence from normalization sites. Regression tests cover
@@ -335,7 +335,7 @@ returns and recursive entries. Thus `(- (+ a b) b)` still works for two maximum
 i32 arguments, while returning `(+ a 1)` at that maximum fails. Intermediates
 that might overflow i64 force ordinary emission for the whole function.
 Range-endpoint calculations check their own i64 bounds before performing
-arithmetic, allowing the same analysis to run on the native compiler host.
+arithmetic, allowing the same analysis to run on the compiled Wasm compiler host.
 An unrepresentable endpoint declines specialization without clipping its range
 or overflowing during compilation.
 

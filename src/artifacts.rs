@@ -1,5 +1,5 @@
-//! Companion files belong to a published executable generation. The operating
-//! system's executable path pins lookup to that generation across rebuilds.
+//! Companion files belong to a published Wasm generation. The loader resolves
+//! its payload once and supplies that generation's artifact directory.
 
 use crate::{abi::Root, arguments, finish, string_text};
 use std::{io, path::PathBuf};
