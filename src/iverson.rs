@@ -198,7 +198,7 @@ fn concrete(value: &Root) -> Result<Array, String> {
 }
 
 fn operand(value: &Root, dtype: Option<Dtype>) -> Result<Array, String> {
-    if matches!(value.kind(), Kind::Integer | Kind::Real) {
+    if matches!(value.kind(), Kind::Integer | Kind::Real | Kind::Complex) {
         Array::new(
             vec![],
             Data::from_numbers(dtype.unwrap_or(Dtype::F64), vec![value.as_real()?])?,
@@ -813,7 +813,10 @@ pub extern "C" fn indexed_scatter(raw: u32) -> u32 {
     crate::finish((|| {
         let base = operand(&args.get(1)?, None)?;
         let updates = args.get(3)?;
-        if !matches!(updates.kind(), Kind::Integer | Kind::Real | Kind::Extension) {
+        if !matches!(
+            updates.kind(),
+            Kind::Integer | Kind::Real | Kind::Complex | Kind::Extension
+        ) {
             return Err("scatter update dtype mismatch; use astype explicitly".into());
         }
         let updates = operand(&updates, Some(base.data.dtype()))?;

@@ -65,6 +65,14 @@ ERRORS = {
     "string-after-false": "expected a string",
     "read-closed": "port is closed",
 }
+ARRAY_ERRORS = {
+    "complex-element": "expected [Integer, Real], found Complex",
+    "complex-scalar": "expected [Integer, Real], found Complex",
+    "empty-complex-scalar": "expected [Integer, Real], found Complex",
+    "complex-update": "expected [Integer, Real], found Complex",
+    "empty-complex-update": "expected [Integer, Real], found Complex",
+    "complex-i32-scalar": "i32 conversion requires an integer in range",
+}
 
 
 # ---- Compilation and execution ----
@@ -110,6 +118,10 @@ def check_fixture(name):
         require_result([os.environ.get("NODE", "node"), "--no-warnings",
                         str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3", "literal-first"],
                        SUCCESSES[name])
+    elif name == "backend-iverson-ghost":
+        require_result(command, SUCCESSES[name])
+        for argument, diagnostic in ARRAY_ERRORS.items():
+            require_result(command, "", diagnostic, [argument])
     else:
         require_result(command, SUCCESSES[name])
     if name == "backend-hash-tables":

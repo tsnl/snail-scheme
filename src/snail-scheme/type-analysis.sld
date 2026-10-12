@@ -4,7 +4,7 @@
 (define-library (snail-scheme type-analysis)
   (export prepare-types make-type-scope scope-strict? strict-scope binding-type
           bind-fact branch-scope procedure-scope procedure-signature
-          infer-literal infer-name infer-procedure infer-conditional infer-instantiation
+          infer-literal infer-name infer-procedure infer-conditional infer-instantiation instantiate-fact
           infer-call check-result check-recursive-instances validate-type
           checked-fact checked-guard call-fact call-guards call-edges
           value-fact unknown-fact normalized-fact fact-type fact-single? fact-callee

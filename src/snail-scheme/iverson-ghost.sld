@@ -345,6 +345,7 @@
 
   (cond-expand
    ((not snail-scheme)
+    (import (only (scheme complex) real-part imag-part))
     (begin
       (define-record-type <dense-array>
         (make-dense kind dimensions data) dense-array?
@@ -366,13 +367,18 @@
               (* (if (< value 0) -1.0 1.0)
                  (if (>= result (expt 2.0 128)) (string->number "+inf.0") result)))))
 
+      (define (real-element value)
+        (unless (and (number? value) (zero? (imag-part value)))
+          (error "numeric array requires real elements" value))
+        (real-part value))
+
       (define (checked-element kind value)
-        (unless (real? value) (error "numeric array requires real elements" value))
-        (case kind ((f64) (inexact value)) ((f32) (round-f32 (inexact value)))
-              ((i32)
-               (unless (and (integer? value) (<= -2147483648 value 2147483647))
-                 (error "i32 conversion requires an integer in range" value))
-               (exact value))))
+        (let ((value (real-element value)))
+          (case kind ((f64) (inexact value)) ((f32) (round-f32 (inexact value)))
+                ((i32)
+                 (unless (and (integer? value) (<= -2147483648 value 2147483647))
+                   (error "i32 conversion requires an integer in range" value))
+                 (exact value)))))
 
       (define (dense-array code dimensions data)
         (let ((kind (vector-ref '#(f64 f32 i32) code)))
@@ -410,7 +416,7 @@
   (cond-expand
    (snail-tests
     (export test-iverson-ghost)
-    (import (snail-scheme test-utils))
+    (import (snail-scheme test-utils) (only (scheme complex) make-rectangular))
     (begin
       (define (expect-array value dimensions elements)
         (expect (shape value) dimensions)
@@ -492,6 +498,44 @@
                (expect (= (array-ref (div 1 value) 0) negative-infinity) #t)
                (expect (= (array-ref (div 1 (div value 1)) 0) negative-infinity) #t)))
            '(f64 f32))))
+
+      (define (test-real-valued-complex)
+        (for-each
+         (lambda (kind)
+           (for-each
+            (lambda (imaginary)
+              (let* ((value (make-rectangular 2.0 imaginary))
+                     (a (array '(1) '(1) kind)) (index (array '(1) '(0) 'i32))
+                     (two (if (eq? kind 'i32) '#(2) '#(2.0)))
+                     (three (if (eq? kind 'i32) '#(3) '#(3.0))))
+                (expect-array (array '(1) (vector value) kind) '(1) two)
+                (expect-array (astype kind (array '(1) (vector value) 'object)) '(1) two)
+                (expect-array (add a value) '(1) three)
+                (expect-array (div a value) '(1) '#(0.5))
+                (expect-array (scatter a index value) '(1) two)
+                (expect-array (scatter-add a index value) '(1) three)))
+            (list 0.0 (string->number "-0.0"))))
+         '(f64 f32 i32))
+        (for-each
+         (lambda (kind)
+           (let* ((negative-zero (string->number "-0.0"))
+                  (value (make-rectangular negative-zero negative-zero))
+                  (a (array '(1) (vector value) kind))
+                  (b (mul (array '(1) '(1) kind) value))
+                  (negative-infinity (string->number "-inf.0")))
+             (expect (= (array-ref (div 1 a) 0) negative-infinity) #t)
+             (expect (= (array-ref (div 1 b) 0) negative-infinity) #t)))
+         '(f64 f32)))
+
+      (define (test-complex-element-errors)
+        (for-each
+         (lambda (imaginary)
+           (let ((value (make-rectangular 2.0 imaginary)))
+             (expect (rejects? (lambda () (array '(1) (vector value) 'f64))) #t)
+             (expect (rejects? (lambda () (add (iota 0) value))) #t)
+             (expect (rejects? (lambda () (scatter (iota 1) (iota 0 'i32) value))) #t)))
+         (list 1.0 (string->number "1e-300") (string->number "+inf.0") (string->number "+nan.0")))
+        (expect (rejects? (lambda () (div (iota 0 'i32) (make-rectangular 2.5 0.0)))) #t))
 
       (define (test-object-tensors)
         (let* ((nested (vector 'value)) (data (vector 1 "two" nested))
@@ -609,6 +653,8 @@
         (run-test test-empty-arrays)
         (run-test test-large-empty-shapes)
         (run-test test-floating-zero-sign)
+        (run-test test-real-valued-complex)
+        (run-test test-complex-element-errors)
         (run-test test-array-matmul)
         (run-test test-object-tensors)
         (run-test test-array-dtypes)

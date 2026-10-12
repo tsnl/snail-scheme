@@ -77,6 +77,12 @@ information cannot silently select it. A result-only method needs a concrete
 expected result type or an explicit instantiation. Available instances do not
 fill in missing type information.
 
+A predicate such as `string?` can narrow a generic argument within a branch.
+The instance remains the one selected for its declared type `T`. A method
+`(-> T T)` can return another value of `T`, so its result does not inherit the
+argument's String refinement. Check the result with `string?` before using
+String operations, or select the concrete String instance with `inst`.
+
 Classes can have multiple parameters. Both argument and result contexts can
 determine those parameters. Instance heads currently support concrete scalar and
 nominal record types; variables and unions are rejected. There are no generic
@@ -97,6 +103,12 @@ or called indirectly. An expected concrete arrow can also select a method:
 Selection happens at compilation. Calling an escaping procedure value still uses
 the language's ordinary procedure invocation. An unresolved overloaded value
 cannot escape into runtime storage; give it a concrete view first.
+
+An immutable identifier alias such as `(define alias twice)` can remain static
+until a use selects its concrete view. A chain of aliases currently requires its
+target aliases to appear earlier; forward alias chains are unsupported in this
+MVP. A class declaration itself has no runtime value and cannot be assigned to
+with `set!`.
 
 Constrained functions require explicit `All` signatures and immutable
 module-level lambda definitions. Their constraints are not inferred. Ordinary

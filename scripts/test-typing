@@ -358,6 +358,17 @@ REJECTED.update({
     "class-unused-class-value": (INT_COMBINE + TWICE +
                                 '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
                                 '(define (hidden x) (write Combine) x)', "typeclasses have no runtime value"),
+    "class-unused-class-assignment": (INT_COMBINE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (set! Combine 42) x)', "typeclasses have no runtime value"),
+    "class-refined-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                             '(define-instance (Keep Any) (keep (lambda (x) 42))) '
+                             '(: measure (All (T) (=> ((Keep T)) (-> T ExactInteger)))) '
+                             '(define (measure x) (if (string? x) (string-length (keep x)) 0))', "type mismatch"),
+    "class-inline-alias-assignment": (COMBINE + '(define alias combine) '
+                                      '(define-instance (Combine i32) '
+                                      '(combine (lambda (x y) (set! alias (lambda (a b) a)) x)))',
+                                      "immutable identifier reference"),
     "class-effectful-alias": (INT_COMBINE + '(define alias (begin (display "e") combine))', "immutable identifier reference"),
     "class-effectful-inst": (INT_COMBINE + '(inst (begin (display "e") combine) i32)', "requires an identifier or static view"),
     "class-mutable-member": (COMBINE + '(define (plus x y) (+ x y)) '

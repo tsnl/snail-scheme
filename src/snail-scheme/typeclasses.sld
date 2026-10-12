@@ -60,6 +60,7 @@
 
     (define (children node)
       (cond ((ir:lambda? node) (list (ir:lambda-body node)))
+            ((ir:instance-declaration? node) (map cdr (ir:instance-declaration-methods node)))
             ((ir:block? node) (ir:block-items node))
             ((ir:value-binding? node) (list (ir:value-binding-initializer node)))
             ((ir:assignment? node) (list (ir:assignment-value node)))
@@ -338,8 +339,10 @@
 
     (define (check-call node operator arguments expected scope)
       (let* ((evidence (state-analysis (state)))
-             (types (and (constrained-type? (fact-type operator)) (call-type-arguments node operator arguments expected scope)))
-             (plan (infer-call node operator arguments expected scope)))
+             (types (and (constrained-type? (fact-type operator))
+                         (map head-type (call-type-arguments node operator arguments expected scope))))
+             (view (if types (instantiate-fact operator types node) operator))
+             (plan (infer-call node view arguments expected scope)))
         (if types (set-evidence-calls! evidence (cons (cons node types) (evidence-calls evidence))))
         (set-evidence-edges! evidence (append (call-edges plan) (evidence-edges evidence)))
         (call-fact plan)))
@@ -385,8 +388,9 @@
     (define (substitute-types types substitutions)
       (map (lambda (type) (type-substitute type substitutions)) types))
 
-    ;; Predicate refinements preserve a rigid variable's membership. Selection
-    ;; uses that variable's declared class, not the incidental narrower category.
+    ;; Predicate refinements preserve a rigid variable's membership. Call checking
+    ;; and selection use its declared class; a T result need not preserve the
+    ;; argument's incidental narrower category.
     (define (head-type type)
       (if (and (pair? type) (eq? (car type) 'I))
           (or (find type-variable? (cdr type)) type) type))
@@ -419,6 +423,9 @@
              (if (class-definition? (ir:name-definition node))
                  (located-error node "typeclasses have no runtime value"))
              (if (static-name? node) (validate-use node #f assumptions)))
+            ((ir:assignment? node)
+             (validate-node (ir:assignment-target node) assumptions)
+             (validate-node (ir:assignment-value node) assumptions))
             ((ir:lambda? node)
              (let ((scheme (signature node)))
                (if (and (constrained-type? scheme) (not (template-for-procedure node)))
@@ -622,7 +629,7 @@
             (only (snail-scheme parser) parse-result-value))
     (begin
       (define (test-elaboration text)
-        (let* ((core (make-core-library '(scheme base) '(+ error)))
+        (let* ((core (make-core-library '(scheme base) '(+ error string? string-length)))
                (forms (parse-result-value (s-file (string->reader "classes.scm" text))))
                (root (syntax-list->ir-library forms (lambda (name) (error "unexpected library" name)) (list core)))
                (primitives (map library:named-binding-definition (select (lambda (entry) (ir:value-definition? (library:named-binding-definition entry)))
@@ -673,8 +680,36 @@
              (expect (guard (ex ((error-object? ex) #t)) (test-elaboration source) #f) #t)))
          '("combine" "Combine")))
 
+      (define (test-unused-class-assignment)
+        (let ((prefix (string-append test-class-source
+                                     "(: hidden (All (T) (=> ((Combine T)) (-> T T)))) ")))
+          (expect (guard (ex ((error-object? ex) #t))
+                    (test-elaboration (string-append prefix "(define (hidden x) (set! Combine 42) x)")) #f) #t)
+          (expect (pair? (test-elaboration (string-append prefix
+                                                          "(define (hidden x) (define Combine 0) (set! Combine 42) x)"))) #t)))
+
+      (define (test-class-result-refinement)
+        (let ((source "(import (scheme base))
+                       (define-class (Keep T) (: keep (-> T T)))
+                       (define-instance (Keep Any) (keep (lambda (x) 42)))
+                       (: measure (All (T) (=> ((Keep T)) (-> T ExactInteger))))
+                       (define (measure x) (if (string? x) (string-length (keep x)) 0))"))
+          (expect (guard (ex ((error-object? ex) #t)) (test-elaboration source) #f) #t)))
+
+      (define (test-instance-assignment-inventory)
+        (let ((prefix "(import (scheme base))
+                       (define-class (C T) (: c (-> T T))) (define alias c) "))
+          (expect (guard (ex ((error-object? ex) #t))
+                    (test-elaboration (string-append prefix
+                                                     "(define-instance (C i32) (c (lambda (x) (set! alias (lambda (y) y)) x)))")) #f) #t)
+          (expect (pair? (test-elaboration (string-append prefix
+                                                          "(define-instance (C i32) (c (lambda (x) (define alias 0) (set! alias 1) x)))"))) #t)))
+
       (define (test-typeclasses)
         (run-test test-static-elaboration)
         (run-test test-class-obligations)
         (run-test test-instantiation-obligations)
-        (run-test test-unused-overloaded-values))))))
+        (run-test test-unused-overloaded-values)
+        (run-test test-unused-class-assignment)
+        (run-test test-class-result-refinement)
+        (run-test test-instance-assignment-inventory))))))

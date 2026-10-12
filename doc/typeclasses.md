@@ -102,6 +102,11 @@ obligations. Its body is checked once with rigid variables under exactly those
 obligations. Calling a class method on an abstract variable without its declared
 constraint fails, even if every current call site happens to have an instance.
 
+A predicate may narrow an argument without changing its declared class. A
+method `(-> T T)` selected under `Keep T` still returns `T`: it need not preserve
+an input's narrower String category. Check the returned value separately before
+using String operations, or explicitly select a concrete String instance.
+
 Each concrete use requests a specialization keyed by original function identity
 and type arguments. The compiler reserves the entry before rewriting its body,
 so ordinary and mutual recursion share the same specialization. Type-changing
@@ -132,8 +137,10 @@ views of unconstrained polymorphic implementations.
 
 An unresolved immutable identifier alias, such as `(define alias twice)`, is a
 compile-time alias of the original template. It has no separate runtime value
-or initialization site. Unresolved overloaded values cannot escape into ordinary
-runtime storage. Effectful unresolved aliases and instantiations of compound
+or initialization site. A chain of aliases currently requires its target aliases
+to appear earlier; forward alias chains are unsupported in this MVP.
+Unresolved overloaded values cannot escape into ordinary runtime storage.
+Effectful unresolved aliases and instantiations of compound
 overloaded expressions are rejected; put effects around a selected `inst` view
 instead. Concrete aliases remain normal bindings with normal initialization
 reads. Type variable names retain their existing scope within the signature;

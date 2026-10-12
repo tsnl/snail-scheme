@@ -108,7 +108,13 @@ Two numeric arrays must have the same dtype; use `astype` for a conversion.
 A bare numeric scalar adopts the array's dtype and is validated before the
 operation, including before `i32` division widens. `object` takes precedence
 when combined with a numeric tensor. Object arithmetic keeps the host's ordinary
-Scheme number semantics; compiled Scheme currently supports integers and reals.
+Scheme number semantics; compiled Scheme supports integers, reals, and complex values.
+
+Numeric conversion accepts a complex number with a zero imaginary component
+by extracting its real component. This applies to constructors, explicit casts,
+and bare arithmetic or scatter scalars. Either sign of imaginary zero is valid;
+a nonzero or NaN imaginary component is rejected. The real component retains
+its signed zero before the selected dtype conversion.
 
 Every standard Scheme vector participates as a rank-one `object` tensor, with
 its existing vector predicates, reads, and mutation semantics. This is protocol
