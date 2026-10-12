@@ -1,8 +1,7 @@
 # Generated libraries and dependency artifacts
 
 Build evaluation can produce both Scheme declarations and files needed by the
-resulting program. `generate-library` runs that evaluation in a separate native
-process. Dependency artifacts carry the completed files into the executable's
+resulting program. `generate-library` runs that evaluation in a separate Node.js process running Wasm. Dependency artifacts carry the completed files into the executable's
 installation; they are not embedded into Scheme literals.
 
 A generated library uses the ordinary import path and library name:
@@ -45,8 +44,7 @@ Scheme build code can inspect the environment and execute external tools.
 The portable `(snail-scheme compiler)` library has no process dependencies. Its
 `library-generator` parameter defaults to an error when a generated library is
 requested. `(snail-scheme compile-build)` installs the build resolver and returns
-`compilation-wasm` together with `compilation-artifacts`. The ordinary `build-wasm`
-and `build-native` operations use this path and propagate generated dependencies
+`compilation-wasm` together with `compilation-artifacts`. The ordinary `build-wasm` operation uses this path and propagate generated dependencies
 automatically. Scripts own the surrounding Chromium trace file scope.
 
 ## Artifact descriptions and publication
@@ -108,14 +106,6 @@ it, so building the compiler packages the companion automatically. Build scripts
 reuse it for Wasm linking through `build-runtime`; the Chibi bootstrap falls
 back to building the Rust runtime when no installed companion exists.
 
-Native programs link Rust's native archive directly through AWI. They consume
-the shared Binaryen optimization and lower its disassembled datums through LLVM.
-The native compiler uses the installed datum reader, with no Python text adapter
-or additional companion file. Binaryen executables remain external dependencies
-for both backends; the Nix shell supplies the complete suite.
-
-`scripts/test-generation` exercises isolation, nested/cache-hit dependencies,
-cycles, rollback, relocation, live generation pinning, and linked Wasm companion
-lookup. `scripts/test-self-host` builds the compiler and uses the installed
-compiler to rebuild itself with Chibi and Python blocked, using Binaryen.
-Preparing the runtime companion still uses Cargo and `wasm-dis`.
+Programs link the common Rust-to-Wasm library and selected platform handlers.
+Generators use the same Wasm pipeline. Binaryen executables remain external
+build dependencies; the Nix shell supplies the complete suite.
