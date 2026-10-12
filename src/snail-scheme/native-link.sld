@@ -3,7 +3,8 @@
 (define-library (snail-scheme native-link)
   (export link-native native-runtime-path)
   (import (scheme base) (scheme process-context) (snail-scheme llvm)
-          (snail-scheme build-host) (snail-scheme chromium-trace))
+          (snail-scheme build-host) (snail-scheme chromium-trace)
+          (snail-scheme wasm-optimize))
   (begin
 
     ;; ---- Wasm to native code ----
@@ -20,9 +21,11 @@
 
     (define (link-native root datum directory output)
       (let ((llvm (string-append directory "/module.ll")) (runtime (build-native-runtime root)))
-        ((chromium-trace "native.translate" (lambda () (wasm->llvm-file datum llvm))))
+        (let ((prepared (prepare-native-wasm datum directory)))
+          ((chromium-trace "native.translate" (lambda () (wasm->llvm-file prepared llvm)))))
         (run-command "native.compile"
-                     (append (list (tool-name "CLANG" "clang") "-O3" "-flto" "-fuse-ld=lld"
+                     (append (list (tool-name "CLANG" "clang") "-O3" "-flto"
+                                   (string-append "-fuse-ld=" (tool-name "LLD" "lld"))
                                    llvm (string-append root "/src/native.c"))
                              (list runtime "-ldl" "-lpthread")
                              (collector-flags) (list "-o" output)))))

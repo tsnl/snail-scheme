@@ -3,6 +3,7 @@
 (import (scheme base) (scheme process-context) (scheme write)
         (snail-scheme options) (snail-scheme native) (snail-scheme installation)
         (snail-scheme runtime-artifact)
+        (only (snail-scheme wasm-optimize) check-binaryen-tools)
         (snail-scheme chromium-trace) (only (snail-scheme build-host) same-file?))
 
 ;; ---- Interpreter options and script arguments ----
@@ -19,6 +20,7 @@
   (let* ((arguments (args-posargs args)) (script (car arguments))
          (trace-file (string-append script ".trace.json")))
     (if (same-file? script trace-file) (error "trace file must not replace script" script))
+    (check-binaryen-tools 'native)
     (with-chromium-trace-to trace-file
                             (lambda ()
                               (run-script (or (get-environment-variable "SNAIL_ROOT") installation-root)
