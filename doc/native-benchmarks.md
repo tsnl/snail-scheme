@@ -1,5 +1,16 @@
 # Runtime benchmarks
 
+This page archives the earlier single-workload experiments. Current
+`make benchmark` and `benchmarks/native` run the entire R7RS suite; see
+[BENCHMARKS.md](../BENCHMARKS.md). The custom Fibonacci and sieve runners
+are retired. To use the historical commands below, first check out their
+original implementation:
+
+```sh
+git worktree add --detach /tmp/snail-historical-cpu 9129147
+cd /tmp/snail-historical-cpu
+```
+
 **Runtime comparisons exclude compilation and process startup.** Timers surround
 the workload, with correctness checks before it and output afterward. Each sample starts a
 fresh process; runtime tiering in V8 or Guile remains included.
@@ -23,7 +34,8 @@ than V8, 3.56× faster than Guile, and 17.06× faster than Chibi. These are
 observations for this CPU/call workload, not claims about allocation, floating-point
 workloads, or other programs.
 
-Every implementation runs the complete canonical [Scheme program](../benchmarks/cpu.scm).
+Every implementation ran the complete canonical
+[Scheme program](https://github.com/tsnl/snail-scheme/blob/9129147/benchmarks/cpu.scm).
 Native and V8 consume the **same final Rust-linked Wasm module**. The native
 converter is implemented in Scheme and translates both the Scheme and Rust
 portions; the outer workload, checks, clock calls, and output remain Scheme.

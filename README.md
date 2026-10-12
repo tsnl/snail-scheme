@@ -9,9 +9,9 @@ for distributed, heterogeneous applications. Its
 browsers, servers, GPUs, and database clusters, handling communication so you
 can focus on your application's behavior and reuse logic across platforms.
 
-Snail Scheme is faster than Chez Scheme and Guile
-([benchmarks](BENCHMARKS.md)), combining broad R7RS compatibility with
-portability wherever WebAssembly runs.
+The [benchmark suite](BENCHMARKS.md) compares all 57 pinned R7RS workloads
+against Chez, Guile, and Chibi, retaining unsupported cases and failures in
+the report. Run `make benchmark` inside `nix-shell benchmarks/shell.nix`.
 
 [![Snail compiling its own compiler: elapsed times](benchmarks/results/2026-10-10-compiler-current/compiler-self.svg)](BENCHMARKS.md#compile-the-compiler)
 

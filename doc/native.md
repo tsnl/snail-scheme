@@ -147,9 +147,9 @@ Chibi and Binaryen during a rebuild and runs its replacement. Set
 `SNAIL_NATIVE_GC_INTERVAL=N` for diagnostic collection every N native allocations;
 leave it unset for ordinary execution.
 
-`benchmarks/native` builds the canonical Fibonacci workload independently for
-native and Wasm, then rotates eight rounds on a fixed core against Chez, Guile
-and Chibi. Native links Rust natively; V8 runs Binaryen's linked module. Timers
-exclude compilation, startup, checks and output. Commands, hashes and raw samples
-are saved to `build/native-benchmark/results.json`. Earlier reports translating
-the exact linked binary are historical; see [BENCHMARKS.md](../BENCHMARKS.md).
+`make benchmark` and `benchmarks/native` run all 57 pinned R7RS workloads
+across Snail native, Chez, Guile, and Chibi. Builds finish before rotating
+three measured rounds on a fixed core. Workload timers exclude compilation
+and process startup. Every requested case, including failures, appears in
+`build/r7rs-report/results.json`, its table, and the per-workload plots.
+See [the benchmark guide](../BENCHMARKS.md) for scope and reproduction.
