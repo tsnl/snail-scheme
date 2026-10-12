@@ -359,6 +359,7 @@ checks for incompatible strengthened facts instead of rejecting valid source.
 
 `wasm-representation.sld` maps semantic types to storage and explicit conversions.
 Exact integers, including checked `i32` values, use `i64`; inexact reals use `f64`;
+explicit unsafe `I32` and `F32` views select `i32` and `f32` storage;
 booleans and characters use `i32`; strings, pairs, vectors, bytevectors, procedures,
 records, and complex numbers can use their WasmGC reference types. Unknown values
 and unsupported type combinations use `eqref`. Declared range or nominal checks

@@ -17,6 +17,7 @@ SUCCESSES = {
                        '("--file" "b" "a") ("-v" . 4) ("-h" . #f))\n',
     "backend-binary": "binary IO checks passed\n",
     "backend-numeric": "numeric instruction checks passed\n",
+    "backend-intrinsics": "intrinsic checks passed\n",
     "backend-inexact": "inexact checks passed\n",
     "backend-hash-tables": "hash table checks passed\n",
     "backend-direct-calls": "direct call checks passed\n",

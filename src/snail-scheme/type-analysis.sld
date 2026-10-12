@@ -12,7 +12,7 @@
           fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
           type-optimizations-enabled original-body-checking? predicate-type scope-initialized?)
   (import (scheme base) (scheme cxr)
-          (snail-scheme types) (snail-scheme type-inference)
+          (snail-scheme types) (snail-scheme type-inference) (snail-scheme wasm-intrinsics)
           (prefix (snail-scheme ir) ir:))
   (begin
     ;; ---- Transient evidence and immutable scopes ----
@@ -607,6 +607,11 @@
               ((memq name '(%make-record %record?)) (record-result name arguments (scope-typing scope)))
               ((memq name '(+ - * / = < <= > >= quotient remainder modulo))
                (numeric-result node name arguments (scope-strict? scope)))
+              ((find-intrinsic name count)
+               => (lambda (entry)
+                    (if (and (scope-strict? scope) (intrinsic-checked? entry))
+                        (check-arguments node arguments (intrinsic-domains entry)))
+                    (if (eq? (intrinsic-result entry) '?) (unknown-fact) (value-fact (intrinsic-result entry)))))
               ((assq name primitive-contracts)
                => (lambda (contract)
                     (if (scope-strict? scope) (check-arguments node arguments (cadr contract)))
@@ -635,7 +640,7 @@
                         (every? (lambda (fact) (type-subtype? (fact-type fact) 'ExactInteger)) arguments)))
                (value-fact 'ExactInteger))
               ((and (pair? arguments)
-                    (every? (lambda (fact) (eq? (fact-type fact) 'InexactReal)) arguments))
+                    (every? (lambda (fact) (type-subtype? (fact-type fact) 'InexactReal)) arguments))
                (value-fact 'InexactReal))
               (else (value-fact 'Number)))))
 

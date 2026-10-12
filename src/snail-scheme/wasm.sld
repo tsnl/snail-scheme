@@ -11,7 +11,7 @@
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
           (prefix (snail-scheme partial-eval) pe:)
-          (snail-scheme specialize) (snail-scheme wasm-representation)
+          (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics)
           (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
@@ -583,7 +583,7 @@
             ((memq type '(Any ?)) '(i32.const 1))
             ((eq? type 'Never) '(i32.const 0))
             ((eq? type 'ExactInteger) `(call $is_integer ,value))
-            ((eq? type 'i32)
+            ((memq type '(i32 WasmI32))
              `(if (result i32) (ref.test (ref i31) ,value) (then (i32.const 1))
                   (else (if (result i32) (ref.test (ref $integer) ,value)
                             (then (i64.le_u (i64.add (struct.get $integer 0 (ref.cast (ref $integer) ,value))
@@ -594,6 +594,7 @@
                                                 ((Null) '$nil) (else '$unspecified)))))
             ((memq type '(String Symbol))
              `(call $truthy (call $is_text_kind ,value (i32.const ,(if (eq? type 'String) 0 1)))))
+            ((eq? type 'WasmF32) `(call $is_f32 ,value))
             ((eq? type 'Boolean) `(call $truthy (call $is_boolean ,value)))
             ((eq? type 'Number) `(call $truthy (call $is_number ,value)))
             ((eq? type 'Char) `(call $truthy (call $is_character ,value)))
@@ -644,13 +645,41 @@
       (let* ((facts (map visited-fact operands))
              (primitive (typed-primitive node facts (function-module context)))
              (copy (proved-specialization node facts context))
+             (intrinsic (application-intrinsic node (function-module context)))
              (native (native-primitive node operands context)))
-        (cond (native native)
+        (cond (intrinsic (intrinsic-call intrinsic operands operator context))
+              (native native)
               (primitive (cons 'eqref `(call ,primitive ,@(map single-result operands))))
               ((and copy (or (not tail?) (equal? (specialized-representation copy) (function-representation context))))
                (copy-call copy operands operator guards tail? context))
               (else (cons 'eqref (procedure-call node (map single-result operands) (single-result operator) facts
                                                  (fact-signature (visited-fact operator)) guards tail? context))))))
+
+    ;; Concrete builtin entries receive actual Wasm scalars/references. Hold
+    ;; every operand before evaluating the operator or doing entry conversions;
+    ;; a callback-origin entry therefore keeps the original closure evaluation.
+    (define (application-intrinsic node module)
+      (let ((operator (ir:application-operator node)))
+        (and (ir:name? operator) (memq (ir:name-definition operator) (module-primitives module))
+             (find-intrinsic (ir:value-definition-name (ir:name-definition operator))
+                             (length (ir:application-operands node))))))
+
+    (define (intrinsic-call entry operands operator context)
+      (let* ((representations (map visited-representation operands))
+             (arguments (map (lambda (representation) (temporary! context representation)) representations))
+             (representation (type-representation (intrinsic-result entry)))
+             (prefix (map (lambda (name value representation)
+                            `(local.set ,name ,(represented-result value representation))) arguments operands representations)))
+        (cons representation
+              `(block (result ,(representation-wasm representation)) ,@prefix (drop ,(single-result operator))
+                      (call ,(intrinsic-entry entry)
+                            ,@(map (lambda (name from operand type) (intrinsic-argument name from operand type context))
+                                   arguments representations operands (intrinsic-domains entry)))))))
+
+    (define (intrinsic-argument name representation operand type context)
+      (if (and (type-optimizations-enabled) (type-subtype? (fact-type (visited-fact operand)) type))
+          (convert-representation `(local.get ,name) representation (type-representation type))
+          (checked-intrinsic-argument (box-representation `(local.get ,name) representation) type)))
 
     (define (proved-specialization node arguments context)
       (let ((copy (call-specialization node (function-module context))))
@@ -711,12 +740,12 @@
     (define (native-numeric name operands context)
       (let* ((types (map (lambda (operand) (fact-type (visited-fact operand))) operands))
              (integer? (and (type-subtype? (car types) 'ExactInteger) (type-subtype? (cadr types) 'ExactInteger)))
-             (float? (and (eq? (car types) 'InexactReal) (eq? (cadr types) 'InexactReal)))
+             (float? (and (type-subtype? (car types) 'InexactReal) (type-subtype? (cadr types) 'InexactReal)))
              (comparison (assq name '((= i64.eq f64.eq) (< i64.lt_s f64.lt) (<= i64.le_s f64.le)
                                       (> i64.gt_s f64.gt) (>= i64.ge_s f64.ge)))))
         (cond ((and comparison (or integer? float?))
-               (cons 'boolean `(,(if integer? (cadr comparison) (caddr comparison))
-                                ,@(map (lambda (operand) (represented-result operand (if integer? 'i64 'f64))) operands))))
+               (cons '(i32 boolean) `(,(if integer? (cadr comparison) (caddr comparison))
+                                      ,@(map (lambda (operand) (represented-result operand (if integer? 'i64 'f64))) operands))))
               ((and integer? (memq name '(+ - *))) (cons 'i64 (checked-integer-code name operands context)))
               ((and float? (assq name '((+ . f64.add) (- . f64.sub) (* . f64.mul) (/ . f64.div))))
                => (lambda (operation) (cons 'f64 `(,(cdr operation) ,@(map (lambda (operand) (represented-result operand 'f64)) operands)))))
@@ -752,7 +781,7 @@
               ((and (eq? name 'bytevector-length) (eq? type 'Bytevector))
                (cons 'i64 `(i64.extend_i32_u (array.len (struct.get $bytevector 0 ,(represented-result operand '(ref $bytevector)))))))
               ((and (eq? name 'char->integer) (eq? type 'Char))
-               (cons 'i64 `(i64.extend_i32_u ,(represented-result operand 'character))))
+               (cons 'i64 `(i64.extend_i32_u ,(represented-result operand '(i32 character)))))
               (else #f))))
 
     ;; Category proofs select a helper; representation tests and arithmetic
@@ -1201,7 +1230,7 @@
                                                                      (func $host_register_finalizer (param eqref i32 i32)))
                                                              (import "snail.host" "hash-identity" (func $host_hash_identity (param eqref) (result i32))))
                                                            (map rust-import (numbered (module-services module)))
-                                                           runtime-definitions abi-definitions
+                                                           runtime-definitions intrinsic-definitions abi-definitions
                                                            (module-definitions libraries module procedures (car visited) output program)
                                                            (if (and (pair? options) (pair? (cdr options)))
                                                                (list (cli-entry root module (cadr options))) '())))))))

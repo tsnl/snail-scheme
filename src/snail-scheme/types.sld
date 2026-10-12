@@ -14,7 +14,7 @@
 
     (define scalar-type-names
       '(? Any Never Boolean False True Null ExactInteger InexactReal Complex Number
-          String Symbol Char Pair Vector Bytevector Procedure Record Unspecified i32))
+          String Symbol Char Pair Vector Bytevector Procedure Record Unspecified i32 WasmI32 WasmF32))
 
     (define (arrow-type? type) (and (pair? type) (eq? (car type) '->)))
     (define (union-type? type) (and (pair? type) (eq? (car type) 'U)))
@@ -63,14 +63,16 @@
           (and (union-type? source) (all? (lambda (arm) (type-subtype? arm target)) (cdr source)))
           (and (union-type? target) (some? (lambda (arm) (type-subtype? source arm)) (cdr target)))
           (and (memq source '(False True)) (eq? target 'Boolean))
-          (and (memq source '(i32 ExactInteger InexactReal Complex)) (eq? target 'Number))
-          (and (eq? source 'i32) (eq? target 'ExactInteger))
+          (and (memq source '(i32 WasmI32 ExactInteger WasmF32 InexactReal Complex)) (eq? target 'Number))
+          (and (memq source '(i32 WasmI32)) (memq target '(i32 WasmI32 ExactInteger)))
+          (and (eq? source 'WasmF32) (eq? target 'InexactReal))
           (and (nominal-type? source) (eq? target 'Record))
           (and (function-type? source) (eq? target 'Procedure))))
 
     (define (type-compatible? source target)
       (or (type-subtype? source target) (dynamic-type? source) (dynamic-type? target)
-          (and (eq? target 'i32) (type-subtype? source 'ExactInteger))))
+          (and (memq target '(i32 WasmI32)) (type-subtype? source 'ExactInteger))
+          (and (eq? target 'WasmF32) (type-subtype? source 'InexactReal))))
 
     (define (type-members type)
       (cond ((union-type? type) (apply append (map type-members (cdr type)))) ((eq? type 'Never) '())
@@ -221,8 +223,8 @@
       ;; region and the static categories containing it, including both sides
       ;; of the i32 boundary and distinct, equal-shaped nominal records.
       (define test-regions
-        '((False Boolean) (True Boolean) (Null) (i32 ExactInteger Number)
-          (ExactInteger Number) (InexactReal Number) (Complex Number) (String) (Symbol) (Char)
+        '((False Boolean) (True Boolean) (Null) (i32 WasmI32 ExactInteger Number)
+          (ExactInteger Number) (WasmF32 InexactReal Number) (InexactReal Number) (Complex Number) (String) (Symbol) (Char)
           (Pair) (Vector) (Bytevector) (Procedure) (Unspecified)
           (Record (record first)) (Record (record second)) (Record)))
       (define test-algebra-types

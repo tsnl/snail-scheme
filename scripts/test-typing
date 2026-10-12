@@ -17,6 +17,16 @@ ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
 
 # Expected stdout includes effects that must occur before the failing check.
 CASES = {
+    "unsafe-i32-range": ('(import (prefix (snail unsafe) w:)) '
+                         '(w:: id (w:-> w:I32 w:I32)) (define (id x) x) '
+                         '(apply id (list 2147483648))', "", "incorrect value type"),
+    "unsafe-f32-range": ('(import (prefix (snail unsafe) w:)) '
+                         '(w:: id (w:-> w:F32 w:F32)) (define (id x) x) '
+                         '(apply id (list 16777217.0))', "", "incorrect value type"),
+    "unsafe-call-order": ('(import (prefix (snail unsafe) w:)) '
+                          '((begin (display "o") w:i32.add) '
+                          '(begin (display "a") 2147483648) (begin (display "b") 1))',
+                          "abo", "incorrect value type"),
     "poly-unused-variable": ('(: f (All (A) (-> ExactInteger))) (define (f) 1) (write (f))',
                              "1", ""),
     "poly-optimized-guard-order": ('(: id (All (A) (-> A A))) (define (id x) (display "body") x) '

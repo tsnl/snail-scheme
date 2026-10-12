@@ -264,7 +264,7 @@
     ;; Inferred-only domains must already be justified by the actual argument.
     (define (copy-domains arguments signature)
       (if (and signature (= (length arguments) (length (type-arguments signature))))
-          (map (lambda (actual formal) (if (type-subtype? actual formal) actual formal))
+          (map (lambda (actual formal) (if (and (not (memq formal '(WasmI32 WasmF32))) (type-subtype? actual formal)) actual formal))
                arguments (type-arguments signature))
           arguments))
 

@@ -1,0 +1,47 @@
+(import (scheme base) (scheme write) (scheme inexact) (prefix (snail unsafe) w:))
+
+(define (check expected actual)
+  (unless (equal? expected actual) (error "intrinsic disagreement" expected actual)))
+
+;; Width is storage; explicit low-level integer arithmetic has Wasm wrapping.
+(w:: add32 (w:-> w:I32 w:I32 w:I32))
+(define (add32 a b) (w:i32.add a b))
+(check -2147483648 (add32 2147483647 1))
+(check -9223372036854775808 (w:i64.add 9223372036854775807 1))
+(check -1 (w:i64.extend_i32 (w:i32.wrap_i64 4294967295)))
+(check #t (w:i32.lt_s -1 0))
+(check #f (w:i32.lt_u -1 0))
+(check 3 (apply w:i32.add '(1 2)))
+
+;; F32 annotations admit precisely representable values, NaNs and infinities.
+;; Explicit demotion rounds; ordinary Scheme arithmetic still computes in f64.
+(w:: keep32 (w:-> w:F32 w:F32))
+(define (keep32 x) x)
+(check 16777216.0 (w:f64.promote_f32 (w:f32.demote_f64 16777217.0)))
+(check 16777216.0 (w:f32.add (w:f32.demote_f64 16777216.0) (w:f32.demote_f64 1.0)))
+(check 16777217.0 (+ (w:f32.demote_f64 16777216.0) 1.0))
+(check -inf.0 (/ 1.0 (keep32 -0.0)))
+(check +inf.0 (apply keep32 (list +inf.0)))
+(check -inf.0 (keep32 -inf.0))
+(check #t (nan? (keep32 +nan.0)))
+(check #t (nan? (w:f32.div (w:f32.demote_f64 0.0) (w:f32.demote_f64 0.0))))
+
+;; References keep object identity. Raw copies move opaque slots and overlap.
+(define item (cons 'shared 'item))
+(define source (vector item #\x3bb #f))
+(define destination (w:vector.new (w:i32.wrap_i64 4) 'empty))
+(w:vector.copy! destination 1 source 0 3)
+(check #t (eq? item (w:vector.ref destination 1)))
+(check #\x3bb (vector-ref destination 2))
+(check #f (vector-ref destination 3))
+(w:vector.copy! destination 0 destination 1 3)
+(check #t (eq? item (vector-ref destination 0)))
+(check #\x3bb (vector-ref destination 1))
+(check #f (vector-ref destination 2))
+(w:vector.set! destination 3 'last)
+(check 'last (apply w:vector.ref (list destination 3)))
+(check 4 (w:vector.length destination))
+(check #t (char<? #\a #\z))
+(check #t (char=? #\x3bb (vector-ref destination 1)))
+(check #f (char=? #\a #\z))
+(display "intrinsic checks passed\n")

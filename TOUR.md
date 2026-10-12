@@ -243,6 +243,14 @@ and specialized parameters/results. Monomorphic declared entries can bridge to
 concrete workers after their ordinary guards. Containers, closure environments,
 mutable cells, and unknown calls keep their generic Scheme representation.
 
+[`wasm-intrinsics.sld`](src/snail-scheme/wasm-intrinsics.sld) gives selected builtins
+one semantic contract and a concrete Wasm entry. Direct calls preserve operand,
+operator, and check order while avoiding argument vectors; unsafe operations also
+have generic adapters for escaping procedure values. [`(snail unsafe)`](src/snail/unsafe.sld)
+exposes scalar widths and current typed GC reference aliases. Storage and boxing
+recipes remain separate, especially for characters and booleans sharing `i32`.
+See [the concrete-operation contract](doc/unsafe.md).
+
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and

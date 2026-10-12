@@ -5,7 +5,7 @@
   (export make-lambda-inference inferred-type inferred-lambda-type known-lambda
           inferred-call-type inference-binding-type inference-procedure-type inference-assigned?)
   (import (scheme base) (scheme cxr) (snail-scheme types)
-          (snail-scheme type-inference) (snail-scheme type-analysis)
+          (snail-scheme type-inference) (snail-scheme type-analysis) (snail-scheme wasm-intrinsics)
           (prefix (snail-scheme ir) ir:))
   (begin
 
@@ -169,6 +169,9 @@
              (constrain-each arguments 'Number) 'Boolean)
             ((memq name '(eq? eqv? equal? not boolean? number? exact-integer? integer? real? inexact?
                               string? symbol? char? pair? null? vector? bytevector? procedure?)) 'Boolean)
+            ((find-intrinsic name (length arguments))
+             => (lambda (entry)
+                  (if (constrain-arguments arguments (intrinsic-domains entry)) (intrinsic-result entry) '?)))
             ((assq name primitive-signatures)
              => (lambda (entry)
                   (if (and (= (length arguments) (length (cadr entry)))
