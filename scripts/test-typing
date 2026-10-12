@@ -27,6 +27,10 @@ CASES = {
                                       '(define (inferred x) x) (: f (-> Any String)) '
                                       '(define (f x) (observed (inferred x))) (f 42)',
                                       "", "incorrect value type"),
+    "poly-dynamic-result-order": ('(: observed (All (A) (-> A A))) '
+                                  '(define (observed x) (display "body") x) '
+                                  '(: run (-> Procedure Any String)) (define (run k x) (k x)) '
+                                  '(run observed 42)', "body", "incorrect value type"),
     "optimized-assertion-order": ('(define (f x) (display "before") (ann x String)) '
                                   '(f (begin (display "argument") 7))',
                                   "argumentbefore", "incorrect value type"),
