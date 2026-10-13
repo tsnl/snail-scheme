@@ -21,11 +21,11 @@ def compile_fixture(name, mode, foreign=False):
     return output
 
 
-def execute(output, expected, foreign=False):
+def execute(output, expected, foreign=False, stdin=None):
     runner = "tests/check-container-foreign.mjs" if foreign else "scripts/run-wasi.mjs"
     result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
                              str(ROOT / runner), f"{output}.wasm"],
-                            cwd=ROOT, capture_output=True, text=True, check=True)
+                            cwd=ROOT, input=stdin, capture_output=True, text=True, check=True)
     assert result.stdout == expected and not result.stderr, result
 
 
@@ -94,9 +94,16 @@ def check_fields(mode):
     print(f"passed field storage and contract failures {mode}", flush=True)
 
 
+def check_call_targets(mode):
+    output = compile_fixture("backend-storage-call-targets", mode)
+    execute(output, "storage call target checks passed\n", stdin="8\n")
+    print(f"passed recursive and generic bridge storage {mode}", flush=True)
+
+
 BUILD.mkdir(parents=True, exist_ok=True)
 for mode in ("on", "off"):
     check_vectors(mode)
     check_bindings(mode)
     check_aliases(mode)
     check_fields(mode)
+    check_call_targets(mode)
