@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-class (Marker T) (: mark (-> I64)))
+(define-instance (Marker I32) (mark (lambda () 20)))
+(define-instance (Marker F64) (mark (lambda () 22)))
+(: chosen (All (T) (=> ((Marker T)) (-> I64))))
+(define (chosen) ((inst mark T)))
+(+ ((inst chosen I32)) ((inst chosen F64)))
