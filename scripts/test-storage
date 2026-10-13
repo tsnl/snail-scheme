@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Execute fixed-storage vectors and prove their actual Wasm array operations."""
+"""Execute fixed storage and check concrete arrays, bindings, and alias boundaries."""
 import os
 from pathlib import Path
+import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -9,16 +10,28 @@ BUILD = ROOT / "build/storage-tests"
 EXPECTED = "fixed vector storage checks passed\n"
 
 
-def check(mode):
-    output = BUILD / mode
+def compile_fixture(name, mode, foreign=False):
+    output = BUILD / f"{name}-{mode}"
+    builder = "build-container-program.scm" if foreign else "build-storage-program.scm"
+    destination = f"{output}.wasm" if foreign else str(output)
     subprocess.run([os.environ.get("CHIBI", "chibi-scheme"), "-I", str(ROOT / "src"),
-                    str(ROOT / "tests/build-storage-program.scm"), str(ROOT),
-                    str(ROOT / "tests/programs/backend-storage-vectors.scm"), str(output), mode],
+                    str(ROOT / "tests" / builder), str(ROOT),
+                    str(ROOT / "tests/programs" / f"{name}.scm"), destination, mode],
                    cwd=ROOT, check=True)
+    return output
+
+
+def execute(output, expected, foreign=False):
+    runner = "tests/check-container-foreign.mjs" if foreign else "scripts/run-wasi.mjs"
     result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
-                             str(ROOT / "scripts/run-wasi.mjs"), f"{output}.wasm"],
+                             str(ROOT / runner), f"{output}.wasm"],
                             cwd=ROOT, capture_output=True, text=True, check=True)
-    assert result.stdout == EXPECTED and not result.stderr, result
+    assert result.stdout == expected and not result.stderr, result
+
+
+def check_vectors(mode):
+    output = compile_fixture("backend-storage-vectors", mode)
+    execute(output, EXPECTED)
     code = "\n".join(line for line in Path(f"{output}.wat").read_text().splitlines()
                      if line.startswith("(func $library") or line.startswith("(func $specialized"))
     if mode == "on":
@@ -33,6 +46,35 @@ def check(mode):
     print(f"passed fixed storage {mode}", flush=True)
 
 
+def check_bindings(mode):
+    output = compile_fixture("backend-storage-bindings", mode)
+    execute(output, "binding storage checks passed\n")
+    code = Path(f"{output}.wat").read_text()
+    cells = re.findall(r"\(type (\$binding_cell\d+) \(struct \(field \(mut i32\)\) \(field \(mut f64\)\)\)\)", code)
+    if mode == "on":
+        assert cells and any(f"(struct.new {cell} " in code for cell in cells)
+        assert re.search(r"\(global \$g\d+ \(mut f64\)", code)
+        assert re.search(r"\(type \$environment\d+ \(struct .*\(field f64\)", code)
+    else:
+        assert not cells
+    result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
+                             str(ROOT / "scripts/run-wasi.mjs"), f"{output}.wasm", "early-read"],
+                            cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode and not result.stdout and "read of an uninitialized binding" in result.stderr, result
+    print(f"passed binding storage and initialization {mode}", flush=True)
+
+
+def check_aliases(mode):
+    for name, expected in (("backend-container-aliases", "container alias checks passed\n"),
+                           ("backend-storage-sharing", "storage sharing checks passed\n"),
+                           ("backend-container-foreign", "foreign container checks passed\n")):
+        foreign = name.endswith("foreign")
+        execute(compile_fixture(name, mode, foreign), expected, foreign)
+        print(f"passed {name} {mode}", flush=True)
+
+
 BUILD.mkdir(parents=True, exist_ok=True)
 for mode in ("on", "off"):
-    check(mode)
+    check_vectors(mode)
+    check_bindings(mode)
+    check_aliases(mode)

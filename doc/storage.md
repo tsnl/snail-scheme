@@ -36,12 +36,27 @@ address is exposed.
 Closure copies retain explicit source identity. The solver joins each family's
 ordered capture holes, including whether a binding can receive an unconsumed
 foreign values envelope. A semantic type alone cannot authorize scalar storage
-at a boundary that has not consumed its value. Typed capture/cell and pair/record
-field lowering, richer element summaries in monomorphization, and the explicit
-unsafe `Array`/`Storage` interface are subsequent parts of this refactor; they are
-not implemented by this initial vector-storage checkpoint.
+at a boundary that has not consumed its value. Each family has one immutable
+environment struct shared by its generic entry and specialized workers. Concrete
+mutable or early-captured bindings use shared typed cells. Payloads and their
+initialized state are separate: any successful write makes the location readable,
+and a later source initializer overwrites the same location. Capturing a location
+never reads it. Unknown raw callback parameters retain their envelopes until the
+original source consumption point.
+
+Locals and globals also use solved concrete storage. A binding has one payload;
+there is no generic mirror beside a scalar cache. Concrete reference storage is
+nullable until initialization, while initialized reads recover its non-null type.
+Incoming parameters are separate ABI locals, so a mutable parameter can use a
+concrete worker argument and initialize its shared cell without boxing.
+
+Pair/record field lowering, richer element summaries in monomorphization, and
+the explicit unsafe `Array`/`Storage` interface are subsequent parts of this
+refactor and are not implemented by this checkpoint.
 
 `scripts/test-storage` checks linked execution with storage enabled and disabled
 and inspects emitted allocation/access sites for actual concrete arrays. The
 compiler parameter `storage-optimizations-enabled` in `(snail-scheme wasm-storage)`
-disables the physical container optimization without changing source checks.
+disables concrete container and binding payloads without changing source checks.
+Closure environments remain structs in both modes, so the same-compiler ablation
+isolates payload specialization rather than changing closure layout conventions.

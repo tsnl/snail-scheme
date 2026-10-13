@@ -241,7 +241,7 @@ checks need it, preserving proper tail recursion across functions.
 
 [`wasm-representation.sld`](src/snail-scheme/wasm-representation.sld) defines
 concrete scalar/reference storage and visible boxing/unboxing operations. The
-shared Wasm visitor uses those choices for values, initialized immutable locals,
+shared Wasm visitor uses those choices for values, bindings, closure fields,
 and specialized parameters/results. Monomorphic declared entries can bridge to
 concrete workers after their ordinary guards. Unknown calls keep their generic
 Scheme representation.
@@ -258,9 +258,18 @@ layouts from shared scalar/reference codecs. Public vector identity wraps one
 immutable choice of backing array; it never changes layout at runtime. Internal
 argv and native multiple-value transport use `$slots` instead. Generic vector
 operations dispatch by codec, homogeneous bulk copies use `array.copy`, and
-proved scalar reads/writes avoid element boxing. The remaining capture/cell and
-pair/record layout work uses the same solved holes; this vector checkpoint does
-not yet change those physical fields. See [storage constraints](doc/storage.md).
+proved scalar reads/writes avoid element boxing. Pair and record field lowering
+uses the same solved holes but remains a subsequent part of this work.
+See [storage constraints](doc/storage.md).
+
+[`wasm-bindings.sld`](src/snail-scheme/wasm-bindings.sld) describes physical lexical
+storage. Each binding has one authoritative payload, with explicit conversions
+at boundaries. Concrete mutable cells pair that payload with an initialized bit;
+generic cells keep the existing sentinel. Closure families have immutable structs
+whose ordered fields are concrete values or shared cell references. Creating a
+closure forwards those locations without reading or normalizing their contents.
+Locals and globals use the same payload rules, and mutable parameters retain a
+concrete incoming ABI separately from their shared location.
 
 [`wasm-intrinsics.sld`](src/snail-scheme/wasm-intrinsics.sld) gives selected builtins
 one semantic contract and a concrete Wasm entry. Direct calls preserve operand,

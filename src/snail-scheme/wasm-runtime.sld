@@ -18,7 +18,7 @@
         (type $result_checks (struct (field (ref $result_guard)) (field (mut (ref null $result_checks)))))
         (type $result_context (struct (field (mut (ref null $result_checks)))))
         (type $call (func (param eqref (ref $slots) (ref null $result_context)) (result eqref)))
-        (type $closure (struct (field (ref $call)) (field (ref $slots))))
+        (type $closure (struct (field (ref $call)) (field eqref)))
         (type $cell (struct (field (mut eqref))))
         (type $pair (struct (field (mut eqref)) (field (mut eqref))))
         (type $integer (struct (field i64)))

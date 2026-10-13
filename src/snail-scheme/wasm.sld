@@ -4,44 +4,58 @@
 ;;
 ;; Every lambda has an ordinary fixed-arity entry and a uniform closure adapter.
 ;; Known fixed workers avoid argument arrays; primitive adapters keep checked vectors.
-;; Captures are GC references. Only assigned or early-captured locals need cells.
+;; Captures have fixed Wasm field types. Assigned or early-captured locals use
+;; shared cells; an initialized bit is independent of a concrete payload.
 (define-library (snail-scheme wasm)
-  (export ir-library->wasm write-wasm)
+  (export ir-library->wasm write-wasm application-copy-observer application-copy-selection)
   (import (scheme base) (scheme cxr) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
           (prefix (snail-scheme partial-eval) pe:)
-          (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics) (snail-scheme wasm-storage)
-          (snail-scheme storage-analysis)
+          (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics)
+          (snail-scheme wasm-bindings) (snail-scheme storage-analysis) (snail-scheme wasm-storage)
           (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
 
     ;; ---- Compilation state ----
 
+    ;; The storage solve can observe emitted call edges, then pin them while
+    ;; refining layouts. A planned IR copy alone does not prove its worker is
+    ;; used: argument proofs and tail-result compatibility still decide that.
+    (define application-copy-observer (make-parameter #f))
+    (define application-copy-selection (make-parameter #f))
+
     (define-record-type <module>
-      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage)
+      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage layouts)
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
       (foreign module-foreign) (constants module-constants)
       (typing module-typing) (evaluator module-evaluator) (copies module-copies)
-      (scope module-scope set-module-scope!) (storage module-storage set-module-storage!))
+      (scope module-scope set-module-scope!) (storage module-storage set-module-storage!) (layouts module-layouts))
 
     (define (make-module globals primitives boxed functions known foreign constants typing evaluator . copies)
       (%make-module globals primitives boxed functions known foreign constants typing evaluator
-                    (if (null? copies) '() (car copies)) (make-type-scope typing) #f))
+                    (if (null? copies) '() (car copies)) (make-type-scope typing) #f (make-binding-layouts)))
 
     (define-record-type <function>
-      (%make-function module environment temporaries representation cached)
+      (%make-function module environment temporaries representation)
       function?
       (module function-module) (environment function-environment)
       (temporaries function-temporaries set-function-temporaries!)
-      (representation function-representation)
-      (cached function-cached set-function-cached!))
+      (representation function-representation))
 
     (define (make-function module environment temporaries . representation)
-      (%make-function module environment temporaries (if (null? representation) 'eqref (car representation)) '()))
+      (%make-function module environment temporaries (if (null? representation) 'eqref (car representation))))
+
+    ;; A place separates the payload's meaning from the storage of its location.
+    ;; Incoming parameters have their own ABI locals, so a concrete argument can
+    ;; initialize a shared cell without forcing that argument back to eqref.
+    (define-record-type <place>
+      (make-place kind name representation cell? environment incoming) place?
+      (kind place-kind) (name place-name) (representation place-representation)
+      (cell? place-cell?) (environment place-environment) (incoming place-incoming))
 
     (define (identifier prefix number)
       (string->symbol (string-append "$" prefix (number->string number))))
@@ -228,41 +242,83 @@
 
     ;; ---- References and literals ----
 
+    (define (solved-representation hole module)
+      (if (and (module-storage module) (type-optimizations-enabled)
+               (representation-optimizations-enabled) (storage-optimizations-enabled)
+               (storage-hole-single? hole))
+          (type-representation (storage-hole-type hole)) 'eqref))
+
+    (define (binding-representation definition module)
+      (if (module-storage module)
+          (solved-representation (binding-storage-hole definition (module-storage module)) module) 'eqref))
+
+    ;; Every member of a closure family uses the same physical cell decision.
+    ;; A family may join copied definitions, but does not join runtime locations.
+    (define (cell-binding? definition module)
+      (or (memq definition (module-boxed module))
+          (and (module-storage module)
+               (let ((root (storage-hole-root (binding-storage-hole definition (module-storage module)))))
+                 (let any ((definitions (module-boxed module)))
+                   (and (pair? definitions)
+                        (or (eq? root (storage-hole-root (binding-storage-hole (car definitions) (module-storage module))))
+                            (any (cdr definitions)))))))))
+
+    (define (global-place definition index module)
+      (make-place 'global (identifier "g" index) (binding-representation definition module) #f #f #f))
+
     (define (binding-place definition context)
-      (or (assq definition (function-environment context))
-          (let ((global (assq definition (module-globals (function-module context)))))
-            (and global (cons definition `(global ,(identifier "g" (cdr global))))))
-          (error "unresolved storage" (ir:value-definition-name definition))))
+      (let ((entry (assq definition (function-environment context))) (module (function-module context)))
+        (if entry (cdr entry)
+            (let ((global (assq definition (module-globals module))))
+              (if global (global-place definition (cdr global) module)
+                  (error "unresolved storage" (ir:value-definition-name definition)))))))
 
-    (define (place-representation place)
-      (if (and (eq? (cadr place) 'local) (pair? (cdddr place))) (cadddr place) 'eqref))
-
-    (define (read-place place)
-      (box-representation (read-raw-place place) (place-representation place)))
+    (define (place-location-representation place module)
+      (if (place-cell? place)
+          (binding-cell-representation (place-representation place) (module-layouts module))
+          (place-representation place)))
 
     (define (read-raw-place place)
-      (case (cadr place)
-        ((local) `(local.get ,(caddr place)))
-        ((global) `(global.get ,(caddr place)))
-        ((capture) `(array.get $slots (ref.cast (ref $slots) (local.get $env))
-                               (i32.const ,(caddr place))))))
+      (case (place-kind place)
+        ((local) `(local.get ,(place-name place)))
+        ((global) `(global.get ,(place-name place)))
+        ((capture) (if (place-environment place)
+                       (binding-environment-read (place-environment place) (place-name place))
+                       `(array.get $slots (ref.cast (ref $slots) (local.get $env)) (i32.const ,(place-name place)))))))
 
-    (define (boxed-place? place context)
-      (and (not (eq? (cadr place) 'global))
-           (memq (car place) (module-boxed (function-module context)))))
+    (define (place-ready-name place)
+      (string->symbol (string-append (symbol->string (place-name place)) "_ready")))
+    (define (place-ready place)
+      (if (or (place-incoming place) (eq? (place-kind place) 'capture)) '(i32.const 1)
+          `(,(if (eq? (place-kind place) 'global) 'global.get 'local.get) ,(place-ready-name place))))
+    (define (place-needs-ready? place)
+      (and (not (place-cell? place)) (not (place-incoming place))
+           (not (eq? (place-kind place) 'capture)) (not (eq? (place-representation place) 'eqref))))
+
+    (define (read-binding-value place context)
+      (if (place-cell? place)
+          (binding-cell-read (place-representation place) (read-cell-place place context) (module-layouts (function-module context)))
+          (binding-payload-read (read-raw-place place) (place-ready place) (place-representation place))))
+
+    (define (read-cell-place place context)
+      `(ref.cast ,(place-location-representation place (function-module context)) ,(read-raw-place place)))
 
     (define (read-binding definition context)
-      (let* ((place (binding-place definition context)) (value (read-place place)))
-        `(call $defined ,(if (boxed-place? place context)
-                             `(struct.get $cell 0 (ref.cast (ref $cell) ,value)) value))))
+      (let ((place (binding-place definition context)))
+        (box-representation (read-binding-value place context) (place-representation place))))
+
+    (define (write-place place value context)
+      (if (place-cell? place)
+          (binding-cell-write (place-representation place) (read-cell-place place context) value (module-layouts (function-module context)))
+          `(,(if (eq? (place-kind place) 'global) 'global.set 'local.set) ,(place-name place) ,value)))
 
     (define (store-binding definition value context)
       (let ((place (binding-place definition context)))
         `(block (result eqref)
-                ,(if (boxed-place? place context)
-                     `(struct.set $cell 0 (ref.cast (ref $cell) ,(read-place place)) ,value)
-                     `(,(if (eq? (cadr place) 'global) 'global.set 'local.set)
-                       ,(caddr place) ,value))
+                ,(write-place place value context)
+                ,@(if (place-needs-ready? place)
+                      `((,(if (eq? (place-kind place) 'global) 'global.set 'local.set)
+                         ,(place-ready-name place) (i32.const 1))) '())
                 (global.get $unspecified))))
 
     (define (literal-value datum module)
@@ -349,12 +405,11 @@
 
     (define (visit-name node scope context output)
       (let* ((definition (ir:name-definition node)) (place (binding-place definition context))
-             (cached (and (scope-initialized? definition scope) (assq definition (function-cached context))))
-             (representation (if cached (caddr cached) (place-representation place))))
-        (result (infer-name node scope)
-                (cond (cached `(local.get ,(cadr cached)))
-                      ((eq? representation 'eqref) (read-binding definition context))
-                      (else (read-raw-place place))) output scope #t representation)))
+             (representation (place-representation place)) (fact (infer-name node scope)))
+        (result (if (eq? representation 'eqref) fact
+                    (specialized-fact fact (type-intersect (fact-type fact)
+                                                           (binding-storage-type definition (module-storage (function-module context))))))
+                (read-binding-value place context) output scope #t representation)))
 
     (define (check-visited node visited expected tail? context)
       (if (not expected) visited
@@ -415,20 +470,14 @@
                 (and (not expected) (visited-fold-safe? child)))))
 
     (define (initialize-binding definition child context)
-      (let* ((place (binding-place definition context))
-             (representation (if (and (type-optimizations-enabled) (representation-optimizations-enabled) (eq? (cadr place) 'local)
-                                      (not (boxed-place? place context)))
-                                 (type-representation (fact-type (visited-fact child))) 'eqref)))
-        (if (eq? representation 'eqref) (store-binding definition (single-result child) context)
-            (let ((name (temporary! context representation)))
-              (set-function-cached! context (cons (list definition name representation) (function-cached context)))
-              `(block (result eqref) (local.set ,name ,(represented-result child representation))
-                      ,(store-binding definition (box-representation `(local.get ,name) representation) context))))))
+      (let ((representation (place-representation (binding-place definition context))))
+        (store-binding definition (represented-result child representation) context)))
 
     (define (visit-store node definition initializer scope environment context output)
       (let* ((expected (binding-type definition scope))
              (child (visit initializer (if expected (strict-scope scope) scope) environment expected #f context output)))
-        (result (value-fact 'Unspecified) (store-binding definition (single-result child) context) (visited-output child) scope #f)))
+        (result (value-fact 'Unspecified) (initialize-binding definition child context)
+                (visited-output child) scope #f)))
 
     (define (visit-conditional node scope environment expected tail? context output)
       (let* ((test (visit (ir:conditional-test node) scope environment #f #f context output))
@@ -529,14 +578,36 @@
     (define (call-checks tail?)
       (if tail? '(local.get $checks) '(ref.null $result_context)))
 
+    (define (capture-definitions node module)
+      (if (module-storage module)
+          (map car (storage-lambda-captures node (module-storage module)))
+          (free-definitions node (module-globals module))))
+
+    (define (environment-layout node module)
+      (and (module-storage module) (pair? (capture-definitions node module))
+           (binding-environment-type (storage-family-id (storage-lambda-family node (module-storage module)))
+                                     (map (lambda (definition)
+                                            (let ((representation (binding-representation definition module)))
+                                              (if (cell-binding? definition module)
+                                                  (binding-cell-representation representation (module-layouts module)) representation)))
+                                          (capture-definitions node module)) (module-layouts module))))
+
+    ;; This is location transport, not a Scheme read: early captures forward a
+    ;; cell without testing its payload, and raw envelopes stay unconsumed.
+    (define (capture-value definition context)
+      (let* ((place (binding-place definition context))
+             (representation (place-location-representation place (function-module context))))
+        (if (and (pair? representation) (eq? (car representation) 'ref))
+            `(ref.cast ,representation ,(read-raw-place place)) (read-raw-place place))))
+
     (define (closure-expression node context)
-      (let* ((module (function-module context))
-             (index (cdr (assq node (module-functions module))))
-             (free (free-definitions node (module-globals module))))
+      (let* ((module (function-module context)) (index (cdr (assq node (module-functions module))))
+             (free (capture-definitions node module)) (layout (environment-layout node module)))
         `(struct.new $closure (ref.func ,(identifier "adapter" index))
-                     (array.new_fixed $slots ,(length free)
-                                      ,@(map (lambda (definition)
-                                               (read-place (binding-place definition context))) free)))))
+                     ,(cond ((null? free) '(ref.null eq))
+                            (layout `(struct.new ,layout ,@(map (lambda (definition) (capture-value definition context)) free)))
+                            (else `(array.new_fixed $slots ,(length free)
+                                                    ,@(map (lambda (definition) (capture-value definition context)) free)))))))
 
     ;; ---- Enforced type boundaries ----
 
@@ -568,7 +639,7 @@
     (define (parameter-guards procedure signature context)
       (if (not signature) '()
           (map (lambda (definition type)
-                 (let ((name (caddr (binding-place definition context))))
+                 (let ((name (place-name (binding-place definition context))))
                    `(local.set ,name ,(guard-value `(local.get ,name) type context))))
                (ir:lambda-parameters procedure) (type-arguments (type-erasure signature)))))
 
@@ -641,18 +712,28 @@
     (define (application-code node operands operator guards tail? context)
       (let* ((facts (map visited-fact operands))
              (primitive (typed-primitive node facts (function-module context)))
-             (copy (proved-specialization node facts context))
              (intrinsic (application-intrinsic node (function-module context)))
              (storage (storage-primitive node operands operator context))
-             (native (native-primitive node operands context)))
+             (native (native-primitive node operands context))
+             (copy (selected-application-copy node
+                                              (and (not (or storage intrinsic native primitive))
+                                                   (proved-specialization node facts context)) tail? context)))
         (cond (storage storage)
               (intrinsic (intrinsic-call intrinsic node operands operator context))
               (native native)
               (primitive (cons 'eqref (direct-primitive-call primitive node operands operator context)))
-              ((and copy (or (not tail?) (equal? (specialized-representation copy) (function-representation context))))
-               (copy-call copy operands operator guards tail? context))
+              (copy (copy-call copy operands operator guards tail? context))
               (else (cons 'eqref (procedure-call node (map single-result operands) (single-result operator) facts
                                                  (fact-signature (visited-fact operator)) guards tail? context))))))
+
+    (define (selected-application-copy node copy tail? context)
+      (let* ((eligible (and copy (or (not tail?) (equal? (specialized-representation copy) (function-representation context))) copy))
+             (pinned (and (application-copy-selection) ((application-copy-selection) node)))
+             (selected (if pinned (cadr pinned) eligible)))
+        (when (and selected (not (eq? selected eligible)))
+          (error "pinned specialized call lost its argument or tail-result proof" node))
+        (when (application-copy-observer) ((application-copy-observer) node selected))
+        selected))
 
     ;; Concrete builtin entries receive actual Wasm scalars/references. Hold
     ;; every operand before evaluating the operator or doing entry conversions;
@@ -777,9 +858,7 @@
           (map (lambda (name from to) (convert-representation `(local.get ,name) from to)) arguments representations domains)))
 
     (define (copy-argument-representations copy module)
-      (map (lambda (definition type)
-             (if (memq definition (module-boxed module)) 'eqref (type-representation type)))
-           (ir:lambda-parameters (specialized-procedure copy)) (specialized-arguments copy)))
+      (map type-representation (specialized-arguments copy)))
 
     (define (copy-call copy operands operator guards tail? context)
       (let* ((representations (map visited-representation operands))
@@ -991,24 +1070,40 @@
 
     ;; ---- Procedure definitions ----
 
-    (define (procedure-environment procedure module)
-      (append (map (lambda (entry) (list (car entry) 'local (identifier "v" (cdr entry))))
-                   (numbered (lambda-locals procedure)))
-              (map (lambda (entry) (list (car entry) 'capture (cdr entry)))
-                   (numbered (free-definitions procedure (module-globals module))))))
+    (define (local-place definition index incoming module)
+      (make-place 'local (identifier "v" index) (binding-representation definition module)
+                  (cell-binding? definition module) #f incoming))
 
-    (define (box-local definition context)
-      (let* ((place (binding-place definition context)) (name (caddr place)))
-        `(local.set ,name (struct.new $cell ,(read-place place)))))
+    (define (procedure-environment procedure module . domains)
+      (let* ((parameters (lambda-arguments procedure))
+             (representations (if (null? domains) (map (lambda (unused) 'eqref) parameters) (car domains)))
+             (incoming (map (lambda (definition entry representation)
+                              (cons definition (cons (identifier "a" (cdr entry)) representation)))
+                            parameters (numbered parameters) representations))
+             (layout (environment-layout procedure module)))
+        (append (map (lambda (entry)
+                       (let ((argument (assq (car entry) incoming)))
+                         (cons (car entry) (local-place (car entry) (cdr entry) (and argument (cdr argument)) module))))
+                     (numbered (lambda-locals procedure)))
+                (map (lambda (entry)
+                       (cons (car entry) (make-place 'capture (cdr entry) (binding-representation (car entry) module)
+                                                     (cell-binding? (car entry) module) layout #f)))
+                     (numbered (capture-definitions procedure module))))))
+
+    (define (place-local-declarations place module)
+      (append `((local ,(place-name place) ,(binding-payload-type (place-location-representation place module))))
+              (if (place-needs-ready? place) `((local ,(place-ready-name place) i32)) '())))
+
+    (define (initialize-local place module)
+      (let* ((incoming (place-incoming place))
+             (value (and incoming (convert-representation `(local.get ,(car incoming)) (cdr incoming) (place-representation place)))))
+        `(local.set ,(place-name place)
+                    ,(if (place-cell? place)
+                         (binding-cell-new (place-representation place) value (module-layouts module))
+                         (or value (binding-payload-default (place-representation place)))))))
 
     (define (initialize-locals locals parameters context)
-      (apply append
-             (map (lambda (definition)
-                    (append (if (memq definition parameters) '()
-                                `((local.set ,(caddr (binding-place definition context))
-                                             (global.get $uninitialized))))
-                            (if (memq definition (module-boxed (function-module context)))
-                                (list (box-local definition context)) '()))) locals)))
+      (map (lambda (definition) (initialize-local (binding-place definition context) (function-module context))) locals))
 
     (define (procedure-definitions entry signature body context)
       (let* ((module (function-module context)) (copy (generic-copy (car entry) (module-copies module))))
@@ -1039,13 +1134,7 @@
               (else (bind (cdr entries) (bind-fact (caar entries) (value-fact (cdar entries)) scope))))))
 
     (define (copy-environment copy module)
-      (let* ((node (specialized-procedure copy))
-             (types (map cons (ir:lambda-parameters node) (specialized-arguments copy))))
-        (map (lambda (place)
-               (let ((type (assq (car place) types)))
-                 (if (and type (not (memq (car place) (module-boxed module))))
-                     (append place (list (type-representation (cdr type)))) place)))
-             (procedure-environment node module))))
+      (procedure-environment (specialized-procedure copy) module (copy-argument-representations copy module)))
 
     (define (generic-copy procedure copies)
       (cond ((null? copies) #f)
@@ -1069,20 +1158,18 @@
 
     (define (ordinary-procedure-function entry body context prefix)
       (let* ((procedure (car entry)) (parameters (lambda-arguments procedure))
-             (locals (lambda-locals procedure)))
+             (locals (lambda-locals procedure)) (module (function-module context)))
         `(func ,(identifier prefix (cdr entry)) (param $env eqref)
-               ,@(map (lambda (definition) `(param ,(caddr (binding-place definition context))
-                                                   ,(representation-wasm (place-representation (binding-place definition context))))) parameters)
-               (param $checks (ref null $result_context))
-               (result ,(representation-wasm (function-representation context)))
-               ,@(map (lambda (definition) `(local ,(caddr (binding-place definition context)) eqref))
-                      (list-tail locals (length parameters)))
-               ,@(function-locals context)
-               ,@(initialize-locals locals parameters context) ,body)))
+               ,@(map (lambda (definition)
+                        (let ((incoming (place-incoming (binding-place definition context))))
+                          `(param ,(car incoming) ,(representation-wasm (cdr incoming))))) parameters)
+               (param $checks (ref null $result_context)) (result ,(representation-wasm (function-representation context)))
+               ,@(apply append (map (lambda (definition) (place-local-declarations (binding-place definition context) module)) locals))
+               ,@(function-locals context) ,@(initialize-locals locals parameters context) ,body)))
 
     (define (procedure-checked-entry entry signature module)
       (let* ((procedure (car entry)) (context (make-function module (procedure-environment procedure module) '()))
-             (names (map (lambda (definition) (caddr (binding-place definition context)))
+             (names (map (lambda (definition) (place-name (binding-place definition context)))
                          (ir:lambda-parameters procedure)))
              (guards (parameter-guards procedure signature context)))
         `(func ,(identifier "checked" (cdr entry)) (param $env eqref)
@@ -1125,13 +1212,13 @@
     (define (library-function entry scope known module output)
       (let* ((items (library:library-body (car entry)))
              (locals (local-definitions items (map car (module-globals module))))
-             (environment (map (lambda (entry) (list (car entry) 'local (identifier "v" (cdr entry)))) (numbered locals)))
+             (environment (map (lambda (entry) (cons (car entry) (local-place (car entry) (cdr entry) #f module))) (numbered locals)))
              (context (make-function module environment '()))
              (body (visit-sequence items scope known #f #f context output)))
         (set-module-scope! module (visited-scope body))
         (result (visited-fact body)
                 `(func ,(identifier "library" (cdr entry)) (result eqref)
-                       ,@(map (lambda (entry) `(local ,(caddr entry) eqref)) environment)
+                       ,@(apply append (map (lambda (entry) (place-local-declarations (cdr entry) module)) environment))
                        ,@(function-locals context) ,@(initialize-locals locals '() context) ,(boxed-code body))
                 (visited-output body) (visited-scope body) (visited-fold-safe? body))))
 
@@ -1146,14 +1233,16 @@
                     `(return_call ,name (local.get $arguments) (local.get $checks))
                     `(return_call ,name (local.get $arguments))))))
 
-    (define (global-initializer slot)
-      `(global.set ,(identifier "g" (car slot))
-                   (struct.new $closure (ref.func ,(identifier "primitive" (cdr slot)))
-                               (array.new_fixed $slots 0))))
+    (define (global-initializer slot module)
+      (let* ((entry (list-ref (module-globals module) (car slot)))
+             (place (global-place (car entry) (cdr entry) module))
+             (value `(struct.new $closure (ref.func ,(identifier "primitive" (cdr slot))) (ref.null eq))))
+        `(drop ,(store-binding (car entry) (unbox-representation value (place-representation place))
+                               (make-function module '() '())))))
 
     (define (module-entry libraries module)
       `(func $program (export "snail_main") (result eqref)
-             ,@(map global-initializer (library-primitive-slots libraries module))
+             ,@(map (lambda (slot) (global-initializer slot module)) (library-primitive-slots libraries module))
              ,@(map (lambda (entry) `(drop (call ,(identifier "library" (cdr entry)))))
                     (reverse (cdr (reverse libraries))))
              (call ,(identifier "library" (cdr (car (reverse libraries)))))))
@@ -1341,9 +1430,15 @@
                                      (map car (module-globals module)) (if entry (list entry) '()))))
         (set-module-storage! module state) state))
 
+    (define (global-declarations entry module)
+      (let* ((place (global-place (car entry) (cdr entry) module)) (representation (place-representation place)))
+        (append `((global ,(place-name place) (mut ,(binding-payload-type representation))
+                          ,(if (eq? representation 'eqref) '(ref.null eq) (binding-payload-default representation))))
+                (if (place-needs-ready? place) `((global ,(place-ready-name place) (mut i32) (i32.const 0))) '()))))
+
     (define (module-definitions libraries module procedures entries output program)
-      (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))
-                   (module-globals module))
+      (append (binding-layout-definitions (module-layouts module))
+              (apply append (map (lambda (entry) (global-declarations entry module)) (module-globals module)))
               (literal-declarations (module-constants module))
               (map result-guard-global (reverse (output-guards output)))
               (list `(elem declare func ,@(ordinary-adapters module)
