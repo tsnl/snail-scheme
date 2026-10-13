@@ -48,4 +48,18 @@
                    other-carrier))
 (check '#("later") other-backing)
 (check "later" (vector-ref other-carrier 0))
+
+;; A raw callback argument may itself be an envelope. Capturing that argument
+;; must not consume it at entry or closure creation: only the later arithmetic
+;; reads its live backing value, after both mutations have happened.
+(define capture-backing (vector 1.25))
+(define capture-carrier (container-envelope capture-backing))
+(define read-late
+  (container-call
+   (lambda (value)
+     (vector-set! capture-backing 0 2.5)
+     (lambda () (+ value 0.0)))
+   capture-carrier))
+(vector-set! capture-backing 0 3.75)
+(check 3.75 (read-late))
 (display "foreign container checks passed\n")
