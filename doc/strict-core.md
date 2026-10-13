@@ -154,6 +154,12 @@ retain their original initialization and readiness checks; lambda implementation
 initialize at the overload declaration. Specialization copies code and never
 reevaluates an effectful initializer.
 
+`f32-truncate` and `f64-truncate` round toward zero while keeping their floating
+representation. They preserve signed zero and infinities, and return NaN for a
+NaN input. Unlike a conversion to an integer, they also accept finite values
+outside the I64 range. These operations emit native Wasm `f32.trunc` and
+`f64.trunc` instructions.
+
 Conversions are explicit native unary functions:
 
 | Function | Native behavior |

@@ -12,6 +12,7 @@
           i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
           f32-add f32-sub f32-mul f32-div f32-eq f32-lt f32-le f32-gt f32-ge f32-sqrt
           f64-add f64-sub f64-mul f64-div f64-eq f64-lt f64-le f64-gt f64-ge f64-sqrt
+          f32-truncate f64-truncate
           i64->f64 i32->i64 i64->i32 f32->f64 f64->f32 f64->i64
           ref ref-get ref-set! ref-eq? cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
