@@ -98,10 +98,11 @@ when no allocation identity is available.
 and inspects emitted allocation/access sites for concrete arrays, bindings, and
 pair/record structs. The compiler parameter `storage-optimizations-enabled` in `(snail-scheme wasm-storage)`
 disables inferred concrete container and binding payloads without changing source
-checks. Explicit Array contracts retain their required physical layouts and
-native access in this mode; they are not part of the ordinary storage ablation.
-Closure environments remain structs in both modes, so the same-compiler ablation
-isolates payload specialization rather than changing closure layout conventions.
+checks. It also changes shape-driven specialization choices: emitted copies,
+callback adapters, and downstream inlining can differ. Comparisons must account
+for those call changes as well as payload storage. Explicit Array contracts retain
+their required physical layouts and native access in this mode; they are not part
+of the ordinary storage ablation. Both modes keep closure environments as structs.
 
 `scripts/test-arrays` checks the explicit interface in optimized, storage-disabled,
 and guarded modes, including source rejection, actual linked Wasm, AWI mutation
