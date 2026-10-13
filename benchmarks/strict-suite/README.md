@@ -101,6 +101,24 @@ the same three kernel edits. The [three-system report](../results/2026-10-13-str
 preserves rotating positions and exact source equality. Run its `prepare` and
 `measure` commands with the restored output directory as `--output`.
 
+Select `--benchmarks fft` for the canonical FFT kernel: 100 repetitions, a
+fresh 65,536-element F64 vector filled with zero inside every iteration, and
+the original first-element result check. The kernel text is unchanged. Its
+`inexact` binding is an I64-to-F64 helper outside the kernel, and `sin` imports
+a separately compiled Rust/Wasm F64 function. The provider has no imports;
+its linked sine implementation executes inside Wasm. Only F64 scalars cross
+that boundary; the vector remains in the consumer's WasmGC heap.
+
+FFT preparation records the Rust compiler, linker and target-library hashes,
+passes the original full-size workload at counts 1 and 2 in raw/optimized
+Wasm and Chez, and checks all components of small nonzero and impulse
+transforms against a direct positive-phase DFT. The tolerance is
+`1e-12 * max(1, abs(expected))`. Wrong, short and long expected vectors are
+rejected by both implementations. These probes use a separate `fft-probe`
+export or Chez validation wrapper. The source-matched Chez program and binary
+are exact copies of the compiled original program; measurement uses two
+systems and the same original counts. FFT alone also requires `RUSTC`.
+
 ## What the timer includes
 
 The strict timer covers one `bench(count)` export call, every repeated kernel,
