@@ -30,17 +30,17 @@
     ;; Existing dynamic builtins gain no new source rejection from optimization.
     (define intrinsics
       '((vector-length (Vector) ExactInteger #t
-                       (i64.extend_i32_u (array.len (local.get $a))))
+                       (i64.extend_i32_u (call $vector_length (local.get $a))))
         (vector-ref (Vector ExactInteger) ? #t
-                    (array.get $vector (local.get $a) (call $checked_index (local.get $b))))
+                    (call $vector_ref (local.get $a) (call $checked_index (local.get $b))))
         (vector-set! (Vector ExactInteger Any) Unspecified #t
                      (block (result eqref)
-                            (array.set $vector (local.get $a) (call $checked_index (local.get $b)) (local.get $c))
+                            (call $vector_set (local.get $a) (call $checked_index (local.get $b)) (local.get $c))
                             (global.get $unspecified)))
         (make-vector (ExactInteger) Vector #f
-                     (array.new $vector (global.get $unspecified) (call $checked_index (local.get $a))))
+                     (call $vector_new (call $checked_index (local.get $a)) (global.get $unspecified)))
         (make-vector (ExactInteger Any) Vector #f
-                     (array.new $vector (local.get $b) (call $checked_index (local.get $a))))
+                     (call $vector_new (call $checked_index (local.get $a)) (local.get $b)))
         (bytevector-length (Bytevector) ExactInteger #t
                            (i64.extend_i32_u (array.len (struct.get $bytevector 0 (local.get $a)))))
         (bytevector-u8-ref (Bytevector ExactInteger) ExactInteger #t
@@ -73,16 +73,16 @@
         (%wasm.f64.sub (InexactReal InexactReal) InexactReal #t (f64.sub (local.get $a) (local.get $b)))
         (%wasm.f64.mul (InexactReal InexactReal) InexactReal #t (f64.mul (local.get $a) (local.get $b)))
         (%wasm.f64.div (InexactReal InexactReal) InexactReal #t (f64.div (local.get $a) (local.get $b)))
-        (%wasm.vector.length (Vector) WasmI32 #t (array.len (local.get $a)))
-        (%wasm.vector.new (WasmI32 Any) Vector #t (array.new $vector (local.get $b) (local.get $a)))
-        (%wasm.vector.ref (Vector WasmI32) ? #t (array.get $vector (local.get $a) (local.get $b)))
+        (%wasm.vector.length (Vector) WasmI32 #t (call $vector_length (local.get $a)))
+        (%wasm.vector.new (WasmI32 Any) Vector #t (call $vector_new (local.get $a) (local.get $b)))
+        (%wasm.vector.new-like (WasmI32 Vector) Vector #t (call $vector_new_like (local.get $a) (local.get $b)))
+        (%wasm.vector.ref (Vector WasmI32) ? #t (call $vector_ref (local.get $a) (local.get $b)))
         (%wasm.vector.set! (Vector WasmI32 Any) Unspecified #t
-                           (block (result eqref) (array.set $vector (local.get $a) (local.get $b) (local.get $c))
+                           (block (result eqref) (call $vector_set (local.get $a) (local.get $b) (local.get $c))
                                   (global.get $unspecified)))
         (%wasm.vector.copy! (Vector WasmI32 Vector WasmI32 WasmI32) Unspecified #t
                             (block (result eqref)
-                                   (array.copy $vector $vector (local.get $a) (local.get $b)
-                                               (local.get $c) (local.get $d) (local.get $e))
+                                   (call $vector_copy (local.get $a) (local.get $b) (local.get $c) (local.get $d) (local.get $e))
                                    (global.get $unspecified)))))
 
     (define (intrinsic-name entry) (car entry))
@@ -134,14 +134,14 @@
     (define (intrinsic-adapter entry)
       (let ((count (length (intrinsic-domains entry))))
         `(func ,(string->symbol (string-append "$builtin:" (symbol->string (intrinsic-name entry))))
-               (param $arguments (ref $vector)) (result eqref)
+               (param $arguments (ref $slots)) (result eqref)
                (call $arity (local.get $arguments) (i32.const ,count) (i32.const 0))
                ,(box-representation
                  `(call ,(intrinsic-entry entry)
                         ,@(let arguments ((types (intrinsic-domains entry)) (index 0))
                             (if (null? types) '()
                                 (cons (checked-intrinsic-argument
-                                       `(array.get $vector (local.get $arguments) (i32.const ,index)) (car types))
+                                       `(array.get $slots (local.get $arguments) (i32.const ,index)) (car types))
                                       (arguments (cdr types) (+ index 1))))))
                  (type-representation (intrinsic-result entry))))))
 

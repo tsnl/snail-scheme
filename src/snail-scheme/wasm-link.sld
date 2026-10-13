@@ -84,7 +84,7 @@
     (define command-entry-module
       "(module
   (import \"snail.abi\" \"snail:main\" (func $main (param i32) (result i32)))
-  (import \"snail.abi\" \"vector_new\" (func $vector (param i32) (result i32)))
+  (import \"snail.abi\" \"vector_new\" (func $slots (param i32) (result i32)))
   (import \"snail.abi\" \"release\" (func $release (param i32)))
   (import \"snail.abi\" \"kind\" (func $kind (param i32) (result i32)))
   (import \"snail.abi\" \"as_integer\" (func $integer (param i32) (result i64)))
@@ -94,7 +94,7 @@
   (import \"wasi_snapshot_preview1\" \"proc_exit\" (func $exit (param i32)))
   (func (export \"_start\") (local $args i32) (local $result i32) (local $status i64)
     (call $initialize) (call $environment)
-    (local.set $args (call $vector (i32.const 0)))
+    (local.set $args (call $slots (i32.const 0)))
     (local.set $result (call $main (local.get $args)))
     (if (i32.ne (call $kind (local.get $result)) (i32.const 4))
       (then (drop (call $fail (i32.const 10)))))

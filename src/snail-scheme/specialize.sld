@@ -122,7 +122,8 @@
                      (rewrite (ir:lambda-body source) environment renames (specialized-substitutions entry) work))))
         (set-specialized-procedure! entry
                                     (ir:make-lambda (map (lambda (definition) (rename definition renames))
-                                                         (lambda-arguments source)) #f (car body) (ir:lambda-loc source)))
+                                                         (lambda-arguments source)) #f (car body) (ir:lambda-loc source)
+                                                         (ir:lambda-origin source)))
         (unless (specialized-signature entry)
           (set-specialized-result! entry (cond ((function-type? (cdr body)) 'Procedure)
                                                ((runtime-type? (cdr body)) (cdr body)) (else '?))))))
@@ -200,7 +201,7 @@
                             renames substitutions work))
              (procedure (ir:make-lambda (map (lambda (definition) (rename definition renames)) (ir:lambda-parameters node))
                                         (and (ir:lambda-opt-rest-parameter node) (rename (ir:lambda-opt-rest-parameter node) renames))
-                                        (car body) (ir:lambda-loc node))))
+                                        (car body) (ir:lambda-loc node) (ir:lambda-origin node))))
         (register-concrete-entry node procedure signature environment substitutions work)
         (cons procedure (inferred-lambda-type node (work-inference work)))))
 

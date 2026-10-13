@@ -108,8 +108,10 @@
 
     (define (object-expression value pool)
       (cond ((pair? value) `(struct.new $pair ,(reference (car value) pool) ,(reference (cdr value) pool)))
-            ((vector? value) `(array.new_fixed $vector ,(vector-length value)
-                                               ,@(map (lambda (value) (reference value pool)) (vector->list value))))
+            ((vector? value) `(struct.new $vector_object (i32.const 0)
+                                          (array.new_fixed $slots ,(vector-length value)
+                                                           ,@(map (lambda (value) (reference value pool)) (vector->list value)))
+                                          (i32.const ,(vector-length value)) (i32.const 0)))
             ((bytevector? value) `(struct.new $bytevector ,(bytes-expression value)))
             ((string? value) `(struct.new $text_object (i32.const 0) ,(text-expression value)))
             ((symbol? value)
@@ -120,8 +122,8 @@
     ;; share this one ordering; the registry installs every name before assigning
     ;; dynamic IDs. This is constant data, with no generated initializer calls.
     (define (symbol-declarations names)
-      `((global $symbol_names (ref $vector)
-                (array.new_fixed $vector ,(length names)
+      `((global $symbol_names (ref $slots)
+                (array.new_fixed $slots ,(length names)
                                  ,@(map (lambda (name) `(struct.new $text_object (i32.const 0)
                                                                     ,(text-expression (symbol->string name))))
                                         (reverse names))))))
@@ -143,7 +145,9 @@
           (expect (pool-count pool) 3)
           (expect (map cadr (reverse (pool-definitions pool))) '($literal1 $literal2 $literal0))
           (expect (cadddr (car (pool-definitions pool)))
-                  '(array.new_fixed $vector 3 (global.get $literal1) (global.get $literal1) (global.get $literal2)))))
+                  '(struct.new $vector_object (i32.const 0)
+                               (array.new_fixed $slots 3 (global.get $literal1) (global.get $literal1) (global.get $literal2))
+                               (i32.const 3) (i32.const 0)))))
 
       (define (test-literal-cycles)
         (let ((value (cons 1 '())))
@@ -159,8 +163,8 @@
           (expect (cadddr (car (reverse (pool-definitions pool))))
                   `(struct.new $atom (i32.const ,(string->number "-2147483648"))))
           (expect (car (reverse (literal-declarations pool)))
-                  `(global $symbol_names (ref $vector)
-                           (array.new_fixed $vector 2
+                  `(global $symbol_names (ref $slots)
+                           (array.new_fixed $slots 2
                                             (struct.new $text_object (i32.const 0) ,(text-expression "one"))
                                             (struct.new $text_object (i32.const 0) ,(text-expression "two")))))))
 

@@ -11,7 +11,8 @@
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
           (prefix (snail-scheme partial-eval) pe:)
-          (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics)
+          (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics) (snail-scheme wasm-storage)
+          (snail-scheme storage-analysis)
           (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
@@ -19,17 +20,17 @@
     ;; ---- Compilation state ----
 
     (define-record-type <module>
-      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope)
+      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage)
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
       (foreign module-foreign) (constants module-constants)
       (typing module-typing) (evaluator module-evaluator) (copies module-copies)
-      (scope module-scope set-module-scope!))
+      (scope module-scope set-module-scope!) (storage module-storage set-module-storage!))
 
     (define (make-module globals primitives boxed functions known foreign constants typing evaluator . copies)
       (%make-module globals primitives boxed functions known foreign constants typing evaluator
-                    (if (null? copies) '() (car copies)) (make-type-scope typing)))
+                    (if (null? copies) '() (car copies)) (make-type-scope typing) #f))
 
     (define-record-type <function>
       (%make-function module environment temporaries representation cached)
@@ -243,7 +244,7 @@
       (case (cadr place)
         ((local) `(local.get ,(caddr place)))
         ((global) `(global.get ,(caddr place)))
-        ((capture) `(array.get $vector (ref.cast (ref $vector) (local.get $env))
+        ((capture) `(array.get $slots (ref.cast (ref $slots) (local.get $env))
                                (i32.const ,(caddr place))))))
 
     (define (boxed-place? place context)
@@ -462,9 +463,10 @@
              (plan (and (not immediate?) (infer-call node (visited-fact callee) arguments expected scope)))
              (copy (proved-specialization node arguments context))
              (lowered (application-code node (car operands) callee (if plan (call-guards plan) '()) tail? context)))
-        (result (if (and copy (not (eq? (specialized-result copy) '?)))
-                    (specialized-fact (if plan (call-fact plan) (fact-body (visited-fact callee))) (specialized-result copy))
-                    (if plan (call-fact plan) (fact-body (visited-fact callee))))
+        (result (storage-call-fact node (car lowered)
+                                   (if (and copy (not (eq? (specialized-result copy) '?)))
+                                       (specialized-fact (if plan (call-fact plan) (fact-body (visited-fact callee))) (specialized-result copy))
+                                       (if plan (call-fact plan) (fact-body (visited-fact callee)))) context)
                 (cdr lowered)
                 (with-call (visited-output callee) node plan) scope
                 (and (visited-fold-safe? callee) (every-fold-safe? (car operands))
@@ -532,7 +534,7 @@
              (index (cdr (assq node (module-functions module))))
              (free (free-definitions node (module-globals module))))
         `(struct.new $closure (ref.func ,(identifier "adapter" index))
-                     (array.new_fixed $vector ,(length free)
+                     (array.new_fixed $slots ,(length free)
                                       ,@(map (lambda (definition)
                                                (read-place (binding-place definition context))) free)))))
 
@@ -599,7 +601,7 @@
             ((eq? type 'Number) `(call $truthy (call $is_number ,value)))
             ((eq? type 'Char) `(call $truthy (call $is_character ,value)))
             (else `(ref.test (ref ,(case type
-                                     ((InexactReal) '$float) ((Complex) '$complex) ((Pair) '$pair) ((Vector) '$vector)
+                                     ((InexactReal) '$float) ((Complex) '$complex) ((Pair) '$pair) ((Vector) '$vector_object)
                                      ((Bytevector) '$bytevector) ((Procedure) '$closure) ((Record) '$record)
                                      (else (error "no runtime type test" type)))) ,value))))
 
@@ -641,8 +643,10 @@
              (primitive (typed-primitive node facts (function-module context)))
              (copy (proved-specialization node facts context))
              (intrinsic (application-intrinsic node (function-module context)))
+             (storage (storage-primitive node operands operator context))
              (native (native-primitive node operands context)))
-        (cond (intrinsic (intrinsic-call intrinsic node operands operator context))
+        (cond (storage storage)
+              (intrinsic (intrinsic-call intrinsic node operands operator context))
               (native native)
               (primitive (cons 'eqref (direct-primitive-call primitive node operands operator context)))
               ((and copy (or (not tail?) (equal? (specialized-representation copy) (function-representation context))))
@@ -684,6 +688,66 @@
       (if (and (type-optimizations-enabled) (type-subtype? (fact-type (visited-fact operand)) type))
           (convert-representation `(local.get ,name) representation (type-representation type))
           (checked-intrinsic-argument (box-representation `(local.get ,name) representation) type)))
+
+    ;; ---- Fixed container storage from solved alias constraints ----
+
+    (define (storage-call-fact node representation fact context)
+      (let* ((module (function-module context)) (definition (primitive-binding node module)))
+        (if (and (module-storage module) (not (eq? representation 'eqref)) definition
+                 (memq (ir:value-definition-name definition) '(vector-ref %wasm.vector.ref)))
+            (specialized-fact fact (expression-storage-type node (module-storage module))) fact)))
+
+    (define (allocation-codec node kind module)
+      (let ((object (and (module-storage module)
+                         (expression-storage-allocation node kind (module-storage module)))))
+        (and object (type-codec (storage-hole-type (car (storage-allocation-fields object)))))))
+    (define (storage-primitive node operands operator context)
+      (let* ((module (function-module context)) (definition (primitive-binding node module))
+             (name (and definition (ir:value-definition-name definition)))
+             (codec (and (module-storage module)
+                         (cond ((memq name '(vector-ref %wasm.vector.ref))
+                                (type-codec (expression-storage-type node (module-storage module))))
+                               ((and (memq name '(vector-set! %wasm.vector.set!)) (= (length operands) 3))
+                                (type-codec (expression-element-type (car (ir:application-operands node)) 'vector 0 (module-storage module))))
+                               (else (allocation-codec node 'vector module))))))
+        (and (storage-optimizations-enabled) codec (> (codec-id codec) 0)
+             (memq name '(vector make-vector %wasm.vector.new %wasm.vector.new-like vector-ref %wasm.vector.ref vector-set! %wasm.vector.set!))
+             (storage-call name codec node operands operator context))))
+
+    ;; Hold every operand, including its existing single-value consumption,
+    ;; before evaluating the operator or checking the primitive's boundary.
+    (define (storage-call name codec node operands operator context)
+      (let* ((representations (map visited-representation operands))
+             (arguments (map (lambda (representation) (temporary! context representation)) representations))
+             (reader? (memq name '(vector-ref %wasm.vector.ref)))
+             (representation (cond (reader? (codec-representation codec))
+                                   ((memq name '(vector-set! %wasm.vector.set!)) 'eqref) (else '(ref $vector_object))))
+             (values (map (lambda (argument from) (convert-representation `(local.get ,argument) from (codec-representation codec)))
+                          arguments representations)))
+        (cons representation
+              `(block (result ,(representation-wasm representation))
+                      ,@(map (lambda (argument operand from) `(local.set ,argument ,(represented-result operand from)))
+                             arguments operands representations)
+                      ,@(primitive-operator-effects node operator context)
+                      ,(storage-operation name codec arguments representations operands values)))))
+
+    (define (storage-operation name codec arguments representations operands values)
+      (define (argument index type)
+        (intrinsic-argument (list-ref arguments index) (list-ref representations index) (list-ref operands index) type))
+      (define (index index)
+        (if (memq name '(%wasm.vector.new %wasm.vector.new-like %wasm.vector.ref %wasm.vector.set!)) (argument index 'WasmI32)
+            `(call $checked_index ,(argument index 'ExactInteger))))
+      (cond ((eq? name 'vector)
+             `(struct.new $vector_object (i32.const ,(codec-id codec))
+                          (array.new_fixed ,(codec-array codec) ,(length values) ,@values)
+                          (i32.const ,(length values)) (i32.const 0)))
+            ((memq name '(vector-ref %wasm.vector.ref))
+             `(call ,(codec-function "ref" codec) ,(argument 0 'Vector) ,(index 1)))
+            ((memq name '(vector-set! %wasm.vector.set!))
+             `(call ,(codec-function "set" codec) ,(argument 0 'Vector) ,(index 1) ,(caddr values)))
+            ((eq? name '%wasm.vector.new-like)
+             `(call ,(codec-function "new_like" codec) ,(index 0) ,(argument 1 'Vector)))
+            (else `(call ,(codec-function "new" codec) ,(index 0) ,(cadr values)))))
 
     (define (proved-specialization node arguments context)
       (let* ((copy (call-specialization node (function-module context)))
@@ -890,7 +954,7 @@
         `(call ,(or adapter '$apply)
                ,(if adapter `(struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
                     `(local.get ,operator))
-               (array.new_fixed $vector ,(length arguments)
+               (array.new_fixed $slots ,(length arguments)
                                 ,@(map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks checks))))
 
     ;; The first guarded transfer owns one suspended frame. Its shared context
@@ -1032,12 +1096,12 @@
       (let* ((procedure (car entry)) (count (length (ir:lambda-parameters procedure)))
              (rest? (ir:lambda-opt-rest-parameter procedure)))
         `(func ,(identifier "adapter" (cdr entry)) (type $call)
-               (param $env eqref) (param $arguments (ref $vector))
+               (param $env eqref) (param $arguments (ref $slots))
                (param $checks (ref null $result_context)) (result eqref)
                (call $arity (local.get $arguments) (i32.const ,count) (i32.const ,(if rest? 1 0)))
                (return_call ,(identifier (if signature
                                              "checked" "function") (cdr entry)) (local.get $env)
-                                             ,@(map (lambda (entry) `(array.get $vector (local.get $arguments)
+                                             ,@(map (lambda (entry) `(array.get $slots (local.get $arguments)
                                                                                 (i32.const ,(cdr entry))))
                                                     (numbered (ir:lambda-parameters procedure)))
                                              ,@(if rest? `((call $rest (local.get $arguments) (i32.const ,count))) '())
@@ -1076,7 +1140,7 @@
                       (string->symbol (string-append "$builtin:" (symbol->string (car entry))))
                       (identifier "foreign" (- (cdr entry) (length bootstrap-primitive-names))))))
         `(func ,(identifier "primitive" (cdr entry)) (type $call)
-               (param $env eqref) (param $arguments (ref $vector))
+               (param $env eqref) (param $arguments (ref $slots))
                (param $checks (ref null $result_context)) (result eqref)
                ,(if (memq (car entry) '(apply call-with-values))
                     `(return_call ,name (local.get $arguments) (local.get $checks))
@@ -1085,7 +1149,7 @@
     (define (global-initializer slot)
       `(global.set ,(identifier "g" (car slot))
                    (struct.new $closure (ref.func ,(identifier "primitive" (cdr slot)))
-                               (array.new_fixed $vector 0))))
+                               (array.new_fixed $slots 0))))
 
     (define (module-entry libraries module)
       `(func $program (export "snail_main") (result eqref)
@@ -1101,8 +1165,8 @@
       (let ((definition (and name (find-definition name (item-definitions (library:library-body root))))))
         (if (and name (not definition)) (error "CLI handler is not defined" name))
         `(func (export "snail:main") (param $arguments i32) (result i32)
-               (local $args (ref $vector))
-               (local.set $args (ref.cast (ref $vector) (call $abi_get (local.get $arguments))))
+               (local $args (ref $slots))
+               (local.set $args (ref.cast (ref $slots) (call $abi_get (local.get $arguments))))
                (call $arity (local.get $args) (i32.const 0) (i32.const 0))
                (drop (call $program))
                (call $abi_root ,(if definition
@@ -1171,7 +1235,7 @@
 
     (define (rust-wrapper entry)
       `(func ,(service-function-name entry)
-             (param $arguments (ref $vector)) (result eqref)
+             (param $arguments (ref $slots)) (result eqref)
              (local $root i32) (local $result eqref)
              (local.set $root (call $abi_root (local.get $arguments)))
              (local.set $result (call $abi_take (call ,(identifier "rust" (cdr entry)) (local.get $root))))
@@ -1250,7 +1314,9 @@
                                                                                           (output-instances (cdr checked)) (output-scopes (cdr checked)))))
                                                   (libraries (if specialized (numbered (car specialized)) libraries))
                                                   (module (if specialized (prepare-module (map car libraries) foreign (cdr specialized)) original))
-                                                  (visited (if specialized
+                                                  (storage (prepare-storage! libraries module
+                                                                             (and (pair? options) (pair? (cdr options)) (cadr options))))
+                                                  (visited (if (or specialized storage)
                                                                (parameterize ((original-body-checking? #f))
                                                                  (generate-library-functions libraries module)) checked))
                                                   (output (parameterize ((original-body-checking? (not specialized)))
@@ -1263,10 +1329,17 @@
                                                                      (func $host_register_finalizer (param eqref i32 i32)))
                                                              (import "snail.host" "hash-identity" (func $host_hash_identity (param eqref) (result i32))))
                                                            (map rust-import (numbered (module-services module)))
-                                                           runtime-definitions intrinsic-definitions abi-definitions
+                                                           runtime-definitions (storage-definitions) intrinsic-definitions abi-definitions
                                                            (module-definitions libraries module procedures (car visited) output program)
                                                            (if (and (pair? options) (pair? (cdr options)))
                                                                (list (cli-entry root module (cadr options))) '())))))))
+
+    (define (prepare-storage! libraries module entry-name)
+      (let* ((items (apply append (map (lambda (entry) (library:library-body (car entry))) libraries)))
+             (entry (and entry-name (find-definition entry-name (map car (module-globals module)))))
+             (state (analyze-storage items (module-typing module) (module-copies module)
+                                     (map car (module-globals module)) (if entry (list entry) '()))))
+        (set-module-storage! module state) state))
 
     (define (module-definitions libraries module procedures entries output program)
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))

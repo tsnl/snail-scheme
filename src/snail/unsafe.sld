@@ -16,6 +16,7 @@
           (rename %wasm.f64.add f64.add) (rename %wasm.f64.sub f64.sub)
           (rename %wasm.f64.mul f64.mul) (rename %wasm.f64.div f64.div)
           (rename %wasm.vector.length vector.length) (rename %wasm.vector.new vector.new)
+          (rename %wasm.vector.new-like vector.new-like)
           (rename %wasm.vector.ref vector.ref) (rename %wasm.vector.set! vector.set!)
           (rename %wasm.vector.copy! vector.copy!))
   (import (only (snail-scheme core)
@@ -26,4 +27,4 @@
                 %wasm.i64.add %wasm.i64.sub %wasm.i64.mul
                 %wasm.f32.add %wasm.f32.sub %wasm.f32.mul %wasm.f32.div
                 %wasm.f64.add %wasm.f64.sub %wasm.f64.mul %wasm.f64.div
-                %wasm.vector.length %wasm.vector.new %wasm.vector.ref %wasm.vector.set! %wasm.vector.copy!)))
+                %wasm.vector.length %wasm.vector.new %wasm.vector.new-like %wasm.vector.ref %wasm.vector.set! %wasm.vector.copy!)))

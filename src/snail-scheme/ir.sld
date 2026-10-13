@@ -27,7 +27,7 @@
    <application> make-application application? application-operator application-operands
    application-loc
    <lambda> make-lambda lambda? lambda-parameters lambda-opt-rest-parameter
-   lambda-body lambda-loc
+   lambda-body lambda-loc lambda-origin
    <block> make-block block? block-items block-loc
    <conditional> make-conditional conditional? conditional-test conditional-consequent
    conditional-opt-alternate conditional-loc
@@ -92,16 +92,24 @@
       (loc application-loc))
 
     (define-record-type <lambda>
-      (make-lambda
+      (%make-lambda
        parameters ; ordered value-definition objects
        opt-rest-parameter ; value-definition, or #f for fixed arity
        body ; block: ordered items ending in a result expression
-       loc)
+       loc
+       origin) ; original lambda identity, retained by IR-to-IR copies
       lambda?
       (parameters lambda-parameters)
       (opt-rest-parameter lambda-opt-rest-parameter)
       (body lambda-body)
-      (loc lambda-loc))
+      (loc lambda-loc)
+      (origin lambda-source))
+
+    ;; Copies share one closure environment family. Source identity is explicit:
+    ;; macro expansions can contain unrelated lambdas with the same location.
+    (define (make-lambda parameters rest body loc . origin)
+      (%make-lambda parameters rest body loc (if (null? origin) #f (car origin))))
+    (define (lambda-origin node) (or (lambda-source node) node))
 
     (define-record-type <block>
       (make-block

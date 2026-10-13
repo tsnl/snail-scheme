@@ -21,7 +21,7 @@
             ((nominal-type? type) '(ref $record))
             (else (case type
                     ((String) '(ref $text_object)) ((Pair) '(ref $pair))
-                    ((Vector) '(ref $vector)) ((Bytevector) '(ref $bytevector))
+                    ((Vector) '(ref $vector_object)) ((Bytevector) '(ref $bytevector))
                     ((Procedure) '(ref $closure)) ((Record) '(ref $record))
                     ((Complex) '(ref $complex)) (else 'eqref)))))
 

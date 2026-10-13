@@ -243,8 +243,24 @@ checks need it, preserving proper tail recursion across functions.
 concrete scalar/reference storage and visible boxing/unboxing operations. The
 shared Wasm visitor uses those choices for values, initialized immutable locals,
 and specialized parameters/results. Monomorphic declared entries can bridge to
-concrete workers after their ordinary guards. Containers, closure environments,
-mutable cells, and unknown calls keep their generic Scheme representation.
+concrete workers after their ordinary guards. Unknown calls keep their generic
+Scheme representation.
+
+[`storage-analysis.sld`](src/snail-scheme/storage-analysis.sld) solves persistent
+value and allocation constraints over resolved IR. Mutable aliases share slot
+holes; copies introduce fresh holes with directed dependencies. Every write and
+unknown mutable escape contributes before a physical layout is selected. Lambda
+source identity joins capture layouts across rewritten and specialized members;
+canonical single-value ingress remains separate from semantic types.
+
+[`wasm-storage.sld`](src/snail-scheme/wasm-storage.sld) generates fixed vector
+layouts from shared scalar/reference codecs. Public vector identity wraps one
+immutable choice of backing array; it never changes layout at runtime. Internal
+argv and native multiple-value transport use `$slots` instead. Generic vector
+operations dispatch by codec, homogeneous bulk copies use `array.copy`, and
+proved scalar reads/writes avoid element boxing. The remaining capture/cell and
+pair/record layout work uses the same solved holes; this vector checkpoint does
+not yet change those physical fields. See [storage constraints](doc/storage.md).
 
 [`wasm-intrinsics.sld`](src/snail-scheme/wasm-intrinsics.sld) gives selected builtins
 one semantic contract and a concrete Wasm entry. Direct calls preserve operand,
