@@ -51,6 +51,9 @@ balanced batch and default-stack failure. `replay.py DESTINATION` verifies and
 restores its archive without executing workloads. `flonum.py` provides a separate
 paired control using the unchanged strict artifacts and explicit Chez flonum
 operations; its `prepare` and `measure` commands take the same `--output` path.
+The [array1 vector report](../results/2026-10-13-strict-vector-array1/README.md)
+adds one original-size workload. Restore its archive with
+`replay.py DESTINATION --report benchmarks/results/2026-10-13-strict-vector-array1`.
 
 ## What the timer includes
 
