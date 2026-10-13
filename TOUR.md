@@ -198,6 +198,32 @@ and [static typeclasses](doc/typeclasses.md).
 
 ## Checking types and recording evidence
 
+The strict compiler is a separate, native path, selected with
+[`scripts/build-strict`](scripts/build-strict). It reuses the located reader,
+hygienic expander and resolved binding identities above. It checks all source
+bodies, then instantiates concrete code and emits standalone WasmGC with a
+native `main` export. Its current surface and limits are in
+[the strict core guide](doc/strict-core.md); this is implemented behavior, not
+a replacement of the existing command-line compiler yet.
+
+[`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
+rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
+[`strict-core.sld`](src/snail-scheme/strict-core.sld) defines checked expression,
+binding and static class records. [`strict-infer.sld`](src/snail-scheme/strict-infer.sld)
+checks source groups, generalizes eligible values and retains exact class
+obligations. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
+supplies concrete primitive signatures and opcodes.
+
+[`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
+lexical initializer site from its required concrete instances, resolves class
+methods, and computes capture dependencies. [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
+assigns native signatures and GC layouts, preserves initialization readiness,
+and emits explicit universal-value conversions.
+[`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
+passes without process effects. The build wrapper reuses the shared Binaryen
+assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
+executes native exports and checks located source rejections.
+
 [`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
 syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record
 schemas in IR, with resolved binding identities and source locations. The
