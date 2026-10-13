@@ -31,7 +31,11 @@ or a checked function parameter can supply the expectation. Already typed values
 retain their width; there is no automatic numeric coercion. Integer literals must fit their width.
 Native fixed-width arithmetic uses Wasm wraparound and division traps.
 `(unit)` constructs Unit. `when` and `unless` evaluate their selected bodies and
-produce Unit, including when their bodies are empty.
+produce Unit, including when their bodies are empty. In tail position, an already
+Unit-valued body can supply that result directly, so recursive Unit-returning
+calls through these forms use constant stack space. Only trailing inert Unit
+constructors are removed; later effects, checked conversions and readiness
+checks still execute, and bodies of other types still have their results discarded.
 
 ```scheme
 (import (snail strict))
