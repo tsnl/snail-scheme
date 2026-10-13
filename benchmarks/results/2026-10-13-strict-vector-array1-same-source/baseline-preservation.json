@@ -1,0 +1,8 @@
+{
+  "baseline_commit": "16fad23e1a90de00671f8a26dde38507116d2c46",
+  "baseline_archive_sha256": "e7abf2441753b69424064e79af8937dfe419a801ae0c1982cc9f13c8dd58e3a0",
+  "baseline_manifest_sha256": "0bc36b5766a9a1fbf5602be1a3c10001d3a0b9ac35b58c25fd5c790d8e5dc294",
+  "baseline_unchanged": true,
+  "frozen_strict_sha256": "ee5de2581ecde719867067119cb267b0275183d12ae0a6657939bf579fdfcd58",
+  "frozen_original_chez_sha256": "4beaac5f315bde4ab88d4dd1accb02a39ea06972cbbb44120c97375c89e76bd1"
+}

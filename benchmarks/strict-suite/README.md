@@ -54,6 +54,10 @@ operations; its `prepare` and `measure` commands take the same `--output` path.
 The [array1 vector report](../results/2026-10-13-strict-vector-array1/README.md)
 adds one original-size workload. Restore its archive with
 `replay.py DESTINATION --report benchmarks/results/2026-10-13-strict-vector-array1`.
+`array1-control.py` compares its frozen strict/original artifacts with Chez after
+the same three kernel edits. The [three-system report](../results/2026-10-13-strict-vector-array1-same-source/README.md)
+preserves rotating positions and exact source equality. Run its `prepare` and
+`measure` commands with the restored output directory as `--output`.
 
 ## What the timer includes
 
