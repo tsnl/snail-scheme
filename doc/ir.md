@@ -212,7 +212,9 @@ Type expressions resolve scalar syntax, nominal descriptor identities, and
 fresh source `All` binder identities during expansion. Strict checking creates
 rigid variables for those binders. Ordinary colon declarations attach to their
 local definition after body construction; their nodes remain available to the
-gradual checker. Duplicate declarations retain a located error. Overload rows
+gradual checker. Checking verifies that each colon is the exact declaration owned
+by that local definition. Duplicate declarations and declarations aimed at imported,
+outer or primitive bindings are located errors. Overload rows
 own their signature directly and cannot receive detached colon declarations.
 `instantiation` preserves the underlying procedure
 value; its callable view and required call-boundary checks live in analysis

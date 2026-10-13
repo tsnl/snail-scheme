@@ -228,7 +228,7 @@
     ;; its original runtime binding; this member does not introduce an early alias.
     (define (make-overload-declaration definition type implementation loc)
       (let ((member (make-value-definition (value-definition-name definition) loc)))
-        (when type (set-binding-declaration! member (cons type loc)))
+        (when type (set-binding-declaration! member (make-type-declaration member type loc)))
         (set-binding-initializer! member implementation)
         (source-node 'overload-declaration loc (list definition member implementation))))
     (define (overload-declaration? node) (kind? node 'overload-declaration))
@@ -248,7 +248,7 @@
 
     (define (overload-declaration-type node)
       (let ((declaration (binding-declaration (overload-declaration-member node))))
-        (and declaration (car declaration))))
+        (and declaration (type-declaration-type declaration))))
 
     ;; ---- Attached ordinary declarations ----
 
@@ -269,8 +269,7 @@
         (when (memq definition definitions)
           (when (binding-declaration definition)
             (strict-error (node-loc node) "type declaration requires one local definition"))
-          (set-binding-declaration! definition
-                                    (cons (type-declaration-type node) (node-loc node))))))
+          (set-binding-declaration! definition node))))
 
     ;; ---- Structural children preserve source dependency discovery ----
 
@@ -398,7 +397,10 @@
                (bind (make-value-binding definition (make-literal 42 #f) #f))
                (declaration (make-type-declaration definition 'I64 loc)))
           (attach-declarations! (list declaration bind))
-          (expect (binding-declaration definition) (cons 'I64 loc))
+          (expect (eq? (binding-declaration definition) declaration) #t)
+          (let* ((copy (copy-ir-graph (list bind declaration)))
+                 (definition (value-binding-definition (car copy))))
+            (expect (eq? (binding-declaration definition) (cadr copy)) #t))
           (expect (guard (failure (else (error-object-message failure)))
                     (attach-declarations! (list bind declaration)))
                   "declaration.scm:3:4: type declaration requires one local definition")))

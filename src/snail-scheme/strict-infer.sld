@@ -148,7 +148,8 @@
                  (type (substitute (scheme-type (binding-scheme method)) (map cons (class-variables class) types))))
             (cons (cons method definition)
                   (begin
-                    (set-binding-declaration! definition (cons (surface-type type) loc))
+                    (set-binding-declaration! definition
+                                              (ir:make-type-declaration definition (surface-type type) loc))
                     (list (ir:make-value-binding definition expression loc)))))))
     (define (prepare-instance node classes prior)
       (let* ((loc (node-loc node)) (class (find-class (ir:instance-declaration-class node) classes loc))
@@ -242,7 +243,8 @@
       (let* ((definition (ir:value-binding-definition node))
              (annotation (binding-declaration definition))
              (signature (and annotation
-                             (declared-scheme (car annotation) (scope-types scope) (cdr annotation))))
+                             (declared-scheme (ir:type-declaration-type annotation)
+                                              (scope-types scope) (node-loc annotation))))
              (scheme (if signature (car signature) (binding-scheme definition))))
         (prepare-binding! definition scheme #f 'value
                           (list (ir:value-binding-initializer node) signature))))
@@ -464,6 +466,13 @@
 
     ;; ---- Blocks and programs ----
 
+    ;; Expansion attaches each colon to one local definition. Merely finding a
+    ;; declaration on an imported/outer binding does not make this colon its owner.
+    (define (check-declaration-owners items)
+      (for-each (lambda (node)
+                  (when (ir:type-declaration? node)
+                    (unless (eq? node (binding-declaration (ir:type-declaration-definition node)))
+                      (strict-error (node-loc node) "type declaration requires one local definition")))) items))
     (define (infer-conditional node scope expected)
       (let* ((test (infer (ir:conditional-test node) scope 'Bool))
              (yes (infer (ir:conditional-consequent node) scope expected))
@@ -474,6 +483,7 @@
     (define (infer-block items scope expected source)
       (for-each (lambda (node)
                   (when (ir:overload-declaration? node) (strict-error (node-loc node) "overloads require module scope"))) items)
+      (check-declaration-owners items)
       (let* ((bindings (definition-bindings items scope)) (foreign (extern-bindings items))
              (scope (extend-scope scope (append bindings foreign))))
         (check-bindings! bindings scope)
@@ -565,7 +575,7 @@
                            (import (scheme base)) (export identity)
                            (begin (define (identity x) x)))")) test-no-load))
       (define (test-cached-program cache text)
-        (syntax-list->ir-library (test-forms text) test-no-load (list cache)))
+        (syntax-list->ir-library (test-forms text) test-no-load (library:library-dependency-order cache)))
       (define (test-infer-library library)
         (infer-program
          (apply append (map library:library-body (library:library-dependency-order library)))
@@ -603,7 +613,18 @@
           (expect (eq? (binding-scheme binding) scheme) #t)
           (expect (hole-link variable) #f)
           (expect (eq? (resolve (function-result (node-type (binding-initializer binding)))) variable) #t)))
+      (define (test-imported-declaration-owner)
+        (let* ((cache (syntax->ir-library
+                       (car (test-forms "(define-library (cache)
+                                         (import (scheme base)) (export identity)
+                                         (begin (: identity (All (A) (-> A A))))
+                                         (begin (define (identity x) x)))")) test-no-load))
+               (program (test-cached-program cache
+                                             "(import (scheme base) (cache))\n(: identity (-> I64 I64))\n(identity #t)")))
+          (expect (guard (failure (else (error-object-message failure))) (test-infer-library program))
+                  "ownership.scm:2:1: type declaration requires one local definition")))
       (define (test-strict-infer)
         (run-test test-cached-compilations)
-        (run-test test-template-ownership))))
+        (run-test test-template-ownership)
+        (run-test test-imported-declaration-owner))))
    (else)))
