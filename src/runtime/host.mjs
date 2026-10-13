@@ -6,6 +6,13 @@
 
 // ---- Finalization ----
 
+// Numeric buffers belong to the common library. Ports belong to the selected
+// provider; replacing that provider must not change numeric buffer ownership.
+export function dropResource(exports, kind, id) {
+  if (kind === 2) exports['snail:drop-array'](id);
+  else if (kind === 1) exports['ports/drop-resource'](kind, id);
+}
+
 export function createFinalizers(cleanup) {
   const registry = new FinalizationRegistry(({ kind, id }) => cleanup(kind, id));
   return {

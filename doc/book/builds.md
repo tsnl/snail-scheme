@@ -75,3 +75,6 @@ script explicitly evaluates it.
 Build-time heaps and live connections do not become deployment state. A runtime
 loads the files selected by its configuration and initializes each node's state.
 The build script controls how those files are produced and placed.
+
+[Symbolic tensor construction and interpretation](tutorials/tensors.md) work
+today. Compiling those graphs into programs remains future work.

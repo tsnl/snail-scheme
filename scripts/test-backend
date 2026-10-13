@@ -26,6 +26,10 @@ SUCCESSES = {
     "backend-semantics": "backend checks passed\n",
     "backend-symbols": "symbol checks passed\n",
     "backend-control": "control-flow checks passed\n",
+    "backend-iverson-ghost": "iverson-ghost checks passed\n",
+    "backend-iverson-rebinding": "iverson rebinding checks passed\n",
+    "backend-typeclasses": "typeclass checks passed\n",
+    "backend-typeclass-tensors": "typeclass tensor checks passed\n",
 }
 ERRORS = {
     "arity": "wrong number of arguments",
@@ -60,6 +64,14 @@ ERRORS = {
     "character-after-false": "expected [Character]",
     "string-after-false": "expected a string",
     "read-closed": "port is closed",
+}
+ARRAY_ERRORS = {
+    "complex-element": "expected [Integer, Real], found Complex",
+    "complex-scalar": "expected [Integer, Real], found Complex",
+    "empty-complex-scalar": "expected [Integer, Real], found Complex",
+    "complex-update": "expected [Integer, Real], found Complex",
+    "empty-complex-update": "expected [Integer, Real], found Complex",
+    "complex-i32-scalar": "i32 conversion requires an integer in range",
 }
 
 
@@ -106,6 +118,13 @@ def check_fixture(name):
         require_result([os.environ.get("NODE", "node"), "--no-warnings",
                         str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3", "literal-first"],
                        SUCCESSES[name])
+    elif name == "backend-iverson-ghost":
+        require_result(command, SUCCESSES[name])
+        for argument, diagnostic in ARRAY_ERRORS.items():
+            require_result(command, "", diagnostic, [argument])
+        require_result([os.environ.get("NODE", "node"), "--no-warnings", "--expose-gc",
+                        str(ROOT / "tests/check-iverson-lifetimes.mjs"), command[-1]],
+                       SUCCESSES[name] + "Iverson buffer ownership and cleanup routing checks passed\n")
     else:
         require_result(command, SUCCESSES[name])
     if name == "backend-hash-tables":

@@ -15,9 +15,14 @@ with a counter shared by two browsers.
 ## How to read this book
 
 Start with [nodes and runtimes](nodes.md), [runtime contracts](runtime-contracts.md),
-and [build scripts](builds.md). The [model examples](tutorials/index.md) apply
-these ideas to a game, chat, and tensor training. Their pseudocode describes
-behavior independently of a particular runtime's library syntax.
+and [build scripts](builds.md). The [examples](tutorials/index.md) apply
+these ideas to a game, chat, and tensor training. Game and chat use pseudocode; the tensor tutorial includes a runnable prototype.
+
+Optional type annotations support checking, inference, and
+[static typeclasses](typeclasses.md). User-defined overloads select checked
+implementations from static types. Constrained generic functions specialize
+before code generation. The [tensor tutorial](tutorials/tensors.md) uses this
+interface to run one algorithm on concrete arrays or construct a symbolic graph.
 
 The [runtime pages](platforms/index.md) document the implementations in this
 checkout: the Wasm command and its Node.js host. They state which parts of

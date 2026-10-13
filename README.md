@@ -34,5 +34,10 @@ baseline are in [the migration report](benchmarks/results/2026-10-12-native-v8/R
 The removed LLVM emitter and native collector remain on
 [`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
 
+[Static typeclasses](doc/book/typeclasses.md) provide user-defined overloads and
+compile-time specialization. [Iverson Ghost](doc/book/tutorials/tensors.md)
+supplies `object`, `f64`, `f32`, and `i32` tensors with eager and symbolic
+instances of a shared interface.
+
 [Tour](TOUR.md) · [Effect interfaces](doc/book/effects.md) ·
 [Build and tests](doc/backend.md) · [Apache-2.0](LICENSE)

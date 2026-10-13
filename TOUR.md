@@ -189,6 +189,13 @@ hashes, and callback mutation checks; [`hash.rs`](src/hash.rs) supplies structur
 hashing through owned ABI roots. Wasm's weak identity map avoids a registry that would retain keys. See [hash tables](doc/hash-tables.md)
 for the supported API and comparator limits.
 
+[`iverson-ghost.sld`](src/snail-scheme/iverson-ghost.sld) supplies concrete
+`object`, `f64`, `f32`, and `i32` tensors, vector compatibility, and a Chibi
+reference. [`iverson.rs`](src/iverson.rs) owns unboxed numeric buffers and kernels.
+[`iverson-typed.sld`](src/snail-scheme/iverson-typed.sld) defines static eager and
+symbolic instances of one tensor interface. See [Iverson Ghost](doc/iverson-ghost.md)
+and [static typeclasses](doc/typeclasses.md).
+
 ## Checking types and recording evidence
 
 [`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
@@ -200,7 +207,9 @@ forms keep their meaning.
 [`types.sld`](src/snail-scheme/types.sld) defines shallow categories, structural
 unions, nominal records, rigid type variables, internal occurrence intersections,
 and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
-solves rank-one `All` instantiations from arguments and expected results.
+solves rank-one `All` instantiations from arguments and expected results. Its
+lower-bound joins preserve the named `Boolean` and `Number` heads across calls
+and function views; explicit instantiation retains its supplied types.
 [`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
 rules that take child facts as arguments. One declaration scan collects assignments,
 initializers, and nominal identities before narrowing. Typing, closure analysis,
@@ -208,8 +217,17 @@ and constant evaluation share its binding stability decisions; immutable scopes
 retain declared types and verified contracts under binding identities. The visitor in `wasm.sld` passes
 transient facts directly to these rules and to emission. There are no expression
 type caches or separate signature and guard lookup tables. Checked callable views
-retain implementation origins for recursive-instantiation checks. A guard's
-postcondition can justify a later optimization, never removal of that guard.
+retain implementation origins for recursive-instantiation checks.
+
+[`typeclasses.sld`](src/snail-scheme/typeclasses.sld) elaborates class metadata
+and constrained `All` functions before emission. Its traversal reuses the pure
+checking rules, retaining overloaded uses and lambda signatures for specialization.
+It checks one coherent instance universe, verifies generic bodies under abstract
+method contracts, and clones concrete functions with fresh local identities.
+Implementations retain their source initialization sites. The output is ordinary
+resolved IR with class selection erased; the emitter checks it using transient facts.
+
+A guard's postcondition can justify a later optimization, never removal of that guard.
 The emitter checks local returns inline. The first guarded tail transfer owns
 one checking frame; the private closure ABI shares its pending-check context
 with subsequent tail calls. `wasm-runtime.sld` deduplicates recurring check sites in
@@ -330,6 +348,8 @@ Rust-owned external resources need explicit close. The additional JS
 [`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
 `FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;
 [`run-wasi.mjs`](scripts/run-wasi.mjs) supplies the Node WASIp1 runner.
+Its kind-2 cleanup goes to the common numeric library's `snail:drop-array`
+export; kind-1 cleanup goes to the selected platform's port provider.
 
 [`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
 Scheme values, invoking callbacks, and returning rooted values. It is compiled
