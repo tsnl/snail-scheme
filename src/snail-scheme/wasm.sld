@@ -11,9 +11,12 @@
   (import (scheme base) (scheme cxr) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
+          (only (snail-scheme lambda-inference) inference-storage-query)
+          (only (snail-scheme hash-table) make-hash-table hash-table-ref/default hash-table-set!)
           (prefix (snail-scheme partial-eval) pe:)
           (snail-scheme specialize) (snail-scheme wasm-representation) (snail-scheme wasm-intrinsics)
           (snail-scheme wasm-bindings) (snail-scheme storage-analysis) (snail-scheme wasm-storage)
+          (snail-scheme wasm-fields)
           (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
   (begin
@@ -27,17 +30,18 @@
     (define application-copy-selection (make-parameter #f))
 
     (define-record-type <module>
-      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage layouts)
+      (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage layouts fields)
       module?
       (globals module-globals) (primitives module-primitives)
       (boxed module-boxed) (functions module-functions) (known module-known)
       (foreign module-foreign) (constants module-constants)
       (typing module-typing) (evaluator module-evaluator) (copies module-copies)
-      (scope module-scope set-module-scope!) (storage module-storage set-module-storage!) (layouts module-layouts))
+      (scope module-scope set-module-scope!) (storage module-storage set-module-storage!) (layouts module-layouts)
+      (fields module-fields))
 
     (define (make-module globals primitives boxed functions known foreign constants typing evaluator . copies)
       (%make-module globals primitives boxed functions known foreign constants typing evaluator
-                    (if (null? copies) '() (car copies)) (make-type-scope typing) #f (make-binding-layouts)))
+                    (if (null? copies) '() (car copies)) (make-type-scope typing) #f (make-binding-layouts) (make-field-layouts)))
 
     (define-record-type <function>
       (%make-function module environment temporaries representation)
@@ -407,9 +411,13 @@
       (let* ((definition (ir:name-definition node)) (place (binding-place definition context))
              (representation (place-representation place)) (fact (infer-name node scope)))
         (result (if (eq? representation 'eqref) fact
-                    (specialized-fact fact (type-intersect (fact-type fact)
-                                                           (binding-storage-type definition (module-storage (function-module context))))))
+                    (storage-value-fact fact (binding-storage-type definition (module-storage (function-module context)))))
                 (read-binding-value place context) output scope #t representation)))
+
+    ;; Physical closure storage proves the category, not a checked callable
+    ;; contract. Preserve the source fact's rigid/arrow evidence independently.
+    (define (storage-value-fact fact type)
+      (specialized-fact fact (type-intersect (fact-type fact) (if (function-type? type) 'Procedure type))))
 
     (define (check-visited node visited expected tail? context)
       (if (not expected) visited
@@ -648,7 +656,8 @@
           `(i32.or ,(type-test (car members) value context) ,(union-test (cdr members) value context))))
 
     (define (type-test type value context)
-      (cond ((union-type? type) (union-test (cdr type) value context))
+      (cond ((storage-hint? type) (type-test (storage-erasure type) value context))
+            ((union-type? type) (union-test (cdr type) value context))
             ((nominal-type? type)
              `(if (result i32) (ref.test (ref $record) ,value)
                   (then (ref.eq (struct.get $record 0 (ref.cast (ref $record) ,value))
@@ -714,15 +723,17 @@
              (primitive (typed-primitive node facts (function-module context)))
              (intrinsic (application-intrinsic node (function-module context)))
              (storage (storage-primitive node operands operator context))
+             (fields (field-primitive node operands operator context))
              (native (native-primitive node operands context))
              (copy (selected-application-copy node
-                                              (and (not (or storage intrinsic native primitive))
+                                              (and (not (or fields storage intrinsic native primitive))
                                                    (proved-specialization node facts context)) tail? context)))
-        (cond (storage storage)
+        (cond (fields fields)
+              (storage storage)
               (intrinsic (intrinsic-call intrinsic node operands operator context))
               (native native)
               (primitive (cons 'eqref (direct-primitive-call primitive node operands operator context)))
-              (copy (copy-call copy operands operator guards tail? context))
+              (copy (copy-call copy node operands operator guards tail? context))
               (else (cons 'eqref (procedure-call node (map single-result operands) (single-result operator) facts
                                                  (fact-signature (visited-fact operator)) guards tail? context))))))
 
@@ -775,8 +786,8 @@
     (define (storage-call-fact node representation fact context)
       (let* ((module (function-module context)) (definition (primitive-binding node module)))
         (if (and (module-storage module) (not (eq? representation 'eqref)) definition
-                 (memq (ir:value-definition-name definition) '(vector-ref %wasm.vector.ref)))
-            (specialized-fact fact (expression-storage-type node (module-storage module))) fact)))
+                 (memq (ir:value-definition-name definition) '(vector-ref %wasm.vector.ref car cdr %record-ref)))
+            (storage-value-fact fact (expression-storage-type node (module-storage module))) fact)))
 
     (define (allocation-codec node kind module)
       (let ((object (and (module-storage module)
@@ -830,6 +841,96 @@
              `(call ,(codec-function "new_like" codec) ,(index 0) ,(argument 1 'Vector)))
             (else `(call ,(codec-function "new" codec) ,(index 0) ,(cadr values)))))
 
+    ;; ---- Native pair and nominal record fields ----
+
+    (define (object-field-layout object kind module)
+      (and object
+           (intern-field-layout kind (map (lambda (field)
+                                            (type-codec (if (storage-hole-single? field) (storage-hole-type field) '?)))
+                                          (storage-allocation-fields object)) (module-fields module))))
+    (define (allocation-field-layout node kind module)
+      (object-field-layout (expression-storage-allocation node kind (module-storage module)) kind module))
+    (define (access-field-layout node kind object module)
+      (let* ((schema (and (eq? kind 'record) (expression-record-schema node (module-storage module))))
+             (count (if schema (length (ir:record-schema-fields schema)) 2)))
+        (intern-field-layout kind (map type-codec (expression-field-types object kind count schema (module-storage module)))
+                             (module-fields module))))
+    (define (field-primitive node operands operator context)
+      (let* ((module (function-module context)) (definition (primitive-binding node module))
+             (name (and definition (ir:value-definition-name definition))) (count (length operands)))
+        (and (storage-optimizations-enabled) (module-storage module)
+             (cond ((and (eq? name 'cons) (= count 2))
+                    (let ((layout (allocation-field-layout node 'pair module)))
+                      (and layout (field-call node operands operator context name layout #f))))
+                   ((or (and (memq name '(car cdr)) (= count 1)) (and (memq name '(set-car! set-cdr!)) (= count 2)))
+                    (field-call node operands operator context name
+                                (access-field-layout node 'pair (car (ir:application-operands node)) module)
+                                (if (memq name '(car set-car!)) 0 1)))
+                   ((and (eq? name '%make-record) (= count 3))
+                    (let ((layout (allocation-field-layout node 'record module)))
+                      (and layout (field-call node operands operator context name layout #f))))
+                   ((or (and (eq? name '%record-ref) (= count 3)) (and (eq? name '%record-set!) (= count 4)))
+                    (let ((index (expression-record-field-index node (module-storage module))))
+                      (and index (field-call node operands operator context name
+                                             (access-field-layout node 'record (caddr (ir:application-operands node)) module) index))))
+                   (else #f)))))
+
+    (define (field-call node operands operator context name layout index)
+      (let* ((representations (map visited-representation operands))
+             (arguments (map (lambda (representation) (temporary! context representation)) representations))
+             (result (field-operation node name layout index arguments representations operands context)))
+        (cons (car result)
+              `(block (result ,(representation-wasm (car result)))
+                      ,@(map (lambda (argument operand from) `(local.set ,argument ,(represented-result operand from)))
+                             arguments operands representations)
+                      ,@(primitive-operator-effects node operator context) ,(cdr result)))))
+    (define (field-argument argument from operand codec context)
+      (let ((value `(local.get ,argument)) (type (codec-type codec)))
+        (if (type-subtype? (fact-type (visited-fact operand)) type)
+            (convert-representation value from (codec-representation codec))
+            (unbox-representation (guard-field-carrier (box-representation value from) type context) (codec-representation codec)))))
+    (define (guard-field-carrier value type context)
+      (let ((temporary (temporary! context)))
+        `(block (result eqref) (local.set ,temporary ,value)
+                (if (i32.eqz ,(type-test type `(local.get ,temporary) context)) (then (call $fail (i32.const 8))))
+                (local.get ,temporary))))
+    (define (field-operation node name layout index arguments representations operands context)
+      (define (boxed at) (box-representation `(local.get ,(list-ref arguments at)) (list-ref representations at)))
+      (define (encoded at codec) (field-argument (list-ref arguments at) (list-ref representations at) (list-ref operands at) codec context))
+      (let ((codecs (field-layout-codecs layout)))
+        (cond ((eq? name 'cons)
+               (cons '(ref $pair) (field-layout-new layout (list (encoded 0 (car codecs)) (encoded 1 (cadr codecs))))))
+              ((eq? name '%make-record) (cons '(ref $record) (record-construction node layout (boxed 0) (boxed 2) context)))
+              (else
+               (let ((object (if (memq name '(%record-ref %record-set!)) `(call $checked_record ,(boxed 0) ,(boxed 2))
+                                 `(ref.cast (ref $pair) ,(boxed 0)))) (codec (list-ref codecs index)))
+                 (if (memq name '(car cdr %record-ref))
+                     (cons (codec-representation codec) (field-layout-read layout index object))
+                     (cons 'eqref `(block (result eqref)
+                                          ,(field-layout-write layout index object (encoded (if (eq? name '%record-set!) 3 1) codec))
+                                          (global.get $unspecified)))))))))
+
+    ;; Constructor list reads remain raw: no extra $single may be introduced
+    ;; while copying a carrier into its field. Validate the complete spine even
+    ;; when a repeated source field name makes an earlier value unobservable.
+    (define (record-construction node layout descriptor values context)
+      (let* ((schema (expression-record-schema node (module-storage (function-module context))))
+             (names (ir:literal-value (cadr (ir:application-operands node))))
+             (type (temporary! context '(ref $record_type)))
+             (cursor (temporary! context)) (fields (map (lambda (unused) (temporary! context)) names))
+             (mapping (map cons names fields)))
+        `(block (result (ref $record)) (local.set ,type (ref.cast (ref $record_type) ,descriptor)) (local.set ,cursor ,values)
+                ,@(apply append (map (lambda (field) `((local.set ,field (call $car (local.get ,cursor)))
+                                                       (local.set ,cursor (call $cdr (local.get ,cursor))))) fields))
+                (if (i32.eqz (ref.eq (local.get ,cursor) (global.get $nil))) (then (call $fail (i32.const 4))))
+                ,(field-layout-new layout
+                                   (map (lambda (field codec)
+                                          (let ((entry (assq (car field) (reverse mapping))))
+                                            (unbox-representation (if entry `(local.get ,(cdr entry)) '(global.get $unspecified))
+                                                                  (codec-representation codec))))
+                                        (ir:record-schema-fields schema) (field-layout-codecs layout))
+                                   `(local.get ,type)))))
+
     (define (proved-specialization node arguments context)
       (let* ((copy (call-specialization node (function-module context)))
              (arguments (if copy (copy-worker-facts copy arguments) arguments)))
@@ -850,17 +951,18 @@
                     ((null? facts) '())
                     (else (cons (car facts) (fixed (cdr parameters) (cdr facts)))))))))
 
-    (define (copy-worker-arguments copy arguments representations domains)
+    (define (copy-worker-arguments copy arguments representations domains node context)
       (if (ir:lambda-opt-rest-parameter (specialized-source copy))
           (map (lambda (value to) (unbox-representation value to))
                (worker-arguments (specialized-source copy)
-                                 (map (lambda (name from) (box-representation `(local.get ,name) from)) arguments representations)) domains)
+                                 (map (lambda (name from) (box-representation `(local.get ,name) from)) arguments representations)
+                                 node context) domains)
           (map (lambda (name from to) (convert-representation `(local.get ,name) from to)) arguments representations domains)))
 
     (define (copy-argument-representations copy module)
       (map type-representation (specialized-arguments copy)))
 
-    (define (copy-call copy operands operator guards tail? context)
+    (define (copy-call copy node operands operator guards tail? context)
       (let* ((representations (map visited-representation operands))
              (domains (copy-argument-representations copy (function-module context)))
              (arguments (map (lambda (representation) (temporary! context representation)) representations))
@@ -874,7 +976,7 @@
              (entry (assq (specialized-procedure copy) (module-functions (function-module context))))
              (call `(call ,(identifier "specialized" (cdr entry))
                           (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,closure)))
-                          ,@(copy-worker-arguments copy arguments representations domains)
+                          ,@(copy-worker-arguments copy arguments representations domains node context)
                           ,(call-checks tail?)))
              (representation (specialized-representation copy)))
         (cons representation (if tail? (tail-call-code call prefix context)
@@ -1001,19 +1103,26 @@
     ;; Rest workers already have one physical rest-list parameter. Known calls
     ;; build its fresh spine directly from held arguments, after all evaluations,
     ;; avoiding an intermediate argv vector without sharing a mutable rest list.
-    (define (worker-arguments procedure arguments)
+    (define (worker-arguments procedure arguments node context)
       (if (not (ir:lambda-opt-rest-parameter procedure)) arguments
           (let fixed ((parameters (ir:lambda-parameters procedure)) (arguments arguments))
-            (if (null? parameters) (list (rest-list arguments))
+            (if (null? parameters) (list (rest-list arguments node 0 context))
                 (cons (car arguments) (fixed (cdr parameters) (cdr arguments)))))))
-    (define (rest-list arguments)
+    (define (rest-list arguments node position context)
       (if (null? arguments) '(global.get $nil)
-          `(struct.new $pair ,(car arguments) ,(rest-list (cdr arguments)))))
+          (let* ((module (function-module context))
+                 (object (and (module-storage module) (expression-storage-allocation node 'rest (module-storage module) position)))
+                 (layout (or (object-field-layout object 'pair module)
+                             (intern-field-layout 'pair (list (car storage-codecs) (car storage-codecs)) (module-fields module)))))
+            (field-layout-new layout
+                              (map (lambda (value codec) (unbox-representation value (codec-representation codec)))
+                                   (list (car arguments) (rest-list (cdr arguments) node (+ position 1) context))
+                                   (field-layout-codecs layout))))))
 
     (define (procedure-invocation procedure worker operator arguments context tail? node)
       (if (and procedure (matching-worker-arity? procedure (length arguments)))
           `(call ,worker (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
-                 ,@(worker-arguments procedure (map (lambda (name) `(local.get ,name)) arguments)) ,(call-checks tail?))
+                 ,@(worker-arguments procedure (map (lambda (name) `(local.get ,name)) arguments) node context) ,(call-checks tail?))
           (adapter-invocation node operator arguments context tail?)))
 
     ;; Core bindings are initialized before Scheme code runs. The primitive
@@ -1398,18 +1507,12 @@
                                                   (original (prepare-module (map car libraries) foreign))
                                                   (checked (generate-library-functions libraries original))
                                                   (validated (check-recursive-instances (output-calls (cdr checked))))
-                                                  (specialized (and (type-optimizations-enabled) (representation-optimizations-enabled) (specialization-enabled)
-                                                                    (specialize-libraries (map car libraries) (module-typing original)
-                                                                                          (output-instances (cdr checked)) (output-scopes (cdr checked)))))
+                                                  (entry-name (and (pair? options) (pair? (cdr options)) (cadr options)))
+                                                  (specialized (specialize-checked-libraries libraries original checked entry-name))
                                                   (libraries (if specialized (numbered (car specialized)) libraries))
                                                   (module (if specialized (prepare-module (map car libraries) foreign (cdr specialized)) original))
-                                                  (storage (prepare-storage! libraries module
-                                                                             (and (pair? options) (pair? (cdr options)) (cadr options))))
-                                                  (visited (if (or specialized storage)
-                                                               (parameterize ((original-body-checking? #f))
-                                                                 (generate-library-functions libraries module)) checked))
-                                                  (output (parameterize ((original-body-checking? (not specialized)))
-                                                            (emit-copies (module-copies module) module (cdr visited))))
+                                                  (compiled (compile-storage-module libraries module foreign entry-name))
+                                                  (module (car compiled)) (visited (cdr compiled)) (output (cdr visited))
                                                   (procedures (apply append (reverse (output-functions output))))
                                                   (program (module-entry libraries module)))
                                              (cons 'module
@@ -1423,12 +1526,51 @@
                                                            (if (and (pair? options) (pair? (cdr options)))
                                                                (list (cli-entry root module (cadr options))) '())))))))
 
-    (define (prepare-storage! libraries module entry-name)
+    ;; Shape hints select useful copies without asserting immutable contents.
+    ;; The final solve still owns every mutable slot and every physical layout.
+    (define (specialize-checked-libraries libraries module checked entry-name)
+      (and (type-optimizations-enabled) (representation-optimizations-enabled) (specialization-enabled)
+           (let ((storage (prepare-storage! libraries module entry-name)))
+             (parameterize ((inference-storage-query (lambda (node) (expression-storage-hint node storage))))
+               (specialize-libraries (map car libraries) (module-typing module)
+                                     (output-instances (cdr checked)) (output-scopes (cdr checked)))))))
+
+    (define (prepare-storage! libraries module entry-name . selection)
       (let* ((items (apply append (map (lambda (entry) (library:library-body (car entry))) libraries)))
              (entry (and entry-name (find-definition entry-name (map car (module-globals module)))))
              (state (analyze-storage items (module-typing module) (module-copies module)
-                                     (map car (module-globals module)) (if entry (list entry) '()))))
+                                     (map car (module-globals module)) (if entry (list entry) '())
+                                     (if (null? selection) #f (car selection)))))
         (set-module-storage! module state) state))
+
+    (define (generate-optimized-module libraries module)
+      (parameterize ((original-body-checking? #f))
+        (let ((visited (generate-library-functions libraries module)))
+          (cons (car visited) (emit-copies (module-copies module) module (cdr visited))))))
+
+    (define (observe-copy! selections node copy)
+      (let ((prior (hash-table-ref/default selections node #f)))
+        (hash-table-set! selections node
+                         (cond ((not prior) (list 'selected copy))
+                               ((and (eq? (car prior) 'selected) (eq? (cadr prior) copy)) prior)
+                               (else '(ambiguous))))))
+    (define (observed-selection selections node)
+      (let ((entry (hash-table-ref/default selections node #f)))
+        (and entry (eq? (car entry) 'selected) entry)))
+
+    ;; A fresh module discards tentative physical layouts. Keeping observed call
+    ;; choices pinned makes the second solve authoritative without an open-ended
+    ;; optimization loop; unobserved or ambiguous edges remain conservative.
+    (define (compile-storage-module libraries module foreign entry-name)
+      (let* ((storage (prepare-storage! libraries module entry-name)) (selections (make-hash-table eq?))
+             (visited (parameterize ((application-copy-observer (lambda (node copy) (observe-copy! selections node copy))))
+                        (generate-optimized-module libraries module))))
+        (if (null? (module-copies module)) (cons module visited)
+            (let* ((selection (lambda (node) (observed-selection selections node)))
+                   (final (prepare-module (map car libraries) foreign (module-copies module))))
+              (prepare-storage! libraries final entry-name selection)
+              (parameterize ((application-copy-selection selection))
+                (cons final (generate-optimized-module libraries final)))))))
 
     (define (global-declarations entry module)
       (let* ((place (global-place (car entry) (cdr entry) module)) (representation (place-representation place)))
@@ -1438,6 +1580,7 @@
 
     (define (module-definitions libraries module procedures entries output program)
       (append (binding-layout-definitions (module-layouts module))
+              (field-definitions (module-fields module))
               (apply append (map (lambda (entry) (global-declarations entry module)) (module-globals module)))
               (literal-declarations (module-constants module))
               (map result-guard-global (reverse (output-guards output)))

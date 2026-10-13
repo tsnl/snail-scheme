@@ -9,7 +9,7 @@
           infer-call check-result check-recursive-instances validate-type
           checked-fact checked-guard call-fact call-guards call-edges call-instantiation
           value-fact unknown-fact normalized-fact specialized-fact fact-type fact-single? fact-callee
-          fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings
+          fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings typing-records
           type-optimizations-enabled original-body-checking? predicate-type scope-initialized?)
   (import (scheme base) (scheme cxr)
           (snail-scheme types) (snail-scheme type-inference) (snail-scheme wasm-intrinsics)
@@ -601,7 +601,8 @@
 
     (define (primitive-result node name arguments scope)
       (let ((predicate (predicate-type name)) (count (length arguments)))
-        (cond ((and predicate (= count 1)) (predicate-fact predicate (car arguments)))
+        (cond ((eq? name 'vector) (if (original-body-checking?) (unknown-fact) (value-fact 'Vector)))
+              ((and predicate (= count 1)) (predicate-fact predicate (car arguments)))
               ((and (= count 1) (memq name '(real? inexact? exact? integer?)))
                (numeric-predicate-fact (car arguments)))
               ((memq name '(%make-record %record?)) (record-result name arguments (scope-typing scope)))

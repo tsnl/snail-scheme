@@ -255,16 +255,17 @@ def check_interop(directory):
 
 
 def check_emission_traces(events):
-    # Original bodies are checked rigidly before the rewritten IR is emitted.
-    expected = ['prepare-module', 'generate-library-functions'] * 2
+    # Original bodies are checked rigidly. Optimization emits once to observe
+    # actual worker choices, then emits refined storage with those choices pinned.
+    pair = ['prepare-module', 'generate-library-functions']
     stages = []
     for event in events:
         name = event['name']
-        if name in expected:
+        if name in pair:
             stages.append(event)
         elif name == 'ir-library->wasm':
             names = [stage['name'] for stage in stages]
-            assert names == expected, names
+            assert names in (pair * 2, pair * 3), names
             assert all(event['ts'] <= stage['ts'] <= stage['ts'] + stage['dur']
                        <= event['ts'] + event['dur'] for stage in stages)
             stages = []

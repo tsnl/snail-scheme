@@ -4,7 +4,7 @@
 (define-library (snail-scheme lambda-inference)
   (export make-lambda-inference inferred-type inferred-lambda-type known-lambda
           inferred-call-type inference-binding-type inference-procedure-type inference-assigned?
-          known-callee inference-primitive? inferred-primitive-type)
+          known-callee inference-primitive? inferred-primitive-type inference-storage-query)
   (import (scheme base) (scheme cxr) (snail-scheme types)
           (snail-scheme type-inference) (snail-scheme type-analysis) (snail-scheme wasm-intrinsics)
           (prefix (snail-scheme ir) ir:))
@@ -21,6 +21,7 @@
 
     (define (make-lambda-inference typing)
       (make-state typing (make-inference) '() '() '()))
+    (define inference-storage-query (make-parameter #f))
     (define (lookup definition entries default)
       (let ((entry (assq definition entries))) (if entry (cdr entry) default)))
     (define (inference-binding-type definition state)
@@ -99,6 +100,11 @@
     ;; ---- Expression guarantees after normal return ----
 
     (define (inferred-type node environment state)
+      (let ((type (inferred-expression-type node environment state)))
+        (if (or (not (memq type '(? Any Vector Pair))) (not (inference-storage-query))) type
+            (or ((inference-storage-query) node) type))))
+
+    (define (inferred-expression-type node environment state)
       (cond ((ir:literal? node) (literal-type (ir:literal-value node)))
             ((ir:name? node) (inferred-name (ir:name-definition node) environment state))
             ((ir:lambda? node) (inferred-lambda-type node state))
@@ -182,7 +188,15 @@
     (define (inferred-primitive-type name arguments) (primitive-result-type name arguments))
 
     (define (primitive-result-type name arguments)
-      (cond ((memq name '(+ - * / quotient remainder modulo)) (numeric-result-type name arguments))
+      (cond ((eq? name 'vector) (list 'vector-storage (apply type-union arguments)))
+            ((and (memq name '(make-vector %wasm.vector.new)) (memv (length arguments) '(1 2)))
+             (list 'vector-storage (if (= (length arguments) 2) (cadr arguments) 'Unspecified)))
+            ((and (eq? name '%wasm.vector.new-like) (= (length arguments) 2)) (cadr arguments))
+            ((and (eq? name 'cons) (= (length arguments) 2)) (cons 'pair-storage arguments))
+            ((and (memq name '(car cdr)) (= (length arguments) 1)) (storage-field-hint name (car arguments)))
+            ((and (eq? name 'inexact) (= (length arguments) 1))
+             (if (all-types? arguments '(U ExactInteger InexactReal)) 'InexactReal 'Number))
+            ((memq name '(+ - * / quotient remainder modulo)) (numeric-result-type name arguments))
             ((memq name '(= < <= > >=))
              (constrain-each arguments 'Number) 'Boolean)
             ((memq name '(eq? eqv? equal? not boolean? number? exact-integer? integer? real? inexact?
@@ -198,11 +212,21 @@
             ((eq? name 'error) 'Never)
             (else '?)))
 
+    ;; Reading a shape hint never proves a scalar field value or cardinality.
+    ;; Container shapes can guide further copies; the final storage solve owns
+    ;; scalar loads, including invalidation through aliases and foreign writes.
+    (define (storage-field-hint name type)
+      (let ((field (cond ((storage-pair-type? type) (if (eq? name 'car) (cadr type) (caddr type)))
+                         ((storage-list-type? type) (if (eq? name 'car) (cadr type) type)) (else '?))))
+        (if (storage-hint? field) field '?)))
+
     (define (numeric-result-type name arguments)
       (cond ((memq name '(quotient remainder modulo))
              (if (constrain-each arguments 'ExactInteger) 'ExactInteger '?))
             ((and (not (eq? name '/)) (all-types? arguments 'ExactInteger)) 'ExactInteger)
-            ((and (pair? arguments) (all-types? arguments 'InexactReal)) 'InexactReal)
+            ((and (all-types? arguments '(U ExactInteger InexactReal))
+                  (let any-inexact? ((types arguments))
+                    (and (pair? types) (or (type-subtype? (car types) 'InexactReal) (any-inexact? (cdr types)))))) 'InexactReal)
             ((constrain-each arguments 'Number) 'Number)
             (else '?)))
 
@@ -258,4 +282,16 @@
       (define (test-lambda-inference)
         (test-independent-uses)
         (test-recursive-group #f)
-        (test-recursive-group #t))))))
+        (test-recursive-group #t)
+        (expect (storage-field-hint 'car '(pair-storage InexactReal Null)) '?)
+        (expect (storage-field-hint 'car '(pair-storage (vector-storage InexactReal) Null))
+                '(vector-storage InexactReal))
+        (expect (inferred-primitive-type 'inexact '(ExactInteger)) 'InexactReal)
+        (expect (inferred-primitive-type 'inexact '(Complex)) 'Number)
+        (expect (inferred-primitive-type '+ '(InexactReal ExactInteger)) 'InexactReal)
+        (expect (inferred-primitive-type '+ '(InexactReal Complex)) 'Number)
+        (let* ((definition (ir:make-value-definition 'rigid #f))
+               (node (ir:make-name definition #f)) (a (make-type-variable 'A))
+               (state (make-lambda-inference (prepare-types '() '()))))
+          (parameterize ((inference-storage-query (lambda (node) '(vector-storage InexactReal))))
+            (expect (inferred-type node (list (cons definition a)) state) a))))))))

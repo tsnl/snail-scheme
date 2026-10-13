@@ -252,6 +252,10 @@ holes; copies introduce fresh holes with directed dependencies. Every write and
 unknown mutable escape contributes before a physical layout is selected. Lambda
 source identity joins capture layouts across rewritten and specialized members;
 canonical single-value ingress remains separate from semantic types.
+An initial solution supplies shape hints to monomorphization. After the emitter
+records its actual worker choices, a final solve pins those call edges and
+selects the physical layouts. Pair spine positions and nominal record fields
+retain separate holes rather than merging unrelated fields.
 
 [`wasm-storage.sld`](src/snail-scheme/wasm-storage.sld) generates fixed vector
 layouts from shared scalar/reference codecs. Public vector identity wraps one

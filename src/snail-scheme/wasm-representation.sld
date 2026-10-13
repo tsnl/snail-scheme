@@ -12,6 +12,7 @@
 
     (define (type-representation type)
       (cond ((type-subtype? type 'Never) 'eqref)
+            ((storage-hint? type) (type-representation (storage-erasure type)))
             ((eq? type 'WasmI32) '(i32 integer))
             ((eq? type 'WasmF32) 'f32)
             ((type-subtype? type 'ExactInteger) 'i64)
@@ -19,6 +20,7 @@
             ((type-subtype? type 'Boolean) '(i32 boolean))
             ((eq? type 'Char) '(i32 character))
             ((nominal-type? type) '(ref $record))
+            ((function-type? type) '(ref $closure))
             (else (case type
                     ((String) '(ref $text_object)) ((Pair) '(ref $pair))
                     ((Vector) '(ref $vector_object)) ((Bytevector) '(ref $bytevector))

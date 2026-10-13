@@ -6,7 +6,8 @@
           runtime-type? dynamic-type? type-compatible? nominal-type?
           make-type-variable type-variable? type-variable-name all-type? all-variables all-body
           function-type? shallow-type? type-substitute type-erasure type-error-at
-          type-variables clean-all-type)
+          type-variables clean-all-type storage-hint? storage-vector-type? storage-pair-type?
+          storage-list-type? storage-erasure storage-element-type)
   (import (scheme base) (scheme cxr) (snail-scheme source)
           (prefix (snail-scheme ir) ir:))
   (begin
@@ -27,6 +28,21 @@
     (define (type-arguments type) (reverse (cdr (reverse (cdr type)))))
     (define (type-result type) (car (reverse type)))
     (define (dynamic-type? type) (eq? type '?))
+
+    ;; Compiler-only shape hints distinguish monomorphization contexts. They
+    ;; establish no source contract: only the final alias solve can authorize
+    ;; physical element storage. Their runtime membership is the shallow type.
+    (define (storage-vector-type? type) (and (pair? type) (eq? (car type) 'vector-storage)))
+    (define (storage-pair-type? type) (and (pair? type) (eq? (car type) 'pair-storage)))
+    (define (storage-list-type? type) (and (pair? type) (eq? (car type) 'list-storage)))
+    (define (storage-hint? type) (or (storage-vector-type? type) (storage-pair-type? type) (storage-list-type? type)))
+    (define (storage-erasure type)
+      (cond ((storage-vector-type? type) 'Vector) ((storage-pair-type? type) 'Pair)
+            ((storage-list-type? type) '(U Null Pair)) (else type)))
+    (define (storage-element-type type)
+      (cond ((or (storage-vector-type? type) (storage-list-type? type)) (cadr type))
+            ((storage-pair-type? type) (type-union (cadr type) (storage-element-type (caddr type))))
+            ((eq? type 'Null) 'Never) (else '?)))
 
     ;; Variables are opaque identities. Their names exist only for diagnostics.
     (define-record-type <type-variable>
@@ -54,6 +70,8 @@
 
     (define (type-subtype? source target)
       (or (type-equal? source target) (eq? source 'Never) (eq? target 'Any)
+          (and (or (storage-hint? source) (storage-hint? target))
+               (type-subtype? (storage-erasure source) (storage-erasure target)))
           (and (intersection-type? target)
                (all? (lambda (part) (type-subtype? source part)) (cdr target)))
           (and (intersection-type? source)
@@ -81,6 +99,8 @@
 
     (define (insert-type type types)
       (cond ((null? types) (list type))
+            ((and (storage-hint? type) (storage-hint? (car types)) (eq? (car type) (caar types)))
+             (cons (cons (car type) (map type-union (cdr type) (cdar types))) (cdr types)))
             ((type-subtype? type (car types)) types)
             ((type-subtype? (car types) type) (insert-type type (cdr types)))
             (else (cons (car types) (insert-type type (cdr types))))))
@@ -131,7 +151,7 @@
             (else source)))
 
     (define (runtime-type? type)
-      (or (memq type scalar-type-names) (nominal-type? type)
+      (or (memq type scalar-type-names) (nominal-type? type) (storage-hint? type)
           (and (union-type? type) (all? runtime-type? (cdr type)))))
 
     (define (shallow-type? type)
@@ -155,8 +175,8 @@
              (let loop ((parts (cdr type)) (result 'Any))
                (if (null? parts) result
                    (loop (cdr parts) (type-intersect result (type-substitute (car parts) substitutions))))))
-            ((arrow-type? type)
-             (cons '-> (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
+            ((or (arrow-type? type) (storage-hint? type))
+             (cons (car type) (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
             (else type)))
 
     (define (type-variables type)
@@ -183,6 +203,7 @@
 
     (define (type-erasure type)
       (cond ((type-variable? type) 'Any)
+            ((storage-hint? type) (storage-erasure type))
             ((all-type? type) (type-erasure (all-body type)))
             ((union-type? type) (apply type-union (map type-erasure (cdr type))))
             ((arrow-type? type) (cons '-> (map type-erasure (cdr type))))

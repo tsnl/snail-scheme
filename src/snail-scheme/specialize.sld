@@ -295,7 +295,10 @@
     (define (worker-domains source arguments)
       (if (not (ir:lambda-opt-rest-parameter source)) arguments
           (let fixed ((parameters (ir:lambda-parameters source)) (arguments arguments))
-            (if (null? parameters) (list (if (null? arguments) 'Null 'Pair))
+            (if (null? parameters)
+                (list (if (null? arguments) 'Null
+                          (let ((elements (apply type-union arguments)))
+                            (list 'pair-storage elements (list 'list-storage elements)))))
                 (cons (car arguments) (fixed (cdr parameters) (cdr arguments)))))))
 
     ;; An explicit instantiated view supplies domains even when actual values

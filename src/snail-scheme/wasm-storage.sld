@@ -168,7 +168,7 @@
         (func $vector_set (param $object (ref $vector_object)) (param $index i32) (param $value eqref)
               (call $vector_bounds (local.get $object) (local.get $index) (i32.const 1))
               (if (i32.eqz (call $storage_accepts (struct.get $vector_object 0 (local.get $object)) (local.get $value)))
-                  (then (call $fail (i32.const 1))))
+                  (then (call $fail (i32.const 8))))
               (call $vector_store (local.get $object) (local.get $index) (local.get $value)))
         (func $vector_copy (param $destination (ref $vector_object)) (param $at i32)
               (param $source (ref $vector_object)) (param $start i32) (param $count i32)
