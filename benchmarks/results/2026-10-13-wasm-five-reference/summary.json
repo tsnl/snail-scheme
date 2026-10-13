@@ -1,0 +1,91 @@
+{
+  "scope": [
+    "cat",
+    "lattice",
+    "wc",
+    "graphs",
+    "deriv"
+  ],
+  "rust_chez_batch": "same quiet window, CPU5, one discarded preliminary and three retained fresh-process samples; alternate systems and rotate benchmarks",
+  "snail_batch": "separate prior clean b218ce2 API batch; no new Snail compiler/ABI measured",
+  "historical_report_sha256": "02e05c9c0e402046e5b3a9ad0b46fef8860296ec12cb139faedd0c50df4f817c",
+  "rows": [
+    {
+      "benchmark": "cat",
+      "rust_wasm_seconds": 1.914390612,
+      "chez_same_window_seconds": 0.700358573,
+      "snail_historical_seconds": 21.014143972,
+      "snail_over_rust": 10.976936389197045,
+      "rust_over_chez": 2.733443532788739,
+      "rust_process_seconds": 1.9373682250152342,
+      "chez_process_seconds": 0.7314577199867927,
+      "rust_samples_seconds": [
+        1.916729531,
+        1.914390612,
+        1.908543735
+      ]
+    },
+    {
+      "benchmark": "lattice",
+      "rust_wasm_seconds": 1.051454558,
+      "chez_same_window_seconds": 1.171033649,
+      "snail_historical_seconds": 20.358708331,
+      "snail_over_rust": 19.36242339347964,
+      "rust_over_chez": 0.8978858625436477,
+      "rust_process_seconds": 1.0765332730079535,
+      "chez_process_seconds": 1.2030571619980037,
+      "rust_samples_seconds": [
+        1.041656996,
+        1.051454558,
+        1.074126581
+      ]
+    },
+    {
+      "benchmark": "wc",
+      "rust_wasm_seconds": 1.385093577,
+      "chez_same_window_seconds": 0.64852449,
+      "snail_historical_seconds": 10.24614748,
+      "snail_over_rust": 7.397440613501596,
+      "rust_over_chez": 2.1357614066355457,
+      "rust_process_seconds": 1.4099234539899044,
+      "chez_process_seconds": 0.680833568010712,
+      "rust_samples_seconds": [
+        1.38608208,
+        1.385047674,
+        1.385093577
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "rust_wasm_seconds": 0.58643647,
+      "chez_same_window_seconds": 0.770367523,
+      "snail_historical_seconds": 8.369200145,
+      "snail_over_rust": 14.27128184063996,
+      "rust_over_chez": 0.7612424621903485,
+      "rust_process_seconds": 0.6112217999761924,
+      "chez_process_seconds": 0.8039818769902922,
+      "rust_samples_seconds": [
+        0.58643647,
+        0.597647534,
+        0.580975036
+      ]
+    },
+    {
+      "benchmark": "deriv",
+      "rust_wasm_seconds": 2.772784884,
+      "chez_same_window_seconds": 0.419000614,
+      "snail_historical_seconds": 2.142225311,
+      "snail_over_rust": 0.7725897971247018,
+      "rust_over_chez": 6.617615324067282,
+      "rust_process_seconds": 2.7980629809899256,
+      "chez_process_seconds": 0.4506257910106797,
+      "rust_samples_seconds": [
+        2.829388378,
+        2.748862677,
+        2.772784884
+      ]
+    }
+  ],
+  "graph_equivalence_sha256": "8a58eaef7bceea8ab316c8fdad5f6b3aaa3df333a29f39e8d636c4d54b412049",
+  "interpretation": "Rust/LLVM representations and allocation/reclamation differ from Scheme; this is not an isolated engine or GC measurement"
+}

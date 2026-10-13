@@ -1,0 +1,1945 @@
+{
+  "schema": 1,
+  "kind": "r7rs",
+  "complete": true,
+  "output": "build/api-five-clean",
+  "upstream": "https://github.com/ecraven/r7rs-benchmarks",
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "date": "2026-10-12T22:12:30.031429+00:00",
+  "revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu": 5,
+  "allowed_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "rounds": 3,
+  "count": null,
+  "timeout": 300,
+  "build_timeout": 900,
+  "tools": {
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0010480110067874193,
+        "stdout": "10.4.1\n",
+        "stderr": ""
+      }
+    },
+    "GUILE": {
+      "path": null
+    },
+    "GUILD": {
+      "path": null
+    },
+    "CHIBI": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.04081236498313956,
+        "stdout": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n",
+        "stderr": ""
+      }
+    },
+    "CARGO": {
+      "path": "/run/current-system/sw/bin/cargo",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.019090918998699635,
+        "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n",
+        "stderr": ""
+      }
+    },
+    "RUSTC": {
+      "path": "/run/current-system/sw/bin/rustc",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.02419046199065633,
+        "stdout": "rustc 1.95.0 (59807616e 2026-04-14)\n",
+        "stderr": ""
+      }
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.006956694996915758,
+        "stdout": "v24.19.0\n",
+        "stderr": ""
+      },
+      "versions": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.02332179801305756,
+        "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+        "stderr": ""
+      }
+    },
+    "WASM_AS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0044161029800307006,
+        "stdout": "wasm-as version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_MERGE": {
+      "path": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+      "sha256": "0b36b60216d2d7626934fa21b462c722937cc2c88932bfe6189297873c495a36",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.02755924902157858,
+        "stdout": "wasm-merge version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.00337246002163738,
+        "stdout": "wasm-opt version 132\n",
+        "stderr": ""
+      }
+    },
+    "WASM_DIS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "version": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0032793360005598515,
+        "stdout": "wasm-dis version 132\n",
+        "stderr": ""
+      }
+    }
+  },
+  "host_sha256": {
+    "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+    "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+    "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+  },
+  "cpu_info": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 198\nmodel name\t: Intel(R) Core(TM) Ultra 7 270K Plus\nstepping\t: 2\nmicrocode\t: 0x122\ncpu MHz\t\t: 933.909\ncache size\t: 36864 KB\nphysical id\t: 0\nsiblings\t: 24\ncore id\t\t: 0\ncpu cores\t: 24\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 35\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs pml ept_violation_ve ept_mode_based_exec tsc_scaling usr_wait_pause notify_vm_exiting ipi_virt\nbugs\t\t: spectre_v1 spectre_v2 spec_store_bypass swapgs bhi spectre_v2_user vmscape\nbogomips\t: 7372.80\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+  "environment": {},
+  "benchmarks": [
+    "cat",
+    "lattice",
+    "wc",
+    "graphs",
+    "deriv"
+  ],
+  "systems": [
+    "baseline",
+    "candidate",
+    "chez"
+  ],
+  "cases": [
+    {
+      "benchmark": "cat",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.283745188004104,
+          "stdout": "Running cat:50\nElapsed time: 20.250025551 seconds (20.25) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.250025551\n",
+          "stderr": "",
+          "seconds": 20.250025551,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.269454741996014,
+          "stdout": "Running cat:50\nElapsed time: 20.235191362 seconds (20.235) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.235191362\n",
+          "stderr": "",
+          "seconds": 20.235191362,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.304900421004277,
+          "stdout": "Running cat:50\nElapsed time: 20.271025439 seconds (20.271) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.271025439\n",
+          "stderr": "",
+          "seconds": 20.271025439,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/cat/snail-wasm",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/src",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/cat/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/cat/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 12.807277234998764,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "37680bd20eb332ce367f9f03d76db51f89d28f39f91424c49aade7ac76596f55",
+        "capture-scheme.wasm": "82cc2130877dac22dd6c48e82cf593bc116cd26cbb0686e74c0e48f201bda36c",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "140ccdf611403bed0cc6f32e2db65f78003ef9d56cef465e3c9f68ceea157f89",
+        "build.scm": "a5a848b9641da24fd82d1e63d13a940f21f2b6eed5f5b7edc74bbcde50a56562",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+        "capture-program.wat": "aff1b7618ed9091f04861dec86083bdc033e3e39a5dde0c95d7cd556ab0b5a71"
+      },
+      "relocated_from": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/cat/snail-wasm",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 20.20734640597948,
+        "stdout": "Running cat:50\nElapsed time: 20.173110802 seconds (20.173) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.173110802\n",
+        "stderr": "",
+        "seconds": 20.173110802,
+        "name": "cat:50",
+        "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+      }
+    },
+    {
+      "benchmark": "lattice",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 16.199504892982077,
+          "stdout": "Running lattice:44:10\nElapsed time: 16.166043675 seconds (16.166) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,16.166043675\n",
+          "stderr": "",
+          "seconds": 16.166043675,
+          "name": "lattice:44:10",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 16.36505099700298,
+          "stdout": "Running lattice:44:10\nElapsed time: 16.329018531 seconds (16.329) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,16.329018531\n",
+          "stderr": "",
+          "seconds": 16.329018531,
+          "name": "lattice:44:10",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 16.292943323001964,
+          "stdout": "Running lattice:44:10\nElapsed time: 16.257771115 seconds (16.258) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,16.257771115\n",
+          "stderr": "",
+          "seconds": 16.257771115,
+          "name": "lattice:44:10",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/snail-wasm",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/src",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.380689274024917,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+        "capture-scheme.wasm": "75915aa2631883fc6e536496f643cad924be4e1b948b2c33ac2fa076e81714dd",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "79d85eaaad7749f5a5097b466160535ba8978ab3d4e4205a537456cadab4bb25",
+        "build.scm": "c5aed771941a28735a8ae03455de113842ca23a0189175dbd821836773167516",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+        "capture-program.wat": "07bd325092f76963b7fcac42fa47fff1122c66eeb242cb012638e7e828bc95c8"
+      },
+      "relocated_from": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 16.152696231001755,
+        "stdout": "Running lattice:44:10\nElapsed time: 16.118990568 seconds (16.119) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,16.118990568\n",
+        "stderr": "",
+        "seconds": 16.118990568,
+        "name": "lattice:44:10"
+      }
+    },
+    {
+      "benchmark": "wc",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.409361515019555,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.375596137 seconds (10.376) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.375596137\n",
+          "stderr": "",
+          "seconds": 10.375596137,
+          "name": "wc:inputs/bib:50",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.491482126002666,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.458082749 seconds (10.458) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.458082749\n",
+          "stderr": "",
+          "seconds": 10.458082749,
+          "name": "wc:inputs/bib:50",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.486702277004952,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.453221639 seconds (10.453) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.453221639\n",
+          "stderr": "",
+          "seconds": 10.453221639,
+          "name": "wc:inputs/bib:50",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/wc/snail-wasm",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/src",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/wc/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/wc/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 11.10915686498629,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "8eaf9b3348b5608454d88af7efeae55494a6de8ac4d3bbeb5ec47cad3c9b674b",
+        "capture-scheme.wasm": "464c9a005073bc95732d783084c013a261c53d86b7dd899244093acf41a5014e",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "4b2983a08430aa8f9516080a7ce9e8d6b68a6ee10bfaafdbf977e1bb1f9b0e46",
+        "build.scm": "5aeec7abb7d1f01c4c0253807d127dbf6f8aedafe009748af38cf775c0b707b1",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+        "capture-program.wat": "17d733c6ea9249264ff8c205393a8573fcf87b6ac89076025663f53ce0894c77"
+      },
+      "relocated_from": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/wc/snail-wasm",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.484591521992115,
+        "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.451881192 seconds (10.452) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.451881192\n",
+        "stderr": "",
+        "seconds": 10.451881192,
+        "name": "wc:inputs/bib:50"
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 7.772878016985487,
+          "stdout": "Running graphs:7:3\nElapsed time: 7.732136535 seconds (7.732) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,7.732136535\n",
+          "stderr": "",
+          "seconds": 7.732136535,
+          "name": "graphs:7:3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 7.844745914975647,
+          "stdout": "Running graphs:7:3\nElapsed time: 7.803323767 seconds (7.803) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,7.803323767\n",
+          "stderr": "",
+          "seconds": 7.803323767,
+          "name": "graphs:7:3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 7.748193453007843,
+          "stdout": "Running graphs:7:3\nElapsed time: 7.705011615 seconds (7.705) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,7.705011615\n",
+          "stderr": "",
+          "seconds": 7.705011615,
+          "name": "graphs:7:3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/snail-wasm",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/src",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 13.627182083000662,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+        "capture-scheme.wasm": "354c88b79c3b96d3b664c68602e2459ceadee8c6b46ef089b9fd8014a7f52f1b",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "6a7252dd9f9d9aa565945779daa0cda1d2f29758731d20c625844a996f52c004",
+        "build.scm": "5b318db874849400ef0b25bd72f1a9f3441c4ec4c5ca1441196abbefbd1a2261",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+        "capture-program.wat": "185e3f0e83e8cf7fb46d4561ee9e68fb39757d37e90323a00edad703f31b9488"
+      },
+      "relocated_from": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 7.815702725987649,
+        "stdout": "Running graphs:7:3\nElapsed time: 7.776703231 seconds (7.777) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,7.776703231\n",
+        "stderr": "",
+        "seconds": 7.776703231,
+        "name": "graphs:7:3"
+      }
+    },
+    {
+      "benchmark": "deriv",
+      "system": "baseline",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.1900674529897515,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.155252518 seconds (2.155) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.155252518\n",
+          "stderr": "",
+          "seconds": 2.155252518,
+          "name": "deriv:10000000",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.1770607240032405,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.144974555 seconds (2.145) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.144974555\n",
+          "stderr": "",
+          "seconds": 2.144974555,
+          "name": "deriv:10000000",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.1868124330067076,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.155065761 seconds (2.155) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.155065761\n",
+          "stderr": "",
+          "seconds": 2.155065761,
+          "name": "deriv:10000000",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/deriv/snail-wasm",
+      "source_sha256": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/src",
+        "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/deriv/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/deriv/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 11.14182191900909,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "3f8e99c6cfee0f1c8ae2650fb0f99db7d2969d0643eef494a5b170a100ff43e5",
+        "capture-scheme.wasm": "23a24fbdc4348a2c1f9478ce603e757b003ef8fc88d7e036f506ab8935bd9952",
+        "capture-snail_runtime.wasm": "f6d56d03b03d2f8115c7c3a3185fc80a48c893c6299830fbd5de9820d88f8586",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-scheme.optimized.wasm": "33845eec2fa89a620661e065d98f6712c395439fc3443ba715592bfe1b0bec61",
+        "build.scm": "6de9cc735411cfbe6bc6dca7099a292d21d238cf74d73bc60b891aeffeda6c52",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+        "capture-program.wat": "85e78a700566758fecd93f5e2e2e134f54973a9e7a5ed7dd51d00ab1a99650e0"
+      },
+      "relocated_from": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/deriv/snail-wasm",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 2.238562318001641,
+        "stdout": "Running deriv:10000000\nElapsed time: 2.204881943 seconds (2.205) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.204881943\n",
+        "stderr": "",
+        "seconds": 2.204881943,
+        "name": "deriv:10000000"
+      }
+    },
+    {
+      "benchmark": "cat",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.635216691996902,
+          "stdout": "Running cat:50\nElapsed time: 20.602264182 seconds (20.602) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.602264182\n",
+          "stderr": "",
+          "seconds": 20.602264182,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 21.293845188018167,
+          "stdout": "Running cat:50\nElapsed time: 21.260594695 seconds (21.261) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,21.260594695\n",
+          "stderr": "",
+          "seconds": 21.260594695,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 21.048930698016193,
+          "stdout": "Running cat:50\nElapsed time: 21.014143972 seconds (21.014) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,21.014143972\n",
+          "stderr": "",
+          "seconds": 21.014143972,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/cat/snail-wasm",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-api-five-b218ce2-20261012/src",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/cat/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/cat/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 13.938242356001865,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "977b5073eee708e3b9a7752869fb2720d25d2982d3afd10be6451c60413b4682",
+        "capture-scheme.wasm": "8418195d893415843fff1ab0381e280f5a15a4407e5161d4e33f4d280c63c32c",
+        "capture-snail_runtime.wasm": "c3572772d570c29f4d26c63837aeed79a94f319584f897565971c38e4d54c69f",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-linked.wasm": "d3f0db90775376b031a75479212e86473a502e02b0a81e7d952c8c2c005f8dfe",
+        "capture-scheme.optimized.wasm": "9a3a90b800ddac48ca90cf3485c6683c2565b84b83ff4b556891dbc674204106",
+        "build.scm": "d95dec5d3b2844d5a99c8f602ed6d0c44159c0850e32175171441637e6550e39",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+        "capture-program.wat": "f0077e87a7f8a7ba9daa33aee757f060a55a9ab360ee695af2c40a2aca3367fc"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 20.664797469013138,
+        "stdout": "Running cat:50\nElapsed time: 20.631054993 seconds (20.631) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.631054993\n",
+        "stderr": "",
+        "seconds": 20.631054993,
+        "name": "cat:50",
+        "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+      }
+    },
+    {
+      "benchmark": "lattice",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.393162171007134,
+          "stdout": "Running lattice:44:10\nElapsed time: 20.358708331 seconds (20.359) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,20.358708331\n",
+          "stderr": "",
+          "seconds": 20.358708331,
+          "name": "lattice:44:10",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.71862391498871,
+          "stdout": "Running lattice:44:10\nElapsed time: 20.685657829 seconds (20.686) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,20.685657829\n",
+          "stderr": "",
+          "seconds": 20.685657829,
+          "name": "lattice:44:10",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 20.376537534990348,
+          "stdout": "Running lattice:44:10\nElapsed time: 20.341707605 seconds (20.342) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,20.341707605\n",
+          "stderr": "",
+          "seconds": 20.341707605,
+          "name": "lattice:44:10",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-api-five-b218ce2-20261012/src",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 21.773835502011934,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "b7ae47fd538346647a1f6fc12fa63013dc9cdbb6c623ebdd2115aa5e495e709d",
+        "capture-scheme.wasm": "a8568e9f97a8f01e80897fe2e7738fbdb336e3e7634b402e746085db8b07ce44",
+        "capture-snail_runtime.wasm": "c3572772d570c29f4d26c63837aeed79a94f319584f897565971c38e4d54c69f",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-linked.wasm": "c191ac09fc6e5b2649f436ad3cfa02dc42d72639596c06f86ab6461f2ac86cdf",
+        "capture-scheme.optimized.wasm": "68f38ad72355f4716d61f24cf2eccc73dc54b409267140184be681cb5ee90286",
+        "build.scm": "51f83e46e3e5804b5b978263687311b85d2d4c3cf2689f4451d1f4a62dfb4d5b",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+        "capture-program.wat": "a7c9817511fc20e415ab56815bcfdb7a19f0e3800105a8afdfe038815fd0f2a4"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 20.47079469100572,
+        "stdout": "Running lattice:44:10\nElapsed time: 20.43770781 seconds (20.438) for lattice:44:10\n+!CSVLINE!+snail-scheme,lattice:44:10,20.43770781\n",
+        "stderr": "",
+        "seconds": 20.43770781,
+        "name": "lattice:44:10"
+      }
+    },
+    {
+      "benchmark": "wc",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.362548282981152,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.329774834 seconds (10.33) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.329774834\n",
+          "stderr": "",
+          "seconds": 10.329774834,
+          "name": "wc:inputs/bib:50",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.279770182998618,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.24614748 seconds (10.246) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.24614748\n",
+          "stderr": "",
+          "seconds": 10.24614748,
+          "name": "wc:inputs/bib:50",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 10.263940081989858,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.230617344 seconds (10.231) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.230617344\n",
+          "stderr": "",
+          "seconds": 10.230617344,
+          "name": "wc:inputs/bib:50",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/wc/snail-wasm",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-api-five-b218ce2-20261012/src",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/wc/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/wc/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 14.279492700996343,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "e9e12f52542ee48ca05bdd2f4ff6c39a319c14cf02eed03caf1e004e8fcd671b",
+        "capture-scheme.wasm": "9bc84072eebe98e9acc260627f429b7a9842b4b0c8eb3ffd8da2e4d301dbd698",
+        "capture-snail_runtime.wasm": "c3572772d570c29f4d26c63837aeed79a94f319584f897565971c38e4d54c69f",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-linked.wasm": "1bbd4449e5afdb211cbcac3d9854538f97e239067bd204232e1f374c7f3005cc",
+        "capture-scheme.optimized.wasm": "80185cbf2ecd0d5b7c13c3ed38c49285720847010f2a5b6615d6bc8131dcb79b",
+        "build.scm": "8911716fe31400bf31f947faa49cf7480f6a1e20af4c977c73084cd84a6e7a0d",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+        "capture-program.wat": "7b28272011aec377ee51ed3d05fd4ed07af863ba33f2973ccb925d4171338553"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 10.51322232701932,
+        "stdout": "Running wc:inputs/bib:50\nElapsed time: 10.478827211 seconds (10.479) for wc:inputs/bib:50\n+!CSVLINE!+snail-scheme,wc:inputs/bib:50,10.478827211\n",
+        "stderr": "",
+        "seconds": 10.478827211,
+        "name": "wc:inputs/bib:50"
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 8.411118563992204,
+          "stdout": "Running graphs:7:3\nElapsed time: 8.368329183 seconds (8.368) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,8.368329183\n",
+          "stderr": "",
+          "seconds": 8.368329183,
+          "name": "graphs:7:3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 8.472967918991344,
+          "stdout": "Running graphs:7:3\nElapsed time: 8.426875063 seconds (8.427) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,8.426875063\n",
+          "stderr": "",
+          "seconds": 8.426875063,
+          "name": "graphs:7:3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 8.410939621011494,
+          "stdout": "Running graphs:7:3\nElapsed time: 8.369200145 seconds (8.369) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,8.369200145\n",
+          "stderr": "",
+          "seconds": 8.369200145,
+          "name": "graphs:7:3",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-api-five-b218ce2-20261012/src",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 366.6982748959854,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "0ae9aeda2afa560bb3a9c6f429eb9994e1bab104fa449901bb0489480c18b8dd",
+        "capture-scheme.wasm": "991360f74835357f1d52a71a202088edc1c9837c0794012529e8ac9d1e802fd2",
+        "capture-snail_runtime.wasm": "c3572772d570c29f4d26c63837aeed79a94f319584f897565971c38e4d54c69f",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-linked.wasm": "95f3c76b770b26325cdc6e1324a7814bfd6d0a78e837e3d177262f6a91167c16",
+        "capture-scheme.optimized.wasm": "043dfab71a2010a328629e619bf057ea8a7683d3747a805b261eb254b1e6e789",
+        "build.scm": "61a9ce72e668124a56ce3aa8bf32cc9472b741056338117d563d58c26c31ac7d",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+        "capture-program.wat": "44283e6bb82d17adbe96a22a5d1abdc9cbed8c547d36fbc55596362cc6b1a5ff"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 8.414578814990819,
+        "stdout": "Running graphs:7:3\nElapsed time: 8.371619159 seconds (8.372) for graphs:7:3\n+!CSVLINE!+snail-scheme,graphs:7:3,8.371619159\n",
+        "stderr": "",
+        "seconds": 8.371619159,
+        "name": "graphs:7:3"
+      }
+    },
+    {
+      "benchmark": "deriv",
+      "system": "candidate",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.18912391300546,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.157227335 seconds (2.157) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.157227335\n",
+          "stderr": "",
+          "seconds": 2.157227335,
+          "name": "deriv:10000000",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.1745801100041717,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.142225311 seconds (2.142) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.142225311\n",
+          "stderr": "",
+          "seconds": 2.142225311,
+          "name": "deriv:10000000",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 2.1481290200026706,
+          "stdout": "Running deriv:10000000\nElapsed time: 2.116328932 seconds (2.116) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.116328932\n",
+          "stderr": "",
+          "seconds": 2.116328932,
+          "name": "deriv:10000000",
+          "round": 3
+        }
+      ],
+      "implementation": "snail-scheme",
+      "directory": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/deriv/snail-wasm",
+      "source_sha256": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+      "build_command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-I",
+        "/tmp/snail-api-five-b218ce2-20261012/src",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/deriv/snail-wasm/build.scm"
+      ],
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+        "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/cases/deriv/snail-wasm/program.wasm"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 15.160429715993814,
+        "stdout": "",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "capture-platform.wasm": "e2cc6b8cf9219359f4d0e938b8872f0c929f11ee15251e1cf2451516994dd733",
+        "program.wasm": "648876fecc86e5f2721856885164a5b3bdccd454320af2d0e0e6a335de8ceb17",
+        "capture-scheme.wasm": "3785f1deb30a459e3ee18c781fd501c983215a4cccb187e414d8bb472c7434b0",
+        "capture-snail_runtime.wasm": "c3572772d570c29f4d26c63837aeed79a94f319584f897565971c38e4d54c69f",
+        "capture-entry.wasm": "d78404b79e53bb01ad3359a9ef76b7b068e1dacd29a5bc84f7eead57ffafa10e",
+        "capture-entry.wat": "4e7743093a2f29c276621b436556b630228e062d6493af59a6f5caf26e2f71df",
+        "capture-linked.wasm": "af5cca5b738bf6aa5a0446d0e433753d2ad23beb9a85d938c271d9b3a79ac14b",
+        "capture-scheme.optimized.wasm": "71cc3ac07097597e160fd43684dda2219a315b764586d35ccf2b0f58b57b4022",
+        "build.scm": "6ff7d5775ffc076d911e83bac49b296779f4849524b65fc8e83d8ec02c97416e",
+        "capture-platform.wat": "06c38c69936f8255de04141625d8fc89f594ed976311196152abc78d1c325965",
+        "program.scm": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+        "capture-program.wat": "f9c158e7823c67c6130ce73ac673886509baef7352ddaa18ea16b2855e20ded5"
+      },
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 2.1698556180053856,
+        "stdout": "Running deriv:10000000\nElapsed time: 2.138355149 seconds (2.138) for deriv:10000000\n+!CSVLINE!+snail-scheme,deriv:10000000,2.138355149\n",
+        "stderr": "",
+        "seconds": 2.138355149,
+        "name": "deriv:10000000"
+      }
+    },
+    {
+      "benchmark": "cat",
+      "system": "chez",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.7285467010224238,
+          "stdout": "Running cat:50\nElapsed time: 0.696675446 seconds (0.697) for cat:50\n+!CSVLINE!+chez,cat:50,0.696675446\n",
+          "stderr": "",
+          "seconds": 0.696675446,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.7283811820088886,
+          "stdout": "Running cat:50\nElapsed time: 0.697364144 seconds (0.697) for cat:50\n+!CSVLINE!+chez,cat:50,0.697364144\n",
+          "stderr": "",
+          "seconds": 0.697364144,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.7285036320099607,
+          "stdout": "Running cat:50\nElapsed time: 0.696716926 seconds (0.697) for cat:50\n+!CSVLINE!+chez,cat:50,0.696716926\n",
+          "stderr": "",
+          "seconds": 0.696716926,
+          "name": "cat:50",
+          "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+          "round": 3
+        }
+      ],
+      "implementation": "chez",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/cat/chez",
+      "source_sha256": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+      "build_command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez/compile.scm"
+      ],
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/cat/chez/program.so"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.039715699007501826,
+        "stdout": "compiling /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez/program.scm with output to /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez/program.so\n",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "compile.scm": "bda55760987e0320526b1ce757a63117fa0598e2670c7885fe676757af5d9eda",
+        "program.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+        "program.so": "2c4836c8710231367af1d1e75759a8f27286b49cab99adf3698dafe263a56cc6"
+      },
+      "relocated_from": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/cat/chez",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.7271853350102901,
+        "stdout": "Running cat:50\nElapsed time: 0.695495255 seconds (0.695) for cat:50\n+!CSVLINE!+chez,cat:50,0.695495255\n",
+        "stderr": "",
+        "seconds": 0.695495255,
+        "name": "cat:50",
+        "cat_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+      }
+    },
+    {
+      "benchmark": "lattice",
+      "system": "chez",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 1.1940990220173262,
+          "stdout": "Running lattice:44:10\nElapsed time: 1.162561392 seconds (1.163) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.162561392\n",
+          "stderr": "",
+          "seconds": 1.162561392,
+          "name": "lattice:44:10",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 1.1995979700004682,
+          "stdout": "Running lattice:44:10\nElapsed time: 1.167125982 seconds (1.167) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.167125982\n",
+          "stderr": "",
+          "seconds": 1.167125982,
+          "name": "lattice:44:10",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 1.1958372959925327,
+          "stdout": "Running lattice:44:10\nElapsed time: 1.164074392 seconds (1.164) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.164074392\n",
+          "stderr": "",
+          "seconds": 1.164074392,
+          "name": "lattice:44:10",
+          "round": 3
+        }
+      ],
+      "implementation": "chez",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/chez",
+      "source_sha256": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+      "build_command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez/compile.scm"
+      ],
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/chez/program.so"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.04316686300444417,
+        "stdout": "compiling /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez/program.scm with output to /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez/program.so\n",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "compile.scm": "9bedc92aa1e7366da493cc9558cf4008e1a9126ff37e7d8103e4ecefbe9bdeec",
+        "program.scm": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b",
+        "program.so": "1ea0eb0400aeee3540f492ba85360d5d1af4640345b01848166c0df4501d6e45"
+      },
+      "relocated_from": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/lattice/chez",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 1.197995529975742,
+        "stdout": "Running lattice:44:10\nElapsed time: 1.166289922 seconds (1.166) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.166289922\n",
+        "stderr": "",
+        "seconds": 1.166289922,
+        "name": "lattice:44:10"
+      }
+    },
+    {
+      "benchmark": "wc",
+      "system": "chez",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.6815180130070075,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 0.649716597 seconds (0.65) for wc:inputs/bib:50\n+!CSVLINE!+chez,wc:inputs/bib:50,0.649716597\n",
+          "stderr": "",
+          "seconds": 0.649716597,
+          "name": "wc:inputs/bib:50",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.6769380970217753,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 0.645404334 seconds (0.645) for wc:inputs/bib:50\n+!CSVLINE!+chez,wc:inputs/bib:50,0.645404334\n",
+          "stderr": "",
+          "seconds": 0.645404334,
+          "name": "wc:inputs/bib:50",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.6791728179960046,
+          "stdout": "Running wc:inputs/bib:50\nElapsed time: 0.647349905 seconds (0.647) for wc:inputs/bib:50\n+!CSVLINE!+chez,wc:inputs/bib:50,0.647349905\n",
+          "stderr": "",
+          "seconds": 0.647349905,
+          "name": "wc:inputs/bib:50",
+          "round": 3
+        }
+      ],
+      "implementation": "chez",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/wc/chez",
+      "source_sha256": "547a457ff11f478e1006be32a1432b37afc81fea29b0cd31f6677f644a4625c1",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+      "build_command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez/compile.scm"
+      ],
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/wc/chez/program.so"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.039465159992687404,
+        "stdout": "compiling /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez/program.scm with output to /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez/program.so\n",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "compile.scm": "1481876d3bef988e81c936a5a53f1a4453661169d20294a6f1eb244ce32ecd7b",
+        "program.scm": "547a457ff11f478e1006be32a1432b37afc81fea29b0cd31f6677f644a4625c1",
+        "program.so": "750a10c9508e3a4710ff7244e4759c2cf2d8aa8d5234d5c8ece2841c4c1f7c27"
+      },
+      "relocated_from": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/wc/chez",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.6750858789891936,
+        "stdout": "Running wc:inputs/bib:50\nElapsed time: 0.643558036 seconds (0.644) for wc:inputs/bib:50\n+!CSVLINE!+chez,wc:inputs/bib:50,0.643558036\n",
+        "stderr": "",
+        "seconds": 0.643558036,
+        "name": "wc:inputs/bib:50"
+      }
+    },
+    {
+      "benchmark": "graphs",
+      "system": "chez",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.7975894989795052,
+          "stdout": "Running graphs:7:3\nElapsed time: 0.764933096 seconds (0.765) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.764933096\n",
+          "stderr": "",
+          "seconds": 0.764933096,
+          "name": "graphs:7:3",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.8048700490035117,
+          "stdout": "Running graphs:7:3\nElapsed time: 0.771408997 seconds (0.771) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.771408997\n",
+          "stderr": "",
+          "seconds": 0.771408997,
+          "name": "graphs:7:3",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.7958730210084468,
+          "stdout": "Running graphs:7:3\nElapsed time: 0.76395848 seconds (0.764) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.76395848\n",
+          "stderr": "",
+          "seconds": 0.76395848,
+          "name": "graphs:7:3",
+          "round": 3
+        }
+      ],
+      "implementation": "chez",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/chez",
+      "source_sha256": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+      "build_command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez/compile.scm"
+      ],
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/chez/program.so"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.0467973519989755,
+        "stdout": "compiling /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez/program.scm with output to /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez/program.so\n",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "compile.scm": "323996c124fdfe1a416b4bd7576f5f3e126059201316daafe250367515fe4f83",
+        "program.scm": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a",
+        "program.so": "5e1b125cceb62662fa8d88061cdb0e4cee3c2ef09e9bdb5585b726c46b0530dd"
+      },
+      "relocated_from": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/graphs/chez",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.7976804619829636,
+        "stdout": "Running graphs:7:3\nElapsed time: 0.764804347 seconds (0.765) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.764804347\n",
+        "stderr": "",
+        "seconds": 0.764804347,
+        "name": "graphs:7:3"
+      }
+    },
+    {
+      "benchmark": "deriv",
+      "system": "chez",
+      "status": "passed",
+      "samples": [
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.4489085380046163,
+          "stdout": "Running deriv:10000000\nElapsed time: 0.418194073 seconds (0.418) for deriv:10000000\n+!CSVLINE!+chez,deriv:10000000,0.418194073\n",
+          "stderr": "",
+          "seconds": 0.418194073,
+          "name": "deriv:10000000",
+          "round": 1
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.448625028016977,
+          "stdout": "Running deriv:10000000\nElapsed time: 0.417973681 seconds (0.418) for deriv:10000000\n+!CSVLINE!+chez,deriv:10000000,0.417973681\n",
+          "stderr": "",
+          "seconds": 0.417973681,
+          "name": "deriv:10000000",
+          "round": 2
+        },
+        {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.4486990900186356,
+          "stdout": "Running deriv:10000000\nElapsed time: 0.418325928 seconds (0.418) for deriv:10000000\n+!CSVLINE!+chez,deriv:10000000,0.418325928\n",
+          "stderr": "",
+          "seconds": 0.418325928,
+          "name": "deriv:10000000",
+          "round": 3
+        }
+      ],
+      "implementation": "chez",
+      "directory": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/deriv/chez",
+      "source_sha256": "1a9622a22c63bbf49723f9e7c743404e7668ccc3bd1b79c54aa0b0aef0001197",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+      "build_command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez/compile.scm"
+      ],
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/deriv/chez/program.so"
+      ],
+      "build": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.039467347000027075,
+        "stdout": "compiling /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez/program.scm with output to /tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez/program.so\n",
+        "stderr": ""
+      },
+      "artifact_sha256": {
+        "compile.scm": "7d53e7c13fe824f53223c9493b2b4a1a43437320a0aeed8c68193069433b32d2",
+        "program.scm": "1a9622a22c63bbf49723f9e7c743404e7668ccc3bd1b79c54aa0b0aef0001197",
+        "program.so": "5531caa482569323627ab18b7c3acc32000761bda8abcbacbc664d86538ddac5"
+      },
+      "relocated_from": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/cases/deriv/chez",
+      "preliminary": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 0.4494751419988461,
+        "stdout": "Running deriv:10000000\nElapsed time: 0.417754605 seconds (0.418) for deriv:10000000\n+!CSVLINE!+chez,deriv:10000000,0.417754605\n",
+        "stderr": "",
+        "seconds": 0.417754605,
+        "name": "deriv:10000000"
+      }
+    }
+  ],
+  "order": [
+    [
+      0,
+      "cat",
+      "baseline"
+    ],
+    [
+      0,
+      "cat",
+      "candidate"
+    ],
+    [
+      0,
+      "cat",
+      "chez"
+    ],
+    [
+      0,
+      "lattice",
+      "baseline"
+    ],
+    [
+      0,
+      "lattice",
+      "candidate"
+    ],
+    [
+      0,
+      "lattice",
+      "chez"
+    ],
+    [
+      0,
+      "wc",
+      "baseline"
+    ],
+    [
+      0,
+      "wc",
+      "candidate"
+    ],
+    [
+      0,
+      "wc",
+      "chez"
+    ],
+    [
+      0,
+      "graphs",
+      "baseline"
+    ],
+    [
+      0,
+      "graphs",
+      "candidate"
+    ],
+    [
+      0,
+      "graphs",
+      "chez"
+    ],
+    [
+      0,
+      "deriv",
+      "baseline"
+    ],
+    [
+      0,
+      "deriv",
+      "candidate"
+    ],
+    [
+      0,
+      "deriv",
+      "chez"
+    ],
+    [
+      1,
+      "cat",
+      "candidate"
+    ],
+    [
+      1,
+      "cat",
+      "chez"
+    ],
+    [
+      1,
+      "cat",
+      "baseline"
+    ],
+    [
+      1,
+      "lattice",
+      "candidate"
+    ],
+    [
+      1,
+      "lattice",
+      "chez"
+    ],
+    [
+      1,
+      "lattice",
+      "baseline"
+    ],
+    [
+      1,
+      "wc",
+      "candidate"
+    ],
+    [
+      1,
+      "wc",
+      "chez"
+    ],
+    [
+      1,
+      "wc",
+      "baseline"
+    ],
+    [
+      1,
+      "graphs",
+      "candidate"
+    ],
+    [
+      1,
+      "graphs",
+      "chez"
+    ],
+    [
+      1,
+      "graphs",
+      "baseline"
+    ],
+    [
+      1,
+      "deriv",
+      "candidate"
+    ],
+    [
+      1,
+      "deriv",
+      "chez"
+    ],
+    [
+      1,
+      "deriv",
+      "baseline"
+    ],
+    [
+      2,
+      "cat",
+      "chez"
+    ],
+    [
+      2,
+      "cat",
+      "baseline"
+    ],
+    [
+      2,
+      "cat",
+      "candidate"
+    ],
+    [
+      2,
+      "lattice",
+      "chez"
+    ],
+    [
+      2,
+      "lattice",
+      "baseline"
+    ],
+    [
+      2,
+      "lattice",
+      "candidate"
+    ],
+    [
+      2,
+      "wc",
+      "chez"
+    ],
+    [
+      2,
+      "wc",
+      "baseline"
+    ],
+    [
+      2,
+      "wc",
+      "candidate"
+    ],
+    [
+      2,
+      "graphs",
+      "chez"
+    ],
+    [
+      2,
+      "graphs",
+      "baseline"
+    ],
+    [
+      2,
+      "graphs",
+      "candidate"
+    ],
+    [
+      2,
+      "deriv",
+      "chez"
+    ],
+    [
+      2,
+      "deriv",
+      "baseline"
+    ],
+    [
+      2,
+      "deriv",
+      "candidate"
+    ],
+    [
+      3,
+      "cat",
+      "baseline"
+    ],
+    [
+      3,
+      "cat",
+      "candidate"
+    ],
+    [
+      3,
+      "cat",
+      "chez"
+    ],
+    [
+      3,
+      "lattice",
+      "baseline"
+    ],
+    [
+      3,
+      "lattice",
+      "candidate"
+    ],
+    [
+      3,
+      "lattice",
+      "chez"
+    ],
+    [
+      3,
+      "wc",
+      "baseline"
+    ],
+    [
+      3,
+      "wc",
+      "candidate"
+    ],
+    [
+      3,
+      "wc",
+      "chez"
+    ],
+    [
+      3,
+      "graphs",
+      "baseline"
+    ],
+    [
+      3,
+      "graphs",
+      "candidate"
+    ],
+    [
+      3,
+      "graphs",
+      "chez"
+    ],
+    [
+      3,
+      "deriv",
+      "baseline"
+    ],
+    [
+      3,
+      "deriv",
+      "candidate"
+    ],
+    [
+      3,
+      "deriv",
+      "chez"
+    ]
+  ],
+  "active_attempt": null,
+  "experiment_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+    "CHIBI": null,
+    "CHEZ": null,
+    "GUILE": null,
+    "GUILD": null,
+    "NODE": null,
+    "CARGO": null,
+    "RUSTC": null,
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1",
+    "SNAIL_REAL_WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+    "BDWGC_INCLUDE": null,
+    "BDWGC_LIB": null,
+    "NODE_OPTIONS": null,
+    "GUILE_AUTO_COMPILE": null
+  },
+  "runtime": "WasmGC on V8 with the selected platform and Rust-to-Wasm common library",
+  "compiler_sha256": {
+    "src/abi.rs": "4aade73740d1f2e9981d0bd9bf38a51e3b718b28c9adc1841643139ddb62bc3d",
+    "src/artifacts.rs": "746efbcfc6b6248657b459890823b9386c6057bb0fddd89593c22ab59fe9007b",
+    "src/datum.rs": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+    "src/hash.rs": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+    "src/host.rs": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+    "src/interop_example.rs": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+    "src/lib.rs": "567d3bc066549235554e4c177af676fa11240d9c4abb26feaa0ea753394f3330",
+    "src/platform.rs": "abf1de5eac0c1aee6286bbc829cda1e9cd87d642f250727dd3bd8aa3994e4e15",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "31eb3013a694cf051ab49cad2487fda31557d246c43272f7ca96a92460ab3110",
+    "src/snail/unsafe.sld": "663ad4e24fc8c87eb8116704ac1dd83907874f02e49a803ffe7159eb170099e6",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "5bcc34e4e457893643e489ad2fe34239d78f1e8b62e01512c00308d5d881c948",
+    "src/snail-scheme/build-host.sld": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+    "src/snail-scheme/build.sld": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+    "src/snail-scheme/chromium-trace.sld": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/effects.sld": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "df5b37cfa0c7f072f65f21a12eb144e3cb2079d2208e5d46fb075731e7334e63",
+    "src/snail-scheme/lambda-inference.sld": "9dfd5d8a33dc52241732ca5cdda491da36b2ab6b148be1ba86c8155495eda57a",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/specialize.sld": "5f27bb1a23f8f5f5d6887f41b38204151a8211fca3405d0c0e976b9f95edce60",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "9611e49b59e862fa696d47edceb9f559410cd650d8105eb9651e6ad2e263f8a6",
+    "src/snail-scheme/type-inference.sld": "98d30fd55d4cfbe394711870bc40cf407db5886e38638455e492ecbcfa86cbab",
+    "src/snail-scheme/types.sld": "802bda5ef6209b0e7b22155827589d1e6016900340bb6e79a0980f8d4b91e404",
+    "src/snail-scheme/wasm-abi.sld": "c4c938e4f1f3476928f38b3093894bdeb6bcd72eb5fa74204bf03921a1dcff9f",
+    "src/snail-scheme/wasm-intrinsics.sld": "3240762c41ca9b3e830ed68dca66baf18931ed8f624dd5d2889024349e0ff2a1",
+    "src/snail-scheme/wasm-link.sld": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+    "src/snail-scheme/wasm-literals.sld": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+    "src/snail-scheme/wasm-optimize.sld": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+    "src/snail-scheme/wasm-representation.sld": "0d7a46f70ccd30c67a4f37b5c4d2a5a90315ca9fc365a169d12e69c1f7ee9392",
+    "src/snail-scheme/wasm-runtime.sld": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+    "src/snail-scheme/wasm.sld": "e39e553b7030a8e3ed47030dd10ec306894bf420ea03c47b4e013b022f6e5244",
+    "src/symbols.rs": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+    "src/text.rs": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+    "src/unicode.rs": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+    "bootstrap/scheme/base.sld": "e67f65c4c661c914f24e410f13263a70f436201f65177ee26344f36a71704818",
+    "bootstrap/scheme/char.sld": "eb1fe107d799adefcadb588343f5f314c974f382314008b3df28753e6ef3a6b5",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/complex.sld": "69c4e9428c1aec70c0dad35cde4d5f7a56fc030071d44f01476057fccdcd15ae",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "3825ffc6c8eb2d965a242861f3c16a1fe1704c162c8d4c7e43abac33d44cb9dd",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/read.sld": "3d38815e76e6db4ef427ee300a74c5960b8586e5098a16a9455379ffca7dcdff",
+    "bootstrap/scheme/time.sld": "94ac12c393ff9be36608be85896e33f0c0393fc7c609d182fe87f2e5ab014c75",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e"
+  },
+  "build_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": "/tmp/snail-v8-gc-20261012/build/tools/capture-wasm-merge",
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": "1"
+  },
+  "input_sha256": {
+    "inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+    "inputs/cat.input": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+    "inputs/deriv.input": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+    "inputs/graphs.input": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+    "inputs/lattice.input": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+    "inputs/wc.input": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+    "src/Bigloo-prelude.scm": "6d063ce024a6dd0a20dc2b009894f98989f9a0b02a7dc0ed0e1ac0a12437b9b6",
+    "src/Bones-prelude.scm": "6dfafdff487e50f638b1621310446eda340ea9dbc907e0341b5a48c0413ef271",
+    "src/Chez-postlude.scm": "cdec8719a46c9a1656a7e13fc287cd1baa137500ebefa74f6f3e6ff40c713672",
+    "src/Chez-prelude.scm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/Chibi-postlude.scm": "af9a6bbd826486948b56eec48d32f83e19bab3441e6f0c25b353e406d0bd65a8",
+    "src/Chibi-prelude.scm": "0bf50c0f2d8ace5177f029695544aff476fb43140a86ec8f59522940e58c7f1f",
+    "src/Chicken-prelude.scm": "8776af3b9830613427d17a9ad9e0d6c2d29566e90883c672a2d5c601f723cf54",
+    "src/ChickenCSI-prelude.scm": "905c0a9d127729b55fa03eb13dea9bf5fe7c75e08ff2b4917f6f12e339e5a118",
+    "src/Cyclone-postlude.scm": "bd9dcde3c2aeea8215dcf0637f030592290e77e754a3fac659042714664c2063",
+    "src/Femtolisp-prelude.scm": "ff2892cf45dc156161b0d0f06bac06f3fda8e48680a9377c7688bf8d2b7ab34d",
+    "src/Foment-postlude.scm": "cbde65997960078ad52a6261b2c5d7e439cbaf64f851a800f4740a38e82ba78d",
+    "src/Foment-prelude.scm": "2b123b52e77e6ae8a001d40429cc2b365f9a41dd196defe104de3b39d26c4d8e",
+    "src/GambitC-prelude.scm": "8407ef6485f65cf98bedec66fd4c52f79c01bead4a878a50e20c7c0532bf8fcc",
+    "src/Gauche-postlude.scm": "95621bce8152feba0540255ab81024cacc6d7ec984e874d6387c737423ea2791",
+    "src/Gerbil-postlude.scm": "5a41c42fb1504a0347e9b87020ae33b0a699a36686df71b58b3b258248bfe007",
+    "src/Gerbil-prelude.scm": "451f38241ca59d00fb4ee5aeab16bfdf506733460e66ff224ebf4268710fc6c7",
+    "src/Guile-prelude.scm": "89b5052d02e8053ba9b3c55a8d4ebf1285561064b2a93b059f5963cb75004828",
+    "src/Guile3-prelude.scm": "34c145fd9152804cc6cd2aca0d64b26fdfb41fbab4ce0be3b3def0d6559f1c65",
+    "src/IronScheme-prelude.scm": "f7b199d2fd0eb7ff1e537a5b46175f6ea08d36dbb25ec821109d5099f678d0a2",
+    "src/Kawa-prelude.scm": "3d250708f14ef7e420203d30438144040f7b494fd998da00ca767f7fcc6ecdeb",
+    "src/Larceny-postlude.scm": "8fbfe84c0c790977d14c89fe86de3e3790c26060c8bbad5f5aa7c31f816be815",
+    "src/Loko-postlude.scm": "c38afe22624e092c9f6a09d6c7fe79fae9e8cb0abf03711d6ef4a401ab5a23d8",
+    "src/Loko-prelude.scm": "9adf25fc1d327403a7edc487223e43ed08f8441e20536dc831cdb5c3f6b574dc",
+    "src/MIT-prelude.scm": "6272412e9f3d4fa31a0dbb969fdbe688f88c8970e6d92a9101d7f49d56c40e29",
+    "src/Mosh-prelude.scm": "3da20ca04e154d438512b034fa35f2c4c5e2dea74b636a0613bd0102bd9fd0da",
+    "src/Petite-Chez-postlude.scm": "cad040b3d9ec86458fa16eb9f6390a7f325fecbca0037bcab54621b5f692d561",
+    "src/Petite-Chez-prelude.scm": "808eb2aaec93e84097c7bda2070916fc425afedae04146d84542df8dc1e2ed14",
+    "src/Picrin-postlude.scm": "ce5c6de0788aa4e51213f8966835ed1e5e805f95265f5e7a1524570928d573a0",
+    "src/RScheme-prelude.scm": "ce437bbf0d07edfee583110e3418c1239856070438887d4c037d232d5fb9f508",
+    "src/Racket-prelude.scm": "07f5c938ed7e52090b880f6efebc3e194af8611d1693987542181fb71ccdddd6",
+    "src/Rhizome-postlude.scm": "c7be4ea961365a4541c2ead4c7dedf226d301312e4e2fe9fa94ed8e598b15501",
+    "src/Rhizome-prelude.scm": "006e050698a853a586a0819ebeaaab8abfbe6d6810a8608219b58aa4b910594d",
+    "src/S7-prelude.scm": "5ec7640c529e2dcfb9f696d3691b5a53c9dc4d291164706749c97e8390e27ca0",
+    "src/S9fES-prelude.scm": "54341762589a9f73cea64ccac8a196cc5ef2a5649597a704323ca157b196d79e",
+    "src/SISC-prelude.scm": "61ec2ff0788ca32f8dd6acd0b874ff00e2011f835f73da298274b6ba780e2b49",
+    "src/STklos-prelude.scm": "1c303b26d3f3766034e4a28874ba10102ac8476c96f9543ad5ed6ff5f222b33b",
+    "src/Sagittarius-postlude.scm": "9f98213c1f063a3edbb6e9ee80518a46f3e6c8fe17213b055132963a880bc9ed",
+    "src/Scheme48-prelude.scm": "85bbeadd83b2c16cb7aa9b5dc71a197d2d775aeef0c9315b83b5fd5f9855e498",
+    "src/Stalin-prelude.scm": "fc8464b6d6b6f2afa0d76e2f01a93bb070e7fdca7aa19bcc6d64857ec86b5c29",
+    "src/TR7-prelude.scm": "2559cf56c6addec725c2682568250524a15b7621c922ab073851e1aeda3b27a4",
+    "src/TinyScheme-prelude.scm": "16cc462fc86a3781d78a983b626b6824f4d87d077d9a606624feea8e4e0ed76e",
+    "src/Vicare-prelude.scm": "53172f121d3e5cdca6ea42e743c5e971dd4fd5a07520ab42214f043dc88ea517",
+    "src/Ypsilon-prelude.scm": "5d789f71b3e9f190b9617bccb981a8a34085c24c32c2237fd05b3d52f606f967",
+    "src/ack.scm": "63de11cf70b1b785261e63685d1b5e1f5801ccde8b60af00f6d303cc5d4a7546",
+    "src/alexpander.scm": "67c8681963fe1c51ca0a1ec8a6f31d8d0960b44128ed88e214fedfaabfc003a4",
+    "src/array1.scm": "dca69b51f6ef6711713505f6f944ef97dbb0e463bc9b4d03fa7312437cfc3174",
+    "src/browse.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776",
+    "src/bv2string.scm": "35f0046a3170258c6ed37aafce34676fada15b6cd4d340fbff92eeb22049b125",
+    "src/cat.scm": "63835925d09ce503e795005dd75c2a662ebb81bfe0ea15e427c2f4f401c11c9b",
+    "src/chudnovsky.scm": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
+    "src/common-postlude.scm": "7ee9d44c8e4a46b3ff5e2eee6baa7ab83055b82448b9a963e0d886b9769c1763",
+    "src/common.scm": "2dc037f8c6001046b54e4d1712dc6b0c6fecd0ce56afcf195d7c041b26684a07",
+    "src/compiler.scm": "e4444c65d55712d7141f147661efcc744df5e4b5699bbbf73b27d16eaf441209",
+    "src/conform.scm": "5b544ec3ea2416df03ef935d45ad96b7204c35ecaf7344118d3d34bbb3dc9de5",
+    "src/cpstak.scm": "8170edb24095aa3ecefbda33f61711686940cb7ce92d6516411c0289890c2b86",
+    "src/ctak.scm": "bebf372e926b8193d7d2fa78cb02a16d9e3b83b00ee3aeff7074e567e8be05da",
+    "src/deriv.scm": "0fecc79684014008dc78d520f3dd3b7093d3e4a8e3ab56ec9a88827f812823ba",
+    "src/destruc.scm": "4582b733af6d449ab5f5ad7aa745e2504b855c37d8355e253bccd6b1f98bd913",
+    "src/diviter.scm": "c2c9cc35f4da9689842ddffb261e60e9590836dbb54f90204cd6a374f88bba59",
+    "src/divrec.scm": "3decbd0f84084eb1c7edea6272d9056512090580d490efd7099ee631bd80a71d",
+    "src/dynamic.scm": "0eeea6384253fcb915180b18f0743260f2faa7aa1422be72f6bf7bb927e9cec7",
+    "src/earley.scm": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+    "src/equal.scm": "931f53304a38b231470c38985be2d595723cb5bbd2c70ba983616e75058fe533",
+    "src/fft.scm": "bfe366562310242fe8b37bf6e5b7952a7452ae0e847400fa6f9da671375425b6",
+    "src/fib.scm": "a0800c88ef5d98f5a3b199375c8d2a0a5f8aad4aa2768e861900c2ab188f6fab",
+    "src/fibc.scm": "0542fcfb58e03322c534139bae7466422fe8ae96e2eef2b45dd9a1cb3d36ccc2",
+    "src/fibfp.scm": "cd1612b63b75e9e547116c4e3a233297242f17bab92d21b9e37d5b97a3858ff1",
+    "src/gcbench.scm": "0735b3a5450eafd256cd65387ce25068d1aef924022df09e2d71795ff788e55e",
+    "src/graphs.scm": "9abde79ddc1b28dd69c5e9eb3486003149a60610df1ec0c3c7c29933b24ff968",
+    "src/lattice.scm": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
+    "src/matrix.scm": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
+    "src/maze.scm": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
+    "src/mazefun.scm": "465f258a7968062f3142f72f0819994e685ca558aa74c0b1f66aff7fc7b8e2a4",
+    "src/mbrot.scm": "6736d8a814e0dd71be489ae2102cef3fc21ed0942605cb10c71f5c8b191f7ef4",
+    "src/mbrotZ.scm": "5d612880dc3caf39bc84f549e59b5dbddf3e80545f67b54c94d7c9ca816f71f4",
+    "src/mperm.scm": "651a233315d94ce36b8e07a1edb61b5b5eee4483fc14acc44a55046acaacd9f3",
+    "src/nboyer.scm": "0597caf3d1434c2aedcc57c6bdbd6aec3bdb10c3d606cd240e4b949a334a71bf",
+    "src/nqueens.scm": "d2a22ada337d3e4a2425fd5088f43f0928081139bbe5e8451b78ce57b083a9b5",
+    "src/ntakl.scm": "2d8ad85a6bdcb66d979373301edde511fb9647a37564a6c4a9e388a99bb1b144",
+    "src/nucleic.scm": "1bf8e055ddf51d5560f7217ff95bc4c50967514d036362bff77045ab73b61fa4",
+    "src/paraffins.scm": "461e3cc6a025d87c0576d3758b20318474657c799a29b06393c90c3085fcf14f",
+    "src/parsing.scm": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
+    "src/peval.scm": "4a29c25654fc85ab8ed76a039cb56a16ccb9c9928c234395ea6b4a2a134eab43",
+    "src/pi.scm": "f9317c5ada556aee4fde4c3c959bd4b604e45cbf05c9b5f84157c32ce346faa9",
+    "src/pnpoly.scm": "9c4cd59d2bd888214fdd81308ebbc582bc41b8f84df46ce9535bfdcdd7489c9e",
+    "src/primes.scm": "3c6662de37ea94808b8de6f2881d8f898ced56bc842b8e7f1a1dc7469c0d37e3",
+    "src/puzzle.scm": "6730fba3bd4713d603c72b31970b3aef25881a40ea0b6e8bd175e09d22464129",
+    "src/quicksort.scm": "3034cc893760b19563752cca0f722ffd31ae8ffacc9413e8c94fc0de69384bcc",
+    "src/ray.scm": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e",
+    "src/read0.scm": "f4bdc63815b503ff563e119755fea2663fd36470b4bf351e09d385b19764a978",
+    "src/read1.scm": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
+    "src/sboyer.scm": "df46ebaa16879a5366b8b550dfbb2115bce378ffb854c4468c9c0af1df53d9e4",
+    "src/scheme.scm": "011966fa9a691e2bdaa6444206af5ae0f290e835fab5b2d14f3fb7e708cbaada",
+    "src/simplex.scm": "f309787ad2da1f943abf83031dedfb4f81447b11306dcd9e4d2bd836df5bfec1",
+    "src/slatex.scm": "712ab7e3b6d89f4ceb3b1b23f813229d6be43a9bdc1252f48457c9dc4dcabd2b",
+    "src/string.scm": "7bda79f59eda5dccbd770c560a3f6908c16f52ee10aedeb4d8f9904d9b6d3d7d",
+    "src/sum.scm": "f5ea0c62081f643572cf04184bc9ba25a155aea13dad2ea869b506f0adb91ca3",
+    "src/sum1.scm": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
+    "src/sumfp.scm": "1c91c1631900a692572af3cfe817ddaa23ce6d92213cec5f57ba3477b80f0649",
+    "src/tail.scm": "016f368f6cbd29b2ebe0f1ddc522c46c7726d6655185bcbb9086518dd67ee6ae",
+    "src/tak.scm": "9dab75f72009971e76fe7e0ac02ab6a6af8d27061d10c9048a8c3726ab3cb86b",
+    "src/takl.scm": "fb77f3f5f3489c27f5687c83ff37458df09d46ebef8803284b3251d8810c74c8",
+    "src/triangl.scm": "b3ccd12f6d5cc83552fe897e42daf9d9ea86cfb043a2d88003a4eedd04b91353",
+    "src/wc.scm": "4ec7f6bdc5f91f236281dd92b67addf8be8914498c82506a47fa8518c321c370"
+  },
+  "harness_sha256": {
+    "benchmarks/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "benchmarks/r7rs-chez.scm": "18861bdbad3006c77aeaed491d3036793c9bf18aab0a7b09de235f1a04e45946",
+    "benchmarks/capture-tool.py": "0b36b60216d2d7626934fa21b462c722937cc2c88932bfe6189297873c495a36",
+    "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+    "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b"
+  },
+  "reuse_provenance": {
+    "mode": "Read-only hash-verified relocation; no execution or compilation.",
+    "wasm_report": {
+      "path": "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/results.json",
+      "sha256": "7df33881a6fd63d4078cdd27c1e2a63a003d14bf290681ffb40454bc6f1be876"
+    },
+    "chez_report": {
+      "path": "/tmp/snail-v8-gc-20261012/build/v8-worst-five/results.json",
+      "sha256": "ad6ee1293abf42fa56fb46796cecdb2ad1a2b172e8f60b73a577b45c5ef2da14"
+    },
+    "code_equivalent_revision": "f07d1eb12f7c7234463a606a09190325a3c906b5"
+  },
+  "comparison_sources": {
+    "baseline": {
+      "path": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/results.json",
+      "sha256": "856f7e09d2ac0023084ac637c19925f9fe167488f1077b9194b5ebb2d5bf835d",
+      "revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725"
+    },
+    "candidate": {
+      "path": "/tmp/snail-api-five-b218ce2-20261012/build/ordinary-five-prepared/results.json",
+      "sha256": "e24ddbe016ee51b8d9f4a492e7aba012a455540b235ab87e5f46f512c1a37e29",
+      "revision": "b218ce27cd5f7a157b68a450899c6805f041e856"
+    }
+  },
+  "comparison_harness_sha256": "22ac750e3aff9925c10b4d7363487c170fa8c2a0fb0d52ea1d2619aba6b69a47",
+  "comparison_environment": {
+    "WASM_AS": null,
+    "WASM_OPT": null,
+    "WASM_DIS": null,
+    "WASM_MERGE": null,
+    "CHIBI": null,
+    "CHEZ": null,
+    "GUILE": null,
+    "GUILD": null,
+    "NODE": null,
+    "CARGO": null,
+    "RUSTC": null,
+    "RUSTFLAGS": null,
+    "BINARYEN_CORES": null,
+    "SNAIL_REAL_WASM_MERGE": null,
+    "BDWGC_INCLUDE": null,
+    "BDWGC_LIB": null,
+    "NODE_OPTIONS": null,
+    "GUILE_AUTO_COMPILE": null
+  }
+}
