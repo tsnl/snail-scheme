@@ -356,6 +356,12 @@
                              transformers fuel))
         ((define) (prepare-value-binding form outer local reservations transformers fuel))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
+        ((define-class) (prepare-class-declaration form outer local reservations transformers))
+        ((define-instance)
+         (values (list (lambda (values transformers)
+                         (expand-instance-declaration
+                          form (append values (macro-bindings local) outer)
+                          transformers fuel))) local transformers))
         ((:) (values
               (list (lambda (values transformers)
                       (expand-type-declaration form
@@ -439,6 +445,7 @@
         ((begin) (values (append (car (fields form '(_ item ...))) remaining)
                          local reserved macros))
         ((define) (reserve-value-definition form remaining local reserved macros))
+        ((define-class) (reserve-class-declaration form remaining local reserved macros))
         ((define-syntax) (reserve-syntax-definition form remaining local reserved macros))
         (else (values remaining local reserved macros))))
 
@@ -488,7 +495,8 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax : %record-schema) (fail form "definition in expression position"))
+          ((define define-syntax : %record-schema define-class define-instance)
+           (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
 
@@ -528,6 +536,7 @@
       (let* ((parts (syntax-list syntax))
              (tag (and (pair? parts) (type-keyword (car parts) environment))))
         (cond ((eq? tag 'All) (expand-all-type syntax environment))
+              ((eq? tag '=>) (expand-qualified-type syntax environment))
               ((memq tag '(-> U))
                (let ((types (map (lambda (part) (expand-type part environment)) (cdr parts))))
                  (if (eq? tag 'U) (apply type-union types)
@@ -541,12 +550,82 @@
         (check-distinct (map car bindings) syntax)
         (if (null? bindings) (fail syntax "All requires at least one type variable"))
         (let ((body (expand-type (cadr parts) (append bindings environment))))
-          (if (not (arrow-type? body)) (fail syntax "All requires a function signature"))
+          (if (not (arrow-type? (all-body body))) (fail syntax "All requires a function signature"))
           (list 'All (map cdr bindings) body))))
 
     (define (reserve-type-variable syntax)
       (let ((id (require-identifier syntax)))
         (cons (identifier-key id) (make-type-variable (identifier-name id)))))
+
+    ;; ---- Static class and instance declarations ----
+
+    (define (class-parts form)
+      (let* ((parts (fields form '(_ head method ...))) (head (syntax-list (car parts))))
+        (if (< (length head) 2) (fail form "class requires at least one type parameter"))
+        (list (car head) (cdr head) (cadr parts))))
+
+    (define (class-bindings form)
+      (let ((parts (class-parts form)))
+        (reserve-identifiers
+         (cons (car parts) (map (lambda (method) (car (fields method '(_ name type))))
+                                (caddr parts))) form)))
+
+    (define (reserve-class-declaration form remaining local reserved macros)
+      (let ((bindings (class-bindings form)))
+        (values remaining (add-local-bindings local bindings form)
+                (cons (cons form bindings) reserved) macros)))
+
+    (define (prepare-class-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (bindings (if reserved (cdr reserved) (class-bindings form)))
+             (next (if reserved local (add-local-bindings local bindings form))))
+        (values (list (lambda (values transformers)
+                        (expand-class-declaration
+                         form (append values (macro-bindings next) outer))))
+                next transformers)))
+
+    (define (expand-class-declaration form environment)
+      (let* ((parts (class-parts form)) (variables (map reserve-type-variable (cadr parts)))
+             (scope (append variables environment)))
+        (check-distinct (map car variables) form)
+        (make-class-declaration (name-definition (resolve-name (car parts) environment))
+                                (map cdr variables)
+                                (map (lambda (method)
+                                       (expand-class-method method scope environment))
+                                     (caddr parts)) (syntax-loc form))))
+
+    (define (expand-class-method form scope environment)
+      (if (not (eq? (builtin-tag form scope) ':)) (fail form "class methods require : signatures"))
+      (let* ((parts (fields form '(_ name type))) (type (expand-type (cadr parts) scope)))
+        (if (not (arrow-type? type)) (fail form "class method requires a fixed function signature"))
+        (list (name-definition (resolve-name (car parts) environment)) type)))
+
+    (define (expand-constraint form environment)
+      (let ((parts (syntax-list form)))
+        (if (< (length parts) 2) (fail form "constraint requires a class and type arguments"))
+        (cons (name-definition (resolve-name (car parts) environment))
+              (map (lambda (type) (expand-type type environment)) (cdr parts)))))
+
+    (define (expand-qualified-type syntax environment)
+      (let* ((parts (fields syntax '(_ constraints body)))
+             (constraints (map (lambda (constraint) (expand-constraint constraint environment))
+                               (syntax-list (car parts))))
+             (body (expand-type (cadr parts) environment)))
+        (if (or (null? constraints) (not (arrow-type? body)))
+            (fail syntax "=> requires constraints and a fixed function signature"))
+        (list '=> constraints body)))
+
+    (define (expand-instance-declaration form environment transformers fuel)
+      (let* ((parts (fields form '(_ head method ...)))
+             (head (expand-constraint (car parts) environment)))
+        (make-instance-declaration
+         (car head) (cdr head)
+         (map (lambda (method)
+                (let ((pair (fields method '(name implementation))))
+                  (cons (name-definition (resolve-name (car pair) environment))
+                        (expand-expression (cadr pair) environment transformers fuel))))
+              (cadr parts))
+         (syntax-loc form))))
 
     (define (expand-instantiation form environment transformers fuel)
       (let ((parts (fields form '(_ expression type ...))))
@@ -1260,6 +1339,7 @@
 
     (define (runtime-expression? item)
       (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
+               (class-declaration? item) (instance-declaration? item)
                (eliminated-definition? item))))
 
     (define (runtime-items items)
@@ -1359,7 +1439,7 @@
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U %record-schema)
+                 : ann inst All -> U => define-class define-instance %record-schema)
               scalar-type-names))
 
     (define core-primitive-names

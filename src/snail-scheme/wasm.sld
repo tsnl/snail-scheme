@@ -10,6 +10,7 @@
   (import (scheme base) (scheme cxr) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme types) (snail-scheme type-analysis)
+          (snail-scheme typeclasses)
           (prefix (snail-scheme partial-eval) pe:)
           (snail-scheme wasm-i32) (snail-scheme wasm-literals) (snail-scheme wasm-runtime) (snail-scheme wasm-abi) (snail-scheme effects)
           (prefix (snail-scheme ir) ir:) (prefix (snail-scheme library) library:))
@@ -542,19 +543,38 @@
                     (string->symbol (string-append "$" (symbol->string (caddr entry)))))))))
 
     (define (known-procedure node module)
-      (let ((operator (ir:application-operator node)))
+      (let ((operator (static-call-operator (ir:application-operator node))))
         (cond ((ir:lambda? operator) operator)
               ((ir:name? operator)
                (let ((entry (assq (ir:name-definition operator) (module-known module))))
                  (and entry (cdr entry))))
               (else #f))))
 
+    ;; Views preserve the closure value and its initialization read. Their type
+    ;; evidence can select a direct entry without changing operator evaluation.
+    (define (static-call-operator node)
+      (cond ((ir:annotation? node) (static-call-operator (ir:annotation-expression node)))
+            ((ir:instantiation? node) (static-call-operator (ir:instantiation-expression node)))
+            (else node)))
+
     (define (application-code node operands operator guards tail? context)
       (let* ((facts (map visited-fact operands))
              (primitive (typed-primitive node facts (function-module context)))
              (arguments (map single-result operands)))
         (if primitive `(call ,primitive ,@arguments)
-            (procedure-call node arguments (single-result operator) facts (fact-signature (visited-fact operator)) guards tail? context))))
+            (or (iverson-call node arguments (function-module context))
+                (procedure-call node arguments (single-result operator) facts (fact-signature (visited-fact operator)) guards tail? context)))))
+
+    ;; One AWI vector crosses the boundary per tensor operation. Numeric element
+    ;; loops stay in the unboxed kernel; source binding identity controls lowering.
+    (define (iverson-call node arguments module)
+      (let* ((operator (ir:application-operator node))
+             (entry (and (ir:name? operator)
+                         (memq (ir:name-definition operator) (module-primitives module))
+                         (assq (ir:value-definition-name (ir:name-definition operator)) iverson-primitive-arities))))
+        (and entry (= (cdr entry) (length arguments))
+             `(call ,(string->symbol (string-append "$builtin:" (symbol->string (car entry))))
+                    (array.new_fixed $vector ,(cdr entry) ,@arguments)))))
 
     ;; Category proofs select a helper; representation tests and arithmetic
     ;; overflow remain in that helper. These facts are consumed here.
@@ -832,24 +852,25 @@
     ;; Each service has its own Wasm import. Rust borrows the argument root and
     ;; returns a separately owned root; resolve its value before releasing roots.
     (define rust-primitives
-      '(%eqv-hash %equal-hash %string-hash %string-ci-hash
-                  string->symbol symbol->string find-artifact
-                  acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
-                  exact inexact floor ceiling truncate round expt exact-integer-sqrt
-                  make-polar magnitude angle
-                  numerator denominator
-                  string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
-                  char-ci<? char-ci<=? char-ci>? char-ci>=? char-upcase char-downcase char-foldcase
-                  char-upper-case? char-lower-case? digit-value
-                  string<? string<=? string>? string>=? string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
-                  string-upcase string-downcase string-foldcase
-                  error open-input-file open-output-file open-binary-input-file file-exists? delete-file close-port
-                  port? input-port? output-port? input-port-open? output-port-open? textual-port? binary-port?
-                  read read-char peek-char read-line read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8 eof-object
-                  open-input-string open-output-string get-output-string display write write-char write-string flush-output-port newline
-                  %current-input-port %current-output-port %current-error-port
-                  %set-current-input-port! %set-current-output-port! %set-current-error-port!
-                  command-line exit get-environment-variable current-second current-jiffy jiffies-per-second string-contains))
+      (append '(%eqv-hash %equal-hash %string-hash %string-ci-hash
+                          string->symbol symbol->string find-artifact
+                          acos asin atan cos exp finite? infinite? log nan? sin sqrt tan
+                          exact inexact floor ceiling truncate round expt exact-integer-sqrt
+                          make-polar magnitude angle
+                          numerator denominator
+                          string->number number->string char-ci=? char-alphabetic? char-numeric? char-whitespace?
+                          char-ci<? char-ci<=? char-ci>? char-ci>=? char-upcase char-downcase char-foldcase
+                          char-upper-case? char-lower-case? digit-value
+                          string<? string<=? string>? string>=? string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
+                          string-upcase string-downcase string-foldcase
+                          error open-input-file open-output-file open-binary-input-file file-exists? delete-file close-port
+                          port? input-port? output-port? input-port-open? output-port-open? textual-port? binary-port?
+                          read read-char peek-char read-line read-string read-bytevector bytevector-copy bytevector-append utf8->string string->utf8 eof-object
+                          open-input-string open-output-string get-output-string display write write-char write-string flush-output-port newline
+                          %current-input-port %current-output-port %current-error-port
+                          %set-current-input-port! %set-current-output-port! %set-current-error-port!
+                          command-line exit get-environment-variable current-second current-jiffy jiffies-per-second string-contains)
+              (map car iverson-primitive-arities)))
 
     (define (module-services module)
       (append (map (lambda (name) (or (assq name standard-effect-imports) (cons name "snail.library"))) rust-primitives)
@@ -939,7 +960,9 @@
     ;; data, shared without mutation; no backend has to read or reparse WAT.
     (define ir-library->wasm
       (chromium-trace "ir-library->wasm" (lambda (root . options)
-                                           (let* ((libraries (numbered (library:library-dependency-order root)))
+                                           (let* ((ordered (library:library-dependency-order root))
+                                                  (primitives (apply append (map library-core-primitives ordered)))
+                                                  (libraries (numbered (elaborate-typeclasses ordered primitives)))
                                                   (module (prepare-module (map car libraries) (if (null? options) '() (car options))))
                                                   (visited (generate-library-functions libraries module))
                                                   (output (cdr visited))

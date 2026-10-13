@@ -2,7 +2,7 @@
 // input/output/error ports own three roots; all temporary roots must be released.
 import { readFile } from 'node:fs/promises';
 import { WASI } from 'node:wasi';
-import { createFinalizers, createIdentityHasher } from '../src/runtime/host.mjs';
+import { createFinalizers, createIdentityHasher, dropResource } from '../src/runtime/host.mjs';
 
 import { createBuildEffects } from '../src/runtime/build.mjs';
 
@@ -12,7 +12,7 @@ const wasi = new WASI({ version: 'preview1', args: [filename, ...arguments_],
 const module = await WebAssembly.compile(await readFile(filename));
 let instance;
 const finalizers = createFinalizers((kind, id) =>
-  instance.exports['ports/drop-resource'](kind, id));
+  dropResource(instance.exports, kind, id));
 const node = { cwd: process.cwd(), exports: null };
 const build = createBuildEffects(node);
 const imports = { ...wasi.getImportObject(), 'snail.node': build.imports, 'snail.host': {

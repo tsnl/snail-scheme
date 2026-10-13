@@ -5,7 +5,7 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { WASI } from 'node:wasi';
 import { dirname, resolve } from 'node:path';
-import { createFinalizers, createIdentityHasher } from '../src/runtime/host.mjs';
+import { createFinalizers, createIdentityHasher, dropResource } from '../src/runtime/host.mjs';
 import { createBuildEffects } from '../src/runtime/build.mjs';
 
 const command = process.argv.slice(2);
@@ -42,7 +42,7 @@ let instance;
 const node = { cwd, exports: null };
 const build = createBuildEffects(node);
 const finalizers = createFinalizers((kind, id) =>
-  instance.exports['ports/drop-resource'](kind, id));
+  dropResource(instance.exports, kind, id));
 const imports = { ...wasi.getImportObject(), 'snail.node': build.imports, 'snail.host': {
   'register-finalizer': finalizers.register,
   'hash-identity': createIdentityHasher(), 'unregister-finalizer': finalizers.unregister,

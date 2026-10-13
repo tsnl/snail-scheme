@@ -14,6 +14,7 @@ mod datum;
 mod hash;
 mod host;
 mod interop_example;
+mod iverson;
 mod platform;
 mod symbols;
 mod text;

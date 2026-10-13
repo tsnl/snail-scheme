@@ -290,6 +290,175 @@ REJECTED = {
 }
 
 
+# ---- Static instance selection ----
+
+COMBINE = '(define-class (Combine T) (: combine (-> T T T))) '
+INT_COMBINE = COMBINE + '(define-instance (Combine i32) (combine (lambda (x y) (+ x y)))) '
+TWICE = '(: twice (All (T) (=> ((Combine T)) (-> T T)))) (define (twice x) (combine x x)) '
+CHOOSE = '(define-class (Choose T) (: choose (-> T T T))) '
+MARKER = '(define-class (Marker T) (: mark (-> i32))) '
+SHOW = '(define-class (Show T) (: show (-> T String))) '
+
+CASES.update({
+    "class-exact-explicit": (COMBINE + '(define-instance (Combine ExactInteger) '
+                             '(combine (lambda (x y) (+ x y)))) '
+                             '(write ((inst combine ExactInteger) 20 22))', "42", ""),
+    "class-any-explicit": ('(define-class (Show T) (: show (-> T String))) '
+                           '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                           '(write ((inst show Any) (car (list 42))))', '"any"', ""),
+    "class-order": (INT_COMBINE + '((begin (display "o") (inst combine i32)) '
+                    '(begin (display "a") 20) (begin (display "b") 22))', "abo", ""),
+    "class-view-effects": (INT_COMBINE + '(ann (begin (display "e") (inst combine i32)) '
+                           '(-> i32 i32 i32)) (write (combine 20 22))', "e42", ""),
+    "class-dynamic-check": (INT_COMBINE + '(: f (-> ? i32)) '
+                            '(define (f x) ((inst combine i32) x 1)) '
+                            '(f (begin (display "a") "bad"))', "a", "incorrect value type"),
+    "class-member-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                  '(combine (begin (display "a") 20) 22) '
+                                  '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-generic-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                   + TWICE + '(twice (begin (display "a") 21)) '
+                                   '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-view-uninitialized": (INT_COMBINE + '(: view (-> i32 i32 i32)) '
+                                '(view 20 22) (define view (inst combine i32))', "", "read of an uninitialized binding"),
+    "class-auxiliary-arrow": ('(write (cond (42 => (lambda (x) (+ x 1))) (else 0)))', "43", ""),
+    "class-joined-refinements": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                 '(: f (All (T) (=> ((Choose T)) (-> T T T)))) '
+                                 '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x)) '
+                                 '(write ((inst f Any) "a" 42))', "42", ""),
+    "class-phantom-nominal": (MARKER + '(define-instance (Marker <token>) (mark (lambda () 7))) '
+                             '(define-record-type <token> (token) token?) '
+                             '(: f (All (T) (=> ((Marker <token>)) (-> T T)))) '
+                             '(define (f x) x) (write (f 42))', "42", ""),
+    "class-boolean-head": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: flag Boolean) (define flag #t) (write (show flag))', '"boolean"', ""),
+    "class-number-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: num Number) (define num 42) (write (show num))', '"number"', ""),
+    "class-boolean-view": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: selected (-> Boolean String)) (define selected show) '
+                           '(write (selected #t))', '"boolean"', ""),
+    "class-number-view": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: selected (-> Number String)) (define selected show) '
+                          '(write (selected 42))', '"number"', ""),
+    "class-polymorphic-scalar-member": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                         '(define-class (Keep T) (: keep (-> T T))) '
+                                         '(define-instance (Keep Boolean) (keep identity)) '
+                                         '(write ((inst keep Boolean) #t))', "#t", ""),
+    "poly-scalar-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                         '(: selected (-> Boolean Boolean)) (define selected identity) '
+                         '(write (selected #t))', "#t", ""),
+    "poly-boolean-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                '(: selected (-> (U False True) (U False True))) (define selected identity) '
+                                '(write (selected #t))', "#t", ""),
+    "poly-number-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                               '(: selected (-> (U ExactInteger InexactReal Complex) '
+                               '(U ExactInteger InexactReal Complex))) (define selected identity) '
+                               '(write (selected 42))', "42", ""),
+})
+
+REJECTED.update({
+    "class-missing": (COMBINE + '(combine 1 2)', "no typeclass instance"),
+    "class-exact-no-fallback": (COMBINE + '(define-instance (Combine ExactInteger) '
+                                '(combine (lambda (x y) (+ x y)))) (combine 1 2)', "no typeclass instance"),
+    "class-duplicate": (INT_COMBINE + '(define-instance (Combine i32) '
+                        '(combine (lambda (x y) (+ x y))))', "duplicate typeclass instance"),
+    "class-incomplete": (COMBINE + '(define-instance (Combine i32))', "every class method exactly once"),
+    "class-head-variable": (COMBINE + '(define-instance (Combine ?) '
+                            '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-head-union": (COMBINE + '(define-instance (Combine (U String i32)) '
+                         '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-method-body": (COMBINE + '(define-instance (Combine i32) '
+                          '(combine (lambda (x y) "bad")))', "type mismatch"),
+    "class-method-arity": (COMBINE + '(define-instance (Combine i32) '
+                           '(combine (lambda (x) x)))', "fixed-arity lambda of matching arity"),
+    "class-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                            '(define (twice x) (combine x x))', "concrete static type or a declared constraint"),
+    "class-let-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                                '(define (twice x) (let ((y x)) (combine y y)))', "concrete static type or a declared constraint"),
+    "class-inst-no-constraint": (INT_COMBINE +
+                                 '(define-class (Pick T) (: pick (-> T T))) '
+                                 '(define-instance (Pick i32) (pick (lambda (x) x))) '
+                                 '(: id (All (A) (-> A A))) (define (id x) x) '
+                                 '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                 '(define (hidden x) (inst (begin (pick x) id) i32) x)',
+                                 "concrete static type or a declared constraint"),
+    "class-unknown-selection": ('(define-class (Show T) (: show (-> T String))) '
+                                 '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                                 '(: f (-> ? String)) (define (f x) (show x))', "cannot infer type argument"),
+    "class-explicit-unknown": (INT_COMBINE + '(inst combine ?)', "concrete static type or a declared constraint"),
+    "class-unresolved-value": (INT_COMBINE + '(write combine)', "overloaded callable requires inst"),
+    "class-unused-unresolved-value": (INT_COMBINE + TWICE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (write combine) x)', "overloaded callable requires inst"),
+    "class-unused-class-value": (INT_COMBINE + TWICE +
+                                '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                '(define (hidden x) (write Combine) x)', "typeclasses have no runtime value"),
+    "class-unused-class-assignment": (INT_COMBINE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (set! Combine 42) x)', "typeclasses have no runtime value"),
+    "class-refined-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                             '(define-instance (Keep Any) (keep (lambda (x) 42))) '
+                             '(: measure (All (T) (=> ((Keep T)) (-> T ExactInteger)))) '
+                             '(define (measure x) (if (string? x) (string-length (keep x)) 0))', "type mismatch"),
+    "class-joined-refined-result": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                    '(: f (All (T) (=> ((Choose T)) (-> T T ExactInteger)))) '
+                                    '(define (f x y) (if (string? x) '
+                                    '(if (exact-integer? y) (string-length (choose x y)) 0) 0))', "type mismatch"),
+    "class-joined-distinct-variables": (CHOOSE +
+                                       '(: f (All (A B) (=> ((Choose A) (Choose B)) (-> A B Any)))) '
+                                       '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x))',
+                                       "concrete static type or a declared constraint"),
+    "class-annotation-no-class": ('(define Fake 7) '
+                                  '(define f (ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T))))) '
+                                  '(f 42)', "unknown typeclass"),
+    "class-unused-annotation-no-class": ('(define Fake 7) (define (unused) '
+                                         '(ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T)))))',
+                                         "unknown typeclass"),
+    "class-phantom-nominal-instance": ('(define bogus 7) ' + MARKER +
+                                      '(define-instance (Marker bogus) (mark (lambda () 1)))',
+                                      "nominal type requires a stable top-level record declaration"),
+    "class-phantom-nominal-constraint": ('(define bogus 7) ' + MARKER +
+                                        '(: f (All (T) (=> ((Marker bogus)) (-> T T)))) (define (f x) x)',
+                                        "nominal type requires a stable top-level record declaration"),
+    "class-phantom-unstable": (MARKER + '(define-record-type <r> (make-r) r?) (set! <r> 7) '
+                               '(define-instance (Marker <r>) (mark (lambda () 1)))',
+                               "nominal type requires a stable top-level record declaration"),
+    "class-boolean-no-fallback": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                  '(show #t)', "no typeclass instance"),
+    "class-number-no-fallback": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                 '(show 42)', "no typeclass instance"),
+    "class-number-narrow-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                                    '(define-instance (Keep Number) (keep (lambda (x) 3.5))) '
+                                    '(: f (-> Number ExactInteger)) (define (f x) (keep x))', "type mismatch"),
+    "class-partial-numeric-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(: f (-> (U ExactInteger InexactReal) String)) (define (f x) (show x))',
+                                   "concrete static type or a declared constraint"),
+    "class-mixed-union-head": (SHOW + '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                               '(: f (-> (U String i32) String)) (define (f x) (show x))',
+                               "concrete static type or a declared constraint"),
+    "class-explicit-boolean-union": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                    '(inst show (U False True))', "concrete static type or a declared constraint"),
+    "class-explicit-number-union": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(inst show (U ExactInteger InexactReal Complex))',
+                                   "concrete static type or a declared constraint"),
+    "class-inline-alias-assignment": (COMBINE + '(define alias combine) '
+                                      '(define-instance (Combine i32) '
+                                      '(combine (lambda (x y) (set! alias (lambda (a b) a)) x)))',
+                                      "immutable identifier reference"),
+    "class-effectful-alias": (INT_COMBINE + '(define alias (begin (display "e") combine))', "immutable identifier reference"),
+    "class-effectful-inst": (INT_COMBINE + '(inst (begin (display "e") combine) i32)', "requires an identifier or static view"),
+    "class-mutable-member": (COMBINE + '(define (plus x y) (+ x y)) '
+                            '(define-instance (Combine i32) (combine plus)) '
+                            '(set! plus (lambda (x y) x))', "immutable function bindings"),
+    "class-local-generic": (INT_COMBINE + '(define (outer) ' + TWICE + '(twice 1))', "stable module-level lambdas"),
+    "class-local-instance": (COMBINE + '(define (outer) (define-instance (Combine i32) '
+                             '(combine (lambda (x y) (+ x y)))) 1)', "require module scope"),
+    "class-poly-recursion": (INT_COMBINE + '(: loop (All (T) (=> ((Combine T)) (-> T T)))) '
+                             '(define (loop x) ((inst loop i32) 1))', "type mismatch"),
+    "class-class-value": (INT_COMBINE + '(write Combine)', "typeclasses have no runtime value"),
+})
+
+
 # ---- Build and execute ----
 
 
@@ -415,6 +584,9 @@ def main():
     run_case("success", ROOT / "tests/programs/backend-typing.scm", "typing checks passed\n", "")
     run_case("typed-tail", ROOT / "tests/programs/backend-typed-tail.scm", "typed tail checks passed\n", "")
     run_case("polymorphism", ROOT / "tests/programs/backend-polymorphism.scm", "polymorphism checks passed\n", "")
+    run_case("typeclasses", ROOT / "tests/programs/backend-typeclasses.scm", "typeclass checks passed\n", "")
+    run_case("typeclass-tensors", ROOT / "tests/programs/backend-typeclass-tensors.scm", "typeclass tensor checks passed\n", "")
+    run_case("typeclass-imports", ROOT / "tests/programs/backend-typeclass-imports.scm", "typeclass import checks passed\n", "")
     arithmetic = BUILD / "arithmetic.scm"
     arithmetic.write_text(arithmetic_examples())
     run_case("arithmetic", arithmetic, "arithmetic checks passed\n", "")
