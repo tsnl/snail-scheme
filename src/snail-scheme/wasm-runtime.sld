@@ -10,8 +10,8 @@
         ;; ---- Object representations ----
 
         (type $slots (array (mut eqref)))
-        ;; Public vector identity survives backing changes. Raw $slots remain
-        ;; private argv, closure environments, and native values transport.
+        ;; Public vectors keep one fixed backing layout for their lifetime.
+        ;; Raw $slots remain private argv and native values transport.
         (type $vector_object (struct (field i32) (field eqref) (field i32) (field i32)))
         (type $result_guard_fn (func (param eqref) (result eqref)))
         (type $result_guard (struct (field (ref $result_guard_fn))))
@@ -20,7 +20,11 @@
         (type $call (func (param eqref (ref $slots) (ref null $result_context)) (result eqref)))
         (type $closure (struct (field (ref $call)) (field eqref)))
         (type $cell (struct (field (mut eqref))))
-        (type $pair (struct (field (mut eqref)) (field (mut eqref))))
+        ;; Category supertypes admit every physical layout. A typed object's
+        ;; immutable layout ID distinguishes codecs with equal Wasm shapes.
+        (type $pair (sub (struct)))
+        (type $pair:boxed (sub final $pair (struct (field (mut eqref)) (field (mut eqref)))))
+        (type $pair:typed (sub $pair (struct (field i32))))
         (type $integer (struct (field i64)))
         (type $float (struct (field f64)))
 
@@ -32,7 +36,9 @@
         (type $bytevector (struct (field (ref $bytes))))
         (type $values (struct (field eqref)))
         (type $record_type (struct (field eqref) (field (ref $slots)) (field i32)))
-        (type $record (struct (field (ref $record_type)) (field (ref $slots))))
+        (type $record (sub (struct (field (ref $record_type)))))
+        (type $record:boxed (sub final $record (struct (field (ref $record_type)) (field (ref $slots)))))
+        (type $record:typed (sub $record (struct (field (ref $record_type)) (field i32))))
         (type $extension (struct (field i32) (field i32)))
         (import "snail.library" "snail:symbol-length" (func $rust_symbol_length (param i32) (result i32)))
         (import "snail.library" "snail:symbol-character" (func $rust_symbol_character (param i32 i32) (result i32)))
@@ -132,7 +138,7 @@
               (block $done (loop $next
                                  (br_if $done (i32.eq (local.get $index) (local.get $start)))
                                  (local.set $index (i32.sub (local.get $index) (i32.const 1)))
-                                 (local.set $result (struct.new $pair (array.get $slots (local.get $arguments) (local.get $index))
+                                 (local.set $result (struct.new $pair:boxed (array.get $slots (local.get $arguments) (local.get $index))
                                                                 (local.get $result)))
                                  (br $next)))
               (local.get $result))
@@ -142,15 +148,15 @@
               (block $counted (loop $count
                                     (br_if $counted (ref.eq (local.get $cursor) (global.get $nil)))
                                     (local.set $length (i32.add (local.get $length) (i32.const 1)))
-                                    (local.set $cursor (struct.get $pair 1 (ref.cast (ref $pair) (local.get $cursor))))
+                                    (local.set $cursor (call $pair_cdr (ref.cast (ref $pair) (local.get $cursor))))
                                     (br $count)))
               (local.set $result (array.new $slots (global.get $unspecified) (local.get $length)))
               (local.set $cursor (local.get $list))
               (block $done (loop $copy
                                  (br_if $done (i32.eq (local.get $index) (local.get $length)))
                                  (array.set $slots (local.get $result) (local.get $index)
-                                            (struct.get $pair 0 (ref.cast (ref $pair) (local.get $cursor))))
-                                 (local.set $cursor (struct.get $pair 1 (ref.cast (ref $pair) (local.get $cursor))))
+                                            (call $pair_car (ref.cast (ref $pair) (local.get $cursor))))
+                                 (local.set $cursor (call $pair_cdr (ref.cast (ref $pair) (local.get $cursor))))
                                  (local.set $index (i32.add (local.get $index) (i32.const 1)))
                                  (br $copy)))
               (local.get $result))
@@ -550,8 +556,8 @@
               (call $pack_integer (i64.extend_i32_u
                                    (array.len (struct.get $text_object 1 (ref.cast (ref $text_object) (local.get $value)))))))
         (func $known_record_ref (param $type eqref) (param $name eqref) (param $value eqref) (result eqref)
-              (array.get $slots (struct.get $record 1 (ref.cast (ref $record) (local.get $value)))
-                         (call $field_index (ref.cast (ref $record_type) (local.get $type)) (local.get $name))))
+              (call $record_ref (ref.cast (ref $record) (local.get $value))
+                    (call $field_index (ref.cast (ref $record_type) (local.get $type)) (local.get $name))))
 
         ;; Atoms 0..5 are singleton values; 256+scalar are characters. The sign
         ;; bit marks symbols, whose low 31 bits index the one Rust intern table.
@@ -626,11 +632,11 @@
         ;; ---- Pairs, vectors and values ----
 
         (func $cons (param $a eqref) (param $b eqref) (result eqref)
-              (struct.new $pair (local.get $a) (local.get $b)))
+              (struct.new $pair:boxed (local.get $a) (local.get $b)))
         (func $car (param $value eqref) (result eqref)
-              (struct.get $pair 0 (ref.cast (ref $pair) (local.get $value))))
+              (call $pair_car (ref.cast (ref $pair) (local.get $value))))
         (func $cdr (param $value eqref) (result eqref)
-              (struct.get $pair 1 (ref.cast (ref $pair) (local.get $value))))
+              (call $pair_cdr (ref.cast (ref $pair) (local.get $value))))
         (func $builtin:values (param $arguments (ref $slots)) (result eqref)
               (if (result eqref) (i32.eq (array.len (local.get $arguments)) (i32.const 1))
                   (then (array.get $slots (local.get $arguments) (i32.const 0)))
@@ -934,12 +940,12 @@
 
         (func $builtin:set-car! (param $arguments (ref $slots)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 2) (i32.const 0))
-              (struct.set $pair 0 (ref.cast (ref $pair) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))
+              (call $pair_set_car (ref.cast (ref $pair) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))
               (global.get $unspecified))
 
         (func $builtin:set-cdr! (param $arguments (ref $slots)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 2) (i32.const 0))
-              (struct.set $pair 1 (ref.cast (ref $pair) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))
+              (call $pair_set_cdr (ref.cast (ref $pair) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))
               (global.get $unspecified))
 
         (func $builtin:vector (param $arguments (ref $slots)) (result eqref)
@@ -1171,12 +1177,12 @@
                         (then (return (local.get $index))))
                     (local.set $index (i32.add (local.get $index) (i32.const 1)))
                     (br $next)) unreachable)
-        (func $record_fields (param $type eqref) (param $value eqref) (result (ref $slots))
+        (func $checked_record (param $type eqref) (param $value eqref) (result (ref $record))
               (local $record (ref $record))
               (local.set $record (ref.cast (ref $record) (local.get $value)))
               (if (i32.eqz (ref.eq (struct.get $record 0 (local.get $record)) (local.get $type)))
                   (then (call $fail (i32.const 8))))
-              (struct.get $record 1 (local.get $record)))
+              (local.get $record))
         (func $builtin:%make-record (param $arguments (ref $slots)) (result eqref)
               (local $type (ref $record_type)) (local $names eqref) (local $values eqref)
               (local $fields (ref $slots))
@@ -1193,7 +1199,7 @@
                                  (local.set $names (call $cdr (local.get $names)))
                                  (local.set $values (call $cdr (local.get $values))) (br $next)))
               (if (i32.eqz (ref.eq (local.get $values) (global.get $nil))) (then (call $fail (i32.const 4))))
-              (struct.new $record (local.get $type) (local.get $fields)))
+              (struct.new $record:boxed (local.get $type) (local.get $fields)))
 
 
         (func $builtin:string-length (param $arguments (ref $slots)) (result eqref)
@@ -1239,11 +1245,11 @@
 
         (func $builtin:%record-ref (param $arguments (ref $slots)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 3) (i32.const 0))
-              (array.get $slots (call $record_fields (array.get $slots (local.get $arguments) (i32.const 0)) (array.get $slots (local.get $arguments) (i32.const 2))) (call $field_index (ref.cast (ref $record_type) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))))
+              (call $record_ref (call $checked_record (array.get $slots (local.get $arguments) (i32.const 0)) (array.get $slots (local.get $arguments) (i32.const 2))) (call $field_index (ref.cast (ref $record_type) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1)))))
 
         (func $builtin:%record-set! (param $arguments (ref $slots)) (result eqref)
               (call $arity (local.get $arguments) (i32.const 4) (i32.const 0))
-              (array.set $slots (call $record_fields (array.get $slots (local.get $arguments) (i32.const 0)) (array.get $slots (local.get $arguments) (i32.const 2))) (call $field_index (ref.cast (ref $record_type) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1))) (array.get $slots (local.get $arguments) (i32.const 3)))
+              (call $record_set (call $checked_record (array.get $slots (local.get $arguments) (i32.const 0)) (array.get $slots (local.get $arguments) (i32.const 2))) (call $field_index (ref.cast (ref $record_type) (array.get $slots (local.get $arguments) (i32.const 0))) (array.get $slots (local.get $arguments) (i32.const 1))) (array.get $slots (local.get $arguments) (i32.const 3)))
               (global.get $unspecified))
 
         (func $builtin:eof-object? (param $arguments (ref $slots)) (result eqref)

@@ -258,9 +258,16 @@ layouts from shared scalar/reference codecs. Public vector identity wraps one
 immutable choice of backing array; it never changes layout at runtime. Internal
 argv and native multiple-value transport use `$slots` instead. Generic vector
 operations dispatch by codec, homogeneous bulk copies use `array.copy`, and
-proved scalar reads/writes avoid element boxing. Pair and record field lowering
-uses the same solved holes but remains a subsequent part of this work.
+proved scalar reads/writes avoid element boxing.
 See [storage constraints](doc/storage.md).
+
+[`wasm-fields.sld`](src/snail-scheme/wasm-fields.sld) generates fixed pair and
+record layouts from the same codecs. Category supertypes admit both generic and
+native instances; semantic layout IDs distinguish equal-shaped encodings. Fields
+live in the identity-bearing object, and records retain their original nominal
+descriptor. Generic reads preserve raw carriers, while native accesses require
+both a type proof and canonical single-value ingress. A physical layout guard
+allows those accesses to work with a generic factory's instance too.
 
 [`wasm-bindings.sld`](src/snail-scheme/wasm-bindings.sld) describes physical lexical
 storage. Each binding has one authoritative payload, with explicit conversions

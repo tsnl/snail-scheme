@@ -107,7 +107,7 @@
             (loop (- index 1) (cons `(i32.const ,(bytevector-u8-ref bytes index)) values)))))
 
     (define (object-expression value pool)
-      (cond ((pair? value) `(struct.new $pair ,(reference (car value) pool) ,(reference (cdr value) pool)))
+      (cond ((pair? value) `(struct.new $pair:boxed ,(reference (car value) pool) ,(reference (cdr value) pool)))
             ((vector? value) `(struct.new $vector_object (i32.const 0)
                                           (array.new_fixed $slots ,(vector-length value)
                                                            ,@(map (lambda (value) (reference value pool)) (vector->list value)))
