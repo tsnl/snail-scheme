@@ -28,7 +28,7 @@
     (define-record-type <task>
       (make-task action queued?) task? (action task-action) (queued? task-queued? set-task-queued!))
     (define-record-type <analysis>
-      (make-analysis next expressions reached bindings allocations lambdas families primitives copies globals declarations records selection queue)
+      (make-analysis next expressions reached bindings allocations lambdas families primitives copies globals declarations records selection queue tail)
       analysis? (next analysis-next set-analysis-next!)
       (expressions analysis-expressions) (reached analysis-reached) (bindings analysis-bindings)
       (allocations analysis-allocations) (lambdas analysis-lambdas)
@@ -36,7 +36,7 @@
       (copies analysis-copies) (globals analysis-globals) (declarations analysis-declarations)
       (records analysis-records)
       (selection analysis-selection)
-      (queue analysis-queue set-analysis-queue!))
+      (queue analysis-queue set-analysis-queue!) (tail analysis-tail set-analysis-tail!))
 
     (define (storage-hole-root hole)
       (if (not (hole-parent hole)) hole
@@ -62,9 +62,15 @@
       (if (null? left) right
           (identity-union (cdr left) (if (memq (car left) right) right (cons (car left) right)))))
 
+    ;; A FIFO lets pending producers contribute before cyclic consumers run
+    ;; again. The queued bit coalesces their changes into one dependency visit.
     (define (enqueue! task state)
       (unless (task-queued? task)
-        (set-task-queued! task #t) (set-analysis-queue! state (cons task (analysis-queue state)))))
+        (let ((entry (list task)))
+          (set-task-queued! task #t)
+          (if (null? (analysis-queue state)) (set-analysis-queue! state entry)
+              (set-cdr! (analysis-tail state) entry))
+          (set-analysis-tail! state entry))))
     (define (watch! holes action state)
       (let ((task (make-task action #f)))
         (for-each (lambda (hole) (let ((root (storage-hole-root hole)))
@@ -73,7 +79,9 @@
     (define (solve! state)
       (unless (null? (analysis-queue state))
         (let ((task (car (analysis-queue state))))
-          (set-analysis-queue! state (cdr (analysis-queue state))) (set-task-queued! task #f)
+          (set-analysis-queue! state (cdr (analysis-queue state)))
+          (when (null? (analysis-queue state)) (set-analysis-tail! state #f))
+          (set-task-queued! task #f)
           ((task-action task)) (solve! state))))
 
     ;; This atomic join publishes all changed components before waking readers.
@@ -552,7 +560,7 @@
              (state (make-analysis 0 (make-hash-table eq?) (make-hash-table eq?) (make-hash-table eq?) (make-hash-table eq?)
                                    (make-hash-table eq?) (make-hash-table eq?) (typing-primitives typing)
                                    copy-map globals (append (typing-declarations typing) (parameter-declarations typing copies))
-                                   (typing-records typing) (and (pair? entries) (pair? (cdr entries)) (cadr entries)) '())))
+                                   (typing-records typing) (and (pair? entries) (pair? (cdr entries)) (cadr entries)) '() #f)))
         (for-each (lambda (definition)
                     (let ((hole (binding-storage-hole definition state)))
                       (if (memq definition (typing-primitives typing))
@@ -669,6 +677,17 @@
           (for-each (lambda (unknown)
                       (include! hole 'Never '() '() unknown state)
                       (expect (analysis-queue state) '())) '(#t (Any) (? Any)))))
+      (define (test-queued-producer-fairness)
+        (let ((state (test-analysis '() '())) (events '()) (count 0))
+          (letrec ((first (make-task (lambda () (set! events (cons 'first events))
+                                             (set! count (+ count 1))
+                                             (when (= count 1) (enqueue! first state))) #f))
+                   (second (make-task (lambda () (set! events (cons 'second events))) #f)))
+            (enqueue! first state) (enqueue! second state) (enqueue! first state)
+            (solve! state)
+            (expect (reverse events) '(first second first))
+            (expect (analysis-queue state) '())
+            (expect (analysis-tail state) #f))))
       (define (test-storage-analysis)
         (test-alias-and-copy) (test-known-setter-and-escape) (test-family-collapse) (test-storage-hints)
-        (test-record-fields) (test-reached-expressions) (test-unknown-join-quiescence))))))
+        (test-record-fields) (test-reached-expressions) (test-unknown-join-quiescence) (test-queued-producer-fairness))))))
