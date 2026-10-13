@@ -14,8 +14,9 @@ scripts/test-strict-extern
 Source imports `(snail strict)`. Compilation retains `.wasm.wat` and
 `.wasm.raw.wasm`, then applies the shared Binaryen `-O3` optimization pipeline.
 The module exports zero-argument `main`, whose native result is the final source
-expression; Unit produces no Wasm result. It executes once per module instance; a second call traps, including
-after a failed first call. The guard is set before any source initializer.
+expression; Unit produces no Wasm result. It executes once per module instance;
+a second call traps, including after a failed first call. The guard is set before
+any source initializer.
 Pure programs have no runtime imports. The API is
 `strict-source-file->core`, `strict-source-file->wasm`, and
 `strict-source-file->wat-file` in `(snail-scheme strict-compiler)`; callers supply
@@ -126,6 +127,7 @@ validator-visible unreachable control flow when used in a concrete context.
 An extern declaration names a Wasm module, export, and complete function type:
 
 ```scheme
+(import (snail strict))
 (define-extern add-native "arithmetic" "add" (-> I32 I32 I32))
 (: increment (-> I32 I32))
 (define (increment x) (add-native x (ann 1 I32)))
@@ -139,8 +141,9 @@ closure adapter. It does not acquire an argument vector or rooted-object ABI.
 Externs can occur in local scopes and hygienic macros as ordinary declarations.
 
 The external signature accepts fixed I32, I64, F32, F64, Bool, or Char parameters
-and one of those result types or Unit. Bool and Char use i32; their providers
-must return 0/1 and valid Unicode scalar values respectively. Wasm linking
+and one of those result types or Unit. Bool and Char use i32. Providers must
+return their valid source encodings: 0/1 for Bool and Unicode scalar values for
+Char. Callers of exported workers must supply those encodings as well. Wasm linking
 checks physical signatures, so it cannot distinguish Bool from I32. Source
 checking retains those distinct semantic types. Unit returns no Wasm result;
 the compiler supplies its internal Unit value when evaluating such a call as
