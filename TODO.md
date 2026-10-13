@@ -37,7 +37,9 @@ this list contains work that has not landed.
   - Broaden primitive signature coverage and runtime blame diagnostics
   - Broaden recursive generic groups beyond matching positional type parameters
   - Broaden conditional recursive inference and specialization budget policy
-  - Specialize container layouts and higher-order code identities when sound
+  - Infer native payloads for literal pairs/vectors, which currently keep generic slots
+  - Improve container precision across opaque factories and higher-order flows
+  - Propagate immutable callback identity beyond named bindings
   - Measure general IR specialization across arithmetic and broader workloads
   - Keep [the full proposal](doc/occurrence-typing.md) distinct from implemented behavior
 - [ ] Reprofile hosted parsing, expansion, and Wasm emission with Chromium traces

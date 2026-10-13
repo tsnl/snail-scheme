@@ -13,6 +13,8 @@
     (define (type-representation type)
       (cond ((type-subtype? type 'Never) 'eqref)
             ((storage-hint? type) (type-representation (storage-erasure type)))
+            ((or (array-type? type) (eq? type 'ArrayObject)) '(ref $vector_object))
+            ((or (storage-type? type) (eq? type 'StorageObject)) '(ref $storage_type))
             ((eq? type 'WasmI32) '(i32 integer))
             ((eq? type 'WasmF32) 'f32)
             ((type-subtype? type 'ExactInteger) 'i64)

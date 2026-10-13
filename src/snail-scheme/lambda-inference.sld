@@ -6,7 +6,7 @@
           inferred-call-type inference-binding-type inference-procedure-type inference-assigned?
           known-callee inference-primitive? inferred-primitive-type inference-storage-query)
   (import (scheme base) (scheme cxr) (snail-scheme types)
-          (snail-scheme type-inference) (snail-scheme type-analysis) (snail-scheme wasm-intrinsics)
+          (snail-scheme type-inference) (snail-scheme type-analysis) (snail-scheme wasm-intrinsics) (snail-scheme wasm-storage)
           (prefix (snail-scheme ir) ir:))
   (begin
 
@@ -189,6 +189,7 @@
 
     (define (primitive-result-type name arguments)
       (cond ((eq? name 'vector) (list 'vector-storage (apply type-union arguments)))
+            ((array-operation-domains name arguments) => (lambda (domains) (array-operation-result name domains)))
             ((and (memq name '(make-vector %wasm.vector.new)) (memv (length arguments) '(1 2)))
              (list 'vector-storage (if (= (length arguments) 2) (cadr arguments) 'Unspecified)))
             ((and (eq? name '%wasm.vector.new-like) (= (length arguments) 2)) (cadr arguments))

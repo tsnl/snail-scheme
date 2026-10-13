@@ -7,7 +7,7 @@
           make-type-variable type-variable? type-variable-name all-type? all-variables all-body
           function-type? shallow-type? type-substitute type-erasure type-error-at
           type-variables clean-all-type storage-hint? storage-vector-type? storage-pair-type?
-          storage-list-type? storage-erasure storage-element-type)
+          storage-list-type? storage-erasure storage-element-type array-type? storage-type? container-type?)
   (import (scheme base) (scheme cxr) (snail-scheme source)
           (prefix (snail-scheme ir) ir:))
   (begin
@@ -28,6 +28,9 @@
     (define (type-arguments type) (reverse (cdr (reverse (cdr type)))))
     (define (type-result type) (car (reverse type)))
     (define (dynamic-type? type) (eq? type '?))
+    (define (array-type? type) (and (pair? type) (eq? (car type) 'Array)))
+    (define (storage-type? type) (and (pair? type) (eq? (car type) 'Storage)))
+    (define (container-type? type) (or (array-type? type) (storage-type? type)))
 
     ;; Compiler-only shape hints distinguish monomorphization contexts. They
     ;; establish no source contract: only the final alias solve can authorize
@@ -70,6 +73,11 @@
 
     (define (type-subtype? source target)
       (or (type-equal? source target) (eq? source 'Never) (eq? target 'Any)
+          (and (container-type? source) (container-type? target) (eq? (car source) (car target))
+               (type-subtype? (cadr source) (cadr target)) (type-subtype? (cadr target) (cadr source)))
+          (and (array-type? source) (memq target '(Vector ArrayObject)))
+          (and (eq? source 'ArrayObject) (eq? target 'Vector))
+          (and (storage-type? source) (eq? target 'StorageObject))
           (and (or (storage-hint? source) (storage-hint? target))
                (type-subtype? (storage-erasure source) (storage-erasure target)))
           (and (intersection-type? target)
@@ -152,10 +160,13 @@
 
     (define (runtime-type? type)
       (or (memq type scalar-type-names) (nominal-type? type) (storage-hint? type)
+          (memq type '(ArrayObject StorageObject))
+          (and (container-type? type) (runtime-type? (cadr type)))
           (and (union-type? type) (all? runtime-type? (cdr type)))))
 
     (define (shallow-type? type)
       (or (runtime-type? type) (type-variable? type)
+          (and (container-type? type) (shallow-type? (cadr type)))
           (and (or (union-type? type) (intersection-type? type)) (all? shallow-type? (cdr type)))))
 
     ;; Substitution also normalizes unions: replacing A with Any or a union must
@@ -175,7 +186,7 @@
              (let loop ((parts (cdr type)) (result 'Any))
                (if (null? parts) result
                    (loop (cdr parts) (type-intersect result (type-substitute (car parts) substitutions))))))
-            ((or (arrow-type? type) (storage-hint? type))
+            ((or (arrow-type? type) (storage-hint? type) (container-type? type))
              (cons (car type) (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
             (else type)))
 
@@ -204,6 +215,9 @@
     (define (type-erasure type)
       (cond ((type-variable? type) 'Any)
             ((storage-hint? type) (storage-erasure type))
+            ((container-type? type)
+             (if (null? (type-variables (cadr type))) type
+                 (if (array-type? type) 'ArrayObject 'StorageObject)))
             ((all-type? type) (type-erasure (all-body type)))
             ((union-type? type) (apply type-union (map type-erasure (cdr type))))
             ((arrow-type? type) (cons '-> (map type-erasure (cdr type))))
@@ -317,6 +331,16 @@
           (expect (type-equal? first second) #f)
           (expect (type-subtype? first second) #f)
           (expect (type-intersect first second) 'Never))
+        (let ((a (make-type-variable 'A)))
+          (expect (runtime-type? (list 'Array a)) #f)
+          (expect (type-erasure (list 'Array a)) 'ArrayObject)
+          (expect (type-erasure (list 'Storage a)) 'StorageObject)
+          (expect (type-substitute (list 'Array a) (list (cons a 'InexactReal))) '(Array InexactReal)))
+        (expect (and (type-subtype? '(Array InexactReal) 'Vector) #t) #t)
+        (expect (type-subtype? '(Array ExactInteger) '(Array Any)) #f)
+        (expect (type-subtype? '(Array Any) '(Array ExactInteger)) #f)
+        (expect (type-subtype? '(Storage WasmI32) '(Storage ExactInteger)) #f)
+        (expect (and (type-subtype? '(Array WasmI32) '(Array i32)) #t) #t)
         (expect (type-equal? '(-> (U String i32) i32) '(-> (U i32 String) i32)) #t)
         (expect (type-subtype? '? 'String) #f)
         (expect (type-subtype? 'String '?) #f)

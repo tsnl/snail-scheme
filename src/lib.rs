@@ -907,6 +907,7 @@ fn print_value(
         }
         Kind::Procedure => output.push_str("#<procedure>"),
         Kind::Record => output.push_str("#<record>"),
+        Kind::Storage => output.push_str("#<storage>"),
         Kind::Extension => output.push_str(if value.extension_parts()?.0 == PORT_KIND {
             "#<port>"
         } else {

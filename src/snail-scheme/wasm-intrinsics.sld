@@ -5,7 +5,8 @@
   (export find-intrinsic intrinsic-name intrinsic-domains intrinsic-result intrinsic-checked?
           intrinsic-entry intrinsic-argument-names intrinsic-unsafe-names intrinsic-definitions
           checked-intrinsic-argument direct-primitive-helper)
-  (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme wasm-representation))
+  (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme wasm-representation)
+          (snail-scheme wasm-storage))
   (begin
 
     ;; ---- Semantic contracts and concrete operations ----
@@ -29,61 +30,62 @@
     ;; A ? result is a heap read: its eqref can contain a multiple-value envelope.
     ;; Existing dynamic builtins gain no new source rejection from optimization.
     (define intrinsics
-      '((vector-length (Vector) ExactInteger #t
-                       (i64.extend_i32_u (call $vector_length (local.get $a))))
-        (vector-ref (Vector ExactInteger) ? #t
-                    (call $vector_ref (local.get $a) (call $checked_index (local.get $b))))
-        (vector-set! (Vector ExactInteger Any) Unspecified #t
-                     (block (result eqref)
-                            (call $vector_set (local.get $a) (call $checked_index (local.get $b)) (local.get $c))
-                            (global.get $unspecified)))
-        (make-vector (ExactInteger) Vector #f
-                     (call $vector_new (call $checked_index (local.get $a)) (global.get $unspecified)))
-        (make-vector (ExactInteger Any) Vector #f
-                     (call $vector_new (call $checked_index (local.get $a)) (local.get $b)))
-        (bytevector-length (Bytevector) ExactInteger #t
-                           (i64.extend_i32_u (array.len (struct.get $bytevector 0 (local.get $a)))))
-        (bytevector-u8-ref (Bytevector ExactInteger) ExactInteger #t
-                           (i64.extend_i32_u (array.get_u $bytes (struct.get $bytevector 0 (local.get $a))
-                                                          (call $checked_index (local.get $b)))))
-        (char->integer (Char) ExactInteger #t (i64.extend_i32_u (local.get $a)))
-        (char=? (Char Char) Boolean #f (i32.eq (local.get $a) (local.get $b)))
-        (char<? (Char Char) Boolean #f (i32.lt_u (local.get $a) (local.get $b)))
-        (char<=? (Char Char) Boolean #f (i32.le_u (local.get $a) (local.get $b)))
-        (char>? (Char Char) Boolean #f (i32.gt_u (local.get $a) (local.get $b)))
-        (char>=? (Char Char) Boolean #f (i32.ge_u (local.get $a) (local.get $b)))
-        (%wasm.i32.wrap_i64 (ExactInteger) WasmI32 #t (i32.wrap_i64 (local.get $a)))
-        (%wasm.i64.extend_i32 (WasmI32) ExactInteger #t (i64.extend_i32_s (local.get $a)))
-        (%wasm.f32.demote_f64 (InexactReal) WasmF32 #t (f32.demote_f64 (local.get $a)))
-        (%wasm.f64.promote_f32 (WasmF32) InexactReal #t (f64.promote_f32 (local.get $a)))
-        (%wasm.i32.add (WasmI32 WasmI32) WasmI32 #t (i32.add (local.get $a) (local.get $b)))
-        (%wasm.i32.sub (WasmI32 WasmI32) WasmI32 #t (i32.sub (local.get $a) (local.get $b)))
-        (%wasm.i32.mul (WasmI32 WasmI32) WasmI32 #t (i32.mul (local.get $a) (local.get $b)))
-        (%wasm.i32.eq (WasmI32 WasmI32) Boolean #t (i32.eq (local.get $a) (local.get $b)))
-        (%wasm.i32.lt_s (WasmI32 WasmI32) Boolean #t (i32.lt_s (local.get $a) (local.get $b)))
-        (%wasm.i32.lt_u (WasmI32 WasmI32) Boolean #t (i32.lt_u (local.get $a) (local.get $b)))
-        (%wasm.i64.add (ExactInteger ExactInteger) ExactInteger #t (i64.add (local.get $a) (local.get $b)))
-        (%wasm.i64.sub (ExactInteger ExactInteger) ExactInteger #t (i64.sub (local.get $a) (local.get $b)))
-        (%wasm.i64.mul (ExactInteger ExactInteger) ExactInteger #t (i64.mul (local.get $a) (local.get $b)))
-        (%wasm.f32.add (WasmF32 WasmF32) WasmF32 #t (f32.add (local.get $a) (local.get $b)))
-        (%wasm.f32.sub (WasmF32 WasmF32) WasmF32 #t (f32.sub (local.get $a) (local.get $b)))
-        (%wasm.f32.mul (WasmF32 WasmF32) WasmF32 #t (f32.mul (local.get $a) (local.get $b)))
-        (%wasm.f32.div (WasmF32 WasmF32) WasmF32 #t (f32.div (local.get $a) (local.get $b)))
-        (%wasm.f64.add (InexactReal InexactReal) InexactReal #t (f64.add (local.get $a) (local.get $b)))
-        (%wasm.f64.sub (InexactReal InexactReal) InexactReal #t (f64.sub (local.get $a) (local.get $b)))
-        (%wasm.f64.mul (InexactReal InexactReal) InexactReal #t (f64.mul (local.get $a) (local.get $b)))
-        (%wasm.f64.div (InexactReal InexactReal) InexactReal #t (f64.div (local.get $a) (local.get $b)))
-        (%wasm.vector.length (Vector) WasmI32 #t (call $vector_length (local.get $a)))
-        (%wasm.vector.new (WasmI32 Any) Vector #t (call $vector_new (local.get $a) (local.get $b)))
-        (%wasm.vector.new-like (WasmI32 Vector) Vector #t (call $vector_new_like (local.get $a) (local.get $b)))
-        (%wasm.vector.ref (Vector WasmI32) ? #t (call $vector_ref (local.get $a) (local.get $b)))
-        (%wasm.vector.set! (Vector WasmI32 Any) Unspecified #t
-                           (block (result eqref) (call $vector_set (local.get $a) (local.get $b) (local.get $c))
-                                  (global.get $unspecified)))
-        (%wasm.vector.copy! (Vector WasmI32 Vector WasmI32 WasmI32) Unspecified #t
-                            (block (result eqref)
-                                   (call $vector_copy (local.get $a) (local.get $b) (local.get $c) (local.get $d) (local.get $e))
-                                   (global.get $unspecified)))))
+      (append storage-intrinsics
+              '((vector-length (Vector) ExactInteger #t
+                               (i64.extend_i32_u (call $vector_length (local.get $a))))
+                (vector-ref (Vector ExactInteger) ? #t
+                            (call $vector_ref (local.get $a) (call $checked_index (local.get $b))))
+                (vector-set! (Vector ExactInteger Any) Unspecified #t
+                             (block (result eqref)
+                                    (call $vector_set (local.get $a) (call $checked_index (local.get $b)) (local.get $c))
+                                    (global.get $unspecified)))
+                (make-vector (ExactInteger) Vector #f
+                             (call $vector_new (call $checked_index (local.get $a)) (global.get $unspecified)))
+                (make-vector (ExactInteger Any) Vector #f
+                             (call $vector_new (call $checked_index (local.get $a)) (local.get $b)))
+                (bytevector-length (Bytevector) ExactInteger #t
+                                   (i64.extend_i32_u (array.len (struct.get $bytevector 0 (local.get $a)))))
+                (bytevector-u8-ref (Bytevector ExactInteger) ExactInteger #t
+                                   (i64.extend_i32_u (array.get_u $bytes (struct.get $bytevector 0 (local.get $a))
+                                                                  (call $checked_index (local.get $b)))))
+                (char->integer (Char) ExactInteger #t (i64.extend_i32_u (local.get $a)))
+                (char=? (Char Char) Boolean #f (i32.eq (local.get $a) (local.get $b)))
+                (char<? (Char Char) Boolean #f (i32.lt_u (local.get $a) (local.get $b)))
+                (char<=? (Char Char) Boolean #f (i32.le_u (local.get $a) (local.get $b)))
+                (char>? (Char Char) Boolean #f (i32.gt_u (local.get $a) (local.get $b)))
+                (char>=? (Char Char) Boolean #f (i32.ge_u (local.get $a) (local.get $b)))
+                (%wasm.i32.wrap_i64 (ExactInteger) WasmI32 #t (i32.wrap_i64 (local.get $a)))
+                (%wasm.i64.extend_i32 (WasmI32) ExactInteger #t (i64.extend_i32_s (local.get $a)))
+                (%wasm.f32.demote_f64 (InexactReal) WasmF32 #t (f32.demote_f64 (local.get $a)))
+                (%wasm.f64.promote_f32 (WasmF32) InexactReal #t (f64.promote_f32 (local.get $a)))
+                (%wasm.i32.add (WasmI32 WasmI32) WasmI32 #t (i32.add (local.get $a) (local.get $b)))
+                (%wasm.i32.sub (WasmI32 WasmI32) WasmI32 #t (i32.sub (local.get $a) (local.get $b)))
+                (%wasm.i32.mul (WasmI32 WasmI32) WasmI32 #t (i32.mul (local.get $a) (local.get $b)))
+                (%wasm.i32.eq (WasmI32 WasmI32) Boolean #t (i32.eq (local.get $a) (local.get $b)))
+                (%wasm.i32.lt_s (WasmI32 WasmI32) Boolean #t (i32.lt_s (local.get $a) (local.get $b)))
+                (%wasm.i32.lt_u (WasmI32 WasmI32) Boolean #t (i32.lt_u (local.get $a) (local.get $b)))
+                (%wasm.i64.add (ExactInteger ExactInteger) ExactInteger #t (i64.add (local.get $a) (local.get $b)))
+                (%wasm.i64.sub (ExactInteger ExactInteger) ExactInteger #t (i64.sub (local.get $a) (local.get $b)))
+                (%wasm.i64.mul (ExactInteger ExactInteger) ExactInteger #t (i64.mul (local.get $a) (local.get $b)))
+                (%wasm.f32.add (WasmF32 WasmF32) WasmF32 #t (f32.add (local.get $a) (local.get $b)))
+                (%wasm.f32.sub (WasmF32 WasmF32) WasmF32 #t (f32.sub (local.get $a) (local.get $b)))
+                (%wasm.f32.mul (WasmF32 WasmF32) WasmF32 #t (f32.mul (local.get $a) (local.get $b)))
+                (%wasm.f32.div (WasmF32 WasmF32) WasmF32 #t (f32.div (local.get $a) (local.get $b)))
+                (%wasm.f64.add (InexactReal InexactReal) InexactReal #t (f64.add (local.get $a) (local.get $b)))
+                (%wasm.f64.sub (InexactReal InexactReal) InexactReal #t (f64.sub (local.get $a) (local.get $b)))
+                (%wasm.f64.mul (InexactReal InexactReal) InexactReal #t (f64.mul (local.get $a) (local.get $b)))
+                (%wasm.f64.div (InexactReal InexactReal) InexactReal #t (f64.div (local.get $a) (local.get $b)))
+                (%wasm.vector.length (Vector) WasmI32 #t (call $vector_length (local.get $a)))
+                (%wasm.vector.new (WasmI32 Any) Vector #t (call $vector_new (local.get $a) (local.get $b)))
+                (%wasm.vector.new-like (WasmI32 Vector) Vector #t (call $vector_new_like (local.get $a) (local.get $b)))
+                (%wasm.vector.ref (Vector WasmI32) ? #t (call $vector_ref (local.get $a) (local.get $b)))
+                (%wasm.vector.set! (Vector WasmI32 Any) Unspecified #t
+                                   (block (result eqref) (call $vector_set (local.get $a) (local.get $b) (local.get $c))
+                                          (global.get $unspecified)))
+                (%wasm.vector.copy! (Vector WasmI32 Vector WasmI32 WasmI32) Unspecified #t
+                                    (block (result eqref)
+                                           (call $vector_copy (local.get $a) (local.get $b) (local.get $c) (local.get $d) (local.get $e))
+                                           (global.get $unspecified))))))
 
     (define (intrinsic-name entry) (car entry))
     (define (intrinsic-domains entry) (cadr entry))
@@ -119,6 +121,7 @@
     (define (checked-intrinsic-argument value type)
       (case type
         ((Any ?) value)
+        ((ArrayObject) `(call $array_value ,value))
         ((ExactInteger) `(call $integer_value ,value))
         ((WasmI32) `(call $wasm_i32_value ,value))
         ((WasmF32) `(call $wasm_f32_value ,value))

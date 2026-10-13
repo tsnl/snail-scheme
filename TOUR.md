@@ -262,7 +262,9 @@ layouts from shared scalar/reference codecs. Public vector identity wraps one
 immutable choice of backing array; it never changes layout at runtime. Internal
 argv and native multiple-value transport use `$slots` instead. Generic vector
 operations dispatch by codec, homogeneous bulk copies use `array.copy`, and
-proved scalar reads/writes avoid element boxing.
+proved scalar reads/writes avoid element boxing. The same codec descriptors
+generate managed Storage witnesses and constructor-established invariant Array
+contracts; generic writes enforce those contracts without changing identity.
 See [storage constraints](doc/storage.md).
 
 [`wasm-fields.sld`](src/snail-scheme/wasm-fields.sld) generates fixed pair and
@@ -286,7 +288,9 @@ concrete incoming ABI separately from their shared location.
 one semantic contract and a concrete Wasm entry. Direct calls preserve operand,
 operator, and check order while avoiding argument vectors; unsafe operations also
 have generic adapters for escaping procedure values. [`(snail unsafe)`](src/snail/unsafe.sld)
-exposes scalar widths and current typed GC reference aliases. Storage and boxing
+exposes scalar widths, typed GC reference aliases, and polymorphic fixed arrays.
+Array append remains a Scheme routine over typed construction and bulk copying.
+Storage and boxing
 recipes remain separate, especially for characters and booleans sharing `i32`.
 See [the concrete-operation contract](doc/unsafe.md).
 

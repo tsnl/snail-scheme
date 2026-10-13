@@ -528,6 +528,10 @@
       (let* ((parts (syntax-list syntax))
              (tag (and (pair? parts) (type-keyword (car parts) environment))))
         (cond ((eq? tag 'All) (expand-all-type syntax environment))
+              ((memq tag '(Array Storage))
+               (if (not (= (length parts) 2))
+                   (fail syntax "container type requires one element type")
+                   (list tag (expand-type (cadr parts) environment))))
               ((memq tag '(-> U))
                (let ((types (map (lambda (part) (expand-type part environment)) (cdr parts))))
                  (if (eq? tag 'U) (apply type-union types)
@@ -1359,7 +1363,7 @@
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U %record-schema)
+                 : ann inst All -> U Array Storage %record-schema)
               scalar-type-names))
 
     (define core-primitive-names

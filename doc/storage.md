@@ -13,15 +13,17 @@ then records emitted specialized and ordinary call targets. A final solve pins
 those choices and follows their dependencies, including generic entries whose
 bodies bridge to concrete workers. Dynamic closure calls retain their flow
 edges; a declined specialized call follows its emitted ordinary target. A fresh
-backend module selects all physical layouts from that final solution; it does not retain
-tentative layouts from the earlier emission. Ambiguous calls remain conservative.
+backend module selects all physical layouts from that final solution; it does not
+retain tentative layouts from the earlier emission. Ambiguous calls remain conservative.
 Generic bodies retained for adapters can become unreachable after call selection.
 They keep generic calls; only expressions actually scanned by the final solution
 retain pins. Backend queries cannot turn an unexecuted body into a reached one.
 
 Each mutable vector allocation has one element hole. Aliases retain that
 allocation identity, so every reachable write contributes to the same hole.
-An unknown mutator or foreign escape makes all reachable mutable slots generic.
+An unknown mutator or foreign escape makes ordinary reachable mutable slots
+generic. Explicit constructor-established Array contracts remain enforced at
+every alias boundary; their nested mutable referents still escape normally.
 A fresh copy has its own element hole with source-to-result dependencies:
 changing the copy can broaden its storage without changing the source layout.
 There is no runtime layout promotion.
@@ -36,8 +38,10 @@ reference arrays contain typed GC references. Mixed types use generic slots.
 Known allocation sites choose a codec after solving. Known element reads and
 writes use native scalar/reference entries; a physical layout guard handles a
 generic adapter's boxed allocation without changing object identity. Generic
-factories can retain boxed instances. Bulk copy validates both ranges before mutation and
-uses `array.copy` for equal codecs. It never consumes a multiple-value envelope.
+factories can retain boxed instances. Literal pairs and vectors currently retain
+generic payload slots, even when their syntax contains only numeric values;
+inference of their element constraints remains a precision improvement.
+Bulk copy validates both ranges before mutation and uses `array.copy` for equal codecs. It never consumes a multiple-value envelope.
 
 Public vectors are distinct from raw `$slots` used for call arguments and native
 multiple values. An AWI `values` envelope retains its public vector owner, so
@@ -79,14 +83,26 @@ requires both a semantic type and canonical single-value ingress. A physical
 layout check lets the same accessor accept a boxed instance produced by an
 opaque factory. Aliases and cyclic references continue to refer to one object.
 
-The explicit unsafe `Array`/`Storage` interface is a subsequent part of this
-refactor and is not implemented by this checkpoint. Ordinary annotations do not
-seal a mutable container or install a new write restriction.
+The unsafe [Array/Storage interface](unsafe.md) adds explicit invariant contracts.
+A managed witness chooses a semantic codec at construction, including for empty
+arrays. The existing vector wrapper stores that immutable contract; there is no
+extra identity wrapper. An ordinary vector annotation cannot seal storage.
+Generic and AWI writes validate raw carriers against the original contract.
+Mixed-codec copying into a contracted destination validates the complete range
+before any write. Eqref contracts retain raw envelopes and their live owners.
+Specialization preserves Array/Storage types rather than replacing them with
+uncontracted shape hints, and concrete Array facts can select native access even
+when no allocation identity is available.
 
 `scripts/test-storage` checks linked execution with storage enabled and disabled
 and inspects emitted allocation/access sites for concrete arrays, bindings, and
-pair/record structs. The
-compiler parameter `storage-optimizations-enabled` in `(snail-scheme wasm-storage)`
-disables concrete container and binding payloads without changing source checks.
+pair/record structs. The compiler parameter `storage-optimizations-enabled` in `(snail-scheme wasm-storage)`
+disables inferred concrete container and binding payloads without changing source
+checks. Explicit Array contracts retain their required physical layouts and
+native access in this mode; they are not part of the ordinary storage ablation.
 Closure environments remain structs in both modes, so the same-compiler ablation
 isolates payload specialization rather than changing closure layout conventions.
+
+`scripts/test-arrays` checks the explicit interface in optimized, storage-disabled,
+and guarded modes, including source rejection, actual linked Wasm, AWI mutation
+and raw envelope behavior, and native array call sites.

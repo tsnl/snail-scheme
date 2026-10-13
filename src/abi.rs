@@ -13,8 +13,8 @@ use std::{marker::PhantomData, rc::Rc};
 
 // ---- Scalar Wasm imports ----
 
-// Native translation exports C adapters named wasm.<operation>. Both routes
-// address the Scheme module's own root table; Rust never invents a second heap.
+// Wasm imports address the Scheme module's root table through scalar handles;
+// Rust retains owned roots rather than creating a second Scheme heap.
 // Host-only stubs let pure Rust helper tests link independently of an engine.
 macro_rules! imports {
     ($(fn $name:ident($($arg:ident: $ty:ty),*) $(-> $result:ty)?;)*) => {
@@ -94,6 +94,7 @@ pub enum Kind {
     Values,
     Uninitialized,
     Complex,
+    Storage,
 }
 
 impl Kind {
@@ -118,6 +119,7 @@ impl Kind {
             Values,
             Uninitialized,
             Complex,
+            Storage,
         ];
         *KINDS.get(value as usize).expect("invalid ABI value kind")
     }

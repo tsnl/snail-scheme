@@ -20,7 +20,8 @@
                     (ref.test (ref $record_type) (local.get $value))))
         (14 (ref.test (ref $extension) (local.get $value)))
         (15 (ref.test (ref $values) (local.get $value)))
-        (17 (ref.test (ref $complex) (local.get $value)))))
+        (17 (ref.test (ref $complex) (local.get $value)))
+        (18 (ref.test (ref $storage_type) (local.get $value)))))
 
     (define (classify-object test)
       `(if ,(cadr test) (then (return (i32.const ,(car test))))))

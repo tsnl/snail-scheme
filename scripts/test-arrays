@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Execute explicit fixed-array contracts and inspect concrete call sites."""
+import os
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/array-tests"
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+NODE = os.environ.get("NODE", "node")
+IMPORTS = "(import (scheme base) (snail unsafe) (only (snail-scheme core) True ?))\n"
+REJECTED = {
+    "narrow": "(define value (ann (vector) (Array True)))",
+    "unknown": "(define value (ann (vector) (Storage ?)))",
+    "nominal": "(define-record-type <point> (point x) point? (x point-x))\n"
+               "(define value (ann (vector) (Array <point>)))",
+    "arrow": "(define value (ann (vector) (Array (-> I64 I64))))",
+    "inst-narrow": "(define constructor (inst array.empty True))",
+    "inst-unknown": "(define constructor (inst array.empty ?))",
+    "inst-arrow": "(define constructor (inst array.empty (-> I64 I64)))",
+    "erased": "(: pretend (All (T) (-> VectorRef (Array T))))\n"
+              "(define (pretend values) values)",
+    "rigid-write": "(: replace (All (T) (-> (Array T) Eqref)))\n"
+                   "(define (replace values) (array.set! values 0 #t))\n"
+                   "(replace (array.new storage.boolean 1 #f))",
+    "invariant": "(: wider (-> (Array Eqref) Eqref))\n"
+                 "(define (wider values) values)\n"
+                 "(: transfer (-> (Array I64) Eqref))\n"
+                 "(define (transfer values) (wider values))",
+
+}
+
+
+def compile_fixture(name, mode):
+    output = BUILD / f"{name}-{mode}"
+    subprocess.run([CHIBI, "-I", str(ROOT / "src"), str(ROOT / "tests/build-array-program.scm"),
+                    str(ROOT), str(ROOT / "tests/programs" / f"{name}.scm"), str(output), mode],
+                   cwd=ROOT, check=True)
+    return output
+
+
+def run(output, runner, case=None):
+    command = [NODE, "--no-warnings", str(ROOT / runner), f"{output}.wasm"]
+    return subprocess.run(command + ([case] if case else []), cwd=ROOT, capture_output=True, text=True)
+
+
+def check_arrays(mode):
+    output = compile_fixture("backend-storage-arrays", mode)
+    result = run(output, "scripts/run-wasi.mjs")
+    assert result.returncode == 0 and result.stdout == "array storage checks passed\n" and not result.stderr, result
+    for case in ("write", "raw-vector", "empty-contract", "narrow-write", "f32-write", "mixed-copy", "witness-contract", "erased-identity", "empty-append", "empty-tail", "zero-fill"):
+        result = run(output, "scripts/run-wasi.mjs", case)
+        assert result.returncode and not result.stdout and "incorrect value type" in result.stderr, result
+    result = run(output, "scripts/run-wasi.mjs", "negative-length")
+    assert result.returncode and not result.stdout and "out of range" in result.stderr, result
+    code = Path(f"{output}.wat").read_text()
+    bodies = "\n".join(line for line in code.splitlines()
+                       if re.match(r"\(func \$(?:library|specialized|function)", line))
+    if mode != "guarded":
+        for name in ("array_new:real", "ref:real", "set:real", "array_new:pair"):
+            assert f"call $vector_{name}" in bodies, f"missing native call {name}"
+    assert "(array.new $elements:real" in code and "(array.new $elements:pair" in code
+    print(f"passed explicit array execution, failures and storage {mode}", flush=True)
+
+
+def check_foreign(mode):
+    output = compile_fixture("backend-array-foreign", mode)
+    for case in (None, "write", "envelope-write", "late-copy", "multiple-ref", "witness-mismatch", "empty-copy"):
+        result = run(output, "tests/check-array-foreign.mjs", case)
+        expected = f"passed foreign array rejection {case}\n" if case else "foreign array checks passed\n"
+        assert result.returncode == 0 and result.stdout == expected and not result.stderr, result
+    print(f"passed foreign array contracts, raw envelopes and atomic copy {mode}", flush=True)
+
+
+def check_rejections():
+    for name, body in REJECTED.items():
+        source = BUILD / f"reject-{name}.scm"
+        source.write_text(IMPORTS + body + "\n")
+        result = subprocess.run([CHIBI, "-I", str(ROOT / "src"), str(ROOT / "tests/build-array-rejection.scm"),
+                                 str(ROOT), str(source), str(source.with_suffix(".wat"))],
+                                cwd=ROOT, capture_output=True, text=True)
+        assert result.returncode and re.search(r"\.scm:\d+:\d+", result.stderr), (name, result)
+        assert "unsupported array contract" not in result.stderr, (name, result.stderr)
+        print(f"passed array source rejection {name}", flush=True)
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    check_rejections()
+    for mode in ("on", "off", "guarded"):
+        check_arrays(mode)
+        check_foreign(mode)
+
+
+if __name__ == "__main__":
+    main()

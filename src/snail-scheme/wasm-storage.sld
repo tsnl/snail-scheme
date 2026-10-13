@@ -3,7 +3,7 @@
 (define-library (snail-scheme wasm-storage)
   (export storage-optimizations-enabled storage-definitions storage-codecs
           codec-id codec-name codec-type codec-representation codec-array codec-function
-          type-codec)
+          type-codec exact-type-codec storage-intrinsics array-membership array-operation-domains array-operation-result)
   (import (scheme base) (scheme cxr) (snail-scheme types) (snail-scheme wasm-representation))
   (begin
 
@@ -33,6 +33,115 @@
         (cond ((null? codecs) (car storage-codecs))
               ((equal? (type-representation type) (codec-representation (car codecs))) (car codecs))
               (else (find (cdr codecs))))))
+    ;; A representation match is sufficient for inferred storage, but an
+    ;; explicit contract must describe exactly the codec's accepted values.
+    (define (exact-type-codec type)
+      (let find ((codecs storage-codecs))
+        (cond ((null? codecs) #f)
+              ((and (type-subtype? type (codec-type (car codecs)))
+                    (type-subtype? (codec-type (car codecs)) type)) (car codecs))
+              (else (find (cdr codecs))))))
+
+    ;; ---- Constructor-established Array contracts ----
+
+    (define (witness-name codec)
+      (string->symbol (string-append "%storage." (symbol->string (codec-name codec)))))
+    (define (witness-global codec)
+      (string->symbol (string-append "$storage:" (symbol->string (codec-name codec)))))
+    (define storage-intrinsics
+      (append (map (lambda (codec) (list (witness-name codec) '() (list 'Storage (codec-type codec)) #t
+                                         `(global.get ,(witness-global codec)))) storage-codecs)
+              '((%array.empty (StorageObject) ArrayObject #t (call $array_empty (local.get $a)))
+                (%array.new (StorageObject WasmI32 Any) ArrayObject #t
+                            (call $array_new (local.get $a) (local.get $b) (local.get $c)))
+                (%array.new-like (StorageObject WasmI32 ArrayObject) ArrayObject #t
+                                 (call $array_new_like (local.get $a) (local.get $b) (local.get $c)))
+                (%array.ref (ArrayObject WasmI32) ? #t
+                            (call $vector_ref (local.get $a) (local.get $b)))
+                (%array.set! (ArrayObject WasmI32 Any) Unspecified #t
+                             (block (result eqref) (call $vector_set (local.get $a) (local.get $b) (local.get $c))
+                                    (global.get $unspecified)))
+                (%array.copy! (ArrayObject WasmI32 ArrayObject WasmI32 WasmI32) Unspecified #t
+                              (block (result eqref)
+                                     (call $array_copy (local.get $a) (local.get $b) (local.get $c) (local.get $d) (local.get $e))
+                                     (global.get $unspecified))))))
+    (define (array-operation-domains name arguments)
+      (and (pair? arguments)
+           (let ((first (car arguments)) (count (length arguments)))
+             (cond ((and (storage-type? first) (= count 3) (memq name '(%array.new %array.new-like)))
+                    (list first 'WasmI32 (if (eq? name '%array.new) (cadr first) (list 'Array (cadr first)))))
+                   ((and (storage-type? first) (eq? name '%array.empty) (= count 1)) (list first))
+                   ((array-type? first)
+                    (case name
+                      ((%array.ref) (and (= count 2) (list first 'WasmI32)))
+                      ((%array.set!) (and (= count 3) (list first 'WasmI32 (cadr first))))
+                      ((%array.copy!) (and (= count 5) (list first 'WasmI32 first 'WasmI32 'WasmI32)))
+                      (else #f))) (else #f)))))
+    (define (array-operation-result name domains)
+      (case name
+        ((%array.empty %array.new %array.new-like) (list 'Array (cadar domains)))
+        ((%array.ref) (cadar domains)) (else 'Unspecified)))
+    (define (array-membership value codec)
+      `(if (result i32) (ref.test (ref $vector_object) ,value)
+           (then ,(if codec `(i32.eq (struct.get $vector_object 3 (ref.cast (ref $vector_object) ,value))
+                                     (i32.const ,(+ 1 (codec-id codec))))
+                      `(i32.ne (struct.get $vector_object 3 (ref.cast (ref $vector_object) ,value)) (i32.const 0))))
+           (else (i32.const 0))))
+    (define (array-allocator codec)
+      `(func ,(codec-function "array_new" codec) (param $length i32)
+             (param $fill ,(representation-wasm (codec-representation codec))) (result (ref $vector_object))
+             (if (i32.lt_s (local.get $length) (i32.const 0)) (then (call $fail (i32.const 3))))
+             (struct.new $vector_object (i32.const ,(codec-id codec))
+                         (array.new ,(codec-array codec) (local.get $fill) (local.get $length))
+                         (local.get $length) (i32.const ,(+ 1 (codec-id codec))))))
+    (define (array-allocation)
+      `(func $array_new (param $storage (ref $storage_type)) (param $length i32) (param $fill eqref)
+             (result (ref $vector_object)) (local $layout i32)
+             (local.set $layout (struct.get $storage_type 0 (local.get $storage)))
+             (if (i32.lt_s (local.get $length) (i32.const 0)) (then (call $fail (i32.const 3))))
+             (if (i32.eqz (call $storage_accepts (local.get $layout) (local.get $fill))) (then (call $fail (i32.const 8))))
+             ,@(map (lambda (codec)
+                      (layout-branch codec `(return (call ,(codec-function "array_new" codec) (local.get $length)
+                                                          ,(unbox-representation '(local.get $fill) (codec-representation codec))))))
+                    storage-codecs)
+             unreachable))
+    (define (array-like-allocation)
+      `(func $array_new_like (param $storage (ref $storage_type)) (param $length i32) (param $source (ref $vector_object))
+             (result (ref $vector_object)) (local $layout i32)
+             (local.set $layout (struct.get $storage_type 0 (local.get $storage)))
+             (if (i32.lt_s (local.get $length) (i32.const 0)) (then (call $fail (i32.const 3))))
+             (if (i32.ne (struct.get $vector_object 3 (local.get $source)) (i32.add (local.get $layout) (i32.const 1)))
+                 (then (call $fail (i32.const 8))))
+             (if (i32.ne (local.get $length) (i32.const 0))
+                 (then (return (call $array_new (local.get $storage) (local.get $length)
+                                     (call $vector_ref (local.get $source) (i32.const 0))))))
+             (call $array_empty (local.get $storage))))
+    (define (array-empty-allocation)
+      `(func $array_empty (param $storage (ref $storage_type)) (result (ref $vector_object)) (local $layout i32)
+             (local.set $layout (struct.get $storage_type 0 (local.get $storage)))
+             ,@(map (lambda (codec)
+                      (layout-branch codec `(return (struct.new $vector_object (i32.const ,(codec-id codec))
+                                                                (array.new_fixed ,(codec-array codec) 0) (i32.const 0)
+                                                                (i32.const ,(+ 1 (codec-id codec))))))) storage-codecs)
+             unreachable))
+    (define (array-definitions)
+      (append '((type $storage_type (sub (struct (field i32)))))
+              (map (lambda (codec) `(global ,(witness-global codec) (ref $storage_type)
+                                            (struct.new $storage_type (i32.const ,(codec-id codec))))) storage-codecs)
+              (map array-allocator storage-codecs)
+              (list (array-allocation) (array-like-allocation) (array-empty-allocation)
+                    `(func $array_value (param $value eqref) (result (ref $vector_object))
+                           (if (i32.eqz ,(array-membership '(local.get $value) #f)) (then (call $fail (i32.const 8))))
+                           (ref.cast (ref $vector_object) (local.get $value)))
+                    '(func $array_copy (param $destination (ref $vector_object)) (param $at i32)
+                           (param $source (ref $vector_object)) (param $start i32) (param $count i32)
+                           (call $vector_bounds (local.get $destination) (local.get $at) (local.get $count))
+                           (call $vector_bounds (local.get $source) (local.get $start) (local.get $count))
+                           (if (i32.ne (struct.get $vector_object 3 (local.get $destination))
+                                       (struct.get $vector_object 3 (local.get $source)))
+                               (then (call $fail (i32.const 8))))
+                           (call $vector_copy_same (local.get $destination) (local.get $at)
+                                 (local.get $source) (local.get $start) (local.get $count))))))
 
     (define (codec-accepts codec value)
       (case (codec-type codec)
@@ -179,6 +288,16 @@
               (if (i32.eq (struct.get $vector_object 0 (local.get $destination)) (struct.get $vector_object 0 (local.get $source)))
                   (then (call $vector_copy_same (local.get $destination) (local.get $at) (local.get $source) (local.get $start) (local.get $count))
                         (return)))
+              ;; Explicit contracts validate every incoming raw carrier before
+              ;; publishing any write. This loop cannot call back into Scheme.
+              (if (struct.get $vector_object 3 (local.get $destination))
+                  (then (block $checked (loop $check
+                                              (br_if $checked (i32.ge_u (local.get $index) (local.get $count)))
+                                              (if (i32.eqz (call $storage_accepts (struct.get $vector_object 0 (local.get $destination))
+                                                                 (call $vector_ref (local.get $source) (i32.add (local.get $start) (local.get $index)))))
+                                                  (then (call $fail (i32.const 8))))
+                                              (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $check)))))
+              (local.set $index (i32.const 0))
               (block $done (loop $next
                                  (br_if $done (i32.ge_u (local.get $index) (local.get $count)))
                                  (call $vector_set (local.get $destination) (i32.add (local.get $at) (local.get $index))
@@ -200,8 +319,26 @@
                   (else (ref.cast (ref $slots) (local.get $value)))))))
 
     (define (storage-definitions)
-      (append (map (lambda (codec) `(type ,(codec-array codec) (array (mut ,(representation-wasm (codec-representation codec))))))
+      (append (array-definitions)
+              (map (lambda (codec) `(type ,(codec-array codec) (array (mut ,(representation-wasm (codec-representation codec))))))
                    (cdr storage-codecs))
               (apply append (map codec-functions storage-codecs))
               (list (storage-membership) (storage-allocation) (storage-read) (storage-write) (storage-copy))
-              shared-definitions))))
+              shared-definitions)))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-wasm-storage)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (test-wasm-storage)
+        (for-each (lambda (codec) (expect (exact-type-codec (codec-type codec)) codec)) storage-codecs)
+        (for-each (lambda (type) (expect (exact-type-codec type) #f))
+                  '(True False ? Number (record point) (-> String String) (Array InexactReal)))
+        (expect (codec-name (exact-type-codec '(U False True))) 'boolean)
+        (expect (codec-name (exact-type-codec 'i32)) 'i32)
+        (expect (array-operation-domains '%array.set! '((Array InexactReal) WasmI32 InexactReal))
+                '((Array InexactReal) WasmI32 InexactReal))
+        (expect (array-operation-result '%array.ref '((Array Any) WasmI32)) 'Any))))))

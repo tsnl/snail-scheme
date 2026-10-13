@@ -12,7 +12,7 @@
           fact-signature fact-body typing-declarations typing-primitives typing-assigned typing-bindings typing-records
           type-optimizations-enabled original-body-checking? predicate-type scope-initialized?)
   (import (scheme base) (scheme cxr)
-          (snail-scheme types) (snail-scheme type-inference) (snail-scheme wasm-intrinsics)
+          (snail-scheme types) (snail-scheme type-inference) (snail-scheme wasm-intrinsics) (snail-scheme wasm-storage)
           (prefix (snail-scheme ir) ir:))
   (begin
     ;; ---- Transient evidence and immutable scopes ----
@@ -247,7 +247,8 @@
     (define (validate-declared-type type typing loc)
       (if (not (or (shallow-type? type) (function-type? type)))
           (type-error-at loc "annotations require a shallow type or a checked function signature" type))
-      (cond ((nominal-type? type)
+      (cond ((container-type? type) (validate-container-elements type loc))
+            ((nominal-type? type)
              (if (not (assq (cadr type) (typing-records typing)))
                  (type-error-at loc "nominal type requires a stable top-level record declaration" type)))
             ((function-type? type)
@@ -255,6 +256,13 @@
                  (type-error-at loc "function domains and results must be shallow types; nested All and arrows are unsupported" type))
              (for-each (lambda (part) (validate-type part typing loc)) (cdr (all-body type))))
             ((union-type? type) (for-each (lambda (part) (validate-type part typing loc)) (cdr type)))))
+
+    (define (validate-container-elements type loc)
+      (cond ((container-type? type)
+             (unless (or (type-variable? (cadr type)) (exact-type-codec (cadr type)))
+               (type-error-at loc "Array and Storage require an exact supported element codec" type)))
+            ((function-type? type) (for-each (lambda (part) (validate-container-elements part loc)) (cdr (all-body type))))
+            ((union-type? type) (for-each (lambda (part) (validate-container-elements part loc)) (cdr type)))))
 
     (define (generated-declaration definition type)
       (ir:make-type-declaration definition type (ir:value-definition-loc definition)))
@@ -509,6 +517,7 @@
       (if (not (every? shallow-type? types))
           (type-error-at (node-location node) "type arguments must be shallow types"))
       (let ((signature (instantiate-type (fact-type fact) types (node-location node))))
+        (validate-container-elements signature (node-location node))
         (if (not (fact-callee fact))
             (type-error-at (node-location node) "inst requires a checked implementation"))
         (make-fact signature #t (fact-object fact) '() '() (make-instance (fact-callee fact) types))))
@@ -606,6 +615,10 @@
     (define (primitive-result node name arguments scope)
       (let ((predicate (predicate-type name)) (count (length arguments)))
         (cond ((eq? name 'vector) (if (original-body-checking?) (unknown-fact) (value-fact 'Vector)))
+              ((array-operation-domains name (map fact-type arguments))
+               => (lambda (domains)
+                    (when (scope-strict? scope) (check-arguments node arguments domains))
+                    (make-fact (array-operation-result name domains) (not (eq? name '%array.ref)) #f '() '() #f)))
               ((and predicate (= count 1)) (predicate-fact predicate (car arguments)))
               ((and (= count 1) (memq name '(real? inexact? exact? integer?)))
                (numeric-predicate-fact (car arguments)))
