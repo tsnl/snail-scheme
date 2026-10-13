@@ -97,9 +97,9 @@ Removing that single carrier shows **no demonstrated speedup**. Its median is
 that all argument arrays, boxing, or root ownership are cheap; it bounds what
 this particular one-change experiment established.
 
-The next useful experiment separates native scalar Rust imports from a loop
-that also retains characters in registers and roots ports once around copying.
-Those are separate mechanisms and should be measured separately.
+The [subsequent scalar-extern experiment](../2026-10-13-cat-scalar-extern/README.md)
+separates native scalar Rust imports from a loop that also retains characters in
+registers and roots ports once around copying. Those are separate mechanisms.
 
 ## Evidence and replay
 

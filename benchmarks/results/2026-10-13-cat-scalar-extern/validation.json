@@ -1,0 +1,65 @@
+{
+  "program_sha256": "4e0d246dbdf0ad58ec45ca080b83820b33cae79373859054831149b4b9b5982d",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "-g",
+        "--enable-gc",
+        "--enable-reference-types",
+        "--enable-tail-call",
+        "--enable-mutable-globals",
+        "--enable-sign-ext",
+        "--enable-bulk-memory",
+        "--enable-nontrapping-float-to-int",
+        "--remove-exports",
+        "--pass-arg=remove-exports@_start",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/scalar-loop/program.wasm",
+        "-o",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-tests/probe.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "/tmp/snail-typed-extern-scalar-io-20261013/tests/typed-extern/wrong-signature.wat",
+        "-o",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-tests/wrong-signature.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-typed-extern-scalar-io-20261013/tests/typed-extern/check-scalar-io.mjs",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-tests/probe.wasm",
+        "success",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-tests/wrong-signature.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "Native scalar I/O checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-typed-extern-scalar-io-20261013/tests/typed-extern/check-scalar-io.mjs",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-tests/probe.wasm",
+        "closed"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    }
+  ]
+}

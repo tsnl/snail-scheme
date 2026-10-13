@@ -1,0 +1,361 @@
+{
+  "date": "2026-10-13T08:10:39.726270+00:00",
+  "cpu": 5,
+  "rounds": 3,
+  "scope": "Fresh default Node processes; one discarded preliminary per case, balanced retained order; no observers.",
+  "cases": [
+    {
+      "label": "control",
+      "directory": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/control",
+      "artifact_sha256": "262369ecd99b2523e7d812566171907c9e12b157194897cf455c360326a6c68a",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "wat_sha256": "edf649ceb2f299c5e8f195f863ef98c11672e2b70df2828d9f39fdc6f309e5d3",
+      "runtime_sha256": "7457cb03eff74d640db0ea4f69923ec8b4c99c3f6a1e23170e4b84234a27d2cc",
+      "runtime_source": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/runtime.wasm",
+      "tool": {
+        "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "version": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.008090161980362609,
+          "stdout": "v24.19.0\n",
+          "stderr": ""
+        },
+        "versions": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.020268505992135033,
+          "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+          "stderr": ""
+        }
+      },
+      "host_sha256": {
+        "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+        "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+      },
+      "build_environment": {
+        "CHIBI": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "NODE": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "WASM_AS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "WASM_OPT": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "WASM_DIS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+        "WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/host/scripts/run-wasi.mjs",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/control/program.wasm"
+      ],
+      "scope": "Frozen source algorithm and counts; diagnostic WAT changes only."
+    },
+    {
+      "label": "scalar-wrappers",
+      "directory": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/scalar-wrappers",
+      "artifact_sha256": "6db9036bc3451bf9363670ad11ca03f5b1bf51ad271ad7f811b5b308ded51f9e",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "wat_sha256": "5d123f590f43a984ebaf7549e0a3d31cb7793b3cf05d4215555ed0e8db79739b",
+      "runtime_sha256": "7457cb03eff74d640db0ea4f69923ec8b4c99c3f6a1e23170e4b84234a27d2cc",
+      "runtime_source": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/runtime.wasm",
+      "tool": {
+        "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "version": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.008090161980362609,
+          "stdout": "v24.19.0\n",
+          "stderr": ""
+        },
+        "versions": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.020268505992135033,
+          "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+          "stderr": ""
+        }
+      },
+      "host_sha256": {
+        "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+        "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+      },
+      "build_environment": {
+        "CHIBI": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "NODE": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "WASM_AS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "WASM_OPT": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "WASM_DIS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+        "WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/host/scripts/run-wasi.mjs",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/scalar-wrappers/program.wasm"
+      ],
+      "scope": "Frozen source algorithm and counts; diagnostic WAT changes only."
+    },
+    {
+      "label": "scalar-loop",
+      "directory": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/scalar-loop",
+      "artifact_sha256": "4e0d246dbdf0ad58ec45ca080b83820b33cae79373859054831149b4b9b5982d",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "wat_sha256": "57c3ce9e01bb59edf6d309a43a9adbe62de5b0106664c4a637594787db93aabb",
+      "runtime_sha256": "7457cb03eff74d640db0ea4f69923ec8b4c99c3f6a1e23170e4b84234a27d2cc",
+      "runtime_source": "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/runtime.wasm",
+      "tool": {
+        "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "version": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.008090161980362609,
+          "stdout": "v24.19.0\n",
+          "stderr": ""
+        },
+        "versions": {
+          "status": "ok",
+          "returncode": 0,
+          "wall_seconds": 0.020268505992135033,
+          "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+          "stderr": ""
+        }
+      },
+      "host_sha256": {
+        "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+        "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+      },
+      "build_environment": {
+        "CHIBI": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "NODE": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "WASM_AS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "WASM_OPT": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "WASM_DIS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+        "WASM_MERGE": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+        "BINARYEN_CORES": "1"
+      },
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/host/scripts/run-wasi.mjs",
+        "/tmp/snail-typed-extern-scalar-io-20261013/build/typed-extern-cat/scalar-loop/program.wasm"
+      ],
+      "scope": "Frozen source algorithm and counts; diagnostic WAT changes only."
+    }
+  ],
+  "driver_sha256": "7cfd25a2c2d3fe1b349583b560cb806c2cfc83ca0dbba47a93b2a027066d632d",
+  "observations": [
+    {
+      "label": "control",
+      "round": 0,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 20.786243106995244,
+      "stdout": "Running cat:50\nElapsed time: 20.749481834 seconds (20.75) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.749481834\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 20.749481834
+    },
+    {
+      "label": "scalar-wrappers",
+      "round": 0,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 8.24519788302132,
+      "stdout": "Running cat:50\nElapsed time: 8.212442567 seconds (8.212) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,8.212442567\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 8.212442567
+    },
+    {
+      "label": "scalar-loop",
+      "round": 0,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 2.804211237002164,
+      "stdout": "Running cat:50\nElapsed time: 2.77472435 seconds (2.775) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,2.77472435\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 2.77472435
+    },
+    {
+      "label": "scalar-wrappers",
+      "round": 1,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 8.15037409501383,
+      "stdout": "Running cat:50\nElapsed time: 8.116423521 seconds (8.116) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,8.116423521\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 8.116423521
+    },
+    {
+      "label": "scalar-loop",
+      "round": 1,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 2.7123990199761465,
+      "stdout": "Running cat:50\nElapsed time: 2.681859405 seconds (2.682) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,2.681859405\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 2.681859405
+    },
+    {
+      "label": "control",
+      "round": 1,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 21.044447324005887,
+      "stdout": "Running cat:50\nElapsed time: 21.009145714 seconds (21.009) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,21.009145714\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 21.009145714
+    },
+    {
+      "label": "scalar-loop",
+      "round": 2,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 2.713416940998286,
+      "stdout": "Running cat:50\nElapsed time: 2.680909789 seconds (2.681) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,2.680909789\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 2.680909789
+    },
+    {
+      "label": "control",
+      "round": 2,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 21.251024877972668,
+      "stdout": "Running cat:50\nElapsed time: 21.214967934 seconds (21.215) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,21.214967934\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 21.214967934
+    },
+    {
+      "label": "scalar-wrappers",
+      "round": 2,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 8.14876465901034,
+      "stdout": "Running cat:50\nElapsed time: 8.114741241 seconds (8.115) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,8.114741241\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 8.114741241
+    },
+    {
+      "label": "control",
+      "round": 3,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 20.782914356997935,
+      "stdout": "Running cat:50\nElapsed time: 20.749528312 seconds (20.75) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,20.749528312\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 20.749528312
+    },
+    {
+      "label": "scalar-wrappers",
+      "round": 3,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 8.236307857005158,
+      "stdout": "Running cat:50\nElapsed time: 8.200894121 seconds (8.201) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,8.200894121\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 8.200894121
+    },
+    {
+      "label": "scalar-loop",
+      "round": 3,
+      "status": "ok",
+      "returncode": 0,
+      "process_seconds": 2.7920201789820567,
+      "stdout": "Running cat:50\nElapsed time: 2.76137993 seconds (2.761) for cat:50\n+!CSVLINE!+snail-scheme,cat:50,2.76137993\n",
+      "stderr": "",
+      "output_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+      "output_bytes": 4460056,
+      "seconds": 2.76137993
+    }
+  ],
+  "complete": true,
+  "summary": {
+    "control": {
+      "samples": [
+        21.009145714,
+        21.214967934,
+        20.749528312
+      ],
+      "median": 21.009145714,
+      "minimum": 20.749528312,
+      "maximum": 21.214967934
+    },
+    "scalar-wrappers": {
+      "samples": [
+        8.116423521,
+        8.114741241,
+        8.200894121
+      ],
+      "median": 8.116423521,
+      "minimum": 8.114741241,
+      "maximum": 8.200894121
+    },
+    "scalar-loop": {
+      "samples": [
+        2.681859405,
+        2.680909789,
+        2.76137993
+      ],
+      "median": 2.681859405,
+      "minimum": 2.680909789,
+      "maximum": 2.76137993
+    }
+  },
+  "experiment": "Scalar extern boundary ablation of frozen cat; not a source compiler benchmark.",
+  "compiler_input_revision": "b218ce27cd5f7a157b68a450899c6805f041e856",
+  "runtime_base_revision": "175a2aebcdf1a7a54ef5c272ce2d48c15368c06e",
+  "frozen_wat_sha256": "f0077e87a7f8a7ba9daa33aee757f060a55a9ab360ee695af2c40a2aca3367fc",
+  "native_signatures": {
+    "read-code": {
+      "parameters": [
+        "i32"
+      ],
+      "results": [
+        "i32"
+      ]
+    },
+    "write-code": {
+      "parameters": [
+        "i32",
+        "i32"
+      ],
+      "results": [
+        "i32"
+      ]
+    }
+  },
+  "limitations": [
+    "Declaration reader/import emitter is independently implemented; no define-extern integration in this branch's gradual frontend.",
+    "Provider reuses the existing ABI for port creation and initializes three owned current-port roots.",
+    "Scalar-loop also removes boxed characters and old compiler-generated closures/envelopes; it is a combined lowering ablation.",
+    "The exact frozen cat call context permits ignoring its result-check parameter; this is not a general replacement."
+  ]
+}
