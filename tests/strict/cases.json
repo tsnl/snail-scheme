@@ -163,5 +163,7 @@
   {"name": "reject-overload-abstract-premise-use", "error": "no compatible overload"},
   {"name": "overload-proof-sharing", "result": "42"},
   {"name": "vector-default-large", "result": "42"},
-  {"name": "vector-conversion-large", "result": "42"}
+  {"name": "vector-conversion-large", "result": "42"},
+  {"name": "vector-default-shared", "result": "42"},
+  {"name": "vector-default-trap-effects", "result": "42", "exports": {"allocate": "trap", "calls": "3"}}
 ]
