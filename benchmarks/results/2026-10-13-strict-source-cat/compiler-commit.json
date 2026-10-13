@@ -1,0 +1,8 @@
+{
+  "compiler_commit": "a566c9ffcc6ca172ad7a4870728b8bda14d55c15",
+  "verified_source_files": 50,
+  "all_recorded_sources_match_commit": true,
+  "review_commit": "3e91f99f32d524243f8deb282e93901661c7dc57",
+  "review_pr": "https://github.com/tsnl/snail-scheme/pull/76",
+  "all_recorded_sources_match_review_commit": true
+}

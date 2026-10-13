@@ -1,0 +1,139 @@
+{
+  "complete": true,
+  "artifacts": {
+    "hand-loop": "ddf57d6867f37d0d7d55824084045228705e005282e34f628c317ce61285f95f",
+    "strict-source": "975b44b8388c15d45c2c80a099f6b1b0a5af23599c040d328dc7e2c24def3bbc"
+  },
+  "checks": [
+    {
+      "label": "hand-loop",
+      "mode": "success",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/hand-loop.wasm",
+        "success",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "Native scalar I/O checks passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "hand-loop",
+      "mode": "closed",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/hand-loop.wasm",
+        "closed",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    },
+    {
+      "label": "hand-loop",
+      "mode": "cat-closed-input",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/hand-loop.wasm",
+        "cat-closed-input",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    },
+    {
+      "label": "hand-loop",
+      "mode": "cat-closed-output",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/hand-loop.wasm",
+        "cat-closed-output",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    },
+    {
+      "label": "strict-source",
+      "mode": "success",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/strict-source.wasm",
+        "success",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "Native scalar I/O checks passed\n",
+      "stderr": ""
+    },
+    {
+      "label": "strict-source",
+      "mode": "closed",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/strict-source.wasm",
+        "closed",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    },
+    {
+      "label": "strict-source",
+      "mode": "cat-closed-input",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/strict-source.wasm",
+        "cat-closed-input",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    },
+    {
+      "label": "strict-source",
+      "mode": "cat-closed-output",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/host/tests/typed-extern/check.mjs",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/strict-source.wasm",
+        "cat-closed-output",
+        "/tmp/snail-strict-source-cat-20261013/build/strict-cat-unit/validation/wrong-signature.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: port is closed\n"
+    }
+  ],
+  "script_sha256": "a3f1e4f4bd66b9fffde0fbe5c00bbafd87a7351f9e3407f9afeb2cfd251d63f9",
+  "driver_sha256": "b606b24ab9301bb6343e2c06891955d93ef9a1ea8a7308031109b13db908d1b5"
+}

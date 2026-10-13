@@ -434,3 +434,9 @@ driver freezes original inputs and compiled controls, validates outputs, and
 records separate workload and process times. The [five-case report](benchmarks/results/2026-10-13-wasm-five-reference/README.md)
 compares those references with Chez and a separately measured historical Snail
 batch; it does not change the compiler or runtime.
+
+[`benchmarks/strict-cat/`](benchmarks/strict-cat/README.md) compiles a scalar copy
+worker from strict Scheme and links it into the frozen cat harness. Preparation,
+linked Unicode/error/ownership checks, and clean timing are separate operations.
+Its [report](benchmarks/results/2026-10-13-strict-source-cat/README.md) preserves
+both source-compiled and hand-written scalar controls with the same provider.

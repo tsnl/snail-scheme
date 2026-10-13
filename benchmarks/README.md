@@ -33,6 +33,11 @@ algorithms and original inputs of `cat`, `lattice`, `wc`, `graphs`, and `deriv`.
 Their [checked report](results/2026-10-13-wasm-five-reference/README.md) supplies
 same-window Chez controls and separates the prior Snail measurement batch.
 
+The [strict-source cat experiment](strict-cat/README.md) compiles a typed scalar
+copy loop and compares it with the old generated loop and a hand-written Wasm
+control using the same runtime. Its [checked report](results/2026-10-13-strict-source-cat/README.md)
+retains complete source/artifact identities and separate functional validation.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
