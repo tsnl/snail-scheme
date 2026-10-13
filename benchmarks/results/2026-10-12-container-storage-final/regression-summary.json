@@ -1,0 +1,176 @@
+{
+  "scope": "New independent quiet batch: exact identical original inputs, source, host, runtime, Node; baseline f07/d4 versus22 storage off/on. Fresh default-tier processes; one preliminary and3retained/cell, no in-process warmup. No probes/CPU profiler/GC flags.",
+  "harness_sha256": "65c313820cbd810a6ee89b2ec100a8f1c240ebf17fd497bcb1d441e8cfc3172a",
+  "sources": {
+    "baseline": {
+      "path": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/results.json",
+      "sha256": "856f7e09d2ac0023084ac637c19925f9fe167488f1077b9194b5ebb2d5bf835d",
+      "revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725"
+    },
+    "off": {
+      "path": "/tmp/snail-container-regression-22c2006-20261012/build/storage-off-prepared/results.json",
+      "sha256": "31dbb30991837e3e4df430436af805fb4d5786d370216e75f7d1dd00032cb6b5",
+      "revision": "22c2006f64c5ea322bd77ae080e007e625534d25"
+    },
+    "on": {
+      "path": "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/results.json",
+      "sha256": "ff84296c67e8c24ccf322c2c3656657c9a53c8349d6007b798a403e7ad506b89",
+      "revision": "22c2006f64c5ea322bd77ae080e007e625534d25"
+    },
+    "split": {
+      "path": "/tmp/snail-container-regression-22c2006-20261012/build/pair-reader-split-prepared/results.json",
+      "sha256": "885e712ff63f41df154dbf6aea51577983fe7c326b6a8f23848a233bbecd92cb",
+      "revision": "22c2006f64c5ea322bd77ae080e007e625534d25"
+    }
+  },
+  "rows": [
+    {
+      "benchmark": "lattice",
+      "variant": "baseline",
+      "observations_seconds": [
+        16.084083707,
+        16.179404502,
+        16.063072948
+      ],
+      "median_seconds": 16.084083707,
+      "min_seconds": 16.063072948,
+      "max_seconds": 16.179404502,
+      "module_sha256": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "baseline",
+      "observations_seconds": [
+        7.770063394,
+        7.774958932,
+        7.723562539
+      ],
+      "median_seconds": 7.770063394,
+      "min_seconds": 7.723562539,
+      "max_seconds": 7.774958932,
+      "module_sha256": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "off",
+      "observations_seconds": [
+        49.328340713,
+        48.900160662,
+        48.908179896
+      ],
+      "median_seconds": 48.908179896,
+      "min_seconds": 48.900160662,
+      "max_seconds": 49.328340713,
+      "module_sha256": "9039e187d9804cc9886ea8c9dc6e378915233a7597d7660b1efe0357322a7538",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "off",
+      "observations_seconds": [
+        14.91277442,
+        14.923564041,
+        14.892795207
+      ],
+      "median_seconds": 14.91277442,
+      "min_seconds": 14.892795207,
+      "max_seconds": 14.923564041,
+      "module_sha256": "eb28444a8bddae9fa30d2ccac1334d98712c4240a35b1b3daba22614708f8fe7",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "on",
+      "observations_seconds": [
+        20.334851142,
+        20.450332821,
+        20.510632338
+      ],
+      "median_seconds": 20.450332821,
+      "min_seconds": 20.334851142,
+      "max_seconds": 20.510632338,
+      "module_sha256": "90c4cc092a4f91b50ed8551277bc6c2537154b503452d4483f1711f580cd43e2",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "on",
+      "observations_seconds": [
+        8.390587982,
+        8.440779285,
+        8.314073877
+      ],
+      "median_seconds": 8.390587982,
+      "min_seconds": 8.314073877,
+      "max_seconds": 8.440779285,
+      "module_sha256": "11c61ab8e52deae41f0ceb493bac2a4447afbc23f15ae2211c2535c02af687db",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "split",
+      "observations_seconds": [
+        20.604759977,
+        20.400843257,
+        20.543680919
+      ],
+      "median_seconds": 20.543680919,
+      "min_seconds": 20.400843257,
+      "max_seconds": 20.604759977,
+      "module_sha256": "30404fc83f2274a2ae082a0e8b9af692058e9466389363064bd10f2b88e4ec63",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "split",
+      "observations_seconds": [
+        8.19529373,
+        8.122113871,
+        8.145001947
+      ],
+      "median_seconds": 8.145001947,
+      "min_seconds": 8.122113871,
+      "max_seconds": 8.19529373,
+      "module_sha256": "85f6ed096d8c3ae9f600d3b03c68228da493e9194340966426492e6f902455f3",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    }
+  ],
+  "comparisons": [
+    {
+      "benchmark": "lattice",
+      "seconds": {
+        "baseline": 16.084083707,
+        "off": 48.908179896,
+        "on": 20.450332821,
+        "split": 20.543680919
+      },
+      "old_over_on": 0.7864949606337754,
+      "off_over_on": 2.3915591166211856,
+      "old_over_off": 0.3288628556859351,
+      "on_over_split": 0.995456116244793
+    },
+    {
+      "benchmark": "graphs",
+      "seconds": {
+        "baseline": 7.770063394,
+        "off": 14.91277442,
+        "on": 8.390587982,
+        "split": 8.145001947
+      },
+      "old_over_on": 0.9260451604427262,
+      "off_over_on": 1.7773217385946958,
+      "old_over_off": 0.52103405946913,
+      "on_over_split": 1.030151746629165
+    }
+  ]
+}

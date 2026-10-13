@@ -1,0 +1,1251 @@
+{
+  "lattice": {
+    "baseline": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 16.650332028977573,
+        "seconds": 16.335123472,
+        "name": "lattice:44:10",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/baseline/lattice",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/snail-wasm/program.wasm"
+        ],
+        "label": "baseline",
+        "benchmark": "lattice",
+        "recorded_at_utc": "2026-10-13T05:18:20.601477+00:00",
+        "module_sha256": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 7583,
+        "types": {
+          "s": 7583
+        },
+        "pause_printed_sum_milliseconds": 31.6,
+        "pause_rounding_interval_milliseconds": [
+          17.1,
+          410.75
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 260.46,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          222.545,
+          298.375
+        ],
+        "allocated_bytes_reported_at_gc": 53239126776,
+        "last_live_object_bytes": 6953840,
+        "maximum_start_object_bytes": 23727320,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 15393,
+        "duration_microseconds": 16363260,
+        "self_sample_top_30": [
+          {
+            "function": "function31",
+            "samples": 6513,
+            "sample_fraction": 0.42311440265055544
+          },
+          {
+            "function": "function165",
+            "samples": 3781,
+            "sample_fraction": 0.2456311310335867
+          },
+          {
+            "function": "function162",
+            "samples": 1510,
+            "sample_fraction": 0.09809653738712401
+          },
+          {
+            "function": "adapter217",
+            "samples": 1427,
+            "sample_fraction": 0.092704476060547
+          },
+          {
+            "function": "eqv",
+            "samples": 380,
+            "sample_fraction": 0.024686545832521275
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 324,
+            "sample_fraction": 0.021048528551939193
+          },
+          {
+            "function": "function185",
+            "samples": 191,
+            "sample_fraction": 0.012408237510556747
+          },
+          {
+            "function": "specialized519",
+            "samples": 189,
+            "sample_fraction": 0.01227830832196453
+          },
+          {
+            "function": "adapter380",
+            "samples": 162,
+            "sample_fraction": 0.010524264275969596
+          },
+          {
+            "function": "function30",
+            "samples": 150,
+            "sample_fraction": 0.009744689144416294
+          },
+          {
+            "function": "function173",
+            "samples": 117,
+            "sample_fraction": 0.007600857532644709
+          },
+          {
+            "function": "adapter388",
+            "samples": 86,
+            "sample_fraction": 0.0055869551094653415
+          },
+          {
+            "function": "adapter165",
+            "samples": 82,
+            "sample_fraction": 0.005327096732280907
+          },
+          {
+            "function": "adapter387",
+            "samples": 78,
+            "sample_fraction": 0.005067238355096472
+          },
+          {
+            "function": "adapter379",
+            "samples": 76,
+            "sample_fraction": 0.004937309166504255
+          },
+          {
+            "function": "function182",
+            "samples": 70,
+            "sample_fraction": 0.004547521600727604
+          },
+          {
+            "function": "function177",
+            "samples": 67,
+            "sample_fraction": 0.004352627817839278
+          },
+          {
+            "function": "specialized521",
+            "samples": 29,
+            "sample_fraction": 0.00188397323458715
+          },
+          {
+            "function": "adapter196",
+            "samples": 27,
+            "sample_fraction": 0.0017540440459949329
+          },
+          {
+            "function": "function38",
+            "samples": 27,
+            "sample_fraction": 0.0017540440459949329
+          },
+          {
+            "function": "function195",
+            "samples": 26,
+            "sample_fraction": 0.0016890794516988242
+          },
+          {
+            "function": "adapter178",
+            "samples": 22,
+            "sample_fraction": 0.0014292210745143897
+          },
+          {
+            "function": "specialized382",
+            "samples": 19,
+            "sample_fraction": 0.0012343272916260637
+          },
+          {
+            "function": "function202",
+            "samples": 15,
+            "sample_fraction": 0.0009744689144416293
+          },
+          {
+            "function": "compileForInternalLoader",
+            "samples": 6,
+            "sample_fraction": 0.0003897875657766517
+          },
+          {
+            "function": "function39",
+            "samples": 3,
+            "sample_fraction": 0.00019489378288832586
+          },
+          {
+            "function": "(idle)",
+            "samples": 2,
+            "sample_fraction": 0.00012992918859221724
+          },
+          {
+            "function": "adapter201",
+            "samples": 2,
+            "sample_fraction": 0.00012992918859221724
+          },
+          {
+            "function": "(program)",
+            "samples": 1,
+            "sample_fraction": 6.496459429610862e-05
+          },
+          {
+            "function": "getPathFromURLPosix",
+            "samples": 1,
+            "sample_fraction": 6.496459429610862e-05
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    },
+    "on": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 21.092007934988942,
+        "seconds": 20.691867297,
+        "name": "lattice:44:10",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/on/lattice",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/program.wasm"
+        ],
+        "label": "on",
+        "benchmark": "lattice",
+        "recorded_at_utc": "2026-10-13T05:18:42.005891+00:00",
+        "module_sha256": "90c4cc092a4f91b50ed8551277bc6c2537154b503452d4483f1711f580cd43e2",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 8408,
+        "types": {
+          "s": 8408
+        },
+        "pause_printed_sum_milliseconds": 19.1,
+        "pause_rounding_interval_milliseconds": [
+          10.700000000000001,
+          439.5
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 282.23,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          240.19,
+          324.27
+        ],
+        "allocated_bytes_reported_at_gc": 51916202512,
+        "last_live_object_bytes": 6823680,
+        "maximum_start_object_bytes": 23597760,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 19528,
+        "duration_microseconds": 20719962,
+        "self_sample_top_30": [
+          {
+            "function": "function31",
+            "samples": 4515,
+            "sample_fraction": 0.23120647275706677
+          },
+          {
+            "function": "function166",
+            "samples": 4450,
+            "sample_fraction": 0.22787791888570258
+          },
+          {
+            "function": "adapter218",
+            "samples": 2333,
+            "sample_fraction": 0.11946947972142564
+          },
+          {
+            "function": "eqv",
+            "samples": 2135,
+            "sample_fraction": 0.10933019254403933
+          },
+          {
+            "function": "function163",
+            "samples": 1498,
+            "sample_fraction": 0.07671036460467022
+          },
+          {
+            "function": "specialized508",
+            "samples": 1269,
+            "sample_fraction": 0.06498361327324867
+          },
+          {
+            "function": "function162",
+            "samples": 737,
+            "sample_fraction": 0.03774068004916018
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 352,
+            "sample_fraction": 0.018025399426464563
+          },
+          {
+            "function": "pair_car",
+            "samples": 340,
+            "sample_fraction": 0.017410897173289634
+          },
+          {
+            "function": "adapter191",
+            "samples": 207,
+            "sample_fraction": 0.010600163867267514
+          },
+          {
+            "function": "function381",
+            "samples": 206,
+            "sample_fraction": 0.010548955346169602
+          },
+          {
+            "function": "pair_cdr",
+            "samples": 205,
+            "sample_fraction": 0.010497746825071692
+          },
+          {
+            "function": "specialized562",
+            "samples": 202,
+            "sample_fraction": 0.01034412126177796
+          },
+          {
+            "function": "function174",
+            "samples": 127,
+            "sample_fraction": 0.006503482179434658
+          },
+          {
+            "function": "function30",
+            "samples": 125,
+            "sample_fraction": 0.006401065137238837
+          },
+          {
+            "function": "function377",
+            "samples": 108,
+            "sample_fraction": 0.005530520278574355
+          },
+          {
+            "function": "adapter194",
+            "samples": 102,
+            "sample_fraction": 0.005223269151986891
+          },
+          {
+            "function": "adapter386",
+            "samples": 101,
+            "sample_fraction": 0.00517206063088898
+          },
+          {
+            "function": "function183",
+            "samples": 101,
+            "sample_fraction": 0.00517206063088898
+          },
+          {
+            "function": "adapter193",
+            "samples": 94,
+            "sample_fraction": 0.004813600983203605
+          },
+          {
+            "function": "specialized507",
+            "samples": 80,
+            "sample_fraction": 0.004096681687832855
+          },
+          {
+            "function": "specialized382",
+            "samples": 38,
+            "sample_fraction": 0.0019459238017206064
+          },
+          {
+            "function": "function38",
+            "samples": 37,
+            "sample_fraction": 0.0018947152806226956
+          },
+          {
+            "function": "function195",
+            "samples": 32,
+            "sample_fraction": 0.0016386726751331422
+          },
+          {
+            "function": "adapter378",
+            "samples": 32,
+            "sample_fraction": 0.0016386726751331422
+          },
+          {
+            "function": "specialized389",
+            "samples": 22,
+            "sample_fraction": 0.0011265874641540352
+          },
+          {
+            "function": "adapter166",
+            "samples": 21,
+            "sample_fraction": 0.0010753789430561246
+          },
+          {
+            "function": "function203",
+            "samples": 11,
+            "sample_fraction": 0.0005632937320770176
+          },
+          {
+            "function": "adapter197",
+            "samples": 10,
+            "sample_fraction": 0.0005120852109791069
+          },
+          {
+            "function": "compileForInternalLoader",
+            "samples": 6,
+            "sample_fraction": 0.0003072511265874642
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    },
+    "split": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 21.113304884987883,
+        "seconds": 20.715033578,
+        "name": "lattice:44:10",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/split/lattice",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-regression-22c2006-20261012/build/pair-reader-split-prepared/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-regression-22c2006-20261012/build/pair-reader-split-prepared/cases/lattice/snail-wasm/program.wasm"
+        ],
+        "label": "split",
+        "benchmark": "lattice",
+        "recorded_at_utc": "2026-10-13T05:19:03.488680+00:00",
+        "module_sha256": "30404fc83f2274a2ae082a0e8b9af692058e9466389363064bd10f2b88e4ec63",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 8408,
+        "types": {
+          "s": 8408
+        },
+        "pause_printed_sum_milliseconds": 20.7,
+        "pause_rounding_interval_milliseconds": [
+          11.75,
+          441.1
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 285.39,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          243.35,
+          327.42999999999995
+        ],
+        "allocated_bytes_reported_at_gc": 51916203616,
+        "last_live_object_bytes": 6823896,
+        "maximum_start_object_bytes": 23597976,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 19544,
+        "duration_microseconds": 20743090,
+        "self_sample_top_30": [
+          {
+            "function": "function31",
+            "samples": 4499,
+            "sample_fraction": 0.2301985264019648
+          },
+          {
+            "function": "function166",
+            "samples": 4436,
+            "sample_fraction": 0.22697503069995906
+          },
+          {
+            "function": "adapter218",
+            "samples": 2348,
+            "sample_fraction": 0.12013917314776913
+          },
+          {
+            "function": "eqv",
+            "samples": 2030,
+            "sample_fraction": 0.10386819484240688
+          },
+          {
+            "function": "function163",
+            "samples": 1604,
+            "sample_fraction": 0.0820712239050348
+          },
+          {
+            "function": "specialized508",
+            "samples": 1270,
+            "sample_fraction": 0.06498158002455996
+          },
+          {
+            "function": "function162",
+            "samples": 747,
+            "sample_fraction": 0.03822144903806795
+          },
+          {
+            "function": "pair_car",
+            "samples": 367,
+            "sample_fraction": 0.018778141629144495
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 357,
+            "sample_fraction": 0.018266475644699142
+          },
+          {
+            "function": "pair_cdr",
+            "samples": 248,
+            "sample_fraction": 0.012689316414244782
+          },
+          {
+            "function": "adapter191",
+            "samples": 220,
+            "sample_fraction": 0.01125665165779779
+          },
+          {
+            "function": "function381",
+            "samples": 218,
+            "sample_fraction": 0.011154318460908719
+          },
+          {
+            "function": "specialized562",
+            "samples": 200,
+            "sample_fraction": 0.010233319688907082
+          },
+          {
+            "function": "adapter194",
+            "samples": 113,
+            "sample_fraction": 0.005781825624232501
+          },
+          {
+            "function": "function30",
+            "samples": 97,
+            "sample_fraction": 0.004963160049119934
+          },
+          {
+            "function": "function377",
+            "samples": 93,
+            "sample_fraction": 0.004758493655341793
+          },
+          {
+            "function": "function174",
+            "samples": 92,
+            "sample_fraction": 0.004707327056897258
+          },
+          {
+            "function": "adapter386",
+            "samples": 92,
+            "sample_fraction": 0.004707327056897258
+          },
+          {
+            "function": "specialized507",
+            "samples": 90,
+            "sample_fraction": 0.004604993860008187
+          },
+          {
+            "function": "adapter193",
+            "samples": 87,
+            "sample_fraction": 0.00445149406467458
+          },
+          {
+            "function": "function183",
+            "samples": 86,
+            "sample_fraction": 0.004400327466230045
+          },
+          {
+            "function": "function195",
+            "samples": 37,
+            "sample_fraction": 0.00189316414244781
+          },
+          {
+            "function": "specialized389",
+            "samples": 36,
+            "sample_fraction": 0.0018419975440032747
+          },
+          {
+            "function": "specialized382",
+            "samples": 35,
+            "sample_fraction": 0.0017908309455587394
+          },
+          {
+            "function": "function38",
+            "samples": 24,
+            "sample_fraction": 0.0012279983626688497
+          },
+          {
+            "function": "adapter166",
+            "samples": 23,
+            "sample_fraction": 0.0011768317642243144
+          },
+          {
+            "function": "adapter197",
+            "samples": 21,
+            "sample_fraction": 0.0010744985673352436
+          },
+          {
+            "function": "adapter378",
+            "samples": 20,
+            "sample_fraction": 0.001023331968890708
+          },
+          {
+            "function": "function203",
+            "samples": 8,
+            "sample_fraction": 0.00040933278755628325
+          },
+          {
+            "function": "compileForInternalLoader",
+            "samples": 7,
+            "sample_fraction": 0.00035816618911174784
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    }
+  },
+  "graphs": {
+    "on": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 8.65680407200125,
+        "seconds": 8.583472433,
+        "name": "graphs:7:3",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/on/graphs",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/program.wasm"
+        ],
+        "label": "on",
+        "benchmark": "graphs",
+        "recorded_at_utc": "2026-10-13T05:19:12.515813+00:00",
+        "module_sha256": "11c61ab8e52deae41f0ceb493bac2a4447afbc23f15ae2211c2535c02af687db",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 2340,
+        "types": {
+          "s": 2337,
+          "mc": 3
+        },
+        "pause_printed_sum_milliseconds": 391.40000000000003,
+        "pause_rounding_interval_milliseconds": [
+          312.70000000000005,
+          508.40000000000003
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 381.91,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          370.225,
+          393.595
+        ],
+        "allocated_bytes_reported_at_gc": 62537070336,
+        "last_live_object_bytes": 5232096,
+        "maximum_start_object_bytes": 190314416,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 8123,
+        "duration_microseconds": 8614147,
+        "self_sample_top_30": [
+          {
+            "function": "adapter209",
+            "samples": 1572,
+            "sample_fraction": 0.19352455989166564
+          },
+          {
+            "function": "function482",
+            "samples": 1348,
+            "sample_fraction": 0.16594854117936722
+          },
+          {
+            "function": "function31",
+            "samples": 930,
+            "sample_fraction": 0.11448972054659609
+          },
+          {
+            "function": "function453",
+            "samples": 875,
+            "sample_fraction": 0.10771882309491568
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 431,
+            "sample_fraction": 0.0530592145758956
+          },
+          {
+            "function": "eqv",
+            "samples": 347,
+            "sample_fraction": 0.0427182075587837
+          },
+          {
+            "function": "vector_ref",
+            "samples": 331,
+            "sample_fraction": 0.04074849193647667
+          },
+          {
+            "function": "adapter458",
+            "samples": 292,
+            "sample_fraction": 0.03594731010710329
+          },
+          {
+            "function": "function491",
+            "samples": 221,
+            "sample_fraction": 0.027206697033115845
+          },
+          {
+            "function": "numeric_equal",
+            "samples": 213,
+            "sample_fraction": 0.02622183922196233
+          },
+          {
+            "function": "function878",
+            "samples": 201,
+            "sample_fraction": 0.024744552505232057
+          },
+          {
+            "function": "adapter450",
+            "samples": 197,
+            "sample_fraction": 0.024252123599655298
+          },
+          {
+            "function": "specialized821",
+            "samples": 163,
+            "sample_fraction": 0.020066477902252862
+          },
+          {
+            "function": "function196",
+            "samples": 158,
+            "sample_fraction": 0.019450941770281914
+          },
+          {
+            "function": "adapter452",
+            "samples": 127,
+            "sample_fraction": 0.015634617752062045
+          },
+          {
+            "function": "function435",
+            "samples": 61,
+            "sample_fraction": 0.00750954081004555
+          },
+          {
+            "function": "pair_car",
+            "samples": 60,
+            "sample_fraction": 0.00738643358365136
+          },
+          {
+            "function": "function423",
+            "samples": 45,
+            "sample_fraction": 0.00553982518773852
+          },
+          {
+            "function": "adapter237",
+            "samples": 43,
+            "sample_fraction": 0.005293610734950141
+          },
+          {
+            "function": "specialized436",
+            "samples": 36,
+            "sample_fraction": 0.0044318601501908165
+          },
+          {
+            "function": "function444",
+            "samples": 35,
+            "sample_fraction": 0.004308752923796627
+          },
+          {
+            "function": "function231",
+            "samples": 34,
+            "sample_fraction": 0.004185645697402438
+          },
+          {
+            "function": "adapter267",
+            "samples": 26,
+            "sample_fraction": 0.003200787886248923
+          },
+          {
+            "function": "pair:read1:0",
+            "samples": 25,
+            "sample_fraction": 0.0030776806598547335
+          },
+          {
+            "function": "adapter269",
+            "samples": 25,
+            "sample_fraction": 0.0030776806598547335
+          },
+          {
+            "function": "pair:read1:1",
+            "samples": 24,
+            "sample_fraction": 0.002954573433460544
+          },
+          {
+            "function": "adapter238",
+            "samples": 23,
+            "sample_fraction": 0.002831466207066355
+          },
+          {
+            "function": "vector_set:integer",
+            "samples": 23,
+            "sample_fraction": 0.002831466207066355
+          },
+          {
+            "function": "adapter878",
+            "samples": 22,
+            "sample_fraction": 0.0027083589806721656
+          },
+          {
+            "function": "vector_store",
+            "samples": 18,
+            "sample_fraction": 0.0022159300750954083
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    },
+    "split": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 8.35540047698305,
+        "seconds": 8.285245331,
+        "name": "graphs:7:3",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/split/graphs",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-regression-22c2006-20261012/build/pair-reader-split-prepared/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-regression-22c2006-20261012/build/pair-reader-split-prepared/cases/graphs/snail-wasm/program.wasm"
+        ],
+        "label": "split",
+        "benchmark": "graphs",
+        "recorded_at_utc": "2026-10-13T05:19:20.903874+00:00",
+        "module_sha256": "85f6ed096d8c3ae9f600d3b03c68228da493e9194340966426492e6f902455f3",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 2327,
+        "types": {
+          "s": 2325,
+          "mc": 2
+        },
+        "pause_printed_sum_milliseconds": 395.90000000000003,
+        "pause_rounding_interval_milliseconds": [
+          317.3,
+          512.25
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 384.15,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          372.525,
+          395.775
+        ],
+        "allocated_bytes_reported_at_gc": 62535645128,
+        "last_live_object_bytes": 123287904,
+        "maximum_start_object_bytes": 190354168,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 7836,
+        "duration_microseconds": 8312316,
+        "self_sample_top_30": [
+          {
+            "function": "adapter209",
+            "samples": 1580,
+            "sample_fraction": 0.20163348647269014
+          },
+          {
+            "function": "function482",
+            "samples": 1354,
+            "sample_fraction": 0.17279224093925472
+          },
+          {
+            "function": "function31",
+            "samples": 916,
+            "sample_fraction": 0.11689637570188872
+          },
+          {
+            "function": "function453",
+            "samples": 878,
+            "sample_fraction": 0.11204696273608984
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 434,
+            "sample_fraction": 0.05538540071465033
+          },
+          {
+            "function": "eqv",
+            "samples": 323,
+            "sample_fraction": 0.041220010209290454
+          },
+          {
+            "function": "vector_ref",
+            "samples": 273,
+            "sample_fraction": 0.034839203675344564
+          },
+          {
+            "function": "adapter458",
+            "samples": 265,
+            "sample_fraction": 0.03381827462991322
+          },
+          {
+            "function": "adapter450",
+            "samples": 203,
+            "sample_fraction": 0.025906074527820316
+          },
+          {
+            "function": "numeric_equal",
+            "samples": 202,
+            "sample_fraction": 0.0257784583971414
+          },
+          {
+            "function": "function878",
+            "samples": 195,
+            "sample_fraction": 0.024885145482388973
+          },
+          {
+            "function": "specialized821",
+            "samples": 172,
+            "sample_fraction": 0.021949974476773864
+          },
+          {
+            "function": "function491",
+            "samples": 162,
+            "sample_fraction": 0.020673813169984685
+          },
+          {
+            "function": "function196",
+            "samples": 147,
+            "sample_fraction": 0.01875957120980092
+          },
+          {
+            "function": "adapter452",
+            "samples": 115,
+            "sample_fraction": 0.014675855028075549
+          },
+          {
+            "function": "function435",
+            "samples": 58,
+            "sample_fraction": 0.007401735579377233
+          },
+          {
+            "function": "specialized436",
+            "samples": 46,
+            "sample_fraction": 0.00587034201123022
+          },
+          {
+            "function": "adapter237",
+            "samples": 45,
+            "sample_fraction": 0.005742725880551302
+          },
+          {
+            "function": "function444",
+            "samples": 42,
+            "sample_fraction": 0.005359877488514548
+          },
+          {
+            "function": "function423",
+            "samples": 34,
+            "sample_fraction": 0.004338948443083206
+          },
+          {
+            "function": "vector_set:integer",
+            "samples": 32,
+            "sample_fraction": 0.00408371618172537
+          },
+          {
+            "function": "adapter269",
+            "samples": 28,
+            "sample_fraction": 0.0035732516590096988
+          },
+          {
+            "function": "function231",
+            "samples": 28,
+            "sample_fraction": 0.0035732516590096988
+          },
+          {
+            "function": "adapter878",
+            "samples": 25,
+            "sample_fraction": 0.0031904032669729456
+          },
+          {
+            "function": "pair:read1:1",
+            "samples": 24,
+            "sample_fraction": 0.0030627871362940277
+          },
+          {
+            "function": "adapter267",
+            "samples": 22,
+            "sample_fraction": 0.002807554874936192
+          },
+          {
+            "function": "adapter238",
+            "samples": 20,
+            "sample_fraction": 0.002552322613578356
+          },
+          {
+            "function": "vector_store",
+            "samples": 14,
+            "sample_fraction": 0.0017866258295048494
+          },
+          {
+            "function": "function242",
+            "samples": 12,
+            "sample_fraction": 0.0015313935681470138
+          },
+          {
+            "function": "adapter239",
+            "samples": 11,
+            "sample_fraction": 0.001403777437468096
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    },
+    "baseline": {
+      "execution": {
+        "status": "ok",
+        "returncode": 0,
+        "wall_seconds": 7.819087595999008,
+        "seconds": 7.76007548,
+        "name": "graphs:7:3",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "--cpu-prof",
+          "--trace-gc-nvp",
+          "--cpu-prof-dir=/tmp/snail-container-regression-22c2006-20261012/build/paired-sampling/baseline/graphs",
+          "--cpu-prof-name=profile.cpuprofile",
+          "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/host/scripts/run-wasi.mjs",
+          "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/snail-wasm/program.wasm"
+        ],
+        "label": "baseline",
+        "benchmark": "graphs",
+        "recorded_at_utc": "2026-10-13T05:19:28.754118+00:00",
+        "module_sha256": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+        "host_sha256": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+        "scope": "Whole fresh process, CPU profiler and GC trace together, original immutable module, no request probes. Initialization/checks included. Durations excluded from clean comparisons."
+      },
+      "gc": {
+        "events": 2604,
+        "types": {
+          "s": 2601,
+          "mc": 3
+        },
+        "pause_printed_sum_milliseconds": 349.1,
+        "pause_rounding_interval_milliseconds": [
+          263.85,
+          479.3
+        ],
+        "scavenge_phase_printed_sum_milliseconds": 346.45,
+        "scavenge_phase_rounding_interval_milliseconds": [
+          333.445,
+          359.455
+        ],
+        "allocated_bytes_reported_at_gc": 64874175160,
+        "last_live_object_bytes": 5221256,
+        "maximum_start_object_bytes": 137282896,
+        "trace_semantics_source": "https://github.com/nodejs/node/blob/v24.19.0/deps/v8/src/heap/gc-tracer.cc",
+        "allocated_definition": "current.start_object_size minus previous.end_object_size, summed at GC events. Includes V8 object allocations over the whole process, excludes final uncollected allocation and Rust allocations inside Wasm linear memory.",
+        "scope": "V8 GC events over the complete process. Final uncollected allocation is absent; pause measures stop-the-world wall duration, rounded to 0.1 ms per event. scavenge is an included phase, rounded to 0.01 ms; do not sum it with pause. Neither duration includes all background/concurrent GC CPU time."
+      },
+      "cpu_profile": {
+        "samples": 7360,
+        "duration_microseconds": 7790654,
+        "self_sample_top_30": [
+          {
+            "function": "function217",
+            "samples": 1506,
+            "sample_fraction": 0.2046195652173913
+          },
+          {
+            "function": "adapter208",
+            "samples": 1457,
+            "sample_fraction": 0.19796195652173912
+          },
+          {
+            "function": "function31",
+            "samples": 1210,
+            "sample_fraction": 0.1644021739130435
+          },
+          {
+            "function": "function199",
+            "samples": 746,
+            "sample_fraction": 0.10135869565217391
+          },
+          {
+            "function": "adapter203",
+            "samples": 478,
+            "sample_fraction": 0.06494565217391304
+          },
+          {
+            "function": "(garbage collector)",
+            "samples": 387,
+            "sample_fraction": 0.05258152173913044
+          },
+          {
+            "function": "numeric_equal",
+            "samples": 228,
+            "sample_fraction": 0.03097826086956522
+          },
+          {
+            "function": "adapter202",
+            "samples": 224,
+            "sample_fraction": 0.030434782608695653
+          },
+          {
+            "function": "function233",
+            "samples": 142,
+            "sample_fraction": 0.019293478260869565
+          },
+          {
+            "function": "function195",
+            "samples": 141,
+            "sample_fraction": 0.019157608695652174
+          },
+          {
+            "function": "adapter197",
+            "samples": 127,
+            "sample_fraction": 0.017255434782608697
+          },
+          {
+            "function": "adapter727",
+            "samples": 87,
+            "sample_fraction": 0.011820652173913043
+          },
+          {
+            "function": "specialized725",
+            "samples": 85,
+            "sample_fraction": 0.01154891304347826
+          },
+          {
+            "function": "function180",
+            "samples": 71,
+            "sample_fraction": 0.009646739130434782
+          },
+          {
+            "function": "specialized426",
+            "samples": 59,
+            "sample_fraction": 0.008016304347826088
+          },
+          {
+            "function": "adapter236",
+            "samples": 53,
+            "sample_fraction": 0.007201086956521739
+          },
+          {
+            "function": "function191",
+            "samples": 43,
+            "sample_fraction": 0.005842391304347826
+          },
+          {
+            "function": "function166",
+            "samples": 41,
+            "sample_fraction": 0.005570652173913043
+          },
+          {
+            "function": "adapter266",
+            "samples": 24,
+            "sample_fraction": 0.003260869565217391
+          },
+          {
+            "function": "adapter268",
+            "samples": 24,
+            "sample_fraction": 0.003260869565217391
+          },
+          {
+            "function": "function230",
+            "samples": 21,
+            "sample_fraction": 0.0028532608695652174
+          },
+          {
+            "function": "function241",
+            "samples": 21,
+            "sample_fraction": 0.0028532608695652174
+          },
+          {
+            "function": "adapter254",
+            "samples": 20,
+            "sample_fraction": 0.002717391304347826
+          },
+          {
+            "function": "adapter207",
+            "samples": 15,
+            "sample_fraction": 0.0020380434782608695
+          },
+          {
+            "function": "adapter237",
+            "samples": 14,
+            "sample_fraction": 0.0019021739130434783
+          },
+          {
+            "function": "adapter183",
+            "samples": 10,
+            "sample_fraction": 0.001358695652173913
+          },
+          {
+            "function": "function163",
+            "samples": 10,
+            "sample_fraction": 0.001358695652173913
+          },
+          {
+            "function": "adapter238",
+            "samples": 9,
+            "sample_fraction": 0.0012228260869565218
+          },
+          {
+            "function": "function21",
+            "samples": 9,
+            "sample_fraction": 0.0012228260869565218
+          },
+          {
+            "function": "function42",
+            "samples": 9,
+            "sample_fraction": 0.0012228260869565218
+          }
+        ],
+        "scope": "Whole-process 1 ms sampling; percentages are sampled stacks, not exact cost fractions."
+      }
+    }
+  }
+}

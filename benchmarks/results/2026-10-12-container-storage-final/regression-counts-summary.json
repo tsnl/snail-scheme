@@ -1,0 +1,7368 @@
+{
+  "scope": "Counter-only fulloriginal-input runs, separate from clean andCPU/GC observers. Retained type names plus actualshapes, not all semantic roles: legacy eqref arrays carry arguments/environments/publicvectors; canonicalizednumericstructs may carryboxes orcaptures. Constructor totals are reachedrequests, not physicalallocation.",
+  "rows": [
+    {
+      "variant": "baseline",
+      "benchmark": "lattice",
+      "constructor_request_total": 1428346780,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$vector"
+          ],
+          "requests": 978501033,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 225416745,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$cell"
+          ],
+          "requests": 200909832,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref struct)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair"
+          ],
+          "requests": 23518881,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$vector"
+          ],
+          "requests": 260,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 685124914,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_55",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 2051078150
+        },
+        {
+          "export": "__snail_probe_436",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 1798075510
+        },
+        {
+          "export": "__snail_probe_587",
+          "key": [
+            "function-entry",
+            "$function165"
+          ],
+          "static_sites": 1,
+          "requests": 452644100
+        },
+        {
+          "export": "__snail_probe_829",
+          "key": [
+            "function-entry",
+            "$adapter217"
+          ],
+          "static_sites": 1,
+          "requests": 359609320
+        },
+        {
+          "export": "__snail_probe_562",
+          "key": [
+            "function-entry",
+            "$function162"
+          ],
+          "static_sites": 1,
+          "requests": 325246160
+        },
+        {
+          "export": "__snail_probe_602",
+          "key": [
+            "function-entry",
+            "$adapter165"
+          ],
+          "static_sites": 1,
+          "requests": 239802640
+        },
+        {
+          "export": "__snail_probe_426",
+          "key": [
+            "function-entry",
+            "$function30"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_700",
+          "key": [
+            "function-entry",
+            "$function185"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1000",
+          "key": [
+            "function-entry",
+            "$adapter380"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1064",
+          "key": [
+            "function-entry",
+            "$specialized519"
+          ],
+          "static_sites": 1,
+          "requests": 25627940
+        },
+        {
+          "export": "__snail_probe_719",
+          "key": [
+            "function-entry",
+            "$function182"
+          ],
+          "static_sites": 1,
+          "requests": 18292410
+        },
+        {
+          "export": "__snail_probe_621",
+          "key": [
+            "function-entry",
+            "$function173"
+          ],
+          "static_sites": 1,
+          "requests": 17086630
+        },
+        {
+          "export": "__snail_probe_1016",
+          "key": [
+            "function-entry",
+            "$adapter379"
+          ],
+          "static_sites": 1,
+          "requests": 15533060
+        },
+        {
+          "export": "__snail_probe_648",
+          "key": [
+            "function-entry",
+            "$function177"
+          ],
+          "static_sites": 1,
+          "requests": 15239710
+        },
+        {
+          "export": "__snail_probe_1022",
+          "key": [
+            "function-entry",
+            "$adapter387"
+          ],
+          "static_sites": 1,
+          "requests": 12813970
+        },
+        {
+          "export": "__snail_probe_1032",
+          "key": [
+            "function-entry",
+            "$adapter388"
+          ],
+          "static_sites": 1,
+          "requests": 12813970
+        },
+        {
+          "export": "__snail_probe_664",
+          "key": [
+            "function-entry",
+            "$adapter178"
+          ],
+          "static_sites": 1,
+          "requests": 4660710
+        },
+        {
+          "export": "__snail_probe_467",
+          "key": [
+            "function-entry",
+            "$function38"
+          ],
+          "static_sites": 1,
+          "requests": 4312920
+        },
+        {
+          "export": "__snail_probe_819",
+          "key": [
+            "function-entry",
+            "$function202"
+          ],
+          "static_sites": 1,
+          "requests": 4312550
+        },
+        {
+          "export": "__snail_probe_1078",
+          "key": [
+            "function-entry",
+            "$specialized521"
+          ],
+          "static_sites": 1,
+          "requests": 3107140
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "baseline",
+      "benchmark": "graphs",
+      "constructor_request_total": 1454167266,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$vector"
+          ],
+          "requests": 841132396,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 344245400,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$cell"
+          ],
+          "requests": 164093143,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref struct)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair"
+          ],
+          "requests": 103527430,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$vector"
+          ],
+          "requests": 1168875,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 392345737,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_53",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 261175719
+        },
+        {
+          "export": "__snail_probe_402",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 261154734
+        },
+        {
+          "export": "__snail_probe_31",
+          "key": [
+            "function-entry",
+            "$numeric_equal"
+          ],
+          "static_sites": 1,
+          "requests": 191190232
+        },
+        {
+          "export": "__snail_probe_798",
+          "key": [
+            "function-entry",
+            "$function217"
+          ],
+          "static_sites": 1,
+          "requests": 162800067
+        },
+        {
+          "export": "__snail_probe_806",
+          "key": [
+            "function-entry",
+            "$adapter217"
+          ],
+          "static_sites": 1,
+          "requests": 96956064
+        },
+        {
+          "export": "__snail_probe_701",
+          "key": [
+            "function-entry",
+            "$function199"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_749",
+          "key": [
+            "function-entry",
+            "$adapter208"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_679",
+          "key": [
+            "function-entry",
+            "$adapter203"
+          ],
+          "static_sites": 1,
+          "requests": 68253318
+        },
+        {
+          "export": "__snail_probe_1223",
+          "key": [
+            "function-entry",
+            "$specialized725"
+          ],
+          "static_sites": 1,
+          "requests": 30944520
+        },
+        {
+          "export": "__snail_probe_718",
+          "key": [
+            "function-entry",
+            "$function195"
+          ],
+          "static_sites": 1,
+          "requests": 29264052
+        },
+        {
+          "export": "__snail_probe_689",
+          "key": [
+            "function-entry",
+            "$adapter202"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1233",
+          "key": [
+            "function-entry",
+            "$adapter727"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_711",
+          "key": [
+            "function-entry",
+            "$adapter197"
+          ],
+          "static_sites": 1,
+          "requests": 27980124
+        },
+        {
+          "export": "__snail_probe_610",
+          "key": [
+            "function-entry",
+            "$function180"
+          ],
+          "static_sites": 1,
+          "requests": 13834317
+        },
+        {
+          "export": "__snail_probe_992",
+          "key": [
+            "function-entry",
+            "$adapter268"
+          ],
+          "static_sites": 1,
+          "requests": 8693874
+        },
+        {
+          "export": "__snail_probe_649",
+          "key": [
+            "function-entry",
+            "$function191"
+          ],
+          "static_sites": 1,
+          "requests": 7415553
+        },
+        {
+          "export": "__snail_probe_860",
+          "key": [
+            "function-entry",
+            "$adapter237"
+          ],
+          "static_sites": 1,
+          "requests": 6417570
+        },
+        {
+          "export": "__snail_probe_1170",
+          "key": [
+            "function-entry",
+            "$specialized426"
+          ],
+          "static_sites": 1,
+          "requests": 6121407
+        },
+        {
+          "export": "__snail_probe_661",
+          "key": [
+            "function-entry",
+            "$adapter191"
+          ],
+          "static_sites": 1,
+          "requests": 5461998
+        },
+        {
+          "export": "__snail_probe_664",
+          "key": [
+            "function-entry",
+            "$function189"
+          ],
+          "static_sites": 1,
+          "requests": 5461998
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "off",
+      "benchmark": "lattice",
+      "constructor_request_total": 3528017566,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 2801589568,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 225416740,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$cell"
+          ],
+          "requests": 200909832,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref struct)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment163"
+          ],
+          "requests": 180716180,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment178"
+          ],
+          "requests": 49611880,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 23518881,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 21399781,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment16"
+          ],
+          "requests": 15532940,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment48"
+          ],
+          "requests": 3107140,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment64"
+          ],
+          "requests": 1553571,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment27"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment67"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment74"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 260,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 51,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $slots)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment8"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment250"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 2786349444,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_0",
+          "key": [
+            "function-entry",
+            "$single"
+          ],
+          "static_sites": 1,
+          "requests": 30908324995
+        },
+        {
+          "export": "__snail_probe_348",
+          "key": [
+            "function-entry",
+            "$function28"
+          ],
+          "static_sites": 1,
+          "requests": 2799297480
+        },
+        {
+          "export": "__snail_probe_52",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 2051078150
+        },
+        {
+          "export": "__snail_probe_213",
+          "key": [
+            "function-entry",
+            "$primitive42"
+          ],
+          "static_sites": 1,
+          "requests": 2051078150
+        },
+        {
+          "export": "__snail_probe_490",
+          "key": [
+            "function-entry",
+            "$function166"
+          ],
+          "static_sites": 1,
+          "requests": 452644100
+        },
+        {
+          "export": "__snail_probe_700",
+          "key": [
+            "function-entry",
+            "$adapter218"
+          ],
+          "static_sites": 1,
+          "requests": 359609320
+        },
+        {
+          "export": "__snail_probe_464",
+          "key": [
+            "function-entry",
+            "$function163"
+          ],
+          "static_sites": 1,
+          "requests": 325246160
+        },
+        {
+          "export": "__snail_probe_508",
+          "key": [
+            "function-entry",
+            "$adapter166"
+          ],
+          "static_sites": 1,
+          "requests": 239802640
+        },
+        {
+          "export": "__snail_probe_209",
+          "key": [
+            "function-entry",
+            "$primitive41"
+          ],
+          "static_sites": 1,
+          "requests": 50146380
+        },
+        {
+          "export": "__snail_probe_870",
+          "key": [
+            "function-entry",
+            "$function381"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_931",
+          "key": [
+            "function-entry",
+            "$adapter387"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1027",
+          "key": [
+            "function-entry",
+            "$specialized562"
+          ],
+          "static_sites": 1,
+          "requests": 25627940
+        },
+        {
+          "export": "__snail_probe_577",
+          "key": [
+            "function-entry",
+            "$function183"
+          ],
+          "static_sites": 1,
+          "requests": 18292410
+        },
+        {
+          "export": "__snail_probe_524",
+          "key": [
+            "function-entry",
+            "$function174"
+          ],
+          "static_sites": 1,
+          "requests": 17086630
+        },
+        {
+          "export": "__snail_probe_949",
+          "key": [
+            "function-entry",
+            "$adapter386"
+          ],
+          "static_sites": 1,
+          "requests": 15533060
+        },
+        {
+          "export": "__snail_probe_841",
+          "key": [
+            "function-entry",
+            "$function377"
+          ],
+          "static_sites": 1,
+          "requests": 15239710
+        },
+        {
+          "export": "__snail_probe_957",
+          "key": [
+            "function-entry",
+            "$adapter394"
+          ],
+          "static_sites": 1,
+          "requests": 12813970
+        },
+        {
+          "export": "__snail_probe_968",
+          "key": [
+            "function-entry",
+            "$adapter395"
+          ],
+          "static_sites": 1,
+          "requests": 12813970
+        },
+        {
+          "export": "__snail_probe_861",
+          "key": [
+            "function-entry",
+            "$adapter378"
+          ],
+          "static_sites": 1,
+          "requests": 4660710
+        },
+        {
+          "export": "__snail_probe_384",
+          "key": [
+            "function-entry",
+            "$function38"
+          ],
+          "static_sites": 1,
+          "requests": 4312920
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "off",
+      "benchmark": "graphs",
+      "constructor_request_total": 1714954085,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 653517581,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 344245400,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment96"
+          ],
+          "requests": 166322613,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$cell"
+          ],
+          "requests": 164093143,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref struct)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 103527430,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment201"
+          ],
+          "requests": 96956064,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment200"
+          ],
+          "requests": 96233442,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment27"
+          ],
+          "requests": 33537783,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment198"
+          ],
+          "requests": 27980124,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment181"
+          ],
+          "requests": 9286068,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 8935528,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 4160866,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment178"
+          ],
+          "requests": 1657392,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 1168878,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $slots)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 1168875,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment66"
+          ],
+          "requests": 735795,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment59"
+          ],
+          "requests": 716829,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment247"
+          ],
+          "requests": 451761,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment74"
+          ],
+          "requests": 178137,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment234"
+          ],
+          "requests": 75336,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment242"
+          ],
+          "requests": 4989,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment8"
+          ],
+          "requests": 24,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment64"
+          ],
+          "requests": 4,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment231"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment296"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $cell)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 653517541,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_0",
+          "key": [
+            "function-entry",
+            "$single"
+          ],
+          "static_sites": 1,
+          "requests": 8269616170
+        },
+        {
+          "export": "__snail_probe_357",
+          "key": [
+            "function-entry",
+            "$function28"
+          ],
+          "static_sites": 1,
+          "requests": 425374389
+        },
+        {
+          "export": "__snail_probe_52",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 261175719
+        },
+        {
+          "export": "__snail_probe_209",
+          "key": [
+            "function-entry",
+            "$primitive42"
+          ],
+          "static_sites": 1,
+          "requests": 261175719
+        },
+        {
+          "export": "__snail_probe_30",
+          "key": [
+            "function-entry",
+            "$numeric_equal"
+          ],
+          "static_sites": 1,
+          "requests": 191190232
+        },
+        {
+          "export": "__snail_probe_1213",
+          "key": [
+            "function-entry",
+            "$function482"
+          ],
+          "static_sites": 1,
+          "requests": 162800067
+        },
+        {
+          "export": "__snail_probe_1228",
+          "key": [
+            "function-entry",
+            "$adapter482"
+          ],
+          "static_sites": 1,
+          "requests": 96956064
+        },
+        {
+          "export": "__snail_probe_608",
+          "key": [
+            "function-entry",
+            "$adapter209"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1185",
+          "key": [
+            "function-entry",
+            "$function454"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1167",
+          "key": [
+            "function-entry",
+            "$adapter458"
+          ],
+          "static_sites": 1,
+          "requests": 68253318
+        },
+        {
+          "export": "__snail_probe_1407",
+          "key": [
+            "function-entry",
+            "$function878"
+          ],
+          "static_sites": 1,
+          "requests": 59020242
+        },
+        {
+          "export": "__snail_probe_576",
+          "key": [
+            "function-entry",
+            "$function196"
+          ],
+          "static_sites": 1,
+          "requests": 29264052
+        },
+        {
+          "export": "__snail_probe_1151",
+          "key": [
+            "function-entry",
+            "$adapter450"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1417",
+          "key": [
+            "function-entry",
+            "$adapter878"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1202",
+          "key": [
+            "function-entry",
+            "$adapter452"
+          ],
+          "static_sites": 1,
+          "requests": 27980124
+        },
+        {
+          "export": "__snail_probe_1109",
+          "key": [
+            "function-entry",
+            "$function435"
+          ],
+          "static_sites": 1,
+          "requests": 13834317
+        },
+        {
+          "export": "__snail_probe_878",
+          "key": [
+            "function-entry",
+            "$adapter269"
+          ],
+          "static_sites": 1,
+          "requests": 8693874
+        },
+        {
+          "export": "__snail_probe_1136",
+          "key": [
+            "function-entry",
+            "$function444"
+          ],
+          "static_sites": 1,
+          "requests": 7415553
+        },
+        {
+          "export": "__snail_probe_740",
+          "key": [
+            "function-entry",
+            "$adapter238"
+          ],
+          "static_sites": 1,
+          "requests": 6417570
+        },
+        {
+          "export": "__snail_probe_1122",
+          "key": [
+            "function-entry",
+            "$specialized436"
+          ],
+          "static_sites": 1,
+          "requests": 6121407
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "on",
+      "benchmark": "lattice",
+      "constructor_request_total": 1411552945,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 685124798,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 225416739,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new_default",
+            "$binding_cell0"
+          ],
+          "requests": 200909832,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref null $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment163"
+          ],
+          "requests": 180716160,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment186"
+          ],
+          "requests": 34372170,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 23518721,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment141"
+          ],
+          "requests": 21399550,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment41"
+          ],
+          "requests": 15532810,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment178"
+          ],
+          "requests": 15239710,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment181"
+          ],
+          "requests": 3107140,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment174"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment188"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment190"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment197"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 260,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment18"
+          ],
+          "requests": 230,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment196"
+          ],
+          "requests": 140,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref struct)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment16"
+          ],
+          "requests": 130,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair:1)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:1"
+          ],
+          "requests": 130,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 31,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment166"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment40"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:2"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $closure)"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$elements:closure"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $closure)"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:3"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $closure)"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref array)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment177"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment139"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment250"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 685124754,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_46",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 2051078150
+        },
+        {
+          "export": "__snail_probe_263",
+          "key": [
+            "function-entry",
+            "$pair_car"
+          ],
+          "static_sites": 1,
+          "requests": 1835555050
+        },
+        {
+          "export": "__snail_probe_524",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 1798075510
+        },
+        {
+          "export": "__snail_probe_1507",
+          "key": [
+            "function-entry",
+            "$specialized508"
+          ],
+          "static_sites": 1,
+          "requests": 938301880
+        },
+        {
+          "export": "__snail_probe_270",
+          "key": [
+            "function-entry",
+            "$pair_cdr"
+          ],
+          "static_sites": 1,
+          "requests": 793953650
+        },
+        {
+          "export": "__snail_probe_730",
+          "key": [
+            "function-entry",
+            "$function166"
+          ],
+          "static_sites": 1,
+          "requests": 452644100
+        },
+        {
+          "export": "__snail_probe_1051",
+          "key": [
+            "function-entry",
+            "$adapter218"
+          ],
+          "static_sites": 1,
+          "requests": 359609320
+        },
+        {
+          "export": "__snail_probe_686",
+          "key": [
+            "function-entry",
+            "$function163"
+          ],
+          "static_sites": 1,
+          "requests": 325246160
+        },
+        {
+          "export": "__snail_probe_754",
+          "key": [
+            "function-entry",
+            "$adapter166"
+          ],
+          "static_sites": 1,
+          "requests": 239802640
+        },
+        {
+          "export": "__snail_probe_713",
+          "key": [
+            "function-entry",
+            "$function162"
+          ],
+          "static_sites": 1,
+          "requests": 180716160
+        },
+        {
+          "export": "__snail_probe_514",
+          "key": [
+            "function-entry",
+            "$function30"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_914",
+          "key": [
+            "function-entry",
+            "$adapter191"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1308",
+          "key": [
+            "function-entry",
+            "$function381"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1491",
+          "key": [
+            "function-entry",
+            "$specialized507"
+          ],
+          "static_sites": 1,
+          "requests": 28547920
+        },
+        {
+          "export": "__snail_probe_1523",
+          "key": [
+            "function-entry",
+            "$specialized562"
+          ],
+          "static_sites": 1,
+          "requests": 25627940
+        },
+        {
+          "export": "__snail_probe_860",
+          "key": [
+            "function-entry",
+            "$function183"
+          ],
+          "static_sites": 1,
+          "requests": 18292410
+        },
+        {
+          "export": "__snail_probe_774",
+          "key": [
+            "function-entry",
+            "$function174"
+          ],
+          "static_sites": 1,
+          "requests": 17086630
+        },
+        {
+          "export": "__snail_probe_1395",
+          "key": [
+            "function-entry",
+            "$adapter386"
+          ],
+          "static_sites": 1,
+          "requests": 15533060
+        },
+        {
+          "export": "__snail_probe_277",
+          "key": [
+            "function-entry",
+            "$pair_set_cdr"
+          ],
+          "static_sites": 1,
+          "requests": 15240070
+        },
+        {
+          "export": "__snail_probe_1276",
+          "key": [
+            "function-entry",
+            "$function377"
+          ],
+          "static_sites": 1,
+          "requests": 15239710
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "on",
+      "benchmark": "graphs",
+      "constructor_request_total": 1453417576,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 392341859,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 344245399,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new_default",
+            "$binding_cell0"
+          ],
+          "requests": 164093143,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref null $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:1"
+          ],
+          "requests": 101303886,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment218"
+          ],
+          "requests": 96956064,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment199"
+          ],
+          "requests": 96233442,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment203"
+          ],
+          "requests": 96233442,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment204"
+          ],
+          "requests": 70089171,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment163"
+          ],
+          "requests": 33537720,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment198"
+          ],
+          "requests": 27980124,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment185"
+          ],
+          "requests": 6121407,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 5462000,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 2219629,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment181"
+          ],
+          "requests": 1976331,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 1657405,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment184"
+          ],
+          "requests": 1657392,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 1448980,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment208"
+          ],
+          "requests": 1188333,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment196"
+          ],
+          "requests": 1188330,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment214"
+          ],
+          "requests": 1188330,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 1168878,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref array)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment239"
+          ],
+          "requests": 1093503,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment44"
+          ],
+          "requests": 722622,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 716832,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment167"
+          ],
+          "requests": 716829,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 452040,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment267"
+          ],
+          "requests": 452016,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment247"
+          ],
+          "requests": 451761,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment250"
+          ],
+          "requests": 178137,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment252"
+          ],
+          "requests": 101007,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment255"
+          ],
+          "requests": 75339,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment234"
+          ],
+          "requests": 75336,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment265"
+          ],
+          "requests": 75336,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment233"
+          ],
+          "requests": 6591,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment242"
+          ],
+          "requests": 4989,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:2"
+          ],
+          "requests": 3915,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment21"
+          ],
+          "requests": 24,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$elements:integer"
+          ],
+          "requests": 6,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i64"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$elements:closure"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $closure)"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment231"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment254"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment260"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment139"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment296"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 392341822,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_98",
+          "key": [
+            "function-entry",
+            "$vector_ref"
+          ],
+          "static_sites": 1,
+          "requests": 390680322
+        },
+        {
+          "export": "__snail_probe_46",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 261175719
+        },
+        {
+          "export": "__snail_probe_277",
+          "key": [
+            "function-entry",
+            "$pair_car"
+          ],
+          "static_sites": 1,
+          "requests": 261154734
+        },
+        {
+          "export": "__snail_probe_513",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 261154734
+        },
+        {
+          "export": "__snail_probe_24",
+          "key": [
+            "function-entry",
+            "$numeric_equal"
+          ],
+          "static_sites": 1,
+          "requests": 186792478
+        },
+        {
+          "export": "__snail_probe_1793",
+          "key": [
+            "function-entry",
+            "$specialized821"
+          ],
+          "static_sites": 1,
+          "requests": 164219655
+        },
+        {
+          "export": "__snail_probe_1649",
+          "key": [
+            "function-entry",
+            "$function482"
+          ],
+          "static_sites": 1,
+          "requests": 162800067
+        },
+        {
+          "export": "__snail_probe_295",
+          "key": [
+            "function-entry",
+            "$pair:read1:1"
+          ],
+          "static_sites": 1,
+          "requests": 128404173
+        },
+        {
+          "export": "__snail_probe_288",
+          "key": [
+            "function-entry",
+            "$pair:read1:0"
+          ],
+          "static_sites": 1,
+          "requests": 127880244
+        },
+        {
+          "export": "__snail_probe_1671",
+          "key": [
+            "function-entry",
+            "$adapter482"
+          ],
+          "static_sites": 1,
+          "requests": 96956064
+        },
+        {
+          "export": "__snail_probe_857",
+          "key": [
+            "function-entry",
+            "$adapter209"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1614",
+          "key": [
+            "function-entry",
+            "$function453"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1594",
+          "key": [
+            "function-entry",
+            "$adapter458"
+          ],
+          "static_sites": 1,
+          "requests": 68253318
+        },
+        {
+          "export": "__snail_probe_1807",
+          "key": [
+            "function-entry",
+            "$function878"
+          ],
+          "static_sites": 1,
+          "requests": 59020242
+        },
+        {
+          "export": "__snail_probe_811",
+          "key": [
+            "function-entry",
+            "$function196"
+          ],
+          "static_sites": 1,
+          "requests": 29264052
+        },
+        {
+          "export": "__snail_probe_81",
+          "key": [
+            "function-entry",
+            "$vector_set:integer"
+          ],
+          "static_sites": 1,
+          "requests": 28960914
+        },
+        {
+          "export": "__snail_probe_1572",
+          "key": [
+            "function-entry",
+            "$adapter450"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1818",
+          "key": [
+            "function-entry",
+            "$adapter878"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1637",
+          "key": [
+            "function-entry",
+            "$adapter452"
+          ],
+          "static_sites": 1,
+          "requests": 27980124
+        },
+        {
+          "export": "__snail_probe_1509",
+          "key": [
+            "function-entry",
+            "$function435"
+          ],
+          "static_sites": 1,
+          "requests": 13834317
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "split",
+      "benchmark": "lattice",
+      "constructor_request_total": 1411552945,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 685124798,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 225416739,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new_default",
+            "$binding_cell0"
+          ],
+          "requests": 200909832,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref null $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment163"
+          ],
+          "requests": 180716160,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment186"
+          ],
+          "requests": 34372170,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 23518721,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment141"
+          ],
+          "requests": 21399550,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment41"
+          ],
+          "requests": 15532810,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment178"
+          ],
+          "requests": 15239710,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment181"
+          ],
+          "requests": 3107140,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment174"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment188"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment190"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment197"
+          ],
+          "requests": 1553570,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 260,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment18"
+          ],
+          "requests": 230,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment196"
+          ],
+          "requests": 140,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref struct)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment16"
+          ],
+          "requests": 130,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $pair:1)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:1"
+          ],
+          "requests": 130,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 31,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment166"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment40"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:2"
+          ],
+          "requests": 20,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $closure)"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$elements:closure"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $closure)"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:3"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $pair)"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref $closure)"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 10,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref array)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment177"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment139"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment250"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 685124754,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_46",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 2051078150
+        },
+        {
+          "export": "__snail_probe_263",
+          "key": [
+            "function-entry",
+            "$pair_car"
+          ],
+          "static_sites": 1,
+          "requests": 1835555050
+        },
+        {
+          "export": "__snail_probe_524",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 1798075510
+        },
+        {
+          "export": "__snail_probe_1507",
+          "key": [
+            "function-entry",
+            "$specialized508"
+          ],
+          "static_sites": 1,
+          "requests": 938301880
+        },
+        {
+          "export": "__snail_probe_270",
+          "key": [
+            "function-entry",
+            "$pair_cdr"
+          ],
+          "static_sites": 1,
+          "requests": 793953650
+        },
+        {
+          "export": "__snail_probe_730",
+          "key": [
+            "function-entry",
+            "$function166"
+          ],
+          "static_sites": 1,
+          "requests": 452644100
+        },
+        {
+          "export": "__snail_probe_1051",
+          "key": [
+            "function-entry",
+            "$adapter218"
+          ],
+          "static_sites": 1,
+          "requests": 359609320
+        },
+        {
+          "export": "__snail_probe_686",
+          "key": [
+            "function-entry",
+            "$function163"
+          ],
+          "static_sites": 1,
+          "requests": 325246160
+        },
+        {
+          "export": "__snail_probe_754",
+          "key": [
+            "function-entry",
+            "$adapter166"
+          ],
+          "static_sites": 1,
+          "requests": 239802640
+        },
+        {
+          "export": "__snail_probe_713",
+          "key": [
+            "function-entry",
+            "$function162"
+          ],
+          "static_sites": 1,
+          "requests": 180716160
+        },
+        {
+          "export": "__snail_probe_514",
+          "key": [
+            "function-entry",
+            "$function30"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_914",
+          "key": [
+            "function-entry",
+            "$adapter191"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1308",
+          "key": [
+            "function-entry",
+            "$function381"
+          ],
+          "static_sites": 1,
+          "requests": 34372170
+        },
+        {
+          "export": "__snail_probe_1491",
+          "key": [
+            "function-entry",
+            "$specialized507"
+          ],
+          "static_sites": 1,
+          "requests": 28547920
+        },
+        {
+          "export": "__snail_probe_1523",
+          "key": [
+            "function-entry",
+            "$specialized562"
+          ],
+          "static_sites": 1,
+          "requests": 25627940
+        },
+        {
+          "export": "__snail_probe_860",
+          "key": [
+            "function-entry",
+            "$function183"
+          ],
+          "static_sites": 1,
+          "requests": 18292410
+        },
+        {
+          "export": "__snail_probe_774",
+          "key": [
+            "function-entry",
+            "$function174"
+          ],
+          "static_sites": 1,
+          "requests": 17086630
+        },
+        {
+          "export": "__snail_probe_1395",
+          "key": [
+            "function-entry",
+            "$adapter386"
+          ],
+          "static_sites": 1,
+          "requests": 15533060
+        },
+        {
+          "export": "__snail_probe_277",
+          "key": [
+            "function-entry",
+            "$pair_set_cdr"
+          ],
+          "static_sites": 1,
+          "requests": 15240070
+        },
+        {
+          "export": "__snail_probe_1276",
+          "key": [
+            "function-entry",
+            "$function377"
+          ],
+          "static_sites": 1,
+          "requests": 15239710
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    },
+    {
+      "variant": "split",
+      "benchmark": "graphs",
+      "constructor_request_total": 1453417576,
+      "constructor_types": [
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$slots"
+          ],
+          "requests": 392341859,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$closure"
+          ],
+          "requests": 344245399,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $call)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "structref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new_default",
+            "$binding_cell0"
+          ],
+          "requests": 164093143,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": true,
+                "storage_type": "(ref null $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:1"
+          ],
+          "requests": 101303886,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment218"
+          ],
+          "requests": 96956064,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment199"
+          ],
+          "requests": 96233442,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment203"
+          ],
+          "requests": 96233442,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment204"
+          ],
+          "requests": 70089171,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment163"
+          ],
+          "requests": 33537720,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment198"
+          ],
+          "requests": 27980124,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment185"
+          ],
+          "requests": 6121407,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$integer"
+          ],
+          "requests": 5462000,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:boxed"
+          ],
+          "requests": 2219629,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment181"
+          ],
+          "requests": 1976331,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$values"
+          ],
+          "requests": 1657405,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment184"
+          ],
+          "requests": 1657392,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$complex"
+          ],
+          "requests": 1448980,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment208"
+          ],
+          "requests": 1188333,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment196"
+          ],
+          "requests": 1188330,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment214"
+          ],
+          "requests": 1188330,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$vector_object"
+          ],
+          "requests": 1168878,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref array)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment239"
+          ],
+          "requests": 1093503,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment44"
+          ],
+          "requests": 722622,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new",
+            "$slots"
+          ],
+          "requests": 716832,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "eqref"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment167"
+          ],
+          "requests": 716829,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$text"
+          ],
+          "requests": 452040,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i32"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment267"
+          ],
+          "requests": 452016,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment247"
+          ],
+          "requests": 451761,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment250"
+          ],
+          "requests": 178137,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment252"
+          ],
+          "requests": 101007,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment255"
+          ],
+          "requests": 75339,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment234"
+          ],
+          "requests": 75336,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment265"
+          ],
+          "requests": 75336,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment233"
+          ],
+          "requests": 6591,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment242"
+          ],
+          "requests": 4989,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$pair:2"
+          ],
+          "requests": 3915,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": true,
+                "storage_type": "eqref"
+              }
+            ],
+            "supertypes": [
+              "$pair:typed"
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment21"
+          ],
+          "requests": 24,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$float"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_default",
+            "$elements:integer"
+          ],
+          "requests": 6,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i64"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "array.new_fixed",
+            "$elements:closure"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $closure)"
+            }
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment231"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i64"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment254"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment260"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $vector_object)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$extension"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              },
+              {
+                "mutable": false,
+                "storage_type": "i32"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$text_object"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $text)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment139"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              }
+            ]
+          }
+        },
+        {
+          "key": [
+            "constructor",
+            "struct.new",
+            "$environment296"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $binding_cell0)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "(ref $closure)"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              },
+              {
+                "mutable": false,
+                "storage_type": "eqref"
+              }
+            ]
+          }
+        }
+      ],
+      "indirect_requests": 392341822,
+      "top_function_entries": [
+        {
+          "export": "__snail_probe_95",
+          "key": [
+            "function-entry",
+            "$vector_ref"
+          ],
+          "static_sites": 1,
+          "requests": 390680322
+        },
+        {
+          "export": "__snail_probe_46",
+          "key": [
+            "function-entry",
+            "$eqv"
+          ],
+          "static_sites": 1,
+          "requests": 261175719
+        },
+        {
+          "export": "__snail_probe_488",
+          "key": [
+            "function-entry",
+            "$function31"
+          ],
+          "static_sites": 1,
+          "requests": 261154734
+        },
+        {
+          "export": "__snail_probe_24",
+          "key": [
+            "function-entry",
+            "$numeric_equal"
+          ],
+          "static_sites": 1,
+          "requests": 186792478
+        },
+        {
+          "export": "__snail_probe_1756",
+          "key": [
+            "function-entry",
+            "$specialized821"
+          ],
+          "static_sites": 1,
+          "requests": 164219655
+        },
+        {
+          "export": "__snail_probe_1612",
+          "key": [
+            "function-entry",
+            "$function482"
+          ],
+          "static_sites": 1,
+          "requests": 162800067
+        },
+        {
+          "export": "__snail_probe_280",
+          "key": [
+            "function-entry",
+            "$pair:read1:1"
+          ],
+          "static_sites": 1,
+          "requests": 128404173
+        },
+        {
+          "export": "__snail_probe_1634",
+          "key": [
+            "function-entry",
+            "$adapter482"
+          ],
+          "static_sites": 1,
+          "requests": 96956064
+        },
+        {
+          "export": "__snail_probe_822",
+          "key": [
+            "function-entry",
+            "$adapter209"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1574",
+          "key": [
+            "function-entry",
+            "$function453"
+          ],
+          "static_sites": 1,
+          "requests": 96233442
+        },
+        {
+          "export": "__snail_probe_1551",
+          "key": [
+            "function-entry",
+            "$adapter458"
+          ],
+          "static_sites": 1,
+          "requests": 68253318
+        },
+        {
+          "export": "__snail_probe_1767",
+          "key": [
+            "function-entry",
+            "$function878"
+          ],
+          "static_sites": 1,
+          "requests": 59020242
+        },
+        {
+          "export": "__snail_probe_776",
+          "key": [
+            "function-entry",
+            "$function196"
+          ],
+          "static_sites": 1,
+          "requests": 29264052
+        },
+        {
+          "export": "__snail_probe_78",
+          "key": [
+            "function-entry",
+            "$vector_set:integer"
+          ],
+          "static_sites": 1,
+          "requests": 28960914
+        },
+        {
+          "export": "__snail_probe_1529",
+          "key": [
+            "function-entry",
+            "$adapter450"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1781",
+          "key": [
+            "function-entry",
+            "$adapter878"
+          ],
+          "static_sites": 1,
+          "requests": 28075722
+        },
+        {
+          "export": "__snail_probe_1597",
+          "key": [
+            "function-entry",
+            "$adapter452"
+          ],
+          "static_sites": 1,
+          "requests": 27980124
+        },
+        {
+          "export": "__snail_probe_1469",
+          "key": [
+            "function-entry",
+            "$function435"
+          ],
+          "static_sites": 1,
+          "requests": 13834317
+        },
+        {
+          "export": "__snail_probe_85",
+          "key": [
+            "function-entry",
+            "$vector_set:boolean"
+          ],
+          "static_sites": 1,
+          "requests": 10302048
+        },
+        {
+          "export": "__snail_probe_1157",
+          "key": [
+            "function-entry",
+            "$adapter269"
+          ],
+          "static_sites": 1,
+          "requests": 8693874
+        }
+      ],
+      "scope": "Full invocation including initialization/checking, function bodies only; constant global initializers excluded.",
+      "caveat": "Counts mark reached sites before operand evaluation, including possible failed/aborted operands. They are not completed operations or physical allocations. Scalar boxes do not establish concrete container/capture storage. Instrumentation changes optimization; timings are excluded."
+    }
+  ]
+}

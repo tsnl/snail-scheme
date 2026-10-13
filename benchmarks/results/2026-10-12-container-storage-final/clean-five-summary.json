@@ -1,0 +1,280 @@
+{
+  "scope": "Original five selected historical worst gaps; original inputs andfreshprocesses,3retained observations per cell. No fullsuite inference.",
+  "harness_sha256": "22ac750e3aff9925c10b4d7363487c170fa8c2a0fb0d52ea1d2619aba6b69a47",
+  "sources": {
+    "baseline": {
+      "path": "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/results.json",
+      "sha256": "856f7e09d2ac0023084ac637c19925f9fe167488f1077b9194b5ebb2d5bf835d",
+      "revision": "d4f0d4203a8adc9cd1f1f338d991da31794ae725"
+    },
+    "candidate": {
+      "path": "build/ordinary-five-prepared/results.json",
+      "sha256": "ff84296c67e8c24ccf322c2c3656657c9a53c8349d6007b798a403e7ad506b89",
+      "revision": "22c2006f64c5ea322bd77ae080e007e625534d25"
+    }
+  },
+  "rows": [
+    {
+      "benchmark": "cat",
+      "variant": "baseline",
+      "observations_seconds": [
+        20.323185412,
+        20.483499638,
+        20.352641133
+      ],
+      "median_seconds": 20.352641133,
+      "min_seconds": 20.323185412,
+      "max_seconds": 20.483499638,
+      "module_sha256": "37680bd20eb332ce367f9f03d76db51f89d28f39f91424c49aade7ac76596f55",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "baseline",
+      "observations_seconds": [
+        16.075067494,
+        16.156802383,
+        16.200967779
+      ],
+      "median_seconds": 16.156802383,
+      "min_seconds": 16.075067494,
+      "max_seconds": 16.200967779,
+      "module_sha256": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "wc",
+      "variant": "baseline",
+      "observations_seconds": [
+        10.396873254,
+        10.498335397,
+        10.565577068
+      ],
+      "median_seconds": 10.498335397,
+      "min_seconds": 10.396873254,
+      "max_seconds": 10.565577068,
+      "module_sha256": "8eaf9b3348b5608454d88af7efeae55494a6de8ac4d3bbeb5ec47cad3c9b674b",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "baseline",
+      "observations_seconds": [
+        7.714571564,
+        7.748461828,
+        7.674773066
+      ],
+      "median_seconds": 7.714571564,
+      "min_seconds": 7.674773066,
+      "max_seconds": 7.748461828,
+      "module_sha256": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "deriv",
+      "variant": "baseline",
+      "observations_seconds": [
+        2.227877856,
+        2.198596649,
+        2.148379675
+      ],
+      "median_seconds": 2.198596649,
+      "min_seconds": 2.148379675,
+      "max_seconds": 2.227877856,
+      "module_sha256": "3f8e99c6cfee0f1c8ae2650fb0f99db7d2969d0643eef494a5b170a100ff43e5",
+      "source_sha256": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5"
+    },
+    {
+      "benchmark": "cat",
+      "variant": "candidate",
+      "observations_seconds": [
+        20.633811617,
+        20.662006283,
+        21.182868473
+      ],
+      "median_seconds": 20.662006283,
+      "min_seconds": 20.633811617,
+      "max_seconds": 21.182868473,
+      "module_sha256": "ee93994c6e7386dd53eecb8023a3c30bda29abe8a8c76ecfc61b953a7882e0b5",
+      "source_sha256": "424fc4aa0d5c87df98f993e569eb8d68785c396461d192972a4b1dbcd298aafa",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "candidate",
+      "observations_seconds": [
+        20.543654184,
+        20.569047305,
+        20.652670244
+      ],
+      "median_seconds": 20.569047305,
+      "min_seconds": 20.543654184,
+      "max_seconds": 20.652670244,
+      "module_sha256": "90c4cc092a4f91b50ed8551277bc6c2537154b503452d4483f1711f580cd43e2",
+      "source_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "wc",
+      "variant": "candidate",
+      "observations_seconds": [
+        10.38190842,
+        10.47753226,
+        10.450250997
+      ],
+      "median_seconds": 10.450250997,
+      "min_seconds": 10.38190842,
+      "max_seconds": 10.47753226,
+      "module_sha256": "f040d4cd1a5d20fd91442d01f11d9fa16e708daceeab0240001a1a5f32ecf2e5",
+      "source_sha256": "6cb369061142763848ba0ffb08bbd73cc15b48a1d81f0282a2f1d1e3f24f0361",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "candidate",
+      "observations_seconds": [
+        8.336970095,
+        8.365013533,
+        8.378697459
+      ],
+      "median_seconds": 8.365013533,
+      "min_seconds": 8.336970095,
+      "max_seconds": 8.378697459,
+      "module_sha256": "11c61ab8e52deae41f0ceb493bac2a4447afbc23f15ae2211c2535c02af687db",
+      "source_sha256": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "deriv",
+      "variant": "candidate",
+      "observations_seconds": [
+        2.134741925,
+        2.154785056,
+        2.119129699
+      ],
+      "median_seconds": 2.134741925,
+      "min_seconds": 2.119129699,
+      "max_seconds": 2.154785056,
+      "module_sha256": "9387036aa0e61bf05ff5d5baaaf1cded3f1150a97f204a0b6e22e7ebcaade3d4",
+      "source_sha256": "e2ab55bbe66bee8e69a18f0c0d8016f3434d30b623689829c3e7d74d3ec3911f",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5"
+    },
+    {
+      "benchmark": "cat",
+      "variant": "chez",
+      "observations_seconds": [
+        0.695766437,
+        0.694776927,
+        0.701599068
+      ],
+      "median_seconds": 0.695766437,
+      "min_seconds": 0.694776927,
+      "max_seconds": 0.701599068,
+      "module_sha256": "2c4836c8710231367af1d1e75759a8f27286b49cab99adf3698dafe263a56cc6",
+      "source_sha256": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+      "input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a"
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "chez",
+      "observations_seconds": [
+        1.161834367,
+        1.176088725,
+        1.161661135
+      ],
+      "median_seconds": 1.161834367,
+      "min_seconds": 1.161661135,
+      "max_seconds": 1.176088725,
+      "module_sha256": "1ea0eb0400aeee3540f492ba85360d5d1af4640345b01848166c0df4501d6e45",
+      "source_sha256": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "benchmark": "wc",
+      "variant": "chez",
+      "observations_seconds": [
+        0.648438279,
+        0.645247463,
+        0.648588216
+      ],
+      "median_seconds": 0.648438279,
+      "min_seconds": 0.645247463,
+      "max_seconds": 0.648588216,
+      "module_sha256": "750a10c9508e3a4710ff7244e4759c2cf2d8aa8d5234d5c8ece2841c4c1f7c27",
+      "source_sha256": "547a457ff11f478e1006be32a1432b37afc81fea29b0cd31f6677f644a4625c1",
+      "input_sha256": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6"
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "chez",
+      "observations_seconds": [
+        0.763813116,
+        0.765406207,
+        0.762755583
+      ],
+      "median_seconds": 0.763813116,
+      "min_seconds": 0.762755583,
+      "max_seconds": 0.765406207,
+      "module_sha256": "5e1b125cceb62662fa8d88061cdb0e4cee3c2ef09e9bdb5585b726c46b0530dd",
+      "source_sha256": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a",
+      "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "benchmark": "deriv",
+      "variant": "chez",
+      "observations_seconds": [
+        0.417211101,
+        0.417836609,
+        0.417620929
+      ],
+      "median_seconds": 0.417620929,
+      "min_seconds": 0.417211101,
+      "max_seconds": 0.417836609,
+      "module_sha256": "5531caa482569323627ab18b7c3acc32000761bda8abcbacbc664d86538ddac5",
+      "source_sha256": "1a9622a22c63bbf49723f9e7c743404e7668ccc3bd1b79c54aa0b0aef0001197",
+      "input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5"
+    }
+  ],
+  "comparisons": [
+    {
+      "benchmark": "cat",
+      "baseline_seconds": 20.352641133,
+      "candidate_seconds": 20.662006283,
+      "baseline_over_candidate": 0.9850273421775824,
+      "chez_seconds": 0.695766437
+    },
+    {
+      "benchmark": "lattice",
+      "baseline_seconds": 16.156802383,
+      "candidate_seconds": 20.569047305,
+      "baseline_over_candidate": 0.7854910411466914,
+      "chez_seconds": 1.161834367
+    },
+    {
+      "benchmark": "wc",
+      "baseline_seconds": 10.498335397,
+      "candidate_seconds": 10.450250997,
+      "baseline_over_candidate": 1.0046012674732696,
+      "chez_seconds": 0.648438279
+    },
+    {
+      "benchmark": "graphs",
+      "baseline_seconds": 7.714571564,
+      "candidate_seconds": 8.365013533,
+      "baseline_over_candidate": 0.9222425682356633,
+      "chez_seconds": 0.763813116
+    },
+    {
+      "benchmark": "deriv",
+      "baseline_seconds": 2.198596649,
+      "candidate_seconds": 2.134741925,
+      "baseline_over_candidate": 1.0299121515590228,
+      "chez_seconds": 0.417620929
+    }
+  ]
+}

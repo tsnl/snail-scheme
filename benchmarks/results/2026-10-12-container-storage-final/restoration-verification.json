@@ -1,0 +1,10 @@
+{
+  "ordinary_micro_cells": 30,
+  "api_cells": 18,
+  "frozen_full_workload_cases": 24,
+  "all_artifact_host_tool_source_checks": "passed",
+  "all_blob_hashes_valid": true,
+  "blob_count": 1931,
+  "logical_file_count": 4772,
+  "clean_timings_executed": false
+}

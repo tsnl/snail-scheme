@@ -1,0 +1,2204 @@
+{
+  "scope": "Read-only static projection. Operation occurrences are not execution counts or attributed time.",
+  "inputs": {
+    "old-lattice": {
+      "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/snail-wasm/program.wasm": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+      "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/lattice/snail-wasm/capture-program.wat": "07bd325092f76963b7fcac42fa47fff1122c66eeb242cb012638e7e828bc95c8",
+      "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/lattice/snail-wasm/program.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58"
+    },
+    "new-lattice": {
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/program.wasm": "90c4cc092a4f91b50ed8551277bc6c2537154b503452d4483f1711f580cd43e2",
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/capture-program.wat": "08db228061b258ec6185f07a1b7be666670a4513d55da08c54356f5e1a99ce56",
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/lattice/snail-wasm/program.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58"
+    },
+    "old-graphs": {
+      "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/snail-wasm/program.wasm": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+      "/tmp/snail-builtin-final-d4f0d42-20261012/build/final-five-prepared/cases/graphs/snail-wasm/capture-program.wat": "185e3f0e83e8cf7fb46d4561ee9e68fb39757d37e90323a00edad703f31b9488",
+      "/tmp/snail-container-final-measurement-20261012/build/pre-storage-five/cases/graphs/snail-wasm/program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705"
+    },
+    "new-graphs": {
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/program.wasm": "11c61ab8e52deae41f0ceb493bac2a4447afbc23f15ae2211c2535c02af687db",
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/capture-program.wat": "35069f0c40f3c72d66d56e700c86be6a9cc9c62df34bec7e19c51204311a8fc3",
+      "/tmp/snail-container-ordinary-22c2006-20261012/build/ordinary-five-prepared/cases/graphs/snail-wasm/program.scm": "8ecb87bb3a01c145d479deedc6b9aeb35f84b8be22b65cbcb34463c7e8cf5705"
+    },
+    "off-lattice": {
+      "/tmp/snail-container-regression-22c2006-20261012/build/storage-off-prepared/cases/lattice/snail-wasm/program.wasm": "9039e187d9804cc9886ea8c9dc6e378915233a7597d7660b1efe0357322a7538",
+      "/tmp/snail-container-regression-22c2006-20261012/build/storage-off-prepared/cases/lattice/snail-wasm/program.wat": "da5a050eb628085cf440ebe5af18f069bd9daaf07aa58a68519252d781f15e1c",
+      "/tmp/snail-container-regression-22c2006-20261012/build/storage-off-prepared/cases/lattice/snail-wasm/program.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58"
+    },
+    "compiler22": {
+      "/tmp/snail-storage-regression-review-20261012/bootstrap/scheme/base.sld": "8745e294fe730b15a6c1a909c1b6747ef595cb7024eaef76867c7213dd9872b2",
+      "/tmp/snail-storage-regression-review-20261012/src/snail-scheme/wasm-fields.sld": "82c7b23c9ed3fc6e32a79523128144ac7c2111d8d22ff7dcf26c655599bec77c",
+      "/tmp/snail-storage-regression-review-20261012/src/snail-scheme/wasm-storage.sld": "6f6e454e717d05ef9c2d3fc20699826a16497bb566ad26a7933995008e1b4478",
+      "/tmp/snail-storage-regression-review-20261012/src/snail-scheme/wasm-bindings.sld": "189f5d1bd2e4ad23019cf3a33ef7f728c0800c678766ddb494b04845a482039d",
+      "/tmp/snail-storage-regression-review-20261012/src/snail-scheme/wasm-link.sld": "1b81129f947ef612b83e716d0d7efcbf53373beba96d8024c697f846b296833d"
+    }
+  },
+  "functions": [
+    {
+      "variant": "old-lattice",
+      "function": "$function31",
+      "file": "old-lattice-function31.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 30
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cdr",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$defined",
+          "static_occurrences": 77
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 25
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$is_null",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 33
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$truthy",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized272",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 24
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair",
+          "static_occurrences": 48
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 30
+        }
+      ]
+    },
+    {
+      "variant": "old-lattice",
+      "function": "$specialized272",
+      "file": "old-lattice-specialized272.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "call",
+          "target_or_type": "$car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cdr",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$defined",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$is_null",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$truthy",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized272",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "old-lattice",
+      "function": "$function165",
+      "file": "old-lattice-function165.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 24
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$vector",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$function31",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function162",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function165",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 20
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.set",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "old-lattice",
+      "function": "$function162",
+      "file": "old-lattice-function162.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 16
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$vector",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function162",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 12
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$function31",
+      "file": "new-lattice-function31.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$pair_car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$pair_cdr",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized508",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 3
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$specialized508",
+      "file": "new-lattice-specialized508.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized508",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:3",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:typed",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$function166",
+      "file": "new-lattice-function166.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 17
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$function31",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 17
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function162",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function166",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$binding_cell0",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment166",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:3",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:typed",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 17
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 17
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$function163",
+      "file": "new-lattice-function163.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 11
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 11
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function163",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$binding_cell0",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment163",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:3",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:typed",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 11
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 11
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$pair_car",
+      "file": "new-lattice-pair_car.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:3",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:typed",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "new-lattice",
+      "function": "$pair_cdr",
+      "file": "new-lattice-pair_cdr.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:3",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:typed",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "off-lattice",
+      "function": "$function28",
+      "file": "off-lattice-function28.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 10
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function28",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "off-lattice",
+      "function": "$function166",
+      "file": "off-lattice-function166.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$function28",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 26
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function163",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function166",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment163",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 6
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$environment163",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.set",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "off-lattice",
+      "function": "$function163",
+      "file": "off-lattice-function163.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 12
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function163",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment163",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 4
+        }
+      ]
+    },
+    {
+      "variant": "off-lattice",
+      "function": "$single",
+      "file": "off-lattice-single.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "old-graphs",
+      "function": "$function31",
+      "file": "old-graphs-function31.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 40
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cdr",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$defined",
+          "static_occurrences": 112
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 35
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$is_null",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 48
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$truthy",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized318",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 34
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair",
+          "static_occurrences": 68
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 40
+        }
+      ]
+    },
+    {
+      "variant": "old-graphs",
+      "function": "$specialized318",
+      "file": "old-graphs-specialized318.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "call",
+          "target_or_type": "$car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cdr",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$defined",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$is_null",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$single",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$truthy",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized318",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "old-graphs",
+      "function": "$function217",
+      "file": "old-graphs-function217.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 33
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cold.checked_add",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$numeric_equal",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function217",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 8
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$integer",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 18
+        }
+      ]
+    },
+    {
+      "variant": "old-graphs",
+      "function": "$adapter208",
+      "file": "old-graphs-adapter208.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$text",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 30
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$vector",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "array.set",
+          "target_or_type": "$text",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.set",
+          "target_or_type": "$vector",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$abi_root",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$abi_take",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$cold.checked_add",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$function31",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$snail:error",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 7
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$integer",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 20
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.set",
+          "target_or_type": "$cell",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "old-graphs",
+      "function": "$function199",
+      "file": "old-graphs-function199.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$vector",
+          "static_occurrences": 14
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$vector",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$closure",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$function31",
+      "file": "new-graphs-function31.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$pair_car",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized821",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 3
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$specialized821",
+      "file": "new-graphs-specialized821.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$eqv",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$specialized821",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$integer",
+          "static_occurrences": 1
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$function482",
+      "file": "new-graphs-function482.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:integer",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$text",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$numeric_equal",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 12
+        },
+        {
+          "operation": "return_call",
+          "target_or_type": "$function482",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$atom",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$binding_cell0",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment218",
+          "static_occurrences": 8
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$integer",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 5
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 15
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$integer",
+          "static_occurrences": 3
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$adapter209",
+      "file": "new-graphs-adapter209.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 13
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$text",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.new_fixed",
+          "target_or_type": "$slots",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "array.set",
+          "target_or_type": "$text",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$abi_root",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$abi_take",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$function31",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$snail:error",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_ref",
+          "static_occurrences": 10
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$vector_set:integer",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "return_call_ref",
+          "target_or_type": "$call",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$binding_cell0",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$closure",
+          "static_occurrences": 11
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$environment208",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$integer",
+          "static_occurrences": 4
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$values",
+          "static_occurrences": 8
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 8
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$environment218",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$integer",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "struct.set",
+          "target_or_type": "$binding_cell0",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$vector_ref",
+      "file": "new-graphs-vector_ref.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:bytevector",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:closure",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:complex",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:f32",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:integer",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:pair",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:real",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:record",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:string",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$elements:vector",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$slots",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "array.get",
+          "target_or_type": "$text",
+          "static_occurrences": 3
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$vector_object",
+          "static_occurrences": 15
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$atom",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$float",
+          "static_occurrences": 2
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$integer",
+          "static_occurrences": 2
+        }
+      ]
+    },
+    {
+      "variant": "new-graphs",
+      "function": "$pair_car",
+      "file": "new-graphs-pair_car.wat",
+      "scope": "Static instruction occurrences in final function, including unexecuted branches.",
+      "operations": [
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtCset5xJoy1xWQ_3std2rt7cleanup",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$__imported_wasi_snapshot_preview1_proc_exit",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "call",
+          "target_or_type": "$dlfree",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:1",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:2",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.get",
+          "target_or_type": "$pair:boxed",
+          "static_occurrences": 1
+        },
+        {
+          "operation": "struct.new",
+          "target_or_type": "$integer",
+          "static_occurrences": 1
+        }
+      ]
+    }
+  ]
+}

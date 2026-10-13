@@ -1,0 +1,65 @@
+{
+  "scope": "Static code shape only. No causal attribution or new timings.",
+  "observations": [
+    {
+      "variant": "22-off",
+      "function": "$function165",
+      "static_single_calls": 5,
+      "static_if_nodes": 12,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "22-off",
+      "function": "$function291",
+      "static_single_calls": 4,
+      "static_if_nodes": 11,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "22-off",
+      "function": "$function376",
+      "static_single_calls": 5,
+      "static_if_nodes": 12,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "22-off",
+      "function": "$single",
+      "static_single_calls": 0,
+      "static_if_nodes": 5,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "api-off",
+      "function": "$function165",
+      "static_single_calls": 0,
+      "static_if_nodes": 27,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "api-off",
+      "function": "$function291",
+      "static_single_calls": 0,
+      "static_if_nodes": 23,
+      "static_pair_dispatch_calls": 0
+    },
+    {
+      "variant": "api-off",
+      "function": "$function376",
+      "static_single_calls": 0,
+      "static_if_nodes": 27,
+      "static_pair_dispatch_calls": 0
+    }
+  ],
+  "raw_function_equality": {
+    "$function165": false,
+    "$function291": false,
+    "$function376": false
+  },
+  "raw_function_equality_after_global_primitive_number_normalization": {
+    "$function165": true,
+    "$function291": true,
+    "$function376": true
+  },
+  "normalization": "Replace numeric suffixes only in $g[0-9]+ and $primitive[0-9]+; all other raw function text compared exactly."
+}

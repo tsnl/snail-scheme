@@ -1,0 +1,607 @@
+{
+  "scope": "Reached constructor requests, all operations summed; signed differences. Classes use actual physical shapes plus retained family names, not physical V8 allocation or exact semantic roles. Canonicalized one-field structures can include private captures; raw source/function site mapping is required for a scalar-box interpretation.",
+  "full_input_regression": [
+    {
+      "benchmark": "lattice",
+      "rows": [
+        {
+          "class": "array (ref $closure) (mixed source roles)",
+          "baseline": 0,
+          "off": 0,
+          "on": 10,
+          "split": 10,
+          "on_minus_old": 10,
+          "on_minus_off": 10,
+          "split_minus_on": 0
+        },
+        {
+          "class": "array eqref (mixed source roles)",
+          "baseline": 978501293,
+          "off": 2801589828,
+          "on": 685125058,
+          "split": 685125058,
+          "on_minus_old": -293376235,
+          "on_minus_off": -2116464770,
+          "split_minus_on": 0
+        },
+        {
+          "class": "array i32 (mixed source roles)",
+          "baseline": 3,
+          "off": 3,
+          "on": 3,
+          "split": 3,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "binding cell",
+          "baseline": 200909832,
+          "off": 200909832,
+          "on": 200909832,
+          "split": 200909832,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "boxed pair",
+          "baseline": 23518881,
+          "off": 23518881,
+          "on": 23518721,
+          "split": 23518721,
+          "on_minus_old": -160,
+          "on_minus_off": -160,
+          "split_minus_on": 0
+        },
+        {
+          "class": "closure",
+          "baseline": 225416745,
+          "off": 225416740,
+          "on": 225416739,
+          "split": 225416739,
+          "on_minus_old": -6,
+          "on_minus_off": -1,
+          "split_minus_on": 0
+        },
+        {
+          "class": "environment structure by retained name",
+          "baseline": 0,
+          "off": 255182424,
+          "on": 276582364,
+          "split": 276582364,
+          "on_minus_old": 276582364,
+          "on_minus_off": 21399940,
+          "split_minus_on": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "baseline": 8,
+          "off": 8,
+          "on": 8,
+          "split": 8,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "one-field immutable i64 structure (boxes or canonicalized captures)",
+          "baseline": 2,
+          "off": 2,
+          "on": 2,
+          "split": 2,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "other structures",
+          "baseline": 16,
+          "off": 21399848,
+          "on": 48,
+          "split": 48,
+          "on_minus_old": 32,
+          "on_minus_off": -21399800,
+          "split_minus_on": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "baseline": 0,
+          "off": 0,
+          "on": 160,
+          "split": 160,
+          "on_minus_old": 160,
+          "on_minus_off": 160,
+          "split_minus_on": 0
+        }
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "rows": [
+        {
+          "class": "array (ref $closure) (mixed source roles)",
+          "baseline": 0,
+          "off": 0,
+          "on": 3,
+          "split": 3,
+          "on_minus_old": 3,
+          "on_minus_off": 3,
+          "split_minus_on": 0
+        },
+        {
+          "class": "array eqref (mixed source roles)",
+          "baseline": 842301271,
+          "off": 654686456,
+          "on": 393058691,
+          "split": 393058691,
+          "on_minus_old": -449242580,
+          "on_minus_off": -261627765,
+          "split_minus_on": 0
+        },
+        {
+          "class": "array i32 (mixed source roles)",
+          "baseline": 3,
+          "off": 3,
+          "on": 452040,
+          "split": 452040,
+          "on_minus_old": 452037,
+          "on_minus_off": 452037,
+          "split_minus_on": 0
+        },
+        {
+          "class": "array i64 (mixed source roles)",
+          "baseline": 0,
+          "off": 0,
+          "on": 6,
+          "split": 6,
+          "on_minus_old": 6,
+          "on_minus_off": 6,
+          "split_minus_on": 0
+        },
+        {
+          "class": "binding cell",
+          "baseline": 164093143,
+          "off": 164093143,
+          "on": 164093143,
+          "split": 164093143,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "boxed pair",
+          "baseline": 103527430,
+          "off": 103527430,
+          "on": 2219629,
+          "split": 2219629,
+          "on_minus_old": -101307801,
+          "on_minus_off": -101307801,
+          "split_minus_on": 0
+        },
+        {
+          "class": "closure",
+          "baseline": 344245400,
+          "off": 344245400,
+          "on": 344245399,
+          "split": 344245399,
+          "on_minus_old": -1,
+          "on_minus_off": -1,
+          "split_minus_on": 0
+        },
+        {
+          "class": "environment structure by retained name",
+          "baseline": 0,
+          "off": 434136365,
+          "on": 438303587,
+          "split": 438303587,
+          "on_minus_old": 438303587,
+          "on_minus_off": 4167222,
+          "split_minus_on": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "baseline": 8,
+          "off": 8,
+          "on": 8,
+          "split": 8,
+          "on_minus_old": 0,
+          "on_minus_off": 0,
+          "split_minus_on": 0
+        },
+        {
+          "class": "one-field immutable i64 structure (boxes or canonicalized captures)",
+          "baseline": 2,
+          "off": 2,
+          "on": 5462000,
+          "split": 5462000,
+          "on_minus_old": 5461998,
+          "on_minus_off": 5461998,
+          "split_minus_on": 0
+        },
+        {
+          "class": "other structures",
+          "baseline": 9,
+          "off": 14265278,
+          "on": 4275269,
+          "split": 4275269,
+          "on_minus_old": 4275260,
+          "on_minus_off": -9990009,
+          "split_minus_on": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "baseline": 0,
+          "off": 0,
+          "on": 101307801,
+          "split": 101307801,
+          "on_minus_old": 101307801,
+          "on_minus_off": 101307801,
+          "split_minus_on": 0
+        }
+      ]
+    }
+  ],
+  "small_input_micro": [
+    {
+      "fixture": "update-f64",
+      "rows": [
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 37,
+          "on": 36,
+          "on_minus_off": -1
+        },
+        {
+          "class": "array f64 (mixed source roles)",
+          "off": 0,
+          "on": 1,
+          "on_minus_off": 1
+        },
+        {
+          "class": "binding cell",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 4,
+          "on": 2,
+          "on_minus_off": -2
+        },
+        {
+          "class": "closure",
+          "off": 51,
+          "on": 50,
+          "on_minus_off": -1
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 90,
+          "on": 44,
+          "on_minus_off": -46
+        },
+        {
+          "class": "other structures",
+          "off": 4,
+          "on": 4,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 3,
+          "on_minus_off": 3
+        }
+      ]
+    },
+    {
+      "fixture": "update-i64",
+      "rows": [
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 29,
+          "on": 28,
+          "on_minus_off": -1
+        },
+        {
+          "class": "array i64 (mixed source roles)",
+          "off": 0,
+          "on": 1,
+          "on_minus_off": 1
+        },
+        {
+          "class": "binding cell",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 4,
+          "on": 2,
+          "on_minus_off": -2
+        },
+        {
+          "class": "closure",
+          "off": 51,
+          "on": 50,
+          "on_minus_off": -1
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 2,
+          "on": 2,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable i64 structure (boxes or canonicalized captures)",
+          "off": 53,
+          "on": 16,
+          "on_minus_off": -37
+        },
+        {
+          "class": "other structures",
+          "off": 4,
+          "on": 4,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 3,
+          "on_minus_off": 3
+        }
+      ]
+    },
+    {
+      "fixture": "update-i31",
+      "rows": [
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 29,
+          "on": 28,
+          "on_minus_off": -1
+        },
+        {
+          "class": "array i64 (mixed source roles)",
+          "off": 0,
+          "on": 1,
+          "on_minus_off": 1
+        },
+        {
+          "class": "binding cell",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 4,
+          "on": 2,
+          "on_minus_off": -2
+        },
+        {
+          "class": "closure",
+          "off": 51,
+          "on": 50,
+          "on_minus_off": -1
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 2,
+          "on": 2,
+          "on_minus_off": 0
+        },
+        {
+          "class": "other structures",
+          "off": 4,
+          "on": 4,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 3,
+          "on_minus_off": 3
+        }
+      ]
+    },
+    {
+      "fixture": "update-bool",
+      "rows": [
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 30,
+          "on": 29,
+          "on_minus_off": -1
+        },
+        {
+          "class": "array i32 (mixed source roles)",
+          "off": 0,
+          "on": 1,
+          "on_minus_off": 1
+        },
+        {
+          "class": "binding cell",
+          "off": 5,
+          "on": 5,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 4,
+          "on": 2,
+          "on_minus_off": -2
+        },
+        {
+          "class": "closure",
+          "off": 53,
+          "on": 52,
+          "on_minus_off": -1
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 13,
+          "on": 13,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 2,
+          "on": 2,
+          "on_minus_off": 0
+        },
+        {
+          "class": "other structures",
+          "off": 4,
+          "on": 4,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 3,
+          "on_minus_off": 3
+        }
+      ]
+    },
+    {
+      "fixture": "managed-pair-vector",
+      "rows": [
+        {
+          "class": "array (ref $pair) (mixed source roles)",
+          "off": 0,
+          "on": 2,
+          "on_minus_off": 2
+        },
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 54,
+          "on": 28,
+          "on_minus_off": -26
+        },
+        {
+          "class": "binding cell",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 13,
+          "on": 2,
+          "on_minus_off": -11
+        },
+        {
+          "class": "closure",
+          "off": 54,
+          "on": 52,
+          "on_minus_off": -2
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 6,
+          "on": 6,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 11,
+          "on": 2,
+          "on_minus_off": -9
+        },
+        {
+          "class": "one-field immutable i64 structure (boxes or canonicalized captures)",
+          "off": 55,
+          "on": 19,
+          "on_minus_off": -36
+        },
+        {
+          "class": "other structures",
+          "off": 5,
+          "on": 5,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 10,
+          "on_minus_off": 10
+        }
+      ]
+    },
+    {
+      "fixture": "shared-cell",
+      "rows": [
+        {
+          "class": "array eqref (mixed source roles)",
+          "off": 18,
+          "on": 18,
+          "on_minus_off": 0
+        },
+        {
+          "class": "binding cell",
+          "off": 2,
+          "on": 2,
+          "on_minus_off": 0
+        },
+        {
+          "class": "boxed pair",
+          "off": 2,
+          "on": 1,
+          "on_minus_off": -1
+        },
+        {
+          "class": "closure",
+          "off": 40,
+          "on": 39,
+          "on_minus_off": -1
+        },
+        {
+          "class": "environment structure by retained name",
+          "off": 3,
+          "on": 3,
+          "on_minus_off": 0
+        },
+        {
+          "class": "one-field immutable f64 structure (boxes or canonicalized captures)",
+          "off": 13,
+          "on": 9,
+          "on_minus_off": -4
+        },
+        {
+          "class": "other structures",
+          "off": 3,
+          "on": 3,
+          "on_minus_off": 0
+        },
+        {
+          "class": "typed pair (numeric or managed reference payloads)",
+          "off": 0,
+          "on": 1,
+          "on_minus_off": 1
+        }
+      ]
+    }
+  ]
+}

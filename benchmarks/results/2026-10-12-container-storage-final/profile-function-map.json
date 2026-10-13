@@ -1,0 +1,1313 @@
+{
+  "scope": "Final module names and import-adjusted indices. Source identities are in wat/regression/source-map.md; names/indices can change acrossvariants, and inlining shifts sample attribution. Unweighted sampled stacks, not cost fractions.",
+  "rows": [
+    {
+      "benchmark": "lattice",
+      "variant": "baseline",
+      "original_module_sha256": "3810df01e1a5086610a8ba8f262dcc15bd2fc36efb12f1aa9aec63a3d1c36ba4",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "function31",
+          "samples": 6513,
+          "sample_fraction": 0.42311440265055544,
+          "final_wasm_index": 143,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function165",
+          "samples": 3781,
+          "sample_fraction": 0.2456311310335867,
+          "final_wasm_index": 164,
+          "final_name": "$function165"
+        },
+        {
+          "sampled_function": "function162",
+          "samples": 1510,
+          "sample_fraction": 0.09809653738712401,
+          "final_wasm_index": 161,
+          "final_name": "$function162"
+        },
+        {
+          "sampled_function": "adapter217",
+          "samples": 1427,
+          "sample_fraction": 0.092704476060547,
+          "final_wasm_index": 196,
+          "final_name": "$adapter217"
+        },
+        {
+          "sampled_function": "eqv",
+          "samples": 380,
+          "sample_fraction": 0.024686545832521275,
+          "final_wasm_index": 42,
+          "final_name": "$eqv"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 324,
+          "sample_fraction": 0.021048528551939193,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "function185",
+          "samples": 191,
+          "sample_fraction": 0.012408237510556747,
+          "final_wasm_index": 178,
+          "final_name": "$function185"
+        },
+        {
+          "sampled_function": "specialized519",
+          "samples": 189,
+          "sample_fraction": 0.01227830832196453,
+          "final_wasm_index": 229,
+          "final_name": "$specialized519"
+        },
+        {
+          "sampled_function": "adapter380",
+          "samples": 162,
+          "sample_fraction": 0.010524264275969596,
+          "final_wasm_index": 221,
+          "final_name": "$adapter380"
+        },
+        {
+          "sampled_function": "function30",
+          "samples": 150,
+          "sample_fraction": 0.009744689144416294,
+          "final_wasm_index": 141,
+          "final_name": "$function30"
+        },
+        {
+          "sampled_function": "function173",
+          "samples": 117,
+          "sample_fraction": 0.007600857532644709,
+          "final_wasm_index": 169,
+          "final_name": "$function173"
+        },
+        {
+          "sampled_function": "adapter388",
+          "samples": 86,
+          "sample_fraction": 0.0055869551094653415,
+          "final_wasm_index": 225,
+          "final_name": "$adapter388"
+        },
+        {
+          "sampled_function": "adapter165",
+          "samples": 82,
+          "sample_fraction": 0.005327096732280907,
+          "final_wasm_index": 165,
+          "final_name": "$adapter165"
+        },
+        {
+          "sampled_function": "adapter387",
+          "samples": 78,
+          "sample_fraction": 0.005067238355096472,
+          "final_wasm_index": 224,
+          "final_name": "$adapter387"
+        },
+        {
+          "sampled_function": "adapter379",
+          "samples": 76,
+          "sample_fraction": 0.004937309166504255,
+          "final_wasm_index": 223,
+          "final_name": "$adapter379"
+        },
+        {
+          "sampled_function": "function182",
+          "samples": 70,
+          "sample_fraction": 0.004547521600727604,
+          "final_wasm_index": 180,
+          "final_name": "$function182"
+        },
+        {
+          "sampled_function": "function177",
+          "samples": 67,
+          "sample_fraction": 0.004352627817839278,
+          "final_wasm_index": 172,
+          "final_name": "$function177"
+        },
+        {
+          "sampled_function": "specialized521",
+          "samples": 29,
+          "sample_fraction": 0.00188397323458715,
+          "final_wasm_index": 230,
+          "final_name": "$specialized521"
+        },
+        {
+          "sampled_function": "adapter196",
+          "samples": 27,
+          "sample_fraction": 0.0017540440459949329,
+          "final_wasm_index": 183,
+          "final_name": "$adapter196"
+        },
+        {
+          "sampled_function": "function38",
+          "samples": 27,
+          "sample_fraction": 0.0017540440459949329,
+          "final_wasm_index": 148,
+          "final_name": "$function38"
+        },
+        {
+          "sampled_function": "function195",
+          "samples": 26,
+          "sample_fraction": 0.0016890794516988242,
+          "final_wasm_index": 184,
+          "final_name": "$function195"
+        },
+        {
+          "sampled_function": "adapter178",
+          "samples": 22,
+          "sample_fraction": 0.0014292210745143897,
+          "final_wasm_index": 174,
+          "final_name": "$adapter178"
+        },
+        {
+          "sampled_function": "specialized382",
+          "samples": 19,
+          "sample_fraction": 0.0012343272916260637,
+          "final_wasm_index": 226,
+          "final_name": "$specialized382"
+        },
+        {
+          "sampled_function": "function202",
+          "samples": 15,
+          "sample_fraction": 0.0009744689144416293,
+          "final_wasm_index": 194,
+          "final_name": "$function202"
+        },
+        {
+          "sampled_function": "compileForInternalLoader",
+          "samples": 6,
+          "sample_fraction": 0.0003897875657766517,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "function39",
+          "samples": 3,
+          "sample_fraction": 0.00019489378288832586,
+          "final_wasm_index": 152,
+          "final_name": "$function39"
+        },
+        {
+          "sampled_function": "(idle)",
+          "samples": 2,
+          "sample_fraction": 0.00012992918859221724,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "adapter201",
+          "samples": 2,
+          "sample_fraction": 0.00012992918859221724,
+          "final_wasm_index": 191,
+          "final_name": "$adapter201"
+        },
+        {
+          "sampled_function": "(program)",
+          "samples": 1,
+          "sample_fraction": 6.496459429610862e-05,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "getPathFromURLPosix",
+          "samples": 1,
+          "sample_fraction": 6.496459429610862e-05,
+          "final_wasm_index": null,
+          "final_name": null
+        }
+      ]
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "on",
+      "original_module_sha256": "90c4cc092a4f91b50ed8551277bc6c2537154b503452d4483f1711f580cd43e2",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "function31",
+          "samples": 4515,
+          "sample_fraction": 0.23120647275706677,
+          "final_wasm_index": 132,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function166",
+          "samples": 4450,
+          "sample_fraction": 0.22787791888570258,
+          "final_wasm_index": 152,
+          "final_name": "$function166"
+        },
+        {
+          "sampled_function": "adapter218",
+          "samples": 2333,
+          "sample_fraction": 0.11946947972142564,
+          "final_wasm_index": 180,
+          "final_name": "$adapter218"
+        },
+        {
+          "sampled_function": "eqv",
+          "samples": 2135,
+          "sample_fraction": 0.10933019254403933,
+          "final_wasm_index": 38,
+          "final_name": "$eqv"
+        },
+        {
+          "sampled_function": "function163",
+          "samples": 1498,
+          "sample_fraction": 0.07671036460467022,
+          "final_wasm_index": 148,
+          "final_name": "$function163"
+        },
+        {
+          "sampled_function": "specialized508",
+          "samples": 1269,
+          "sample_fraction": 0.06498361327324867,
+          "final_wasm_index": 216,
+          "final_name": "$specialized508"
+        },
+        {
+          "sampled_function": "function162",
+          "samples": 737,
+          "sample_fraction": 0.03774068004916018,
+          "final_wasm_index": 150,
+          "final_name": "$function162"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 352,
+          "sample_fraction": 0.018025399426464563,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "pair_car",
+          "samples": 340,
+          "sample_fraction": 0.017410897173289634,
+          "final_wasm_index": 81,
+          "final_name": "$pair_car"
+        },
+        {
+          "sampled_function": "adapter191",
+          "samples": 207,
+          "sample_fraction": 0.010600163867267514,
+          "final_wasm_index": 167,
+          "final_name": "$adapter191"
+        },
+        {
+          "sampled_function": "function381",
+          "samples": 206,
+          "sample_fraction": 0.010548955346169602,
+          "final_wasm_index": 203,
+          "final_name": "$function381"
+        },
+        {
+          "sampled_function": "pair_cdr",
+          "samples": 205,
+          "sample_fraction": 0.010497746825071692,
+          "final_wasm_index": 82,
+          "final_name": "$pair_cdr"
+        },
+        {
+          "sampled_function": "specialized562",
+          "samples": 202,
+          "sample_fraction": 0.01034412126177796,
+          "final_wasm_index": 217,
+          "final_name": "$specialized562"
+        },
+        {
+          "sampled_function": "function174",
+          "samples": 127,
+          "sample_fraction": 0.006503482179434658,
+          "final_wasm_index": 156,
+          "final_name": "$function174"
+        },
+        {
+          "sampled_function": "function30",
+          "samples": 125,
+          "sample_fraction": 0.006401065137238837,
+          "final_wasm_index": 130,
+          "final_name": "$function30"
+        },
+        {
+          "sampled_function": "function377",
+          "samples": 108,
+          "sample_fraction": 0.005530520278574355,
+          "final_wasm_index": 200,
+          "final_name": "$function377"
+        },
+        {
+          "sampled_function": "adapter194",
+          "samples": 102,
+          "sample_fraction": 0.005223269151986891,
+          "final_wasm_index": 166,
+          "final_name": "$adapter194"
+        },
+        {
+          "sampled_function": "adapter386",
+          "samples": 101,
+          "sample_fraction": 0.00517206063088898,
+          "final_wasm_index": 208,
+          "final_name": "$adapter386"
+        },
+        {
+          "sampled_function": "function183",
+          "samples": 101,
+          "sample_fraction": 0.00517206063088898,
+          "final_wasm_index": 163,
+          "final_name": "$function183"
+        },
+        {
+          "sampled_function": "adapter193",
+          "samples": 94,
+          "sample_fraction": 0.004813600983203605,
+          "final_wasm_index": 165,
+          "final_name": "$adapter193"
+        },
+        {
+          "sampled_function": "specialized507",
+          "samples": 80,
+          "sample_fraction": 0.004096681687832855,
+          "final_wasm_index": 215,
+          "final_name": "$specialized507"
+        },
+        {
+          "sampled_function": "specialized382",
+          "samples": 38,
+          "sample_fraction": 0.0019459238017206064,
+          "final_wasm_index": 207,
+          "final_name": "$specialized382"
+        },
+        {
+          "sampled_function": "function38",
+          "samples": 37,
+          "sample_fraction": 0.0018947152806226956,
+          "final_wasm_index": 137,
+          "final_name": "$function38"
+        },
+        {
+          "sampled_function": "function195",
+          "samples": 32,
+          "sample_fraction": 0.0016386726751331422,
+          "final_wasm_index": 171,
+          "final_name": "$function195"
+        },
+        {
+          "sampled_function": "adapter378",
+          "samples": 32,
+          "sample_fraction": 0.0016386726751331422,
+          "final_wasm_index": 202,
+          "final_name": "$adapter378"
+        },
+        {
+          "sampled_function": "specialized389",
+          "samples": 22,
+          "sample_fraction": 0.0011265874641540352,
+          "final_wasm_index": 209,
+          "final_name": "$specialized389"
+        },
+        {
+          "sampled_function": "adapter166",
+          "samples": 21,
+          "sample_fraction": 0.0010753789430561246,
+          "final_wasm_index": 153,
+          "final_name": "$adapter166"
+        },
+        {
+          "sampled_function": "function203",
+          "samples": 11,
+          "sample_fraction": 0.0005632937320770176,
+          "final_wasm_index": 178,
+          "final_name": "$function203"
+        },
+        {
+          "sampled_function": "adapter197",
+          "samples": 10,
+          "sample_fraction": 0.0005120852109791069,
+          "final_wasm_index": 170,
+          "final_name": "$adapter197"
+        },
+        {
+          "sampled_function": "compileForInternalLoader",
+          "samples": 6,
+          "sample_fraction": 0.0003072511265874642,
+          "final_wasm_index": null,
+          "final_name": null
+        }
+      ]
+    },
+    {
+      "benchmark": "lattice",
+      "variant": "split",
+      "original_module_sha256": "30404fc83f2274a2ae082a0e8b9af692058e9466389363064bd10f2b88e4ec63",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "function31",
+          "samples": 4499,
+          "sample_fraction": 0.2301985264019648,
+          "final_wasm_index": 132,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function166",
+          "samples": 4436,
+          "sample_fraction": 0.22697503069995906,
+          "final_wasm_index": 152,
+          "final_name": "$function166"
+        },
+        {
+          "sampled_function": "adapter218",
+          "samples": 2348,
+          "sample_fraction": 0.12013917314776913,
+          "final_wasm_index": 180,
+          "final_name": "$adapter218"
+        },
+        {
+          "sampled_function": "eqv",
+          "samples": 2030,
+          "sample_fraction": 0.10386819484240688,
+          "final_wasm_index": 38,
+          "final_name": "$eqv"
+        },
+        {
+          "sampled_function": "function163",
+          "samples": 1604,
+          "sample_fraction": 0.0820712239050348,
+          "final_wasm_index": 148,
+          "final_name": "$function163"
+        },
+        {
+          "sampled_function": "specialized508",
+          "samples": 1270,
+          "sample_fraction": 0.06498158002455996,
+          "final_wasm_index": 216,
+          "final_name": "$specialized508"
+        },
+        {
+          "sampled_function": "function162",
+          "samples": 747,
+          "sample_fraction": 0.03822144903806795,
+          "final_wasm_index": 150,
+          "final_name": "$function162"
+        },
+        {
+          "sampled_function": "pair_car",
+          "samples": 367,
+          "sample_fraction": 0.018778141629144495,
+          "final_wasm_index": 81,
+          "final_name": "$pair_car"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 357,
+          "sample_fraction": 0.018266475644699142,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "pair_cdr",
+          "samples": 248,
+          "sample_fraction": 0.012689316414244782,
+          "final_wasm_index": 82,
+          "final_name": "$pair_cdr"
+        },
+        {
+          "sampled_function": "adapter191",
+          "samples": 220,
+          "sample_fraction": 0.01125665165779779,
+          "final_wasm_index": 167,
+          "final_name": "$adapter191"
+        },
+        {
+          "sampled_function": "function381",
+          "samples": 218,
+          "sample_fraction": 0.011154318460908719,
+          "final_wasm_index": 203,
+          "final_name": "$function381"
+        },
+        {
+          "sampled_function": "specialized562",
+          "samples": 200,
+          "sample_fraction": 0.010233319688907082,
+          "final_wasm_index": 217,
+          "final_name": "$specialized562"
+        },
+        {
+          "sampled_function": "adapter194",
+          "samples": 113,
+          "sample_fraction": 0.005781825624232501,
+          "final_wasm_index": 166,
+          "final_name": "$adapter194"
+        },
+        {
+          "sampled_function": "function30",
+          "samples": 97,
+          "sample_fraction": 0.004963160049119934,
+          "final_wasm_index": 130,
+          "final_name": "$function30"
+        },
+        {
+          "sampled_function": "function377",
+          "samples": 93,
+          "sample_fraction": 0.004758493655341793,
+          "final_wasm_index": 200,
+          "final_name": "$function377"
+        },
+        {
+          "sampled_function": "function174",
+          "samples": 92,
+          "sample_fraction": 0.004707327056897258,
+          "final_wasm_index": 156,
+          "final_name": "$function174"
+        },
+        {
+          "sampled_function": "adapter386",
+          "samples": 92,
+          "sample_fraction": 0.004707327056897258,
+          "final_wasm_index": 208,
+          "final_name": "$adapter386"
+        },
+        {
+          "sampled_function": "specialized507",
+          "samples": 90,
+          "sample_fraction": 0.004604993860008187,
+          "final_wasm_index": 215,
+          "final_name": "$specialized507"
+        },
+        {
+          "sampled_function": "adapter193",
+          "samples": 87,
+          "sample_fraction": 0.00445149406467458,
+          "final_wasm_index": 165,
+          "final_name": "$adapter193"
+        },
+        {
+          "sampled_function": "function183",
+          "samples": 86,
+          "sample_fraction": 0.004400327466230045,
+          "final_wasm_index": 163,
+          "final_name": "$function183"
+        },
+        {
+          "sampled_function": "function195",
+          "samples": 37,
+          "sample_fraction": 0.00189316414244781,
+          "final_wasm_index": 171,
+          "final_name": "$function195"
+        },
+        {
+          "sampled_function": "specialized389",
+          "samples": 36,
+          "sample_fraction": 0.0018419975440032747,
+          "final_wasm_index": 209,
+          "final_name": "$specialized389"
+        },
+        {
+          "sampled_function": "specialized382",
+          "samples": 35,
+          "sample_fraction": 0.0017908309455587394,
+          "final_wasm_index": 207,
+          "final_name": "$specialized382"
+        },
+        {
+          "sampled_function": "function38",
+          "samples": 24,
+          "sample_fraction": 0.0012279983626688497,
+          "final_wasm_index": 137,
+          "final_name": "$function38"
+        },
+        {
+          "sampled_function": "adapter166",
+          "samples": 23,
+          "sample_fraction": 0.0011768317642243144,
+          "final_wasm_index": 153,
+          "final_name": "$adapter166"
+        },
+        {
+          "sampled_function": "adapter197",
+          "samples": 21,
+          "sample_fraction": 0.0010744985673352436,
+          "final_wasm_index": 170,
+          "final_name": "$adapter197"
+        },
+        {
+          "sampled_function": "adapter378",
+          "samples": 20,
+          "sample_fraction": 0.001023331968890708,
+          "final_wasm_index": 202,
+          "final_name": "$adapter378"
+        },
+        {
+          "sampled_function": "function203",
+          "samples": 8,
+          "sample_fraction": 0.00040933278755628325,
+          "final_wasm_index": 178,
+          "final_name": "$function203"
+        },
+        {
+          "sampled_function": "compileForInternalLoader",
+          "samples": 7,
+          "sample_fraction": 0.00035816618911174784,
+          "final_wasm_index": null,
+          "final_name": null
+        }
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "on",
+      "original_module_sha256": "11c61ab8e52deae41f0ceb493bac2a4447afbc23f15ae2211c2535c02af687db",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "adapter209",
+          "samples": 1572,
+          "sample_fraction": 0.19352455989166564,
+          "final_wasm_index": 168,
+          "final_name": "$adapter209"
+        },
+        {
+          "sampled_function": "function482",
+          "samples": 1348,
+          "sample_fraction": 0.16594854117936722,
+          "final_wasm_index": 229,
+          "final_name": "$function482"
+        },
+        {
+          "sampled_function": "function31",
+          "samples": 930,
+          "sample_fraction": 0.11448972054659609,
+          "final_wasm_index": 133,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function453",
+          "samples": 875,
+          "sample_fraction": 0.10771882309491568,
+          "final_wasm_index": 227,
+          "final_name": "$function453"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 431,
+          "sample_fraction": 0.0530592145758956,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "eqv",
+          "samples": 347,
+          "sample_fraction": 0.0427182075587837,
+          "final_wasm_index": 38,
+          "final_name": "$eqv"
+        },
+        {
+          "sampled_function": "vector_ref",
+          "samples": 331,
+          "sample_fraction": 0.04074849193647667,
+          "final_wasm_index": 44,
+          "final_name": "$vector_ref"
+        },
+        {
+          "sampled_function": "adapter458",
+          "samples": 292,
+          "sample_fraction": 0.03594731010710329,
+          "final_wasm_index": 226,
+          "final_name": "$adapter458"
+        },
+        {
+          "sampled_function": "function491",
+          "samples": 221,
+          "sample_fraction": 0.027206697033115845,
+          "final_wasm_index": 232,
+          "final_name": "$function491"
+        },
+        {
+          "sampled_function": "numeric_equal",
+          "samples": 213,
+          "sample_fraction": 0.02622183922196233,
+          "final_wasm_index": 34,
+          "final_name": "$numeric_equal"
+        },
+        {
+          "sampled_function": "function878",
+          "samples": 201,
+          "sample_fraction": 0.024744552505232057,
+          "final_wasm_index": 240,
+          "final_name": "$function878"
+        },
+        {
+          "sampled_function": "adapter450",
+          "samples": 197,
+          "sample_fraction": 0.024252123599655298,
+          "final_wasm_index": 225,
+          "final_name": "$adapter450"
+        },
+        {
+          "sampled_function": "specialized821",
+          "samples": 163,
+          "sample_fraction": 0.020066477902252862,
+          "final_wasm_index": 239,
+          "final_name": "$specialized821"
+        },
+        {
+          "sampled_function": "function196",
+          "samples": 158,
+          "sample_fraction": 0.019450941770281914,
+          "final_wasm_index": 164,
+          "final_name": "$function196"
+        },
+        {
+          "sampled_function": "adapter452",
+          "samples": 127,
+          "sample_fraction": 0.015634617752062045,
+          "final_wasm_index": 228,
+          "final_name": "$adapter452"
+        },
+        {
+          "sampled_function": "function435",
+          "samples": 61,
+          "sample_fraction": 0.00750954081004555,
+          "final_wasm_index": 220,
+          "final_name": "$function435"
+        },
+        {
+          "sampled_function": "pair_car",
+          "samples": 60,
+          "sample_fraction": 0.00738643358365136,
+          "final_wasm_index": 85,
+          "final_name": "$pair_car"
+        },
+        {
+          "sampled_function": "function423",
+          "samples": 45,
+          "sample_fraction": 0.00553982518773852,
+          "final_wasm_index": 216,
+          "final_name": "$function423"
+        },
+        {
+          "sampled_function": "adapter237",
+          "samples": 43,
+          "sample_fraction": 0.005293610734950141,
+          "final_wasm_index": 181,
+          "final_name": "$adapter237"
+        },
+        {
+          "sampled_function": "specialized436",
+          "samples": 36,
+          "sample_fraction": 0.0044318601501908165,
+          "final_wasm_index": 222,
+          "final_name": "$specialized436"
+        },
+        {
+          "sampled_function": "function444",
+          "samples": 35,
+          "sample_fraction": 0.004308752923796627,
+          "final_wasm_index": 223,
+          "final_name": "$function444"
+        },
+        {
+          "sampled_function": "function231",
+          "samples": 34,
+          "sample_fraction": 0.004185645697402438,
+          "final_wasm_index": 187,
+          "final_name": "$function231"
+        },
+        {
+          "sampled_function": "adapter267",
+          "samples": 26,
+          "sample_fraction": 0.003200787886248923,
+          "final_wasm_index": 193,
+          "final_name": "$adapter267"
+        },
+        {
+          "sampled_function": "pair:read1:0",
+          "samples": 25,
+          "sample_fraction": 0.0030776806598547335,
+          "final_wasm_index": 87,
+          "final_name": "$pair:read1:0"
+        },
+        {
+          "sampled_function": "adapter269",
+          "samples": 25,
+          "sample_fraction": 0.0030776806598547335,
+          "final_wasm_index": 192,
+          "final_name": "$adapter269"
+        },
+        {
+          "sampled_function": "pair:read1:1",
+          "samples": 24,
+          "sample_fraction": 0.002954573433460544,
+          "final_wasm_index": 88,
+          "final_name": "$pair:read1:1"
+        },
+        {
+          "sampled_function": "adapter238",
+          "samples": 23,
+          "sample_fraction": 0.002831466207066355,
+          "final_wasm_index": 180,
+          "final_name": "$adapter238"
+        },
+        {
+          "sampled_function": "vector_set:integer",
+          "samples": 23,
+          "sample_fraction": 0.002831466207066355,
+          "final_wasm_index": 41,
+          "final_name": "$vector_set:integer"
+        },
+        {
+          "sampled_function": "adapter878",
+          "samples": 22,
+          "sample_fraction": 0.0027083589806721656,
+          "final_wasm_index": 241,
+          "final_name": "$adapter878"
+        },
+        {
+          "sampled_function": "vector_store",
+          "samples": 18,
+          "sample_fraction": 0.0022159300750954083,
+          "final_wasm_index": 45,
+          "final_name": "$vector_store"
+        }
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "split",
+      "original_module_sha256": "85f6ed096d8c3ae9f600d3b03c68228da493e9194340966426492e6f902455f3",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "adapter209",
+          "samples": 1580,
+          "sample_fraction": 0.20163348647269014,
+          "final_wasm_index": 167,
+          "final_name": "$adapter209"
+        },
+        {
+          "sampled_function": "function482",
+          "samples": 1354,
+          "sample_fraction": 0.17279224093925472,
+          "final_wasm_index": 228,
+          "final_name": "$function482"
+        },
+        {
+          "sampled_function": "function31",
+          "samples": 916,
+          "sample_fraction": 0.11689637570188872,
+          "final_wasm_index": 132,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function453",
+          "samples": 878,
+          "sample_fraction": 0.11204696273608984,
+          "final_wasm_index": 226,
+          "final_name": "$function453"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 434,
+          "sample_fraction": 0.05538540071465033,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "eqv",
+          "samples": 323,
+          "sample_fraction": 0.041220010209290454,
+          "final_wasm_index": 38,
+          "final_name": "$eqv"
+        },
+        {
+          "sampled_function": "vector_ref",
+          "samples": 273,
+          "sample_fraction": 0.034839203675344564,
+          "final_wasm_index": 44,
+          "final_name": "$vector_ref"
+        },
+        {
+          "sampled_function": "adapter458",
+          "samples": 265,
+          "sample_fraction": 0.03381827462991322,
+          "final_wasm_index": 225,
+          "final_name": "$adapter458"
+        },
+        {
+          "sampled_function": "adapter450",
+          "samples": 203,
+          "sample_fraction": 0.025906074527820316,
+          "final_wasm_index": 224,
+          "final_name": "$adapter450"
+        },
+        {
+          "sampled_function": "numeric_equal",
+          "samples": 202,
+          "sample_fraction": 0.0257784583971414,
+          "final_wasm_index": 34,
+          "final_name": "$numeric_equal"
+        },
+        {
+          "sampled_function": "function878",
+          "samples": 195,
+          "sample_fraction": 0.024885145482388973,
+          "final_wasm_index": 239,
+          "final_name": "$function878"
+        },
+        {
+          "sampled_function": "specialized821",
+          "samples": 172,
+          "sample_fraction": 0.021949974476773864,
+          "final_wasm_index": 238,
+          "final_name": "$specialized821"
+        },
+        {
+          "sampled_function": "function491",
+          "samples": 162,
+          "sample_fraction": 0.020673813169984685,
+          "final_wasm_index": 231,
+          "final_name": "$function491"
+        },
+        {
+          "sampled_function": "function196",
+          "samples": 147,
+          "sample_fraction": 0.01875957120980092,
+          "final_wasm_index": 163,
+          "final_name": "$function196"
+        },
+        {
+          "sampled_function": "adapter452",
+          "samples": 115,
+          "sample_fraction": 0.014675855028075549,
+          "final_wasm_index": 227,
+          "final_name": "$adapter452"
+        },
+        {
+          "sampled_function": "function435",
+          "samples": 58,
+          "sample_fraction": 0.007401735579377233,
+          "final_wasm_index": 219,
+          "final_name": "$function435"
+        },
+        {
+          "sampled_function": "specialized436",
+          "samples": 46,
+          "sample_fraction": 0.00587034201123022,
+          "final_wasm_index": 221,
+          "final_name": "$specialized436"
+        },
+        {
+          "sampled_function": "adapter237",
+          "samples": 45,
+          "sample_fraction": 0.005742725880551302,
+          "final_wasm_index": 180,
+          "final_name": "$adapter237"
+        },
+        {
+          "sampled_function": "function444",
+          "samples": 42,
+          "sample_fraction": 0.005359877488514548,
+          "final_wasm_index": 222,
+          "final_name": "$function444"
+        },
+        {
+          "sampled_function": "function423",
+          "samples": 34,
+          "sample_fraction": 0.004338948443083206,
+          "final_wasm_index": 215,
+          "final_name": "$function423"
+        },
+        {
+          "sampled_function": "vector_set:integer",
+          "samples": 32,
+          "sample_fraction": 0.00408371618172537,
+          "final_wasm_index": 41,
+          "final_name": "$vector_set:integer"
+        },
+        {
+          "sampled_function": "adapter269",
+          "samples": 28,
+          "sample_fraction": 0.0035732516590096988,
+          "final_wasm_index": 191,
+          "final_name": "$adapter269"
+        },
+        {
+          "sampled_function": "function231",
+          "samples": 28,
+          "sample_fraction": 0.0035732516590096988,
+          "final_wasm_index": 186,
+          "final_name": "$function231"
+        },
+        {
+          "sampled_function": "adapter878",
+          "samples": 25,
+          "sample_fraction": 0.0031904032669729456,
+          "final_wasm_index": 240,
+          "final_name": "$adapter878"
+        },
+        {
+          "sampled_function": "pair:read1:1",
+          "samples": 24,
+          "sample_fraction": 0.0030627871362940277,
+          "final_wasm_index": 87,
+          "final_name": "$pair:read1:1"
+        },
+        {
+          "sampled_function": "adapter267",
+          "samples": 22,
+          "sample_fraction": 0.002807554874936192,
+          "final_wasm_index": 192,
+          "final_name": "$adapter267"
+        },
+        {
+          "sampled_function": "adapter238",
+          "samples": 20,
+          "sample_fraction": 0.002552322613578356,
+          "final_wasm_index": 179,
+          "final_name": "$adapter238"
+        },
+        {
+          "sampled_function": "vector_store",
+          "samples": 14,
+          "sample_fraction": 0.0017866258295048494,
+          "final_wasm_index": 45,
+          "final_name": "$vector_store"
+        },
+        {
+          "sampled_function": "function242",
+          "samples": 12,
+          "sample_fraction": 0.0015313935681470138,
+          "final_wasm_index": 185,
+          "final_name": "$function242"
+        },
+        {
+          "sampled_function": "adapter239",
+          "samples": 11,
+          "sample_fraction": 0.001403777437468096,
+          "final_wasm_index": 181,
+          "final_name": "$adapter239"
+        }
+      ]
+    },
+    {
+      "benchmark": "graphs",
+      "variant": "baseline",
+      "original_module_sha256": "ef0013852aa94a4f31637bbf48c3c13ff9441b28bc8b3356886c254c8007fef1",
+      "imported_function_count": 29,
+      "top_named_frames": [
+        {
+          "sampled_function": "function217",
+          "samples": 1506,
+          "sample_fraction": 0.2046195652173913,
+          "final_wasm_index": 185,
+          "final_name": "$function217"
+        },
+        {
+          "sampled_function": "adapter208",
+          "samples": 1457,
+          "sample_fraction": 0.19796195652173912,
+          "final_wasm_index": 180,
+          "final_name": "$adapter208"
+        },
+        {
+          "sampled_function": "function31",
+          "samples": 1210,
+          "sample_fraction": 0.1644021739130435,
+          "final_wasm_index": 134,
+          "final_name": "$function31"
+        },
+        {
+          "sampled_function": "function199",
+          "samples": 746,
+          "sample_fraction": 0.10135869565217391,
+          "final_wasm_index": 174,
+          "final_name": "$function199"
+        },
+        {
+          "sampled_function": "adapter203",
+          "samples": 478,
+          "sample_fraction": 0.06494565217391304,
+          "final_wasm_index": 172,
+          "final_name": "$adapter203"
+        },
+        {
+          "sampled_function": "(garbage collector)",
+          "samples": 387,
+          "sample_fraction": 0.05258152173913044,
+          "final_wasm_index": null,
+          "final_name": null
+        },
+        {
+          "sampled_function": "numeric_equal",
+          "samples": 228,
+          "sample_fraction": 0.03097826086956522,
+          "final_wasm_index": 37,
+          "final_name": "$numeric_equal"
+        },
+        {
+          "sampled_function": "adapter202",
+          "samples": 224,
+          "sample_fraction": 0.030434782608695653,
+          "final_wasm_index": 173,
+          "final_name": "$adapter202"
+        },
+        {
+          "sampled_function": "function233",
+          "samples": 142,
+          "sample_fraction": 0.019293478260869565,
+          "final_wasm_index": 195,
+          "final_name": "$function233"
+        },
+        {
+          "sampled_function": "function195",
+          "samples": 141,
+          "sample_fraction": 0.019157608695652174,
+          "final_wasm_index": 176,
+          "final_name": "$function195"
+        },
+        {
+          "sampled_function": "adapter197",
+          "samples": 127,
+          "sample_fraction": 0.017255434782608697,
+          "final_wasm_index": 175,
+          "final_name": "$adapter197"
+        },
+        {
+          "sampled_function": "adapter727",
+          "samples": 87,
+          "sample_fraction": 0.011820652173913043,
+          "final_wasm_index": 238,
+          "final_name": "$adapter727"
+        },
+        {
+          "sampled_function": "specialized725",
+          "samples": 85,
+          "sample_fraction": 0.01154891304347826,
+          "final_wasm_index": 237,
+          "final_name": "$specialized725"
+        },
+        {
+          "sampled_function": "function180",
+          "samples": 71,
+          "sample_fraction": 0.009646739130434782,
+          "final_wasm_index": 163,
+          "final_name": "$function180"
+        },
+        {
+          "sampled_function": "specialized426",
+          "samples": 59,
+          "sample_fraction": 0.008016304347826088,
+          "final_wasm_index": 232,
+          "final_name": "$specialized426"
+        },
+        {
+          "sampled_function": "adapter236",
+          "samples": 53,
+          "sample_fraction": 0.007201086956521739,
+          "final_wasm_index": 193,
+          "final_name": "$adapter236"
+        },
+        {
+          "sampled_function": "function191",
+          "samples": 43,
+          "sample_fraction": 0.005842391304347826,
+          "final_wasm_index": 168,
+          "final_name": "$function191"
+        },
+        {
+          "sampled_function": "function166",
+          "samples": 41,
+          "sample_fraction": 0.005570652173913043,
+          "final_wasm_index": 155,
+          "final_name": "$function166"
+        },
+        {
+          "sampled_function": "adapter266",
+          "samples": 24,
+          "sample_fraction": 0.003260869565217391,
+          "final_wasm_index": 208,
+          "final_name": "$adapter266"
+        },
+        {
+          "sampled_function": "adapter268",
+          "samples": 24,
+          "sample_fraction": 0.003260869565217391,
+          "final_wasm_index": 207,
+          "final_name": "$adapter268"
+        },
+        {
+          "sampled_function": "function230",
+          "samples": 21,
+          "sample_fraction": 0.0028532608695652174,
+          "final_wasm_index": 203,
+          "final_name": "$function230"
+        },
+        {
+          "sampled_function": "function241",
+          "samples": 21,
+          "sample_fraction": 0.0028532608695652174,
+          "final_wasm_index": 200,
+          "final_name": "$function241"
+        },
+        {
+          "sampled_function": "adapter254",
+          "samples": 20,
+          "sample_fraction": 0.002717391304347826,
+          "final_wasm_index": 190,
+          "final_name": "$adapter254"
+        },
+        {
+          "sampled_function": "adapter207",
+          "samples": 15,
+          "sample_fraction": 0.0020380434782608695,
+          "final_wasm_index": 182,
+          "final_name": "$adapter207"
+        },
+        {
+          "sampled_function": "adapter237",
+          "samples": 14,
+          "sample_fraction": 0.0019021739130434783,
+          "final_wasm_index": 192,
+          "final_name": "$adapter237"
+        },
+        {
+          "sampled_function": "adapter183",
+          "samples": 10,
+          "sample_fraction": 0.001358695652173913,
+          "final_wasm_index": 166,
+          "final_name": "$adapter183"
+        },
+        {
+          "sampled_function": "function163",
+          "samples": 10,
+          "sample_fraction": 0.001358695652173913,
+          "final_wasm_index": 157,
+          "final_name": "$function163"
+        },
+        {
+          "sampled_function": "adapter238",
+          "samples": 9,
+          "sample_fraction": 0.0012228260869565218,
+          "final_wasm_index": 194,
+          "final_name": "$adapter238"
+        },
+        {
+          "sampled_function": "function21",
+          "samples": 9,
+          "sample_fraction": 0.0012228260869565218,
+          "final_wasm_index": 126,
+          "final_name": "$function21"
+        },
+        {
+          "sampled_function": "function42",
+          "samples": 9,
+          "sample_fraction": 0.0012228260869565218,
+          "final_wasm_index": 141,
+          "final_name": "$function42"
+        }
+      ]
+    }
+  ]
+}

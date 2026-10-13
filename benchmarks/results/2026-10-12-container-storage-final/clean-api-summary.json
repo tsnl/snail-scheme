@@ -1,0 +1,602 @@
+{
+  "ordinary_revision": "22c2006f64c5ea322bd77ae080e007e625534d25",
+  "api_revision": "b218ce27cd5f7a157b68a450899c6805f041e856",
+  "observer": "None: fresh default-tier Node, plain WASI host, CPU5, no probes/profiler/GC flags.",
+  "scope": "Separate API-layer matched ordinary controls and two explicit F64 kernels. Contract storage remains native off/on; API-vs-ordinary source also differs in interface/worker annotations and calling conventions, so it is not a one-change storage isolation.",
+  "caveat": "Three retained observations per cell, descriptive ranges only. Full result checks outside kernel timer; process includes them and startup. Apply and both opaque choices checked outside timing.",
+  "configs": {
+    "update-i31": {
+      "size": 65536,
+      "rounds": 1600
+    },
+    "update-f64": {
+      "size": 65536,
+      "rounds": 352
+    },
+    "f64-append-direct": {
+      "size": 65536,
+      "rounds": 1344
+    },
+    "f64-append-opaque": {
+      "size": 65536,
+      "rounds": 1312
+    }
+  },
+  "comparability": {
+    "modules": [
+      {
+        "case": "update-i31",
+        "variant": "22-off",
+        "module": "/tmp/snail-container-ordinary-22c2006-20261012/build/prepared/off/update-i31/program.wasm",
+        "module_sha256": "865664cb80addd7bf3b2cc6d4bd30b445ab1e2596c25389de0b37ade6cae1228",
+        "module_bytes": 489140,
+        "source_sha256": "8bd042a7f2845c8fd489c412ee12fdb417bee926a3d4d0a893581ed21b2eaef3"
+      },
+      {
+        "case": "update-i31",
+        "variant": "22-on",
+        "module": "/tmp/snail-container-ordinary-22c2006-20261012/build/prepared/on/update-i31/program.wasm",
+        "module_sha256": "0f403e32509b7130bc84a2f100da143d462160af2ec7143a4bac3f0c79e9f11a",
+        "module_bytes": 506554,
+        "source_sha256": "8bd042a7f2845c8fd489c412ee12fdb417bee926a3d4d0a893581ed21b2eaef3"
+      },
+      {
+        "case": "update-i31",
+        "variant": "api-ordinary-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/update-i31/program.wasm",
+        "module_sha256": "569a2dfebe6e60f59f3fad6b54fcadd9d823b161f9574176e5b124b998cbce37",
+        "module_bytes": 503010,
+        "source_sha256": "8bd042a7f2845c8fd489c412ee12fdb417bee926a3d4d0a893581ed21b2eaef3"
+      },
+      {
+        "case": "update-i31",
+        "variant": "api-ordinary-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/update-i31/program.wasm",
+        "module_sha256": "8423040f149ab3759acd2f5aaa142cfed49a44b025108335124407db55e4f007",
+        "module_bytes": 506921,
+        "source_sha256": "8bd042a7f2845c8fd489c412ee12fdb417bee926a3d4d0a893581ed21b2eaef3"
+      },
+      {
+        "case": "update-f64",
+        "variant": "22-off",
+        "module": "/tmp/snail-container-ordinary-22c2006-20261012/build/prepared/off/update-f64/program.wasm",
+        "module_sha256": "2baa27198bebcc9b6af46da64c77d7b31214fbea32d2f0ccfcea1ce24d6cacfd",
+        "module_bytes": 489068,
+        "source_sha256": "6b1c5c61cc7a639d6d55713c5adb46313f561e362bff468e352d2f1519476c4c"
+      },
+      {
+        "case": "update-f64",
+        "variant": "22-on",
+        "module": "/tmp/snail-container-ordinary-22c2006-20261012/build/prepared/on/update-f64/program.wasm",
+        "module_sha256": "baf74b0b4c166b9e65c1db5f43ce1de822c9899d81b93a638863aab3277e9fda",
+        "module_bytes": 505824,
+        "source_sha256": "6b1c5c61cc7a639d6d55713c5adb46313f561e362bff468e352d2f1519476c4c"
+      },
+      {
+        "case": "update-f64",
+        "variant": "api-ordinary-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/update-f64/program.wasm",
+        "module_sha256": "3e51a07c948652189aabd43eaec9590ed975e0b2185fa728cc013cc6e5ec0014",
+        "module_bytes": 503021,
+        "source_sha256": "6b1c5c61cc7a639d6d55713c5adb46313f561e362bff468e352d2f1519476c4c"
+      },
+      {
+        "case": "update-f64",
+        "variant": "api-ordinary-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/update-f64/program.wasm",
+        "module_sha256": "07980b6144477a5eaebccefa48f782657fe2f8d4ff1152d3e2d813d09e9905e7",
+        "module_bytes": 506191,
+        "source_sha256": "6b1c5c61cc7a639d6d55713c5adb46313f561e362bff468e352d2f1519476c4c"
+      },
+      {
+        "case": "update-f64",
+        "variant": "api-contract-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/api-update-f64/program.wasm",
+        "module_sha256": "ddfe9f2296bfbb38f455d27990516b103e5a9788441b38ee284a285a8a46c321",
+        "module_bytes": 506506,
+        "source_sha256": "7859de04a64f8e0b216a6c572f5655b6666e374e63aa172328053196a6f724f0"
+      },
+      {
+        "case": "update-f64",
+        "variant": "api-contract-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/api-update-f64/program.wasm",
+        "module_sha256": "f8972b755a38a436c48b1cd0af14dce367b0ac972a8b82f54fd6b41289ebac72",
+        "module_bytes": 505367,
+        "source_sha256": "7859de04a64f8e0b216a6c572f5655b6666e374e63aa172328053196a6f724f0"
+      },
+      {
+        "case": "f64-append-direct",
+        "variant": "api-ordinary-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/vector-f64/program.wasm",
+        "module_sha256": "047814e529d90eecae183a84017a8646ea040e5b7b8be209f653128d55642e88",
+        "module_bytes": 553066,
+        "source_sha256": "a91ba675e1801aa0d929e92a3815251216ab32205bac0e399c2260dc60410539"
+      },
+      {
+        "case": "f64-append-direct",
+        "variant": "api-ordinary-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/vector-f64/program.wasm",
+        "module_sha256": "45d7f16e8c03d6207eef66c40cf61f329c4d6ed9b700084bf26f8adca01d49c7",
+        "module_bytes": 546539,
+        "source_sha256": "a91ba675e1801aa0d929e92a3815251216ab32205bac0e399c2260dc60410539"
+      },
+      {
+        "case": "f64-append-direct",
+        "variant": "api-contract-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/api-append-f64/program.wasm",
+        "module_sha256": "96e265a2012f0b1bda56ccfff4d24334f8804359276ba969307595c25508e1bf",
+        "module_bytes": 559440,
+        "source_sha256": "5c5979cfa734bd95a76efbf4ea68ad28abc4a7d29a443d6e3a610c0f00bb0eae"
+      },
+      {
+        "case": "f64-append-direct",
+        "variant": "api-contract-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/api-append-f64/program.wasm",
+        "module_sha256": "6e104925807722a8e3a555d55fe3749111e15f8771bf6b0fb34b1bbef9242558",
+        "module_bytes": 550517,
+        "source_sha256": "5c5979cfa734bd95a76efbf4ea68ad28abc4a7d29a443d6e3a610c0f00bb0eae"
+      },
+      {
+        "case": "f64-append-opaque",
+        "variant": "api-ordinary-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/vector-f64/program.wasm",
+        "module_sha256": "047814e529d90eecae183a84017a8646ea040e5b7b8be209f653128d55642e88",
+        "module_bytes": 553066,
+        "source_sha256": "a91ba675e1801aa0d929e92a3815251216ab32205bac0e399c2260dc60410539"
+      },
+      {
+        "case": "f64-append-opaque",
+        "variant": "api-ordinary-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/vector-f64/program.wasm",
+        "module_sha256": "45d7f16e8c03d6207eef66c40cf61f329c4d6ed9b700084bf26f8adca01d49c7",
+        "module_bytes": 546539,
+        "source_sha256": "a91ba675e1801aa0d929e92a3815251216ab32205bac0e399c2260dc60410539"
+      },
+      {
+        "case": "f64-append-opaque",
+        "variant": "api-contract-off",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/off/api-append-f64/program.wasm",
+        "module_sha256": "96e265a2012f0b1bda56ccfff4d24334f8804359276ba969307595c25508e1bf",
+        "module_bytes": 559440,
+        "source_sha256": "5c5979cfa734bd95a76efbf4ea68ad28abc4a7d29a443d6e3a610c0f00bb0eae"
+      },
+      {
+        "case": "f64-append-opaque",
+        "variant": "api-contract-on",
+        "module": "/tmp/snail-container-api-b218ce2-20261012/build/prepared/on/api-append-f64/program.wasm",
+        "module_sha256": "6e104925807722a8e3a555d55fe3749111e15f8771bf6b0fb34b1bbef9242558",
+        "module_bytes": 550517,
+        "source_sha256": "5c5979cfa734bd95a76efbf4ea68ad28abc4a7d29a443d6e3a610c0f00bb0eae"
+      }
+    ],
+    "tools": {
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "scripts/run-wasi.mjs": "190ef3a21de6dd76ff07fb7e0d247f2296eed25aa46cd1d8a6444584a99c9230",
+      "src/runtime/host.mjs": "69be04811622d9a9480c8ab9d690f45871d48d8fd4292e5fad98b12f2531b54b",
+      "src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+    },
+    "api_preparation_sha256": "c4b3904d51a5c1f690938426de492e877ac66e38f9f2193375e169aaec4c436b",
+    "ordinary_harness_sha256": "078c2d73745d3fd51cf5b8b11d7eefbabb46639b7804722e00c4d602381dcfbd"
+  },
+  "summaries": [
+    {
+      "case": "update-i31",
+      "variants": {
+        "22-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.722020257,
+              0.727483327,
+              0.721447502
+            ],
+            "median": 0.722020257,
+            "min": 0.721447502,
+            "max": 0.727483327
+          },
+          "process_seconds": {
+            "observations": [
+              0.758708354,
+              0.760676441,
+              0.755741139
+            ],
+            "median": 0.758708354,
+            "min": 0.755741139,
+            "max": 0.760676441
+          }
+        },
+        "22-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.379137334,
+              0.364791074,
+              0.365692493
+            ],
+            "median": 0.365692493,
+            "min": 0.364791074,
+            "max": 0.379137334
+          },
+          "process_seconds": {
+            "observations": [
+              0.411043801,
+              0.39890571,
+              0.3976416
+            ],
+            "median": 0.39890571,
+            "min": 0.3976416,
+            "max": 0.411043801
+          }
+        },
+        "api-ordinary-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.380087401,
+              0.373463596,
+              0.3737883
+            ],
+            "median": 0.3737883,
+            "min": 0.373463596,
+            "max": 0.380087401
+          },
+          "process_seconds": {
+            "observations": [
+              0.413739855,
+              0.407033035,
+              0.408115497
+            ],
+            "median": 0.408115497,
+            "min": 0.407033035,
+            "max": 0.413739855
+          }
+        },
+        "api-ordinary-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.364538977,
+              0.365075868,
+              0.361193689
+            ],
+            "median": 0.364538977,
+            "min": 0.361193689,
+            "max": 0.365075868
+          },
+          "process_seconds": {
+            "observations": [
+              0.395817732,
+              0.39626267,
+              0.394445694
+            ],
+            "median": 0.395817732,
+            "min": 0.394445694,
+            "max": 0.39626267
+          }
+        }
+      }
+    },
+    {
+      "case": "update-f64",
+      "variants": {
+        "22-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.379088032,
+              0.379889239,
+              0.381623456
+            ],
+            "median": 0.379889239,
+            "min": 0.379088032,
+            "max": 0.381623456
+          },
+          "process_seconds": {
+            "observations": [
+              0.429098302,
+              0.429204768,
+              0.431223447
+            ],
+            "median": 0.429204768,
+            "min": 0.429098302,
+            "max": 0.431223447
+          }
+        },
+        "22-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.065294907,
+              0.065840185,
+              0.065385241
+            ],
+            "median": 0.065385241,
+            "min": 0.065294907,
+            "max": 0.065840185
+          },
+          "process_seconds": {
+            "observations": [
+              0.104119385,
+              0.107620287,
+              0.10488691
+            ],
+            "median": 0.10488691,
+            "min": 0.104119385,
+            "max": 0.107620287
+          }
+        },
+        "api-ordinary-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.310267923,
+              0.312039836,
+              0.311596153
+            ],
+            "median": 0.311596153,
+            "min": 0.310267923,
+            "max": 0.312039836
+          },
+          "process_seconds": {
+            "observations": [
+              0.361088969,
+              0.362668375,
+              0.36040497
+            ],
+            "median": 0.361088969,
+            "min": 0.36040497,
+            "max": 0.362668375
+          }
+        },
+        "api-ordinary-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.065367573,
+              0.066210634,
+              0.065326527
+            ],
+            "median": 0.065367573,
+            "min": 0.065326527,
+            "max": 0.066210634
+          },
+          "process_seconds": {
+            "observations": [
+              0.105039313,
+              0.105050488,
+              0.105182353
+            ],
+            "median": 0.105050488,
+            "min": 0.105039313,
+            "max": 0.105182353
+          }
+        },
+        "api-contract-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.083572822,
+              0.084783502,
+              0.083723569
+            ],
+            "median": 0.083723569,
+            "min": 0.083572822,
+            "max": 0.084783502
+          },
+          "process_seconds": {
+            "observations": [
+              0.123744579,
+              0.125080971,
+              0.123330579
+            ],
+            "median": 0.123744579,
+            "min": 0.123330579,
+            "max": 0.125080971
+          }
+        },
+        "api-contract-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.040230908,
+              0.040307833,
+              0.039995718
+            ],
+            "median": 0.040230908,
+            "min": 0.039995718,
+            "max": 0.040307833
+          },
+          "process_seconds": {
+            "observations": [
+              0.081128075,
+              0.077842984,
+              0.079156877
+            ],
+            "median": 0.079156877,
+            "min": 0.077842984,
+            "max": 0.081128075
+          }
+        }
+      }
+    },
+    {
+      "case": "f64-append-direct",
+      "variants": {
+        "api-ordinary-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.467799352,
+              0.470054701,
+              0.467664998
+            ],
+            "median": 0.467799352,
+            "min": 0.467664998,
+            "max": 0.470054701
+          },
+          "process_seconds": {
+            "observations": [
+              0.535508606,
+              0.538492204,
+              0.53522045
+            ],
+            "median": 0.535508606,
+            "min": 0.53522045,
+            "max": 0.538492204
+          }
+        },
+        "api-ordinary-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.471572681,
+              0.470133896,
+              0.466601281
+            ],
+            "median": 0.470133896,
+            "min": 0.466601281,
+            "max": 0.471572681
+          },
+          "process_seconds": {
+            "observations": [
+              0.526853886,
+              0.523219643,
+              0.51904101
+            ],
+            "median": 0.523219643,
+            "min": 0.51904101,
+            "max": 0.526853886
+          }
+        },
+        "api-contract-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.460127619,
+              0.463311204,
+              0.462071161
+            ],
+            "median": 0.462071161,
+            "min": 0.460127619,
+            "max": 0.463311204
+          },
+          "process_seconds": {
+            "observations": [
+              0.516635473,
+              0.519056832,
+              0.517644477
+            ],
+            "median": 0.517644477,
+            "min": 0.516635473,
+            "max": 0.519056832
+          }
+        },
+        "api-contract-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.459515265,
+              0.462918556,
+              0.467077621
+            ],
+            "median": 0.462918556,
+            "min": 0.459515265,
+            "max": 0.467077621
+          },
+          "process_seconds": {
+            "observations": [
+              0.510896868,
+              0.516627191,
+              0.518894476
+            ],
+            "median": 0.516627191,
+            "min": 0.510896868,
+            "max": 0.518894476
+          }
+        }
+      }
+    },
+    {
+      "case": "f64-append-opaque",
+      "variants": {
+        "api-ordinary-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.469641875,
+              0.460463457,
+              0.473250068
+            ],
+            "median": 0.469641875,
+            "min": 0.460463457,
+            "max": 0.473250068
+          },
+          "process_seconds": {
+            "observations": [
+              0.537299198,
+              0.529491907,
+              0.538636565
+            ],
+            "median": 0.537299198,
+            "min": 0.529491907,
+            "max": 0.538636565
+          }
+        },
+        "api-ordinary-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.457375644,
+              0.454357798,
+              0.461695561
+            ],
+            "median": 0.457375644,
+            "min": 0.454357798,
+            "max": 0.461695561
+          },
+          "process_seconds": {
+            "observations": [
+              0.512224032,
+              0.506939144,
+              0.515418823
+            ],
+            "median": 0.512224032,
+            "min": 0.506939144,
+            "max": 0.515418823
+          }
+        },
+        "api-contract-off": {
+          "kernel_seconds": {
+            "observations": [
+              0.452266782,
+              0.4520042,
+              0.452860382
+            ],
+            "median": 0.452266782,
+            "min": 0.4520042,
+            "max": 0.452860382
+          },
+          "process_seconds": {
+            "observations": [
+              0.512097604,
+              0.509594257,
+              0.511558159
+            ],
+            "median": 0.511558159,
+            "min": 0.509594257,
+            "max": 0.512097604
+          }
+        },
+        "api-contract-on": {
+          "kernel_seconds": {
+            "observations": [
+              0.454661659,
+              0.451453102,
+              0.453720964
+            ],
+            "median": 0.453720964,
+            "min": 0.451453102,
+            "max": 0.454661659
+          },
+          "process_seconds": {
+            "observations": [
+              0.510209436,
+              0.505338654,
+              0.508302358
+            ],
+            "median": 0.508302358,
+            "min": 0.505338654,
+            "max": 0.510209436
+          }
+        }
+      }
+    }
+  ]
+}
