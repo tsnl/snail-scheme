@@ -80,7 +80,8 @@ python3 benchmarks/strict-suite/replay.py /tmp/strict-next-five-replay \
   --report benchmarks/results/2026-10-13-strict-numeric-next-five
 ```
 
-To repeat timing, use the recorded tools and driver checkout `39d68ff`, then:
+To repeat timing, use the recorded tools and a driver matching the hash in
+`prepared.json` (the version checked in with this report), then:
 
 ```sh
 python3 benchmarks/strict-suite/measure.py measure \
