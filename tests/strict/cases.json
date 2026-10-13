@@ -20,6 +20,8 @@
   {"name": "typeclass-method-value", "result": "42"},
   {"name": "typeclass-phantom", "result": "42"},
   {"name": "typeclass-result-selection", "result": "42"},
+  {"name": "typeclass-member-initializer", "result": "42"},
+  {"name": "typeclass-rest", "result": "42"},
   {"name": "explicit-instantiation", "result": "42"},
   {"name": "top-integer", "result": "4294967296"},
   {"name": "top-float", "result": "3.75"},
