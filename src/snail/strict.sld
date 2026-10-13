@@ -6,6 +6,7 @@
           let let* letrec letrec* and or when unless
           : ann inst All -> Rest => define-class define-instance define-overload define-extern
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List Vector
+          Default default
           + - * / sqrt quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
           i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
@@ -15,7 +16,7 @@
           ref ref-get ref-set! ref-eq? cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
           vector vector-copy vector-append vector->list list->vector)
-  (import (snail-scheme core))
+  (import (rename (snail-scheme core) (make-vector make-filled-vector)))
   (begin
 
     ;; ---- Immutable binding forms ----
@@ -52,8 +53,8 @@
 
     ;; ---- Static numeric operators ----
 
-    ;; Each concrete signature becomes a static class instance. Selection uses
-    ;; exact argument types; its unique result is inferred before emission.
+    ;; Each signature becomes a static class instance. Argument and result
+    ;; context select a unique row before any concrete function is emitted.
     ;; Numeric promotion is ordinary source code and calls a selected float row.
     (define-overload + (-> I32 I32 I32) i32-add)
     (define-overload - (-> I32 I32 I32) i32-sub)
@@ -136,7 +137,30 @@
     (define-overload >= (-> F64 I64 Bool)
       (lambda (left right) (>= left (i64->f64 right))))
 
-    ;; ---- Homogeneous vectors ----
+    ;; ---- Default values and homogeneous vectors ----
+
+    (define-class (Default T) (: default (-> T)))
+    (define-instance (Default I32) (default (lambda () (ann 0 I32))))
+    (define-instance (Default I64) (default (lambda () 0)))
+    (define-instance (Default F32) (default (lambda () (ann 0.0 F32))))
+    (define-instance (Default F64) (default (lambda () 0.0)))
+    (define-instance (Default Bool) (default (lambda () #f)))
+    (define-instance (Default Char) (default (lambda () #\null)))
+    (define-instance (Default Unit) (default (lambda () (unit))))
+
+    (define-overload make-vector (All (T) (-> I64 T (Vector T))) make-filled-vector)
+    (define-overload make-vector (All (T) (=> ((Default T)) (-> I64 (Vector T))))
+      (lambda (count)
+        ;; Validate before user code runs. The private vector cannot escape
+        ;; until each slot has its own default; zero invokes no default at all.
+        (if (or (< count 0) (> count 4294967295)) (unreachable)
+            (if (= count 0) (empty-vector)
+                (let ((result (make-filled-vector count (default))))
+                  (let loop ((index 1))
+                    (unless (= index count)
+                      (vector-set! result index (default))
+                      (loop (+ index 1))))
+                  result)))))
 
     ;; These are ordinary polymorphic Scheme functions. Specialization keeps
     ;; each element type through native allocation and bulk copying. Constructors

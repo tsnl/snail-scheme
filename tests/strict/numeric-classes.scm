@@ -1,5 +1,5 @@
 (import (snail strict))
-(: square (All (T) (=> ((* T T T)) (-> T T))))
+(: square (All (T) (=> ((* (-> T T T))) (-> T T))))
 (define (square x) (* x x))
 (define (distance a b) (if (< a b) (- b a) (- a b)))
 (define (quadratic a b) (+ (square a) (square b)))

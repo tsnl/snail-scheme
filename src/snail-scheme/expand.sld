@@ -682,7 +682,7 @@
     (define (expand-overload-declaration form environment transformers fuel)
       (let* ((parts (fields form '(_ name type implementation)))
              (type (expand-type (cadr parts) environment)))
-        (if (not (arrow-type? type)) (fail form "overload requires a function signature"))
+        (if (not (function-type? type)) (fail form "overload requires a function signature"))
         (make-overload-declaration
          (name-definition (resolve-name (car parts) environment)) type
          (expand-expression (caddr parts) environment transformers fuel) (syntax-loc form))))

@@ -49,6 +49,12 @@ An explicit `(: identity (All (T) (-> T T)))` checks the body with rigid T.
 not acquire a machine representation. Declaration-bound type names are currently
 scoped to the signature, not to annotations or `inst` syntax in the body.
 
+Polymorphism is rank one: a binding scheme is monomorphic or has one outermost
+`All`. Nested `All` in function results, parameters, or stored element types is
+rejected. An outer `All` may quantify the types used by a returned closure; each
+concrete copy still returns a monomorphic function. Unknown semantic types or
+operations never acquire a generic runtime representation or JIT fallback.
+
 The existing `let` macro expands to a directly applied lambda. The strict checker
 elaborates that exact fixed-arity syntactic form as a typed let: actuals are
 checked in the caller environment, then eligible bindings generalize. This also
@@ -63,47 +69,52 @@ different concrete copies of a generic function. Immutable `List T` supports
 
 ## Free overloads and numeric operations
 
-`define-overload` gives one name several concrete function signatures. Argument
-types alone select an exact signature; its result type is then inferred. Each
-family lowers to an ordinary static class with one method and shares the existing
-instance checking and specialization path. There are no runtime dictionaries or
-tagged arithmetic operations.
+`define-overload` gives one name several function signatures. Argument types,
+expected result types, and later uses constrain the complete signature. A unique
+compatible row supplies the remaining type information. An ambiguous use requires
+more context; declaration order never chooses a row. Each family lowers to a
+static class over one complete function type and uses the existing member checking
+and specialization path. There are no runtime dictionaries or tagged arithmetic.
 
 ```scheme
-(define-overload select (-> I64 I64) (lambda (value) value))
-(define-overload select (-> Bool I64) (lambda (value) (if value 42 0)))
-(select #t) ; I64, value 42
+(define-overload convert (-> I64 I64) (lambda (value) value))
+(define-overload convert (-> I64 F64) i64->f64)
+(ann (convert 42) F64) ; 42.0
 ```
 
-Families currently require module scope, one fixed arity, and concrete signatures.
-Implementations are lambdas or stable named functions. All bodies are checked,
-including unused rows. Duplicate argument tuples fail even when their results
-differ. Declarations may extend an imported family, including through a renamed
-or prefixed import; resolved binding identity determines the shared family.
-Families cannot replace an ordinary value or class method with the same identity.
+Families currently require module scope. Each row owns its declared signature and
+its lambda or stable named implementation. Detached `(: family ...)` declarations
+are rejected rather than assigned to a row by source order. Rows may have different
+fixed arities and rank-one generic signatures. Rest signatures are unsupported.
+All bodies are checked, including unused rows. Declarations may extend an imported
+family through its original, renamed, or prefixed binding identity. A family cannot
+replace an ordinary value or class method with the same identity.
 
-A family name also names its generic obligation. Its input parameters are followed
-by its result parameter:
+Exact or alpha-equivalent complete row signatures are duplicates, regardless of
+their class prerequisites. Other overlaps may be declared, but a use compatible
+with several rows remains ambiguous. There is no specificity ordering. Prerequisites
+are proved after row selection and do not rank candidates or guess missing types
+from the available class instances. Candidate trials use private type copies;
+only committing a unique applicable row constrains the actual use.
+
+A family name also names its generic obligation, with one complete function type:
 
 ```scheme
-(: combine (All (A B R) (=> ((+ A B R)) (-> A B R))))
+(: combine (All (A B R) (=> ((+ (-> A B R))) (-> A B R))))
 (define (combine left right) (+ left right))
 (combine 20 22.0) ; F64, value 42.0
+(define mixed-add (inst + (-> I64 F64 F64)))
+
+(define-overload choose (All (T) (-> T T T))
+  (lambda (left right) left))
 ```
 
-Without the declaration, inference derives the same relationship. Two obligations
-for the same family and identical input types have equal results, including when
-the inputs remain abstract. Concrete input selection repeats until results feeding
-other calls have settled. Expected results validate the selected row; they never
-select an alternative or supply missing argument types. A unique available row
-does not default unresolved inputs. Ordinary `define-class` contracts retain their
-full-head lookup, including methods selected by expected result types.
-
-Explicit `All` contracts currently require one shared result variable for repeated
-family predicates with equal inputs. Distinct rigid variables `R` and `S` in
-`(+ A A R)` and `(+ A A S)` are rejected rather than silently changing quantified
-positions or explicit `inst` arguments. TODO: support scoped equality evidence
-for such redundant given predicates without weakening rigid checking.
+Without a declaration, inference derives a qualified scheme. A unique compatible
+given family obligation can solve a body's remaining holes without weakening rigid
+`All` variables. Different result obligations for identical inputs remain distinct.
+Selection repeats after unification and before concrete specialization so nested
+calls and later uses can settle earlier holes. Ordinary `define-class` contracts
+retain exact full-head lookup and never infer a type from an available instance.
 
 Numeric families supplied by `(snail strict)` are:
 
@@ -166,17 +177,18 @@ invariant: aliases see one vector, and a write cannot change its element type.
 Heterogeneous storage requires an explicit `Vector Top` with explicit injections.
 
 ```scheme
-(define values (make-vector 3 0))
+(define values (make-vector 3)) ; later writes determine Vector I64
 (vector-set! values 1 42)
 (vector-ref (vector-append values (vector 7 8)) 1)
 ```
 
-The native storage operations are:
+The public vector operations are:
 
 | Operation | Contract |
 | --- | --- |
 | `(empty-vector)` | Fresh empty vector; context must determine T. |
-| `(make-vector length fill)` | Fresh vector with every element set to fill. |
+| `(make-vector length fill)` | Fresh vector with every element set to fill; no Default obligation. |
+| `(make-vector length)` | Fresh vector; one `default` call per element under Default T. |
 | `(vector-length source)` | Length as I64. |
 | `(vector-ref source index)` | Element at an I64 index. |
 | `(vector-set! target index value)` | Replace one T element; return Unit. |
@@ -194,8 +206,19 @@ then the operator, before these checks.
 are ordinary polymorphic functions in `(snail strict)`. Their concrete copies
 use those storage operations without a dynamic element boundary. `vector-copy`
 currently copies a whole vector; `vector-copy!` takes exactly five arguments.
-`make-vector` requires an explicit fill, even for zero length. The constructors
-create fresh outer storage and preserve the identities of referenced elements.
+`make-vector` has two generic rows. `(make-vector length fill)` uses the fill's
+type, requires no `Default` instance, and shares that fill's identity across slots.
+`(make-vector length)` requires `(Default T)` and creates each element with the
+ordinary zero-argument `default` method. Expected `Vector T` context or later uses
+must determine T; available defaults never choose it. The library supplies defaults
+for I32, I64, F32, F64, Bool, Char, and Unit. Programs may define exact instances for
+other types.
+
+The one-argument constructor validates the length before invoking `default`. Zero
+length invokes it zero times; positive length invokes it once per element. Its
+private vector does not escape before all slots are initialized. Mutable defaults
+therefore retain distinct element identities when the method constructs fresh
+values. Both forms create fresh outer storage.
 Allocations obey the value restriction: one empty vector cannot be reused at
 different element types. For an otherwise unconstrained empty vector, write
 `(ann (empty-vector) (Vector I64))`.
@@ -363,3 +386,18 @@ records, dynamic `apply`, or universal-value operation dispatch. The
 existing parser may recognize forms outside this surface; the strict checker
 rejects unsupported expressions. No benchmark speedup is claimed from
 correctness tests alone.
+
+## Planned shared IR refinement
+
+The current prototype elaborates resolved `ir.sld` expression records into
+`strict-core.sld` typed records. A follow-up refactor will consolidate those into
+one located IR whose attached type holes are refined by inference and replaced
+by concrete substitutions during specialization. Expansion will still resolve
+names and attach declared type syntax without performing type inference.
+
+Inferred overload signatures are also planned for that layer: each omitted row
+signature will own a fresh hole and independent implementation identity. All
+candidate rows must be considered before selection; unresolved competing rows
+cannot be ignored. Dependency groups must infer coherent row schemes or request
+a signature when recursive selection cannot settle them. These APIs are not yet
+implemented by the explicit-signature prototype described above.

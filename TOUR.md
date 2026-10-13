@@ -209,7 +209,10 @@ a replacement of the existing command-line compiler yet.
 [`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
 rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
 [`strict-core.sld`](src/snail-scheme/strict-core.sld) defines checked expression,
-binding and static class records, plus argument-directed overload result solving.
+binding and static class records.
+[`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) matches complete
+function signatures with isolated candidate trials, commits unique generic row
+views, and repeats improvement as argument and result information settles.
 [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) lowers free overload
 declarations to classes and instances, checks source groups, generalizes eligible
 values and retains class obligations. Abstract obligations bound by a generalized

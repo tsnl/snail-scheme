@@ -1,5 +1,5 @@
 (import (snail strict))
-(define mixed (inst + I64 F64 F64))
+(define mixed (inst + (-> I64 F64 F64)))
 (if (and (= (mixed 20 22.0) 42.0)
          (= ((ann + (-> I32 I32 I32)) 20 22) (ann 42 I32)))
     42 (unreachable))

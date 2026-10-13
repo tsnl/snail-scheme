@@ -3,8 +3,10 @@
 ;; expand.sld constructs these immutable records from located syntax. Environments
 ;; are transient alists passed through expansion, never fields of IR nodes.
 ;;
-;; Item        = value-binding | Expression
+;; Item        = value-binding | type-declaration | record-schema | class-declaration
+;;             | instance-declaration | overload-declaration | extern-declaration | Expression
 ;; Expression  = name | literal | application | lambda | block | conditional | assignment
+;;             | annotation | instantiation
 ;;
 ;; Binding nodes and name references share value-definition identities. Reserving
 ;; those identities before expanding bodies supports recursion without mutation.
