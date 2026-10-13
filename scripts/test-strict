@@ -35,7 +35,9 @@ def invoke(command, root, log):
 def check_case(case, compiler, output):
     source = FIXTURES / (case["name"] + ".scm")
     artifact = output / (case["name"] + ".wasm")
+    raw_artifact = Path(str(artifact) + ".raw.wasm")
     artifact.unlink(missing_ok=True)
+    raw_artifact.unlink(missing_ok=True)
     command = [compiler / "scripts/build-strict", source, artifact]
     built = invoke(command, compiler, output / (case["name"] + "-compile.json"))
     result = dict(name=case["name"], source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
@@ -46,12 +48,15 @@ def check_case(case, compiler, output):
         result["passed"] = (isinstance(built["status"], int) and built["status"] != 0
                             and bool(re.search(case["error"], diagnostic, re.I)) and bool(located))
         return result
-    if built["status"] != 0 or not artifact.is_file():
+    if built["status"] != 0 or not artifact.is_file() or not raw_artifact.is_file():
         return result
     run = invoke([os.environ.get("NODE", "node"), FIXTURES / "run.mjs", artifact, case["result"]],
                  compiler, output / (case["name"] + "-run.json"))
     result.update(run=run, module_sha256=hashlib.sha256(artifact.read_bytes()).hexdigest())
-    result["passed"] = run["status"] == 0
+    raw_run = invoke([os.environ.get("NODE", "node"), FIXTURES / "run.mjs", raw_artifact,
+                      case["result"]], compiler, output / (case["name"] + "-raw-run.json"))
+    result.update(raw_run=raw_run, raw_module_sha256=hashlib.sha256(raw_artifact.read_bytes()).hexdigest())
+    result["passed"] = run["status"] == 0 and raw_run["status"] == 0
     return result
 
 
