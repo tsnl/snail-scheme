@@ -269,11 +269,10 @@
     ;; ---- Resolved expressions and guarded binding values ----
 
     (define (scan! node state)
-      (let ((existing (hash-table-ref/default (analysis-expressions state) node #f)))
-        (if existing existing
-            (let ((result (expression-storage-hole node state)))
-              (hash-table-set! (analysis-reached state) node #t)
-              (scan-node! node result state) result))))
+      (let ((result (expression-storage-hole node state)))
+        (unless (expression-storage-reached? node state)
+          (hash-table-set! (analysis-reached state) node #t)
+          (scan-node! node result state)) result))
     (define (scan-node! node result state)
       (cond ((ir:literal? node) (scan-literal! node (ir:literal-value node) result state))
             ((ir:name? node) (flow! (binding-storage-hole (ir:name-definition node) state) result #f state))
@@ -657,7 +656,10 @@
           ;; Emission may ask about an unexecuted body. Such a query must not
           ;; manufacture reachability and re-enable a discarded call pin.
           (expect (expression-storage-reached? body state) #f)
-          (expect (expression-storage-reached? procedure state) #t)))
+          (expect (expression-storage-reached? procedure state) #t)
+          (scan! body state)
+          (expect (expression-storage-type body state) 'i32)
+          (expect (expression-storage-reached? body state) #t)))
       (define (test-storage-analysis)
         (test-alias-and-copy) (test-known-setter-and-escape) (test-family-collapse) (test-storage-hints)
         (test-record-fields) (test-reached-expressions))))))
