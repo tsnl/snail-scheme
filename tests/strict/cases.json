@@ -154,5 +154,8 @@
   {"name": "reject-overload-prerequisite-ranking", "error": "ambiguous overload"},
   {"name": "reject-overload-generic-reordered", "error": "duplicate overload"},
   {"name": "vector-default-negative", "result": "42", "exports": {"allocate": "trap", "calls": "0"}},
-  {"name": "vector-default-overflow", "result": "42", "exports": {"allocate": "trap", "calls": "0"}}
+  {"name": "vector-default-overflow", "result": "42", "exports": {"allocate": "trap", "calls": "0"}},
+  {"name": "overload-truncate", "result": "42"},
+  {"name": "reject-overload-late-overlap", "error": "ambiguous overload"},
+  {"name": "overload-late-overlap", "result": "42"}
 ]

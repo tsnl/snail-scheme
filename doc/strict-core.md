@@ -124,7 +124,7 @@ Numeric families supplied by `(snail strict)` are:
 | Binary `=`, `<`, `<=`, `>`, `>=` | I32, I64, F32, F64; result Bool | I64/F64 in either order; result Bool |
 | Binary `quotient`, `remainder` | I32, I64; result has the same type | None |
 | Binary `/` | F32, F64; result has the same type | I64/F64 in either order; result F64 |
-| Unary `sqrt` | F32, F64; result has the same type | None |
+| Unary `sqrt`, `truncate` | F32, F64; result has the same type | None |
 
 Mixed rows explicitly convert the integer, then call the float row. For example,
 the library defines:
@@ -154,7 +154,7 @@ retain their original initialization and readiness checks; lambda implementation
 initialize at the overload declaration. Specialization copies code and never
 reevaluates an effectful initializer.
 
-`f32-truncate` and `f64-truncate` round toward zero while keeping their floating
+`truncate`, `f32-truncate`, and `f64-truncate` round toward zero while keeping their floating
 representation. They preserve signed zero and infinities, and return NaN for a
 NaN input. Unlike a conversion to an integer, they also accept finite values
 outside the I64 range. These operations emit native Wasm `f32.trunc` and
