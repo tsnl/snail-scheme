@@ -35,6 +35,12 @@ disassembly, and a controlled allocation ablation. The
 repeats those workloads against the new compiler: overall execution is effectively
 unchanged, with the remaining Chez gaps and compilation costs recorded explicitly.
 
+The later [container and field storage report](results/2026-10-12-container-storage-final/README.md)
+finds substantial gains in native payload kernels, but a 6.5% geometric slowdown
+on those five workloads at the final Array API head. It separates clean timings,
+reached-operation counters, CPU/GC observations, and a generated-WAT pair-reader
+experiment. The storage layers remain draft because lattice and graphs regress.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling

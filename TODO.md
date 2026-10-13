@@ -7,6 +7,13 @@ this list contains work that has not landed.
   - Reduce measured compiler allocation churn and repeated single-value handling
   - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC
   - Retain original inputs and all failures when measuring improvements
+- [ ] Resolve [the measured storage regressions](benchmarks/results/2026-10-12-container-storage-final/README.md)
+  before landing the storage layers
+  - Final API head is 6.5% slower across the selected five workloads; lattice and
+    graphs regress about 25% and 8% despite native payload kernel improvements
+  - Isolate changed call selection and hot read/check boundaries; disabling
+    inferred storage also changes specialization and cannot isolate payload cost
+  - Profile copy emission and module assembly separately from the constraint solve
 - [ ] Browser loader and browser implementations of selected effect interfaces
 - [ ] Node spawn/connect, serialization, supervision, and asynchronous host effects
   - Follow the recovered [runtime contracts](doc/book/runtime-contracts.md)
