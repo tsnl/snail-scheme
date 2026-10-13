@@ -335,7 +335,7 @@
              (source (known-lambda (if origin (ir:make-name origin #f) (ir:application-operator node)) (work-inference work)))
              (instance (application-instance node source origin types arguments substitutions work))
              (entry (application-copy node source arguments instance environment substitutions work))
-             (target (if entry (specialized-definition entry) origin))
+             (target (if entry (specialized-definition entry) (rename origin renames)))
              (view (if (and target (not (and (ir:name? operator-node) (eq? target (ir:name-definition operator-node)))))
                        (ir:make-specialization operator-node target (ir:application-loc node)) operator-node))
              (type (cond (instance (type-result (car instance)))
@@ -518,6 +518,20 @@
           (expect (copy-domain 'WasmF32 'InexactReal) 'InexactReal)
           (expect (copy-domain 'String 'Any) 'String)))
 
+      (define (test-renamed-fallback-target)
+        (let* ((original (ir:make-value-definition 'loop #f)) (renamed (ir:make-value-definition 'loop #f))
+               (argument (ir:make-value-definition 'value #f))
+               (source (ir:make-lambda (list argument) #f (ir:make-name argument #f) #f))
+               (typing (prepare-types (list (ir:make-value-binding original source #f)) '()))
+               (work (make-work (make-lambda-inference typing) '() '() '() '() (make-parameter '())))
+               (call (ir:make-application (ir:make-name original #f) (list (ir:make-name argument #f)) #f))
+               (rewritten (car (rewrite-application call (list (cons argument '?))
+                                                    (list (cons original renamed)) '() work))))
+          ;; An unknown domain keeps the ordinary recursive worker. Both its
+          ;; evaluated name and its direct target belong to this lexical copy.
+          (expect (ir:name? (ir:application-operator rewritten)) #t)
+          (expect (eq? renamed (ir:name-definition (ir:application-operator rewritten))) #t)))
+
       (define (test-tail-result-contracts)
         (let* ((target (ir:make-value-definition 'target #f))
                (caller (ir:make-value-definition 'caller #f))
@@ -536,4 +550,5 @@
         (test-inferred-copies)
         (test-instance-keys)
         (test-callback-identities)
+        (test-renamed-fallback-target)
         (test-tail-result-contracts))))))

@@ -28,6 +28,7 @@
     ;; used: argument proofs and tail-result compatibility still decide that.
     (define application-copy-observer (make-parameter #f))
     (define application-copy-selection (make-parameter #f))
+    (define application-target-observer (make-parameter #f))
 
     (define-record-type <module>
       (%make-module globals primitives boxed functions known foreign constants typing evaluator copies scope storage layouts fields)
@@ -1120,10 +1121,12 @@
                                    (field-layout-codecs layout))))))
 
     (define (procedure-invocation procedure worker operator arguments context tail? node)
-      (if (and procedure (matching-worker-arity? procedure (length arguments)))
-          `(call ,worker (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
-                 ,@(worker-arguments procedure (map (lambda (name) `(local.get ,name)) arguments) node context) ,(call-checks tail?))
-          (adapter-invocation node operator arguments context tail?)))
+      (let ((target (and procedure (matching-worker-arity? procedure (length arguments)) procedure)))
+        (when (application-target-observer) ((application-target-observer) node target))
+        (if target
+            `(call ,worker (struct.get $closure 1 (ref.cast (ref $closure) (local.get ,operator)))
+                   ,@(worker-arguments procedure (map (lambda (name) `(local.get ,name)) arguments) node context) ,(call-checks tail?))
+            (adapter-invocation node operator arguments context tail?))))
 
     ;; Core bindings are initialized before Scheme code runs. The primitive
     ;; list excludes source initializers and assignments of those definitions,
@@ -1554,19 +1557,35 @@
                          (cond ((not prior) (list 'selected copy))
                                ((and (eq? (car prior) 'selected) (eq? (cadr prior) copy)) prior)
                                (else '(ambiguous))))))
-    (define (observed-selection selections node)
+    (define (observed-selection selections targets node)
       (let ((entry (hash-table-ref/default selections node #f)))
-        (and entry (eq? (car entry) 'selected) entry)))
+        (list 'selected (and entry (eq? (car entry) 'selected) (cadr entry))
+              (hash-table-ref/default targets node #f))))
+
+    (define (check-storage-target node target targets module)
+      (let ((storage (module-storage module)))
+        (when (expression-storage-reached? node storage)
+          (unless (eq? target (hash-table-ref/default targets node #f))
+            (type-error-at (ir:application-loc node) "ordinary call target changed after storage selection"))
+          (when target
+            (let* ((bridge (generic-copy target (module-copies module)))
+                   (body (ir:lambda-body (if bridge (specialized-procedure bridge) target))))
+              (unless (expression-storage-reached? body storage)
+                (type-error-at (ir:application-loc node) "emitted worker is absent from storage solution")))))))
 
     ;; A fresh module discards tentative physical layouts. Keeping observed call
     ;; choices pinned makes the second solve authoritative without an open-ended
-    ;; optimization loop; unobserved or ambiguous edges remain conservative.
+    ;; optimization loop. Ordinary known workers are edges too, even when the
+    ;; operator's flow facts name a different lexical copy. Missing or ambiguous
+    ;; copy choices pin the ordinary call rather than enabling a new copy.
     (define (compile-storage-module libraries module foreign entry-name)
-      (let* ((storage (prepare-storage! libraries module entry-name)) (selections (make-hash-table eq?))
-             (visited (parameterize ((application-copy-observer (lambda (node copy) (observe-copy! selections node copy))))
+      (let* ((storage (prepare-storage! libraries module entry-name))
+             (selections (make-hash-table eq?)) (targets (make-hash-table eq?))
+             (visited (parameterize ((application-copy-observer (lambda (node copy) (observe-copy! selections node copy)))
+                                     (application-target-observer (lambda (node target) (hash-table-set! targets node target))))
                         (generate-optimized-module libraries module))))
         (if (null? (module-copies module)) (cons module visited)
-            (let* ((selection (lambda (node) (observed-selection selections node)))
+            (let* ((selection (lambda (node) (observed-selection selections targets node)))
                    (final (prepare-module (map car libraries) foreign (module-copies module)))
                    (storage (prepare-storage! libraries final entry-name selection)))
               ;; Generic bodies remain in the module for closure adapters even
@@ -1574,7 +1593,8 @@
               ;; call edges or argument proofs; retain generic calls in them.
               (parameterize ((application-copy-selection
                               (lambda (node) (if (expression-storage-reached? node storage)
-                                                 (selection node) '(selected #f)))))
+                                                 (selection node) '(selected #f))))
+                             (application-target-observer (lambda (node target) (check-storage-target node target targets final))))
                 (cons final (generate-optimized-module libraries final)))))))
 
     (define (global-declarations entry module)

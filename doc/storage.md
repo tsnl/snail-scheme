@@ -9,9 +9,11 @@ reachable invocation contexts.
 
 An initial solve supplies container shape hints to monomorphization. These hints
 distinguish copies without claiming an immutable element contract. The emitter
-then records which calls actually reach a specialized worker. A final solve pins
-those choices and excludes generic edges that will not execute. A fresh backend
-module selects all physical layouts from that final solution; it does not retain
+then records emitted specialized and ordinary call targets. A final solve pins
+those choices and follows their dependencies, including generic entries whose
+bodies bridge to concrete workers. Dynamic closure calls retain their flow
+edges; a declined specialized call follows its emitted ordinary target. A fresh
+backend module selects all physical layouts from that final solution; it does not retain
 tentative layouts from the earlier emission. Ambiguous calls remain conservative.
 Generic bodies retained for adapters can become unreachable after call selection.
 They keep generic calls; only expressions actually scanned by the final solution
