@@ -1,0 +1,275 @@
+{
+  "complete": true,
+  "restored_at": "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls",
+  "archive_sha256": "300e5e3d78f1d2ae20c3052aadfb992230ee495a940785e4443dbc17688f4a95",
+  "verified_files": 271,
+  "control_prepared_sha256": "5be5406652a8aa117bd327b4e9ad584be5c60f552e30f69ced2d79b0c016f82e",
+  "timing_results_sha256": "e7b89c32ea03dfb3e604ef557198ba962936db20dc01ab6bccd8b053251737d2",
+  "source_proofs_pass": true,
+  "historical_source_equality": true,
+  "recomputed_medians_match": true,
+  "validation_only": true,
+  "records": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/mbrot/strict.wasm.raw.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/mbrot-count-1.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.002515079,\"result\":\"5\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.027352083998266608,
+      "name": "mbrot",
+      "count": 1,
+      "system": "strict.wasm.raw.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/mbrot/strict.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/mbrot-count-1.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.004306569,\"result\":\"5\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.03113620402291417,
+      "name": "mbrot",
+      "count": 1,
+      "system": "strict.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/mbrot/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running mbrot:75:1\nElapsed time: 4.5542e-4 seconds (0.0) for mbrot:75:1\n+!CSVLINE!+chez,mbrot:75:1,4.5542e-4\n",
+      "stderr": "",
+      "process_seconds": 0.03762434102827683,
+      "name": "mbrot",
+      "count": 1,
+      "system": "chez-flonum",
+      "stdin": "1\n75\n5\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/mbrot/strict.wasm.raw.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/mbrot-count-2.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.003284339,\"result\":\"5\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.03073047404177487,
+      "name": "mbrot",
+      "count": 2,
+      "system": "strict.wasm.raw.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/mbrot/strict.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/mbrot-count-2.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.005318588,\"result\":\"5\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.028209612995851785,
+      "name": "mbrot",
+      "count": 2,
+      "system": "strict.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/mbrot/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running mbrot:75:2\nElapsed time: 9.03718e-4 seconds (0.001) for mbrot:75:2\n+!CSVLINE!+chez,mbrot:75:2,9.03718e-4\n",
+      "stderr": "",
+      "process_seconds": 0.03654943697620183,
+      "name": "mbrot",
+      "count": 2,
+      "system": "chez-flonum",
+      "stdin": "2\n75\n5\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/pnpoly/strict.wasm.raw.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/pnpoly-count-1.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000419189,\"result\":\"6\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.024660952971316874,
+      "name": "pnpoly",
+      "count": 1,
+      "system": "strict.wasm.raw.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/pnpoly/strict.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/pnpoly-count-1.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000197351,\"result\":\"6\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.02229237399296835,
+      "name": "pnpoly",
+      "count": 1,
+      "system": "strict.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/pnpoly/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running pnpoly:1\nElapsed time: 3.493e-6 seconds (0.0) for pnpoly:1\n+!CSVLINE!+chez,pnpoly:1,3.493e-6\n",
+      "stderr": "",
+      "process_seconds": 0.03516948100877926,
+      "name": "pnpoly",
+      "count": 1,
+      "system": "chez-flonum",
+      "stdin": "1\n#(0. 1. 1. 0. 0. 1. -.5 -1. -1. -2. -2.5 -2. -1.5 -.5 1. 1. 0. -.5 -1. -.5)\n#(0. 0. 1. 1. 2. 3. 2. 3. 0. -.5 -1.  -1.5 -2. -2. -1.5 -1. -.5 -1. -1. -.5)\n6\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/pnpoly/strict.wasm.raw.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/pnpoly-count-2.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000438457,\"result\":\"6\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.02541391900740564,
+      "name": "pnpoly",
+      "count": 2,
+      "system": "strict.wasm.raw.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/host.mjs",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/pnpoly/strict.wasm",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/replay-probes/pnpoly-count-2.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000205795,\"result\":\"6\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.025473194022197276,
+      "name": "pnpoly",
+      "count": 2,
+      "system": "strict.wasm",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/pnpoly/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running pnpoly:2\nElapsed time: 4.604e-6 seconds (0.0) for pnpoly:2\n+!CSVLINE!+chez,pnpoly:2,4.604e-6\n",
+      "stderr": "",
+      "process_seconds": 0.034537945000920445,
+      "name": "pnpoly",
+      "count": 2,
+      "system": "chez-flonum",
+      "stdin": "2\n#(0. 1. 1. 0. 0. 1. -.5 -1. -1. -2. -2.5 -2. -1.5 -.5 1. 1. 0. -.5 -1. -.5)\n#(0. 0. 1. 1. 2. 3. 2. 3. 0. -.5 -1.  -1.5 -2. -2. -1.5 -1. -.5 -1. -1. -.5)\n6\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/historical-compatibility/fresh-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:1\nElapsed time: 0.041951626 seconds (0.042) for fibfp:35.0:1\n+!CSVLINE!+chez,fibfp:35.0:1,0.041951626\n",
+      "stderr": "",
+      "process_seconds": 0.07746850204421207,
+      "name": "fibfp",
+      "count": 1,
+      "system": "compat-chez-flonum",
+      "stdin": "1\n35.0\n9227465.0\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/historical-compatibility/fresh-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:2\nElapsed time: 0.080859595 seconds (0.081) for fibfp:35.0:2\n+!CSVLINE!+chez,fibfp:35.0:2,0.080859595\n",
+      "stderr": "",
+      "process_seconds": 0.11757974594365805,
+      "name": "fibfp",
+      "count": 2,
+      "system": "compat-chez-flonum",
+      "stdin": "2\n35.0\n9227465.0\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/historical-compatibility/fresh-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:1\nElapsed time: 0.003995225 seconds (0.004) for sumfp:1000000.0:1\n+!CSVLINE!+chez,sumfp:1000000.0:1,0.003995225\n",
+      "stderr": "",
+      "process_seconds": 0.04151200602063909,
+      "name": "sumfp",
+      "count": 1,
+      "system": "compat-chez-flonum",
+      "stdin": "1\n1e6\n5.000005e11\n\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-next-float-control-replay-final-20261013/strict-next-float-controls/flonum-controls/historical-compatibility/fresh-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:2\nElapsed time: 0.006301281 seconds (0.006) for sumfp:1000000.0:2\n+!CSVLINE!+chez,sumfp:1000000.0:2,0.006301281\n",
+      "stderr": "",
+      "process_seconds": 0.041629176994320005,
+      "name": "sumfp",
+      "count": 2,
+      "system": "compat-chez-flonum",
+      "stdin": "2\n1e6\n5.000005e11\n\n",
+      "valid": true
+    }
+  ],
+  "preliminary_attempt": {
+    "status": "failed-before-payload-execution",
+    "requested_module": "strict.raw.wasm",
+    "diagnostic": "Node ENOENT: incorrect replay-script filename; corrected to archived strict.wasm.raw.wasm"
+  }
+}
