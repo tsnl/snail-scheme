@@ -1,4 +1,5 @@
-(import (scheme base) (scheme write) (scheme process-context) (snail typing))
+(import (scheme base) (scheme write) (scheme process-context) (snail typing)
+        (only (snail-scheme core) %make-record))
 
 ;; ---- Fixed pair fields and shared identity ----
 
@@ -70,6 +71,8 @@
 (cond ((string=? mode "omitted") (ann (partial-y incomplete) InexactReal))
       ((string=? mode "nominal") ((opaque point-x) (other-point 1.0 2)))
       ((string=? mode "write") ((opaque point-x-set!) origin "bad"))
+      ;; The unknown name must fail before reading from the empty value spine.
+      ((string=? mode "field-name") (%make-record <point> '(missing) '()))
       (else (partial-y-set! incomplete 2.5)
             (check 2.5 (partial-y incomplete))
             (display "field storage checks passed\n")))

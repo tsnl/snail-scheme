@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute fixed storage and check concrete arrays, bindings, and alias boundaries."""
+"""Execute fixed storage and check concrete payloads and alias boundaries."""
 import os
 from pathlib import Path
 import re
@@ -73,8 +73,30 @@ def check_aliases(mode):
         print(f"passed {name} {mode}", flush=True)
 
 
+def check_fields(mode):
+    output = compile_fixture("backend-storage-fields", mode)
+    execute(output, "field storage checks passed\n")
+    code = Path(f"{output}.wat").read_text()
+    layouts = re.findall(r"\(type (\$(?:pair|record):\d+) \(sub final \$(?:pair|record):typed ", code)
+    if mode == "on":
+        for kind in ("pair", "record"):
+            assert any(name.startswith(f"${kind}:") and f"(struct.new {name} " in code
+                       for name in layouts), f"missing emitted {kind} allocation"
+    else:
+        assert not layouts
+    cases = [(name, "incorrect value type") for name in ("omitted", "nominal", "write")]
+    cases.append(("field-name", "index or value out of range"))
+    for case, error in cases:
+        result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
+                                 str(ROOT / "scripts/run-wasi.mjs"), f"{output}.wasm", case],
+                                cwd=ROOT, capture_output=True, text=True)
+        assert result.returncode and not result.stdout and error in result.stderr, result
+    print(f"passed field storage and contract failures {mode}", flush=True)
+
+
 BUILD.mkdir(parents=True, exist_ok=True)
 for mode in ("on", "off"):
     check_vectors(mode)
     check_bindings(mode)
     check_aliases(mode)
+    check_fields(mode)

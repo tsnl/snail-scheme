@@ -60,6 +60,26 @@ function exchangePair(root) {
   } finally { abi.release(value); abi.release(pair); }
 }
 
+function checkRawPairCarriers() {
+  const roots = [];
+  const own = value => { roots.push(value); return value; };
+  try {
+    const backing = own(abi.vector_new(1));
+    const first = own(abi.integer(2147483648n));
+    abi.vector_set(backing, 0, first);
+    const envelope = own(abi.values(backing));
+    const pair = own(abi.pair(envelope, own(abi.atom(2))));
+    const copied = own(abi.car(pair));
+    assert.equal(abi.kind(copied), 15, 'car consumed a raw envelope');
+    assert.equal(abi.identity_hash(copied), abi.identity_hash(envelope));
+    const replacement = own(abi.integer(4294967296n));
+    abi.vector_set(backing, 0, replacement);
+    assert.equal(abi.as_integer(own(abi.at(copied, 0))), 4294967296n);
+    abi.pair_set_cdr(pair, copied);
+    assert.equal(abi.kind(own(abi.cdr(pair))), 15, 'pair write consumed a raw envelope');
+  } finally { roots.reverse().forEach(value => abi.release(value)); }
+}
+
 const imports = { ...wasi.getImportObject(), 'snail.node': build.imports,
   'snail.test': { 'snail:container-exchange!': exchange, 'snail:container-envelope': envelope,
     'snail:container-call': call, 'snail:container-pair-exchange!': exchangePair },
@@ -68,4 +88,5 @@ const imports = { ...wasi.getImportObject(), 'snail.node': build.imports,
 instance = await WebAssembly.instantiate(module, imports);
 abi = node.exports = instance.exports;
 process.exitCode = wasi.start(instance);
+checkRawPairCarriers();
 assert.equal(abi.abi_live_roots.value, 3, 'foreign container probes leaked roots');
