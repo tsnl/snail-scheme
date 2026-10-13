@@ -152,6 +152,7 @@
     (define-instance (Default Unit) (default (lambda () (unit))))
 
     (define-overload make-vector (All (T) (-> I64 T (Vector T))) make-filled-vector)
+    ;; Returning storage from the loop keeps every fill step in tail position.
     (define-overload make-vector (All (T) (=> ((Default T)) (-> I64 (Vector T))))
       (lambda (count)
         ;; Validate before user code runs; zero invokes no default. WasmGC
@@ -161,10 +162,10 @@
             (if (= count 0) (empty-vector)
                 (let ((result (make-filled-vector count (default))))
                   (let loop ((index 1))
-                    (unless (= index count)
-                      (vector-set! result index (default))
-                      (loop (+ index 1))))
-                  result)))))
+                    (if (= index count) result
+                        (begin
+                          (vector-set! result index (default))
+                          (loop (+ index 1))))))))))
 
     ;; These are ordinary polymorphic Scheme functions. Specialization keeps
     ;; each element type through native allocation and bulk copying. Constructors
@@ -174,10 +175,10 @@
       (if (null? elements) (empty-vector)
           (let ((result (make-vector (element-count elements) (car elements))))
             (let loop ((tail elements) (index 0))
-              (unless (null? tail)
-                (vector-set! result index (car tail))
-                (loop (cdr tail) (+ index 1))))
-            result)))
+              (if (null? tail) result
+                  (begin
+                    (vector-set! result index (car tail))
+                    (loop (cdr tail) (+ index 1))))))))
     (define (element-count elements)
       (let loop ((tail elements) (count 0))
         (if (null? tail) count
@@ -211,7 +212,7 @@
       (if (= (vector-length (car sources)) 0) (first-element (cdr sources))
           (vector-ref (car sources) 0)))
     (define (append-into! result sources offset)
-      (unless (null? sources)
-        (let ((count (vector-length (car sources))))
-          (vector-copy! result offset (car sources) 0 count)
-          (append-into! result (cdr sources) (+ offset count)))))))
+      (if (null? sources) (unit)
+          (let ((count (vector-length (car sources))))
+            (vector-copy! result offset (car sources) 0 count)
+            (append-into! result (cdr sources) (+ offset count)))))))

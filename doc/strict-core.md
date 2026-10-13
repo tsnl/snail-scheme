@@ -231,6 +231,8 @@ length invokes it zero times; positive length invokes it once per element. Its
 private vector does not escape before all slots are initialized. Mutable defaults
 therefore retain distinct element identities when the method constructs fresh
 values. Both forms create fresh outer storage.
+The default and list conversion fill loops use native tail calls, so their stack
+use does not grow with the vector length.
 Allocations obey the value restriction: one empty vector cannot be reused at
 different element types. For an otherwise unconstrained empty vector, write
 `(ann (empty-vector) (Vector I64))`.
