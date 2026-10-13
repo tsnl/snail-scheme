@@ -2,6 +2,8 @@
 (define-class (Marker T) (: mark (-> I64)))
 (define-instance (Marker I32) (mark (lambda () 20)))
 (define-instance (Marker F64) (mark (lambda () 22)))
-(: chosen (All (T) (=> ((Marker T)) (-> I64))))
-(define (chosen) ((inst mark T)))
-(+ ((inst chosen I32)) ((inst chosen F64)))
+;; The two methods have identical arrow shapes; their class arguments still
+;; select distinct implementations.
+(define mark-integer (inst mark I32))
+(define mark-float (inst mark F64))
+(+ (mark-integer) (mark-float))
