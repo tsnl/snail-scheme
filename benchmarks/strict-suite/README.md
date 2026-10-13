@@ -1,13 +1,17 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twelve original R7RS kernels to the new strict compiler:
+This diagnostic adapts seventeen original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
-`diviter`, `divrec`, and `array1`. It records failures alongside successful cases. It is
+`diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
+`pnpoly`. It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
-express `cond` and `do` using the strict surface. Floating arithmetic uses the
-explicit F64 operations. The allocation benchmarks annotate their list of empty
+express `cond` and `do` using the strict surface. The earlier floating ports use
+explicit F64 operations; mbrot and pnpoly use ordinary binary operators from
+the tested, unmerged numeric branch (`320987e`, cherry-picked as `a23fbdc`).
+This interim baseline precedes the result-context overload and `Default T` work.
+The allocation benchmarks annotate their list of empty
 lists as `List (List Never)`. All original inputs and repetition counts remain.
 No compiler or runtime implementation changes are part of this experiment.
 
@@ -29,6 +33,30 @@ from timing and must be reported explicitly. `array1` instead checks small
 runtime-supplied lengths and repeat counts, including empty vectors and zero
 repeats, before timing. Its original full workload is checked by both systems
 in the discarded pair before any retained measurements.
+
+The five newer ports include original and source-matched Chez programs from
+preparation onward. Their raw and optimized strict modules and both Chez
+programs run one and two repetitions with unchanged algorithm inputs. Primes
+also checks an empty result, and pnpoly checks all-zero runtime input vectors.
+Primes and triangl compare every expected list value, order and ending. Both
+modules must reject equal-length wrong values, a missing expected element and
+an extra expected element. `source-proof.json`, the extracted kernel files and
+`kernel-adaptation.patch` document the exact shared kernel and mechanical edits.
+
+To prepare and measure only these ports from the repository root:
+
+```sh
+python3 benchmarks/strict-suite/measure.py prepare --output build/strict-next-five --benchmarks primes nqueens triangl mbrot pnpoly
+python3 benchmarks/strict-suite/measure.py measure --output build/strict-next-five --cpu 5 --rounds 3
+```
+
+Their measurements use one complete discarded trio and three retained trios,
+rotating strict, original Chez and adapted Chez through all three retained
+positions for each workload. An invalid observation is saved and stops the
+batch; an incomplete batch has no reported medians. Source-matched means equal
+kernel text, with different imports, helper definitions, static type knowledge
+and host wrappers. The [remaining-workload inventory](capabilities.md) records
+the specific capabilities needed for every currently unported workload.
 
 Measurement uses fresh processes, default V8 tiering, one discarded full run,
 and three retained rounds with rotating benchmark/system order. Hashes of all
@@ -78,6 +106,14 @@ Those lists are constructed from runtime-supplied lengths, not compiler-known
 input constants. The Boolean barrier alone does not hide a known value.
 Host-call costs are included in strict timings. Diagnostic call counters run
 only during validation, not during clean measurements.
+
+Primes and triangl construct expected lists from runtime scalar imports before
+timing, then perform their complete equality predicate once inside `bench`.
+Pnpoly constructs its two F64 vectors from imported lengths and contents before
+timing. Its Boolean hide preserves those runtime vectors; both original
+vector-to-list-to-vector copies remain inside every kernel invocation. Explicit
+refs preserve triangl's answer reset and pnpoly's counter updates. Chez ref
+helpers use one-element mutable vectors outside the shared kernel.
 
 `array1` loads its I64 repeat and length inputs before timing. Each outer
 invocation performs the original two hide sites using scalar identity imports;
