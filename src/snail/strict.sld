@@ -4,9 +4,8 @@
 (define-library (snail strict)
   (export define define-syntax syntax-rules lambda quote if begin set!
           let let* letrec letrec* and or when unless
-          : ann inst All -> Rest => define-class define-instance define-extern
+          : ann inst All -> Rest => define-class define-instance define-overload define-extern
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List Vector
-          Arithmetic Comparison Integral Floating
           + - * / sqrt quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
           i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
@@ -53,42 +52,89 @@
 
     ;; ---- Static numeric operators ----
 
-    ;; These classes are resolved before emission. Each method names a native
-    ;; primitive, so direct calls need no dictionary, closure or tagged operand.
-    ;; Values never coerce implicitly; unconstrained literals default to I64/F64.
-    (define-class (Arithmetic T)
-      (: + (-> T T T)) (: - (-> T T T)) (: * (-> T T T)))
-    (define-class (Comparison T)
-      (: = (-> T T Bool)) (: < (-> T T Bool)) (: <= (-> T T Bool))
-      (: > (-> T T Bool)) (: >= (-> T T Bool)))
-    (define-class (Integral T)
-      (: quotient (-> T T T)) (: remainder (-> T T T)))
-    (define-class (Floating T)
-      (: / (-> T T T)) (: sqrt (-> T T)))
-    (define-instance (Arithmetic I32)
-      (+ i32-add) (- i32-sub) (* i32-mul))
-    (define-instance (Comparison I32)
-      (= i32-eq) (< i32-lt) (<= i32-le) (> i32-gt) (>= i32-ge))
-    (define-instance (Integral I32)
-      (quotient i32-quotient) (remainder i32-remainder))
-    (define-instance (Arithmetic I64)
-      (+ i64-add) (- i64-sub) (* i64-mul))
-    (define-instance (Comparison I64)
-      (= i64-eq) (< i64-lt) (<= i64-le) (> i64-gt) (>= i64-ge))
-    (define-instance (Integral I64)
-      (quotient i64-quotient) (remainder i64-remainder))
-    (define-instance (Arithmetic F32)
-      (+ f32-add) (- f32-sub) (* f32-mul))
-    (define-instance (Comparison F32)
-      (= f32-eq) (< f32-lt) (<= f32-le) (> f32-gt) (>= f32-ge))
-    (define-instance (Floating F32)
-      (/ f32-div) (sqrt f32-sqrt))
-    (define-instance (Arithmetic F64)
-      (+ f64-add) (- f64-sub) (* f64-mul))
-    (define-instance (Comparison F64)
-      (= f64-eq) (< f64-lt) (<= f64-le) (> f64-gt) (>= f64-ge))
-    (define-instance (Floating F64)
-      (/ f64-div) (sqrt f64-sqrt))
+    ;; Each concrete signature becomes a static class instance. Selection uses
+    ;; exact argument types; its unique result is inferred before emission.
+    ;; Numeric promotion is ordinary source code and calls a selected float row.
+    (define-overload + (-> I32 I32 I32) i32-add)
+    (define-overload - (-> I32 I32 I32) i32-sub)
+    (define-overload * (-> I32 I32 I32) i32-mul)
+    (define-overload = (-> I32 I32 Bool) i32-eq)
+    (define-overload < (-> I32 I32 Bool) i32-lt)
+    (define-overload <= (-> I32 I32 Bool) i32-le)
+    (define-overload > (-> I32 I32 Bool) i32-gt)
+    (define-overload >= (-> I32 I32 Bool) i32-ge)
+    (define-overload quotient (-> I32 I32 I32) i32-quotient)
+    (define-overload remainder (-> I32 I32 I32) i32-remainder)
+
+    (define-overload + (-> I64 I64 I64) i64-add)
+    (define-overload - (-> I64 I64 I64) i64-sub)
+    (define-overload * (-> I64 I64 I64) i64-mul)
+    (define-overload = (-> I64 I64 Bool) i64-eq)
+    (define-overload < (-> I64 I64 Bool) i64-lt)
+    (define-overload <= (-> I64 I64 Bool) i64-le)
+    (define-overload > (-> I64 I64 Bool) i64-gt)
+    (define-overload >= (-> I64 I64 Bool) i64-ge)
+    (define-overload quotient (-> I64 I64 I64) i64-quotient)
+    (define-overload remainder (-> I64 I64 I64) i64-remainder)
+
+    (define-overload + (-> F32 F32 F32) f32-add)
+    (define-overload - (-> F32 F32 F32) f32-sub)
+    (define-overload * (-> F32 F32 F32) f32-mul)
+    (define-overload = (-> F32 F32 Bool) f32-eq)
+    (define-overload < (-> F32 F32 Bool) f32-lt)
+    (define-overload <= (-> F32 F32 Bool) f32-le)
+    (define-overload > (-> F32 F32 Bool) f32-gt)
+    (define-overload >= (-> F32 F32 Bool) f32-ge)
+    (define-overload / (-> F32 F32 F32) f32-div)
+    (define-overload sqrt (-> F32 F32) f32-sqrt)
+
+    (define-overload + (-> F64 F64 F64) f64-add)
+    (define-overload - (-> F64 F64 F64) f64-sub)
+    (define-overload * (-> F64 F64 F64) f64-mul)
+    (define-overload = (-> F64 F64 Bool) f64-eq)
+    (define-overload < (-> F64 F64 Bool) f64-lt)
+    (define-overload <= (-> F64 F64 Bool) f64-le)
+    (define-overload > (-> F64 F64 Bool) f64-gt)
+    (define-overload >= (-> F64 F64 Bool) f64-ge)
+    (define-overload / (-> F64 F64 F64) f64-div)
+    (define-overload sqrt (-> F64 F64) f64-sqrt)
+
+    (define-overload + (-> I64 F64 F64)
+      (lambda (left right) (+ (i64->f64 left) right)))
+    (define-overload + (-> F64 I64 F64)
+      (lambda (left right) (+ left (i64->f64 right))))
+    (define-overload - (-> I64 F64 F64)
+      (lambda (left right) (- (i64->f64 left) right)))
+    (define-overload - (-> F64 I64 F64)
+      (lambda (left right) (- left (i64->f64 right))))
+    (define-overload * (-> I64 F64 F64)
+      (lambda (left right) (* (i64->f64 left) right)))
+    (define-overload * (-> F64 I64 F64)
+      (lambda (left right) (* left (i64->f64 right))))
+    (define-overload / (-> I64 F64 F64)
+      (lambda (left right) (/ (i64->f64 left) right)))
+    (define-overload / (-> F64 I64 F64)
+      (lambda (left right) (/ left (i64->f64 right))))
+    (define-overload = (-> I64 F64 Bool)
+      (lambda (left right) (= (i64->f64 left) right)))
+    (define-overload = (-> F64 I64 Bool)
+      (lambda (left right) (= left (i64->f64 right))))
+    (define-overload < (-> I64 F64 Bool)
+      (lambda (left right) (< (i64->f64 left) right)))
+    (define-overload < (-> F64 I64 Bool)
+      (lambda (left right) (< left (i64->f64 right))))
+    (define-overload <= (-> I64 F64 Bool)
+      (lambda (left right) (<= (i64->f64 left) right)))
+    (define-overload <= (-> F64 I64 Bool)
+      (lambda (left right) (<= left (i64->f64 right))))
+    (define-overload > (-> I64 F64 Bool)
+      (lambda (left right) (> (i64->f64 left) right)))
+    (define-overload > (-> F64 I64 Bool)
+      (lambda (left right) (> left (i64->f64 right))))
+    (define-overload >= (-> I64 F64 Bool)
+      (lambda (left right) (>= (i64->f64 left) right)))
+    (define-overload >= (-> F64 I64 Bool)
+      (lambda (left right) (>= left (i64->f64 right))))
 
     ;; ---- Homogeneous vectors ----
 

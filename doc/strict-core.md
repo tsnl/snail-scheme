@@ -61,43 +61,87 @@ mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
 
-## Static numeric operations
+## Free overloads and numeric operations
 
-Ordinary numeric operators are methods of classes defined in `(snail strict)`.
-Their instances name native primitives; the compiler resolves them through the
-same static class machinery as user methods. Direct calls emit native Wasm
-operations. Passing an operator as a value uses the ordinary concrete function
-adapter, without a runtime dictionary or tagged arithmetic.
+`define-overload` gives one name several concrete function signatures. Argument
+types alone select an exact signature; its result type is then inferred. Each
+family lowers to an ordinary static class with one method and shares the existing
+instance checking and specialization path. There are no runtime dictionaries or
+tagged arithmetic operations.
 
-| Class | Methods | Built-in instances |
+```scheme
+(define-overload select (-> I64 I64) (lambda (value) value))
+(define-overload select (-> Bool I64) (lambda (value) (if value 42 0)))
+(select #t) ; I64, value 42
+```
+
+Families currently require module scope, one fixed arity, and concrete signatures.
+Implementations are lambdas or stable named functions. All bodies are checked,
+including unused rows. Duplicate argument tuples fail even when their results
+differ. Declarations may extend an imported family, including through a renamed
+or prefixed import; resolved binding identity determines the shared family.
+Families cannot replace an ordinary value or class method with the same identity.
+
+A family name also names its generic obligation. Its input parameters are followed
+by its result parameter:
+
+```scheme
+(: combine (All (A B R) (=> ((+ A B R)) (-> A B R))))
+(define (combine left right) (+ left right))
+(combine 20 22.0) ; F64, value 42.0
+```
+
+Without the declaration, inference derives the same relationship. Two obligations
+for the same family and identical input types have equal results, including when
+the inputs remain abstract. Concrete input selection repeats until results feeding
+other calls have settled. Expected results validate the selected row; they never
+select an alternative or supply missing argument types. A unique available row
+does not default unresolved inputs. Ordinary `define-class` contracts retain their
+full-head lookup, including methods selected by expected result types.
+
+Explicit `All` contracts currently require one shared result variable for repeated
+family predicates with equal inputs. Distinct rigid variables `R` and `S` in
+`(+ A A R)` and `(+ A A S)` are rejected rather than silently changing quantified
+positions or explicit `inst` arguments. TODO: support scoped equality evidence
+for such redundant given predicates without weakening rigid checking.
+
+Numeric families supplied by `(snail strict)` are:
+
+| Family | Same-type signatures | Mixed signatures |
 | --- | --- | --- |
-| `Arithmetic T` | Binary `+`, `-`, `*` | I32, I64, F32, F64 |
-| `Comparison T` | Binary `=`, `<`, `<=`, `>`, `>=` | I32, I64, F32, F64 |
-| `Integral T` | Binary `quotient`, `remainder` | I32, I64 |
-| `Floating T` | Binary `/`, unary `sqrt` | F32, F64 |
+| Binary `+`, `-`, `*` | I32, I64, F32, F64; result has the same type | I64/F64 in either order; result F64 |
+| Binary `=`, `<`, `<=`, `>`, `>=` | I32, I64, F32, F64; result Bool | I64/F64 in either order; result Bool |
+| Binary `quotient`, `remainder` | I32, I64; result has the same type | None |
+| Binary `/` | F32, F64; result has the same type | I64/F64 in either order; result F64 |
+| Unary `sqrt` | F32, F64; result has the same type | None |
 
-These operations require matching operand types. Bool and Char have no numeric
-instances despite sharing the physical i32 layout. Integer `/` is rejected;
+Mixed rows explicitly convert the integer, then call the float row. For example,
+the library defines:
+
+```scheme
+(define-overload + (-> I64 F64 F64)
+  (lambda (left right) (+ (i64->f64 left) right)))
+```
+
+There is no search for a common numeric type. I32/I64 and F32/F64 pairs are absent
+unless the program supplies an explicit overload. Bool and Char have no numeric
+rows despite sharing the physical i32 layout. Integer-only `/` is rejected;
 `quotient` is signed integer division. Floating comparisons retain Wasm's NaN
 behavior: all five comparisons are false when either operand is NaN. Integer
 arithmetic wraps; division by zero and signed division overflow trap.
 
-```scheme
-(: square (All (T) (=> ((Arithmetic T)) (-> T T))))
-(define (square x) (* x x))
-(+ (square 1.5) (square 2.0)) ; F64, result 6.25
-```
+Each overload argument is checked without consulting candidates. Literals default
+to I64/F64 unless ordinary type context supplies a concrete width. Consequently,
+both `(+ (ann 40 I32) 2)` and `(+ 2 (ann 40 I32))` reject their I32/I64 pair.
+Annotate both literals, or use a concrete function view such as
+`((ann + (-> I32 I32 I32)) 40 2)`. A result annotation alone does not choose operand
+widths. Calls still evaluate arguments from left to right, then the operator.
 
-Without the declaration, inference derives the same requirement. Explicit
-polymorphic declarations must list the classes used by their body; finding a
-concrete numeric instance does not weaken rigid type variables.
-
-Call operands are checked from left to right. A concrete earlier operand can
-supply a later literal's width: `(+ (ann 40 I32) 2)` is valid. Conversely,
-`(+ 2 (ann 40 I32))` defaults the first literal to I64 and rejects the mismatch.
-Annotating both literals makes their intended widths independent of position.
-This core does not defer numeric literal defaulting or use an application's
-expected result to choose its operand widths.
+First-class family aliases generalize under the usual value restriction. A
+concrete use selects an implementation before emission. Named implementations
+retain their original initialization and readiness checks; lambda implementations
+initialize at the overload declaration. Specialization copies code and never
+reevaluates an effectful initializer.
 
 Conversions are explicit native unary functions:
 
@@ -111,9 +155,7 @@ Conversions are explicit native unary functions:
 | `f64->i64` | Truncate toward zero; trap on NaN or an out-of-range result. |
 
 The explicitly named `i32-*`, `i64-*`, `f32-*`, and `f64-*` primitives remain
-available for code that requires a fixed representation. Overload declarations
-and mixed-operand promotion instances are a proposed extension; this change
-implements only the same-type instances above.
+available for code that requires a fixed representation.
 
 ## Concrete mutable vectors
 
