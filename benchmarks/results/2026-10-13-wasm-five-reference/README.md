@@ -47,9 +47,11 @@ Wasm compilation/instantiation or Chez loading, output, and teardown:
 | graphs | 0.611222 | 0.803982 |
 | deriv | 2.798063 | 0.450626 |
 
-The workload timer excludes input parsing, compilation, process startup,
-serialization, and external digest validation. It includes all original
-iterations and the final original result predicate. Every execution starts a
+The workload timer excludes input parsing, compilation, process startup, and
+external digest validation. It includes all original iterations and the final
+original result predicate. `wc` additionally formats its three integer results
+before elapsed time is captured; other result formatting follows capture.
+Every execution starts a
 fresh process; V8 uses its default tiering. One full preliminary run per cell
 is discarded, followed by three retained rounds. Benchmark order rotates and
 Rust/Chez order alternates for each workload. Other compiler/test processes
@@ -73,9 +75,13 @@ Canonicalization removes ASCII whitespace; all atoms are vertices 0–6.
 Additional UTF-8 tests verify character copying and that tabs/CR do not delimit
 words. Rust formatting and target Clippy with `-D warnings` pass.
 
-The pinned simplify workflow's fresh explainer review remains a separate review
-checkpoint: all four live agent slots were occupied during implementation.
-The local code review does not substitute for that independent explanation.
+The pinned simplify workflow's independent explanation and subsequent critique
+are complete. The review matched the six Rust modules against character I/O,
+search-state restoration, materialization, sharing, and lifetime requirements.
+No code changes were justified. Bulk copying, counting graph leaves without
+materializing results, and caching derivatives would change the workloads and
+were rejected. This report corrects the `wc` formatting boundary found during
+review; the measured source, modules, and samples remain unchanged.
 
 - [Sources and reproduction](../../wasm-reference/README.md)
 - [Raw new samples](results.json) and [comparison summary](summary.json)

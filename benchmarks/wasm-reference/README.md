@@ -20,7 +20,8 @@ Scheme datum reader. Each algorithm lives in its own executable under
 [`src/bin/`](src/bin/). [`run-wasi.mjs`](run-wasi.mjs) invokes Node's built-in WASI
 preview1 implementation and exposes the case directory as the guest filesystem
 root. The workload timer starts after input parsing and ends after the original
-result predicate. Result serialization and external digest checks follow it.
+result predicate. `wc` also formats its three integer results before the timer
+ends; other result formatting and all external digest checks follow it.
 
 The Rust representations are deliberate language differences: vectors replace
 some Scheme lists; `Rc` retains persistent assignments, edge lists, and shared
