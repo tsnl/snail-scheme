@@ -1,6 +1,7 @@
 [
   {"name": "scalar", "result": "42"},
   {"name": "inferred-polymorphism", "result": "42"},
+  {"name": "let-polymorphism", "result": "42"},
   {"name": "annotated-polymorphism", "result": "42"},
   {"name": "float64", "result": "3.75"},
   {"name": "float32", "result": "3.75"},
@@ -21,7 +22,9 @@
   {"name": "top-character", "result": "955"},
   {"name": "top-reference", "result": "42"},
   {"name": "top-wrong-tag", "result": "trap"},
+  {"name": "top-reference-wrong-tag", "result": "trap"},
   {"name": "never-branch", "result": "42"},
+  {"name": "never-call", "result": "42"},
   {"name": "reject-set", "error": "immutable|explicit.*ref|set!"},
   {"name": "reject-nonboolean", "error": "Bool|boolean"},
   {"name": "reject-branch-widening", "error": "mismatch|unify|widen|Top"},
