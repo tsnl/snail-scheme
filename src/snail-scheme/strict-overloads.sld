@@ -28,6 +28,8 @@
     (define (compatible? left right flexible-rigid?)
       (guard (failure (else #f))
         (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t))
+    ;; Rigid declaration variables may specialize later. Keep any row that
+    ;; could then overlap; the commit below still respects their rigid identity.
     (define (overload-candidates class type instances)
       (cond ((null? instances) '())
             ((and (eq? class (instance-class (car instances)))

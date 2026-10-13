@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-overload convert (-> I64 I64) (lambda (value) value))
+(: abstract (All (A) (=> ((convert (-> A Bool))) (-> A Bool))))
+(define (abstract value) (convert value))
+42

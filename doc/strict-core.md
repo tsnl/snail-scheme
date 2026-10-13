@@ -115,6 +115,12 @@ given family obligation can solve a body's remaining holes without weakening rig
 Selection repeats after unification and before concrete specialization so nested
 calls and later uses can settle earlier holes. Ordinary `define-class` contracts
 retain exact full-head lookup and never infer a type from an available instance.
+Declared obligations remain assumptions throughout checks of an unused generic
+body, even if the current rows cannot fulfill that abstract premise. A concrete
+use must prove it. Row prerequisites share one fresh instantiation while they
+are jointly improved and proved; this lets one prerequisite determine another's
+otherwise hidden type. Repeated equal complete obligations are one proof, so
+reading a constrained value twice does not duplicate its proof graph.
 
 Numeric families supplied by `(snail strict)` are:
 

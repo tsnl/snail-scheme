@@ -154,8 +154,9 @@
     (define-overload make-vector (All (T) (-> I64 T (Vector T))) make-filled-vector)
     (define-overload make-vector (All (T) (=> ((Default T)) (-> I64 (Vector T))))
       (lambda (count)
-        ;; Validate before user code runs. The private vector cannot escape
-        ;; until each slot has its own default; zero invokes no default at all.
+        ;; Validate before user code runs; zero invokes no default. WasmGC
+        ;; roots the private vector and every unfinished slot holds the first
+        ;; result until replaced. The vector escapes only after full initialization.
         (if (or (< count 0) (> count 4294967295)) (unreachable)
             (if (= count 0) (empty-vector)
                 (let ((result (make-filled-vector count (default))))
