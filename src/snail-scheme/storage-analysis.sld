@@ -3,7 +3,7 @@
 ;; Aliases retain allocation identities; fresh containers have fresh slot holes.
 ;; Directed dependencies reach a fixed point before any Wasm layout is chosen.
 (define-library (snail-scheme storage-analysis)
-  (export analyze-storage expression-storage-hole expression-storage-type
+  (export analyze-storage expression-storage-hole expression-storage-type expression-storage-reached?
           binding-storage-hole binding-storage-type binding-storage-single? storage-hole-type storage-hole-root storage-hole-single?
           storage-hole-allocations storage-allocation-kind storage-allocation-fields storage-allocation-schema
           expression-record-schema expression-record-field-index expression-field-types
@@ -28,9 +28,9 @@
     (define-record-type <task>
       (make-task action queued?) task? (action task-action) (queued? task-queued? set-task-queued!))
     (define-record-type <analysis>
-      (make-analysis next expressions bindings allocations lambdas families primitives copies globals declarations records selection queue)
+      (make-analysis next expressions reached bindings allocations lambdas families primitives copies globals declarations records selection queue)
       analysis? (next analysis-next set-analysis-next!)
-      (expressions analysis-expressions) (bindings analysis-bindings)
+      (expressions analysis-expressions) (reached analysis-reached) (bindings analysis-bindings)
       (allocations analysis-allocations) (lambdas analysis-lambdas)
       (families analysis-families) (primitives analysis-primitives)
       (copies analysis-copies) (globals analysis-globals) (declarations analysis-declarations)
@@ -52,6 +52,7 @@
       (or (hash-table-ref/default table key #f)
           (let ((hole (fresh-hole state))) (hash-table-set! table key hole) hole)))
     (define (expression-storage-hole node state) (intern-hole node (analysis-expressions state) state))
+    (define (expression-storage-reached? node state) (hash-table-ref/default (analysis-reached state) node #f))
     (define (binding-storage-hole definition state) (intern-hole definition (analysis-bindings state) state))
     (define (expression-storage-type node state) (storage-hole-type (expression-storage-hole node state)))
     (define (binding-storage-type definition state) (storage-hole-type (binding-storage-hole definition state)))
@@ -270,7 +271,9 @@
     (define (scan! node state)
       (let ((existing (hash-table-ref/default (analysis-expressions state) node #f)))
         (if existing existing
-            (let ((result (expression-storage-hole node state))) (scan-node! node result state) result))))
+            (let ((result (expression-storage-hole node state)))
+              (hash-table-set! (analysis-reached state) node #t)
+              (scan-node! node result state) result))))
     (define (scan-node! node result state)
       (cond ((ir:literal? node) (scan-literal! node (ir:literal-value node) result state))
             ((ir:name? node) (flow! (binding-storage-hole (ir:name-definition node) state) result #f state))
@@ -547,7 +550,7 @@
     (define (analyze-storage items typing copies globals . entries)
       (let* ((copy-map (apply append (map (lambda (copy) (list (cons (specialized-definition copy) copy)
                                                                (cons (specialized-procedure copy) copy))) copies)))
-             (state (make-analysis 0 (make-hash-table eq?) (make-hash-table eq?) (make-hash-table eq?)
+             (state (make-analysis 0 (make-hash-table eq?) (make-hash-table eq?) (make-hash-table eq?) (make-hash-table eq?)
                                    (make-hash-table eq?) (make-hash-table eq?) (typing-primitives typing)
                                    copy-map globals (append (typing-declarations typing) (parameter-declarations typing copies))
                                    (typing-records typing) (and (pair? entries) (pair? (cdr entries)) (cadr entries)) '())))
@@ -645,6 +648,16 @@
                (allocation (expression-storage-allocation object 'record state)))
           (expect (eq? schema (storage-allocation-schema allocation)) #t)
           (expect (map storage-hole-type (storage-allocation-fields allocation)) '((U InexactReal String) i32))))
+      (define (test-reached-expressions)
+        (let* ((name (test-definition 'unused)) (body (test-literal 42))
+               (procedure (ir:make-lambda '() #f body #f))
+               (state (test-analysis (list (test-binding name procedure)) '())))
+          (expect (expression-storage-reached? body state) #f)
+          (expression-storage-type body state)
+          ;; Emission may ask about an unexecuted body. Such a query must not
+          ;; manufacture reachability and re-enable a discarded call pin.
+          (expect (expression-storage-reached? body state) #f)
+          (expect (expression-storage-reached? procedure state) #t)))
       (define (test-storage-analysis)
         (test-alias-and-copy) (test-known-setter-and-escape) (test-family-collapse) (test-storage-hints)
-        (test-record-fields))))))
+        (test-record-fields) (test-reached-expressions))))))

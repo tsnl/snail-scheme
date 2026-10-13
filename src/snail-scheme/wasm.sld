@@ -742,7 +742,7 @@
              (pinned (and (application-copy-selection) ((application-copy-selection) node)))
              (selected (if pinned (cadr pinned) eligible)))
         (when (and selected (not (eq? selected eligible)))
-          (error "pinned specialized call lost its argument or tail-result proof" node))
+          (type-error-at (ir:application-loc node) "pinned specialized call lost its argument or tail-result proof"))
         (when (application-copy-observer) ((application-copy-observer) node selected))
         selected))
 
@@ -1567,9 +1567,14 @@
                         (generate-optimized-module libraries module))))
         (if (null? (module-copies module)) (cons module visited)
             (let* ((selection (lambda (node) (observed-selection selections node)))
-                   (final (prepare-module (map car libraries) foreign (module-copies module))))
-              (prepare-storage! libraries final entry-name selection)
-              (parameterize ((application-copy-selection selection))
+                   (final (prepare-module (map car libraries) foreign (module-copies module)))
+                   (storage (prepare-storage! libraries final entry-name selection)))
+              ;; Generic bodies remain in the module for closure adapters even
+              ;; when all reachable callers selected a copy. They have no final
+              ;; call edges or argument proofs; retain generic calls in them.
+              (parameterize ((application-copy-selection
+                              (lambda (node) (if (expression-storage-reached? node storage)
+                                                 (selection node) '(selected #f)))))
                 (cons final (generate-optimized-module libraries final)))))))
 
     (define (global-declarations entry module)

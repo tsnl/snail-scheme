@@ -13,6 +13,9 @@ then records which calls actually reach a specialized worker. A final solve pins
 those choices and excludes generic edges that will not execute. A fresh backend
 module selects all physical layouts from that final solution; it does not retain
 tentative layouts from the earlier emission. Ambiguous calls remain conservative.
+Generic bodies retained for adapters can become unreachable after call selection.
+They keep generic calls; only expressions actually scanned by the final solution
+retain pins. Backend queries cannot turn an unexecuted body into a reached one.
 
 Each mutable vector allocation has one element hole. Aliases retain that
 allocation identity, so every reachable write contributes to the same hole.
