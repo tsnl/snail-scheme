@@ -78,4 +78,6 @@ python3 benchmarks/strict-cat/replay.py /tmp/strict-cat-replay
 ```
 
 To repeat the final clean batch in a quiet CPU window, append `--measure --cpu 5`.
+That rerun verifies the recorded Chibi and Binaryen binaries as well as Node,
+so their original paths must still exist even though the artifacts are compiled.
 To rebuild from Scheme, follow the [source experiment instructions](../../strict-cat/README.md).
