@@ -1,0 +1,346 @@
+[
+  {
+    "name": "review-abstract-family-premise",
+    "source_sha256": "ffa47d286db53e7837da4f2cee86295b585a057b7373afadb03dec0fc56611fd",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-abstract-family-premise.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-abstract-family-premise.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.137675168982241
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-abstract-family-premise.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.02610501501476392
+    },
+    "module_sha256": "2baa986a7da7cd9f0c72091bd08ec794fe4c31384b601bd3c411eedb83b14606",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-abstract-family-premise.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.023445436032488942
+    },
+    "raw_module_sha256": "754ff40d98d97144b8156e15de351351b612c5ad86473e4a78128942b9fb2d58"
+  },
+  {
+    "name": "review-later-result",
+    "source_sha256": "556814a9923a31e1587af091ce71abc5161c1ff52afc14516abe695e983936bc",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-later-result.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 4.075644429016393
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.026452832971699536
+    },
+    "module_sha256": "19b233fa479f65cbfac97720aa00a07af8f3262ae4197483dc5b11221cce1956",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.024427052005194128
+    },
+    "raw_module_sha256": "2d2a5067bcf049fb021ce2c44544cbe1e2563c3e32543e53af7077fe8aa50982"
+  },
+  {
+    "name": "review-qualified-overlap",
+    "source_sha256": "784f38f9a9bf28f705ebceaf3df9c76d7c8a1dd56b454351e2b3130443e514ad",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-qualified-overlap.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-qualified-overlap.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.075007633015048
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-qualified-overlap.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.024727426003664732
+    },
+    "module_sha256": "5a1dceb7ba3a82bc2268bcc288daf8547dd177d4293d72c9fe1acd4e2fb7b7b5",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-qualified-overlap.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.023053803015500307
+    },
+    "raw_module_sha256": "55ffde364c426edb30fddc04c610d888a6c20dfec004a2e876960e4ed2060ccf"
+  },
+  {
+    "name": "review-qualified-overlap-reject",
+    "source_sha256": "1a1b4b6a376b44e7414ec99f01b30ad73e365a83c98160ff865f11400458ce5d",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-qualified-overlap-reject.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-qualified-overlap-reject.wasm"
+      ],
+      "status": 70,
+      "stdout": "",
+      "stderr": "ERROR: /tmp/snail-strict-return-review-20261013/tests/strict/review-qualified-overlap-reject.scm:6:1: ambiguous overload; provide argument or result type context: (Function (I64) #f I64)\n  called from strict-source-file->wasm on line 44 of file /tmp/snail-strict-return-review-20261013/src/snail-scheme/strict-compiler.sld\n  called from strict-source-file->wat-file on line 46 of file /tmp/snail-strict-return-review-20261013/src/snail-scheme/strict-compiler.sld\n  called from <anonymous> on line 11 of file /tmp/snail-strict-return-review-20261013/tests/build-strict-program.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n",
+      "seconds": 7.298329520970583
+    },
+    "passed": true
+  },
+  {
+    "name": "review-default-sharing",
+    "source_sha256": "e8e0b447f98c746009ddb2e2c2c625b0cdb5799e832429b6e074167adb3ee158",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-default-sharing.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-sharing.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.647046784986742
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-sharing.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.022507883026264608
+    },
+    "module_sha256": "e7b2bc3810d516f801567b8d84404756678951ea98359abbb6b64308427435b2",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-sharing.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.024378046044148505
+    },
+    "raw_module_sha256": "0c696e70b7e982cb8819e2b351911599f376f23884b913815db8f312bfed371c"
+  },
+  {
+    "name": "review-default-trap-effects",
+    "source_sha256": "d055050c025fd9ccfba5b5ec7a9f96d8f7e52df416c7cef3280780f57d1d0cb7",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-default-trap-effects.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-trap-effects.wasm",
+        "--export",
+        "allocate",
+        "--export",
+        "calls"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.991402763989754
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-trap-effects.wasm",
+        "42",
+        "{\"allocate\": \"trap\", \"calls\": \"3\"}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.025698572979308665
+    },
+    "module_sha256": "dc1675938374a8cc03a9ad6e868a7f9025f0e8b8522c1089520f77a2e248823a",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-default-trap-effects.wasm.raw.wasm",
+        "42",
+        "{\"allocate\": \"trap\", \"calls\": \"3\"}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.027163832972291857
+    },
+    "raw_module_sha256": "ed5008edaaebcc564e64db248d4f4fe63b4773f3ebf582afa2a836fedc3962b6"
+  },
+  {
+    "name": "review-returned-captures",
+    "source_sha256": "9ffffc1c437530c8f8e8e1396ae4658605d079f67983c76f68e689dd91e41cd9",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-returned-captures.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-returned-captures.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.439433839987032
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-returned-captures.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.02609979297267273
+    },
+    "module_sha256": "67ea87e4573fb251516d1da3b5310ee871bc9d17499f14e3a0de6edb2ec2d1f5",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-returned-captures.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.023329929972533137
+    },
+    "raw_module_sha256": "5202fb362c71afd387254d77005a76a3324e0a9aebb908e6392ef43bcc0d7134"
+  },
+  {
+    "name": "review-later-result-reversed",
+    "source_sha256": "d483ed376bd286f62e0e1cbca0808789b9aee5b5f5e09c26d7a169c3f2d61e78",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-later-result-reversed.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result-reversed.wasm"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": "",
+      "seconds": 5.166216027981136
+    },
+    "passed": true,
+    "run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result-reversed.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.026464245980605483
+    },
+    "module_sha256": "19b233fa479f65cbfac97720aa00a07af8f3262ae4197483dc5b11221cce1956",
+    "raw_run": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/run.mjs",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-later-result-reversed.wasm.raw.wasm",
+        "42",
+        "{}"
+      ],
+      "status": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "seconds": 0.027859181980602443
+    },
+    "raw_module_sha256": "2d2a5067bcf049fb021ce2c44544cbe1e2563c3e32543e53af7077fe8aa50982"
+  },
+  {
+    "name": "review-unused-nested-late-error",
+    "source_sha256": "61b57fb1c76c061eb951a26a64b84428986d21ce7117e296251e0a71109b573c",
+    "compile": {
+      "command": [
+        "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+        "/tmp/snail-strict-return-review-20261013/tests/strict/review-unused-nested-late-error.scm",
+        "/tmp/snail-strict-return-review-20261013/build/independent-return-review-e4ff3a8/review-unused-nested-late-error.wasm"
+      ],
+      "status": 70,
+      "stdout": "",
+      "stderr": "ERROR: /tmp/snail-strict-return-review-20261013/tests/strict/review-unused-nested-late-error.scm:4:26: no compatible overload signature: (Function (Bool Bool) #f (unknown 1436))\n  called from strict-source-file->wasm on line 44 of file /tmp/snail-strict-return-review-20261013/src/snail-scheme/strict-compiler.sld\n  called from strict-source-file->wat-file on line 46 of file /tmp/snail-strict-return-review-20261013/src/snail-scheme/strict-compiler.sld\n  called from <anonymous> on line 11 of file /tmp/snail-strict-return-review-20261013/tests/build-strict-program.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n",
+      "seconds": 7.4681339339585975
+    },
+    "passed": true
+  }
+]

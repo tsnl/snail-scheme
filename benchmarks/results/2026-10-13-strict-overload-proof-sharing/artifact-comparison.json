@@ -1,0 +1,20 @@
+[
+  {
+    "artifact": "plus-8-after.wasm",
+    "status": 0,
+    "stdout": "result bigint 256\n",
+    "stderr": "",
+    "sha256": "dd8812f58f935bcfd2ff0007b1b1dd8a8492f446694e81d5203bacadf5d869c9",
+    "before_sha256": "dd8812f58f935bcfd2ff0007b1b1dd8a8492f446694e81d5203bacadf5d869c9",
+    "same_binary": true
+  },
+  {
+    "artifact": "plus-8-after.wasm.raw.wasm",
+    "status": 0,
+    "stdout": "result bigint 256\n",
+    "stderr": "",
+    "sha256": "84ea017f386098f4c9f213c5da421a81c22a5fa2464bed4ca99f8769bcedd207",
+    "before_sha256": "84ea017f386098f4c9f213c5da421a81c22a5fa2464bed4ca99f8769bcedd207",
+    "same_binary": true
+  }
+]
