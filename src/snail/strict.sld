@@ -5,7 +5,7 @@
           let let* letrec letrec* and or when unless
           : ann inst All -> Rest => define-class define-instance
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List
-          + - * quotient remainder = < <= > >= not unreachable
+          + - * quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt
           i64-add i64-sub i64-mul i64-eq i64-lt
           f32-add f32-sub f32-mul f32-div f32-eq f32-lt
@@ -42,6 +42,6 @@
       (syntax-rules () ((_) #f) ((_ expression) expression)
         ((_ first rest ...) (let ((value first)) (if value value (or rest ...))))))
     (define-syntax when
-      (syntax-rules () ((_ test body ...) (if test (begin body ... (begin))))))
+      (syntax-rules () ((_ test body ...) (if test (begin body ... (unit)) (unit)))))
     (define-syntax unless
-      (syntax-rules () ((_ test body ...) (if test (begin) (begin body ... (begin))))))))
+      (syntax-rules () ((_ test body ...) (if test (unit) (begin body ... (unit))))))))

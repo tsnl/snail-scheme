@@ -27,6 +27,8 @@ Integer literals default to I64, floating literals to F64. An immediate I32 or
 F32 annotation chooses that literal's representation. Widths remain distinct;
 there is no automatic numeric coercion. Integer literals must fit their width.
 Native fixed-width arithmetic uses Wasm wraparound and division traps.
+`(unit)` constructs Unit. `when` and `unless` evaluate their selected bodies and
+produce Unit, including when their bodies are empty.
 
 ```scheme
 (import (snail strict))

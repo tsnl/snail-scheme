@@ -23,13 +23,14 @@
         (f64-mul F64 F64 f64.mul) (f64-div F64 F64 f64.div)
         (f64-eq F64 Bool f64.eq) (f64-lt F64 Bool f64.lt)))
     (define primitive-names
-      (append (map car numeric-primitives) '(not ref ref-get ref-set! ref-eq? cons car cdr null? unreachable)))
+      (append (map car numeric-primitives) '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable)))
     (define (primitive-opcode name)
       (let ((entry (assq name numeric-primitives))) (if entry (cadddr entry) name)))
     (define (primitive-scheme name)
       (let ((entry (assq name numeric-primitives)))
         (cond (entry (make-scheme '() (function-type (list (cadr entry) (cadr entry)) #f (caddr entry)) '()))
               ((eq? name 'not) (make-scheme '() (function-type '(Bool) #f 'Bool) '()))
+              ((eq? name 'unit) (make-scheme '() (function-type '() #f 'Unit) '()))
               ((eq? name 'unreachable) (make-scheme '() (function-type '() #f 'Never) '()))
               (else (container-scheme name)))))
 

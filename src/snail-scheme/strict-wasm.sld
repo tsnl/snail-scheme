@@ -164,7 +164,7 @@
     (define (primitive-expression name signature arguments state)
       (let ((opcode (primitive-opcode name)) (domains (function-domains signature)))
         (case name
-          ((not) `(i32.eqz ,@arguments)) ((unreachable) '(unreachable))
+          ((not) `(i32.eqz ,@arguments)) ((unit) '(i32.const 0)) ((unreachable) '(unreachable))
           ((ref) `(struct.new ,(layout-name (function-result signature) state) ,@arguments))
           ((ref-get) `(struct.get ,(layout-name (car domains) state) 0 ,@arguments))
           ((ref-set!) `(block (result i32) (struct.set ,(layout-name (car domains) state) 0 ,@arguments) (i32.const 0)))
