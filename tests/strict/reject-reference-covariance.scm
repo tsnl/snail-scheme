@@ -1,0 +1,6 @@
+(import (snail strict))
+(define cell (ref 0))
+(: broad (Ref Top))
+(define broad cell)
+(ref-set! broad (ann #t Top))
+(ref-get cell)
