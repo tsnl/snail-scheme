@@ -69,11 +69,21 @@
                            (add-lower (car actuals) (car formals) bounds))))
 
     (define (solve-bounds entry loc)
-      (cond ((pair? (bounds-lower entry)) (apply type-union (bounds-lower entry)))
+      (cond ((pair? (bounds-lower entry)) (join-lower-bounds (bounds-lower entry)))
             ((pair? (bounds-upper entry))
              (let loop ((types (bounds-upper entry)) (type 'Any))
                (if (null? types) type (loop (cdr types) (type-intersect type (car types))))))
             (else (type-error-at loc "cannot infer type argument; use inst" (bounds-variable entry)))))
+
+    ;; The algebra expands Boolean and Number into complete unions. Retain a
+    ;; named lower bound when its join is equivalent; explicit union bounds keep
+    ;; their source form. Neither this join nor explicit inst promotes a subtype.
+    (define (join-lower-bounds types)
+      (let ((type (apply type-union types)))
+        (cond ((not (union-type? type)) type)
+              ((and (memq 'Boolean types) (type-subtype? type 'Boolean) (type-subtype? 'Boolean type)) 'Boolean)
+              ((and (memq 'Number types) (type-subtype? type 'Number) (type-subtype? 'Number type)) 'Number)
+              (else type))))
 
     (define (infer-type-arguments scheme arguments expected loc)
       (let* ((signature (all-body scheme))
@@ -120,9 +130,21 @@
           (expect (infer-type-arguments signature '(String) 'String #f)
                   '(String String))))
 
+      (define (test-scalar-lower-bounds)
+        (let* ((a (make-type-variable 'A)) (identity (list 'All (list a) (list '-> a a))))
+          (for-each (lambda (type) (expect (infer-type-arguments identity (list type) #f #f) (list type)))
+                    '(Boolean Number True i32))
+          (expect (join-lower-bounds '(Boolean False True)) 'Boolean)
+          (expect (join-lower-bounds '(Number ExactInteger InexactReal Complex)) 'Number)
+          (expect (type-equal? (join-lower-bounds '(False True)) '(U False True)) #t)
+          (expect (type-equal? (join-lower-bounds '(ExactInteger InexactReal)) '(U ExactInteger InexactReal)) #t)
+          (expect (type-equal? (join-lower-bounds '(String i32)) '(U String i32)) #t)
+          (expect (instantiate-type identity '((U False True)) #f) '(-> (U False True) (U False True)))))
+
       (define (test-type-inference)
         (test-independent-bounds)
         (test-union-context)
+        (test-scalar-lower-bounds)
         (let* ((a (make-type-variable 'A))
                (identity (list 'All (list a) (list '-> a a)))
                (choose (list 'All (list a) (list '-> 'Boolean a a a))))

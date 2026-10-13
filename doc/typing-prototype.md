@@ -66,6 +66,10 @@ is also outside this implementation.
 
 ## Rank-one polymorphism
 
+[`define-class`, `define-instance`, and constrained `All` signatures](typeclasses.md)
+extend this interface with static overload selection and specialization. Ordinary
+unconstrained `All` views retain the behavior described below.
+
 ```scheme
 (: identity (All (A) (-> A A)))
 (define (identity x) x)

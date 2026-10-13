@@ -5,6 +5,7 @@
           type-equal? type-subtype? type-union type-intersect type-subtract literal-type
           runtime-type? dynamic-type? type-compatible? nominal-type?
           make-type-variable type-variable? type-variable-name all-type? all-variables all-body
+          quantified-body qualified-type? type-constraints constrained-type?
           function-type? shallow-type? type-substitute type-erasure type-error-at)
   (import (scheme base) (scheme cxr) (snail-scheme source)
           (prefix (snail-scheme ir) ir:))
@@ -21,7 +22,13 @@
     (define (intersection-type? type) (and (pair? type) (eq? (car type) 'I)))
     (define (all-type? type) (and (pair? type) (eq? (car type) 'All)))
     (define (all-variables type) (cadr type))
-    (define (all-body type) (if (all-type? type) (caddr type) type))
+    (define (quantified-body type) (if (all-type? type) (caddr type) type))
+    (define (qualified-type? type) (and (pair? type) (eq? (car type) '=>)))
+    (define (all-body type)
+      (let ((body (quantified-body type))) (if (qualified-type? body) (caddr body) body)))
+    (define (type-constraints type)
+      (let ((body (quantified-body type))) (if (qualified-type? body) (cadr body) '())))
+    (define (constrained-type? type) (and (all-type? type) (pair? (type-constraints type))))
     (define (function-type? type) (or (arrow-type? type) (all-type? type)))
     (define (type-arguments type) (reverse (cdr (reverse (cdr type)))))
     (define (type-result type) (car (reverse type)))
@@ -42,8 +49,8 @@
       (or (eq? left right)
           (and (all-type? left) (all-type? right)
                (= (length (all-variables left)) (length (all-variables right)))
-               (type-equal? (all-body left)
-                            (type-substitute (all-body right) (map cons (all-variables right) (all-variables left)))))
+               (type-equal? (quantified-body left)
+                            (type-substitute (quantified-body right) (map cons (all-variables right) (all-variables left)))))
           (and (or (and (union-type? left) (union-type? right))
                    (and (intersection-type? left) (intersection-type? right)))
                (all? (lambda (arm) (some? (lambda (other) (type-equal? arm other)) (cdr right))) (cdr left))
@@ -139,6 +146,14 @@
     ;; not leave an unsimplified alternative that changes equality or inference.
     (define (type-substitute type substitutions)
       (cond ((assq type substitutions) => cdr)
+            ((all-type? type)
+             (list 'All (all-variables type) (type-substitute (quantified-body type) substitutions)))
+            ((qualified-type? type)
+             (list '=>
+                   (map (lambda (constraint)
+                          (cons (car constraint) (map (lambda (part) (type-substitute part substitutions))
+                                                      (cdr constraint)))) (cadr type))
+                   (type-substitute (caddr type) substitutions)))
             ((union-type? type)
              (apply type-union (map (lambda (part) (type-substitute part substitutions)) (cdr type))))
             ((arrow-type? type)
@@ -156,6 +171,7 @@
 
     (define (type-datum type)
       (cond ((type-variable? type) (type-variable-name type))
+            ((ir:value-definition? type) (ir:value-definition-name type))
             ((nominal-type? type) (ir:value-definition-name (cadr type)))
             ((pair? type) (map type-datum type))
             (else type)))
