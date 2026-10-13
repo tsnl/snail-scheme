@@ -1,8 +1,8 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts eleven original R7RS kernels to the new strict compiler:
+This diagnostic adapts twelve original R7RS kernels to the new strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
-`diviter`, and `divrec`. It records failures alongside successful cases. It is
+`diviter`, `divrec`, and `array1`. It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
@@ -25,13 +25,26 @@ Preparation records generated source, compiler sources, build commands, raw and
 optimized Wasm, disassembly, and Chez programs. It executes each strict kernel
 with one and two repetitions in raw and optimized Wasm. Errors remain in
 `prepared.json` and the individual command records; failed cases are excluded
-from timing and must be reported explicitly.
+from timing and must be reported explicitly. `array1` instead checks small
+runtime-supplied lengths and repeat counts, including empty vectors and zero
+repeats, before timing. Its original full workload is checked by both systems
+in the discarded pair before any retained measurements.
 
 Measurement uses fresh processes, default V8 tiering, one discarded full run,
 and three retained rounds with rotating benchmark/system order. Hashes of all
 prepared case files, the host, and tools are checked. Run in a quiet window.
 Replaying compiled artifacts still requires the recorded tool paths, including
 the compiler tools, because measurement verifies every recorded executable.
+
+To select only the vector workload, pass `--benchmarks array1` to preparation.
+Its pinned input is `go(500, 1000000)` with one outer harness invocation and
+expected result `1000000`. Both original element loops remain: increasing fill
+of a fresh source vector, then decreasing element-by-element copy into a fresh
+second vector. The port adds an explicit zero fill to both `make-vector` calls
+and changes `go`'s initial result from an empty list to I64 zero. The positive
+original repeat count always replaces that initial result. Zero and negative
+repeat counts therefore have different results from upstream and are outside
+the promised equivalence. The complete original source remains the Chez input.
 
 The [checked report](../results/2026-10-13-strict-kernels/README.md) preserves the
 balanced batch and default-stack failure. `replay.py DESTINATION` verifies and
@@ -58,6 +71,13 @@ Those lists are constructed from runtime-supplied lengths, not compiler-known
 input constants. The Boolean barrier alone does not hide a known value.
 Host-call costs are included in strict timings. Diagnostic call counters run
 only during validation, not during clean measurements.
+
+`array1` loads its I64 repeat and length inputs before timing. Each outer
+invocation performs the original two hide sites using scalar identity imports;
+all vector allocation, filling, copying, and the inner repeat loop are timed.
+Its integer elements and indices fit I64 at the unchanged original size.
+Its result predicate checks the returned length, so disassembly must establish
+whether the element work survives optimization before interpreting timings.
 
 These harness differences prevent treating the ratio as an isolated engine,
 collector, or type-inference measurement. In particular, a checked final answer
