@@ -452,9 +452,12 @@ Its [report](benchmarks/results/2026-10-13-strict-source-cat/README.md) preserve
 both source-compiled and hand-written scalar controls with the same provider.
 
 [`benchmarks/strict-suite/`](benchmarks/strict-suite/README.md) adapts arithmetic,
-closure, and typed-list kernels to the strict compiler, keeping original inputs
+closure, typed-list, and mutable-vector kernels to the strict compiler, keeping original inputs
 and counts. It separates preparation/behavior checks, clean timing, explicit
-Chez flonum controls, and artifact replay. Its coverage report retains failed
-and unported workloads. [`benchmarks/strict-wc/`](benchmarks/strict-wc/README.md)
+Chez flonum controls, and artifact replay. The
+[vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
+checks whether the allocation and element loops survive compilation; its
+coverage table retains failed and unported workloads.
+[`benchmarks/strict-wc/`](benchmarks/strict-wc/README.md)
 extends the scalar-I/O experiment to Unicode character/word/line counting inside
 the frozen legacy harness, with native counts and an owned input-port wrapper.
