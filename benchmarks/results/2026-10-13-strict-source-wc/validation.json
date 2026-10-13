@@ -1,0 +1,204 @@
+{
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/control/program.wasm",
+        "success",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/control/success",
+      "returncode": 0,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000436654 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000436654\nWC scalar checks passed: (31102 851820 4460056)\n",
+      "stderr": "",
+      "label": "control",
+      "mode": "success"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/control/program.wasm",
+        "closed",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/control/closed",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000367993 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000367993\n",
+      "stderr": "snail-scheme: port is closed\n",
+      "label": "control",
+      "mode": "closed"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/control/program.wasm",
+        "wrong-direction",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/control/wrong-direction",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000430013 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000430013\n",
+      "stderr": "snail-scheme: expected an input port\n",
+      "label": "control",
+      "mode": "wrong-direction"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/control/program.wasm",
+        "invalid",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/control/invalid",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000420763 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000420763\n",
+      "stderr": "snail-scheme: invalid UTF-8\n",
+      "label": "control",
+      "mode": "invalid"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/control/program.wasm",
+        "truncated",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/control/truncated",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000491072 seconds (0.001) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000491072\n",
+      "stderr": "snail-scheme: failed to fill whole buffer\n",
+      "label": "control",
+      "mode": "truncated"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/strict-source/program.wasm",
+        "success",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/strict-source/success",
+      "returncode": 0,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000427233 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000427233\nWC scalar checks passed: (31102 851820 4460056)\n",
+      "stderr": "",
+      "label": "strict-source",
+      "mode": "success"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/strict-source/program.wasm",
+        "closed",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/strict-source/closed",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.00042681 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.00042681\n",
+      "stderr": "snail-scheme: port is closed\n",
+      "label": "strict-source",
+      "mode": "closed"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/strict-source/program.wasm",
+        "wrong-direction",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/strict-source/wrong-direction",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000484517 seconds (0.001) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000484517\n",
+      "stderr": "snail-scheme: expected an input port\n",
+      "label": "strict-source",
+      "mode": "wrong-direction"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/strict-source/program.wasm",
+        "invalid",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/strict-source/invalid",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000529889 seconds (0.001) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000529889\n",
+      "stderr": "snail-scheme: invalid UTF-8\n",
+      "label": "strict-source",
+      "mode": "invalid"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "--expose-gc",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/host/tests/strict-wc/check.mjs",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/strict-source/program.wasm",
+        "truncated",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/inputs/bib",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/wrong-signature.wasm"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/validation/strict-source/truncated",
+      "returncode": 1,
+      "stdout": "Running wc:unused:0\nElapsed time: 0.000367236 seconds (0.0) for wc:unused:0\n+!CSVLINE!+snail-scheme,wc:unused:0,0.000367236\n",
+      "stderr": "snail-scheme: failed to fill whole buffer\n",
+      "label": "strict-source",
+      "mode": "truncated"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/chez/program.so"
+      ],
+      "directory": "/tmp/snail-strict-source-wc-20261013/build/strict-wc-final/chez",
+      "returncode": 0,
+      "stdout": "Running wc:inputs/bib:1\nElapsed time: 0.0133093 seconds (0.013) for wc:inputs/bib:1\n+!CSVLINE!+chez,wc:inputs/bib:1,0.0133093\n",
+      "stderr": "",
+      "label": "chez",
+      "mode": "original-predicate"
+    }
+  ],
+  "artifacts": {
+    "control": "982960b5c65f1e4f7c5ce37839d4f14b1f1985dc8d516f45bd4fb22784f3ee7a",
+    "strict-source": "2fa74b62b479aa123190b4d2e3db9e4bcc1e36c63cd0d7623e16fa82f291c972",
+    "chez": "750a10c9508e3a4710ff7244e4759c2cf2d8aa8d5234d5c8ece2841c4c1f7c27"
+  },
+  "driver_sha256": "f2b1a38d5074a281003ccb84ed9301d7192a3ee1f1e6e70ee52b15ccb58ff4f3"
+}

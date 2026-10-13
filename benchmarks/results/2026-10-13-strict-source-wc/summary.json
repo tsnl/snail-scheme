@@ -1,0 +1,31 @@
+{
+  "complete": true,
+  "kind": "strict-source-wc-matched-scalar-provider",
+  "count": 50,
+  "corpus_bytes": 4460056,
+  "corpus_sha256": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+  "expected": [
+    31102,
+    851820,
+    4460056
+  ],
+  "median_workload_seconds": {
+    "control": 10.260674479,
+    "strict-source": 2.021339161,
+    "chez": 0.646274587
+  },
+  "median_process_seconds": {
+    "control": 10.294064215035178,
+    "strict-source": 2.0531582590192556,
+    "chez": 0.6780190900317393
+  },
+  "old_over_strict": 5.076176565007439,
+  "strict_over_chez": 3.1276785466422807,
+  "compiler_revision": "93f34a983522be776ec65c82d6e6df06a1995977",
+  "worker_sha256": "3036d3fe5a43e789833d1e44cd4f9a4f655af9669b1272520ea162af771952f9",
+  "final_artifacts": {
+    "control": "982960b5c65f1e4f7c5ce37839d4f14b1f1985dc8d516f45bd4fb22784f3ee7a",
+    "strict-source": "2fa74b62b479aa123190b4d2e3db9e4bcc1e36c63cd0d7623e16fa82f291c972",
+    "chez": "750a10c9508e3a4710ff7244e4759c2cf2d8aa8d5234d5c8ece2841c4c1f7c27"
+  }
+}
