@@ -84,5 +84,21 @@
   {"name": "reject-vector-polymorphism", "error": "type mismatch; cannot unify"},
   {"name": "reject-vector-mixed-append", "error": "type mismatch; cannot unify"},
   {"name": "reject-vector-missing-fill", "error": "function call arity mismatch"},
-  {"name": "reject-vector-unresolved-empty", "error": "unresolved concrete representation type"}
+  {"name": "reject-vector-unresolved-empty", "error": "unresolved concrete representation type"},
+  {"name": "numeric-classes", "result": "42"},
+  {"name": "numeric-method-values", "result": "42"},
+  {"name": "numeric-integer-edges", "result": "42"},
+  {"name": "numeric-float-edges", "result": "42"},
+  {"name": "numeric-conversions", "result": "42"},
+  {"name": "numeric-operand-order", "result": "42"},
+  {"name": "numeric-division-overflow", "result": "trap"},
+  {"name": "numeric-conversion-trap", "result": "trap"},
+  {"name": "reject-numeric-bool", "error": "no exact static typeclass instance"},
+  {"name": "reject-numeric-char", "error": "no exact static typeclass instance"},
+  {"name": "reject-numeric-integer-division", "error": "no exact static typeclass instance"},
+  {"name": "reject-numeric-integer-sqrt", "error": "no exact static typeclass instance"},
+  {"name": "reject-numeric-float-quotient", "error": "no exact static typeclass instance"},
+  {"name": "reject-numeric-constraint", "error": "typeclass obligation is absent from declared constraints"},
+  {"name": "reject-numeric-mixed-float", "error": "type mismatch; cannot unify"},
+  {"name": "reject-numeric-literal-first", "error": "type mismatch; cannot unify"}
 ]

@@ -334,9 +334,16 @@
              (domains (append (function-domains signature)
                               (make-list (- (length (ir:application-operands node)) (length (function-domains signature)))
                                          (function-rest signature))))
-             (arguments (map (lambda (operand type) (infer operand scope type)) (ir:application-operands node) domains)))
+             (arguments (infer-operands (ir:application-operands node) domains scope)))
         (make-node 'call (function-result signature) (node-location node) (list operator arguments)
                    (constraints (cons operator arguments)))))
+
+    (define (infer-operands operands domains scope)
+      ;; Earlier operands constrain shared variables before later literals choose
+      ;; their contextual widths. Scheme map does not promise callback order.
+      (if (null? operands) '()
+          (let ((operand (infer (car operands) scope (car domains))))
+            (cons operand (infer-operands (cdr operands) (cdr domains) scope)))))
 
     ;; Expansion represents let as a direct lambda application. Elaborate that
     ;; exact form to typed bindings, not polymorphic native function parameters.

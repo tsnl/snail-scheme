@@ -25,9 +25,10 @@ the repository root and source path inside a trace scope.
 ## Types, inference and immutable bindings
 
 Concrete scalars are `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
-Integer literals default to I64, floating literals to F64. An immediate I32 or
-F32 annotation chooses that literal's representation. Widths remain distinct;
-there is no automatic numeric coercion. Integer literals must fit their width.
+Integer literals default to I64, floating literals to F64. A compatible expected
+I32 or F32 type selects that literal's narrower representation. An annotation
+or a checked function parameter can supply the expectation. Already typed values
+retain their width; there is no automatic numeric coercion. Integer literals must fit their width.
 Native fixed-width arithmetic uses Wasm wraparound and division traps.
 `(unit)` constructs Unit. `when` and `unless` evaluate their selected bodies and
 produce Unit, including when their bodies are empty.
@@ -59,6 +60,60 @@ and `ref-eq?` provide explicit invariant cells. Each concrete `Ref T` has a
 mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
+
+## Static numeric operations
+
+Ordinary numeric operators are methods of classes defined in `(snail strict)`.
+Their instances name native primitives; the compiler resolves them through the
+same static class machinery as user methods. Direct calls emit native Wasm
+operations. Passing an operator as a value uses the ordinary concrete function
+adapter, without a runtime dictionary or tagged arithmetic.
+
+| Class | Methods | Built-in instances |
+| --- | --- | --- |
+| `Arithmetic T` | Binary `+`, `-`, `*` | I32, I64, F32, F64 |
+| `Comparison T` | Binary `=`, `<`, `<=`, `>`, `>=` | I32, I64, F32, F64 |
+| `Integral T` | Binary `quotient`, `remainder` | I32, I64 |
+| `Floating T` | Binary `/`, unary `sqrt` | F32, F64 |
+
+These operations require matching operand types. Bool and Char have no numeric
+instances despite sharing the physical i32 layout. Integer `/` is rejected;
+`quotient` is signed integer division. Floating comparisons retain Wasm's NaN
+behavior: all five comparisons are false when either operand is NaN. Integer
+arithmetic wraps; division by zero and signed division overflow trap.
+
+```scheme
+(: square (All (T) (=> ((Arithmetic T)) (-> T T))))
+(define (square x) (* x x))
+(+ (square 1.5) (square 2.0)) ; F64, result 6.25
+```
+
+Without the declaration, inference derives the same requirement. Explicit
+polymorphic declarations must list the classes used by their body; finding a
+concrete numeric instance does not weaken rigid type variables.
+
+Call operands are checked from left to right. A concrete earlier operand can
+supply a later literal's width: `(+ (ann 40 I32) 2)` is valid. Conversely,
+`(+ 2 (ann 40 I32))` defaults the first literal to I64 and rejects the mismatch.
+Annotating both literals makes their intended widths independent of position.
+This core does not defer numeric literal defaulting or use an application's
+expected result to choose its operand widths.
+
+Conversions are explicit native unary functions:
+
+| Function | Native behavior |
+| --- | --- |
+| `i32->i64` | Signed extension. |
+| `i64->i32` | Keep the low 32 bits. |
+| `i64->f64` | Signed conversion, rounding to the nearest representable F64. |
+| `f32->f64` | Exact floating promotion. |
+| `f64->f32` | Floating demotion with native rounding and overflow behavior. |
+| `f64->i64` | Truncate toward zero; trap on NaN or an out-of-range result. |
+
+The explicitly named `i32-*`, `i64-*`, `f32-*`, and `f64-*` primitives remain
+available for code that requires a fixed representation. Overload declarations
+and mixed-operand promotion instances are a proposed extension; this change
+implements only the same-type instances above.
 
 ## Concrete mutable vectors
 

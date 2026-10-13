@@ -211,10 +211,12 @@ rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
 [`strict-core.sld`](src/snail-scheme/strict-core.sld) defines checked expression,
 binding and static class records. [`strict-infer.sld`](src/snail-scheme/strict-infer.sld)
 checks source groups, generalizes eligible values and retains exact class
-obligations. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
-supplies concrete primitive signatures and opcodes.
-[`(snail strict)`](src/snail/strict.sld) provides hygienic binding and control
-forms and ordinary polymorphic vector functions. `vector-append`, copying, and
+obligations. Call operands are inferred in source order so contextual literal
+widths do not depend on the host Scheme's traversal order.
+[`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
+supplies complete concrete primitive signatures and opcodes, including unary
+conversions. [`(snail strict)`](src/snail/strict.sld) provides static numeric
+classes and their native instances, hygienic binding and control forms and ordinary polymorphic vector functions. `vector-append`, copying, and
 list conversions specialize through the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
 

@@ -6,11 +6,13 @@
           let let* letrec letrec* and or when unless
           : ann inst All -> Rest => define-class define-instance define-extern
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List Vector
-          + - * quotient remainder = < <= > >= not unit unreachable
-          i32-add i32-sub i32-mul i32-eq i32-lt
-          i64-add i64-sub i64-mul i64-eq i64-lt
-          f32-add f32-sub f32-mul f32-div f32-eq f32-lt
-          f64-add f64-sub f64-mul f64-div f64-eq f64-lt
+          Arithmetic Comparison Integral Floating
+          + - * / sqrt quotient remainder = < <= > >= not unit unreachable
+          i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
+          i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
+          f32-add f32-sub f32-mul f32-div f32-eq f32-lt f32-le f32-gt f32-ge f32-sqrt
+          f64-add f64-sub f64-mul f64-div f64-eq f64-lt f64-le f64-gt f64-ge f64-sqrt
+          i64->f64 i32->i64 i64->i32 f32->f64 f64->f32 f64->i64
           ref ref-get ref-set! ref-eq? cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
           vector vector-copy vector-append vector->list list->vector)
@@ -48,6 +50,45 @@
       (syntax-rules () ((_ test body ...) (if test (begin body ... (unit)) (unit)))))
     (define-syntax unless
       (syntax-rules () ((_ test body ...) (if test (unit) (begin body ... (unit))))))
+
+    ;; ---- Static numeric operators ----
+
+    ;; These classes are resolved before emission. Each method names a native
+    ;; primitive, so direct calls need no dictionary, closure or tagged operand.
+    ;; Values never coerce implicitly; unconstrained literals default to I64/F64.
+    (define-class (Arithmetic T)
+      (: + (-> T T T)) (: - (-> T T T)) (: * (-> T T T)))
+    (define-class (Comparison T)
+      (: = (-> T T Bool)) (: < (-> T T Bool)) (: <= (-> T T Bool))
+      (: > (-> T T Bool)) (: >= (-> T T Bool)))
+    (define-class (Integral T)
+      (: quotient (-> T T T)) (: remainder (-> T T T)))
+    (define-class (Floating T)
+      (: / (-> T T T)) (: sqrt (-> T T)))
+    (define-instance (Arithmetic I32)
+      (+ i32-add) (- i32-sub) (* i32-mul))
+    (define-instance (Comparison I32)
+      (= i32-eq) (< i32-lt) (<= i32-le) (> i32-gt) (>= i32-ge))
+    (define-instance (Integral I32)
+      (quotient i32-quotient) (remainder i32-remainder))
+    (define-instance (Arithmetic I64)
+      (+ i64-add) (- i64-sub) (* i64-mul))
+    (define-instance (Comparison I64)
+      (= i64-eq) (< i64-lt) (<= i64-le) (> i64-gt) (>= i64-ge))
+    (define-instance (Integral I64)
+      (quotient i64-quotient) (remainder i64-remainder))
+    (define-instance (Arithmetic F32)
+      (+ f32-add) (- f32-sub) (* f32-mul))
+    (define-instance (Comparison F32)
+      (= f32-eq) (< f32-lt) (<= f32-le) (> f32-gt) (>= f32-ge))
+    (define-instance (Floating F32)
+      (/ f32-div) (sqrt f32-sqrt))
+    (define-instance (Arithmetic F64)
+      (+ f64-add) (- f64-sub) (* f64-mul))
+    (define-instance (Comparison F64)
+      (= f64-eq) (< f64-lt) (<= f64-le) (> f64-gt) (>= f64-ge))
+    (define-instance (Floating F64)
+      (/ f64-div) (sqrt f64-sqrt))
 
     ;; ---- Homogeneous vectors ----
 
