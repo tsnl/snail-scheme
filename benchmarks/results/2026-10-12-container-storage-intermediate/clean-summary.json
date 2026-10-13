@@ -1,0 +1,357 @@
+{
+  "baseline": "f07d1eb12f7c7234463a606a09190325a3c906b5",
+  "candidate": "3f2db1cc31f2e816572720a60c660364459d76e3",
+  "configs": {
+    "update-i64": {
+      "size": 65536,
+      "rounds": 928
+    },
+    "shared-cell": {
+      "size": 0,
+      "rounds": 31000000
+    },
+    "update-f64": {
+      "size": 65536,
+      "rounds": 352
+    },
+    "managed-pair-vector": {
+      "size": 65536,
+      "rounds": 672
+    }
+  },
+  "summaries": [
+    {
+      "case": "update-i64",
+      "variants": {
+        "baseline": {
+          "kernel_seconds": {
+            "observations": [
+              0.561707594,
+              0.562281475,
+              0.553793709
+            ],
+            "median": 0.561707594,
+            "min": 0.553793709,
+            "max": 0.562281475
+          },
+          "process_seconds": {
+            "observations": [
+              0.60405905,
+              0.603699132,
+              0.595709885
+            ],
+            "median": 0.603699132,
+            "min": 0.595709885,
+            "max": 0.60405905
+          }
+        },
+        "off": {
+          "kernel_seconds": {
+            "observations": [
+              0.73394257,
+              0.751504289,
+              0.757466398
+            ],
+            "median": 0.751504289,
+            "min": 0.73394257,
+            "max": 0.757466398
+          },
+          "process_seconds": {
+            "observations": [
+              0.775875061,
+              0.792458943,
+              0.79891779
+            ],
+            "median": 0.792458943,
+            "min": 0.775875061,
+            "max": 0.79891779
+          }
+        },
+        "on": {
+          "kernel_seconds": {
+            "observations": [
+              0.211903072,
+              0.211214221,
+              0.21087048
+            ],
+            "median": 0.211214221,
+            "min": 0.21087048,
+            "max": 0.211903072
+          },
+          "process_seconds": {
+            "observations": [
+              0.245252434,
+              0.244938107,
+              0.244404574
+            ],
+            "median": 0.244938107,
+            "min": 0.244404574,
+            "max": 0.245252434
+          }
+        }
+      },
+      "ratios": {
+        "kernel_seconds": {
+          "baseline_over_on": 2.6594212801608657,
+          "off_over_on": 3.5580193674553757
+        },
+        "process_seconds": {
+          "baseline_over_on": 2.464700733561234,
+          "off_over_on": 3.2353436249917618
+        }
+      },
+      "off_vs_baseline_kernel_percent": 33.7892342968751
+    },
+    {
+      "case": "shared-cell",
+      "variants": {
+        "baseline": {
+          "kernel_seconds": {
+            "observations": [
+              0.438039065,
+              0.437852568,
+              0.430196996
+            ],
+            "median": 0.437852568,
+            "min": 0.430196996,
+            "max": 0.438039065
+          },
+          "process_seconds": {
+            "observations": [
+              0.467163475,
+              0.468692451,
+              0.460983857
+            ],
+            "median": 0.467163475,
+            "min": 0.460983857,
+            "max": 0.468692451
+          }
+        },
+        "off": {
+          "kernel_seconds": {
+            "observations": [
+              0.436016383,
+              0.441155561,
+              0.434270716
+            ],
+            "median": 0.436016383,
+            "min": 0.434270716,
+            "max": 0.441155561
+          },
+          "process_seconds": {
+            "observations": [
+              0.464904445,
+              0.472429294,
+              0.464801476
+            ],
+            "median": 0.464904445,
+            "min": 0.464801476,
+            "max": 0.472429294
+          }
+        },
+        "on": {
+          "kernel_seconds": {
+            "observations": [
+              0.105867204,
+              0.106963429,
+              0.105894085
+            ],
+            "median": 0.105894085,
+            "min": 0.105867204,
+            "max": 0.106963429
+          },
+          "process_seconds": {
+            "observations": [
+              0.134500264,
+              0.136814668,
+              0.133802224
+            ],
+            "median": 0.134500264,
+            "min": 0.133802224,
+            "max": 0.136814668
+          }
+        }
+      },
+      "ratios": {
+        "kernel_seconds": {
+          "baseline_over_on": 4.134816104223385,
+          "off_over_on": 4.117476278302041
+        },
+        "process_seconds": {
+          "baseline_over_on": 3.473327569081946,
+          "off_over_on": 3.4565318399672433
+        }
+      },
+      "off_vs_baseline_kernel_percent": -0.4193614778570831
+    },
+    {
+      "case": "update-f64",
+      "variants": {
+        "baseline": {
+          "kernel_seconds": {
+            "observations": [
+              0.304547179,
+              0.30425516,
+              0.305274616
+            ],
+            "median": 0.304547179,
+            "min": 0.30425516,
+            "max": 0.305274616
+          },
+          "process_seconds": {
+            "observations": [
+              0.354256658,
+              0.351496271,
+              0.356424492
+            ],
+            "median": 0.354256658,
+            "min": 0.351496271,
+            "max": 0.356424492
+          }
+        },
+        "off": {
+          "kernel_seconds": {
+            "observations": [
+              0.371476157,
+              0.372923327,
+              0.371711429
+            ],
+            "median": 0.371711429,
+            "min": 0.371476157,
+            "max": 0.372923327
+          },
+          "process_seconds": {
+            "observations": [
+              0.419692167,
+              0.421195609,
+              0.420573902
+            ],
+            "median": 0.420573902,
+            "min": 0.419692167,
+            "max": 0.421195609
+          }
+        },
+        "on": {
+          "kernel_seconds": {
+            "observations": [
+              0.295049748,
+              0.296910773,
+              0.296383896
+            ],
+            "median": 0.296383896,
+            "min": 0.295049748,
+            "max": 0.296910773
+          },
+          "process_seconds": {
+            "observations": [
+              0.345956663,
+              0.346046014,
+              0.344643076
+            ],
+            "median": 0.345956663,
+            "min": 0.344643076,
+            "max": 0.346046014
+          }
+        }
+      },
+      "ratios": {
+        "kernel_seconds": {
+          "baseline_over_on": 1.0275429370831943,
+          "off_over_on": 1.254155283119701
+        },
+        "process_seconds": {
+          "baseline_over_on": 1.0239914298167456,
+          "off_over_on": 1.2156837748200848
+        }
+      },
+      "off_vs_baseline_kernel_percent": 22.053807958602036
+    },
+    {
+      "case": "managed-pair-vector",
+      "variants": {
+        "baseline": {
+          "kernel_seconds": {
+            "observations": [
+              0.529713419,
+              0.531782957,
+              0.535052579
+            ],
+            "median": 0.531782957,
+            "min": 0.529713419,
+            "max": 0.535052579
+          },
+          "process_seconds": {
+            "observations": [
+              0.586634968,
+              0.588977362,
+              0.59214232
+            ],
+            "median": 0.588977362,
+            "min": 0.586634968,
+            "max": 0.59214232
+          }
+        },
+        "off": {
+          "kernel_seconds": {
+            "observations": [
+              0.633510745,
+              0.645976908,
+              0.640096639
+            ],
+            "median": 0.640096639,
+            "min": 0.633510745,
+            "max": 0.645976908
+          },
+          "process_seconds": {
+            "observations": [
+              0.692177433,
+              0.705772548,
+              0.698094183
+            ],
+            "median": 0.698094183,
+            "min": 0.692177433,
+            "max": 0.705772548
+          }
+        },
+        "on": {
+          "kernel_seconds": {
+            "observations": [
+              0.514801568,
+              0.511129344,
+              0.512105198
+            ],
+            "median": 0.512105198,
+            "min": 0.511129344,
+            "max": 0.514801568
+          },
+          "process_seconds": {
+            "observations": [
+              0.569332204,
+              0.564131269,
+              0.565743759
+            ],
+            "median": 0.565743759,
+            "min": 0.564131269,
+            "max": 0.569332204
+          }
+        }
+      },
+      "ratios": {
+        "kernel_seconds": {
+          "baseline_over_on": 1.0384252280134052,
+          "off_over_on": 1.2499319309779786
+        },
+        "process_seconds": {
+          "baseline_over_on": 1.0410673606741458,
+          "off_over_on": 1.2339405815698978
+        }
+      },
+      "off_vs_baseline_kernel_percent": 20.368024317860957
+    }
+  ],
+  "raw_result_sha256": "b860f150e9283b2db720b633fffaa1896c0417537503467d066ae40340b49338",
+  "retained_observations_per_cell": 3,
+  "kernel_seconds_scope": "Intermediate fixed arrays/bindings/captures only. Kernel timer excludes initialization and complete result checks; process timer includes them and compilation/startup.",
+  "observer": "None: fresh default-tier Node processes, plain WASI host, no probes/profiler/GC flags. CPU5 affinity.",
+  "caveat": "Three retained observations per variant; ranges are descriptive, without statistical confidence or full-suite extrapolation."
+}

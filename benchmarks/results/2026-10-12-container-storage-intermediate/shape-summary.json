@@ -1,0 +1,261 @@
+{
+  "candidate": "3f2db1cc31f2e816572720a60c660364459d76e3",
+  "mode": "Counter-only correctness under concurrent preparation/test jobs; all elapsed values excluded.",
+  "scope": "Intermediate fixed-vector and lexical binding/capture storage; pair/record and richer clone keys pending.",
+  "proof_policy": "Actual type definitions plus nonzero reached constructor/access requests. Scalar $float/$integer payloads excluded from container/capture proof; names alone are insufficient.",
+  "controls": [
+    {
+      "fixture": "update-i64",
+      "input": "8\n3\n",
+      "whole_invocation_scalar_requests": {
+        "off": {
+          "integer_scalar": 53,
+          "float_scalar": 2
+        },
+        "on": {
+          "integer_scalar": 15,
+          "float_scalar": 2
+        }
+      },
+      "signed_on_minus_off": {
+        "integer_scalar": -38,
+        "float_scalar": 0
+      },
+      "reached_concrete_shapes": [
+        {
+          "mode": "on",
+          "key": [
+            "constructor",
+            "array.new",
+            "$elements:integer"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i64"
+            }
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "array.get",
+            "$elements:integer",
+            "-"
+          ],
+          "requests": 32,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i64"
+            }
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "array.set",
+            "$elements:integer",
+            "-"
+          ],
+          "requests": 32,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "i64"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "fixture": "shared-cell",
+      "input": "3\n",
+      "whole_invocation_scalar_requests": {
+        "off": {
+          "integer_scalar": 0,
+          "float_scalar": 13
+        },
+        "on": {
+          "integer_scalar": 0,
+          "float_scalar": 9
+        }
+      },
+      "signed_on_minus_off": {
+        "integer_scalar": 0,
+        "float_scalar": -4
+      },
+      "reached_concrete_shapes": [
+        {
+          "mode": "on",
+          "key": [
+            "constructor",
+            "struct.new",
+            "$binding_cell0"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "struct.get",
+            "$binding_cell0",
+            "0"
+          ],
+          "requests": 4,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "struct.set",
+            "$binding_cell0",
+            "0"
+          ],
+          "requests": 3,
+          "actual_shape": {
+            "kind": "struct",
+            "fields": [
+              {
+                "mutable": true,
+                "storage_type": "f64"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "fixture": "update-f64",
+      "input": "8\n3\n",
+      "whole_invocation_scalar_requests": {
+        "off": {
+          "integer_scalar": 0,
+          "float_scalar": 89
+        },
+        "on": {
+          "integer_scalar": 0,
+          "float_scalar": 89
+        }
+      },
+      "signed_on_minus_off": {
+        "integer_scalar": 0,
+        "float_scalar": 0
+      },
+      "reached_concrete_shapes": []
+    },
+    {
+      "fixture": "managed-pair-vector",
+      "input": "8\n3\n",
+      "whole_invocation_scalar_requests": {
+        "off": {
+          "integer_scalar": 55,
+          "float_scalar": 11
+        },
+        "on": {
+          "integer_scalar": 57,
+          "float_scalar": 11
+        }
+      },
+      "signed_on_minus_off": {
+        "integer_scalar": 2,
+        "float_scalar": 0
+      },
+      "reached_concrete_shapes": [
+        {
+          "mode": "on",
+          "key": [
+            "constructor",
+            "array.new",
+            "$elements:pair"
+          ],
+          "requests": 2,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $pair)"
+            }
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "array.copy",
+            "$elements:pair",
+            "$elements:pair"
+          ],
+          "requests": 1,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $pair)"
+            }
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "array.get",
+            "$elements:pair",
+            "-"
+          ],
+          "requests": 37,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $pair)"
+            }
+          }
+        },
+        {
+          "mode": "on",
+          "key": [
+            "storage-access",
+            "array.set",
+            "$elements:pair",
+            "-"
+          ],
+          "requests": 8,
+          "actual_shape": {
+            "kind": "array",
+            "element": {
+              "mutable": true,
+              "storage_type": "(ref $pair)"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "append_caveat": "Combined vector-f64/I64 typed array construction belongs to the unused zero-length latest anchor; no reached typed element access in hot modes. Append/interface correctness passes, without specialization/performance claims."
+}

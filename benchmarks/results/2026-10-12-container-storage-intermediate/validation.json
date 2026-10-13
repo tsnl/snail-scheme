@@ -1,0 +1,12 @@
+{
+  "restoration": {
+    "all_blob_hashes_valid": true,
+    "blob_count": 607,
+    "logical_file_count": 1092,
+    "clean_preflight_cases": 12,
+    "clean_comparability_passed": true
+  },
+  "repro_python_parse_passed": true,
+  "wat_projections_match_original_asts": true,
+  "no_fresh_timings_rerun": true
+}

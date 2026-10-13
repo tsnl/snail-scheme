@@ -1,0 +1,92 @@
+{
+  "baseline": "f07d1eb12f7c7234463a606a09190325a3c906b5",
+  "production_code": "d4f0d4203a8adc9cd1f1f338d991da31794ae725",
+  "model": "Invariant per-hole constraints, collapse and dependent propagation before representation selection; no runtime widening.",
+  "coverage": [
+    {
+      "id": "vector_f64",
+      "fixture": "representation-coverage.scm",
+      "operation": "numeric-source/check-numeric-vector",
+      "required_evidence": "Reached numeric backing array construction and get/set with actual f64 element type; numeric source stays independent of broadened copied/appended result."
+    },
+    {
+      "id": "vector_i64",
+      "fixture": "vector-i64.scm",
+      "operation": "make-input/update-pass",
+      "required_evidence": "Reached actual i64 data array; values >i31; hot stores do not allocate an integer box per slot."
+    },
+    {
+      "id": "managed_reference_elements",
+      "fixture": "managed-pair-vector.scm",
+      "operation": "vector of pairs",
+      "required_evidence": "Reached array with precise managed reference element type, not merely eqref under another name; element identity and shallow-copy aliases preserved."
+    },
+    {
+      "id": "pair_fields",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-pair-fields",
+      "required_evidence": "Actual pair payload i64/f64 field types and reached numeric field get/set. Generic pair/boxed scalar definitions do not count."
+    },
+    {
+      "id": "record_fields",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-record-fields",
+      "required_evidence": "Actual record payload i64/f64 field types, reached constructor/get/set, record identity unchanged through alias."
+    },
+    {
+      "id": "immutable_captures",
+      "fixture": "representation-coverage.scm",
+      "operation": "real-reader/integer-reader",
+      "required_evidence": "Actual closure capture payload fields f64/i64 and reached uses; eqref env containing boxed numbers is insufficient."
+    },
+    {
+      "id": "shared_mutable_cell",
+      "fixture": "shared-cell.scm",
+      "operation": "make-state updater/observer",
+      "required_evidence": "One logical shared cell with actual mutable f64 payload field. Updater and observer retain alias; no per-update return box hides store benefit."
+    },
+    {
+      "id": "scalar_parameters_results",
+      "fixture": "representation-coverage.scm",
+      "operation": "real-return/integer-return",
+      "required_evidence": "Reached ordinary source worker with f64/i64 parameters/results; mere runtime helper declaration is insufficient."
+    },
+    {
+      "id": "heterogeneous_alias",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-shared-object",
+      "required_evidence": "Both identity uses share one allocation hole; string write forces common/eqref allocation from start; no runtime widening."
+    },
+    {
+      "id": "fresh_copy_append_holes",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-numeric-vector",
+      "required_evidence": "Numeric source backing can remain concrete while fresh result holes broaden to common/eqref. Directional source joins, no result-to-source pessimization."
+    },
+    {
+      "id": "factory_key_consistency",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-factory-instantiation",
+      "required_evidence": "Same scalar factory input with divergent usage gets complete-key separate layouts or a conservative common layout; producer and consumer must agree."
+    },
+    {
+      "id": "numeric_edge_values",
+      "fixture": "representation-coverage.scm",
+      "operation": "check-numeric-edges/check-tags/check-overlap",
+      "required_evidence": "NaN/signedzero/I64 exactness and mixed-layout copies, memmove overlap, bool and Unicode char conversions through ordinary views."
+    },
+    {
+      "id": "unsafe_stable_contract",
+      "fixture": "pending API freeze",
+      "operation": "Array T/Storage T witness factories",
+      "required_evidence": "Separate stable-contract typed API and equivalent generic adapter; incompatible writes rejected, actual array/struct element types match T."
+    },
+    {
+      "id": "initialization_and_failed_rhs",
+      "fixture": "parent tests/programs/backend-storage-bindings.scm at9054cd8; check-binding-layouts.scm helper",
+      "operation": "read before init, scalar/reference cell state, write whose RHS fails",
+      "required_evidence": "Concrete f64/i64/boolean/character capture/cell fields with readiness state; early reads fail6 and retain empty stdout, failed RHS fail8 leaves old scalar2.5 intact. No ordinary dynamic type-widening write is introduced."
+    }
+  ],
+  "proof_policy": "Pair WAT declaration with mapped source allocation/access and heavy reached-site counts. Scalar boxes are excluded as evidence of container/capture specialization. Actual engine allocations and clean timings are separate."
+}
