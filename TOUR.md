@@ -213,6 +213,10 @@ binding and static class records. [`strict-infer.sld`](src/snail-scheme/strict-i
 checks source groups, generalizes eligible values and retains exact class
 obligations. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
 supplies concrete primitive signatures and opcodes.
+[`(snail strict)`](src/snail/strict.sld) provides hygienic binding and control
+forms and ordinary polymorphic vector functions. `vector-append`, copying, and
+list conversions specialize through the same pipeline as user functions; only
+allocation, indexing, identity, length, and bulk copying are native primitives.
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
@@ -222,7 +226,9 @@ module also owns the enumeration of concrete site storage used by the emitter;
 readiness tokens and payload copies therefore have one definition.
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
-and emits explicit universal-value conversions. Native foreign declarations
+and emits explicit universal-value conversions. Invariant vectors use native
+array element storage; I64 index checks precede narrowing, while native array
+instructions own bounds and overlapping-copy behavior. Native foreign declarations
 retain their resolved identity in IR. [`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
 validates the concrete scalar boundary shared by imports and selected worker
 exports; the emitter adapts Unit results without introducing an object carrier.
