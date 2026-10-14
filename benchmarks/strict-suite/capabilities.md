@@ -59,7 +59,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
 | earley | Symbolic grammar/token data and mixed state/configuration vectors; product/sum data is implemented, while symbolic operations, structural equality and the full port remain. |
-| lattice | Improper pairs combine elements with comparison closures; mutable destructive reverse, symbol tags and recursively changing element types. |
+| lattice | Prepared for review, unmeasured. Original count 10, input 44 and result 120549 pass raw/optimized Wasm and untouched/adapted Chez. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and layout differences are disclosed; no compiler changes or dynamic fallback. |
 | matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
 | mazefun | Improper coordinate pairs, cell-or-false data, symbolic wall markers and structural equality; preserve its functional maze algorithm. |

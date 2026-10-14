@@ -26,16 +26,17 @@ import deriv_port
 import mbrotz_port
 import string_port
 import puzzle_port
+import lattice_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle') + DATA_PORTS + ENUMERATION_PORTS
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -44,7 +45,7 @@ KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', mbrotZ='test', string='my-try', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench', graphs='run')
+               mbrot='test', mbrotZ='test', string='my-try', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench', graphs='run', lattice='run')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -190,6 +191,8 @@ def kernel_source(name, source):
         source = mbrotz_port.kernel(source)
     elif name == 'string':
         source = string_port.kernel(source)
+    elif name == 'lattice':
+        source = lattice_port.kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -448,6 +451,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'lattice':
+        return lattice_port.WORKER
     if name == 'puzzle':
         return puzzle_port.WORKER
     if name == 'string':
@@ -496,6 +501,8 @@ def strict_program(name, spec, upstream):
         prelude += mbrotz_port.strict_prelude()
     if name == 'puzzle':
         prelude = puzzle_port.control_prelude(prelude) + puzzle_port.STRICT_TYPES + puzzle_port.COMMON
+    if name == 'lattice':
+        prelude += lattice_port.STRICT_TYPES + lattice_port.COMMON
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -688,7 +695,7 @@ def quicksort_validation_specifications(spec):
 def validation_specifications(spec):
     if spec['name'] in ENUMERATION_PORTS:
         return [('canonical-count', spec)]
-    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
+    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
         return [(str(count), dict(spec, count=count)) for count in (1, 2, spec['count'])]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
@@ -736,6 +743,7 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
 CHEZ_HELPERS = dict(puzzle=CHEZ_REF_HELPERS + puzzle_port.CHEZ_RESULTS + puzzle_port.COMMON,
+                   lattice=lattice_port.CHEZ_TYPES + lattice_port.COMMON,
                    string=CHEZ_REF_HELPERS, paraffins=data_ports.PARAFFINS_CHEZ,
                    simplex=CHEZ_REF_HELPERS + simplex_port.CHEZ_RESULTS,
                    deriv=deriv_port.chez_helpers(),
@@ -835,7 +843,7 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
+    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
         patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
                                      fromfile='original-program', tofile='adapted-program')
         (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
@@ -873,7 +881,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
+    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -1708,6 +1716,78 @@ def validate_puzzle_outputs(directory, runner, tools, environment):
     validate_puzzle_identity(directory, runner, tools, environment)
 
 
+def build_lattice_probes(directory, runner, tools, environment):
+    for adapted in (False, True):
+        target = directory / ('probe-adapted-chez' if adapted else 'probe-original-chez')
+        target.mkdir()
+        kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+        (target / 'program.scm').write_text(lattice_port.chez_probe(kernel, adapted))
+        build_chez(target, runner, environment, 'build.json')
+    target = directory / 'probe-strict'
+    target.mkdir()
+    source = lattice_port.strict_probe((directory / 'adapted-kernel.scm').read_text(), PRELUDE)
+    (target / 'strict.scm').write_text(source)
+    (target / 'host.mjs').write_text(lattice_port.PROBE_HOST)
+    save(target / 'spec.json', dict(name='lattice-probe', export='probe'))
+    build_strict(target, tools, environment)
+
+
+def lattice_probe_observations(directory, tools, environment, command):
+    observations = []
+    for system in ('original', 'adapted'):
+        target = directory / ('probe-' + system + '-chez')
+        record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=str(command))
+        save(target / f'command-{command}.json', record)
+        require_success(record)
+        observations.append(list(map(int, record['stdout'].split())))
+    target = directory / 'probe-strict'
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], target / 'host.mjs', target / ('strict.wasm' + suffix), str(command)], target, environment)
+        save(target / f'command-{command}{suffix or ".optimized"}.json', record)
+        require_success(record)
+        observations.append(json.loads(record['stdout']))
+    return observations
+
+
+def validate_lattice_scalar(directory, tools, environment, data, label, accepted):
+    path = directory / f'validation-spec-{label}.json'
+    save(path, case_specification('lattice', data.encode()))
+    checks = []
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], directory.parent / 'host.mjs',
+                          directory / ('strict.wasm' + suffix), path, '--validate'], directory, environment)
+        checks.append(dict(record, accepted=accepted, module_suffix=suffix))
+        save(directory / f'validation-{label}.json', checks)
+        rejected = record.get('returncode') != 0 and "actual: '120549'" in record.get('stderr', '')
+        if (accepted and (record.get('returncode') != 0 or record.get('stderr'))) or (not accepted and not rejected):
+            raise ValueError('lattice scalar predicate did not accept or reject the actual result')
+
+
+def validate_lattice_harness(directory, runner, tools, environment):
+    for label, data, accepted in [('other-branch', '1\n33\n10\n', True),
+                                  ('wrong-result', '1\n44\n120548\n', False)]:
+        validate_lattice_scalar(directory, tools, environment, data, label, accepted)
+        for target in (directory, directory / 'same-source-chez'):
+            record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
+            save(target / f'validation-{label}.json', record)
+            require_success(record)
+            if record['stderr'] or (runner.parse_result(record['stdout'], 'chez', 'lattice')['status'] == 'ok') != accepted:
+                raise ValueError('lattice canonical scalar predicate differs')
+
+
+def validate_lattice_outputs(directory, runner, tools, environment):
+    build_lattice_probes(directory, runner, tools, environment)
+    oracles = [lattice_port.complete_oracle(), lattice_port.boundary_oracle(), None,
+               lattice_port.list_operation_oracle()]
+    for command, expected in enumerate(oracles):
+        observations = lattice_probe_observations(directory, tools, environment, command)
+        expected = observations[0] if expected is None else expected
+        save(directory / f'probe-oracle-{command}.json', dict(expected=expected, observations=observations))
+        if any(actual != expected for actual in observations):
+            raise ValueError('lattice complete values, comparison order, or list sharing differ: ' + str(command))
+    validate_lattice_harness(directory, runner, tools, environment)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1741,9 +1821,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_string_outputs(directory, runner, tools, environment)
     if name == 'puzzle':
         validate_puzzle_outputs(directory, runner, tools, environment)
+    if name == 'lattice':
+        validate_lattice_outputs(directory, runner, tools, environment)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1778,6 +1860,7 @@ def prepare(options):
     shutil.copy2(HERE / 'mbrotz_port.py', options.output / 'mbrotz_port.py')
     shutil.copy2(HERE / 'string_port.py', options.output / 'string_port.py')
     shutil.copy2(HERE / 'puzzle_port.py', options.output / 'puzzle_port.py')
+    shutil.copy2(HERE / 'lattice_port.py', options.output / 'lattice_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
@@ -1796,6 +1879,7 @@ def prepare(options):
                   mbrotz_port_sha256=digest(HERE / 'mbrotz_port.py'),
                   string_port_sha256=digest(HERE / 'string_port.py'),
                   puzzle_port_sha256=digest(HERE / 'puzzle_port.py'),
+                  lattice_port_sha256=digest(HERE / 'lattice_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -1867,6 +1951,8 @@ def checked_preparation(output):
         raise ValueError('string port source adapter changed')
     if prepared.get('puzzle_port_sha256', digest(HERE / 'puzzle_port.py')) != digest(HERE / 'puzzle_port.py'):
         raise ValueError('puzzle port source adapter changed')
+    if prepared.get('lattice_port_sha256', digest(HERE / 'lattice_port.py')) != digest(HERE / 'lattice_port.py'):
+        raise ValueError('lattice port source adapter changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')
