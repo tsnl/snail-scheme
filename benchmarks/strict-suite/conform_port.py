@@ -300,6 +300,9 @@ def adaptation(source):
                'pair?': 'conform-pair?', 'caar': 'conform-caar', 'cond': 'conform-cond', 'newline': 'conform-newline'}
     renamed = replace_tokens(source, renames)
     source = edit(source, ledger, source, renamed, 'Typed list/control/identity bindings retain the original recursive list algorithms.')
+    ledger.append(dict(before='', after=CONTRACTS, count=1, offsets=[0],
+                       reason='Prepend explicit type contracts without changing the source definitions.'))
+    source = CONTRACTS + source
     restored = source
     for entry in reversed(ledger):
         for offset in reversed(entry['offsets']):
@@ -308,7 +311,7 @@ def adaptation(source):
             restored = restored[:offset] + entry['before'] + restored[offset + len(entry['after']):]
     if restored != original:
         raise ValueError('Conform adaptation did not reverse to the pinned kernel')
-    return CONTRACTS + source, ledger
+    return source, ledger
 
 
 # ---- Runtime input parsing ends at concrete names and expected strings ----
