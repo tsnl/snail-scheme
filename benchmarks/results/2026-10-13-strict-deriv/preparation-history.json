@@ -1,0 +1,13 @@
+{
+  "first_attempt": {
+    "directory": "/tmp/snail-strict-deriv-preparation-20261013",
+    "outcome": "Compile rejected unsupported wildcard match arms before any workload execution.",
+    "correction": "Generate exhaustive constructor arms required by the current strict language; no compiler change."
+  },
+  "second_attempt": {
+    "directory": "/tmp/snail-strict-deriv-preparation-20261013-r2",
+    "outcome": "All canonical and supplemental checks passed."
+  },
+  "check_output_capture": "One already completed make-check result was lost to an orchestration store(undefined) error; repeating make check returned zero.",
+  "diagnostics": "Separate full constructor-instruction counts and uninstrumented code dumps are correctness/retention evidence only."
+}
