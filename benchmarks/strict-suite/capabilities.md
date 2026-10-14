@@ -105,6 +105,13 @@ V8 on the identical native-final Scheme modules. Same-limb Chez retains checked
 scalar operations and general vectors, and Rust uses num-bigint with bounded
 scalar controls; these do not isolate the cost of code generation alone.
 
+The later [bigint loop ablation](../results/2026-10-14-bigint-loop-ablation/README.md)
+tests one local backedge in the hot long-division loop against matched assembly
+and optimizer controls. All 110 processes pass; Pi regresses 1.25% raw and
+2.70% reoptimized, while optimized Chudnovsky differs by -0.44% with overlapping
+ranges. Whole-process profiles and V8 code captures remain separate diagnostics.
+The result supports no generic compiler loop change and adds no suite coverage.
+
 The [current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
 passes both original repetitions of `ack(3,12)` on raw/optimized Wasm, native64
 and the exact native-final Scheme Wasm on V8, without larger-stack flags.
