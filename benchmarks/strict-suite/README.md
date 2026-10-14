@@ -80,8 +80,11 @@ repeat counts therefore have different results from upstream and are outside
 the promised equivalence. The complete original source remains the Chez input.
 
 The [checked report](../results/2026-10-13-strict-kernels/README.md) preserves the
-balanced batch and default-stack failure. `replay.py DESTINATION` verifies and
-restores its archive without executing workloads. `flonum.py` provides a separate
+balanced batch and historical default-stack failure. The
+[current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
+passes the unchanged full input on V8 and native64 without stack flags; clean
+timing remains pending. `replay.py DESTINATION` verifies and restores the original
+archive without executing workloads. `flonum.py` provides a separate
 paired control using the unchanged strict artifacts and explicit Chez flonum
 operations; its `prepare` and `measure` commands take the same `--output` path.
 The supported controls are `fibfp`, `sumfp`, `mbrot`, and `pnpoly`; select cases

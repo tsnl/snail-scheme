@@ -76,8 +76,8 @@ over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
 Historical coverage is now **39 of 57 measured workloads**, **38 with paired
-Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann's
-default-stack failure and gcbench's unmeasured retention case are excluded;
+Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann
+awaits a new clean comparison, and gcbench's unmeasured retention case is excluded;
 `cat` has strict measurements without a same-window Chez control.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
@@ -100,6 +100,14 @@ Wasm, native64 and three Chez controls. Every original output digit and pi's
 rounding-difference columns pass. Both workloads await clean measurement; the
 same-limb Chez control separates library algorithms from Chez's native bigint
 implementation.
+
+The [current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
+passes both original repetitions of `ack(3,12)` on raw/optimized Wasm, native64
+and the exact native-final Scheme Wasm on V8, without larger-stack flags.
+Generated Scheme and input are byte-identical to the old experiment; its archived
+optimized artifact still fails under the same current host. Recursive Rust/Wasm
+also still fails the default stack, while its existing explicit heap-frame
+variant passes and remains a separate control. These checks add no clean timings.
 
 | Workload | Capability and required source work |
 | --- | --- |
