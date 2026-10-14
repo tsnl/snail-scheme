@@ -75,7 +75,7 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **39 of 57 measured workloads**, **38 with paired
+Historical coverage is now **41 of 57 measured workloads**, **40 with paired
 Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann
 awaits a new clean comparison, and gcbench's unmeasured retention case is excluded;
 `cat` has strict measurements without a same-window Chez control.
@@ -97,9 +97,13 @@ differences prevent isolating an engine or collector cost.
 The [exact-integer report](../results/2026-10-14-strict-integer/README.md)
 adds full-count correctness preparations for pi and Chudnovsky on raw/optimized
 Wasm, native64 and three Chez controls. Every original output digit and pi's
-rounding-difference columns pass. Both workloads await clean measurement; the
-same-limb Chez control separates library algorithms from Chez's native bigint
-implementation.
+rounding-difference columns pass. Their
+[eight-system comparison](../results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned full-count processes. V8 takes 10.497× original Chez time
+for pi and 8.264× for Chudnovsky. Native uses 19.88% and 8.28% less time than
+V8 on the identical native-final Scheme modules. Same-limb Chez retains checked
+scalar operations and general vectors, and Rust uses num-bigint with bounded
+scalar controls; these do not isolate the cost of code generation alone.
 
 The [current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
 passes both original repetitions of `ack(3,12)` on raw/optimized Wasm, native64
@@ -129,7 +133,7 @@ variant passes and remains a separate control. These checks add no clean timings
 | fibc | Essential first-class continuations, including re-entering captured continuations. |
 | mbrotZ | Measured original complex Mandelbrot, 1,000 × 75 × 75 pixels: 0.397× original Chez time, 0.159× adapted Chez and 1.565× Rust/Wasm. Immutable two-F64 products preserve complex arithmetic and all matrix stores. Complete grids, exact component bits and cap/radius probes pass; representation and opacity differences are recorded. |
 | nucleic | Measured all 50 original searches: V8 0.220574 s, native 0.297789 s, original Chez 0.740948 s and adapted Chez 0.765314 s. V8 is 3.359× faster than original Chez; native takes 1.350× V8 time. Complete constants, ordered solutions, mutation aliases and numeric predicates pass across all five preparation targets. All 20 clean observations and 329 frozen identities pass; layout, collector and transcendental differences remain explicit. See the [four-system report](../results/2026-10-14-strict-nucleic-comparison/README.md). |
-| pi | Full 100 repetitions at 50 through 500 digits pass raw/optimized Wasm, native64 and original/adapted/same-limb Chez. Immutable Integer arithmetic preserves all three original algorithms and complete output columns. Explicit constant lifting and square-root result extraction are recorded; clean timings remain in preparation. |
+| pi | Measured all 100 repetitions, three algorithms and ten precision rows through 500 digits: V8 2.243027 s, native 1.782729 s, original Chez 0.213676 s, Rust/Wasm 0.434312 s. V8 takes 10.497× original Chez time; native takes 0.801× V8 on identical native-final Scheme Wasm. Every rounding-difference column remains. Immutable I32-limb Integers, source adaptations, checked limb-body Chez and Rust num-bigint differences are documented. |
 | ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
 | sum1 | Measured all 25 reads of the unchanged 100,000-number file: V8 1.054333 s, original Chez 0.402220 s, same Scheme parser body on Chez 0.981268 s, Rust/Wasm 0.195842 s. Sequential F64 accumulation, original tolerance and every open/read-through-EOF/close remain. Native is 1.100904 s versus 1.123597 s for its exact Scheme module on V8; provider/linkage differs. |
@@ -148,7 +152,7 @@ variant passes and remains a separate control. These checks add no clean timings
 | peval | Symbolic recursive expression AST, generated names and destructive pair edits. |
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
 | slatex | String/character processing, symbolic token state, destructive list edits and actual TeX file IO. |
-| chudnovsky | Full 1,000 repetitions at 50 through 500 digits pass raw/optimized Wasm, native64 and original/adapted/same-limb Chez. Binary splitting and all exact results remain; explicit constant lifting, binary association of exact products and the F64 term-count expression are recorded. Clean timings remain in preparation. |
+| chudnovsky | Measured all 1,000 repetitions and ten exact results through 500 digits: V8 0.716851 s, native 0.658789 s, original Chez 0.086746 s, Rust/Wasm 0.177955 s. V8 takes 8.264× original Chez time; native takes 0.917× V8 on identical native-final Scheme Wasm. Complete binary splitting, exact products and the original F64 term-count expression remain. Arithmetic/library, scalar controls and ownership differ across controls. |
 | nboyer | Symbolic term/lemma trees, heterogeneous associations and mutable pairs; preserve rewrite-count check, not only the boolean theorem result. Kernel definitions follow its harness definition. |
 | sboyer | Symbolic terms and sharing-cons structures with heterogeneous data; preserve rewrite-count check and sharing behavior. Kernel definitions follow its harness definition. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
@@ -156,8 +160,8 @@ variant passes and remains a separate control. These checks add no clean timings
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 39 of 57 workloads,
-with 38 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 41 of 57 workloads,
+with 40 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

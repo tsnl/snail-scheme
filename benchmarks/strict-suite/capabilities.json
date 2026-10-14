@@ -133,12 +133,16 @@
     },
     {
       "name": "pi",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 120,
       "files": {
         "src/pi.scm": "f9317c5ada556aee4fde4c3c959bd4b604e45cbf05c9b5f84157c32ce346faa9",
         "inputs/pi.input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-integer-controls/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+      "note": "All 100 full repetitions, three algorithms and ten complete precision rows including rounding differences. V8 median 2.2430266385 s, native64 1.782729284 s, original Chez 0.213676165 s and Rust/Wasm 0.4343124065 s. V8 takes 10.497 times original Chez; native takes 0.801 times V8 on identical native-final Scheme Wasm.",
+      "representation_note": "Immutable Integer values over private 30-bit I32 limb arrays with I64 intermediates. Original/adapted Chez uses native exact arithmetic; same-limb Chez retains checked scalar operations and general vectors; Rust uses num-bigint and bounded scalar controls. All 144 planned clean processes pass; source adaptation, opacity, arithmetic, allocation and ownership differences remain explicit."
     },
     {
       "name": "pnpoly",
@@ -402,12 +406,16 @@
     },
     {
       "name": "chudnovsky",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 66,
       "files": {
         "src/chudnovsky.scm": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
         "inputs/chudnovsky.input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-integer-controls/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+      "note": "All 1000 full repetitions, complete binary splitting and ten exact results. V8 median 0.7168509775 s, native64 0.6587886825 s, original Chez 0.0867463655 s and Rust/Wasm 0.1779545115 s. V8 takes 8.264 times original Chez; native takes 0.917 times V8 on identical native-final Scheme Wasm.",
+      "representation_note": "Immutable Integer values over private 30-bit I32 limb arrays with I64 intermediates. Original/adapted Chez uses native exact arithmetic; same-limb Chez retains checked scalar operations and general vectors; Rust uses num-bigint and bounded scalar controls. All 144 planned clean processes pass; source adaptation, opacity, arithmetic, allocation and ownership differences remain explicit."
     },
     {
       "name": "nboyer",
@@ -476,8 +484,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 39,
-  "historical_paired_chez_count": 38,
+  "historical_measured_strict_count": 41,
+  "historical_paired_chez_count": 40,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -512,6 +520,7 @@
     "array1",
     "bv2string",
     "cat",
+    "chudnovsky",
     "cpstak",
     "deriv",
     "destruc",
@@ -532,6 +541,7 @@
     "ntakl",
     "nucleic",
     "paraffins",
+    "pi",
     "pnpoly",
     "primes",
     "puzzle",
@@ -552,6 +562,7 @@
   "historical_paired_chez_names": [
     "array1",
     "bv2string",
+    "chudnovsky",
     "cpstak",
     "deriv",
     "destruc",
@@ -572,6 +583,7 @@
     "ntakl",
     "nucleic",
     "paraffins",
+    "pi",
     "pnpoly",
     "primes",
     "puzzle",
@@ -597,5 +609,6 @@
   "earley_measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
   "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
   "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
-  "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md"
+  "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md",
+  "integer_measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md"
 }

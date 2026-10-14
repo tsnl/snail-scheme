@@ -46,17 +46,21 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 37 measured workloads,
-36 with paired Chez controls. These are individual checkpoints, not a complete
+[coverage inventory](strict-suite/capabilities.md): 41 measured workloads,
+40 with paired Chez controls. These are individual checkpoints, not a complete
 rerun on the current compiler. The
 [typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
 checks the complete `sum1` and `read1` input streams against Chez on linked raw
-Wasm, optimized Wasm and native. Full workload preparation is still underway;
-these library checks add no measured coverage. The
-[exact-integer preparation](results/2026-10-14-strict-integer/README.md)
-also passes complete pi and Chudnovsky counts and outputs using a reusable
-Scheme library over I32 limbs. Original/adapted Chez and the same limb library
-on Chez provide distinct controls. Their clean timings remain in preparation.
+Wasm, optimized Wasm and native. Their
+[complete reader comparison](results/2026-10-14-strict-reader-comparison/README.md)
+measures Sum1 at 2.621× original Chez time and Read1 at 8.450×, or 1.074× and
+1.850× when Chez runs the same Scheme parser body. The
+[exact-integer comparison](results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned processes at complete pi and Chudnovsky counts and
+outputs. Snail/V8 takes 10.497× and 8.264× original Chez time; native takes
+19.88% and 8.28% less time than V8 on the identical native-final Scheme Wasm.
+The I32-limb Scheme library, original/adapted native-bigint Chez, checked limb
+library on Chez, and Rust num-bigint controls retain their documented differences.
 The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
