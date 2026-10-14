@@ -60,8 +60,15 @@ Earley adds a [five-system comparison](../results/2026-10-14-strict-earley-compa
 production V8 takes 2.644450 s, 1.484× original Chez time and 0.754× adapted
 Chez time. Native takes 1.458× V8 on the identical final Wasm, using an explicit
 1 GiB arena. All 30 processes passed; the adapter's extra append spines and
-optimized payload removal remain disclosed. Historical coverage is now
-36 of 57 measured workloads, 35 with paired Chez controls.
+optimized payload removal remain disclosed. Matrix adds a
+[seven-system comparison](../results/2026-10-14-strict-matrix-comparison/README.md):
+production V8 takes 0.705711 s, 1.483× original Chez time and 0.435× Rust/Wasm
+time. Native takes 2.713× V8 time on the identical final Wasm. All 56 full-count
+runs pass; Rust's different algorithms and layouts remain explicit.
+Historical coverage is now **37 of 57 measured workloads**, **36 with paired
+Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann's
+default-stack failure and gcbench's unmeasured retention case are excluded;
+`cat` has strict measurements without a same-window Chez control.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the

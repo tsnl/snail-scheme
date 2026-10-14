@@ -246,13 +246,16 @@
     },
     {
       "name": "earley",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 657,
       "files": {
         "src/earley.scm": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
         "inputs/earley.input": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Full 657-line kernel with concrete parser/token/tree types, closed grammar atoms and explicit refs. Ordered small-tree, alias, stateful lexer and canonical count checks pass. Adapted append helpers allocate extra spines; unused tree payload removal is disclosed.",
+      "preparation_report": "benchmarks/results/2026-10-14-strict-earley-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
+      "note": "All 30 clean processes pass. Production V8 median 2.644450282 seconds, original Chez 1.781514848, adapted Chez 3.505472192. Native takes 3.882573458 seconds, 1.458 times V8 on identical final Wasm with an explicit 1 GiB arena. No isolated collector claim."
     },
     {
       "name": "graphs",
@@ -279,12 +282,16 @@
     },
     {
       "name": "matrix",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 805,
       "files": {
         "src/matrix.scm": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
         "inputs/matrix.input": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-matrix-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
+      "representation_note": "Full 805-line kernel, 2500 searches, five columns and invariant five, all five ordered 6-by-5 matrices. Concrete closure-message alternatives, explicit prime-tail refs and state products retain enumeration and callbacks. Rust is a separately validated algorithm/layout control; frozen native precedes packed-array changes.",
+      "note": "All 56 clean processes pass. Production V8 median 0.705711381 seconds, original Chez 0.476000679, adapted Chez 0.483595381, Rust/Wasm 1.622901008, Rust native 0.859275489. Native takes 1.901276011 seconds, 2.713 times V8 on identical final Wasm. All 59 frozen identities pass; no isolated collector or allocation-cost claim."
     },
     {
       "name": "maze",
@@ -459,8 +466,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 35,
-  "historical_paired_chez_count": 34,
+  "historical_measured_strict_count": 37,
+  "historical_paired_chez_count": 36,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -490,5 +497,89 @@
   "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md",
   "tail_measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md",
   "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md",
-  "bv2string_measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md"
+  "bv2string_measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md",
+  "historical_measured_strict_names": [
+    "array1",
+    "bv2string",
+    "cat",
+    "cpstak",
+    "deriv",
+    "destruc",
+    "diviter",
+    "divrec",
+    "earley",
+    "fft",
+    "fib",
+    "fibfp",
+    "graphs",
+    "lattice",
+    "matrix",
+    "mazefun",
+    "mbrot",
+    "mbrotZ",
+    "mperm",
+    "nqueens",
+    "ntakl",
+    "nucleic",
+    "paraffins",
+    "pnpoly",
+    "primes",
+    "puzzle",
+    "quicksort",
+    "ray",
+    "simplex",
+    "string",
+    "sum",
+    "sumfp",
+    "tail",
+    "tak",
+    "takl",
+    "triangl",
+    "wc"
+  ],
+  "historical_paired_chez_names": [
+    "array1",
+    "bv2string",
+    "cpstak",
+    "deriv",
+    "destruc",
+    "diviter",
+    "divrec",
+    "earley",
+    "fft",
+    "fib",
+    "fibfp",
+    "graphs",
+    "lattice",
+    "matrix",
+    "mazefun",
+    "mbrot",
+    "mbrotZ",
+    "mperm",
+    "nqueens",
+    "ntakl",
+    "nucleic",
+    "paraffins",
+    "pnpoly",
+    "primes",
+    "puzzle",
+    "quicksort",
+    "ray",
+    "simplex",
+    "string",
+    "sum",
+    "sumfp",
+    "tail",
+    "tak",
+    "takl",
+    "triangl",
+    "wc"
+  ],
+  "coverage_exclusions": {
+    "ack": "Prior default-stack failure; larger-stack diagnostic excluded.",
+    "gcbench": "Correctness ready; intended live-heap retention unproven, no timing.",
+    "cat": "Measured strict worker, without same-window Chez comparison."
+  },
+  "earley_measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
+  "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md"
 }

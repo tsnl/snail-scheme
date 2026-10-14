@@ -3,7 +3,7 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, and `matrix`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, and `matrix`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -758,8 +758,8 @@ at 0.045660 s. All 42 planned processes passed; six retained observations per
 system used rotating order. Snail/V8 takes 1.992× original Chez time and
 20.569× Rust/Wasm time. The report separates storage and ownership differences
 from these descriptive timings and discloses its post-campaign hardware snapshot.
-Historical measured coverage is now 35 of 57 workloads, with 34 paired Chez
-comparisons; this is not a fresh whole-suite run.
+Historical measured coverage at that checkpoint was 35 of 57 workloads, with
+34 paired Chez comparisons; this is not a fresh whole-suite run.
 
 Select
 `--benchmarks bv2string` to prepare the original 100 repetitions, each with one
@@ -787,8 +787,9 @@ unchanged full-count executions retain all 100 invocations. Repeated-call probes
 separately check RNG reset. The Rust reference runs its full input and complete
 canonical trace natively and as raw and Binaryen-optimized Wasm on V8. Its
 `String` stores UTF-8 bytes, while Scheme strings store Unicode scalar values;
-Wasm bytevectors have packed i8 storage, while the native executor currently uses
-eight-byte slots. Rust accumulates a numeric failure count; the Scheme kernel
+Wasm bytevectors have packed i8 storage, while this frozen native executor used
+eight-byte slots. The later native array-storage change uses declared widths.
+Rust accumulates a numeric failure count; the Scheme kernel
 retains failure names. Their validated canonical zero-failure equivalence does
 not assert identical behavior on arbitrary failing inputs. A separate native
 timing provider preserves opacity calls without diagnostic counter increments.
@@ -812,6 +813,13 @@ Scheme paths; immutable spine identity has a separate Chez-only audit. The
 unchanged Rust native/WASI reference passes complete outputs as a separately
 disclosed algorithm and layout control. This preparation adds no clean timing
 result or measured-coverage claim.
+
+The subsequent [seven-system comparison](../results/2026-10-14-strict-matrix-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 0.705711 s, original Chez
+0.476001 s and Rust/Wasm 1.622901 s. Native takes 1.901276 s, 2.713× V8 time
+on the identical native-final Wasm. Together with the separate Earley report,
+historical coverage reaches 37 measured workloads, 36 with paired Chez controls.
+These checkpoints are not a whole-suite run on one compiler revision.
 
 The [seven-system comparison](../results/2026-10-14-strict-matrix-comparison/README.md)
 now records all 56 planned full-count processes. Production V8 takes 0.705711 s,
