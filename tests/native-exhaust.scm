@@ -1,0 +1,7 @@
+(import (snail strict) (snail io))
+(define port (open-output-file "exhaust.txt"))
+(write-string "buffered before exhaustion" port)
+(define huge (make-vector 1000000 7))
+(: read-huge (-> I64 I64))
+(define (read-huge index) (vector-ref huge index))
+(unit)

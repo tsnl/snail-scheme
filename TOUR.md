@@ -1,14 +1,18 @@
 # A tour of Snail-Scheme
 
-Chibi hosts the bootstrap compiler. The compiler emits WasmGC, and Node.js runs
-linked command artifacts. Scheme memory belongs to the engine. The Rust library
-provides common value operations; selected platform handlers provide effects.
+Chibi hosts the bootstrap compiler. It emits WasmGC for Node.js and native LLVM
+lowering. Binaryen optimizes the program Wasm on both paths. Wasm engines own
+Scheme memory in Wasm; the native path uses the in-house precise collector.
+Both paths use the same Rust value and platform implementations.
 
 ```text
 located Scheme -> resolved library IR -> WasmGC
   -> Binaryen optimization -> link common library + selected handlers + entry
   -> final Binaryen optimization -> application.wasm
   -> Node.js loader: WASI + JS host imports -> one running node
+
+optimized program Wasm -> mechanical LLVM lowering
+  -> Clang/LLD + native Rust archive + C providers -> native executable
 ```
 
 ## Entering the compiler
@@ -26,6 +30,18 @@ composes source compilation, dependencies, publication, and script execution.
 Wasm linking, explicit entry adapters, and atomic artifact publication.
 [`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) checks Binaryen and
 optimizes Scheme modules. Help runs before the dependency preflight.
+
+[`scripts/build-native`](scripts/build-native) checks tools and exact C provider
+signatures, invokes the existing frontend through
+[`build-native.scm`](scripts/build-native.scm), and links/publishes a native
+executable. [`native.sld`](src/snail-scheme/native.sld) always optimizes program
+Wasm before native lowering, including supplied binary inputs.
+[`wasm-read.sld`](src/snail-scheme/wasm-read.sld) reads Binaryen's text spelling;
+[`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld) resolves names, canonical
+recursive type groups and instruction order. [`llvm.sld`](src/snail-scheme/llvm.sld)
+lowers those typed operations with explicit roots and tail transfers;
+[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) writes LLVM text fragments.
+These modules add no source-language optimization pass. See [native contracts](doc/native.md).
 
 [`effects.sld`](src/snail-scheme/effects.sld) declares versioned interfaces,
 complete handler maps, and platform collections. The compiler imports qualified
@@ -501,8 +517,12 @@ command while Chibi remains the bootstrap recipe. See [all checks](doc/backend.m
 compiler separately. Preparation finishes before timing; reports retain every
 failure. [The migration report](benchmarks/results/2026-10-12-native-v8/README.md)
 compares the archived native path with V8 on identical optimized Scheme modules.
-The LLVM emitter and collectors remain on
-[`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
+The restored native path is validated by [`scripts/test-native`](scripts/test-native).
+[`native.c`](src/native.c) implements checked Wasm operations, root frames and
+terminal cleanup; [`precise-gc.c`](src/precise-gc.c) traces only declared references
+and reuses Immix line holes. [`native.rs`](src/native.rs) closes the shared Rust
+resources exactly once. [`abi.rs`](src/abi.rs) binds owned Rust roots directly to
+generated native C adapters; it uses test stubs only in standalone Rust tests.
 
 [`benchmarks/wasm-reference/`](benchmarks/wasm-reference/README.md) contains
 standalone Rust/WASIp1 reference algorithms and their Node runner. Its suite

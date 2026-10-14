@@ -1,9 +1,11 @@
-# WebAssembly backend
+# WebAssembly and native backends
 
 The compiler emits WasmGC. Binaryen optimizes the Scheme module, links the common
 Rust-to-Wasm library and selected platform handlers, then optimizes the complete
-module. The engine collects Scheme objects. There is one execution path for
-command programs and portable artifacts; the current installed host is Node.js.
+module. The engine collects Scheme objects; the current installed Wasm host is
+Node.js. The [native backend](native.md) mechanically lowers optimized program
+Wasm through LLVM and links the same Rust implementations with the in-house GC.
+Both production outputs require Binaryen; the native target is 64-bit only.
 
 ## Build and run
 
@@ -107,6 +109,8 @@ scripts/test-self-host
 scripts/test-typing
 scripts/test-binaryen
 scripts/test-chromium-trace
+scripts/test-native
+scripts/test-strict-io
 scripts/book build
 ```
 
@@ -116,5 +120,5 @@ the command as Wasm. The provider check executes two clock implementations and
 rejects incompatible bindings. Formatting and compilation alone are insufficient.
 
 [Benchmarks](../BENCHMARKS.md) describe the full pinned R7RS suite, compiler
-baseline, failures, and reproducibility. The LLVM emitter and collector are
-preserved on [the archive branch](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
+baseline, failures, and reproducibility. Historical native comparisons remain
+separate from the restored [native implementation and contracts](native.md).
