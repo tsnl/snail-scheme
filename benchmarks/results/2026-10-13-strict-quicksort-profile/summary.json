@@ -58,7 +58,9 @@
   "validation": {
     "expected_outcomes": 50,
     "independent_operand_witness": true,
-    "reassembly_control_node_execution": false
+    "reassembly_control_node_execution": true,
+    "parent_reassembly_expected_outcomes": 16,
+    "clean_canonical_checks": 12
   },
   "combined_intervention": [
     "private partition closure/readiness/environment/pivot-cell construction removal",
@@ -82,7 +84,7 @@
       70
     ],
     "target_features_present": false,
-    "future_comparison": "Original frozen module, unmodified reassembled control, and changed reassembled fixture after review and correctness validation."
+    "comparison": "Included with original and direct-parameter fixture in the clean three-way batch; parent-review/clean-three.json."
   },
   "preservation": {
     "original_payload_files_verified": 116,
@@ -95,6 +97,49 @@
     ],
     "original_report_unchanged": true
   },
-  "status": "Frozen diagnostic checkpoint; parent fresh explanation/debate and clean timing coordination pending.",
-  "comparative_speed_claim": false
+  "status": "Reviewed frozen diagnostic plus completed clean three-way comparison; no production compiler optimization.",
+  "comparative_speed_claim": true,
+  "parent_review": "parent-review/review-conclusion.json",
+  "clean_timing": {
+    "summary": {
+      "original": {
+        "samples": [
+          2.224442512,
+          2.201488444,
+          2.20011556
+        ],
+        "median": 2.201488444,
+        "min": 2.20011556,
+        "max": 2.224442512
+      },
+      "reassembled": {
+        "samples": [
+          2.197680131,
+          2.199942654,
+          2.203043778
+        ],
+        "median": 2.199942654,
+        "min": 2.197680131,
+        "max": 2.203043778
+      },
+      "direct-parameters": {
+        "samples": [
+          1.21703745,
+          1.214265319,
+          1.216610649
+        ],
+        "median": 1.216610649,
+        "min": 1.214265319,
+        "max": 1.21703745
+      }
+    },
+    "ratios": {
+      "reassembled_over_original": 0.9992978432368277,
+      "direct_over_original": 0.5526309494450382,
+      "direct_over_reassembled": 0.5530192556555612
+    },
+    "raw": "parent-review/clean-three.json",
+    "scope": "Fresh default-V8 processes on CPU5, original2500x10000 input, startup/initialization excluded, lazy compilation/tiering included. Combined intervention; no new Chez comparison."
+  },
+  "comparative_speed_scope": "Original frozen strict compiler output versus diagnostic direct-parameter fixture only; combined representation/calling/check effect."
 }

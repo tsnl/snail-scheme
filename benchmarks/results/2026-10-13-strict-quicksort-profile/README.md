@@ -1,5 +1,31 @@
 # Strict quicksort construction diagnostics
 
+Passing private helper state directly reduces the complete quicksort workload
+from **2.201 seconds to 1.217 seconds**, a **1.81× speedup** in a coordinated
+clean comparison. This is a diagnostic WAT intervention, not a compiler change.
+It combines closure allocation, captured-state access, calling convention,
+readiness checks and redundant index-check changes. It does not isolate the
+cost of allocation or update the production Snail/Chez comparison.
+
+| Uninstrumented variant | Retained median | Retained range |
+| --- | ---: | ---: |
+| Frozen compiler output | 2.201488 s | 2.200116–2.224443 s |
+| Unmodified WAT reassembly | 2.199943 s | 2.197680–2.203044 s |
+| Direct-parameter helper fixture | 1.216611 s | 1.214265–1.217037 s |
+
+The fixture takes **44.7% less elapsed time** than the original. Reassembly's
+median differs from the original by less than 0.1%. One discarded trio precedes
+three rotating retained trios; every variant occupies every retained position
+once. All twelve fresh-process runs pass the original 2,500 × 10,000 workload
+and final predicate. Node uses default V8 settings on CPU 5, with no profiling
+or counter instrumentation. Other agents held builds, tests, benchmarks and
+compression. Loading, initialization and base-vector generation precede the
+timer; copying, sorting, final validation and any lazy V8 compilation or tiering
+remain inside it. The [raw observations](parent-review/clean-three.json) and
+[independent recomputation](parent-review/measurement-review.json) retain every
+sample, command and before/after artifact identity. No Chez run belongs to this
+batch.
+
 The frozen quicksort module requests ten WasmGC objects whenever it enters a
 nontrivial partition. Instrumented execution of the unchanged canonical workload
 records **16,705,000 nontrivial partitions and 167,050,000 construction requests**.
@@ -9,7 +35,8 @@ reduces the whole-process GC trace's summed `allocated` fields from
 **6,334,710,400 bytes to 223,455,856 bytes**. These observations identify substantial
 closure scaffolding and heap traffic; they do not assign a fraction of the
 [previously measured quicksort overhead](../2026-10-13-strict-quicksort/README.md)
-to allocation or establish a comparative speed result.
+to allocation. Those instrumented observations remain separate from the clean
+timing above.
 
 This investigation starts from `dcad7138637cf4a5dc163c768e7c54cbf1e61a28` in a
 separate worktree. The original source, compiler, driver, host, canonical input and
@@ -131,7 +158,7 @@ before the workload; copying, outer sort context and final predicate remain
 byte-for-byte the same in WAT. These simultaneous representation and call changes
 prevent attributing any diagnostic elapsed difference solely to allocation.
 
-An unmodified WAT reassembly control is retained for future comparison. It has
+The unmodified WAT reassembly control used in the clean comparison has
 SHA-256 `517a373f06c492fafbc89603fc4eac70d8c2b312d3d530414b51a24d39d33f35`,
 and differs from the measured binary in code section 10 and custom `name` section.
 Neither binary contains a `target_features` section; explicit feature flags are
@@ -141,8 +168,8 @@ disassembly diff shows changes in only functions 48 and 66, so text equality
 alone does not prove binary equality. Function 54 and 33 other bodies are
 byte-identical. The exact section hashes, local encodings, instruction hashes,
 binary control and disassembly diff are archived. This is a real code-encoding
-control; a future clean comparison must include it alongside the original frozen
-module and changed reassembled fixture.
+control, included alongside the original frozen module and changed reassembled
+fixture in the clean comparison.
 
 Actual Node checks cover 14 expected outcomes for each of three variants,
 including deliberate wrong-value, short-result and long-result rejection. The
@@ -155,8 +182,16 @@ The parent independently exercised constructor operands that branch out by name
 or trap after an observable effect. Raw and instrumented Node execution agree;
 both entered-request counters record one even though construction does not
 complete. Those source, binary and adapter witnesses are archived separately.
-The unmodified reassembly control has only static verification at this checkpoint;
-it still needs actual Node correctness checks before a future clean comparison.
+The parent subsequently verified all 198 archived files and ran the unmodified
+reassembly control through 16 actual Node checks: the same 14 small outcomes,
+all 10,000 canonical values with input preservation, and the original
+2,500-repetition predicate. All pass. The [focused review](parent-review/review-conclusion.json)
+records the independent behavioral explanation, critical debate and bounds
+proof: each removed width check succeeds on reachable supported calls, and
+moving the first `j` check cannot introduce an earlier trap. Empty and singleton
+inputs bypass partition; both scans and recursive child ranges preserve bounds,
+including with duplicates. This establishes the fixture's valid-input contract,
+not a generally applicable compiler transformation.
 
 Failed and superseded attempts remain visible. Initial assembly with
 `--all-features` emitted compact imports unsupported by the pinned Node, producing
@@ -178,9 +213,22 @@ The archive manifest verifies exact files and hashes. Restore the archive to a
 fresh directory, verify every manifest entry, and run its `analyze-evidence.py`
 with that directory as its argument to reproduce the derived data without
 executing a workload. The original canonical report's source and archive are
-unchanged. The diagnostic fixtures and one-off generators are frozen for the
-parent's focused explanation review before any separately coordinated clean
-comparison.
+unchanged. The original 198-file diagnostic archive is unchanged; the parent
+review and later clean measurements live separately under `parent-review/`,
+with their own [manifest](parent-review/manifest.json).
+
+After restoring and verifying the diagnostic archive, repeat the three-way
+timing only during a coordinated quiet window:
+
+```sh
+python3 benchmarks/results/2026-10-13-strict-quicksort-profile/parent-review/measure-three.py \
+  /tmp/restored-quicksort-profile /tmp/quicksort-three-results.json
+```
+
+The driver uses the recorded Node binary and CPU 5. Its first argument is the
+restored archive root. It executes the complete original workload, preserves
+every observation, verifies file identities before and after, and writes only
+the requested result file.
 
 The compact findings are in [summary.json](summary.json), with exact hashes in
 [evidence-manifest.json](evidence-manifest.json), the

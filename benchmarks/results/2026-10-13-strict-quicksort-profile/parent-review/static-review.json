@@ -1,0 +1,68 @@
+{
+  "constructor_forms": [
+    "array.new",
+    "array.new_default",
+    "array.new_fixed",
+    "struct.new",
+    "struct.new_default"
+  ],
+  "numeric_branches": false,
+  "numeric_global_references": false,
+  "setup_start_section": false,
+  "counter_precise_decimal_i64": true,
+  "counts_comparison": [
+    {
+      "label": "1",
+      "partition_sites": 10,
+      "partition_requests": 66820,
+      "all_other_entries_and_constructions_match": true
+    },
+    {
+      "label": "2",
+      "partition_sites": 10,
+      "partition_requests": 133640,
+      "all_other_entries_and_constructions_match": true
+    },
+    {
+      "label": "canonical-count",
+      "partition_sites": 10,
+      "partition_requests": 167050000,
+      "all_other_entries_and_constructions_match": true
+    }
+  ],
+  "profile_structure": [
+    {
+      "observation": "cpu-gc",
+      "samples": 2500,
+      "deltas_match_samples": true,
+      "scope": "whole process"
+    },
+    {
+      "observation": "cpu-gc-sequential",
+      "samples": 2118,
+      "deltas_match_samples": true,
+      "scope": "whole process"
+    },
+    {
+      "observation": "allocation-ablation/cpu-gc",
+      "samples": 1183,
+      "deltas_match_samples": true,
+      "scope": "whole process"
+    }
+  ],
+  "generator_sha256": "58481ae2c8a70b580f6d94474354ed182b139ada6845b38464b839f9ea3e4685",
+  "parent_static_review": [
+    "All generator and evidence-consumer code",
+    "Counter adapter diff and original four function bodies",
+    "Unchanged map, RNG, recursion outside the four changed bodies",
+    "Private helper references remain local to partition execution"
+  ],
+  "intervention_scope": [
+    "Closure and environment allocation",
+    "Readiness and captured-field work",
+    "Private helper calling convention",
+    "Repeated unsigned-index check removal and first-check order changes within valid initialized calls"
+  ],
+  "runtime_witness": "operand-checks.json preserves named operand branch, trap, side effects and entered-request counts",
+  "next": "Fresh explainer debate; clean three-way timing needs frozen original, unchanged reassembly control and parameter fixture."
+}
