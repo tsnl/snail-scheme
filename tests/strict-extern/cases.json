@@ -1,6 +1,7 @@
 [
   {"name": "native", "exports": ["worker", "void-worker", "class-worker", "class-value-worker", "local-worker", "macro-worker", "i64-worker", "f32-worker", "f64-worker", "bool-worker", "char-worker"]},
   {"name": "failed-main", "exports": ["worker"]},
+  {"name": "early-closure", "exports": ["worker"]},
   {"name": "unit-main", "exports": ["worker"]},
   {"name": "round", "exports": ["worker", "round32", "native64", "native32", "view64", "view32"]},
   {"name": "reentrant-main", "exports": ["worker"]},
