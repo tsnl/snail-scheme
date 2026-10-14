@@ -1,0 +1,170 @@
+{
+  "unchanged_prior_programs": [
+    {
+      "name": "ack",
+      "source_sha256": "5de295636b46db2530466696fd3c4fff4a5a95b03278ee9d4355e67d650dec47"
+    },
+    {
+      "name": "tak",
+      "source_sha256": "bd3d023be5097443e1231eb1ed9b81f7e9529a65e634cdede1a05302e2778f5f"
+    },
+    {
+      "name": "cpstak",
+      "source_sha256": "0ca63d724f1fa7a4a592add3c5b2ae18e7da2a0dc3f7e4686e53901b13e9cb5e"
+    },
+    {
+      "name": "fib",
+      "source_sha256": "3b368012b8faccdae05b5f6856e7e6026b44ebf234f473e2136a118559ca434e"
+    },
+    {
+      "name": "fibfp",
+      "source_sha256": "126b45a5dddc09fcc27bb432da0084c9032bbde870b70e2355bec139b6444ab0"
+    },
+    {
+      "name": "sum",
+      "source_sha256": "2985ab56a55532676cfec67cc333b92ee3db0b5f1dc10bd3ec1afd876a5ce4b7"
+    },
+    {
+      "name": "sumfp",
+      "source_sha256": "9ff23f36b13df0fc096319e75d735a492e0996e7c827a1f02ce26da2e8b886eb"
+    },
+    {
+      "name": "takl",
+      "source_sha256": "994a3a39757408c535a29d3c925e5a1066a1f421e797fc6647f825c3721e47cb"
+    },
+    {
+      "name": "ntakl",
+      "source_sha256": "4a683aef0981764a02564994a2f295f30ba45eb2a1b6fcf504b95003f8618d6a"
+    },
+    {
+      "name": "diviter",
+      "source_sha256": "6b5161a474f64f5c36dbaa00a032bd194be773ff6f7cf59cd3964f46718b5ccc"
+    },
+    {
+      "name": "divrec",
+      "source_sha256": "c79041248f867cec526f67eb1833151561f3aa3101d50308b60cc771f6a0667e"
+    },
+    {
+      "name": "array1",
+      "source_sha256": "203aecf84a0c2989faa8ced157967c9bedc40bfa12cd9944e9174f75eb5daa0d"
+    },
+    {
+      "name": "primes",
+      "source_sha256": "f1de2ed0cd7b12ffd64f1f060ceb383d8be7b9cd3ac26f9e8ef13abea4f4982a"
+    },
+    {
+      "name": "nqueens",
+      "source_sha256": "634a6fcde6cbe07ed8b1c41bb9f040687123ec5f05e3e8122a558e6bad48fb51"
+    },
+    {
+      "name": "triangl",
+      "source_sha256": "40d54134a4798aff1453bfb494fc0b3671e75ec8721e56af090c2761562a39a1"
+    },
+    {
+      "name": "mbrot",
+      "source_sha256": "138c50203a9f4d9031001b8503e6b2b29c189c157be6d11f841d29f1451be1b8"
+    },
+    {
+      "name": "pnpoly",
+      "source_sha256": "ea584233558d9bb29d97e71d95ca2fe73dbbc3e86699ef59d3581618e0a9ccc4"
+    },
+    {
+      "name": "fft",
+      "source_sha256": "95aed6b8022defed42a62c9bc265134b4e705b46137a76a4c11ac1e048925b12"
+    },
+    {
+      "name": "quicksort",
+      "source_sha256": "0882c2650b8da9471c86d1fe35007c7352a1f62d914988f204cc36901b5b5da1"
+    },
+    {
+      "name": "paraffins",
+      "source_sha256": "ae2b84b6dfde42e6366194acdea7fdec1cdadee98ed30cf780192bf9e9dd36e8"
+    },
+    {
+      "name": "gcbench",
+      "source_sha256": "cdf34b451218123790e2b4fff8ef9e3eeacb3ac9d6ae4af9ae032bfabf60623a"
+    },
+    {
+      "name": "graphs",
+      "source_sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473"
+    },
+    {
+      "name": "mperm",
+      "source_sha256": "ede10e496edd60f140083ca4e50719f30abd2729716c9417651ccf9473e2e4f0"
+    },
+    {
+      "name": "simplex",
+      "source_sha256": "42bab80fec36f86579032b44dfefbd07331b55ce3e43236d22a77211854e4476"
+    },
+    {
+      "name": "deriv",
+      "source_sha256": "9a0d43d5731c328e4243b71aabe223a798ec8897d875b48ed161f97f7a7284df"
+    },
+    {
+      "name": "mbrotZ",
+      "source_sha256": "25a021c185b6ff77db925bc5efa3d7975a84f9c4c6f89ac093084fecbdaa66c8"
+    },
+    {
+      "name": "string",
+      "source_sha256": "6f4398738f2abdc6ad2da51a6b4478731e1807aaf39b71ecafa8a9192fef8cbf"
+    },
+    {
+      "name": "puzzle",
+      "source_sha256": "416075b0e0446b3e304ff5e336f03c4bb06a7690a617c5ef8c6c47242b379132"
+    },
+    {
+      "name": "lattice",
+      "source_sha256": "46d83c85698f94f062c2fcab74dc625c6baa7d6f9cdf4da59969312a17442f43"
+    },
+    {
+      "name": "destruc",
+      "source_sha256": "0076312832b7898e07ddd3de19267d1beb4bbbc381428240e907012e269b5ceb"
+    }
+  ],
+  "verified_compiler_files": 70,
+  "linked_executions": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/benchmarks/strict-suite/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/ray-parent-review/spec.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.009843666,\"result\":\"1\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.036884555011056364,
+      "variant": ".raw.wasm",
+      "image": {
+        "bytes": 29517,
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "pixels_sha256": "2504547e212cb609b776f06ac18c74915dac54a988e42f9584d0509c03f044eb"
+      }
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/benchmarks/strict-suite/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-general-specialization-20261012/build/ray-parent-review/spec.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.006195456,\"result\":\"1\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.02967929100850597,
+      "variant": "optimized",
+      "image": {
+        "bytes": 29517,
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "pixels_sha256": "2504547e212cb609b776f06ac18c74915dac54a988e42f9584d0509c03f044eb"
+      }
+    }
+  ],
+  "integrated_source_commit": "61231c7",
+  "archive_verified_files": 428,
+  "clean_performance_measurement": false
+}
