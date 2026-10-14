@@ -146,9 +146,9 @@ reference; seed reset/read and first/middle/last inversions receive separate
 checks. Changed, short and long expected sorting/RNG outputs must be rejected
 by both systems. Expected-vector length never determines generation length.
 These correctness runtimes are not performance samples. The
-[prepared quicksort checkpoint](../results/2026-10-13-strict-quicksort/README.md)
-preserves the corrected checks and earlier probe failures. Timing uses one
-discarded trio and three rotating retained trios only after a quiet window.
+[quicksort report](../results/2026-10-13-strict-quicksort/README.md)
+preserves the corrected checks and earlier probe failures. Its completed timing batch uses one
+discarded trio and three rotating retained trios in a coordinated quiet window.
 
 ## What the timer includes
 

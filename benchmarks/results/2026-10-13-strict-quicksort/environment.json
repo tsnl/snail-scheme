@@ -160,6 +160,11 @@
     "BINARYEN_CORES": "1"
   },
   "NODE_OPTIONS": null,
-  "timing_window": "Pending parent independent review and explicit coordinated quiet-window authorization.",
-  "performance_runs": 0
+  "timing_window": "Parent authorized after independent no-files Sol explanation/debate, source/hash review and completed verification. Root, Rust and explainers held CPU work throughout the 23.432-second batch.",
+  "performance_runs": 12,
+  "cpu": 5,
+  "quiet_window_start_utc": "2026-10-14T01:11:12.006896+00:00",
+  "quiet_window_end_utc": "2026-10-14T01:11:35.439162+00:00",
+  "preparation_compiler_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "timing_driver_commit": "86d49d4d7f36b00f48724f3fe63854a2afe2413d"
 }

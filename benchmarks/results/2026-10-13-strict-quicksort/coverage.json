@@ -46,7 +46,7 @@
     "equal",
     "bv2string"
   ],
-  "scope": "Prior 19 measured passing ports/slices remain unchanged; quicksort is prepared with canonical correctness evidence and awaits independent review and timing.",
+  "scope": "Cumulative 20 passing measured ports/slices across frozen compiler families; quicksort uses the compiler sources at 5894df7 and timing driver 86d49d4. Its strict runtime is slower than both Chez controls in this window.",
   "measured_previous_kernel_report": [
     "tak",
     "cpstak",
@@ -59,7 +59,7 @@
     "diviter",
     "divrec"
   ],
-  "cumulative_measured": 19,
+  "cumulative_measured": 20,
   "unported_count": 36,
   "measured_array1": [
     "array1"
@@ -71,11 +71,11 @@
     "mbrot",
     "pnpoly"
   ],
-  "measured_here": [],
-  "prior_coverage_source_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
-  "prepared_pending_measurement": [
+  "measured_here": [
     "quicksort"
   ],
+  "prior_coverage_source_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "prepared_pending_measurement": [],
   "measured_previous_fft": [
     "fft"
   ]

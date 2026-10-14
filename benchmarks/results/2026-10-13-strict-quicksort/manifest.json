@@ -1,5 +1,5 @@
 {
-  "archive_sha256": "8339f2046d0ae17c0d7a211e55ca1e2a83c688630307936d78e418569b328cdf",
+  "archive_sha256": "a58f115d1699464d14a11685ada0b56cda27e5573134d56f087d801beac0146b",
   "files": {
     "strict-quicksort-frozen-final-5894df7/compiler-source/scripts/build-strict": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
     "strict-quicksort-frozen-final-5894df7/compiler-source/src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
@@ -116,6 +116,7 @@
     "strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-wrong-value.json": "93d1ef57a3022041c45f76d03349c9fa66933f5953393a01d1dd9699351cee93",
     "strict-quicksort-frozen-final-5894df7/quicksort/validation.json": "f9f593cb1612da404229980064c3bfb5c7c06883a902784f30c04499e3e44cf3",
     "strict-quicksort-frozen-final-5894df7/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "strict-quicksort-frozen-final-5894df7/results.json": "1b00ec63f166972c50c271976e4d0b8efa15f536c940f2a114b7e778e71b055f",
     "failed-preparations/strict-quicksort-initial-preparation/compiler-source/scripts/build-strict": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
     "failed-preparations/strict-quicksort-initial-preparation/compiler-source/src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
     "failed-preparations/strict-quicksort-initial-preparation/compiler-source/src/snail/strict.sld": "bb965b88d50bb0f5b8c735f43b1bc5a87a4b64a51f7cb483c2a4fd809d063f5d",
@@ -443,6 +444,27 @@
     "quicksort-support/prior-port-regression.json": "1749875b8bd35fed4778924811a3fba923040a18d44125e445ad35de3a43986c",
     "quicksort-support/retention-audit.json": "70d81caae4ae8f9618d5501d08fcdb5d86c8d27083bde6d7df83f8428defc05a",
     "quicksort-support/retention-audit.py": "f290713e1983d5de040340a9f045c55ea1b7243b4c927e6b68f5719788be3094",
-    "quicksort-support/simplify-behavioral-brief.md": "59cfe2dfc34d982758097ab98a60c6af2966c793388785652ced95666dac7c07"
-  }
+    "quicksort-support/simplify-behavioral-brief.md": "59cfe2dfc34d982758097ab98a60c6af2966c793388785652ced95666dac7c07",
+    "quicksort-measurement/README.md": "2a4eda6e81b650c2cfdf2d4d92eaaf41faf8aaf118885fc9f23882461f6f34e8",
+    "quicksort-measurement/compiler-identity.json": "a330865cfbd217b3e8f46bc0ff33192f4e69b2dc8bd066bcf9d7801309c66c74",
+    "quicksort-measurement/correctness-summary.json": "48c9fc2fffca68972f846f3942bb7a3f91d79237ea589cc8a114c6eb2a055799",
+    "quicksort-measurement/coverage.json": "8192acca9be750b846ecd0fbeefbdd1b6118cf0d617f4f55c4bcc8bd911bd929",
+    "quicksort-measurement/environment.json": "4965e2a894977b69f5113023ab5e6e8c6d2107a3bd2f60d26670d4fc5154dc6c",
+    "quicksort-measurement/independent-review.json": "90c42f7bc19ed48f204f053e6af9bfdbdfa1ba5a399bf8b02867bb75484c9a8a",
+    "quicksort-measurement/measurement-metadata.json": "9d754683cb33ce8cc03f0ce68c814317822c90e72cede5c57b9cd920fd75ad91",
+    "quicksort-measurement/preparation-history.json": "93fe19b167acd97d55b0cd31d7c1a1aec7337d8569305dcdc4f883857f2acd7f",
+    "quicksort-measurement/preparation-stage-manifest.json": "1a3ef1eb824a9509fd83626402791fba373b87a72f8a607e7297a177879d16a4",
+    "quicksort-measurement/preparation-stage-replay-check.json": "db97813965b67f33d70a3c2d34ea3695cd6ceb6e60237de837f6017640568d6a",
+    "quicksort-measurement/prepared.json": "c60d03baa3519c24f8ad21a7bbd29610ed196b53b1d21aaa3f6c9f7dacf2ab29",
+    "quicksort-measurement/prior-port-regression.json": "1749875b8bd35fed4778924811a3fba923040a18d44125e445ad35de3a43986c",
+    "quicksort-measurement/results.json": "1b00ec63f166972c50c271976e4d0b8efa15f536c940f2a114b7e778e71b055f",
+    "quicksort-measurement/retention-audit.json": "70d81caae4ae8f9618d5501d08fcdb5d86c8d27083bde6d7df83f8428defc05a",
+    "quicksort-measurement/simplify-behavioral-brief.md": "59cfe2dfc34d982758097ab98a60c6af2966c793388785652ced95666dac7c07",
+    "quicksort-measurement/summary.json": "080e45aa2e5378c0257ddaf12acb341c9fd3c01fad2122a06864d3080e05fab6",
+    "quicksort-measurement/timing-window.json": "6b14d973d6ba0f80affaa804fde83be48833a67a62c5b2f74a975a4ca429e6fe"
+  },
+  "preparation_stage_files_unchanged": 443,
+  "complete_performance_observations": 12,
+  "timing_driver_commit": "86d49d4d7f36b00f48724f3fe63854a2afe2413d",
+  "preparation_compiler_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4"
 }

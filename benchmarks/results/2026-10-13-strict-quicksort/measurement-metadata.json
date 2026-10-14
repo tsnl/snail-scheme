@@ -1,5 +1,5 @@
 {
-  "status": "prepared; review and timing pending",
+  "status": "complete; independent review accepted before timing",
   "compiler_base": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
   "upstream_commit": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "artifact_root": "strict-quicksort-frozen-final-5894df7",
@@ -15,11 +15,18 @@
   "planned_retained_trios": 3,
   "default_v8_tiering": true,
   "planned_cpu": 5,
-  "quiet_window_authorized": false,
-  "performance_observations": 0,
+  "quiet_window_authorized": true,
+  "performance_observations": 12,
   "simplification_scope": [
     "benchmarks/strict-suite/measure.py",
     "benchmarks/strict-suite/host.mjs"
   ],
-  "longer_functions": "The exact source adapter, six-state RNG reference, finite probe enumeration, source-roundtrip proof and validation/build protocols remain cohesive ordered operations; independent review is pending."
+  "longer_functions": "Parent independent explanation/debate and source review accepted the cohesive source adapter, six-state RNG reference, finite probe enumeration and ordered validation/build protocols; no refactor was warranted.",
+  "preparation_compiler_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "timing_driver_commit": "86d49d4d7f36b00f48724f3fe63854a2afe2413d",
+  "invalid_observations": 0,
+  "batch_start_utc": "2026-10-14T01:11:12.006896+00:00",
+  "batch_end_utc": "2026-10-14T01:11:35.439162+00:00",
+  "mapping_initialization": "The shared mapper calls the identity function for element zero and uses that value to initialize every fresh vector slot, then maps/stores elements one through n-1. Those initialization writes are included in strict and adapted-Chez timings.",
+  "hide_limit": "Original and adapted Chez preserve the generic upstream hide; strict uses pre-timer Boolean opacity imports and retains static type/procedure knowledge. Opacity counts do not prove workload execution."
 }

@@ -1,6 +1,6 @@
 {
-  "restoration_stdout": "Verified 443 files in /tmp/strict-quicksort-checkpoint-replay\n",
-  "verified_files": 443,
+  "restoration_stdout": "Verified 461 files in /tmp/strict-quicksort-measured-replay\n",
+  "verified_files": 461,
   "all_file_hashes_verified": true,
   "final_case_hashes_verified": true,
   "driver_host_runner_tools_verified": true,
@@ -136,5 +136,15 @@
       "stdin": "1\n10000\n1000000\nignored\n",
       "valid": true
     }
-  ]
+  ],
+  "preparation_stage_verified_files": 443,
+  "measurement_stage_replay": {
+    "destination": "/tmp/strict-quicksort-measured-replay",
+    "all_file_hashes_verified": true,
+    "unchanged_preparation_files": 443,
+    "unchanged_timed_payload_and_tool_hashes_verified": true,
+    "archived_results_equal_original": true,
+    "performance_observations": 12,
+    "execution_reruns": 0
+  }
 }

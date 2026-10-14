@@ -24,5 +24,6 @@
   "default_node_behavior": true,
   "no_compiler_changes": true,
   "measurement_observations": 0,
-  "empty_scope": "Empty sorting is supplemental; empty copy identity is not required and the canonical predicate only promises positive-length equivalence."
+  "empty_scope": "Empty sorting is supplemental; empty copy identity is not required and the canonical predicate only promises positive-length equivalence.",
+  "scope": "Frozen preparation checks only; correctness runtimes and these 86 expected outcomes are separate from the 12 clean performance observations."
 }
