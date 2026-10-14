@@ -1,14 +1,16 @@
 ;; Concrete runtime datums. Recursive data stays in Scheme; Rust receives only
 ;; scalar characters, number fields and owned temporary IDs, never Scheme roots.
 (define-library (snail datum)
-  (export Symbol string->symbol symbol->string symbol=?
+  (export Symbol string->symbol symbol->string symbol=? i64->string
           Scalar exact-scalar inexact-scalar scalar->f64 scalar-equivalent?
           Number exact-number inexact-number complex-number number->f64 number-equivalent?
           NumberResult not-a-number parsed-number number-error parsed-number-value number-error-text
           string->number identifier? datum-fail
           Datum datum-null datum-boolean datum-character datum-string datum-symbol datum-number
           datum-pair datum-vector datum-bytevector datum=? datum-cons datum-car datum-cdr
-          datum-set-car! datum-set-cdr! datum-number? datum-number-value datum-string-value datum-symbol-value)
+          datum-set-car! datum-set-cdr! datum-number? datum-number-value datum-string-value datum-symbol-value
+          datum-null? datum-pair? datum-truth? datum-eq?
+          datum-list datum-length datum-append datum-assq datum-map)
   (import (snail strict) (snail bytes))
   (begin
 
@@ -61,6 +63,22 @@
           (if (= index count) result
               (begin (string-set! result index (symbol-character id (i64->i32 index)))
                      (loop (+ index 1)))))))
+
+    ;; Work with a nonpositive magnitude so the minimum I64 needs no positive
+    ;; counterpart. Each remainder lies in [-9,0]; negating that digit is safe.
+    (: decimal-digits (-> I64 I64))
+    (define (decimal-digits value)
+      (let loop ((value value) (count 1))
+        (if (> value -10) count (loop (quotient value 10) (+ count 1)))))
+    (: i64->string (-> I64 String))
+    (define (i64->string value)
+      (let* ((negative (< value 0)) (magnitude (if negative value (- 0 value)))
+             (count (+ (decimal-digits magnitude) (if negative 1 0)))
+             (text (make-string count)))
+        (when negative (string-set! text 0 #\-))
+        (let loop ((remaining magnitude) (index (- count 1)))
+          (string-set! text index (integer->char (- 48 (remainder remaining 10))))
+          (if (> remaining -10) text (loop (quotient remaining 10) (- index 1))))))
 
     ;; ---- Numbers preserve exactness and binary64 zero signs ----
 
@@ -158,6 +176,60 @@
         ((datum-pair first rest) 6) ((datum-vector values) 7) ((datum-bytevector values) 8)))
     (: datum-number? (-> Datum Bool))
     (define (datum-number? value) (= (datum-kind value) 5))
+    (: datum-null? (-> Datum Bool))
+    (define (datum-null? value) (= (datum-kind value) 0))
+    (: datum-pair? (-> Datum Bool))
+    (define (datum-pair? value) (= (datum-kind value) 6))
+    (: datum-truth? (-> Datum Bool))
+    (define (datum-truth? value)
+      (if (= (datum-kind value) 1) (datum-boolean-value value) #t))
+
+    ;; ---- Atomic equivalence and mutable storage identity ----
+
+    ;; Scalars compare by value, including the Number equivalence above.
+    ;; Mutable values compare their underlying storage. A datum-pair wrapper is
+    ;; a view of its two Ref fields: two wrappers sharing both fields identify
+    ;; the same logical pair. Sharing just one field does not identify a pair.
+    ;; datum-cons always creates fresh fields, matching ordinary cons identity.
+    (: datum-eq? (-> Datum Datum Bool))
+    (define (datum-eq? left right)
+      (and (= (datum-kind left) (datum-kind right))
+           (match left
+             ((datum-null) #t)
+             ((datum-boolean left) (if left (datum-boolean-value right) (not (datum-boolean-value right))))
+             ((datum-character left) (char=? left (datum-character-value right)))
+             ((datum-string left) (string-eq? left (datum-string-value right)))
+             ((datum-symbol left) (symbol=? left (datum-symbol-value right)))
+             ((datum-number left) (number-equivalent? left (datum-number-value right)))
+             ((datum-pair first rest)
+              (and (ref-eq? first (datum-first right)) (ref-eq? rest (datum-rest right))))
+             ((datum-vector left) (vector-eq? left (datum-vector-values right)))
+             ((datum-bytevector left) (bytevector-eq? left (datum-bytevector-values right))))))
+
+    ;; ---- Proper list operations preserve elements and shared suffixes ----
+
+    (: datum-list (-> (Rest Datum) Datum))
+    (define (datum-list . values)
+      (let loop ((values values))
+        (if (null? values) (datum-null) (datum-cons (car values) (loop (cdr values))))))
+    (: datum-length (-> Datum I64))
+    (define (datum-length values)
+      (let loop ((values values) (count 0))
+        (if (datum-null? values) count (loop (datum-cdr values) (+ count 1)))))
+    (: datum-append (-> Datum Datum Datum))
+    (define (datum-append first rest)
+      (if (datum-null? first) rest
+          (datum-cons (datum-car first) (datum-append (datum-cdr first) rest))))
+    (: datum-assq (-> Datum Datum Datum))
+    (define (datum-assq key entries)
+      (if (datum-null? entries) (datum-boolean #f)
+          (let ((entry (datum-car entries)))
+            (if (datum-eq? key (datum-car entry)) entry (datum-assq key (datum-cdr entries))))))
+    (: datum-map (-> (-> Datum Datum) Datum Datum))
+    (define (datum-map procedure values)
+      (if (datum-null? values) (datum-null)
+          (let ((head (procedure (datum-car values))))
+            (datum-cons head (datum-map procedure (datum-cdr values))))))
 
     ;; Finite acyclic structural equality. Mutation can create cycles, but
     ;; cycle-aware equality and datum-label input are outside this API contract.
@@ -190,4 +262,51 @@
              (let loop ((index 0))
                (or (= index count)
                    (and (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
-                        (loop (+ index 1))))))))))
+                        (loop (+ index 1)))))))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-datum)
+    (begin
+      (define (test-pair-identity)
+        (let* ((first (ref (datum-null))) (rest (ref (datum-null)))
+               (pair (datum-pair first rest)) (alias (datum-pair first rest)))
+          (datum-set-cdr! pair pair)
+          (and (datum-eq? pair alias) (datum-eq? (datum-cdr alias) pair)
+               (not (datum-eq? pair (datum-pair first (ref pair))))
+               (not (datum-eq? pair (datum-pair (ref (datum-null)) rest)))
+               (not (datum-eq? pair (datum-cons (datum-null) pair))))))
+      (define (test-list-sharing)
+        (let* ((a (datum-symbol (string->symbol "a"))) (b (datum-symbol (string->symbol "b")))
+               (entry (datum-cons a b)) (tail (datum-list b))
+               (head (datum-list a)) (joined (datum-append head tail)))
+          (and (= (datum-length joined) 2) (datum-eq? (datum-cdr joined) tail)
+               (not (datum-eq? head joined)) (datum-eq? (datum-car joined) a)
+               (datum-eq? (datum-assq a (datum-list entry)) entry)
+               (not (datum-truth? (datum-assq b (datum-list entry))))
+               (datum=? (datum-map (lambda (value) value) joined) joined))))
+      (define (test-storage-identity)
+        (let* ((text (string-copy "a")) (bytes (bytevector 1))
+               (elements (vector (datum-null))))
+          (and (datum-eq? (datum-string text) (datum-string text))
+               (not (datum-eq? (datum-string text) (datum-string (string-copy text))))
+               (datum-eq? (datum-vector elements) (datum-vector elements))
+               (not (datum-eq? (datum-vector elements) (datum-vector (vector-copy elements))))
+               (datum-eq? (datum-bytevector bytes) (datum-bytevector bytes))
+               (not (datum-eq? (datum-bytevector bytes) (datum-bytevector (bytevector-copy bytes)))))))
+      (define (test-decimal text)
+        (let ((number (parsed-number-value (string->number text))))
+          (match number
+            ((exact-number value) (string=? text (i64->string value)))
+            ((inexact-number value) #f) ((complex-number real imaginary) #f))))
+      (define (test-datum)
+        (if (and (test-pair-identity) (test-list-sharing) (test-storage-identity)
+                 (datum-null? (datum-null)) (datum-pair? (datum-list (datum-null)))
+                 (datum-truth? (datum-null)) (not (datum-truth? (datum-boolean #f)))
+                 (datum-eq? (datum-symbol (string->symbol "same"))
+                            (datum-symbol (string->symbol (string-copy "same"))))
+                 (test-decimal "0") (test-decimal "42") (test-decimal "-42")
+                 (test-decimal "-9223372036854775808") (test-decimal "9223372036854775807"))
+            42 0))))))

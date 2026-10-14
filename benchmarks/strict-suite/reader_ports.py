@@ -154,6 +154,10 @@ CHEZ_TYPES = r'''(define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define (ref value) (vector value))
 (define (ref-get value) (vector-ref value 0))
 (define (ref-set! cell value) (vector-set! cell 0 value))
+(define ref-eq? eq?)
+(define vector-eq? eq?)
+(define string-eq? eq?)
+(define bytevector-eq? eq?)
 (define i32-eq eqv?)
 (define i32->i64 values)
 (define i64->i32 values)
@@ -263,7 +267,12 @@ def library_body(root, name):
     anchor = '\n  (begin\n'
     if source.count(anchor) != 1 or not source.endswith('))\n'):
         raise ValueError('expected one concrete library body: ' + name)
-    return source.split(anchor, 1)[1][:-3] + '\n'
+    body, depth = source.split(anchor, 1)[1], 1
+    for token in re.finditer(r'#\\(?:[()]|[^\s()]+)|"(?:[^"\\]|\\.)*"|;[^\n]*|[()]', body):
+        depth += (token[0] == '(') - (token[0] == ')')
+        if depth == 0:
+            return body[:token.start()] + '\n'
+    raise ValueError('unclosed concrete library body: ' + name)
 
 
 def chez_reader(root, exports):
