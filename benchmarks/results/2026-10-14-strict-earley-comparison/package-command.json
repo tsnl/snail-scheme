@@ -1,0 +1,31 @@
+{
+  "command": [
+    "tar",
+    "--sort=name",
+    "--mtime=@0",
+    "--owner=0",
+    "--group=0",
+    "--numeric-owner",
+    "-I",
+    "xz -T1 -6",
+    "-cf",
+    "/tmp/snail-strict-earley-20261014/benchmarks/results/2026-10-14-strict-earley-comparison/artifacts.tar.xz",
+    "measurements",
+    "summary.json",
+    "verification.json",
+    "quiet-window.json",
+    "host-before.json",
+    "host-after.json",
+    "pre-campaign-host.json",
+    "timing-plan.json",
+    "measure-five.py",
+    "README.md",
+    "package.py"
+  ],
+  "timeout": 120,
+  "environment": {},
+  "stdout": "",
+  "stderr": "",
+  "returncode": 0,
+  "process_seconds": 0.031734267016872764
+}

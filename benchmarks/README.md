@@ -46,8 +46,9 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 34 measured workloads,
-33 with paired Chez controls. The
+[coverage inventory](strict-suite/capabilities.md): 36 measured workloads,
+35 with paired Chez controls. These are individual checkpoints, not a complete
+rerun on the current compiler. The
 [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
@@ -111,6 +112,18 @@ preserves all 50 searches, the full coordinate database and original ratio
 predicate. Complete ordered-solution and mutation probes pass in both Chez
 controls, raw/optimized linked Wasm and actual native execution. Its archive
 separates diagnostic compiler work from performance measurements.
+
+The [bytevector conversion comparison](results/2026-10-14-strict-bv2string-comparison/README.md)
+records 0.939191 s on V8, 1.992× original Chez time and 20.569× Rust/Wasm
+time. Unicode-scalar versus UTF-8 storage, native slot widths and ownership
+differences remain explicit. All 42 full-count processes passed.
+
+The [Earley comparison](results/2026-10-14-strict-earley-comparison/README.md)
+records 2.644450 s on production V8, 1.484× original Chez time and 0.754×
+adapted Chez time. Native takes 3.882573 s, 1.458× V8 on the identical final
+Wasm, with an explicit 1 GiB arena after default-capacity exhaustion. All 30
+processes passed. Extra append spines in the adaptation and optimized removal
+of unused tree payloads prevent treating this as an isolated GC comparison.
 
 ## Compiler throughput
 

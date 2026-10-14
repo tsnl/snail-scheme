@@ -1,0 +1,45 @@
+[
+  {
+    "name": "python-compile",
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "-m",
+      "py_compile",
+      "/tmp/snail-strict-earley-20261014/benchmarks/results/2026-10-14-strict-earley-comparison/package.py",
+      "/tmp/snail-strict-earley-20261014/benchmarks/results/2026-10-14-strict-earley-comparison/measure-five.py"
+    ],
+    "timeout": 30,
+    "environment": {},
+    "stdout": "",
+    "stderr": "",
+    "returncode": 0,
+    "process_seconds": 0.03419317398220301
+  },
+  {
+    "name": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "timeout": 30,
+    "environment": {},
+    "stdout": "",
+    "stderr": "",
+    "returncode": 0,
+    "process_seconds": 0.003544559993315488
+  },
+  {
+    "name": "identity-check",
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-earley-20261014/benchmarks/results/2026-10-14-strict-earley-preparation/measure-five.py"
+    ],
+    "timeout": 30,
+    "environment": {},
+    "stdout": "Verified frozen identities; no benchmark process started\n",
+    "stderr": "",
+    "returncode": 0,
+    "process_seconds": 0.09923914499813691
+  }
+]

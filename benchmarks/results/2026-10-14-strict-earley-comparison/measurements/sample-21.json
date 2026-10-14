@@ -1,0 +1,50 @@
+{
+  "round": 3,
+  "retained": true,
+  "system": "chez-adapted",
+  "position": 1,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "--program",
+    "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/earley/same-source-chez/program.so"
+  ],
+  "cwd": "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/earley",
+  "status": "valid",
+  "started": "2026-10-14T16:17:56.841661+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "EARLEY_SIZE": null,
+    "EARLEY_EXPECTED_KIND": null,
+    "EARLEY_EXPECTED": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 73,
+  "process_group": 73,
+  "stdout": "Running earley:1\nElapsed time: 3.505646864 seconds (3.506) for earley:1\n+!CSVLINE!+chez,earley:1,3.505646864\n",
+  "stderr": "",
+  "returncode": 0,
+  "cleanup": {
+    "process_group": 73,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 3.572130062035285,
+  "workload_seconds": 3.505646864
+}
