@@ -208,3 +208,20 @@ source/retention evidence. Its manifest checks every unique regular member.
 Recorded commands retain their original absolute paths and external tool hashes;
 replay elsewhere requires an explicit verified path mapping. Clean measurement
 and branch integration remain separate coordinated steps.
+
+## Stack integration review
+
+Integration above `686f2eb` independently checked all eight source identities,
+replayed all 64 reversible edits in both directions, and compared the original
+Chez structural stream and every one of the 500 counter deltas against the four
+other Scheme paths. All 119 retained process records are terminal. The adapter
+is byte-identical to the author version; the probe received indentation-only
+formatting to pass `make check`.
+
+A fresh build on the integrated compiler and growing native collector passes the
+complete canonical predicate on raw linked Wasm, Binaryen-optimized linked Wasm,
+and actual native execution. The original 31 strings and count 500 are unchanged.
+These executions are integration checks, not new timing samples. The
+[integration record](integration-review.json) retains their commands, terminal
+results, module identities, and the independent trace audit. Historical artifacts
+and later measurements retain their original compiler basis.
