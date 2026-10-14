@@ -1,0 +1,71 @@
+{
+  "restore": {
+    "command": [
+      "python3",
+      "/tmp/snail-strict-empty-variants-20261014/benchmarks/strict-suite/replay.py",
+      "/tmp/snail-empty-variant-ray-replay-20261014",
+      "--report",
+      "/tmp/snail-strict-empty-variants-20261014/benchmarks/results/2026-10-14-empty-variant-ray"
+    ],
+    "status": 0,
+    "stdout": "Verified 596 files in /tmp/snail-empty-variant-ray-replay-20261014\n",
+    "stderr": ""
+  },
+  "executions": [
+    {
+      "variant": "baseline-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json"
+      ],
+      "cwd": "/tmp/snail-empty-variant-ray-replay-20261014/runs/baseline-v8",
+      "status": 0,
+      "stdout": "{\"seconds\":0.134604949,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "variant": "baseline-native",
+      "command": [
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native"
+      ],
+      "cwd": "/tmp/snail-empty-variant-ray-replay-20261014/runs/baseline-native",
+      "status": 0,
+      "stdout": "{\"seconds\":0.217596769,\"result\":\"1\"}\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "variant": "candidate-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm",
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json"
+      ],
+      "cwd": "/tmp/snail-empty-variant-ray-replay-20261014/runs/candidate-v8",
+      "status": 0,
+      "stdout": "{\"seconds\":0.098395514,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "variant": "candidate-native",
+      "command": [
+        "/tmp/snail-empty-variant-ray-replay-20261014/files/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native"
+      ],
+      "cwd": "/tmp/snail-empty-variant-ray-replay-20261014/runs/candidate-native",
+      "status": 0,
+      "stdout": "{\"seconds\":0.104633438,\"result\":\"1\"}\n",
+      "stderr": "",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "external_identities_verified": 17,
+  "timings_scope": "Correctness replays only, outside the clean timing campaign."
+}

@@ -1,0 +1,890 @@
+{
+  "spec": {
+    "name": "ray",
+    "count": 50,
+    "inputs": [
+      1,
+      1
+    ],
+    "pathname": "outputs/ray.output",
+    "expected": 1,
+    "barriers_per_iteration": 2,
+    "setup_barriers": 0,
+    "runtime": "scalar-io",
+    "image_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+  },
+  "commands": {
+    "baseline-v8": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json"
+    ],
+    "baseline-native": [
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native"
+    ],
+    "candidate-v8": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json"
+    ],
+    "candidate-native": [
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native"
+    ]
+  },
+  "baseline_commit": "71c6cfbe4ce1fede25b598578c611bfb3951b6b8",
+  "retained_cycles": 8,
+  "identities": [
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448"
+    },
+    {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045"
+    },
+    {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+      "sha256": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47"
+    },
+    {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0"
+    },
+    {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090"
+    },
+    {
+      "path": "/run/current-system/sw/bin/cargo",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b"
+    },
+    {
+      "path": "/run/current-system/sw/bin/clang",
+      "sha256": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4"
+    },
+    {
+      "path": "/run/current-system/sw/bin/ld.lld",
+      "sha256": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/Cargo.lock",
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/Cargo.toml",
+      "sha256": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/benchmarks/results/2026-10-14-empty-variant-ray/measure.py",
+      "sha256": "1a81e9dd61b5038a78cc68dbf9e3c84dafda684ac86f0c2deacd61bd1d1220d9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/benchmarks/results/2026-10-14-native64-ray-comparison/benchmark.c",
+      "sha256": "60c8146cc5dd80cf3cd7e00e43b121244f17a239f2bc15386a8955977647a58f"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/benchmarks/results/2026-10-14-native64-ray-comparison/benchmark.h",
+      "sha256": "e7de334de52312c94a95b967b65846ae2a7f8f6c04798311919ed30c6ff9cd4e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/benchmarks/results/2026-10-14-native64-ray-comparison/entry.c",
+      "sha256": "e8785f98f312a0e4a865fe0535c2f6161510ac034504e4c23415cc4bf324c7b1"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compile.json",
+      "sha256": "168bd1df1ca1b3c272eba2408c3c2d3052cef040d823887593abddcdf0f6793c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail/io.sld",
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail/strict.sld",
+      "sha256": "2cb73ee8f3a91e137497d0152b6f381e427fd624c4c2fe52581172855f9c6154"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/llvm.sld",
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/llvmlite.sld",
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/native.sld",
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "736ad7b26ff9220b84f5665ea1b63ef6571d6f924a003c4614fb314edffd0c5b"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "40ffddcf62c456aa1cf5d60bbea4f0e3a203cfc7597271bd7c9da92f13894cac"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-read.sld",
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-resolve.sld",
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/compiler-source/tests/build-strict-program.scm",
+      "sha256": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/correctness-native/outputs/ray.output",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/correctness-v8/outputs/ray.output",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native",
+      "sha256": "30a568b5d10152d27ca70593da51d03ad0b3eba80ff821671088a9cdbd39c7a9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native-build-result.json",
+      "sha256": "23fc3d07b2f02a3f56a75c22a3f26e794a2fc8aab8994d349615589be8b91e94"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/build.json",
+      "sha256": "57e83c898361d5e542e81db7fdd759c6e71e3c0ada56ac29f68b2cb087d179e6"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/build.scm",
+      "sha256": "38a36c29fd3a0db05c57f56804c36cf4267dc40b837c9fb15caa1459da46644d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/compile.trace.json",
+      "sha256": "0a6e9843a56c15d3569983361a726099e14230adb53641f01fdd4fddfd3e55dc"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/module.ll",
+      "sha256": "6c4de4fe25c0062362d79dc30b5371fb772388972eaebe6be9dc86691ad551d6"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/optimized.wasm",
+      "sha256": "9140eb850c16747ae558a603b95381908b82c3d67d9e634aa78c19a807455275"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/optimized.wat",
+      "sha256": "fafe60ff8d3ba2e4b2802c877cc69d90c3fc14ac12069ac5a1b72e09ef267dab"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/provider-0.o",
+      "sha256": "3d53ed0b1803e57e3f37b885ea1a28d3f59027f2cc19afe68f92d77c0334bb4a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native.native-v3mfmrr_/reader.scm",
+      "sha256": "48d3aa62a80581f32f96199282e2a5e8372194450f622775ba273c064ef69e87"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/program.wasm",
+      "sha256": "d14c5921c9cb33fb1fd8962007ecef8c333b9db0db39226476c5965962b6b4d5"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/program.wasm.raw.wasm",
+      "sha256": "824bd43604086ac66623d874cc9855e8bbf1eeb1fd2527fec544fab1d37c9f34"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/program.wasm.trace.json",
+      "sha256": "d2b79afddbb3fcfc02ab8ef3a76fccb2c999fc329cf0f536087666b517f98aeb"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/program.wasm.wat",
+      "sha256": "1b042ca53034d08f2a3b0ea36c8394e80e2734f2d0882231b4f90f5a6c5f1a69"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/source-identity.json",
+      "sha256": "4cc0d5b00e970ad4dc4ea6ed96ec02ffca02d23697427c16ec855e14b4b1e2f3"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8-build-result.json",
+      "sha256": "594586518b2809ec6a7a294bbd46e47adef49b692f245dae392922a4d69a325d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm",
+      "sha256": "7650bbf8856d413bd9e3c42936f6547c7910e3296cc58d746a6f01a0702f1062"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.input.wat",
+      "sha256": "fafe60ff8d3ba2e4b2802c877cc69d90c3fc14ac12069ac5a1b72e09ef267dab"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.link.json",
+      "sha256": "9c78a46a3161a6ca2a0f484a1169b7f9c58049d307094cdb8a01593ad8eb83ff"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.linked.wasm",
+      "sha256": "8ce4e6cdc9a7efc6e52a279502382f5efe26c334c81a11a2fd96154cac063970"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm.wat",
+      "sha256": "9469c618ecc5e0f1e9f4e2a41bfeb50370242d32b0e030fa8dc6c362b0abb17d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/compile.json",
+      "sha256": "3439b175ad5c9cba0b746a1040a09f7280706fee79b864461d4e6b64da9171e2"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/correctness-native/outputs/ray.output",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/correctness-v8/outputs/ray.output",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native",
+      "sha256": "e0e03394dcf88426074a93b3eee58e836ae210efccf1ca7e56a764b141dc7f45"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native-build-result.json",
+      "sha256": "20eed79eda4a39bfcbcc8767678a47dcc9b3f03dcbfb25abc1d6b424b81f52bb"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/build.json",
+      "sha256": "6d60676f70139d9d567ba6059ab0822d97b58923e3c782827eab2cbf10692308"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/build.scm",
+      "sha256": "4e36422a995b82e7768acb5ce9cb65472f7fce2b209f3edc92ab7a1a3f1ce298"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/compile.trace.json",
+      "sha256": "c2f2656a8f5a387ca6dedf9d0a1585fd1e96ecc5b01bd78bb09f60c05a9da153"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/module.ll",
+      "sha256": "9193d2be0fd4febee9c15860d66183e9b70a97c74fe55ce51b36cf6c325dcd8b"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/optimized.wasm",
+      "sha256": "f331477b481932b9ee274fdefe87add40b731a423dec8e8aae65ac195463bda4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/optimized.wat",
+      "sha256": "49760951f744e890e55aea7a9022fc0700a91770a56a00f889d277bc5044fb53"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/provider-0.o",
+      "sha256": "3d53ed0b1803e57e3f37b885ea1a28d3f59027f2cc19afe68f92d77c0334bb4a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native.native-1v0njtq5/reader.scm",
+      "sha256": "3da8726e18fd24e86b2c27e4428df3188047b71b41e02f600480828f068ce59c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/program.wasm",
+      "sha256": "3842112af809ef3ed2e06b2e25146eeb600577c3391a6112c84e403f7982622e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/program.wasm.raw.wasm",
+      "sha256": "36d796f0df3f01aa4cae40f7d2e71ce862047fef88c4293c5a561b270844c5dc"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/program.wasm.trace.json",
+      "sha256": "f19f6ceb01ea2d42b785f43d55f4d106d385ac61026ecfe1b0e65756bf087ce1"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/program.wasm.wat",
+      "sha256": "7affdeb17713b2aec2e55f2f385ce74b2a375ed0a8810173c81b9d149d906f14"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8-build-result.json",
+      "sha256": "7230737509f0f6da5d3e451e9b86fbe8b0e06da66270929e15b7738f0f55e0a2"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm",
+      "sha256": "3444c5ef8c0dfcf4d7309a607e4b80e6a7e0598d86c2527b9cffa2f70f9c92db"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.input.wat",
+      "sha256": "49760951f744e890e55aea7a9022fc0700a91770a56a00f889d277bc5044fb53"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.link.json",
+      "sha256": "f9400a71b3e7410e8721006441028bccacabcf723e6a1717b23917c55888a461"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.linked.wasm",
+      "sha256": "593b0051246e56a3874a69809688cfc45e2ff37e11013dfde018e800b07683f7"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm.wat",
+      "sha256": "d0083ed363c2982f9606c5545834acde30888242b3148671221ddeb097f6f843"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/correctness.json",
+      "sha256": "1a4dee89a39989981ad3899a7beb01f669751151ce3f32afb93463b86757ff72"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/expected-ray.pgm",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/input.txt",
+      "sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json",
+      "sha256": "3a0153ca5e781e6b06895ddec3675569efd20f43f9f97fb25fa7c3e383fe4686"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/strict.scm",
+      "sha256": "cba5eae0a68ccf32eea895799f3d4eaa57e3d2384a63df57685f5fac5ff92e32"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/source-comparison.json",
+      "sha256": "7461c574fa918c4d146e1ebc6552ceded48f8b52bbef6d5ea75e641e7348dc19"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/native-runtime/release/libsnail_runtime.a",
+      "sha256": "a128b4268bbc7698794bc5693173e69bbba90d4795d7f4ac1d717dd54d6dda82"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm",
+      "sha256": "28c6bca6468a4d2c6c602f27aba51a0573db8073d4266146b1469de153f24778"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/scripts/build-native",
+      "sha256": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/scripts/build-native.scm",
+      "sha256": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/scripts/link-strict-runtime",
+      "sha256": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/abi.rs",
+      "sha256": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/artifacts.rs",
+      "sha256": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/datum.rs",
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/hash.rs",
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/host.rs",
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/interop_example.rs",
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/iverson.rs",
+      "sha256": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/lib.rs",
+      "sha256": "93be0fe0fe165238406305eff2b794b0ac5cd3f3322f772ca7eff98241180b52"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/native.c",
+      "sha256": "99c5a5ae33fe3a65131bea7720df6c516e2e3f1ea66a9e6a7cba0b146b55d98f"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/native.rs",
+      "sha256": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/platform.rs",
+      "sha256": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/precise-gc.c",
+      "sha256": "e438a67d641d7ad176bed0a72ad199d4c772b6074aef96443e61923a6edf5020"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/precise-gc.h",
+      "sha256": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/runtime/build.mjs",
+      "sha256": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/runtime/host.mjs",
+      "sha256": "874ba60ef9cd66cbd9a6f401fef8ed33b039b731e6b1516176e1a88d4ffbcac2"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail/io.sld",
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail/strict.sld",
+      "sha256": "2cb73ee8f3a91e137497d0152b6f381e427fd624c4c2fe52581172855f9c6154"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/llvm.sld",
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/llvmlite.sld",
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/native.sld",
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-primitives.sld",
+      "sha256": "736ad7b26ff9220b84f5665ea1b63ef6571d6f924a003c4614fb314edffd0c5b"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/strict-wasm.sld",
+      "sha256": "db9c8232b19187cd1c6d3f861bc65b50e79f62410724a24e520bd25b15aa40da"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-read.sld",
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-resolve.sld",
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/strict_io.rs",
+      "sha256": "ef0a9ee7c70a44d9e3bf5c07d57517ea8499e83a00c756e910ee1d08b92eb823"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/symbols.rs",
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/text.rs",
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7"
+    },
+    {
+      "path": "/tmp/snail-strict-empty-variants-20261014/src/unicode.rs",
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895"
+    }
+  ]
+}
