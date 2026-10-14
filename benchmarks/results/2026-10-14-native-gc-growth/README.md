@@ -140,3 +140,11 @@ collection and scan operations retain their complete transitions where splitting
 would obscure invariants. Longer test and evidence functions retain one full
 scenario or subprocess transaction; no forwarding helpers were added merely
 to meet the ten-line target.
+
+An independent source and test review found no concrete defects or material
+coverage gaps in region publication, bump ownership, tracing, sweep ordering,
+size arithmetic or cap/failure behavior. The integrated collector, focused tests,
+native runner and native documentation match the reviewed commit byte-for-byte;
+[`integration-review.json`](integration-review.json) records those identities,
+review scope and actual terminal validation handles. Integration formatting and
+diff checks pass. This review adds no performance claim.

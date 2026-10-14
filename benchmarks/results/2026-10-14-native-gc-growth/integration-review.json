@@ -1,0 +1,61 @@
+{
+  "reviewed_commit": "9d1e5b6a329f690ec6157825f06bf49fb761af20",
+  "integration_commit": "45214e3",
+  "parent": "27604d44652f74169104d25c3a3edc8a0bb653ca",
+  "independent_review": {
+    "agent": "/root/review_native_gc_growth",
+    "model": "gpt-6.1-sol",
+    "effort": "max",
+    "scope": [
+      "transactional publication/failure cleanup",
+      "stable bump-region ownership",
+      "region membership and exact starts before header reads",
+      "marking, large-object reservation, weak cleanup and sweep ordering",
+      "checked size arithmetic, growth caps and optional-growth fallback",
+      "initial-size compatibility and focused boundary coverage"
+    ],
+    "result": "No concrete defects or material coverage gaps found; source and focused-test inspection, no test reruns."
+  },
+  "source_identities": {
+    "src/precise-gc.c": "4bdf53cc0544c00b4b4d8018d44eafa2d063c672fa8cbac828a49f7d24459bfe",
+    "scripts/test-native": "b07995c361315b3802692a4236530c5a50b1a6196ef11f2749e0d18cb807c9cd",
+    "tests/growing-gc.c": "a24ab9c3a351b60465567f7ea66f2e5e5e3402b6a1929741dee13b8e0290bc1c",
+    "doc/native.md": "29759b41160cc239c8ce943534dcb4d9255eb771d15b1edd5e90ee5aaa92fba8"
+  },
+  "actual_terminal_author_handles": [
+    {
+      "session_id": 91504,
+      "exit_code": 0,
+      "scope": "complete scripts/test-native"
+    },
+    {
+      "session_id": 55009,
+      "exit_code": 0,
+      "scope": "complete Boyer correctness, GC work and fixed-cap diagnostics"
+    }
+  ],
+  "integration_checks": [
+    {
+      "command": [
+        "make",
+        "check"
+      ],
+      "exit_code": 0,
+      "actual_tool_chunk": "2da913"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "actual_tool_chunk": "164985"
+    }
+  ],
+  "limits": [
+    "No clean GC growth timing; diagnostic workload counts and managed virtual extent only.",
+    "75% headroom threshold is a tested policy candidate, not an established optimum.",
+    "Integration preserves reviewed source and tests byte-for-byte; TOUR also contains later primitive documentation."
+  ]
+}
