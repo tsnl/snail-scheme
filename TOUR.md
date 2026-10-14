@@ -485,9 +485,14 @@ Its [report](benchmarks/results/2026-10-13-strict-source-cat/README.md) preserve
 both source-compiled and hand-written scalar controls with the same provider.
 
 [`benchmarks/strict-suite/`](benchmarks/strict-suite/README.md) adapts arithmetic,
-closure, typed-list, and mutable-vector kernels to the strict compiler, keeping original inputs
+closure, typed-list, mutable-vector and nominal-data kernels to the strict compiler, keeping original inputs
 and counts. It separates preparation/behavior checks, clean timing, explicit
-Chez flonum controls, and artifact replay. The
+Chez flonum controls, and artifact replay.
+[`data_ports.py`](benchmarks/strict-suite/data_ports.py) owns the exact paraffins
+and gcbench source edits, concrete representations and separate structural
+oracles. Their canonical optimized artifacts are inspected independently:
+paraffins can discard unobserved payloads; gcbench currently loses its intended
+long-lived tree root and is excluded from timing. The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
 coverage table retains failed and unported workloads.
