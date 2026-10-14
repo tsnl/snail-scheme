@@ -1,0 +1,36 @@
+{
+  "archive_sha256": "275bd6511293d4ae877ed6ff59b598b95a14a2c566095d46a603d79163f788d5",
+  "verified_files": 61,
+  "checks": [
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-destruc-parent-replay-20261014/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-destruc-parent-replay-20261014/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-destruc-parent-replay-20261014/case",
+      "stdin": "1\n600\n50\n\n((1 1 2)\n (1 1 1)\n (1 1 1 2)\n (1 1 1 1)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n\n\n",
+      "returncode": 0,
+      "stdout": "Result: ((1 1 2) (1 1 1) (1 1 1 2) (1 1 1 1) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n+!CSVLINE!+rust-wasm,destruc:1,0.004706654\n",
+      "stderr": "",
+      "scope": "Restored count-one correctness check, not performance sample"
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-rust-destruc-parent-replay-20261014/case/program.so"
+      ],
+      "cwd": "/tmp/snail-rust-destruc-parent-replay-20261014/case",
+      "stdin": "1\n600\n50\n\n((1 1 2)\n (1 1 1)\n (1 1 1 2)\n (1 1 1 1)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n\n\n",
+      "returncode": 0,
+      "stdout": "Running destruc:600:50:1\nElapsed time: 2.93577e-4 seconds (0.0) for destruc:600:50:1\n+!CSVLINE!+chez,destruc:600:50:1,2.93577e-4\n",
+      "stderr": "",
+      "scope": "Restored count-one correctness check, not performance sample"
+    }
+  ],
+  "unchanged_after": true
+}
