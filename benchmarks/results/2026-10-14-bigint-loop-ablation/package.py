@@ -47,17 +47,19 @@ def evidence_files(campaign, preparation, diagnostics, profiles, code):
     return dict(sorted(files.items()))
 
 
-def audit_inputs(files):
-    with tempfile.TemporaryDirectory(prefix='bigint-loop-audit-') as temporary:
-        archived = Path(temporary)
-        for name, path in files.items():
-            if name.startswith(('comparison/', 'lineage/')):
-                continue
-            target = archived / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(path, target)
-        return review.review(archived / 'campaign', archived / 'preparation', archived / 'diagnostics',
-                             archived / 'profiles', archived / 'code', True)
+def stage_evidence(files, directory):
+    staged = {}
+    for name, source in files.items():
+        target = directory / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        staged[name] = target
+    return staged
+
+
+def audit_snapshot(directory):
+    return review.review(directory / 'campaign', directory / 'preparation', directory / 'diagnostics',
+                         directory / 'profiles', directory / 'code', True)
 
 
 def control_archives():
@@ -84,8 +86,7 @@ def verify_original_excerpts(controls):
                        'original function excerpt differs from the existing control archive')
 
 
-def write_archive(files):
-    archive = REPORT / 'artifacts.tar.xz'
+def write_archive(files, archive):
     with tarfile.open(archive, 'w:xz', preset=6) as target:
         for name, path in files.items():
             info = tarfile.TarInfo(name)
@@ -98,15 +99,39 @@ def write_archive(files):
 def prepare(options):
     review.require(not (REPORT / 'artifacts.tar.xz').exists(), 'refusing to replace a recorded archive')
     controls = control_archives()
-    files = evidence_files(options.campaign, options.preparation, options.diagnostics, options.profiles, options.code)
-    checked = audit_inputs(files)
-    (REPORT / 'independent-review.json').write_text(json.dumps(checked, indent=2) + '\n')
-    hashes = {name: review.digest(path) for name, path in files.items()}
-    archive = write_archive(files)
+    selected = evidence_files(options.campaign, options.preparation, options.diagnostics, options.profiles, options.code)
+    with tempfile.TemporaryDirectory(prefix='bigint-loop-audit-') as temporary:
+        directory = Path(temporary)
+        files = stage_evidence(selected, directory)
+        checked = audit_snapshot(directory)
+        payload = json.dumps(checked, indent=2) + '\n'
+        files['comparison/independent-review.json'].write_text(payload)
+        archive = write_archive(files, directory / 'artifacts.tar.xz')
+        manifest = archive_manifest(files, archive, controls)
+        publish_snapshot(archive, manifest, payload)
+
+
+def archive_manifest(files, archive, controls):
     manifest = dict(archive_sha256=review.digest(archive), bytes=archive.stat().st_size,
-        regular_members=len(files), uncompressed_bytes=sum(path.stat().st_size for path in files.values()), files=hashes,
+        regular_members=len(files), uncompressed_bytes=sum(path.stat().st_size for path in files.values()),
+        files={name: review.digest(path) for name, path in files.items()},
         executable_controls='../2026-10-14-strict-integer-controls/', executable_control_archives=controls)
-    (REPORT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    return manifest
+
+
+def publish_snapshot(archive, manifest, review_payload):
+    destination = REPORT / 'artifacts.tar.xz'
+    # Exclusive creation preserves any existing report; only our new archive
+    # is removed if copying or publishing its companion records fails.
+    target = destination.open('xb')
+    try:
+        with target, archive.open('rb') as source:
+            shutil.copyfileobj(source, target)
+        (REPORT / 'independent-review.json').write_text(review_payload)
+        (REPORT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    except BaseException:
+        destination.unlink()
+        raise
 
 
 # ---- Exact safe regular-member inventory; no extraction or execution ----

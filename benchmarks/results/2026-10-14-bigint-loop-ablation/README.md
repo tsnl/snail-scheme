@@ -145,3 +145,13 @@ After unpacking the verified archive, run
 This replay requires no original absolute paths. Optional
 `--check-live-identities` additionally checks the original frozen paths.
 No compiler implementation is included, and measured suite coverage is unchanged.
+
+Archive verification checks safe member names, inventory and byte identities;
+the separate directory replay checks the campaign's semantics. Directory replay
+expects a trusted extraction of the verified archive. The selected new code
+captures are checked for module/function/index/tier/size identities; the original
+excerpts additionally receive a byte comparison against their full captures.
+Explicit archive creation keeps one private snapshot through semantic audit,
+hashing and compression. The committed archive preserves the original collection
+and packaging evidence; this follow-up creation-tool simplification does not
+rebuild it or change any observations.
