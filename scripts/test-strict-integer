@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""Check exact integers against independent oracles on raw/optimized Wasm and native64."""
+
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import random
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / 'tests/strict-integer'
+
+
+# ---- Owned process groups and retained diagnostic evidence ----
+
+
+def save(path, value):
+    path.write_text(json.dumps(value, indent=2) + '\n')
+
+
+def executing_group(group):
+    members = []
+    for path in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            fields = path.read_text().rsplit(')', 1)[1].split()
+            if int(fields[2]) == group and fields[0] not in ('Z', 'X'):
+                members.append(int(path.parent.name))
+        except (OSError, ValueError, IndexError):
+            pass
+    return members
+
+
+def finish_group(group):
+    deadline = time.monotonic() + 5
+    while True:
+        try:
+            os.killpg(group, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        members = executing_group(group)
+        if not members or time.monotonic() >= deadline:
+            return members
+        time.sleep(0.02)
+
+
+def execute(command, output, environment, expected=0):
+    command = list(map(str, command))
+    child = subprocess.Popen(command, cwd=ROOT, env=environment, text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    expired = False
+    try:
+        stdout, stderr = child.communicate(timeout=900)
+    except subprocess.TimeoutExpired:
+        expired = True
+        os.killpg(child.pid, signal.SIGKILL)
+        stdout, stderr = child.communicate(timeout=10)
+    finally:
+        remaining = finish_group(child.pid)
+    record = dict(command=command, returncode=child.returncode, stdout=stdout, stderr=stderr,
+                  timeout=expired, process_group=child.pid, diagnostic_only=True,
+                  native_gc_interval=environment.get('SNAIL_NATIVE_GC_INTERVAL'), executing_descendants=remaining)
+    save(output, record)
+    assert not expired and not remaining and (child.returncode != 0 if expected == 'error' else child.returncode == expected), record
+    return record
+
+
+# ---- Python integers independently specify complete arithmetic answers ----
+
+
+def fixtures():
+    cases = []
+    def add(label, operation, a, b=0, expected=None, error=False):
+        cases.append(dict(label=label, operation=operation, a=str(a), b=str(b),
+                          expected=str(a if expected is None else expected), error=error))
+    edge = [0, 1, -1, 2**30-1, 2**30, 2**30+1, 2**60-1, 2**60, 2**63-1, -2**63,
+            2**63, -2**63-1, 10**300-1, -10**300, 2**4096-1]
+    for index, a in enumerate(edge):
+        add(f'parse-{index}', 0, a)
+        add(f'owned-{index}', 11, a)
+        add(f'narrow-{index}', 9, a, error=not -(2**63) <= a < 2**63)
+    for text, expected in [('00000', 0), ('-000', 0), ('+00123', 123), ('-00123', -123)]:
+        add('decimal-' + text, 0, text, expected=expected)
+    for text in ['', '+', '-', ' 1', '1 ', '1x', '1.0', '1e3', '#x10', '++1', '--1']:
+        add('invalid-decimal-' + repr(text), 0, text, error=True)
+    rng = random.Random(0x51A11)
+    pairs = [(a, b) for a in edge[:12] for b in edge[:12]]
+    pairs += [(rng.getrandbits(rng.randrange(1, 4097)), rng.getrandbits(rng.randrange(1, 2049)))
+              for _ in range(160)]
+    base = 2**30
+    pairs += [(base**3, (base//2)*base**2+1),
+              ((base//2-1)*base**2, (base//2)*base+base-1),
+              (base**8-1, base**4-1), (base**8, base**4+1)]
+    for index, (a, b) in enumerate(pairs):
+        if index % 2: a = -a
+        if index % 3: b = -b
+        for operation, value in [(1, a+b), (2, a-b), (3, a*b), (8, (a>b)-(a<b))]:
+            add(f'arithmetic-{index}-{operation}', operation, a, b, value)
+        q = (abs(a)//abs(b)) * (-1 if (a<0) != (b<0) else 1) if b else 0
+        add(f'quotient-{index}', 4, a, b, q, error=not b)
+        add(f'remainder-{index}', 5, a, b, a-q*b, error=not b)
+    squares = list(range(101)) + [rng.getrandbits(rng.randrange(1, 4097)) for _ in range(60)]
+    for index, root in enumerate(squares):
+        for delta in [-1, 0, 1]:
+            a = root*root + delta
+            if a < 0: continue
+            s = math.isqrt(a)
+            add(f'sqrt-{index}-{delta}', 6, a, expected=s)
+            add(f'sqrt-residue-{index}-{delta}', 10, a, expected=a-s*s)
+    for index, (a, b) in enumerate([(0,0),(0,100),(1,2**128),(-1,2**128+1),(-1,2**128),
+                                   (-3,97),(2,2048),(10,500),(31,100),(-17,0)]):
+        add(f'power-{index}', 7, a, b, pow(a,b))
+    add('negative-sqrt', 6, -1, error=True)
+    add('negative-power', 7, 2, -1, error=True)
+    return cases
+
+
+def write_cases(output):
+    cases = fixtures()
+    save(output / 'oracle.json', cases)
+    valid = [case for case in cases if not case['error']]
+    def row(case):
+        return '\t'.join(str(case[key]) for key in ['operation', 'a', 'b', 'expected']) + '\n'
+    (output / 'valid.tsv').write_text(''.join(map(row, valid)))
+    stress = [case for case in valid if case['label'].startswith(('owned-', 'power-'))]
+    (output / 'stress.tsv').write_text(''.join(map(row, stress)))
+    failures = []
+    for index, case in enumerate(case for case in cases if case['error']):
+        path = output / f'failure-{index}.tsv'
+        path.write_text(row(case)); failures.append(path)
+    return cases, failures
+
+
+# ---- Module-local tests use the same arithmetic with small radix constants ----
+
+
+def form(source, prefix):
+    start, depth = source.index(prefix), 0
+    for token in re.finditer(r'"(?:[^"\\]|\\.)*"|;[^\n]*|[()]', source[start:]):
+        depth += (token.group() == '(') - (token.group() == ')')
+        if depth == 0: return source[start:start+token.end()]
+    raise ValueError('unclosed test source')
+
+
+def unit_source(radix):
+    source = (ROOT / 'src/snail/integer.sld').read_text()
+    body = form(source, '(begin\n\n    ;; ---- Canonical')
+    tests = form(source, '(begin\n      ;; The runner')
+    result = '(import (snail strict))\n' + body + '\n' + tests + '\n(test-integer)\n'
+    if radix == 4:
+        result = result.replace('(define radix 1073741824)', '(define radix 4)')
+        result = result.replace('(define limb-bits 30)', '(define limb-bits 2)')
+    return result
+
+
+def check_units(output, environment):
+    for radix in [4, 1073741824]:
+        source = output / f'unit-{radix}.scm'; source.write_text(unit_source(radix))
+        wasm = output / f'unit-{radix}.wasm'
+        execute([ROOT/'scripts/build-strict', source, wasm], output/f'unit-{radix}-build.json', environment)
+        for kind, module in [('raw', Path(str(wasm)+'.raw.wasm')), ('optimized', wasm)]:
+            execute([environment.get('NODE','node'), ROOT/'tests/strict/run.mjs', module, '42'],
+                    output/f'unit-{radix}-{kind}.json', environment)
+        native = output / f'unit-{radix}-native'
+        execute([ROOT/'scripts/build-native','--wasm',wasm,native], output/f'unit-{radix}-native-build.json',environment)
+        execute([native], output/f'unit-{radix}-native.json',environment,expected=42)
+        print(f'PASS exhaustive 64,512 operand pairs at radix {radix}: raw, optimized, native64',flush=True)
+
+
+# ---- Every production-radix public API executes on all three targets ----
+
+
+def check_oracle(output, environment, failures):
+    check_rejections(output, environment)
+    wasm = output/'oracle.wasm'
+    execute([ROOT/'scripts/build-strict','--export','integer-probe',FIXTURES/'oracle.scm',wasm],
+            output/'oracle-build.json',environment)
+    for kind, module in [('raw',Path(str(wasm)+'.raw.wasm')),('optimized',wasm)]:
+        execute([environment.get('NODE','node'),FIXTURES/'oracle.mjs',module,output/'oracle.json'],
+                output/f'oracle-{kind}.json',environment)
+    native = output/'oracle-native'
+    execute([ROOT/'scripts/build-native','--wasm','--c-provider','oracle',FIXTURES/'oracle.h',
+             FIXTURES/'oracle-provider.c','--entry-c',FIXTURES/'oracle.c',wasm,native],
+            output/'oracle-native-build.json',environment)
+    execute([native,output/'valid.tsv'],output/'oracle-native.json',environment)
+    execute([native,output/'stress.tsv'],output/'oracle-native-gc-stress.json',
+            {**environment,'SNAIL_NATIVE_GC_INTERVAL':'1'})
+    for index,path in enumerate(failures):
+        record = execute([native,path],output/f'oracle-native-failure-{index}.json',environment,expected='error')
+        assert 'WebAssembly trap' in record['stderr'], record
+    print('PASS independent Python arithmetic, decimal ownership and failures: raw, optimized, native64',flush=True)
+
+
+
+def check_rejections(output, environment):
+    for label, expression, diagnostic in [
+            ('mixed', '(+ (integer-from-i64 1) 1)', 'no compatible overload signature'),
+            ('private', '(integer #f (vector (ann 1 I32)))', 'unbound')]:
+        source = output / f'reject-{label}.scm'
+        source.write_text('(import (snail strict) (snail integer))\n' + expression + '\n')
+        record = execute([ROOT/'scripts/build-strict', source, output/f'reject-{label}.wasm'],
+                         output/f'reject-{label}.json',environment,expected='error')
+        assert source.name in record['stderr'] and diagnostic in record['stderr'], record
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,default=ROOT/'build/strict-integer')
+    parser.add_argument('--only',choices=['units','oracle'])
+    options=parser.parse_args(); output=options.output.resolve(); output.mkdir(parents=True,exist_ok=True)
+    environment={**os.environ,'BINARYEN_CORES':'1'}
+    cases,failures=write_cases(output)
+    if options.only != 'oracle': check_units(output,environment)
+    if options.only != 'units': check_oracle(output,environment,failures)
+    source=ROOT/'src/snail/integer.sld'
+    save(output/'summary.json',dict(passed=True,cases=len(cases),diagnostic_only=True,
+         library_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),python=sys.version,
+         completed_groups=[name for name,log in [('oracle','oracle-native.json'),
+             ('small-radix','unit-4-native.json'),('production-radix','unit-1073741824-native.json')]
+             if (output/log).is_file()]))
+
+
+if __name__ == '__main__':
+    main()

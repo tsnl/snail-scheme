@@ -1,0 +1,51 @@
+(import (snail strict) (snail integer))
+
+;; ---- Scalar test transport; numbers remain in Scheme ----
+
+(define-extern argument-length "oracle" "argument_length" (-> I32 I64))
+(define-extern argument-character "oracle" "argument_character" (-> I32 I64 Char))
+(define-extern emit-character "oracle" "emit_character" (-> Char Unit))
+(define (argument index)
+  (let* ((count (argument-length index)) (text (make-string count)))
+    (let loop ((at 0))
+      (if (= at count) text
+          (begin (string-set! text at (argument-character index at)) (loop (+ at 1)))))))
+(define (emit text)
+  (let loop ((at 0))
+    (unless (= at (string-length text))
+      (emit-character (string-ref text at)) (loop (+ at 1)))))
+
+;; ---- Public operations and ownership observations ----
+
+(define (alias-check text)
+  (let* ((value (integer-from-string text)) (saved (integer->string value))
+         (negative (integer-negate value)) (sum (+ value value))
+         (quotient-value (quotient value (integer-from-i64 2))))
+    (string-set! text 0 #\9)
+    (let ((copy (integer->string value)))
+      (string-set! copy 0 #\8)
+      (if (and (string=? (integer->string value) saved)
+               (= (+ value negative) (integer-from-i64 0))
+               (= (- sum value) value)
+               (= (+ (* quotient-value (integer-from-i64 2))
+                     (remainder value (integer-from-i64 2))) value))
+          value (unreachable)))))
+(: integer-probe (-> I64 I64))
+(define (integer-probe operation)
+  (let* ((text (argument (ann 0 I32))) (a (integer-from-string text))
+         (b (integer-from-string (argument (ann 1 I32)))))
+    (emit (integer->string
+           (if (= operation 0) a
+               (if (= operation 1) (+ a b)
+                   (if (= operation 2) (- a b)
+                       (if (= operation 3) (* a b)
+                           (if (= operation 4) (quotient a b)
+                               (if (= operation 5) (remainder a b)
+                                   (if (= operation 6) (integer-sqrt a)
+                                       (if (= operation 7) (integer-expt a b)
+                                           (if (= operation 8) (integer-from-i64 (integer-compare a b))
+                                               (if (= operation 9) (integer-from-i64 (integer->i64 a))
+                                                   (if (= operation 10) (root-remainder (integer-sqrt/remainder a))
+                                                       (if (= operation 11) (alias-check text) (unreachable)))))))))))))))
+    1))
+(unit)
