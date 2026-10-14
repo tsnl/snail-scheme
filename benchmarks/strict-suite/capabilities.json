@@ -146,13 +146,16 @@
     },
     {
       "name": "ray",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 186,
       "files": {
         "src/ray.scm": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e",
         "inputs/ray.input": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Original 50 complete 100x100 renders, exact 29517-byte PGM, scene order, Euclidean distances, shading and rounding retained. Concrete geometry/products/options and world-list Ref; adapted Chez shares the typed kernel. Separate optimized-site and file-lifecycle diagnostics retain all repeated work. Rust inline storage, arithmetic hoisting and scene cleanup differ.",
+      "preparation_report": "benchmarks/results/2026-10-14-strict-ray/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-ray-comparison/README.md",
+      "note": "Strict median 0.128911 seconds: 0.152 times original Chez, 0.162 times adapted Chez and 2.387 times Rust/Wasm. Four retained observations per variant; no equal-layout or isolated mechanism claim."
     },
     {
       "name": "simplex",
@@ -286,13 +289,16 @@
     },
     {
       "name": "mazefun",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 200,
       "files": {
         "src/mazefun.scm": "465f258a7968062f3142f72f0819994e685ca558aa74c0b1f66aff7fc7b8e2a4",
         "inputs/mazefun.input": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Original 10000 calls to make-maze(11,11), RNG/shuffle/removal/flood order, persistent functional lists and complete final 121-cell grid predicate retained. Strict concrete coordinates/cells/Wall variants; adapted Chez shares the typed source as a separate control. Corrected Rust uses persistent Rc lists, inline tuple/Option labels, char marks and Vec scratch storage, with different reclamation and final-root lifetimes.",
+      "preparation_report": "benchmarks/results/2026-10-14-strict-mazefun/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md",
+      "note": "Strict median 0.628972 seconds: 1.619 times faster than original Chez, 1.425 times faster than adapted Chez and 3.691 times faster than Rust/Wasm. All 20 fresh-process executions pass; four retained observations per variant. Representation, ownership, GC and compiler effects are jointly measured, not isolated; no inference or whole-suite claim."
     },
     {
       "name": "nqueens",
@@ -441,8 +447,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 30,
-  "historical_paired_chez_count": 29,
+  "historical_measured_strict_count": 32,
+  "historical_paired_chez_count": 31,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -467,5 +473,7 @@
   "string_baseline_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
   "string_size_control_report": "benchmarks/results/2026-10-14-string-size-controls/README.md",
   "string_native_comparison_report": "benchmarks/results/2026-10-14-string-block-native-comparison/README.md",
-  "destruc_measurement_report": "benchmarks/results/2026-10-14-strict-destruc-comparison/README.md"
+  "destruc_measurement_report": "benchmarks/results/2026-10-14-strict-destruc-comparison/README.md",
+  "ray_measurement_report": "benchmarks/results/2026-10-14-strict-ray-comparison/README.md",
+  "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md"
 }

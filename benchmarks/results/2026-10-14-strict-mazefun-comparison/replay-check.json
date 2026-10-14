@@ -1,0 +1,162 @@
+{
+  "kind": "Actual relocated full-count correctness checks",
+  "performance_samples": false,
+  "archive_sha256": "27158c8fae7d2ab3d16f6e37b7d7ee9b520c656c2c3e85c0cbb8b94c2425c45f",
+  "destination": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored",
+  "count": 10000,
+  "dimensions": [
+    11,
+    11
+  ],
+  "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+  "files_verified_before": 964,
+  "clean_raw_trials_verified": 20,
+  "external_tools_verified": 12,
+  "observations": [
+    {
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-strict-mazefun-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/strict.wasm",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/spec.json"
+      ],
+      "cwd": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/strict",
+      "status": "exited",
+      "started_utc": "2026-10-14T12:54:18.797478+00:00",
+      "stdin_path": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "stdin": "10000\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+      "returncode": 0,
+      "diagnostic_process_seconds": 0.6506244390038773,
+      "finished_utc": "2026-10-14T12:54:19.448169+00:00",
+      "stdout_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/strict/stdout.bin",
+        "sha256": "a1d76309082165208483c7c5b52b575fd573b7ad9a1f3d2d8d178342780cc251",
+        "bytes": 75
+      },
+      "stderr_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/strict/stderr.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stdout": "{\"seconds\":0.625522268,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "diagnostic_workload_seconds": 0.625522268,
+      "valid": true
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/program.so"
+      ],
+      "cwd": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/original-chez",
+      "status": "exited",
+      "started_utc": "2026-10-14T12:54:19.449616+00:00",
+      "stdin_path": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "stdin": "10000\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+      "returncode": 0,
+      "diagnostic_process_seconds": 1.0498131579952314,
+      "finished_utc": "2026-10-14T12:54:20.499486+00:00",
+      "stdout_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/original-chez/stdout.bin",
+        "sha256": "24a49afb40dc33b5700e75bb663ec2b4530393d0a167ec5dfe1b5f09f8f64f05",
+        "bytes": 141
+      },
+      "stderr_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/original-chez/stderr.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stdout": "Running mazefun:11:11:10000\nElapsed time: 1.020493681 seconds (1.02) for mazefun:11:11:10000\n+!CSVLINE!+chez,mazefun:11:11:10000,1.020493681\n",
+      "stderr": "",
+      "diagnostic_workload_seconds": 1.020493681,
+      "valid": true
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/adapted-chez",
+      "status": "exited",
+      "started_utc": "2026-10-14T12:54:20.500595+00:00",
+      "stdin_path": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "stdin": "10000\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+      "returncode": 0,
+      "diagnostic_process_seconds": 0.9239055570214987,
+      "finished_utc": "2026-10-14T12:54:21.424561+00:00",
+      "stdout_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/adapted-chez/stdout.bin",
+        "sha256": "92f6dcb0fac2714f5bac7eefbd5c0b639456c815b00374617770d4c4955e0f94",
+        "bytes": 142
+      },
+      "stderr_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/adapted-chez/stderr.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stdout": "Running mazefun:11:11:10000\nElapsed time: 0.893829942 seconds (0.894) for mazefun:11:11:10000\n+!CSVLINE!+chez,mazefun:11:11:10000,0.893829942\n",
+      "stderr": "",
+      "diagnostic_workload_seconds": 0.893829942,
+      "valid": true
+    },
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/rust-wasm",
+      "status": "exited",
+      "started_utc": "2026-10-14T12:54:21.425702+00:00",
+      "stdin_path": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored/files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "stdin": "10000\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+      "returncode": 0,
+      "diagnostic_process_seconds": 2.336976110993419,
+      "finished_utc": "2026-10-14T12:54:23.762757+00:00",
+      "stdout_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/rust-wasm/stdout.bin",
+        "sha256": "298e6178eafc63e911730bac2e3743ac37177f216e08a5c0a663c4f79559945f",
+        "bytes": 321
+      },
+      "stderr_raw": {
+        "path": "/tmp/snail-mazefun-comparison-20261014/build/relocated-replay/rust-wasm/stderr.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:10000,2.313703137\n",
+      "stderr": "",
+      "diagnostic_workload_seconds": 2.313703137,
+      "valid": true
+    }
+  ],
+  "complete": true,
+  "files_verified_after": 964,
+  "all_restored_files_unchanged": true,
+  "all_external_tools_unchanged": true,
+  "all_checks_pass": true,
+  "finished_utc": "2026-10-14T12:54:23.866848+00:00"
+}

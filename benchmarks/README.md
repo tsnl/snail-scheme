@@ -46,8 +46,13 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 31 measured workloads,
-30 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 32 measured workloads,
+31 with paired Chez controls. The latest
+[Mazefun report](results/2026-10-14-strict-mazefun-comparison/README.md) records
+0.629 s for all 10,000 complete 11 × 11 mazes: 1.619× faster than original
+Chez, 1.425× faster than adapted Chez, and 3.691× faster than this Rust/Wasm
+reference. Complete predicates pass; persistent Rc/GC and layout differences
+remain explicit. The preceding
 [Ray report](results/2026-10-14-strict-ray-comparison/README.md) records 0.129 s
 for all 50 complete renders: 6.584× faster than original Chez and 6.181× faster
 than the adapted source on Chez; Rust/Wasm is 2.387× faster than Snail.
