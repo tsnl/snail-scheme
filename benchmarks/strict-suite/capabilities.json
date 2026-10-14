@@ -468,12 +468,15 @@
     },
     {
       "name": "equal",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 158,
       "files": {
         "src/equal.scm": "931f53304a38b231470c38985be2d595723cb5bbd2c70ba983616e75058fe533",
         "inputs/equal.input": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03"
-      }
+      },
+      "measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
+      "representation_note": "Complete original enabled aggregate and counts 100:100:8:1000:2000:5000; shared and unshared trees, vectors, shallow lists and deep car chains preserved. Original cyclic phase stays disabled in clean execution and runs separately. Adapted Chez shares the concrete Datum/Ref representation and cycle-aware equality bodies; Rust uses Rc cells, pointer-pair HashSet history, a work vector and iterative destruction.",
+      "note": "All 56 planned fresh processes pass, with 49 retained observations. Production V8 median 2.395007397 s, native64 2.133532650 s, original Chez 0.258255367 s, adapted Chez 4.687177296 s, Rust/Wasm 0.933199088 s and Rust native 0.813260313 s. V8 takes 9.274 times original Chez, 0.511 times adapted Chez and 2.566 times Rust/Wasm. Native takes 11.434% less time than V8 on identical native-final Scheme Wasm. Source representation, helpers, equality algorithm and reclamation differ; no isolated GC or codegen attribution. Compiler/driver basis 6fd5ca4; 451 identities independently rechecked."
     },
     {
       "name": "bv2string",
@@ -494,8 +497,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 43,
-  "historical_paired_chez_count": 42,
+  "historical_measured_strict_count": 44,
+  "historical_paired_chez_count": 43,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -539,6 +542,7 @@
     "diviter",
     "divrec",
     "earley",
+    "equal",
     "fft",
     "fib",
     "fibfp",
@@ -583,6 +587,7 @@
     "diviter",
     "divrec",
     "earley",
+    "equal",
     "fft",
     "fib",
     "fibfp",
@@ -627,5 +632,6 @@
   "ack_measurement_report": "benchmarks/results/2026-10-14-strict-ack-comparison/README.md",
   "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained.",
   "browse_measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
-  "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance."
+  "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance.",
+  "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md"
 }

@@ -46,9 +46,14 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 43 measured workloads,
-42 with paired Chez controls. These are individual checkpoints, not a complete
+[coverage inventory](strict-suite/capabilities.md): 44 measured workloads,
+43 with paired Chez controls. These are individual checkpoints, not a complete
 rerun on the current compiler. The
+[complete Equal comparison](results/2026-10-14-strict-equal-comparison/README.md)
+records 2.395007 s on V8, 2.133533 s natively and 0.258255 s on original Chez.
+Native takes 11.434% less time than V8 on identical final Scheme Wasm. The
+adapted Scheme body takes 4.687177 s on Chez, exposing combined representation,
+helper and equality-algorithm costs without isolating any one cause. The
 [typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
 checks the complete `sum1` and `read1` input streams against Chez on linked raw
 Wasm, optimized Wasm and native. Their
