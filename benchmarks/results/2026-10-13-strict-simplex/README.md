@@ -4,8 +4,9 @@ The full original million-invocation simplex workload passes on raw Wasm,
 optimized Wasm, original Chez and source-matched adapted Chez. **This checkpoint
 has no clean timing observations.** Compiler source remains
 `a4030ce190058db3e9d64f6942401b5fa38dbd58`; the final preparation driver is
-`d92e8be` above source checkpoint `f417571`. Independent simplify review belongs
-to the parent after this freeze.
+`d92e8be` above source checkpoint `f417571`. The parent subsequently completed
+independent simplify review and repeated preparation on stack compiler `efbb151`;
+the original freeze remains intact.
 
 Every invocation constructs the original 6-by-5 F64 tableau and executes the
 two-phase simplex algorithm with constraint counts 2:1:1. The complete input file
@@ -104,9 +105,28 @@ python3 benchmarks/strict-suite/replay.py /tmp/strict-simplex-replay \
   --report benchmarks/results/2026-10-13-strict-simplex
 ```
 
-The new cohesive module is `simplex_port.py`, which owns the exact source
-adaptation and its complete-output/rational-oracle diagnostic contract.
-`measure.py` coordinates its preparation in the existing harness. The
-[neutral behavioral brief](simplify-behavioral-brief.md) is ready for fresh review
-under the pinned simplify skill. Earlier reports, gcbench lifecycle work,
-compiler behavior, clean timing, publishing and landing are outside this task.
+The cohesive module is `simplex_port.py`, which owns the exact source adaptation
+and its complete-output/rational-oracle diagnostic contract. `measure.py`
+coordinates preparation in the existing harness. A fresh Sol 6.1 explainer
+received the [behavioral brief](simplify-behavioral-brief.md) without file access;
+the parent compared its model with the implementation and challenged the read,
+arithmetic, hiding-call and restoration boundaries. The review retained the
+module: elimination, decoding and complete basis validation are useful complete
+operations even where they exceed the usual ten-line target.
+
+The [parent review](parent-review/review.json) records the findings. The parent
+restored and verified all 704 original archive files and executed four bounded
+artifact checks, then rebuilt the complete preparation on compiler `efbb151`.
+All canonical and supplemental checks passed again. Benchmark sources, input,
+both Chez sources and complete expected outputs remain byte-identical. This
+[new preparation](parent-review/prepared.json) has its own archive and manifest
+under `parent-review/`; the same replay command accepts that directory as its
+report argument. Neither preparation contains clean timing samples.
+
+The optimized repeat function retains the opaque `hide_f64` call inside every
+iteration, before fresh tableau construction; canonical validation observes
+one million calls. The arithmetic evidence covers these fixed inputs and
+fixtures. Their rational input coefficients are integers or dyadic fractions;
+the algorithm's original F64 epsilon is still `0.000001`. Signed-zero checks
+cover the observed stores and final tableau. This is not an arbitrary-input
+equivalence proof or a claim about native allocations.
