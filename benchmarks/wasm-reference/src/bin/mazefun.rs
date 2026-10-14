@@ -17,6 +17,8 @@ type Row = List<Option<Position>>;
 type Cave = List<Row>;
 type Maze = List<List<char>>;
 
+// Nodes are immutable. A write copies its changed prefix and keeps owned Rc
+// references to shared tails; dropping a version can reclaim it inside timing.
 fn cons<T>(first: T, rest: List<T>) -> List<T> {
     Some(Rc::new(Cell { first, rest }))
 }
@@ -93,6 +95,7 @@ fn change_cavity(cave: &Cave, position: Position, new: Position, old: Option<Pos
         return cave.clone();
     }
     let mut changed = matrix_write(cave, position, new);
+    // Snapshot neighbors from the incoming cave, then carry each updated cave.
     for next in neighbors(cave, position) {
         changed = change_cavity(&changed, next, new, old);
     }
@@ -110,6 +113,8 @@ fn try_to_pierce(cave: &Cave, hole: Position) -> Cave {
         return cave.clone();
     }
     let mut changed = cave.clone();
+    // Distinct labels belong to disjoint components. Read each old label from
+    // the current cave, just as the original left fold does before its flood.
     for neighbor in neighbors {
         let old = matrix_read(&changed, neighbor);
         changed = change_cavity(&changed, neighbor, hole, old);
@@ -131,8 +136,7 @@ fn cave_to_maze(cave: &Cave) -> Maze {
     list(rows.into_iter())
 }
 
-fn make_maze(n: usize, m: usize) -> Maze {
-    assert!(n % 2 == 1 && m % 2 == 1);
+fn make_maze_grid(n: usize, m: usize) -> Maze {
     let mut cave = list((0..n).map(|i| {
         list((0..m).map(|j| {
             if i % 2 == 0 && j % 2 == 0 {
@@ -154,13 +158,59 @@ fn make_maze(n: usize, m: usize) -> Maze {
     cave_to_maze(&cave)
 }
 
-fn expected(datum: &Datum) -> Maze {
-    list(
-        datum
-            .list()
-            .iter()
-            .map(|row| list(row.list().iter().map(|c| c.atom().chars().next().unwrap()))),
-    )
+// ---- Benchmark results and complete supplied predicate ----
+
+enum MazeResult {
+    False,
+    Error,
+    Grid(Maze),
+}
+
+fn make_maze(n: i64, m: i64) -> MazeResult {
+    if n % 2 == 0 || m % 2 == 0 {
+        return MazeResult::Error;
+    }
+    // Original increasing construction visits no cells in a negative extent.
+    let n = usize::try_from(n.max(0)).expect("maze rows exceed the indexing domain");
+    let m = usize::try_from(m.max(0)).expect("maze columns exceed the indexing domain");
+    MazeResult::Grid(make_maze_grid(n, m))
+}
+
+fn row_matches(row: &List<char>, expected: &[Datum]) -> bool {
+    match (row, expected.split_first()) {
+        (None, None) => true,
+        (Some(cell), Some((Datum::Atom(mark), rest))) => {
+            // Output marks are ASCII symbols; strings and longer spellings fail.
+            mark.as_bytes() == [cell.first as u8] && row_matches(&cell.rest, rest)
+        }
+        _ => false,
+    }
+}
+
+fn grid_matches(rows: &Maze, expected: &[Datum]) -> bool {
+    match (rows, expected.split_first()) {
+        (None, None) => true,
+        (Some(row), Some((Datum::List(cells), rest))) => {
+            row_matches(&row.first, cells) && grid_matches(&row.rest, rest)
+        }
+        _ => false,
+    }
+}
+
+fn matches_result(result: &MazeResult, expected: &Datum) -> bool {
+    match (result, expected) {
+        (MazeResult::False, Datum::Atom(value)) => value == "#f",
+        (MazeResult::Error, Datum::Atom(value)) => value == "error",
+        (MazeResult::Grid(rows), Datum::List(expected)) => grid_matches(rows, expected),
+        _ => false,
+    }
+}
+
+fn signed_integer(datum: &Datum) -> i64 {
+    match datum {
+        Datum::Atom(value) => value.parse().expect("expected a signed 64-bit integer"),
+        _ => panic!("expected a signed 64-bit integer"),
+    }
 }
 
 // ---- Complete maze serialization ----
@@ -190,18 +240,32 @@ impl Display for DisplayMaze<'_> {
     }
 }
 
+impl Display for MazeResult {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::False => write!(out, "#f"),
+            Self::Error => write!(out, "error"),
+            Self::Grid(maze) => DisplayMaze(maze).fmt(out),
+        }
+    }
+}
+
 // ---- Benchmark driver ----
 
 fn main() -> std::io::Result<()> {
     let values = input()?;
-    let (count, n, m) = (values[0].number(), values[1].number(), values[2].number());
-    let expected = expected(&values[3]);
-    let (start, mut result) = (Instant::now(), None);
+    let (count, n, m) = (
+        signed_integer(&values[0]),
+        signed_integer(&values[1]),
+        signed_integer(&values[2]),
+    );
+    let start = Instant::now();
+    let mut result = MazeResult::False;
     for _ in 0..count {
         result = black_box(make_maze(black_box(n), black_box(m)));
     }
-    assert_eq!(result, expected);
-    report("mazefun", count, start, DisplayMaze(&result));
+    assert!(matches_result(&result, &values[3]), "incorrect maze result");
+    report("mazefun", count, start, result);
     Ok(())
 }
 
@@ -238,9 +302,44 @@ mod tests {
     }
     #[test]
     fn one_cell_maze_and_complete_small_dimensions() {
-        assert_eq!(DisplayMaze(&make_maze(1, 1)).to_string(), "((_))");
-        let small = make_maze(3, 3);
+        assert_eq!(make_maze(1, 1).to_string(), "((_))");
+        let small = make_maze_grid(3, 3);
         assert_eq!(length(&small), 3);
         assert_eq!(length(&small.as_ref().unwrap().first), 3);
+    }
+
+    #[test]
+    fn supplied_predicate_keeps_symbol_kinds_and_both_list_lengths() {
+        let result = make_maze(1, 1);
+        for (source, expected) in [
+            ("((_))", true),
+            ("((\"_\"))", false),
+            ("((_tail))", false),
+            ("#((_))", false),
+            ("(#(_))", false),
+            ("((_ _))", false),
+            ("((_)( _))", false),
+            ("(( _ . bad))", false),
+            ("(())", false),
+        ] {
+            let datum = &r7rs_wasm_reference::read_all(source)[0];
+            assert_eq!(matches_result(&result, datum), expected, "{source}");
+        }
+    }
+
+    #[test]
+    fn false_error_and_negative_odd_dimensions_keep_original_results() {
+        assert!(matches_result(
+            &MazeResult::False,
+            &Datum::Atom("#f".into())
+        ));
+        assert!(!matches_result(
+            &MazeResult::False,
+            &Datum::String("#f".into())
+        ));
+        assert_eq!(make_maze(3, 2).to_string(), "error");
+        assert_eq!(make_maze(-2, -1).to_string(), "error");
+        assert_eq!(make_maze(-1, 3).to_string(), "()");
+        assert_eq!(make_maze(3, -1).to_string(), "(() () ())");
     }
 }
