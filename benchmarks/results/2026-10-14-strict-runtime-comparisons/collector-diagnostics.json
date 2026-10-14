@@ -1,0 +1,518 @@
+{
+  "default": {
+    "bench_marker_ms": 16160.193825999999,
+    "event_counts": {
+      "s": 258,
+      "mc": 5
+    },
+    "reported_pause_ms": {
+      "mc": 1173.0,
+      "s": 13566.8
+    },
+    "new_space_capacity_values": [
+      67108864
+    ],
+    "resources": {
+      "phase": "resources",
+      "usage": {
+        "userCPUTime": 16417090,
+        "systemCPUTime": 560495,
+        "maxRSS": 2803684,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 689149,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 868,
+        "involuntaryContextSwitches": 6590
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 134217728,
+          "space_used_size": 2775600,
+          "space_available_size": 64329168,
+          "physical_space_size": 134217728
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 1727938560,
+          "space_used_size": 1727460472,
+          "space_available_size": 232512,
+          "physical_space_size": 1728053248
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 39936,
+          "space_available_size": 222176,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 338960,
+          "space_available_size": 1082256,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 67108864,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 266240,
+          "space_used_size": 262160,
+          "space_available_size": 0,
+          "physical_space_size": 266240
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "scope": "Trace diagnostics after the clean window; builds may run. Printed pauses are neither total GC CPU nor clean timings. maxRSS covers the entire process."
+  },
+  "serial-scavenge": {
+    "bench_marker_ms": 16118.25453,
+    "event_counts": {
+      "s": 258,
+      "mc": 5
+    },
+    "reported_pause_ms": {
+      "mc": 1177.4,
+      "s": 13512.0
+    },
+    "new_space_capacity_values": [
+      67108864
+    ],
+    "resources": {
+      "phase": "resources",
+      "usage": {
+        "userCPUTime": 16429766,
+        "systemCPUTime": 544967,
+        "maxRSS": 2801608,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 688598,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 241,
+        "involuntaryContextSwitches": 2787
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 134217728,
+          "space_used_size": 2708496,
+          "space_available_size": 64396272,
+          "physical_space_size": 134217728
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 1727938560,
+          "space_used_size": 1727527560,
+          "space_available_size": 165448,
+          "physical_space_size": 1728053248
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 39936,
+          "space_available_size": 222176,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 338960,
+          "space_available_size": 1082256,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 67108864,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 266240,
+          "space_used_size": 262160,
+          "space_available_size": 0,
+          "physical_space_size": 266240
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "scope": "Trace diagnostics after the clean window; builds may run. Printed pauses are neither total GC CPU nor clean timings. maxRSS covers the entire process."
+  },
+  "semi128": {
+    "bench_marker_ms": 16297.262084000002,
+    "event_counts": {
+      "s": 128,
+      "mc": 5
+    },
+    "reported_pause_ms": {
+      "mc": 1171.4,
+      "s": 13551.8
+    },
+    "new_space_capacity_values": [
+      134217728
+    ],
+    "resources": {
+      "phase": "resources",
+      "usage": {
+        "userCPUTime": 16405178,
+        "systemCPUTime": 792076,
+        "maxRSS": 2999416,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 738075,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 577,
+        "involuntaryContextSwitches": 3888
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 268435456,
+          "space_used_size": 75713568,
+          "space_available_size": 58495968,
+          "physical_space_size": 268435456
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 1223049216,
+          "space_used_size": 1222754104,
+          "space_available_size": 111112,
+          "physical_space_size": 1223163904
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 39936,
+          "space_available_size": 222176,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 338960,
+          "space_available_size": 1082256,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 134217728,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 266240,
+          "space_used_size": 262160,
+          "space_available_size": 0,
+          "physical_space_size": 266240
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "scope": "Trace diagnostics after the clean window; builds may run. Printed pauses are neither total GC CPU nor clean timings. maxRSS covers the entire process."
+  },
+  "minor-ms": {
+    "bench_marker_ms": 15492.296014000001,
+    "event_counts": {
+      "mms": 118,
+      "mc": 5
+    },
+    "reported_pause_ms": {
+      "mms": 6256.2,
+      "mc": 1509.3
+    },
+    "new_space_capacity_values": [
+      150994944
+    ],
+    "resources": {
+      "phase": "resources",
+      "usage": {
+        "userCPUTime": 15749183,
+        "systemCPUTime": 541895,
+        "maxRSS": 2778404,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 682921,
+        "majorPageFault": 2,
+        "swappedOut": 0,
+        "fsRead": 600,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 4580,
+        "involuntaryContextSwitches": 8618
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 133693440,
+          "space_used_size": 133454656,
+          "space_available_size": 222480,
+          "physical_space_size": 133693440
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 1166688256,
+          "space_used_size": 1165009592,
+          "space_available_size": 247976,
+          "physical_space_size": 1166802944
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 39936,
+          "space_available_size": 0,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 338960,
+          "space_available_size": 1082256,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 150994944,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 266240,
+          "space_used_size": 262160,
+          "space_available_size": 0,
+          "physical_space_size": 266240
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "scope": "Trace diagnostics after the clean window; builds may run. Printed pauses are neither total GC CPU nor clean timings. maxRSS covers the entire process."
+  }
+}
