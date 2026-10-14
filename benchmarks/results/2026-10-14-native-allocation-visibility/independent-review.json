@@ -10,5 +10,9 @@
     "Local constructor dead-store elimination and allocator call removal are confirmed in disassembly; isolated contributions are not measured.",
     "ELF text grows 28.674% for Matrix and 3.458% for bytevector; broad performance benefit is unproven."
   ],
+  "provenance_limitations": [
+    "The terminated disassembly-parser diagnostic retains its PID and reason, not an independent timestamp or termination capture. Before-window ordering relies on the coordinator execution record.",
+    "The instruction_lines metadata counts disassembly lines including byte continuations; it is not a decoded instruction count."
+  ],
   "blocking_issues": []
 }

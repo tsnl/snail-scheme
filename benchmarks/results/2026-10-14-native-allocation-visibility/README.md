@@ -119,7 +119,10 @@ The archive retains all C variants, shared input artifacts, programs, build
 commands, disassembly, process captures, plans, schedules and diagnostic counters.
 It also retains the initial missing-provider-header build failure. A separate
 runaway disassembly regex was terminated before the quiet window and replaced
-with bounded literal-delimiter extraction; that diagnostic failure is recorded.
+with bounded literal-delimiter extraction. Its diagnostic record preserves the
+PID and reason, but not a timestamp or termination capture. The before-window
+ordering comes from the coordinator's execution record; the archive alone does
+not independently establish that ordering.
 
 ```sh
 python3 benchmarks/results/2026-10-14-native-allocation-visibility/archive.py
