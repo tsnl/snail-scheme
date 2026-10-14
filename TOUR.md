@@ -787,6 +787,16 @@ the clean builds retain the original 2,000-invocation loop and complete predicat
 The datum library owns reusable list/identity operations, while the adapter owns
 the workload's typed boundaries and its original-source compatibility controls.
 
+[`boyer_port.py`](benchmarks/strict-suite/boyer_port.py) preserves the complete
+NBoyer and SBoyer provers, including their post-harness definitions and numeric
+rewrite-count predicates. Reversible edits expose existing `Datum` and `Ref`
+types while retaining constructor-record cycles, association lists and SBoyer's
+pair reuse rule. It prepares original/adapted Chez, linked raw/optimized Wasm,
+native64 and the independent Rust controls. Separate structural and work-count
+programs keep counter instrumentation out of constructor-order observations.
+Native heap reservations and capacity failures remain explicit evidence, and
+preparation starts no clean measurement.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
