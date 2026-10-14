@@ -812,3 +812,11 @@ Scheme paths; immutable spine identity has a separate Chez-only audit. The
 unchanged Rust native/WASI reference passes complete outputs as a separately
 disclosed algorithm and layout control. This preparation adds no clean timing
 result or measured-coverage claim.
+
+The [seven-system comparison](../results/2026-10-14-strict-matrix-comparison/README.md)
+now records all 56 planned full-count processes. Production V8 takes 0.705711 s,
+1.483× original Chez time and 0.435× this Rust/Wasm reference's time. The native
+build further optimizes its Wasm input, so a separate V8 row executes the exact
+native-final module: 0.700726 s versus native's 1.901276 s, a 2.713× ratio.
+Every ordered result and frozen identity passes; ownership, algorithm and
+allocation differences remain explicit.
