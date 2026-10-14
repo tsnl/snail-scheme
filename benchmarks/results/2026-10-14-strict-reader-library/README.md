@@ -7,6 +7,13 @@ in the historical measured-workload count. The starting compiler is
 `87d22a4675eb6b79c466a67e04632e1b95b04c5d`; the upstream input revision is
 `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`.
 
+The integration review independently verifies all 3,352 archive members and
+replays both complete canonical streams on all three execution paths, plus five
+native cases with collection forced at every allocation. After integration as
+`69c5171`, the complete suite passes again with the newer native allocator.
+`integration-review.json` retains those checks, the 300 terminal command records
+and resulting artifact identities. These additional checks are not timings.
+
 Scheme owns incremental tokenization, syntax, recursive datums, explicit mutable
 pair fields and structural equality. The same Rust scalar exports provide UTF-8
 input, owned temporary numeric-token handles and stable strict symbol identities
