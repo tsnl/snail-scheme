@@ -76,6 +76,10 @@ separate proposed capability, not an implemented part of the port.
 The [compiler identity](compiler-identity.json) and [prior-port comparison](prior-port-regression.json)
 confirm that production compiler files and all 24 previous specifications and
 generated strict sources are unchanged. `make test` and `make check` pass.
+[Parent verification](parent-verification.json) repeats the complete preparation on
+the published draft compiler `0cf2240`. Its compiler files, canonical sources,
+raw/optimized Wasm, specification and host match the archived preparation bytes;
+all canonical and supplementary checks pass there as well.
 [Preparation history](preparation-history.json) retains the first compile's
 unsupported wildcard-pattern rejection. The adapter was corrected to emit the
 language's required exhaustive constructor arms; that failure was not omitted
