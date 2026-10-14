@@ -102,3 +102,11 @@ Restore and verify the archive without running a workload:
 python3 benchmarks/strict-suite/replay.py /tmp/strict-destruc-replay \
   --report benchmarks/results/2026-10-14-strict-destruc
 ```
+
+Parent integration on the combined draft stack separately rebuilt this source
+with the String block backend and executed its count-one validation in Node.
+The [integration record](integration/check.json) preserves that successful run
+and artifact. Its optimized WAT matches the frozen program exactly after
+renaming generated type IDs shifted by the two added String dependency types.
+The integration check does not replace the frozen performance artifact or add
+a timing sample.

@@ -21,7 +21,9 @@ The original source, 100 invocations, ten trials per invocation, threshold
 500,000 and final length 524,278 remain. Only strict-wasm.sld differs between the
 frozen flat and block compilers. No character narrowing, views, copy removal or
 benchmark-specific compiler rule is introduced. Small-string owner-allocation
-cost is outside this full growth workload and needs its own measurement.
+cost is outside this full growth workload. Later
+[size controls](../2026-10-14-string-size-controls/README.md) measure that tradeoff
+separately, including regressions on smaller growth/copy inputs.
 
 One discarded four-cell round precedes four retained fresh-process cyclic
 rotations: 20 checked executions, with each cell in each retained position once.
