@@ -592,6 +592,12 @@ polymorphic enumeration with typed lattice/binding products and mutable list
 tails. It keeps destructive reversal, branch-result lists and append sharing.
 Separate complete-poset oracles, comparison traces and node-identity probes
 check the source adaptation against both Chez forms.
+[`destruc_port.py`](benchmarks/strict-suite/destruc_port.py) retains destructive
+row splices with two concrete mutable-list instances, explicit head/tail Ref
+cells and empty/integer items. Its separate graph oracle and node registries
+check ordered effects, sharing and abandoned nodes; the canonical predicate
+compares the complete nested result. The source explicitly selects the operand
+order observed in the original Chez diagnostic control.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
