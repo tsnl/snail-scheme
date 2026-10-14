@@ -1,0 +1,847 @@
+{
+  "unchanged": {
+    "plan": {
+      "path": "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.json",
+      "sha256": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec"
+    },
+    "clean_identities": 59,
+    "unchanged": true
+  },
+  "attempts": [
+    {
+      "attempt": "v8-code-function64",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-leaf-report",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-script",
+      "returncode": 255,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-perf",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "v8-profile",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-symbols",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-perf-leaf",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-annotate-f33",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-stats",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "counter-build-03",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-events",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-leaf-header",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-annotate-gc",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-script-no-cpu",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-annotate-header",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "counter-build",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-header",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-counters-03",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-report",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "v8-code-function89",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "perf-annotate-alloc",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-disassembly",
+      "returncode": 0,
+      "valid_full_result": false,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "native-counters",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    },
+    {
+      "attempt": "v8-code-function88",
+      "returncode": 0,
+      "valid_full_result": true,
+      "leader_reaped": true
+    }
+  ],
+  "counter_checks": {
+    "worker": {
+      "allocation_requests": 224085000,
+      "requested_bytes": 5807140000,
+      "aligned_bytes": 7970680000,
+      "bump_fast": 223810699,
+      "hole_searches": 274301,
+      "large_requests": 0,
+      "gc_collections": 950,
+      "root_enter_requests": 321052544,
+      "active_root_enters": 166075042,
+      "root_capacity_sum": 2143432806,
+      "root_leave_requests": 321052544,
+      "ref_tests": 172965040,
+      "array_new": 11140000,
+      "array_elements": 55882500,
+      "array_slots": 146855000,
+      "array_copies": 0,
+      "copied_elements": 0,
+      "root_slot_store_requests": 2921335645,
+      "root_count_store_requests": 361340007,
+      "direct_guest_calls": 236105043,
+      "indirect_guest_calls": 84947500,
+      "null_guard_requests": 2147143507,
+      "struct_constructor_field_stores": 434785000,
+      "struct_constructor_field_bytes": 3391610000,
+      "bitmap_start_updates": 224085000,
+      "allocator_header_writes": 224085000,
+      "zeroed_payload_bytes": 5807140000,
+      "zero_payload_requests": 224085000,
+      "array_constructor_stores": 78162500,
+      "array_constructor_bytes": 625300000
+    },
+    "constructor_oracle": {
+      "struct_objects": 212945000,
+      "struct_requested": 5181840000,
+      "struct_field_stores": 434785000,
+      "struct_field_bytes": 3391610000,
+      "array_constructor_bytes": 625300000,
+      "total_constructor_bytes": 5720470000
+    },
+    "whole_process_matches_original_stats": true,
+    "counter_attempts_agree": true
+  },
+  "llvm_erasures": {
+    "llvm": 2,
+    "c_and_host": 7
+  },
+  "profile_samples": 664,
+  "clean_timing": false,
+  "native_sampling": {
+    "dwarf_999_hz": {
+      "rows": [
+        {
+          "period_percent": 37.03,
+          "samples": 706,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_gc_alloc"
+        },
+        {
+          "period_percent": 17.39,
+          "samples": 332,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.33"
+        },
+        {
+          "period_percent": 14.55,
+          "samples": 277,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "allocate_header"
+        },
+        {
+          "period_percent": 5.69,
+          "samples": 108,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.31"
+        },
+        {
+          "period_percent": 3.61,
+          "samples": 69,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_gc_collect"
+        },
+        {
+          "period_percent": 3.21,
+          "samples": 61,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "memset@plt"
+        },
+        {
+          "period_percent": 3.0,
+          "samples": 57,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.26"
+        },
+        {
+          "period_percent": 2.05,
+          "samples": 39,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.29"
+        },
+        {
+          "period_percent": 2.05,
+          "samples": 39,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.21"
+        },
+        {
+          "period_percent": 1.84,
+          "samples": 35,
+          "dso": "libc.so.6",
+          "mode": ".",
+          "symbol": "__memset_avx2_unaligned_erms"
+        },
+        {
+          "period_percent": 1.79,
+          "samples": 34,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.19"
+        },
+        {
+          "period_percent": 0.95,
+          "samples": 18,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.41"
+        },
+        {
+          "period_percent": 0.84,
+          "samples": 16,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.47"
+        },
+        {
+          "period_percent": 0.79,
+          "samples": 15,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_array_new"
+        },
+        {
+          "period_percent": 0.68,
+          "samples": 13,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.24"
+        },
+        {
+          "period_percent": 0.63,
+          "samples": 12,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.32"
+        },
+        {
+          "period_percent": 0.56,
+          "samples": 11,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.55"
+        },
+        {
+          "period_percent": 0.48,
+          "samples": 9,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.51"
+        },
+        {
+          "period_percent": 0.47,
+          "samples": 9,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.37"
+        },
+        {
+          "period_percent": 0.26,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.63"
+        },
+        {
+          "period_percent": 0.26,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.48"
+        },
+        {
+          "period_percent": 0.21,
+          "samples": 4,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.71"
+        },
+        {
+          "period_percent": 0.16,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_alloc"
+        },
+        {
+          "period_percent": 0.16,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.52"
+        },
+        {
+          "period_percent": 0.16,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.22"
+        },
+        {
+          "period_percent": 0.16,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.79"
+        },
+        {
+          "period_percent": 0.16,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.60"
+        },
+        {
+          "period_percent": 0.11,
+          "samples": 2,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.46"
+        },
+        {
+          "period_percent": 0.11,
+          "samples": 2,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.58"
+        },
+        {
+          "period_percent": 0.11,
+          "samples": 2,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.73"
+        },
+        {
+          "period_percent": 0.11,
+          "samples": 2,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.90"
+        },
+        {
+          "period_percent": 0.1,
+          "samples": 2,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.18"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.44"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.35"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.72"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.78"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.57"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.70"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 2,
+          "dso": "[unknown]",
+          "mode": "k",
+          "symbol": "0xffffffff9b401280"
+        },
+        {
+          "period_percent": 0.0,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "wasm.main"
+        }
+      ],
+      "samples": 1908,
+      "approximate_cycles": 10180247533,
+      "lost_samples": 0,
+      "ancestry_used": false
+    },
+    "leaf_prime_period": {
+      "rows": [
+        {
+          "period_percent": 34.37,
+          "samples": 3498,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_gc_alloc"
+        },
+        {
+          "period_percent": 15.76,
+          "samples": 1604,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.33"
+        },
+        {
+          "period_percent": 12.84,
+          "samples": 1307,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "allocate_header"
+        },
+        {
+          "period_percent": 12.23,
+          "samples": 1245,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_gc_collect"
+        },
+        {
+          "period_percent": 5.0,
+          "samples": 509,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.31"
+        },
+        {
+          "period_percent": 3.27,
+          "samples": 333,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.26"
+        },
+        {
+          "period_percent": 2.35,
+          "samples": 239,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.19"
+        },
+        {
+          "period_percent": 2.15,
+          "samples": 219,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "memset@plt"
+        },
+        {
+          "period_percent": 1.9,
+          "samples": 193,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.21"
+        },
+        {
+          "period_percent": 1.86,
+          "samples": 189,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.29"
+        },
+        {
+          "period_percent": 1.46,
+          "samples": 149,
+          "dso": "libc.so.6",
+          "mode": ".",
+          "symbol": "__memset_avx2_unaligned_erms"
+        },
+        {
+          "period_percent": 0.84,
+          "samples": 85,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.41"
+        },
+        {
+          "period_percent": 0.75,
+          "samples": 76,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.32"
+        },
+        {
+          "period_percent": 0.6,
+          "samples": 61,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_array_new"
+        },
+        {
+          "period_percent": 0.55,
+          "samples": 56,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.51"
+        },
+        {
+          "period_percent": 0.53,
+          "samples": 54,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.24"
+        },
+        {
+          "period_percent": 0.49,
+          "samples": 50,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.47"
+        },
+        {
+          "period_percent": 0.36,
+          "samples": 37,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.55"
+        },
+        {
+          "period_percent": 0.35,
+          "samples": 36,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.79"
+        },
+        {
+          "period_percent": 0.28,
+          "samples": 28,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.48"
+        },
+        {
+          "period_percent": 0.22,
+          "samples": 22,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.37"
+        },
+        {
+          "period_percent": 0.22,
+          "samples": 22,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.52"
+        },
+        {
+          "period_percent": 0.22,
+          "samples": 22,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.59"
+        },
+        {
+          "period_percent": 0.13,
+          "samples": 13,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.58"
+        },
+        {
+          "period_percent": 0.11,
+          "samples": 11,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "native_alloc"
+        },
+        {
+          "period_percent": 0.1,
+          "samples": 10,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.69"
+        },
+        {
+          "period_percent": 0.09,
+          "samples": 9,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.18"
+        },
+        {
+          "period_percent": 0.09,
+          "samples": 9,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.57"
+        },
+        {
+          "period_percent": 0.09,
+          "samples": 9,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.73"
+        },
+        {
+          "period_percent": 0.07,
+          "samples": 7,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.44"
+        },
+        {
+          "period_percent": 0.07,
+          "samples": 7,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.70"
+        },
+        {
+          "period_percent": 0.07,
+          "samples": 7,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.71"
+        },
+        {
+          "period_percent": 0.06,
+          "samples": 6,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.60"
+        },
+        {
+          "period_percent": 0.06,
+          "samples": 6,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.63"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.22"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.35"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.46"
+        },
+        {
+          "period_percent": 0.05,
+          "samples": 5,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.77"
+        },
+        {
+          "period_percent": 0.04,
+          "samples": 4,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.39"
+        },
+        {
+          "period_percent": 0.04,
+          "samples": 4,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.76"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.56"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.72"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.75"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.78"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.80"
+        },
+        {
+          "period_percent": 0.03,
+          "samples": 3,
+          "dso": "[unknown]",
+          "mode": "k",
+          "symbol": "0xffffffff9b4015f0"
+        },
+        {
+          "period_percent": 0.01,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.40"
+        },
+        {
+          "period_percent": 0.01,
+          "samples": 1,
+          "dso": "native",
+          "mode": ".",
+          "symbol": "f.42"
+        },
+        {
+          "period_percent": 0.01,
+          "samples": 1,
+          "dso": "[unknown]",
+          "mode": "k",
+          "symbol": "0xffffffff9b401280"
+        }
+      ],
+      "samples": 10177,
+      "approximate_cycles": 10177030531,
+      "lost_samples": 0,
+      "ancestry_used": false
+    }
+  }
+}
