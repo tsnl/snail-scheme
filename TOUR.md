@@ -802,6 +802,15 @@ programs keep counter instrumentation out of constructor-order observations.
 Native heap reservations and capacity failures remain explicit evidence, and
 preparation starts no clean measurement.
 
+[`conform_port.py`](benchmarks/strict-suite/conform_port.py) preserves Conform's
+functional sort and sets, cyclic type graph, shared mutable memo tables, and
+temporary red conformity assumptions through concrete records and Ref fields.
+Its reversible ledger produces the same adapted kernel for strict and Chez.
+The [probe fixture](tests/strict-conform/probe.scm) observes graph/table structure,
+alias mutations, ordering, and every invocation's algorithmic work separately
+from the original 500-invocation benchmark. Preparation freezes optimized Wasm,
+its mechanical native translation, both Chez sources, and distinct Rust controls.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its

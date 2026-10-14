@@ -39,6 +39,7 @@ import reader_ports
 import browse_port
 import equal_port
 import boyer_port
+import conform_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -48,7 +49,7 @@ NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-NAMES += ('earley', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES
+NAMES += ('earley', 'browse', 'equal', 'conform') + reader_ports.NAMES + boyer_port.NAMES
 MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string', 'earley', 'matrix') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
@@ -102,6 +103,8 @@ def input_values(text):
 def case_specification(name, data):
     if name in boyer_port.NAMES:
         return boyer_port.specification(name, data)
+    if name == 'conform':
+        return conform_port.specification(data)
     if name == 'equal':
         return equal_port.specification(data)
     if name == 'browse':
@@ -649,7 +652,7 @@ def tool_paths(benchmarks=()):
         names['RUSTC'] = 'rustc'
     if any(name in benchmarks for name in ('ray', 'tail', 'nucleic')):
         names.update(RUSTC='rustc', CARGO='cargo', WASM_MERGE='wasm-merge')
-    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
+    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix', 'browse', 'equal', 'conform') + reader_ports.NAMES + boyer_port.NAMES):
         names.update(RUSTC='rustc', CARGO='cargo', CLANG='clang', LLD='ld.lld', WASM_MERGE='wasm-merge')
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     paths['PYTHON'] = sys.executable
@@ -2097,6 +2100,8 @@ def validate_mazefun_outputs(directory, runner, tools, environment):
 def prepare_case(name, files, output, runner, tools, environment):
     if name in boyer_port.NAMES:
         return boyer_port.prepare_case(name, files, output, runner, tools, environment, sys.modules[__name__])
+    if name == 'conform':
+        return conform_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'equal':
         return equal_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'browse':
@@ -2209,6 +2214,7 @@ def prepare(options):
     shutil.copy2(HERE / 'reader_ports.py', options.output / 'reader_ports.py')
     shutil.copy2(HERE / 'browse_port.py', options.output / 'browse_port.py')
     shutil.copy2(HERE / 'equal_port.py', options.output / 'equal_port.py')
+    shutil.copy2(HERE / 'conform_port.py', options.output / 'conform_port.py')
     shutil.copy2(HERE / 'browse-observe.mjs', options.output / 'browse-observe.mjs')
     shutil.copy2(HERE / 'reader-timing.mjs', options.output / 'reader-timing.mjs')
     shutil.copy2(HERE / 'reader-host.mjs', options.output / 'reader-host.mjs')
@@ -2219,15 +2225,17 @@ def prepare(options):
     shutil.copy2(HERE / 'boyer_port.py', options.output / 'boyer_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
-    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
+    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal', 'conform') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *(ROOT / name for name in
                     ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/link-strict-runtime'))]
-    if any(name in options.benchmarks for name in ('bv2string', 'matrix', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
+    if any(name in options.benchmarks for name in ('bv2string', 'matrix', 'browse', 'equal', 'conform') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *ROOT.glob('src/*.c'), *ROOT.glob('src/*.h'),
                     *(ROOT / name for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
                                                'scripts/build-native', 'scripts/build-native.scm'))]
     if any(name in options.benchmarks for name in ('browse', 'equal') + boyer_port.NAMES):
         sources += [*ROOT.glob('tests/strict-reader/*'), *ROOT.glob('tests/strict-browse/*')]
+    if 'conform' in options.benchmarks:
+        sources += [*ROOT.glob('tests/strict-reader/*'), *ROOT.glob('tests/strict-conform/*')]
     if 'earley' in options.benchmarks:
         sources += [ROOT / 'scripts/build-native', ROOT / 'scripts/build-native.scm',
                     *ROOT.glob('src/**/*.c'), *ROOT.glob('src/**/*.h')]
@@ -2260,6 +2268,7 @@ def prepare(options):
                   browse_port_sha256=digest(HERE / 'browse_port.py'),
                   equal_port_sha256=digest(HERE / 'equal_port.py'),
                   boyer_port_sha256=digest(HERE / 'boyer_port.py'),
+                  conform_port_sha256=digest(HERE / 'conform_port.py'),
                   reader_host_sha256=digest(HERE / 'reader-host.mjs'),
                   tail_host_sha256=digest(HERE / 'tail-host.mjs'),
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
@@ -2332,6 +2341,8 @@ def checked_preparation(output):
     prepared = load(output / 'prepared.json')
     if prepared.get('boyer_port_sha256', digest(HERE / 'boyer_port.py')) != digest(HERE / 'boyer_port.py'):
         raise ValueError('Boyer source adapter changed')
+    if prepared.get('conform_port_sha256', digest(HERE / 'conform_port.py')) != digest(HERE / 'conform_port.py'):
+        raise ValueError('Conform source adapter changed')
     if prepared.get('equal_port_sha256', digest(HERE / 'equal_port.py')) != digest(HERE / 'equal_port.py'):
         raise ValueError('Equal source adapter changed')
     if prepared.get('browse_port_sha256', digest(HERE / 'browse_port.py')) != digest(HERE / 'browse_port.py'):
@@ -2427,8 +2438,8 @@ def summarize(report):
 
 def measure(options):
     prepared = checked_preparation(options.output)
-    if any(case['name'] in reader_ports.NAMES + ('browse', 'equal') + boyer_port.NAMES for case in prepared['cases']):
-        raise ValueError('reader, browse, equal and Boyer workloads require separately frozen timing plans')
+    if any(case['name'] in reader_ports.NAMES + ('browse', 'equal', 'conform') + boyer_port.NAMES for case in prepared['cases']):
+        raise ValueError('reader, browse, equal, conform and Boyer workloads require separately frozen timing plans')
     if options.rounds != 3 and any(len(case.get('systems', [])) == 3 for case in prepared['cases']):
         raise ValueError('the three-system controls require exactly three retained rounds')
     report = dict(prepared=prepared, cpu=options.cpu, rounds=options.rounds, samples=[], complete=False)
