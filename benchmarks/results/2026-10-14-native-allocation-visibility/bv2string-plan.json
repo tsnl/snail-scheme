@@ -1,0 +1,327 @@
+{
+  "status": "awaiting-coordinated-release",
+  "prepared": "2026-10-14T18:26:11.690276+00:00",
+  "source_base": "5b61de743c4d533eb82da837e53687b4fa6d3c1c",
+  "preparation": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/supervisor",
+  "cpu": 5,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "timeout_seconds": 90,
+  "group_cleanup_seconds": 10,
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "input": {
+    "name": "bv2string",
+    "count": 100,
+    "inputs": [
+      1000,
+      1000,
+      0
+    ],
+    "original_expected": 0,
+    "expected": 1,
+    "setup_barriers": 0,
+    "barriers_per_iteration": 2,
+    "predicate": "original numeric failure-count equality"
+  },
+  "systems": {
+    "strict-native-baseline": {
+      "argv": [
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/baseline/bv2string",
+        "100"
+      ],
+      "cwd": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string",
+      "stdin": null
+    },
+    "strict-native-gc-inline": {
+      "argv": [
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/gc-inline/bv2string",
+        "100"
+      ],
+      "cwd": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string",
+      "stdin": null
+    },
+    "strict-native-chain-inline": {
+      "argv": [
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/chain-inline/bv2string",
+        "100"
+      ],
+      "cwd": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string",
+      "stdin": null
+    },
+    "strict-v8-common": {
+      "argv": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/host.mjs",
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/strict.wasm",
+        "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string",
+      "stdin": null
+    }
+  },
+  "schedule": [
+    {
+      "round": -1,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": false
+    },
+    {
+      "round": -1,
+      "position": 1,
+      "system": "strict-native-gc-inline",
+      "retained": false
+    },
+    {
+      "round": -1,
+      "position": 2,
+      "system": "strict-native-chain-inline",
+      "retained": false
+    },
+    {
+      "round": -1,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": false
+    },
+    {
+      "round": 0,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 0,
+      "position": 1,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 0,
+      "position": 2,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 0,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 0,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 1,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 3,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 0,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 3,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 3,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 3,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 3,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 6,
+      "position": 0,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 6,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 6,
+      "position": 3,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 7,
+      "position": 0,
+      "system": "strict-native-chain-inline",
+      "retained": true
+    },
+    {
+      "round": 7,
+      "position": 1,
+      "system": "strict-native-gc-inline",
+      "retained": true
+    },
+    {
+      "round": 7,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 7,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": true
+    }
+  ],
+  "identities": {
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/baseline/bv2string": "97ff85d7ffeb419844638d87ed518b33f5644800540a7bb96414834d452bc7c2",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/baseline/native.c": "e328c88ca180d3796fa698b05efc9c114c89741c2bff5f5573338908c5968619",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/baseline/precise-gc.c": "ada99c2b775bfef4f7e6070fdccec717fbd7af116fd94d64bd17474d8f46c47d",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/chain-inline/bv2string": "159746b364d2ef30ad733923fd395f2ccbe3b63a08dd4a25faa543eeaab1748d",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/chain-inline/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/chain-inline/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/gc-inline/bv2string": "20744729bea038e83cff97bfeb8f24a0e2c8d2e3b495d39e733a6af3c41933b7",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/gc-inline/native.c": "e328c88ca180d3796fa698b05efc9c114c89741c2bff5f5573338908c5968619",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/gc-inline/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/libsnail_runtime.a": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/module.ll": "be0877655d4e1cb342a4a58d7486eabf4daca71c6648253500ea619bfc17825a",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/native-entry.c": "d52bd220142c1447cd73692033e75b9c0e2186f08c4adba31060502b830037be",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/native-provider.h": "ab165b5c2a3ae560bef325bc477cd7913d7e8e2b8c5c5154dead19b50748c443",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/native.c": "e328c88ca180d3796fa698b05efc9c114c89741c2bff5f5573338908c5968619",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/original-build.json": "2685bc335815bccd3a25a7d82a2022b6b3a1e52497513cab985d140bc6e27f0e",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/precise-gc.c": "ada99c2b775bfef4f7e6070fdccec717fbd7af116fd94d64bd17474d8f46c47d",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/provider-0.o": "36694b170467cffb73af2c6c3147d270812288ff2cc91459cb96c290745f45a2",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/spec.json": "1ebfaf3ba6cbe8ab5622bdcc12fa699a6c4e9e0ec078ba290d93ad4e50da1efa",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string/strict.wasm": "03b6ed0da64be15486b095364da2dd9535a10f082277f0d92316b5e4f4cf22da",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/measure.py": "b18a7074cd8e6383931b8fd7d4f611f1ff9671802a545fc4c2b474b4cf561496",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/supervisor/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/supervisor/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/supervisor/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/plan.py": "62d406213b5e8fb85abfc5b66ba0e7ea76e82ab1eb2b3b591b9809efa8bcb1da"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "policy": "one discarded and eight retained per system; four rotations and their reversals; each variant twice in every retained position; no replacements; Matrix then bv2string",
+  "purpose": "Isolate visibility of native_gc_alloc and the outer native_alloc at unchanged Wasm constructors."
+}
