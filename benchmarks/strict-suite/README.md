@@ -3,7 +3,7 @@
 This diagnostic adapts thirty original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, and `ray`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, and `mazefun`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -632,3 +632,43 @@ nonfinite cases and every scene field against original Chez and an independent
 ordered-scene oracle. These viewport changes and observers never enter the
 canonical artifact. The supported evidence covers these bounded I64 inputs;
 arbitrary-precision resolutions or overflowing extents are not claimed.
+
+Select `--benchmarks mazefun` for the original 10,000 functional maze generations
+at 11 by 11. Both dimensions pass through returned opaque values on every call.
+The kernel retains nested immutable lists, increasing construction loops,
+deterministic shuffle/removal recursion, duplicate-cavity checks, ordered flood
+relabeling and the complete final grid. A cell write copies the outer prefix
+through its row and the row prefix through its cell; untouched suffixes remain
+shared. Flood neighbors come from the incoming cave, while its left fold carries
+each updated cave to the next neighbor. The final predicate compares every mark,
+row end and outer list end inside the workload.
+
+The `Cavity` variant is either a wall or a coordinate with I64 row and column.
+Position lists contain coordinates, and writes reuse those exact labels.
+Dimensions have their own product type. A finite result variant distinguishes
+initial false, the error symbol, a complete Boolean grid and an invalid expected
+datum. Two- and four-operand append helpers copy each leading spine once and
+share the final tail. The explicit map calls its callback before recursing over
+the tail. These helpers and the adapted kernel are identical in the adapted
+Chez control; its variants/products use vectors. Their representation costs
+differ from both original Scheme pairs and WasmGC structs.
+
+The actual Chez reader decodes the original input before timing. Counts and
+dimensions must be exact signed I64 integers. Expected false and the interned
+`error` symbol keep their meaning, including reader spellings such as `#false`
+and `|error|`. Any proper nested list of `_` and `*` marks is preserved, including
+empty and ragged lists; other datums become the invalid-expected variant. This
+classification preserves the original predicate's Boolean answer, but does not
+claim equal comparison cost for invalid datums. Every positive-count invocation
+still executes. Nonpositive counts retain false; even dimensions return error;
+negative odd dimensions retain the original empty construction behavior.
+
+Preparation executes counts 1, 2 and 10,000 in original/adapted Chez and
+raw/optimized Wasm. Separate probes compare fifteen complete outputs, ordered
+hole/shuffle/cavity traces for three small grids, and thirty-six predicate
+fixtures in all four forms. Fifteen persistent-sharing assertions run in each
+Chez form. Wasm probes compare complete values and traces; they do not export
+managed references or claim to measure their identity. The unchanged recursive
+list writes/removals and direct cons lowering support the sharing contract.
+Observers and retained-work counts stay separate from canonical artifacts and
+clean measurements. This port changes no compiler capability.
