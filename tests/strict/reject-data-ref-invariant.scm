@@ -1,0 +1,6 @@
+(import (snail strict))
+(define-data (Cell T) (cell (value (Ref T) cell-ref)))
+(define x (cell (ref 1)))
+(define alias x)
+(ref-set! (cell-ref alias) #t)
+(ref-get (cell-ref x))
