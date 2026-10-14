@@ -94,8 +94,11 @@ COMMON = ''';; A node's independently allocated name Ref supplies its identity.
 (: conform-pair? (All (T) (-> (List T) Bool)))
 (define (conform-pair? value) (not (null? value)))
 (define (conform-caar values) (car (car values)))
+;; Dynamic apply to the source rest-argument constructor builds a fresh spine.
+(define (copy-graph-arguments nodes)
+  (if (null? nodes) '() (cons (car nodes) (copy-graph-arguments (cdr nodes)))))
 (define (make-graph-list nodes)
-  (make-internal-graph nodes (make-empty-table) (make-empty-table)))
+  (make-internal-graph (copy-graph-arguments nodes) (make-empty-table) (make-empty-table)))
 (define (display-text text)
   (let loop ((index 0))
     (unless (= index (string-length text))
@@ -281,7 +284,8 @@ def adaptation(source):
     for table in ('met', 'joined'):
         before = f'((lookup (already-{table} graph) node1 node2))'
         source = edit(source, ledger, before, before[:-1] + ' => optional-value)', 'A cache hit unwraps Optional before recursive construction.')
-    source = edit(source, ledger, '(apply make-graph', '(make-graph-list', 'Consume the existing list without changing its element order.')
+    source = edit(source, ledger, '(apply make-graph', '(make-graph-list',
+                  'Build the rest-argument spine explicitly and preserve element order for the dynamic apply.')
     for atom in ('phi', 'theta'):
         source = edit(source, ledger, "'" + atom, atom + '-operation',
                       'Operation literals use ordinary interned Symbol values created before timing.', 3)
