@@ -2217,7 +2217,6 @@ def prepare(options):
     shutil.copy2(HERE / 'nucleic-host.mjs', options.output / 'nucleic-host.mjs')
     shutil.copy2(HERE / 'earley_port.py', options.output / 'earley_port.py')
     shutil.copy2(HERE / 'boyer_port.py', options.output / 'boyer_port.py')
-    shutil.copy2(HERE / 'browse-observe.mjs', options.output / 'browse-observe.mjs')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):

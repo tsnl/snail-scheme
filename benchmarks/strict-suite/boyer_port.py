@@ -214,13 +214,23 @@ def datum_operations(source):
     return browse_port.tokens(source, replacements)
 
 
-# Chez's original primitive cons evaluates this translation before the lookup.
+# Chez's original primitive cons evaluates these operands from left to right.
 # The wrapped Datum constructor needs explicit sequencing to retain that observed
 # setup order; general Scheme leaves operand evaluation order unspecified.
 LEMMA_CONS = '(cons\n                 (translate-term term)\n                 (get (car (cadr term)) (quote lemmas)))'
 ORDERED_LEMMA_CONS = '''(let* ((translated-lemma (translate-term term))
                         (prior-lemmas (get (car (cadr term)) (quote lemmas))))
                   (cons translated-lemma prior-lemmas))'''
+TERM_CONS = '''(cons (symbol->symbol-record (car term))
+                      (translate-args (cdr term)))'''
+ORDERED_TERM_CONS = '''(let* ((constructor (symbol->symbol-record (car term)))
+                       (arguments (translate-args (cdr term))))
+                  (cons constructor arguments))'''
+ARGUMENT_CONS = '''(cons (translate-term (car lst))
+                      (translate-args (cdr lst)))'''
+ORDERED_ARGUMENT_CONS = '''(let* ((first (translate-term (car lst)))
+                       (rest (translate-args (cdr lst))))
+                  (cons first rest))'''
 
 
 def typed_truth_tests(source):
@@ -242,8 +252,10 @@ def verify_reverse(source, adapted, ledger):
 
 
 def adaptation(source):
-    ledger = []
-    adapted = browse_port.edit(source, ledger, LEMMA_CONS, ORDERED_LEMMA_CONS)
+    ledger, adapted = [], source
+    for before, after in [(LEMMA_CONS, ORDERED_LEMMA_CONS), (TERM_CONS, ORDERED_TERM_CONS),
+                          (ARGUMENT_CONS, ORDERED_ARGUMENT_CONS)]:
+        adapted = browse_port.edit(adapted, ledger, before, after)
     unquoted, constants = quoted_constants(adapted)
     adapted = browse_port.edit(adapted, ledger, adapted, unquoted)
     for transform in (stubs, typed_results, mutable_bindings, datum_operations, typed_truth_tests, function_contracts):
@@ -424,7 +436,8 @@ def prepare_workload(name, files, output, runner, tools, environment, driver):
     return dict(name=name, status='ready', spec=spec, chez_commands=commands,
                 systems=['strict', 'native', 'chez', 'chez-adapted'],
                 hashes={str(path.relative_to(directory)): driver.digest(path)
-                        for path in directory.rglob('*') if path.is_file()})
+                        for path in directory.rglob('*')
+                        if path.is_file() and 'target' not in path.relative_to(directory).parts})
 
 
 def prepare_case(name, files, output, runner, tools, environment, driver):
@@ -449,8 +462,10 @@ COUNTERS = '''(define observer-counts (make-vector 15 0))
 (: observer-tick! (-> I64 Unit))
 (define (observer-tick! index)
   (vector-set! observer-counts index (+ (vector-ref observer-counts index) 1)))
-(: observer-cons (-> Datum Datum Datum))
-(define (observer-cons first rest) (observer-tick! 12) (datum-cons first rest))
+(define-syntax observer-cons
+  (syntax-rules ()
+    ((observer-cons first rest)
+     (begin (observer-tick! 12) (datum-cons first rest)))))
 (: observer-save (-> Datum Datum))
 (define (observer-save value) (ref-set! observer-rewritten value) value)
 (: observer-reset! (-> Unit))
@@ -885,4 +900,13 @@ def prepare_rust_control(directory, tools, environment, driver):
     reader_ports.record(target, 'unit-tests', [tools['CARGO'], 'test', '--offline', '--lib', 'boyer::tests'],
                         dict(environment, CARGO_TARGET_DIR=str(target / 'target')), target)
     reader_ports.build_rust_bin(target, directory.name, tools, environment)
+    retain_rust_ir(target, directory.name)
     validate_rust_control(directory, target, tools, environment, driver)
+
+
+def retain_rust_ir(target, name):
+    for system, directory in [('native', 'release'), ('wasm', 'wasm32-wasip1/release')]:
+        paths = list((target / 'target' / directory / 'deps').glob(name + '-*.ll'))
+        if len(paths) != 1:
+            raise ValueError('expected one Rust Boyer LLVM module: ' + system)
+        shutil.copy2(paths[0], target / (name + '-' + system + '.ll'))

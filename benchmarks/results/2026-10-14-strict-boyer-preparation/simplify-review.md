@@ -32,11 +32,14 @@ The debate produced these concrete changes:
 - Native heap reservations are explicit choices in the workload specification;
   correctness preparation does not retry with progressively larger heaps.
 - Exact setup comparison exposed a changed lemma lookup/translation order.
-  An explicit `let*` records the observed original Chez ordering. The source
-  language itself leaves operand evaluation order unspecified.
+  Three explicit `let*` expressions record the observed original Chez ordering
+  of lemma translation/lookup, constructor/arguments and argument head/tail.
+  The source language itself leaves operand evaluation order unspecified.
 - Adding a symbol-entry logger changed Chez inlining and the resulting order.
   That logger was removed. Structural-order and identity probes now use kernel
   bodies without work-counter edits; counters run in a separate program.
+  The source-cons counter expands as syntax instead of adding another ordinary
+  procedure call around the operands.
   Both Chez diagnostic programs compile at optimize level 2, like the complete
   original/adapted controls. Failed exact comparisons remain retained evidence.
 

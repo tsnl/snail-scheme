@@ -65,10 +65,12 @@ mutated bindings. It preserves the source's association lists, directional
 unification, recursive substitution, recursive rewriting and tautology search.
 SBoyer's sharing constructor returns the old pair exactly when both resulting
 fields have their original identities. Every adaptation is recorded and
-reversed back to the exact kernel text. One explicit `let*` makes lemma
-translation precede the previous-lemma lookup, matching the observed original
-Chez setup order. General Scheme leaves operand evaluation order unspecified;
-this is a compatibility choice for these pinned programs.
+reversed back to the exact kernel text. Three explicit `let*` expressions make
+lemma translation precede the previous-lemma lookup, translate a constructor
+before its arguments, and translate each argument before the remaining list.
+These match the observed original Chez setup order. General Scheme leaves
+operand evaluation order unspecified; this is a compatibility choice for these
+pinned programs.
 
 Preparation checks the original and exactly adapted complete Chez programs,
 linked raw and Binaryen-optimized Wasm on V8, and actual mechanical native64.
