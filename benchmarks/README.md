@@ -46,8 +46,11 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 28 measured workloads,
-27 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 29 measured workloads,
+28 with paired Chez controls. The latest
+[Lattice report](results/2026-10-14-strict-lattice-comparison/README.md) records
+1.647× original Chez time and 1.815× Rust/Wasm time for the original count ten,
+problem 44 and result 120549, with source/storage differences documented. The
 [Puzzle report](results/2026-10-14-strict-puzzle-comparison/README.md) records
 1.157× original Chez time and 2.434× Rust/Wasm time. The
 [String storage controls](results/2026-10-14-string-storage/README.md) compare

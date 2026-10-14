@@ -1,0 +1,83 @@
+{
+  "kind": "Four relocated count-one correctness replays; not clean timing or performance samples",
+  "performance_samples": false,
+  "repetitions": 1,
+  "problem_selector": 44,
+  "expected": 120549,
+  "restore_root": "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored",
+  "archive_sha256": "fd5251a325cd1b2c0fb0587c08b895507f6bfded66861972d3ca612dc9e694c9",
+  "verified_members": 174,
+  "all_archive_members_verified_before_and_after": true,
+  "external_tool_hashes_verified_before_and_after": true,
+  "canonical_spec_input_remain_count10": true,
+  "changed_files": "Only the separately archived replay/spec-count1.json and per-process stdin specify count1. Original canonical spec/input and every source/artifact remain unchanged.",
+  "probes": [
+    {
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/replay/spec-count1.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.202425438,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "1\n44\n120549\n",
+      "returncode": 0,
+      "stdout": "Running lattice:44:1\nElapsed time: 0.117477546 seconds (0.117) for lattice:44:1\n+!CSVLINE!+chez,lattice:44:1,0.117477546\n",
+      "stderr": ""
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "1\n44\n120549\n",
+      "returncode": 0,
+      "stdout": "Running lattice:44:1\nElapsed time: 0.129688984 seconds (0.13) for lattice:44:1\n+!CSVLINE!+chez,lattice:44:1,0.129688984\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-comparison-evidence-20261014/build/lattice-comparison-restored/files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "1\n44\n120549\n",
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:1,0.111229465\n",
+      "stderr": ""
+    }
+  ],
+  "complete": true
+}
