@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/package.py"
+  ],
+  "returncode": 0,
+  "stdout": "Archived 1462 files; 18702276 bytes\n",
+  "stderr": "",
+  "timeout": false,
+  "process_group": 3,
+  "executing_descendants": [],
+  "process_seconds": 23.4725975060137
+}

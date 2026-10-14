@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts thirty-five original R7RS kernels to the strict compiler:
+This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, and `bv2string`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, and `matrix`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -794,3 +794,21 @@ not assert identical behavior on arbitrary failing inputs. A separate native
 timing provider preserves opacity calls without diagnostic counter increments.
 Preparation records these representation differences and does
 not treat its incidental validation durations as benchmark measurements.
+
+## Complete modular Matrix search
+
+Select `--benchmarks matrix` to prepare the complete 805-line upstream program
+at count 2,500, with five columns and invariant size five. The predicate compares
+all five ordered 6-by-5 matrices. The adapter retains modular arithmetic, row
+and subset enumeration, lazy permutation callbacks, recursive search, prime-tail
+mutation and the answer cap. Explicit variants and refs replace mixed pairs,
+message symbols and mutable boxes; the exact edit ledger reverses to the source.
+
+The [preparation report](../results/2026-10-14-strict-matrix-preparation/README.md)
+records full-count original/adapted Chez, raw/optimized Wasm and native checks,
+70 complete observation comparisons, 60 predicate checks, diagnostic failures
+and independent small mathematical models. Mutable aliases are checked on all
+Scheme paths; immutable spine identity has a separate Chez-only audit. The
+unchanged Rust native/WASI reference passes complete outputs as a separately
+disclosed algorithm and layout control. This preparation adds no clean timing
+result or measured-coverage claim.
