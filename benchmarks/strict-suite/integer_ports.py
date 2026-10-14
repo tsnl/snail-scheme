@@ -315,7 +315,7 @@ def finish_group(group):
         time.sleep(0.02)
 
 
-def execute(command,directory,path,environment,stdin=None):
+def execute(command,directory,path,environment,stdin=None,expected=0):
     command=list(map(str,command))
     child=subprocess.Popen(command,cwd=directory,env=environment,text=True,stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
@@ -329,7 +329,8 @@ def execute(command,directory,path,environment,stdin=None):
     record=dict(command=command,returncode=child.returncode,stdout=stdout,stderr=stderr,
                 timeout=expired,process_group=child.pid,diagnostic_only=True,executing_descendants=remaining)
     save(path,record)
-    if expired or remaining or child.returncode: raise RuntimeError('preparation failed: '+str(path))
+    wrong = child.returncode == 0 if expected == 'error' else child.returncode != expected
+    if expired or remaining or wrong: raise RuntimeError('preparation failed: '+str(path))
     return stdout
 
 

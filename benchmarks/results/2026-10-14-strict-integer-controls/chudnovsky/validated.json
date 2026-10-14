@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "count": 1000,
+  "input_sha256": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c",
+  "output_sha256": "2d40c1d560b43a96a7788c414d69c55ed13550040364adc1738c38ad9ee94ce9",
+  "diagnostic_only": true,
+  "no_clock_started": true
+}

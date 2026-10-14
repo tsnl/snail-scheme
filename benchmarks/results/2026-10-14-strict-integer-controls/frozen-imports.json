@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-I",
+    "-B",
+    "-c",
+    "import sys; sys.path.insert(0, '/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite'); import integer_controls, integer_ports, data_ports; print(\"PASS frozen preparation imports\")"
+  ],
+  "returncode": 0,
+  "stdout": "PASS frozen preparation imports\n",
+  "stderr": "",
+  "timeout": false,
+  "process_group": 4,
+  "diagnostic_only": true,
+  "executing_descendants": []
+}

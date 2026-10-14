@@ -841,6 +841,33 @@ across original Chez, adapted Chez using native big integers, the same limb
 Scheme body with checked scalar arithmetic on Chez, raw/optimized Wasm and
 native64. These are correctness preparations, with no clean timing claim.
 
+`python3 benchmarks/strict-suite/integer_controls.py --output build/integer-controls-FRESH`
+prepares production V8, the native-final Wasm on V8, native64, compiled original
+Chez, compiled adapted Chez using native big integers, compiled Chez executing
+the checked limb body, Rust native, and optimized Rust/Wasm. The output directory
+must be new. The script validates complete canonical outputs, count 0/1/2
+behavior, and wrong-result rejection; a separate Scheme probe emits every
+complete result at the full original repetition count. It retains raw Wasm too.
+
+The optional clocks include numerical computation and the final complete result
+predicate. Parsing expected values, module initialization, and decimal output
+are outside. The same-limb Chez control converts expected values to its Integer
+representation before computation and compares numerically; Chez's general
+vectors and scalar representation still differ from native WasmGC I32 arrays.
+Scheme scalar opacity providers count calls, including in timed mode; the Rust
+reference uses `black_box`. These provider costs and layout differences remain
+part of their respective controls. Every validation mode leaves clocks disabled.
+Measurements require a separately coordinated invocation of the frozen artifacts;
+preparation does not add measured workload coverage.
+
+The output includes `timing-plan.json` with the sixteen concrete workload/system
+commands, artifact hashes, input paths, and environment guards. It does not
+execute that plan. A clean-directory import check covers the frozen preparation
+modules, including their `data_ports.py` dependency. The native-final V8 module
+is checked byte-for-byte against the module consumed by native lowering.
+The [control evidence](../results/2026-10-14-strict-integer-controls/README.md)
+records actual default-V8 tiers and native code alongside the separate probes.
+
 ## Complete file readers
 
 Select `--benchmarks sum1 read1` to prepare the complete upstream programs with
