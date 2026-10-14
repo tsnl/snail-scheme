@@ -138,3 +138,18 @@ confirms stale unit/oracle files cannot credit an omitted group, and a failed
 invocation cannot leave a successful summary. The final follow-up used
 `--only oracle`; the exhaustive radix checks remain the earlier recorded
 evidence. No timing was taken.
+
+The [independent integration run](integration-validation.json) then rebuilt the
+final source above the typed reader and both allocator-inlining annotations.
+All three groups passed in this fresh output directory: both 64,512-pair radix
+checks and the 2,904-case production oracle on raw/optimized Wasm and native,
+including forced collection and the source rejections. The record retains every
+test command and its output, plus compiler/runtime source identities. Required
+source errors leave three incomplete compiler trace files; those are recorded
+separately and are not used as test outcomes. `make test` and `make check` also
+passed during integration.
+
+The [preparation review](integration-preparation-review.json) independently
+verifies the three initial archive hashes, reversible source ledgers and
+unchanged canonical inputs. All six archived complete outputs match for each
+numeric workload. These checks add correctness evidence, not timing samples.

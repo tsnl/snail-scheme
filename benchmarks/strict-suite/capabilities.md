@@ -11,9 +11,11 @@ checked owned blocks and Scheme append/copy helpers; measured short-string
 overhead remains under investigation. Mutable bindings use
 explicit `Ref` cells. The typed datum and reader libraries now provide symbols,
 mutable datum pairs and incremental input; their structural equality covers
-finite acyclic data. First-class continuations and a full numeric tower remain
-outside this strict subset. Representation support alone does not establish a
-completed port.
+finite acyclic data. The immutable Integer library now supplies exact
+arbitrary-precision arithmetic over specialized I32 limbs. The datum reader's
+exact numbers remain bounded to I64; rational numbers and first-class
+continuations remain outside this strict subset. Representation support alone
+does not establish a completed port.
 
 The five selected ports and FFT have preceding measured reports. Quicksort,
 graphs, mperm and simplex have reviewed canonical measurements against both
@@ -86,6 +88,12 @@ The [typed reader library report](../results/2026-10-14-strict-reader-library/RE
 checks complete canonical `sum1` and `read1` input streams on linked raw Wasm,
 optimized Wasm and native against Chez. Their complete workload adapters and
 timings remain in preparation, so this adds no measured coverage.
+The [exact-integer report](../results/2026-10-14-strict-integer/README.md)
+adds full-count correctness preparations for pi and Chudnovsky on raw/optimized
+Wasm, native64 and three Chez controls. Every original output digit and pi's
+rounding-difference columns pass. Both workloads await clean measurement; the
+same-limb Chez control separates library algorithms from Chez's native bigint
+implementation.
 
 | Workload | Capability and required source work |
 | --- | --- |
@@ -107,7 +115,7 @@ timings remain in preparation, so this adds no measured coverage.
 | fibc | Essential first-class continuations, including re-entering captured continuations. |
 | mbrotZ | Measured original complex Mandelbrot, 1,000 × 75 × 75 pixels: 0.397× original Chez time, 0.159× adapted Chez and 1.565× Rust/Wasm. Immutable two-F64 products preserve complex arithmetic and all matrix stores. Complete grids, exact component bits and cap/radius probes pass; representation and opacity differences are recorded. |
 | nucleic | Measured all 50 original searches: V8 0.220574 s, native 0.297789 s, original Chez 0.740948 s and adapted Chez 0.765314 s. V8 is 3.359× faster than original Chez; native takes 1.350× V8 time. Complete constants, ordered solutions, mutation aliases and numeric predicates pass across all five preparation targets. All 20 clean observations and 329 frozen identities pass; layout, collector and transcendental differences remain explicit. See the [four-system report](../results/2026-10-14-strict-nucleic-comparison/README.md). |
-| pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
+| pi | Full 100 repetitions at 50 through 500 digits pass raw/optimized Wasm, native64 and original/adapted/same-limb Chez. Immutable Integer arithmetic preserves all three original algorithms and complete output columns. Explicit constant lifting and square-root result extraction are recorded; clean timings remain in preparation. |
 | ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
 | sum1 | Typed input and reader libraries pass all 100,000 canonical numeric values against Chez. Full 25-invocation adapter and timings remain in preparation; each file read belongs inside the workload clock. |
@@ -126,7 +134,7 @@ timings remain in preparation, so this adds no measured coverage.
 | peval | Symbolic recursive expression AST, generated names and destructive pair edits. |
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
 | slatex | String/character processing, symbolic token state, destructive list edits and actual TeX file IO. |
-| chudnovsky | Arbitrary precision exact integers, exponentiation, exact integer square root/multiple values and rounding/conversions. |
+| chudnovsky | Full 1,000 repetitions at 50 through 500 digits pass raw/optimized Wasm, native64 and original/adapted/same-limb Chez. Binary splitting and all exact results remain; explicit constant lifting, binary association of exact products and the F64 term-count expression are recorded. Clean timings remain in preparation. |
 | nboyer | Symbolic term/lemma trees, heterogeneous associations and mutable pairs; preserve rewrite-count check, not only the boolean theorem result. Kernel definitions follow its harness definition. |
 | sboyer | Symbolic terms and sharing-cons structures with heterogeneous data; preserve rewrite-count check and sharing behavior. Kernel definitions follow its harness definition. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
