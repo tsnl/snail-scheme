@@ -484,8 +484,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 41,
-  "historical_paired_chez_count": 40,
+  "historical_measured_strict_count": 42,
+  "historical_paired_chez_count": 41,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -517,6 +517,7 @@
   "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md",
   "bv2string_measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md",
   "historical_measured_strict_names": [
+    "ack",
     "array1",
     "bv2string",
     "cat",
@@ -560,6 +561,7 @@
     "wc"
   ],
   "historical_paired_chez_names": [
+    "ack",
     "array1",
     "bv2string",
     "chudnovsky",
@@ -602,7 +604,6 @@
     "wc"
   ],
   "coverage_exclusions": {
-    "ack": "Current raw/optimized Wasm and native64 pass the original full input without stack flags. Clean timing pending; historical failed optimized artifact retained. Recursive Rust/Wasm still fails the default stack, while its separately labeled heap-frame control passes.",
     "gcbench": "Correctness ready; intended live-heap retention unproven, no timing.",
     "cat": "Measured strict worker, without same-window Chez comparison."
   },
@@ -610,5 +611,7 @@
   "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
   "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
   "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md",
-  "integer_measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md"
+  "integer_measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+  "ack_measurement_report": "benchmarks/results/2026-10-14-strict-ack-comparison/README.md",
+  "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained."
 }

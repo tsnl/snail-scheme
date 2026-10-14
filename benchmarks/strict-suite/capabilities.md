@@ -75,9 +75,9 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **41 of 57 measured workloads**, **40 with paired
-Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann
-awaits a new clean comparison, and gcbench's unmeasured retention case is excluded;
+Historical coverage is now **42 of 57 measured workloads**, **41 with paired
+Chez controls**. The explicit name sets are in `capabilities.json`.
+Gcbench's unmeasured retention case is excluded;
 `cat` has strict measurements without a same-window Chez control.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
@@ -111,7 +111,13 @@ and the exact native-final Scheme Wasm on V8, without larger-stack flags.
 Generated Scheme and input are byte-identical to the old experiment; its archived
 optimized artifact still fails under the same current host. Recursive Rust/Wasm
 also still fails the default stack, while its existing explicit heap-frame
-variant passes and remains a separate control. These checks add no clean timings.
+variant passes and remains a separate control. The subsequent
+[seven-system comparison](../results/2026-10-14-strict-ack-comparison/README.md)
+passes all 56 complete processes. Production V8 takes 1.109322 s, native64
+0.757917 s and original Chez 0.821724 s. V8 takes 1.350× original Chez time;
+native uses 32.04% less time than V8 on the identical native-final Scheme Wasm
+and 7.76% less than Chez. Seven retained observations per system preserve all
+observed variance, including the wider explicit-heap Rust/Wasm range.
 
 | Workload | Capability and required source work |
 | --- | --- |
