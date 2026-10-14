@@ -1,0 +1,26 @@
+{
+  "recorded_at": "2026-10-14T00:02:31.220545+00:00",
+  "driver_commit": "87855830eb8d216def3ab71bda1757d867be4ca0",
+  "compiler_source_commit": "cf22413567baa5e39db9cf88f41e53a6be93d4f8",
+  "local_fix_commit": "96ce08890f60fa5a8de1bb59b68c8c17873e680e",
+  "compiler_base": "c39c2680e94bc9df2f21ba9d759a6412ce4a3a81",
+  "post_shared_ir_compiler_measured": false,
+  "original_frozen_files_unchanged": 293,
+  "clean_command": "env -u NODE_OPTIONS python3 benchmarks/strict-suite/measure.py measure --output build/strict-fft-final-cf22413 --cpu 5 --rounds 3",
+  "process_session": 55105,
+  "cpu": 5,
+  "rounds": 3,
+  "default_v8": true,
+  "node_options_unset": true,
+  "original_repetitions": 100,
+  "original_inputs": [
+    65536,
+    0.0
+  ],
+  "original_expected": 0.0,
+  "quiet_window": "Parent, Rust and overload/shared-IR agents explicitly held CPU-heavy work; parent released them after all eight measurements finished.",
+  "results_sha256": "2f50b4afca887298d1e240e12c410b2ea617c24d1d613924fe705b7b284bc1cf",
+  "strict_over_chez": 0.25688418791963,
+  "chez_arithmetic": "Canonical generic operators; no explicit-flonum FFT control measured.",
+  "source_match": "Complete original/matched Chez source and binary are identical; the strict kernel text matches exactly."
+}
