@@ -231,7 +231,7 @@ The fixed diagnostic strings and integer formatting use scalar host imports at
 the original print sites. Node writes synchronously; Chez uses its normal string
 formatting and display. Thus the printed text and placement match, while host
 crossing, formatting and I/O costs differ. Separate structural probes traverse
-every node and every array element at small depths, check iteration/event counts,
+every node and every array element at small depths, check the order and multiplicity of completed-tree observations,
 reject malformed nodes and changed arrays, and check independent child mutation.
 They do not strengthen the timed predicate.
 
@@ -244,3 +244,10 @@ Passing output checks alone cannot establish this benchmark's live-heap overlap.
 The original tree check compares a constructed record with the empty list and is
 also necessarily false. Neither Chez control has a verified lifetime guarantee
 in this preparation; canonical correctness alone is insufficient on every system.
+
+The canonical outer predicates run once after all repetitions and check only the
+final result. Supplemental gcbench events observe completed trees plus array and
+edge-case checks; they are not traces of individual allocations or every internal
+construction step. Independent review accepted the unchanged runtime code and
+added a passing raw/optimized witness for fresh child Ref cells across distinct
+nodes. Paraffins awaits its coordinated timing window; gcbench remains excluded.

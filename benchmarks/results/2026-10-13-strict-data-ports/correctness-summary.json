@@ -44,9 +44,13 @@
         6,
         8
       ],
-      "oracle": "Complete node/leaf/padding checks and construction event stream; every array element; malformed shape/padding and independent child updates; first/middle/last/short/long expected arrays."
+      "oracle": "Complete node/leaf/padding checks; ordered completed-tree observations and array/edge-case checks, not individual allocations or every internal construction step; every array element; malformed shape/padding and independent child updates; first/middle/last/short/long expected arrays."
     }
   },
-  "total_expected_outcomes": 86,
-  "performance_samples": 0
+  "total_expected_outcomes": 88,
+  "performance_samples": 0,
+  "prepared_port_expected_outcomes": 86,
+  "parent_review_wasm_positive": 2,
+  "canonical_predicate_scope": "The canonical outer predicate checks only the final result once after all repetitions. Gcbench retains its in-kernel array consistency check at the original site in each invocation.",
+  "parent_review_witness": "Separate raw/optimized Wasm checks verify distinct left/right Ref cells within and across two independently constructed nodes."
 }

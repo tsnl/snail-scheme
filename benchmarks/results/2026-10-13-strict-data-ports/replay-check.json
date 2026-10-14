@@ -1,5 +1,5 @@
 {
-  "verified_archive_files": 213,
+  "verified_archive_files": 220,
   "checks": [
     {
       "command": [
@@ -209,5 +209,11 @@
     }
   ],
   "performance_samples": 0,
-  "runtime_artifacts_unchanged_after_supplement": true
+  "runtime_artifacts_unchanged_after_supplement": true,
+  "review_archive_verification": {
+    "destination": "/tmp/snail-strict-paraffins-timing-20261013",
+    "old_archive_files_preserved": 213,
+    "added_review_files": 7,
+    "runtime_payloads_and_driver_unchanged": true
+  }
 }

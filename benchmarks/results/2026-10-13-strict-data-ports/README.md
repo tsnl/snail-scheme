@@ -1,14 +1,14 @@
 # Prepared paraffins and gcbench strict ports
 
 Both source ports pass canonical correctness and separate structural checks.
-**Paraffins awaits independent review and coordinated timing. Gcbench is
+**Paraffins has passed independent review and awaits coordinated timing. Gcbench is
 canonical-correctness-ready, but its intended live-heap retention is unproven on
 both strict and Chez and its measurement remains blocked.** This report contains
 no performance samples, medians or speedup claims.
 
 | Workload | Unchanged canonical input and predicate | Preparation status |
 | --- | --- | --- |
-| paraffins | 10 repetitions, n = 23, result 5,731,580 | Ready for source-program timing after review; optimized payload removal is disclosed below. |
+| paraffins | 10 repetitions, n = 23, result 5,731,580 | Reviewed and ready for coordinated source-program timing; optimized payload removal is disclosed below. |
 | gcbench | 1 repetition, stretch depth 20, always-true outer predicate | Correctness ready; intended tree/temporary-allocation overlap is not established. |
 
 The full input files are retained, including paraffins' unread alternative
@@ -39,18 +39,23 @@ Formatting allocation, host-call overhead and buffering differ. They remain
 inside the canonical workload at the original sites and are not claimed to have
 equal costs.
 
-[Correctness](correctness-summary.json) records **86 expected outcomes**:
+[Correctness](correctness-summary.json) records **86 preparation outcomes**, plus
+**two passing raw/optimized Wasm checks** added during independent review:
 26 positive raw/optimized Wasm checks, 16 expected Wasm rejections, 10 canonical
 Chez checks, and 34 structural Chez checks/rejections. Paraffins runs counts 1,
 2 and the original 10 at n = 23; gcbench runs counts 1 and 2 at depth 20. Complete
 paraffin encodings at n = 1, 2, 4, 6, 8 and 10 compare every product and recursive
 child against the original program, with independent arity/carbon/product-count
 checks. Both Chez controls and Wasm reject changed, shortened and extended
-expected structures.
+expected structures. The canonical outer predicates run once after all repetitions
+and observe only the final result; gcbench retains its in-kernel array consistency
+check at the original site during every invocation.
 
 Gcbench probes at depths 6 and 8 traverse every node and every array element,
-check all construction events and iteration counts, reject malformed shape and
-padding, and check independent child mutation. First, middle, last, short and
+check the order and multiplicity of completed-tree observations, reject malformed
+shape and padding, and check independent child mutation. The event stream also
+contains array and edge-case checks; it does not trace individual allocations or
+every internal construction step. First, middle, last, short and
 long expected-array changes fail. Expected lengths never determine the workload
 size. These probes run in separate modules/processes. The canonical modules
 export only `bench` and `main`; no deep validation or supplemental reader keeps
@@ -113,10 +118,24 @@ python3 benchmarks/strict-suite/replay.py /tmp/strict-data-ports-replay \
   --report benchmarks/results/2026-10-13-strict-data-ports
 ```
 
-The [neutral behavioral brief](simplify-behavioral-brief.md) is ready for the
-parent's fresh independent simplify explanation and code review. Long validation
+[Independent review](independent-review.json) combined a fresh no-files Astra
+explanation, critical debate, and parent inspection of the kernels, adapters,
+driver and all 213 original archive members. It accepted the existing runtime
+implementation. A separate witness passes on raw and optimized Wasm and verifies
+fresh child Ref cells across two independently constructed nodes; its source,
+binaries, WAT, trace and results are in `review/parent-port-review/` in the archive.
+All 213 earlier members remain byte-identical; the archive now has 220 files.
+The [neutral behavioral brief](simplify-behavioral-brief.md) is preserved. Long validation
 routines enumerate complete integration checks; source adapters and Scheme
 helpers otherwise remain small direct operations. No broad suite, timing,
 publishing or landing was performed by this task. The capability inventory
 separates implemented nominal data support, prepared ports, remaining source work
 and preceding measured coverage; these two ports add no measured coverage yet.
+
+The [timing plan](timing-plan.json) prepares only paraffins: one discarded trio
+and three retained rotating trios, with fresh optimized-Wasm, original-Chez and
+adapted-Chez processes pinned to CPU 5. The restored timing directory has passed
+all artifact and driver hash checks; gcbench remains excluded. Existing validation
+durations suggest about 33 seconds for the batch, with a 90-second quiet window
+reserved for scheduling variation. Timing has not started and requires the
+parent's explicit coordination.

@@ -1,5 +1,5 @@
 {
-  "archive_sha256": "f14a603f8de59754acf7f406b50e661719a2c95e3b38deac25d5e8c40fd49dcc",
+  "archive_sha256": "54dd75941f169bffe8f2e58baec06d0c12afb4565fcc4b8727183147b1e3049c",
   "files": {
     "compiler-source/scripts/build-strict": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
     "compiler-source/src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
@@ -189,6 +189,13 @@
     "prepared.json": "5f3ea2353026b46bbd1c1d86906f42b10049ea8520cae7eb9fa77d7e6ba98360",
     "r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
     "retention-audit.json": "bc68f35a55c85a4b9a4ea86d195494fc5d1947f4e1c515dd738c63336fc45802",
+    "review/parent-port-review/independent-nodes.json": "53483d3f96bed2ea625ccb383724d1d05a742850ff381cb50afe21a97b62b30e",
+    "review/parent-port-review/independent-nodes.scm": "98f86bbd84c11635571d45c386eb8d4043a55f29d9ac9afd4472c558fd00a304",
+    "review/parent-port-review/independent-nodes.wasm": "5aa024895d63dbfef362e6bcfceae7ed3f88ebf3997261c27edb908c47626de3",
+    "review/parent-port-review/independent-nodes.wasm.raw.wasm": "c8adf1adebbce76ffc795015bc0b1fc783da0923fe92e9db2f293b62d5ae18c4",
+    "review/parent-port-review/independent-nodes.wasm.trace.json": "098456e4daf7e9160c9e9cbc2b1dafdc4ec80c3cb2145443223bfd1af943dd91",
+    "review/parent-port-review/independent-nodes.wasm.wat": "191b60c5d3d44e697149b37d09531a41ad54ef3003c86a2147e3bc55b75e05cf",
+    "review/parent-port-review/independent-review.json": "83cebfd94e0abb4fc1c893c13a6f3c874681476ef5874b00c94401c595f16278",
     "supplementary/managed-reference-boundary/README.md": "d970311d40b9db07186d25df6549847cfbfae8b6af2909b720b8c403fbe6383a",
     "supplementary/managed-reference-boundary/consumer.closed.disassembled.wat": "4eb2b98e00bcf0581f0749fcdb9869b49a37d57a7c9dafbaddf04d029b4e0e2f",
     "supplementary/managed-reference-boundary/consumer.closed.wasm": "de16122bcb4b8ed07557515d98ff0e001a2d20bf302190c72549f979feee886d",

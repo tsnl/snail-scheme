@@ -1,0 +1,39 @@
+{
+  "status": "awaiting-parent-quiet-window-start",
+  "command": [
+    "/run/current-system/sw/bin/python",
+    "/tmp/snail-strict-data-ports-20261013/benchmarks/strict-suite/measure.py",
+    "measure",
+    "--output",
+    "/tmp/snail-strict-paraffins-timing-20261013",
+    "--rounds",
+    "3",
+    "--cpu",
+    "5"
+  ],
+  "cwd": "/tmp/snail-strict-data-ports-20261013",
+  "output_directory": "/tmp/snail-strict-paraffins-timing-20261013",
+  "frozen_driver_commit": "8051bdd35d1bb1f74616609f6f20c8fca7d8959d",
+  "compiler_basis": "af02dac81890a00dad92a0a564664ff59aaca102",
+  "selected_ready_cases": [
+    "paraffins"
+  ],
+  "excluded": {
+    "gcbench": "retention-blocked; intended live-heap overlap unproven"
+  },
+  "process_plan": "One discarded rotating trio followed by three retained rotating trios; fresh processes; canonical count 10 and n=23; optimized Wasm, original Chez and adapted Chez; no profiling instrumentation.",
+  "cpu": 5,
+  "reserved_seconds": 90,
+  "estimate_basis": "Existing unpinned correctness process durations: 2.865 s optimized Wasm, 2.690 s original Chez, 2.673 s adapted Chez per canonical invocation. Four trios sum to about 33 s before scheduling/pinning variation; these are planning data, not clean performance samples.",
+  "node_options_required_unset": true,
+  "canonical_predicate": "Only the final result after ten repetitions is compared with 5731580.",
+  "archive_sha256": "54dd75941f169bffe8f2e58baec06d0c12afb4565fcc4b8727183147b1e3049c",
+  "runtime_hashes": {
+    "strict.wasm.raw.wasm": "7c3147e212e910b58fc395af58c9db52dc3a89ee8e75e7105a230d038da3ed23",
+    "strict.scm": "ae2b84b6dfde42e6366194acdea7fdec1cdadee98ed30cf780192bf9e9dd36e8",
+    "input.txt": "0bf0a5242d10ae18d7ec196029710db19f92333a7520448c03fc068d0af7d74a",
+    "strict.wasm": "060753de612717ae8646a62f9aa30008a97c2411d9f8967136cd9e60a113a551",
+    "program.so": "075d8167b95a95c1fc9719980a909bbf4244f8f562cb1d86f7d0b164a3ac5972",
+    "same-source-chez/program.so": "0ae20ced159f01020c866bd75b4ad095da75cc8120a4a653b1983a3e767a377e"
+  }
+}
