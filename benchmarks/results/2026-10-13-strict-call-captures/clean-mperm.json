@@ -1,0 +1,1993 @@
+{
+  "benchmark": "mperm",
+  "started_utc": "2026-10-14T05:08:15.642160+00:00",
+  "cpu": 5,
+  "node_options": null,
+  "compiler_commits": {
+    "baseline": "efbb1517a28003a8908677038a5bad4ef16bd289",
+    "capture": "192d810",
+    "structured": "1d745e68c6abf34d153a8c5d9ef1c75d57cad89a",
+    "combined": "7ff18c0"
+  },
+  "scope": "Full original counts, fresh processes, default V8 tiering; setup excluded and final predicate included.",
+  "rust_contract": {
+    "name": "mperm",
+    "artifact": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm",
+    "wasm_sha256": "a8142854105c244d45c1a859764e4c5364181c5d8002af3ea832792e2265bdf5",
+    "artifact_bytes": 121331,
+    "module_source_commit": "98626f985c6ad63edba2a0a0ec12b16d95b71e69",
+    "module_source": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mperm.rs",
+    "module_source_sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+    "validation_git_base_revision": "cb762f302dc88c78d3f6daa5cf01ce186c331630",
+    "exact_source_bundle": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source",
+    "source_bundle_hashes": {
+      "Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+      "Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+      "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "small-inputs.json": "98737ce27f221046e53f8600e1b113628f93a2c923b33faab7767ed7b929555c",
+      "src/bin/ack.rs": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+      "src/bin/array1.rs": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+      "src/bin/bv2string.rs": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+      "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+      "src/bin/chudnovsky.rs": "3c6fcb73342cae34624fa9ffec6367cfd34f0b214d9772bc8ba495cb553782f0",
+      "src/bin/cpstak.rs": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+      "src/bin/ctak.rs": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+      "src/bin/deriv.rs": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+      "src/bin/destruc.rs": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+      "src/bin/diviter.rs": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+      "src/bin/divrec.rs": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+      "src/bin/equal.rs": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+      "src/bin/fft.rs": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+      "src/bin/fib.rs": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+      "src/bin/fibc.rs": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+      "src/bin/fibfp.rs": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+      "src/bin/gcbench.rs": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+      "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+      "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+      "src/bin/mbrot.rs": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+      "src/bin/mbrotZ.rs": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+      "src/bin/mperm.rs": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+      "src/bin/nqueens.rs": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+      "src/bin/ntakl.rs": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+      "src/bin/pi.rs": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08",
+      "src/bin/pnpoly.rs": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+      "src/bin/primes.rs": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+      "src/bin/puzzle.rs": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+      "src/bin/quicksort.rs": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+      "src/bin/ray.rs": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+      "src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+      "src/bin/simplex.rs": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+      "src/bin/string.rs": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+      "src/bin/sum.rs": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+      "src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+      "src/bin/sumfp.rs": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+      "src/bin/tail.rs": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+      "src/bin/tak.rs": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+      "src/bin/takl.rs": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+      "src/bin/triangl.rs": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+      "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+      "src/lib.rs": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3",
+      "src/list.rs": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8",
+      "suite.py": "c7e96158037b787e266145982f66b7d12a21e3e7e8a87665fbe536c89ba6c07e"
+    },
+    "host": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+    "host_sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+      "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+    ],
+    "stdin": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/input.txt",
+    "input_sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941",
+    "input_text": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+    "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+    "correctness": {
+      "report": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/validation.json",
+      "full_canonical_pass": true,
+      "all_case_checks_pass": true,
+      "expected_stdout_result": "Result: 199584000",
+      "csv_case": "mperm:20"
+    },
+    "runtime_target": "wasm32-wasip1 / Node WASI preview1",
+    "timeout_seconds_from_validation_runner": 900,
+    "count": 20,
+    "parameters": {
+      "N": 10,
+      "K": 2,
+      "L": 1
+    },
+    "setup_excluded": "read/parse input, allocate queue and generate first K-L=1 complete N! permutation list",
+    "timed": "20 complete 10! permutation generations and queue flushes; final original head comparison, traversal of every integer in every retained permutation and computed factorial/sum predicate before clock capture",
+    "representation": "immutable Rc inner cells with copied prefixes/shared suffixes; Box singly linked outer rows; Rc queue ownership; iterative outer-list reclamation during flush; immediate reference-count reclamation versus tracing GC",
+    "opacity": "black_box queue fill slice and N; no complete dump in timed workload",
+    "audit": "complete six-permutation Gray order at N=3, prefix-tail/retained-queue native identity checks, full original canonical sum predicate",
+    "ignored_input": "last datum 16329600 ignored in both systems; computed N=10 sum is 199584000"
+  },
+  "identities_before": [
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/measure-call-captures.py",
+      "sha256": "5ad940ca8e743865a98b38736b2ca8030f3f767916f486750fc17ee4066da011"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-four-timing-handoff/handoff.json",
+      "sha256": "ad693ea0811027500c2121801dc8703cab4e210835a020c6baa09f1e7cc46a87"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.scm",
+      "sha256": "ede10e496edd60f140083ca4e50719f30abd2729716c9417651ccf9473e2e4f0"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.scm",
+      "sha256": "c2c4f3946adddf270f0fc0baa1afc905edfbd8e35dde27e17e3a5874529231fe"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.scm",
+      "sha256": "a30aa95ca7ed21413428b838396aa6b3cfb41a414f745b951123d08ac95067a7"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+      "sha256": "f956010567e36ec4ca8610b23fb3d772ad35a75ad8a941e540ba6ea510c17eeb"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+      "sha256": "63193f2e821aae7e4a0f89630af2ae782c0da5f199052bd68ba3408fce0241a0"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+      "sha256": "c9c039327ba80b8b980c8e885894d1dc5653ee2b9f94d1e7089b5823c041eb80"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+      "sha256": "d0ae034b61a5387b2c51d22311555aeb523cc5f7c2b500517f322757be10ddf3"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so",
+      "sha256": "b24629fedb55029ade44a90d496f022cd7c3f0cf9f9fbea68bd672010cd8c2e6"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so",
+      "sha256": "1a49010eebff9ca7cf39d0ff9abf4925b097f50a0448710ff005a3a444679b8c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm",
+      "sha256": "a8142854105c244d45c1a859764e4c5364181c5d8002af3ea832792e2265bdf5"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mperm.rs",
+      "sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/small-inputs.json",
+      "sha256": "98737ce27f221046e53f8600e1b113628f93a2c923b33faab7767ed7b929555c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "3c6fcb73342cae34624fa9ffec6367cfd34f0b214d9772bc8ba495cb553782f0"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/cpstak.rs",
+      "sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ctak.rs",
+      "sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/destruc.rs",
+      "sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/equal.rs",
+      "sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fibc.rs",
+      "sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/pi.rs",
+      "sha256": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/pnpoly.rs",
+      "sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ray.rs",
+      "sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/simplex.rs",
+      "sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/lib.rs",
+      "sha256": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/suite.py",
+      "sha256": "c7e96158037b787e266145982f66b7d12a21e3e7e8a87665fbe536c89ba6c07e"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "385c6eda0c2cdad55390198d4df5db7a6234ae124a53cc53aae698434fe3b1db"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "048712994e6fd7e01118b83e46ac67465cd43c002b0c861d42c980705519fcb4"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "771759772624c065747b0083109407df030d620199881f83a8287d4d31b23fd3"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "8a5e1bc34223f8f84ad459d1f0a816bb51208c2f003ad1253af3e3af61902d4e"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "d09161cdc75bea2686468fe555a28b3ad08c1975cd89281455344a5160c24347"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "7579fc572be370911bc6c157d93ee1be55924ea6f758785c1c4aaa48822fb6ab"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "9176e4f7da49f051d6efece4136a61e6822bed26b06cf8423d9b510aa40a61c9"
+    }
+  ],
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.548363285,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.582343039975967,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 17.548363285
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.479100576,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.51345832203515,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 17.479100576
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.503384227,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.49888758995803,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 16.503384227
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.381833243,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.3747471459792,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 16.381833243
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.582341399 seconds (4.582) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.582341399\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.82253246800974,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 4.582341399
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.554567361 seconds (4.555) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.554567361\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.787623105046805,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 4.554567361
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.548082223\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.128927285026293,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 4.548082223
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.537450772,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.575221145991236,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 17.537450772
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.706501879,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.75133200699929,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 17.706501879
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.185751532,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.19371223403141,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 16.185751532
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.456158604,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.45849711896153,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 16.456158604
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.586732411 seconds (4.587) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.586732411\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.828275490028318,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 4.586732411
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.593965916 seconds (4.594) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.593965916\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.82675523502985,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 4.593965916
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.563027339\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.144161348987836,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 4.563027339
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.50519249,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.540736591035966,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 17.50519249
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.336902016,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.426649678964168,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 16.336902016
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.343003598,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.334075532038696,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 16.343003598
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.588795814 seconds (4.589) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.588795814\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.829600671015214,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 4.588795814
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.591663185 seconds (4.592) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.591663185\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.826160739990883,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 4.591663185
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.519188071\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.135820740018971,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 4.519188071
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.52391115,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.591220165020786,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 17.52391115
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.219843968,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.217312028980814,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 16.219843968
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.379562667,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.371390766988043,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 16.379562667
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.585565193 seconds (4.586) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.585565193\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.824899900995661,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 4.585565193
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.584647261 seconds (4.585) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.584647261\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.818485262047034,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 4.584647261
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.520737893\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.131283138005529,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 4.520737893
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.516392246,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.55419856501976,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 17.516392246
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.633160856,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.674126981990412,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 17.633160856
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.508716251,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.5041704410105,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 16.508716251
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.581241033 seconds (4.581) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.581241033\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.8225334319868125,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 4.581241033
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.579477773 seconds (4.579) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.579477773\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.814144900010433,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 4.579477773
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.491459797\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.102816828992218,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 4.491459797
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.564669614,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.600845731969457,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 17.564669614
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.295234254,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.35393926402321,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 17.295234254
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.566533003,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.579161495959852,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 16.566533003
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.536550544 seconds (4.537) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.536550544\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.777557330962736,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 4.536550544
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.576100009 seconds (4.576) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.576100009\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.809611345990561,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 4.576100009
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.482255337\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.141554900968913,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 4.482255337
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.55842116,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.59591316600563,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 17.55842116
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.491338585,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.539078511006664,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 17.491338585
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.514669352,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.515815916005522,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 16.514669352
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.475152186,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.472975333977956,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 16.475152186
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.591171278 seconds (4.591) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.591171278\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.833348721964285,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 4.591171278
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.509272757\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.114232656022068,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 4.509272757
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.558454073,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.59758199105272,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 17.558454073
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.566494115,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.612430363020394,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 17.566494115
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.204341291,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.20781937299762,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 16.204341291
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.038410828,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.040518736001104,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 16.038410828
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.588018918 seconds (4.588) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.588018918\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.8278085680212826,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 4.588018918
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 199584000\n+!CSVLINE!+rust-wasm,mperm:20,4.526285137\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 6.164480347011704,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 4.526285137
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.55416441,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.59308618598152,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 17.55416441
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.234753324,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 18.320797004038468,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 17.234753324
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.556146042,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.56414244597545,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 16.556146042
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":16.375509028,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": null,
+      "process_seconds": 17.367798703024164,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 16.375509028
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.589695568 seconds (4.59) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.589695568\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.8326276849838905,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 4.589695568
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.589012442 seconds (4.589) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.589012442\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "process_seconds": 4.827171078999527,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 4.589012442
+    }
+  ],
+  "complete": true,
+  "order": [
+    "baseline",
+    "capture",
+    "structured",
+    "combined",
+    "original-chez",
+    "adapted-chez",
+    "rust-wasm"
+  ],
+  "identities_after": [
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/measure-call-captures.py",
+      "sha256": "5ad940ca8e743865a98b38736b2ca8030f3f767916f486750fc17ee4066da011"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-four-timing-handoff/handoff.json",
+      "sha256": "ad693ea0811027500c2121801dc8703cab4e210835a020c6baa09f1e7cc46a87"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.scm",
+      "sha256": "ede10e496edd60f140083ca4e50719f30abd2729716c9417651ccf9473e2e4f0"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.scm",
+      "sha256": "c2c4f3946adddf270f0fc0baa1afc905edfbd8e35dde27e17e3a5874529231fe"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.scm",
+      "sha256": "a30aa95ca7ed21413428b838396aa6b3cfb41a414f745b951123d08ac95067a7"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/base/mperm/strict.wasm",
+      "sha256": "f956010567e36ec4ca8610b23fb3d772ad35a75ad8a941e540ba6ea510c17eeb"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+      "sha256": "63193f2e821aae7e4a0f89630af2ae782c0da5f199052bd68ba3408fce0241a0"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/structured/mperm/strict.wasm",
+      "sha256": "c9c039327ba80b8b980c8e885894d1dc5653ee2b9f94d1e7089b5823c041eb80"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+      "sha256": "d0ae034b61a5387b2c51d22311555aeb523cc5f7c2b500517f322757be10ddf3"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so",
+      "sha256": "b24629fedb55029ade44a90d496f022cd7c3f0cf9f9fbea68bd672010cd8c2e6"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so",
+      "sha256": "1a49010eebff9ca7cf39d0ff9abf4925b097f50a0448710ff005a3a444679b8c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/program.wasm",
+      "sha256": "a8142854105c244d45c1a859764e4c5364181c5d8002af3ea832792e2265bdf5"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/cases/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mperm.rs",
+      "sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/small-inputs.json",
+      "sha256": "98737ce27f221046e53f8600e1b113628f93a2c923b33faab7767ed7b929555c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "3c6fcb73342cae34624fa9ffec6367cfd34f0b214d9772bc8ba495cb553782f0"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/cpstak.rs",
+      "sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ctak.rs",
+      "sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/destruc.rs",
+      "sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/equal.rs",
+      "sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fibc.rs",
+      "sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/pi.rs",
+      "sha256": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/pnpoly.rs",
+      "sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/ray.rs",
+      "sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/simplex.rs",
+      "sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/lib.rs",
+      "sha256": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-mperm-full/reference-source/suite.py",
+      "sha256": "c7e96158037b787e266145982f66b7d12a21e3e7e8a87665fbe536c89ba6c07e"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "385c6eda0c2cdad55390198d4df5db7a6234ae124a53cc53aae698434fe3b1db"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "048712994e6fd7e01118b83e46ac67465cd43c002b0c861d42c980705519fcb4"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "771759772624c065747b0083109407df030d620199881f83a8287d4d31b23fd3"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "8a5e1bc34223f8f84ad459d1f0a816bb51208c2f003ad1253af3e3af61902d4e"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "d09161cdc75bea2686468fe555a28b3ad08c1975cd89281455344a5160c24347"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "7579fc572be370911bc6c157d93ee1be55924ea6f758785c1c4aaa48822fb6ab"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "9176e4f7da49f051d6efece4136a61e6822bed26b06cf8423d9b510aa40a61c9"
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "samples": [
+        17.537450772,
+        17.52391115,
+        17.516392246,
+        17.564669614,
+        17.55842116,
+        17.558454073,
+        17.55416441
+      ],
+      "median": 17.55416441,
+      "min": 17.516392246,
+      "max": 17.564669614
+    },
+    "capture": {
+      "samples": [
+        17.706501879,
+        17.50519249,
+        17.633160856,
+        17.295234254,
+        17.491338585,
+        17.566494115,
+        17.234753324
+      ],
+      "median": 17.50519249,
+      "min": 17.234753324,
+      "max": 17.706501879
+    },
+    "structured": {
+      "samples": [
+        16.185751532,
+        16.336902016,
+        16.219843968,
+        16.566533003,
+        16.514669352,
+        16.204341291,
+        16.556146042
+      ],
+      "median": 16.336902016,
+      "min": 16.185751532,
+      "max": 16.566533003
+    },
+    "combined": {
+      "samples": [
+        16.456158604,
+        16.343003598,
+        16.379562667,
+        16.508716251,
+        16.475152186,
+        16.038410828,
+        16.375509028
+      ],
+      "median": 16.379562667,
+      "min": 16.038410828,
+      "max": 16.508716251
+    },
+    "original-chez": {
+      "samples": [
+        4.586732411,
+        4.588795814,
+        4.585565193,
+        4.581241033,
+        4.536550544,
+        4.588018918,
+        4.589695568
+      ],
+      "median": 4.586732411,
+      "min": 4.536550544,
+      "max": 4.589695568
+    },
+    "adapted-chez": {
+      "samples": [
+        4.593965916,
+        4.591663185,
+        4.584647261,
+        4.579477773,
+        4.576100009,
+        4.591171278,
+        4.589012442
+      ],
+      "median": 4.589012442,
+      "min": 4.576100009,
+      "max": 4.593965916
+    },
+    "rust-wasm": {
+      "samples": [
+        4.563027339,
+        4.519188071,
+        4.520737893,
+        4.491459797,
+        4.482255337,
+        4.509272757,
+        4.526285137
+      ],
+      "median": 4.519188071,
+      "min": 4.482255337,
+      "max": 4.563027339
+    }
+  },
+  "combined_ratios": {
+    "baseline": 0.9330870034274676,
+    "capture": 0.9356973752991847,
+    "structured": 1.0026113060455537,
+    "combined": 1.0,
+    "original-chez": 3.5710743944247065,
+    "adapted-chez": 3.5693001215445386,
+    "rust-wasm": 3.6244481109580264
+  },
+  "finished_utc": "2026-10-14T05:19:57.438643+00:00"
+}
