@@ -45,6 +45,13 @@ workloads, the default-stack Ackermann failure, and the remaining suite coverage
 The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
+Later strict ports and their measurement checkpoints are tracked in the
+[coverage inventory](strict-suite/capabilities.md): 26 measured workloads,
+25 with paired Chez controls. The latest
+[runtime comparison report](results/2026-10-14-strict-runtime-comparisons/README.md)
+adds full symbolic differentiation and complex Mandelbrot against both Chez
+controls and Rust/Wasm, plus callback and collector-policy ablations.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling

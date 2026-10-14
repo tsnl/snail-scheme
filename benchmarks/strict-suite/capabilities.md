@@ -15,6 +15,9 @@ The five selected ports and FFT have preceding measured reports. Quicksort,
 graphs, mperm and simplex have reviewed canonical measurements against both
 Chez controls and Rust/Wasm in the
 [call/capture report](../results/2026-10-13-strict-call-captures/README.md).
+Deriv and complex Mandelbrot have additional four-system measurements in the
+[runtime comparison report](../results/2026-10-14-strict-runtime-comparisons/README.md),
+which also records callback and collector-policy ablations.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -34,12 +37,12 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | quicksort | Measured canonical source program: 0.681× the same adapted source on Chez; 1.251× Rust/Wasm after initialized captures and structured calls. Canonical RNG, explicit procedure/seed refs, per-element mapping, adjacent sortedness checks and original 2,500 × 10,000 input retained. Separate checks cover complete sorted values and RNG sequences. |
 | simplex | Measured canonical source program: 0.494× the same adapted source on Chez; 1.589× Rust/Wasm. Full million-invocation two-phase F64 tableau workload; closed result variants and explicit Ref scalar mutation. Original and adapted Chez controls, complete small outputs/store order, final-predicate negatives and original guard checks. One original equality-case discrepancy is preserved and distinguished from mathematical correctness. |
 | browse | Symbols, generated symbol/string names, heterogeneous pattern trees and mutable property-list pairs. |
-| deriv | Prepared for review, unmeasured. Full ten million repetitions pass in raw/optimized Wasm and both Chez controls. Closed datums preserve each source pair, finite atoms, input sharing and the deliberately incorrect quotient rule. Complete-expression/error/identity probes and optimized Wasm/V8 inspection pass. Scalar-only externs leave the actual datum identity transparent; diagnostic pair completions are not physical allocation counts. |
+| deriv | Measured full ten million differentiations: 4.467× original Chez time, 2.589× adapted Chez and 0.674× Rust/Wasm. Closed datums preserve source pair spines, finite atoms, input sharing and the original quotient rule. Full-expression/error/identity probes and optimized Wasm/V8 inspection pass; Rust has different layouts and reclamation. |
 | destruc | Mutable pair cars/cdrs; element values mix integers and empty lists. Immutable homogeneous List is insufficient. |
 | puzzle | Escape continuation in search, mutable scalar bindings and nested Bool/I64 vectors. Native vectors alone do not supply its control flow. |
 | ctak | Essential first-class escape continuations. |
 | fibc | Essential first-class continuations, including re-entering captured continuations. |
-| mbrotZ | Prepared for review, unmeasured. Original complex escape/matrix loops use a closed pair of F64 components, separate complex addition/product/scaling, explicit I64 conversion and typed vector fills. All 1,000 repetitions and the full 75-by-75 input pass raw/optimized Wasm and original/adapted Chez. Separate full-grid/store-order, component-bit and boundary probes pass. General complex numeric promotion remains outside this port; intermediate-object elimination is inspected separately. |
+| mbrotZ | Measured original complex Mandelbrot, 1,000 × 75 × 75 pixels: 0.397× original Chez time, 0.159× adapted Chez and 1.565× Rust/Wasm. Immutable two-F64 products preserve complex arithmetic and all matrix stores. Complete grids, exact component bits and cap/radius probes pass; representation and opacity differences are recorded. |
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
@@ -68,8 +71,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 24 of 57 workloads,
-with 23 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 26 of 57 workloads,
+with 25 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
