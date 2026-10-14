@@ -811,6 +811,17 @@ alias mutations, ordering, and every invocation's algorithmic work separately
 from the original 500-invocation benchmark. Preparation freezes optimized Wasm,
 its mechanical native translation, both Chez sources, and distinct Rust controls.
 
+[`maze_port.py`](benchmarks/strict-suite/maze_port.py) retains Shivers's complete
+hexagonal Maze workload, its recursive integer helpers, union-find compression,
+wall order, DFS/rerooting, and full character-list output. Concrete records and
+Refs replace mutable pairs and heterogeneous vectors. Its sole lexical escape
+becomes a callback completion test that stops the reverse wall traversal at the
+same point; it adds no general continuation support. Counted edits reverse to
+the pinned source, and a separate observation program compares ordered walls,
+mutations, identities, every output character, and full-count source operations.
+The module prepares original/adapted Chez, raw/optimized linked Wasm, native64,
+the exact native-final Wasm on V8, and the unchanged indexed Rust reference.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
