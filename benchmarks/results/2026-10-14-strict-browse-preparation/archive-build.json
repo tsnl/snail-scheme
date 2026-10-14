@@ -1,0 +1,47 @@
+{
+  "freeze": {
+    "command": [
+      "/run/current-system/sw/bin/python",
+      "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/freeze-plan.py"
+    ],
+    "returncode": 0,
+    "stdout": "Frozen 56 fresh processes and 330 identities; no timings run\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 3,
+    "executing_descendants": [],
+    "process_seconds": 1.8447232599719428,
+    "cwd": "/tmp/snail-strict-browse-20261014",
+    "timeout_seconds": 600
+  },
+  "dry-import": {
+    "command": [
+      "/run/current-system/sw/bin/python",
+      "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/measure-seven.py"
+    ],
+    "returncode": 0,
+    "stdout": "Verified frozen identities; no benchmark process started\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 7,
+    "executing_descendants": [],
+    "process_seconds": 0.12718122999649495,
+    "cwd": "/tmp/snail-strict-browse-20261014",
+    "timeout_seconds": 600
+  },
+  "archive": {
+    "command": [
+      "/run/current-system/sw/bin/python",
+      "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/package.py"
+    ],
+    "returncode": 0,
+    "stdout": "Archived and verified 720 regular files; 11119660 compressed bytes\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 8,
+    "executing_descendants": [],
+    "process_seconds": 34.25072605302557,
+    "cwd": "/tmp/snail-strict-browse-20261014",
+    "timeout_seconds": 600
+  }
+}

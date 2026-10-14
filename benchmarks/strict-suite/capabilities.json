@@ -13,12 +13,14 @@
   "cases": [
     {
       "name": "browse",
-      "status": "additional-capabilities",
+      "status": "prepared-awaiting-measurement",
       "source_lines": 203,
       "files": {
         "src/browse.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776",
         "inputs/browse.input": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-browse-preparation/README.md",
+      "representation_note": "Complete original 2000 invocations and 100-value predicate; interned symbols, closed Datum, explicit Ref pairs and bindings, original property lists/cyclic pattern ring/destructive shuffle. Three MatchResult variants retain truthy empty-list returns. Five Scheme executors pass counts 1/2/2000 and bounded complete internal traces at 1/2; unchanged Rust controls disclose Vec/Rc and Boolean result differences. Clean matcher retention inspected; no new measured coverage."
     },
     {
       "name": "deriv",
