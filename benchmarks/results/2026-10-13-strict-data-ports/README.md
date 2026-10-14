@@ -126,6 +126,9 @@ All **52 compiler files** match
 `8051bdd35d1bb1f74616609f6f20c8fca7d8959d`; preparation ran immediately before that
 commit and its source/host hashes match exactly. [Identity](compiler-identity.json)
 separates those facts from the checkout HEAD at preparation time.
+The parent [rebuilt both frozen sources on the reviewed PR stack](parent-integration.json)
+and verified identical raw and optimized Wasm. This adds artifact-integration
+evidence without rerunning measurements or changing the frozen archive.
 [Environment](environment.json) records Chibi 0.12, Node 24.19.0, Binaryen 132 and
 Chez 10.4.1 with the normal level-2 Chez build. There are no compiler changes in
 this port task. [Regression evidence](prior-port-regression.json) confirms all 19
