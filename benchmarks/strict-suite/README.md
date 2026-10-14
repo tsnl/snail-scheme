@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-three original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-four original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, and `mperm`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, and `simplex`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -287,3 +287,29 @@ first-permutation and sum checks independently. These observations do not add
 work or roots to the canonical modules. Positive M and N are the supported
 measurement inputs; invalid arguments trap in strict instead of printing the
 upstream diagnostic. The canonical predicate still rejects complete flushing.
+
+Select `--benchmarks simplex --compiler-basis a4030ce` for the complete simplex
+port. Its million repetitions each construct the original 6-by-5 F64 tableau
+and execute the unchanged two-phase pivot algorithm. The read input 740.0 is
+still passed through `hide` every time, although upstream `test` ignores it.
+Both result vectors are compared only after all repetitions. The full input
+file, including the expected two-vector list, is preserved.
+
+Ten mutable scalar binding sites use explicit Ref cells. Typed overloads supply
+the original unary and variadic arithmetic. A nominal result distinguishes
+infeasible, unbounded, and solved; solved retains the original two list nodes
+and their mutable I64 vectors. The source-matched Chez control uses the exact
+adapted kernel, matching Ref cells and tagged result wrappers, then unwraps only
+for the original final predicate. These representation costs are disclosed;
+original Chez may itself box captured mutable bindings.
+
+Separate probe modules compare complete results, every final tableau element,
+and every matrix store in order on twelve finite cases. They also test malformed
+expectations, signed zero, the complete canonical predicate, and all explicit
+upstream argument guards. An independent rational LP oracle agrees with eleven
+cases, including the canonical optimum 681/40. The original solver incorrectly
+returns unbounded for `max x, x = 2, x >= 0`; this behavior is reproduced by the
+unmodified original kernel and preserved by the port. Source equivalence and
+mathematical correctness are recorded separately. The
+[preparation report](../results/2026-10-13-strict-simplex/README.md) contains the
+exact evidence and optimized-work inspection. No clean timing is recorded.
