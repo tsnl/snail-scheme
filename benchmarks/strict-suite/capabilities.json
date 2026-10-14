@@ -421,21 +421,29 @@
     },
     {
       "name": "nboyer",
-      "status": "additional-capabilities",
+      "status": "correctness-prepared",
       "source_lines": 772,
       "files": {
         "src/nboyer.scm": "0597caf3d1434c2aedcc57c6bdbd6aec3bdb10c3d606cd240e4b949a334a71bf",
         "inputs/nboyer.input": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
+      "native_heap_bytes": 2147483648,
+      "note": "Complete original count 1, size 5, numeric 51507739 rewrite predicate and all 106 lemmas pass on raw/optimized V8, native64 and original/adapted Chez. Ordered structure, reset, full-work and independent Rust controls pass. Default native capacity failure remains recorded; clean timing is pending.",
+      "representation_note": "Existing closed Datum values and typed Ref mutation retain source association lists, recursive substitution/rewrite/unification and constructor-record cycles. Three explicit operand-order edits match the observed original Chez setup order. Rust uses independent Rc cells, vector constructor records, integer constructor IDs, tail loops and destruction."
     },
     {
       "name": "sboyer",
-      "status": "additional-capabilities",
+      "status": "correctness-prepared",
       "source_lines": 785,
       "files": {
         "src/sboyer.scm": "df46ebaa16879a5366b8b550dfbb2115bce378ffb854c4468c9c0af1df53d9e4",
         "inputs/sboyer.input": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
+      "native_heap_bytes": 1073741824,
+      "note": "Complete original count 1, size 5 and numeric 51507739 rewrite predicate pass on raw/optimized V8, native64 and original/adapted Chez. All sharing, reset, constructor-cycle, full-work and independent Rust controls pass. Default native capacity failure remains recorded; clean timing is pending.",
+      "representation_note": "Source sharing-cons reuses an original pair exactly when both resulting fields keep their identities; equal but distinct children allocate. Closed Datum and Ref values preserve the complete recursive prover, with three explicit Chez-order adaptations. Rust retains its independent Rc/vector/ID representation and tail loops."
     },
     {
       "name": "gcbench",

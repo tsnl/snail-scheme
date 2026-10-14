@@ -81,6 +81,8 @@ cycles and identities, and SBoyer's reuse rules. Counter-instrumented programs
 retain a complete normalized size-0 result and full size-5 work counts.
 Structural-order probes use uninstrumented kernel bodies because adding
 procedure-entry counters can change Chez inlining and operand scheduling.
+The counter programs also retain the final rewritten term for observation;
+their allocation counts and live ranges do not describe clean execution.
 
 The selected native reservations are 2 GiB for NBoyer and 1 GiB for SBoyer.
 The default 256 MiB reservation exhausted during development for both original
