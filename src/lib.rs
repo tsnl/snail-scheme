@@ -16,6 +16,7 @@ mod host;
 mod interop_example;
 mod iverson;
 mod platform;
+mod strict_io;
 mod symbols;
 mod text;
 mod unicode;
