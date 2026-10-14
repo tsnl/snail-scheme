@@ -46,7 +46,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
-| string | Mutable strings, append, substring and length; original mutation/concatenation workload must remain. |
+| string | Prepared for review, unmeasured, on native Unicode String support (`2def994`): one WasmGC character array with a private mutability word, checked array copying and ordinary Scheme append/substring. The full 100 × 10 reset-and-grow workload retains its global Ref, every source copy and length predicate. Original/adapted Chez controls, complete payload/store/alias probes and retained-work inspection are separate from timing. |
 | sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
 | tail | Line/string file input and output, EOF and a list of strings; preserve reverse-file behavior. |
 | read1 | General datum reader and file ports, EOF and heterogeneous parsed data. |
