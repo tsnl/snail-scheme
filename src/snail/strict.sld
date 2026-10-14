@@ -8,12 +8,12 @@
           define-class define-instance define-overload define-extern
           I32 I64 F32 F64 Bool Char String Unit Top Never Ref List Vector
           Default default
-          + - * / sqrt truncate quotient remainder = < <= > >= not unit unreachable
+          + - * / sqrt truncate round quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
           i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
           f32-add f32-sub f32-mul f32-div f32-eq f32-lt f32-le f32-gt f32-ge f32-sqrt
           f64-add f64-sub f64-mul f64-div f64-eq f64-lt f64-le f64-gt f64-ge f64-sqrt
-          f32-truncate f64-truncate
+          f32-truncate f64-truncate f32-round f64-round
           i64->f64 i32->i64 i64->i32 f32->f64 f64->f32 f64->i64
           ref ref-get ref-set! ref-eq? cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
@@ -95,6 +95,7 @@
     (define-overload / (-> F32 F32 F32) f32-div)
     (define-overload sqrt (-> F32 F32) f32-sqrt)
     (define-overload truncate (-> F32 F32) f32-truncate)
+    (define-overload round (-> F32 F32) f32-round)
 
     (define-overload + (-> F64 F64 F64) f64-add)
     (define-overload - (-> F64 F64 F64) f64-sub)
@@ -107,6 +108,7 @@
     (define-overload / (-> F64 F64 F64) f64-div)
     (define-overload sqrt (-> F64 F64) f64-sqrt)
     (define-overload truncate (-> F64 F64) f64-truncate)
+    (define-overload round (-> F64 F64) f64-round)
 
     (define-overload + (-> I64 F64 F64)
       (lambda (left right) (+ (i64->f64 left) right)))
