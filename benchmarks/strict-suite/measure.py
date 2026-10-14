@@ -23,16 +23,17 @@ import data_ports
 import enumeration_ports
 import simplex_port
 import deriv_port
+import mbrotz_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv') + DATA_PORTS + ENUMERATION_PORTS
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -41,7 +42,7 @@ KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench', graphs='run')
+               mbrot='test', mbrotZ='test', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench', graphs='run')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -177,6 +178,8 @@ def kernel_source(name, source):
         source = simplex_port.kernel(source)
     elif name == 'deriv':
         source = deriv_port.kernel(source)
+    elif name == 'mbrotZ':
+        source = mbrotz_port.kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -437,6 +440,8 @@ def kernel_call(name, spec):
 def worker_body(name, spec):
     if name == 'deriv':
         return deriv_port.WORKER
+    if name == 'mbrotZ':
+        return mbrotz_port.worker(kernel_call(name, spec))
     if name == 'simplex':
         return simplex_port.worker()
     if name == 'mperm':
@@ -473,6 +478,8 @@ def strict_program(name, spec, upstream):
         prelude = simplex_port.control_prelude(prelude) + simplex_port.STRICT_TYPES + simplex_port.EXPECTED_PRELUDE + simplex_port.PREDICATE
     if name == 'deriv':
         prelude += deriv_port.strict_types() + deriv_port.input_prelude()
+    if name == 'mbrotZ':
+        prelude += mbrotz_port.strict_prelude()
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -665,7 +672,7 @@ def quicksort_validation_specifications(spec):
 def validation_specifications(spec):
     if spec['name'] in ENUMERATION_PORTS:
         return [('canonical-count', spec)]
-    if spec['name'] in ('simplex', 'deriv'):
+    if spec['name'] in ('simplex', 'deriv', 'mbrotZ'):
         return [(str(count), dict(spec, count=count)) for count in (1, 2, spec['count'])]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
@@ -715,6 +722,7 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 CHEZ_HELPERS = dict(paraffins=data_ports.PARAFFINS_CHEZ,
                    simplex=CHEZ_REF_HELPERS + simplex_port.CHEZ_RESULTS,
                    deriv=deriv_port.chez_helpers(),
+                   mbrotZ=mbrotz_port.chez_helpers(),
                    graphs='(define (unit) (if #f #f))\n(define (unreachable) (error \'graphs "unreachable comparison"))\n' + enumeration_ports.GRAPHS_COMMON,
                    mperm=CHEZ_REF_HELPERS + enumeration_ports.MPERM_COMMON + enumeration_ports.MPERM_CHEZ_HARNESS + '(define (unreachable) (error \'mperm "invalid arguments"))\n',
                    gcbench=CHEZ_REF_HELPERS + data_ports.gc_chez_helpers(), primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
@@ -803,7 +811,7 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    if name in ('quicksort', 'simplex', 'deriv'):
+    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ'):
         patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
                                      fromfile='original-program', tofile='adapted-program')
         (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
@@ -837,7 +845,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv'):
+    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -1423,6 +1431,84 @@ def validate_deriv_outputs(directory, runner, tools, environment):
     validate_deriv_harness(directory, runner, tools, environment)
 
 
+# ---- Complex components, complete grids and original store order ----
+
+
+def build_mbrotz_chez_probe(directory, adapted, runner, environment):
+    target = directory / ('chez-output-probe-adapted' if adapted else 'chez-output-probe-original')
+    target.mkdir()
+    kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+    (target / 'program.scm').write_text(mbrotz_port.chez_probe(kernel, adapted))
+    return target, build_chez(target, runner, environment, 'build.json')
+
+
+def build_mbrotz_wasm_probe(directory, tools, environment):
+    target = directory / 'strict-output-probe'
+    target.mkdir()
+    save(target / 'spec.json', dict(name='mbrotZ-probe', export='probe-grid',
+                                   additional_exports=['probe-real', 'probe-imag', 'probe-count']))
+    (target / 'host.mjs').write_text(mbrotz_port.PROBE_HOST)
+    (target / 'strict.scm').write_text(mbrotz_port.strict_probe((directory / 'adapted-kernel.scm').read_text()))
+    build_strict(target, tools, environment)
+    return target
+
+
+def validate_mbrotz_case(targets, strict, case, tools, environment):
+    path = strict / ('spec-' + case['label'] + '.json')
+    save(path, case)
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], strict / 'host.mjs', strict / ('strict.wasm' + suffix), path], strict, environment)
+        save(strict / (case['label'] + ('.raw' if suffix else '') + '.json'), record)
+        require_success(record)
+        if record['stderr'] or json.loads(record['stdout']) != case['expected']:
+            raise ValueError('mbrotZ component/grid/store result differs from the complete oracle')
+    for target, command in targets:
+        data = mbrotz_port.probe_input(case)
+        record = execute(command, target, environment, stdin=data)
+        save(target / ('validation-' + case['label'] + '.json'), dict(record, stdin=data))
+        require_success(record)
+        actual = mbrotz_port.chez_output(case, input_values(record['stdout'])[0])
+        if record['stderr'] or actual != case['expected']:
+            raise ValueError('original/adapted complex result differs from the complete oracle')
+
+
+def validate_mbrotz_harness(directory, runner, tools, environment):
+    spec, checks = load(directory / 'spec.json'), []
+    cases = [('small-grid', 3, 2, 5, True), ('wrong-low', 1, 75, 4, False),
+             ('wrong-high', 1, 75, 6, False), ('empty-grid', 1, 0, 5, False),
+             ('negative-grid', 1, -1, 5, False), ('zero-count', 0, 75, 5, False),
+             ('negative-count', -1, 75, 5, False)]
+    for label, count, size, expected, accepted in cases:
+        path = directory / ('validation-spec-' + label + '.json')
+        save(path, dict(spec, count=count, inputs=[size], expected=expected))
+        for suffix in ('.raw.wasm', ''):
+            record = execute([tools['NODE'], directory.parent / 'host.mjs', directory / ('strict.wasm' + suffix), path, '--validate'], directory, environment)
+            checks.append(dict(record, label=label, accepted=accepted))
+            save(directory / 'harness-boundaries.json', checks)
+            if (record.get('returncode') == 0 and not record['stderr']) != accepted:
+                raise ValueError('mbrotZ must preserve the scalar predicate and invalid loop/size failures')
+            if not accepted and not any(text in record['stderr'] for text in ('RuntimeError:', 'AssertionError')):
+                raise ValueError('mbrotZ rejection did not reach the Wasm program/result predicate')
+        for target in (directory, directory / 'same-source-chez'):
+            data = f'{count}\n{size}\n{expected}\n'
+            record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
+            checks.append(dict(record, label=label, accepted=accepted, stdin=data))
+            save(directory / 'harness-boundaries.json', checks)
+            passed = record.get('returncode') == 0 and not record['stderr'] and runner.parse_result(record['stdout'], 'chez', 'mbrotZ')['status'] == 'ok'
+            if passed != accepted:
+                raise ValueError('original/adapted mbrotZ harness boundary differs')
+
+
+def validate_mbrotz_outputs(directory, runner, tools, environment):
+    targets = [build_mbrotz_chez_probe(directory, adapted, runner, environment) for adapted in (False, True)]
+    strict = build_mbrotz_wasm_probe(directory, tools, environment)
+    cases = mbrotz_port.fixtures()
+    save(directory / 'complete-output-oracles.json', cases)
+    for case in cases:
+        validate_mbrotz_case(targets, strict, case, tools, environment)
+    validate_mbrotz_harness(directory, runner, tools, environment)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1450,9 +1536,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_simplex_outputs(directory, runner, tools, environment)
     if name == 'deriv':
         validate_deriv_outputs(directory, runner, tools, environment)
+    if name == 'mbrotZ':
+        validate_mbrotz_outputs(directory, runner, tools, environment)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1484,6 +1572,7 @@ def prepare(options):
     shutil.copy2(HERE / 'enumeration_ports.py', options.output / 'enumeration_ports.py')
     shutil.copy2(HERE / 'simplex_port.py', options.output / 'simplex_port.py')
     shutil.copy2(HERE / 'deriv_port.py', options.output / 'deriv_port.py')
+    shutil.copy2(HERE / 'mbrotz_port.py', options.output / 'mbrotz_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
@@ -1499,6 +1588,7 @@ def prepare(options):
                   enumeration_ports_sha256=digest(HERE / 'enumeration_ports.py'),
                   simplex_port_sha256=digest(HERE / 'simplex_port.py'),
                   deriv_port_sha256=digest(HERE / 'deriv_port.py'),
+                  mbrotz_port_sha256=digest(HERE / 'mbrotz_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -1564,6 +1654,8 @@ def checked_preparation(output):
         raise ValueError('simplex port source adapter changed')
     if prepared.get('deriv_port_sha256', digest(HERE / 'deriv_port.py')) != digest(HERE / 'deriv_port.py'):
         raise ValueError('deriv port source adapter changed')
+    if prepared.get('mbrotz_port_sha256', digest(HERE / 'mbrotz_port.py')) != digest(HERE / 'mbrotz_port.py'):
+        raise ValueError('mbrotZ port source adapter changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')

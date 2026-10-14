@@ -39,7 +39,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | puzzle | Escape continuation in search, mutable scalar bindings and nested Bool/I64 vectors. Native vectors alone do not supply its control flow. |
 | ctak | Essential first-class escape continuations. |
 | fibc | Essential first-class continuations, including re-entering captured continuations. |
-| mbrotZ | Complex constants, multiplication, `make-rectangular`, real/imaginary extraction and numeric promotion. Do not replace it with mbrot. |
+| mbrotZ | Prepared for review, unmeasured. Original complex escape/matrix loops use a closed pair of F64 components, separate complex addition/product/scaling, explicit I64 conversion and typed vector fills. All 1,000 repetitions and the full 75-by-75 input pass raw/optimized Wasm and original/adapted Chez. Separate full-grid/store-order, component-bit and boundary probes pass. General complex numeric promotion remains outside this port; intermediate-object elimination is inspected separately. |
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
