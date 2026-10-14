@@ -723,6 +723,9 @@
     (define (match-result-type bodies loc)
       (if (null? bodies) 'Never
           (join-types (node-type (car bodies)) (match-result-type (cdr bodies) loc) loc)))
+    ;; Constructors create legal immutable tags, and Top projections check the
+    ;; full nominal application. Exhaustiveness therefore makes the last arm
+    ;; unconditional; field reads stay inside their selected branch.
     (define (match-branches arms bodies subject type)
       (let ((body (conform (car bodies) type #f)))
         (if (null? (cdr arms)) body

@@ -104,6 +104,9 @@ throughout the containing body. A constructed value still evaluates every
 argument once, left to right, and reads source bindings at its original runtime
 position. A forward read of an uninitialized value still traps. Every constructor
 requires all its fields; no implicit field initialization or setters are added.
+An ordinary constructor alias still has its own value-binding initialization.
+An effectful alias initializer remains monomorphic; an `All` annotation cannot
+override the existing value restriction.
 Explicit `Default` instances can name these concrete nominal types and use the
 same class selection and specialization as scalar and container instances.
 
