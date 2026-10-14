@@ -1,0 +1,12 @@
+{
+  "identities_verified": 14,
+  "scheduled_processes": 21,
+  "discarded_per_variant": 1,
+  "retained_per_variant": 6,
+  "all_permutations": true,
+  "each_position_per_variant": 2,
+  "supervision_unchanged": true,
+  "only_runner_change": "strict-v8 result label accepts prefix",
+  "valid_and_invalid_result_framing_checked": true,
+  "workloads_started": 0
+}

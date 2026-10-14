@@ -1,0 +1,132 @@
+{
+  "baseline": {
+    "static": {
+      "variant": "baseline",
+      "sha256": "c9ba1e18d65ead5db6cc005d9486e7275c14f9e8c91875edaa68e2ae59d7b1d6",
+      "ready_get_total": 63,
+      "functions": {
+        "59": {
+          "global_get": 8,
+          "ready_get": 4,
+          "struct_get": 4,
+          "const524288": 0
+        },
+        "67": {
+          "global_get": 8,
+          "ready_get": 4,
+          "struct_get": 8,
+          "const524288": 0
+        },
+        "89": {
+          "global_get": 20,
+          "ready_get": 10,
+          "struct_get": 79,
+          "const524288": 0
+        }
+      }
+    },
+    "machine": {
+      "selected_function": "function89",
+      "binary_index": 21,
+      "compiler": "TurboFan",
+      "canonical_branch_offsets": [
+        "0x777",
+        "0x806"
+      ],
+      "canonical_idivq_offsets": [
+        "0x7cb",
+        "0x7fc"
+      ],
+      "constant_modulus_mask": false,
+      "hardware_counters": false,
+      "scope": "machine-code inspection of validated full100 diagnostic, no clean timing claim",
+      "wasm_sha256": "c9ba1e18d65ead5db6cc005d9486e7275c14f9e8c91875edaa68e2ae59d7b1d6"
+    }
+  },
+  "scalar": {
+    "static": {
+      "variant": "scalar",
+      "sha256": "bc2f5942886883a5f4c0c5398304de896db90ad6059ee29dd73ee6b1d3357742",
+      "ready_get_total": 63,
+      "functions": {
+        "59": {
+          "global_get": 8,
+          "ready_get": 4,
+          "struct_get": 4,
+          "const524288": 0
+        },
+        "67": {
+          "global_get": 8,
+          "ready_get": 4,
+          "struct_get": 8,
+          "const524288": 0
+        },
+        "89": {
+          "global_get": 20,
+          "ready_get": 10,
+          "struct_get": 44,
+          "const524288": 11
+        }
+      }
+    },
+    "machine": {
+      "selected_function": "function89",
+      "binary_index": 21,
+      "compiler": "TurboFan",
+      "canonical_branch_offsets": [
+        "0x7c7",
+        "0x83d"
+      ],
+      "canonical_idivq_offsets": [
+        "0x837"
+      ],
+      "constant_modulus_mask": true,
+      "hardware_counters": false,
+      "scope": "machine-code inspection of validated full100 diagnostic, no clean timing claim",
+      "wasm_sha256": "bc2f5942886883a5f4c0c5398304de896db90ad6059ee29dd73ee6b1d3357742"
+    }
+  },
+  "readiness": {
+    "static": {
+      "variant": "readiness",
+      "sha256": "632f53687dca8d70668832e76e13ac3d0ab2933ecdcfb1a6331b7f8723801178",
+      "ready_get_total": 1,
+      "functions": {
+        "59": {
+          "global_get": 4,
+          "ready_get": 0,
+          "struct_get": 4,
+          "const524288": 0
+        },
+        "67": {
+          "global_get": 4,
+          "ready_get": 0,
+          "struct_get": 8,
+          "const524288": 0
+        },
+        "89": {
+          "global_get": 10,
+          "ready_get": 0,
+          "struct_get": 44,
+          "const524288": 11
+        }
+      }
+    },
+    "machine": {
+      "selected_function": "function89",
+      "binary_index": 20,
+      "compiler": "TurboFan",
+      "canonical_branch_offsets": [
+        "0x7ae",
+        "0x824"
+      ],
+      "canonical_idivq_offsets": [
+        "0x81e"
+      ],
+      "constant_modulus_mask": true,
+      "hardware_counters": false,
+      "scope": "machine-code inspection of validated full100 diagnostic, no clean timing claim",
+      "wasm_sha256": "632f53687dca8d70668832e76e13ac3d0ab2933ecdcfb1a6331b7f8723801178"
+    }
+  }
+}
