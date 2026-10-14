@@ -610,6 +610,14 @@ cells and empty/integer items. Its separate graph oracle and node registries
 check ordered effects, sharing and abandoned nodes; the canonical predicate
 compares the complete nested result. The source explicitly selects the operand
 order observed in the original Chez diagnostic control.
+
+[`ray_port.py`](benchmarks/strict-suite/ray_port.py) preserves Ray's complete
+sphere traversal, negative-root behavior, geometry and PGM formatting with
+concrete products and optional results. It reuses scalar text output, retains
+untouched and adapted Chez controls, and checks complete images, floating bit
+patterns, tie order and file lifecycle. Its dedicated
+[`ray-host.mjs`](benchmarks/strict-suite/ray-host.mjs) brackets initialization and
+the timed worker with resource cleanup; runtime input decoding precedes timing.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
