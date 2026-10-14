@@ -3,11 +3,12 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `0cf2240`: result-context overloads, `Default T`, rank-one
+compiler basis is `fbb3972`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
 calls to nonescaping local procedures and structured operators, plus direct captures
-of initialized let values, are implemented. Mutable fields use explicit
-`Ref` cells. Symbols, general mutable
+of initialized let values, are implemented. Native Unicode strings have
+checked mutable storage and Scheme append/copy helpers. Mutable bindings use
+explicit `Ref` cells. Symbols, general mutable
 pairs, first-class continuations and a full numeric tower are still outside this
 strict subset. Representation support alone does not establish a completed port.
 
@@ -18,6 +19,8 @@ Chez controls and Rust/Wasm in the
 Deriv and complex Mandelbrot have additional four-system measurements in the
 [runtime comparison report](../results/2026-10-14-strict-runtime-comparisons/README.md),
 which also records callback and collector-policy ablations.
+String has a [four-system comparison](../results/2026-10-14-strict-string-comparison/README.md)
+and separate allocation diagnostics.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -46,7 +49,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
-| string | Prepared for review, unmeasured, on native Unicode String support (`2def994`): one WasmGC character array with a private mutability word, checked array copying and ordinary Scheme append/substring. The full 100 × 10 reset-and-grow workload retains its global Ref, every source copy and length predicate. Original/adapted Chez controls, complete payload/store/alias probes and retained-work inspection are separate from timing. |
+| string | Measured original 100 × 10-trial growth/copy workload: 3.110× original Chez time, 3.472× adapted Chez and 86.661× Rust/Wasm. Four-byte Unicode-scalar GC arrays and fresh appends differ from Rust UTF-8 storage and buffer reuse. Complete payload/alias checks and original final predicate retained. Wide Chez ranges and separate kernel CPU/page-fault diagnostics are disclosed. |
 | sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
 | tail | Line/string file input and output, EOF and a list of strings; preserve reverse-file behavior. |
 | read1 | General datum reader and file ports, EOF and heterogeneous parsed data. |
@@ -71,8 +74,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 26 of 57 workloads,
-with 25 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 27 of 57 workloads,
+with 26 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
