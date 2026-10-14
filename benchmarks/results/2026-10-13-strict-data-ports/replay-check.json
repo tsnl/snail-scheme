@@ -1,5 +1,5 @@
 {
-  "verified_archive_files": 220,
+  "verified_archive_files": 222,
   "checks": [
     {
       "command": [
@@ -214,6 +214,15 @@
     "destination": "/tmp/snail-strict-paraffins-timing-20261013",
     "old_archive_files_preserved": 213,
     "added_review_files": 7,
+    "runtime_payloads_and_driver_unchanged": true
+  },
+  "measurement_archive_verification": {
+    "destination": "/tmp/snail-strict-data-ports-measured-replay-20261013",
+    "previous_archive_files_preserved": 220,
+    "added_files": [
+      "results.json",
+      "review/parent-port-review/clean-measurement-review.json"
+    ],
     "runtime_payloads_and_driver_unchanged": true
   }
 }

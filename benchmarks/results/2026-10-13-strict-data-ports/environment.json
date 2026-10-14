@@ -120,5 +120,5 @@
   },
   "binaryen_cores": 1,
   "node_options": null,
-  "measurement_attempts": 0
+  "measurement_attempts": 1
 }

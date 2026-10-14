@@ -48,9 +48,15 @@
     }
   },
   "total_expected_outcomes": 88,
-  "performance_samples": 0,
+  "performance_samples": 9,
   "prepared_port_expected_outcomes": 86,
   "parent_review_wasm_positive": 2,
   "canonical_predicate_scope": "The canonical outer predicate checks only the final result once after all repetitions. Gcbench retains its in-kernel array consistency check at the original site in each invocation.",
-  "parent_review_witness": "Separate raw/optimized Wasm checks verify distinct left/right Ref cells within and across two independently constructed nodes."
+  "parent_review_witness": "Separate raw/optimized Wasm checks verify distinct left/right Ref cells within and across two independently constructed nodes.",
+  "clean_measurement_observations": {
+    "all_valid": 12,
+    "retained": 9,
+    "discarded": 3,
+    "scope": "paraffins only"
+  }
 }

@@ -280,13 +280,13 @@
     },
     {
       "name": "paraffins",
-      "status": "prepared-unmeasured",
+      "status": "measured-canonical-source",
       "source_lines": 183,
       "files": {
         "src/paraffins.scm": "461e3cc6a025d87c0576d3758b20318474657c799a29b06393c90c3085fcf14f",
         "inputs/paraffins.input": "0bf0a5242d10ae18d7ec196029710db19f92333a7520448c03fc068d0af7d74a"
       },
-      "note": "Canonical payload elimination is legal; complete structural checks run in separate modules."
+      "note": "Canonical payload elimination is legal and disclosed; complete structural checks run in separate modules. Not an equal-allocation GC comparison."
     },
     {
       "name": "parsing",
@@ -410,5 +410,7 @@
   ],
   "compiler_basis": "af02dac81890a00dad92a0a564664ff59aaca102",
   "counts_scope": "Original 43-workload inspection after array1; prior_passing_measured and selection counts are historical, not current coverage.",
-  "data_port_measurements": []
+  "data_port_measurements": [
+    "paraffins"
+  ]
 }

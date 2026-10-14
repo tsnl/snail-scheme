@@ -1,15 +1,39 @@
-# Prepared paraffins and gcbench strict ports
+# Paraffins timing and gcbench preparation
 
-Both source ports pass canonical correctness and separate structural checks.
-**Paraffins has passed independent review and awaits coordinated timing. Gcbench is
-canonical-correctness-ready, but its intended live-heap retention is unproven on
-both strict and Chez and its measurement remains blocked.** This report contains
-no performance samples, medians or speedup claims.
+Paraffins completes its original 10 × 23 workload with a retained median of
+**2.912 s in strict Wasm, 2.640 s in original Chez, and 2.631 s in adapted Chez**.
+Strict takes 10.3% and 10.7% longer, respectively, in this coordinated batch.
+All output checks pass. This compares the count-producing source program;
+strict legally removes unused payload storage, so it is not a comparison of
+equal allocation or collector work.
+
+Gcbench remains canonical-correctness-ready, but its intended live-heap retention
+is unproven on both strict and Chez. It has no performance observations here.
 
 | Workload | Unchanged canonical input and predicate | Preparation status |
 | --- | --- | --- |
-| paraffins | 10 repetitions, n = 23, result 5,731,580 | Reviewed and ready for coordinated source-program timing; optimized payload removal is disclosed below. |
+| paraffins | 10 repetitions, n = 23, result 5,731,580 | Measured after independent review; optimized payload removal is disclosed below. |
 | gcbench | 1 repetition, stretch depth 20, always-true outer predicate | Correctness ready; intended tree/temporary-allocation overlap is not established. |
+
+[Raw observations](results.json) preserve all commands, stdout, stderr, process
+status and output checks. One discarded trio precedes three retained rotating
+trios, with a fresh process for every observation. All runs use CPU 5, the frozen
+artifacts and default V8 without profiling instrumentation. The parent reserved
+a quiet window after other agents stopped CPU work. All 12 runs succeeded;
+only the nine retained observations contribute to the following statistics.
+
+| System | Workload median (s) | Retained range (s) | Process median (s) |
+| --- | ---: | ---: | ---: |
+| Strict optimized Wasm | 2.911986 | 2.911554–2.929879 | 2.958391 |
+| Original Chez | 2.639820 | 2.624972–2.641795 | 2.689471 |
+| Adapted Chez | 2.631176 | 2.628925–2.642137 | 2.679277 |
+
+[Measurement metadata](measurement-metadata.json) records exact ratios, process
+ranges and scope. Module loading and initialization are outside the strict
+workload clock; lazy V8 compilation or tiering during the call is included.
+The discarded trio does not warm the later fresh processes. These three retained
+observations per system describe this batch, not a general performance bound.
+The parent independently [checked all observations and payload hashes](clean-measurement-review.json).
 
 The full input files are retained, including paraffins' unread alternative
 workload and gcbench's unused output datum. [Preparation](prepared.json) freezes
@@ -67,7 +91,7 @@ the exact canonical optimized binaries. Paraffins retains partition computation,
 nested enumeration, the radical table, fieldless radical/list allocations,
 product-list spines, final length traversals and repetition. Binaryen removes
 `BCP`/`CCP` objects, product-list head fields, radical child edges and unused tags.
-This is valid optimization of the count-producing source program. Later timing
+This is valid optimization of the count-producing source program. This timing
 must not be described as a comparison of equal allocation or collector work.
 
 Gcbench retains recursive tree construction, child stores/reads, F64 array
@@ -124,18 +148,18 @@ driver and all 213 original archive members. It accepted the existing runtime
 implementation. A separate witness passes on raw and optimized Wasm and verifies
 fresh child Ref cells across two independently constructed nodes; its source,
 binaries, WAT, trace and results are in `review/parent-port-review/` in the archive.
-All 213 earlier members remain byte-identical; the archive now has 220 files.
-The [neutral behavioral brief](simplify-behavioral-brief.md) is preserved. Long validation
-routines enumerate complete integration checks; source adapters and Scheme
-helpers otherwise remain small direct operations. No broad suite, timing,
+All 213 initial members and the seven review files remain byte-identical. The
+archive now has 222 files after adding the raw measurements and their independent
+review. The [neutral behavioral brief](simplify-behavioral-brief.md) is preserved.
+Long validation routines enumerate complete integration checks; source adapters
+and Scheme helpers otherwise remain small direct operations. No broad suite,
 publishing or landing was performed by this task. The capability inventory
 separates implemented nominal data support, prepared ports, remaining source work
-and preceding measured coverage; these two ports add no measured coverage yet.
+and preceding measured coverage. Paraffins adds one measured canonical source
+program; gcbench remains excluded.
 
-The [timing plan](timing-plan.json) prepares only paraffins: one discarded trio
-and three retained rotating trios, with fresh optimized-Wasm, original-Chez and
-adapted-Chez processes pinned to CPU 5. The restored timing directory has passed
-all artifact and driver hash checks; gcbench remains excluded. Existing validation
-durations suggest about 33 seconds for the batch, with a 90-second quiet window
-reserved for scheduling variation. Timing has not started and requires the
-parent's explicit coordination.
+The [completed timing plan](timing-plan.json) preserves the exact invocation and
+authorization. Recorded child-process durations total 33.326 seconds within the
+reserved 90-second window. The final archive was restored and all 222 files were
+verified; all 220 members present before timing remain unchanged. No additional
+timing or instrumentation runs were performed.

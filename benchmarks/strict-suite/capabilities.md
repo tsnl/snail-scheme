@@ -11,9 +11,10 @@ strict subset. Representation support alone does not establish a completed port.
 
 The five selected ports and FFT have preceding measured reports. The quicksort
 driver checkpoint contains preparation evidence; its later parent-coordinated
-measurements are separate. Paraffins now has canonical correctness preparation
-and separate complete-structure probes, without timing evidence. Gcbench has
-correctness evidence, but its optimized program loses the intended long-lived
+measurements are separate. Paraffins now has reviewed canonical source-program
+timing and separate complete-structure probes; unused payload removal is
+disclosed. Gcbench has correctness evidence, but its optimized program loses the
+intended long-lived
 tree root during later allocation. That lifetime issue blocks its GC comparison.
 
 | Workload | Capability and required source work |
@@ -50,7 +51,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
 | mazefun | Improper coordinate pairs, cell-or-false data, symbolic wall markers and structural equality; preserve its functional maze algorithm. |
-| paraffins | Prepared, unmeasured. Closed `H`/`C` and `BCP`/`CCP` variants preserve the source algorithm. Canonical optimized code legally removes unused product payloads and radical child edges; this is not a same-allocation GC comparison. Separate modules check complete ordered structures. |
+| paraffins | Measured canonical source program. Closed `H`/`C` and `BCP`/`CCP` variants preserve the source algorithm. Canonical optimized code legally removes unused product payloads and radical child edges; this is not a same-allocation GC comparison. Separate modules check complete ordered structures. |
 | parsing | Mutable strings/lexer state, file input, symbols and heterogeneous parsed AST. |
 | peval | Symbolic recursive expression AST, generated names and destructive pair edits. |
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
@@ -63,7 +64,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. This update adds no performance results. The data-port
-[preparation report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
+measured coverage. This update adds paraffins source-program timing. The data-port
+[data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
 blocker. Other rows describe remaining source work; they are not execution claims.
