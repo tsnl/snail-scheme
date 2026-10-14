@@ -1,0 +1,12 @@
+{
+  "scheme": "make test passed",
+  "format": "make check passed",
+  "native_regressions": "SNAIL_PRECISE_GC=1 scripts/test-native passed actual native semantics, 13 traps, tail ABI, forced collection, Rust roots/callbacks/finalizers",
+  "collector": "strict C with -std=c11 -Wall -Wextra -Werror passed; reclaimed-lines, wrapped-small-hole, wrapped-large-space executions passed",
+  "sanitizers": "same3 Immix allocation tests passed -O1 -g -fsanitize=address,undefined, ASAN_OPTIONS=detect_leaks=0",
+  "excluded_sanitizer_attempt": "default LeakSanitizer could not run under sandbox ptrace; address/undefined checks subsequently pass with only leak detector disabled",
+  "final_host": "strict C, Python bytecode, Node syntax, git diff --check passed; final bounded runs match both predicates and expected opacity counts, forced collection actually observed; disabled counters print null",
+  "full_diagnostics": "pre-readability-refactor host binaries retained under validation-before-review; guest and collector algorithms unchanged by host refactoring; performance conclusions must use separate clean measurements",
+  "simplify": "fresh no-history explainer and bounded debate; split complete host phases and manifest writing; rejected additional source module because non-LTO host object already makes imports opaque",
+  "function_size_exception": "record_manifest is a cohesive declarative provenance schema; host import dispatch is exhaustive and kept together"
+}

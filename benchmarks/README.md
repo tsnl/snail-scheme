@@ -55,6 +55,11 @@ separate allocation and OS resource diagnostics. The preceding
 adds full symbolic differentiation and complex Mandelbrot, plus callback and
 collector-policy ablations.
 
+The [restored LLVM/Immix comparison](results/2026-10-14-current-wasm-llvm/README.md)
+runs four current optimized Wasm artifacts on both V8 and native LLVM. It records
+three native wins, one V8 win, and the archived emitter/capacity failures. The
+restored emitter remains an isolated experiment.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling

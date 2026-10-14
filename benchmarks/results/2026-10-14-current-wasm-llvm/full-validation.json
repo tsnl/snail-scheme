@@ -1,0 +1,62 @@
+[
+  {
+    "benchmark": "string",
+    "command": [
+      "build/current-wasm-llvm/string/native",
+      "build/current-wasm-llvm/string/inputs.txt",
+      "--validate"
+    ],
+    "environment": {
+      "SNAIL_GC_STATS": "1"
+    },
+    "diagnostic_only": true,
+    "exit": 0,
+    "stdout": "{\"seconds\":2.298560870,\"result\":\"1\",\"barriers\":100,\"setup_barriers\":0,\"setup_seconds\":0.095284293,\"collections\":2001}\n",
+    "stderr": "immix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.095268 collections=2001 allocations=165011 bytes=25165296096 arena_used=31588352 last_live=10485704 peak_live=10485704 live_objects=15 roots=41520 fields=2001 holes_reused=2001 large_allocations=26000 mark_s=0.033347 sweep_s=0.095474\n"
+  },
+  {
+    "benchmark": "mbrotZ",
+    "command": [
+      "build/current-wasm-llvm/mbrotZ/native",
+      "build/current-wasm-llvm/mbrotZ/inputs.txt",
+      "--validate"
+    ],
+    "environment": {
+      "SNAIL_GC_STATS": "1"
+    },
+    "diagnostic_only": true,
+    "exit": 0,
+    "stdout": "{\"seconds\":1.038480344,\"result\":\"5\",\"barriers\":1000,\"setup_barriers\":0,\"setup_seconds\":0.091789848,\"collections\":662}\n",
+    "stderr": "immix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.091751 collections=662 allocations=172265010 bytes=4179352104 arena_used=8454144 last_live=46968 peak_live=46968 live_objects=88 roots=15758 fields=49650 holes_reused=4088 large_allocations=0 mark_s=0.001508 sweep_s=0.156335\n"
+  },
+  {
+    "benchmark": "quicksort",
+    "command": [
+      "build/current-wasm-llvm/quicksort/native",
+      "build/current-wasm-llvm/quicksort/inputs.txt",
+      "--validate"
+    ],
+    "environment": {
+      "SNAIL_GC_STATS": "1"
+    },
+    "diagnostic_only": true,
+    "exit": 0,
+    "stdout": "{\"seconds\":1.031928277,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3,\"setup_seconds\":0.091741160,\"collections\":23}\n",
+    "stderr": "immix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.091563 collections=23 allocations=2547 bytes=200120800 arena_used=10452992 last_live=80656 peak_live=80656 live_objects=41 roots=920 fields=598 holes_reused=0 large_allocations=2501 mark_s=0.000082 sweep_s=0.000416\n"
+  },
+  {
+    "benchmark": "mperm",
+    "command": [
+      "build/current-wasm-llvm/mperm/native",
+      "build/current-wasm-llvm/mperm/inputs.txt",
+      "--validate"
+    ],
+    "environment": {
+      "SNAIL_GC_STATS": "1"
+    },
+    "diagnostic_only": true,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\nimmix-gc allocation_search=tuned evacuation=0 scan_all=0 heap_bytes=314572800 prefault_s=0.089446 collections=5 allocations=9830399 bytes=235929368 arena_used=314572800 last_live=235929368 peak_live=235929368 live_objects=9830399 roots=383 fields=20914949 holes_reused=3 large_allocations=0 mark_s=0.142913 sweep_s=0.027564\n"
+  }
+]
