@@ -340,7 +340,7 @@ pub fn read_char(input: &mut impl Read) -> io::Result<Option<char>> {
 
 // ---- Measurement output ----
 
-pub fn report(name: &str, count: usize, start: Instant, result: impl std::fmt::Display) {
+pub fn report(name: &str, count: impl Display, start: Instant, result: impl Display) {
     let seconds = start.elapsed().as_secs_f64();
     println!("Result: {result}");
     println!("+!CSVLINE!+rust-wasm,{name}:{count},{seconds:.9}");
