@@ -1,0 +1,118 @@
+{
+  "samples": 894,
+  "weighted_interval_us": 947282,
+  "profile_span_us": 948022,
+  "first_delta_us": 6941,
+  "last_delta_us": 1051,
+  "policy": "exclusive leaf intervals merged by complete frame; boundary intervals retained whole; not continuous CPU execution",
+  "frames": [
+    {
+      "function": "function89",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 4155,
+      "samples": 311,
+      "weighted_interval_us": 326184
+    },
+    {
+      "function": "function67",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 2159,
+      "samples": 199,
+      "weighted_interval_us": 209702
+    },
+    {
+      "function": "function59",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 1508,
+      "samples": 170,
+      "weighted_interval_us": 178496
+    },
+    {
+      "function": "function77",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 2933,
+      "samples": 97,
+      "weighted_interval_us": 103658
+    },
+    {
+      "function": "function40",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 1093,
+      "samples": 28,
+      "weighted_interval_us": 29389
+    },
+    {
+      "function": "function74",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 2719,
+      "samples": 27,
+      "weighted_interval_us": 28396
+    },
+    {
+      "function": "function93",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 5350,
+      "samples": 27,
+      "weighted_interval_us": 28369
+    },
+    {
+      "function": "function99",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 5458,
+      "samples": 13,
+      "weighted_interval_us": 13864
+    },
+    {
+      "function": "function57",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 1270,
+      "samples": 11,
+      "weighted_interval_us": 11769
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "script": "0",
+      "line": -1,
+      "column": -1,
+      "samples": 8,
+      "weighted_interval_us": 8409
+    },
+    {
+      "function": "post",
+      "url": "node:inspector",
+      "script": "88",
+      "line": 114,
+      "column": 6,
+      "samples": 1,
+      "weighted_interval_us": 6941
+    },
+    {
+      "function": "function79",
+      "url": "wasm://wasm/beb8199a",
+      "script": "136",
+      "line": 0,
+      "column": 3126,
+      "samples": 2,
+      "weighted_interval_us": 2105
+    }
+  ]
+}

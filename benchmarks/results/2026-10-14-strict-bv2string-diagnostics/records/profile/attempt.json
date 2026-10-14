@@ -1,0 +1,81 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile-host.mjs",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.wasm",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/spec.json",
+    "--diagnostics",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile"
+  ],
+  "cwd": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile",
+  "status": "valid",
+  "clean_timing": false,
+  "started_utc": "2026-10-14T16:08:30.628690+00:00",
+  "timeout_seconds": 120,
+  "environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "identities_before": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "pid": 3,
+  "process_group": 3,
+  "cleanup": {
+    "before": [],
+    "after": [],
+    "live_members": [],
+    "zombies_dead_not_running": true
+  },
+  "returncode": 0,
+  "diagnostic_process_seconds": 0.9935686220414937,
+  "stdout_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile/stdout.bin",
+    "sha256": "892dd69054a6e25e42e7682aafa441a828bdfb0f2f8286ca582d42abc3a30e0f"
+  },
+  "stderr_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile/stderr.bin",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "identities_after": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "stdout": "{\"seconds\":0.940900346,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+  "stderr": "",
+  "valid_full_result": true,
+  "diagnostic_workload_seconds": 0.940900346,
+  "full_count": 100,
+  "profile": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/profile/profile.cpuprofile",
+    "sha256": "fb149e84d13f64803b9a9e929196ea5f0f5714a7d66d882bce8f6e2ebcc38392"
+  },
+  "window": {
+    "clock_domain": "process.hrtime.bigint nanoseconds",
+    "sampling_interval_us": 1000,
+    "main_return_ns": "363920912725273",
+    "start_submission_ns": "363920912860254",
+    "start_acknowledgement_ns": "363920919874931",
+    "clock_start_ns": "363920919878136",
+    "clock_stop_ns": "363921860778482",
+    "stop_submission_ns": "363921860796357",
+    "stop_completion_ns": "363921861549687"
+  }
+}

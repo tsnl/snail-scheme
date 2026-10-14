@@ -47,11 +47,16 @@ unchanged count-100 workload and the complete single-invocation trace.
 
 The selected strict module is production Binaryen-optimized Wasm, SHA-256
 `c9ba1e18d65ead5db6cc005d9486e7275c14f9e8c91875edaa68e2ae59d7b1d6`.
-The selected native executable is compiled from that exact module, SHA-256
+That exact 8,208-byte module was supplied to native compilation. The mandatory
+native re-entry Binaryen pass produced a distinct 9,721-byte final module,
+SHA-256 `2463c3f837b5133d6a622fe0d690da47cffb464bbda63d2f90f000b27649e41e`,
+in both native builds. The selected executable has SHA-256
 `bc586c42b31ef7e9e36d156fc803afb45c69f411362d0cf2bea20333596d1f5c`.
 Its separate provider removes only diagnostic barrier-counter increments;
 both opacity calls remain and the measured executable passed full-count
 validation before this campaign.
+The V8 and native timings therefore use their actual built artifacts with a
+shared supplied module; they do not isolate identical final Wasm lowering.
 
 The unchanged Rust release executable has SHA-256
 `de17ecf05bf58ec61b29663dc005f35d5ec85d1ad5c6f4e021c6f9f5542f466c`.

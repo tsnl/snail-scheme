@@ -1,0 +1,70 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc-host.mjs",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.wasm",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/spec.json",
+    "--diagnostics",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc"
+  ],
+  "cwd": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc",
+  "status": "valid",
+  "clean_timing": false,
+  "started_utc": "2026-10-14T16:08:52.516348+00:00",
+  "timeout_seconds": 120,
+  "environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "identities_before": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "pid": 3,
+  "process_group": 3,
+  "cleanup": {
+    "before": [],
+    "after": [],
+    "live_members": [],
+    "zombies_dead_not_running": true
+  },
+  "returncode": 0,
+  "diagnostic_process_seconds": 0.9888433970045298,
+  "stdout_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc/stdout.bin",
+    "sha256": "f0253c75c401f8d0567d1338d4bc627192ad3ca755669db127cb378bdeafcdc0"
+  },
+  "stderr_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc/stderr.bin",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "identities_after": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "stdout": "{\"seconds\":0.937515646,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+  "stderr": "",
+  "valid_full_result": true,
+  "diagnostic_workload_seconds": 0.937515646,
+  "full_count": 100,
+  "gc_events": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/gc/gc-events.json",
+    "sha256": "7548f4c0746f3be2054e4370f08ac94de946bfa758f493a182783f38ae59aa9a"
+  }
+}
