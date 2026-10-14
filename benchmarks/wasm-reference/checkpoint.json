@@ -269,13 +269,20 @@
     {
       "name": "ray",
       "source_present": true,
-      "source_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
-      "canonical_status": "passed canonical frozen artifact",
+      "source_sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+      "canonical_status": "passed corrected canonical artifact; historical artifact preserved separately",
       "canonical_evidence": {
+        "artifact_sha256": "e66e1b8a221250c113073e9336b5247722de7484464c77963ce9d6d3b61bb081",
+        "source_sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+        "evidence": "build/rust-ray-timing-handoff/validation.json",
+        "committed_report": "benchmarks/results/2026-10-14-rust-ray-handoff/README.md"
+      },
+      "historical_canonical_evidence": {
         "artifact_sha256": "cc4855cd2bb13b58a38bbcf9eea542b632304d43fc411632b875a430c067950c",
         "source_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
         "evidence": "build/rust-group4-full/validation.json"
-      }
+      },
+      "independent_review": "Fresh no-history/no-files Ray explanation, one informed critique and source comparison; no rendering refactor."
     },
     {
       "name": "simplex",
@@ -723,7 +730,8 @@
     "pi/chudnovsky exact arithmetic and simplify debate",
     "scheme/dynamic source and simplify ownership debate",
     "Compiler GVM/block behavioral simplify explanation/debate and source comparison",
-    "Compiler frontend/assembly/emitter behavioral simplify explanation, informed source critique and complete linked checks"
+    "Compiler frontend/assembly/emitter behavioral simplify explanation, informed source critique and complete linked checks",
+    "Ray result-kind/signed-count correction and unchanged rendering source; fresh no-files explanation/critique and linked image/lifecycle checks"
   ],
   "frozen_full_suite_evidence": "benchmarks/results/2026-10-13-rust-full-suite/manifest.json"
 }

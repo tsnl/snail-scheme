@@ -1,0 +1,163 @@
+{
+  "kind": "Exact corrected release Wasm retained-work audit; static facts plus separate executed filesystem probes",
+  "performance_samples": false,
+  "artifact_sha256": "e66e1b8a221250c113073e9336b5247722de7484464c77963ce9d6d3b61bb081",
+  "wat_sha256": "483d2ae560311f762f8237f70fc4e9a17409f1616e512a8f208164383b8b3272",
+  "artifact_bytes": 131282,
+  "source_rendering_region_byte_identical_to_historical": true,
+  "source_rendering_region_sha256": "ed9d2858a58dd486765089d3ef4eef87fa260293a8d922d10e7de2d48aa4fbac",
+  "sites": [
+    {
+      "line": 1512,
+      "required_text": "call $__clock_gettime",
+      "meaning": "Workload clock starts after input decoding."
+    },
+    {
+      "line": 1646,
+      "required_text": "loop $label25",
+      "meaning": "Signed repetition loop encloses scene construction and all IO."
+    },
+    {
+      "line": 1703,
+      "required_text": "call $malloc",
+      "meaning": "Fresh sphere Vec allocation inside each repetition."
+    },
+    {
+      "line": 1787,
+      "required_text": "loop $label7",
+      "meaning": "Ordered x scene construction."
+    },
+    {
+      "line": 1811,
+      "required_text": "loop $label6",
+      "meaning": "Ordered z scene construction and grow/store sites."
+    },
+    {
+      "line": 1983,
+      "required_text": "loop $label8",
+      "meaning": "Full40-byte sphere reverse to match source prepending."
+    },
+    {
+      "line": 3040,
+      "required_text": "call $unlink",
+      "meaning": "Existing path is removed per invocation."
+    },
+    {
+      "line": 3486,
+      "required_text": "File4open",
+      "meaning": "Fresh file create/open."
+    },
+    {
+      "line": 3555,
+      "required_text": "call $malloc",
+      "meaning": "Owned8192-byte buffered output per invocation."
+    },
+    {
+      "line": 3610,
+      "required_text": "fmt5write",
+      "meaning": "Complete PGM header formatting."
+    },
+    {
+      "line": 3783,
+      "required_text": "loop $label21",
+      "meaning": "All rows."
+    },
+    {
+      "line": 3811,
+      "required_text": "loop $label20",
+      "meaning": "Every pixel in a row."
+    },
+    {
+      "line": 3823,
+      "required_text": "f64.sqrt",
+      "meaning": "Ray normalization."
+    },
+    {
+      "line": 3896,
+      "required_text": "loop $label18",
+      "meaning": "All40-byte spheres in quadratic branch."
+    },
+    {
+      "line": 4004,
+      "required_text": "f64.sqrt",
+      "meaning": "Candidate Euclidean distance; no squared-distance rewrite."
+    },
+    {
+      "line": 4018,
+      "required_text": "f64.sqrt",
+      "meaning": "Discriminant square root and both root divisions."
+    },
+    {
+      "line": 4118,
+      "required_text": "loop $label19",
+      "meaning": "All spheres in the linear-root branch."
+    },
+    {
+      "line": 4124,
+      "required_text": "f64.sqrt",
+      "meaning": "Linear candidate Euclidean distance."
+    },
+    {
+      "line": 4307,
+      "required_text": "f64.nearest",
+      "meaning": "Ties-to-even final rounding."
+    },
+    {
+      "line": 4327,
+      "required_text": "f64.sqrt",
+      "meaning": "Selected surface normal normalization."
+    },
+    {
+      "line": 4414,
+      "required_text": "fmt5write",
+      "meaning": "Decimal pixel plus newline formatting, consumed by buffered file writes."
+    },
+    {
+      "line": 4749,
+      "required_text": "flush_buf",
+      "meaning": "Explicit final buffered-file flush."
+    },
+    {
+      "line": 4759,
+      "required_text": "drop_in_place",
+      "meaning": "File/buffer drop closes every invocation before loop return."
+    },
+    {
+      "line": 4801,
+      "required_text": "call $free",
+      "meaning": "Owned scene storage frees within the invocation/timer."
+    },
+    {
+      "line": 4997,
+      "required_text": "call $__clock_gettime",
+      "meaning": "Stopped clock occurs after supplied-expectation kind/value comparison."
+    },
+    {
+      "line": 5095,
+      "required_text": "__print",
+      "meaning": "Result formatting after stopped clock."
+    },
+    {
+      "line": 5148,
+      "required_text": "__print",
+      "meaning": "Signed count CSV formatting after stopped clock."
+    }
+  ],
+  "predicate_region": {
+    "first_line": 4928,
+    "last_line": 4962,
+    "meaning": "Expected Datum must have Atom tag and two-byte spelling equal to retained ok/#f; String tag cannot satisfy. Comparison precedes4997 stopped clock."
+  },
+  "source_work_counts": {
+    "invocations": 50,
+    "scene_spheres_per_invocation": 33,
+    "pixels_per_invocation": 10000,
+    "scene_spheres_total": 1650,
+    "pixels_total": 500000,
+    "sphere_visits_total": 16500000
+  },
+  "opacity": "Original frozen black_box(filename) and black_box(resolution) each invocation; count is a decoded signed runtime input. IO consumes all formatted pixels. No extra per-pixel/result validation or new black_box in timed kernel.",
+  "optimized_common_subexpressions": "Within each pixel, ray squared length and related4a/2a terms are calculated before the sphere loop; source geometry is unchanged, but instruction-count parity with Scheme is not claimed.",
+  "executed_work": "filesystem-correctness.json reconstructs all52 separately closed output files from successful syscall write payloads (full50 fresh plus count2 existing). Canonical PGMs and all32 linked-Wasm/original-Chez checks retain the original symbolic result predicate.",
+  "limits": "Static release Wasm inspection and actual full-output lifecycle evidence; no V8 physical-allocation trace, generated-machine-code audit or dynamic sphere-visit counter is claimed. Inline Point/Option/Hit state differs from Scheme heap vectors/wrappers and GC."
+}
