@@ -44,12 +44,16 @@
     },
     {
       "name": "puzzle",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 152,
       "files": {
         "src/puzzle.scm": "6730fba3bd4713d603c72b31970b3aef25881a40ea0b6e8bd175e09d22464129",
         "inputs/puzzle.input": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-puzzle/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md",
+      "representation_note": "Full fixed-order search, reset, local Boolean escape, explicit Ref scalars and closed false/count result. Original 1000 repetitions, size511, result2005 retained; both setup regions untimed.",
+      "note": "1.108720 seconds; 1.157 times original Chez, 1.168 times adapted Chez and 2.434 times Rust/Wasm. Rust uses borrowed state, unpacked byte Bool vectors and Wasm32 usize counters; not an equal-layout comparison."
     },
     {
       "name": "triangl",
@@ -431,8 +435,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 27,
-  "historical_paired_chez_count": 26,
+  "historical_measured_strict_count": 28,
+  "historical_paired_chez_count": 27,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -450,5 +454,7 @@
     "mbrotZ"
   ],
   "runtime_ablation_report": "benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md",
-  "string_measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md"
+  "string_measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
+  "string_storage_report": "benchmarks/results/2026-10-14-string-storage/README.md",
+  "puzzle_measurement_report": "benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md"
 }
