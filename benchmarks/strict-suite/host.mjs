@@ -46,6 +46,6 @@ const result = instance.exports[config.export || 'bench'](BigInt(config.count));
 const checkedFlag = ['i64-list-values', 'f64-vector-values', 'i64-vector-values'].includes(config.result_kind);
 assert.equal(result.toString(), checkedFlag ? '1' : config.expected.toString());
 const seconds = Number(process.hrtime.bigint() - start) / 1e9;
-if (mode === '--validate') assert.equal(barriers, config.barriers_per_iteration * config.count);
+if (mode === '--validate') assert.equal(barriers, config.barriers_per_iteration * Math.max(0, config.count));
 console.log(JSON.stringify({seconds, result: result.toString(), barriers: mode === '--validate' ? barriers : null,
   setup_barriers: mode === '--validate' ? setupBarriers : null}));
