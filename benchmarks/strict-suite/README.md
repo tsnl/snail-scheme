@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts thirty original R7RS kernels to the strict compiler:
+This diagnostic adapts thirty-three original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, and `mazefun`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, and `tail`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -14,7 +14,8 @@ the tested, unmerged numeric branch (`320987e`, cherry-picked as `a23fbdc`).
 This interim baseline precedes the result-context overload and `Default T` work.
 The allocation benchmarks annotate their list of empty
 lists as `List (List Never)`. All original inputs and repetition counts remain.
-No compiler or runtime implementation changes are part of this experiment.
+Later ports record their library prerequisites separately. Tail adds scalar
+text-file input to the existing strict I/O library.
 
 ## Run
 
@@ -672,3 +673,30 @@ managed references or claim to measure their identity. The unchanged recursive
 list writes/removals and direct cons lowering support the sharing contract.
 Observers and retained-work counts stay separate from canonical artifacts and
 clean measurements. This port changes no compiler capability.
+
+## Tail files and line input
+
+`tail` keeps all 50 original repetitions over the complete 4,460,056-byte,
+31,102-line `inputs/bib`. Each repetition opens input, deletes existing output,
+opens output, retains every line in a reversed Scheme list, writes every line
+plus LF, closes output, then closes input. Its original predicate remains always
+true. Separate checks compare every output byte and ordered file lifecycle.
+
+The source edits extract String from the concrete `LineResult`, rename its EOF
+predicate for the Chez boundary, and use an explicit typed `for-each`. The
+adapted Chez program shares the exact kernel and the strict library's Scheme
+line builder and character writer. Its concrete line cases use vectors; its
+native ports and character-copy primitive retain their Chez representations.
+The strict library uses a geometrically growing String buffer, scalar Rust
+read/peek operations and existing host UTF-8 decoding. All line construction,
+retention and reversal remain in Scheme.
+
+The unchanged upstream Chez prelude uses `get-line`, which recognizes LF and
+retains CR. Strict and adapted Chez follow the repository text-reader contract
+for CR, LF and CRLF. The canonical bibliography contains no CR, so its complete
+bytes agree across both controls, raw/optimized linked Wasm and native execution.
+The [preparation report](../results/2026-10-14-strict-tail/README.md) records 95
+supplemental cases and explicitly preserves the differing original Chez bytes
+for CR fixtures. It also records Unicode, EOF, empty/unterminated lines, buffer
+boundaries, file replacement, nonpositive counts and 50-iteration lifecycle
+traces. No clean timing samples are included.
