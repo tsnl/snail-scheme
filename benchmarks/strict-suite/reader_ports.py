@@ -663,6 +663,8 @@ def chez_probe(name, original, adapted, root, driver):
     if adapted:
         exports = ['workload-read', 'read-end?', 'read-value!', 'real-datum', 'exact-datum', 'datum-boolean',
                    'datum-string-value', 'datum-number', 'inexact-number', ('typed-symbol->string', 'symbol->string')]
+        exports += ['datum-kind', 'datum-boolean-value', 'datum-character-value', 'datum-symbol-value',
+                    'datum-number-value', 'datum-car', 'datum-cdr', 'datum-vector-values', 'datum-bytevector-values']
         source += chez_reader(root, exports) + kernel(name, driver.upstream_kernel(original))
         observer = strict_observer(root)
         observer = observer[observer.index('(: observe-string'):]
@@ -815,6 +817,9 @@ def observation_trace(result, system, data, spec, case):
 
 def bridge_stream_program(root):
     exports = ['workload-read', 'read-end?', 'read-value!', ('typed-symbol->string', 'symbol->string')]
+    exports += ['datum-kind', 'datum-boolean-value', 'datum-character-value', 'datum-string-value',
+                'datum-symbol-value', 'datum-number-value', 'datum-car', 'datum-cdr',
+                'datum-vector-values', 'datum-bytevector-values']
     observer = strict_observer(root).split('(: observe-string', 1)[1]
     observer = '(: observe-string' + observer
     observer = replace(observer, '(symbol->string value)', '(typed-symbol->string value)')

@@ -352,11 +352,15 @@ Scheme and invokes the retained cleanup export after traps. See
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
 datums, interned symbols, exact I64/inexact F64/complex numeric variants,
 structural equality and proper-list operations. Mutable datum identity names
-backing storage; pair identity compares both explicit Ref fields. Decimal I64
-formatting stays in Scheme. The module owns the shared `ReadResult` data and
-interprets each ordinary atom through one staged text handle, closing it or
-consuming it into a symbol before returning. [`(snail read)`](src/snail/read.sld) re-exports the
-unchanged result API and consumes Unicode input
+backing storage; pair identity compares both explicit Ref fields. Equality
+follows finite cyclic graphs with explicit continuations and a query-local
+table of private recursive-view IDs. Those IDs do not replace storage identity
+or add fields to Ref/vector storage; the scalar counter retains no objects.
+The public constructors and read-only projections keep the private IDs
+unforgeable. Decimal I64 formatting stays in Scheme. The module owns the shared
+`ReadResult` data and interprets each ordinary atom through one staged text
+handle, closing it or consuming it into a symbol before returning.
+[`(snail read)`](src/snail/read.sld) re-exports the unchanged result API and consumes Unicode input
 incrementally, owns token buffers and parsing in Scheme, and distinguishes a
 datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
 owned scalar token handles, checked numeric conversion and a root-free strict
