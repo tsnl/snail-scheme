@@ -128,6 +128,18 @@ python3 benchmarks/strict-suite/replay.py /tmp/strict-enumeration-replay \
 The new module is `enumeration_ports.py`: exact typed source edits, supplemental
 encodings and independent finite oracles. `measure.py` remains the preparation
 and later measurement coordinator. The [neutral behavioral brief](simplify-behavioral-brief.md)
-is ready for a fresh explanation under the pinned simplify skill; the parent
-owns that independent review. No compiler features, gcbench lifecycle changes,
-clean timing, publishing or landing are part of this checkpoint.
+received a fresh independent explanation and informed critique under the pinned
+simplify skill. [Parent review](parent-review/review.json) kept the cohesive
+source adapters and immutable plan, and added an independent permutation-domain
+completeness guard to future preparations. The frozen archive remains the
+original preparation; its driver identity is unchanged.
+
+The parent independently verified all 351 archived files, checked the complete
+permutation domains for N=1..6, and rejected a duplicate model with the correct
+cardinality. Twelve new raw/optimized/original-Chez/adapted-Chez executions
+check hand-derived complete queue snapshots for one-element no-flush/full-flush
+and overlapping shifts. All 23 generated strict sources remain byte-identical.
+The persistent plan-to-queue root and fill-before-flush ordering are visible in
+the exact optimized module. This does not establish Chez or V8 machine-code
+liveness. No compiler features, gcbench lifecycle changes, clean timing or
+landing are part of this checkpoint.

@@ -305,8 +305,12 @@ def queue_values(m, n, k, ell):
 
 
 def check_permutations(values, size):
-    expected = encode_permutations(permutation_values(size))
-    if values != expected or expected[0] != math.factorial(size):
+    permutations = permutation_values(size)
+    expected = encode_permutations(permutations)
+    complete = set(itertools.permutations(range(1, size + 1)))
+    if len(permutations) != math.factorial(size) or set(map(tuple, permutations)) != complete:
+        raise ValueError('prefix reversal model must enumerate every permutation once')
+    if values != expected:
         raise ValueError('incorrect complete permutation sequence')
-    return dict(permutations=expected[0], all_values_checked=True,
+    return dict(permutations=expected[0], all_values_checked=True, complete_domain_checked=True,
                 sum=expected[0] * size * (size + 1) // 2)

@@ -1,0 +1,78 @@
+{
+  "checks": [
+    {
+      "label": "values-1",
+      "proof": {
+        "permutations": 1,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 1
+      }
+    },
+    {
+      "label": "values-2",
+      "proof": {
+        "permutations": 2,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 6
+      }
+    },
+    {
+      "label": "values-3",
+      "proof": {
+        "permutations": 6,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 36
+      }
+    },
+    {
+      "label": "values-4",
+      "proof": {
+        "permutations": 24,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 240
+      }
+    },
+    {
+      "label": "values-5",
+      "proof": {
+        "permutations": 120,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 1800
+      }
+    },
+    {
+      "label": "values-6",
+      "proof": {
+        "permutations": 720,
+        "all_values_checked": true,
+        "complete_domain_checked": true,
+        "sum": 15120
+      }
+    }
+  ],
+  "negative_checks": [
+    {
+      "label": "short",
+      "error": "incorrect complete permutation sequence"
+    },
+    {
+      "label": "long",
+      "error": "incorrect complete permutation sequence"
+    },
+    {
+      "label": "wrong-value",
+      "error": "incorrect complete permutation sequence"
+    },
+    {
+      "label": "duplicate-model-with-correct-cardinality",
+      "error": "prefix reversal model must enumerate every permutation once"
+    }
+  ],
+  "source_sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+  "scope": "Independent supplemental permutation-domain completeness; timed sources unchanged"
+}
