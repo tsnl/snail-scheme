@@ -1,0 +1,14 @@
+{
+  "name": "string",
+  "count": 1250,
+  "inputs": [
+    8192,
+    2,
+    16374
+  ],
+  "original_expected": 16374,
+  "expected": 1,
+  "barriers_per_iteration": 1,
+  "predicate": "equal? over the original Boolean-or-I64 result",
+  "setup_barriers": 0
+}

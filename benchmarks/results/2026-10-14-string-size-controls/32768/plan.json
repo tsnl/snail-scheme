@@ -1,0 +1,2666 @@
+{
+  "name": "32768",
+  "cpu": 5,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "rounds": 4,
+  "variants": [
+    {
+      "name": "flat",
+      "kind": "json",
+      "expected": "1",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/spec.json"
+      ],
+      "cwd": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768",
+      "environment": {},
+      "stdin": null
+    },
+    {
+      "name": "blocks",
+      "kind": "json",
+      "expected": "1",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/spec.json"
+      ],
+      "cwd": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768",
+      "environment": {},
+      "stdin": null
+    }
+  ],
+  "files": [
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/run/current-system/sw/bin/taskset",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline-manifest.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/scripts/build-strict",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/artifacts.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/bootstrap.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/build-host.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/build.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/chromium-trace.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/common.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/compile-build.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/compiler.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/effects.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/expand.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/generation.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/hash-table.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/ir.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/iverson-ghost.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/iverson-typed.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/library.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/options.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/parser.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/partial-eval.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/pattern.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/reader.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/runtime-artifact.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/runtime.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/source.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-compiler.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-core.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-data.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-infer.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-overloads.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-primitives.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-specialize.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-types.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-wasm.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/syntax-parser.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/syntax.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/type-analysis.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/type-inference.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/typeclasses.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/types.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-abi.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-extern.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-i32.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-link.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-literals.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-optimize.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-runtime.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/artifacts.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/strict.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/typing.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/tests/build-strict-program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/data_ports.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/deriv_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/enumeration_ports.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/mbrotz_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/measure.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/prepared.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/r7rs.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/simplex_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/adapted-kernel.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-validation.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/complete-output-oracles.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/complete-source-adaptation.patch",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/input.txt",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/kernel-adaptation.patch",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/original-kernel.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/source-proof.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/empty-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/first-grow.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/scalar-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold--1.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-0.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-21.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-22.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-5.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-500000.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-53.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-54.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-6.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/unicode-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/upstream.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-100.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-2.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/baseline/string_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate-manifest.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/scripts/build-strict",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/artifacts.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/bootstrap.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/build-host.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/build.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/chromium-trace.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/common.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/compile-build.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/compiler.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/effects.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/expand.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/generation.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/hash-table.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/ir.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/iverson-ghost.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/iverson-typed.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/library.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/options.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/parser.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/partial-eval.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/pattern.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/reader.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/runtime-artifact.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/runtime.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/source.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-compiler.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-core.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-data.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-infer.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-overloads.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-primitives.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-specialize.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-types.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-wasm.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/syntax-parser.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/syntax.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/type-analysis.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/type-inference.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/typeclasses.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/types.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-abi.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-extern.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-i32.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-link.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-literals.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-optimize.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-runtime.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/artifacts.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/strict.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/typing.sld",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/tests/build-strict-program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/data_ports.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/deriv_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/enumeration_ports.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/mbrotz_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/measure.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/prepared.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/r7rs.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/simplex_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/adapted-kernel.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-validation.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/complete-output-oracles.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/complete-source-adaptation.patch",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/input.txt",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/kernel-adaptation.patch",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/original-kernel.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/compile.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/program.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/program.so",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/source-proof.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-final-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-first-append.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-left-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-old.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-right-substring.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/empty-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/first-grow.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/host.mjs",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/scalar-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-empty-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-first-grow.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-scalar-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict-build.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold--1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold--1.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-0.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-0.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-21.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-21.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-22.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-22.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-5.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-5.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-500000.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-500000.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-53.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-53.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-54.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-54.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-6.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-6.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/unicode-seed.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/unicode-seed.raw.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.optimized.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.raw.wasm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.trace.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.wat",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/upstream.scm",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-1.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-100.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-2.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-maximum-expected.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-minimum-count.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-minimum-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-negative-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-negative-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-positive-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-positive-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-threshold-six.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-threshold-twenty-two.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-wrong-high.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-wrong-low.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-false.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-integer.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-threshold.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-true.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/candidate/string_port.py",
+    "/tmp/snail-gc-string-block-preparation-20261014/handoff.json",
+    "/tmp/snail-gc-string-block-preparation-20261014/source-comparison.json",
+    "/tmp/snail-string-size-controls-20261014/build/measure-sizes.py",
+    "/tmp/snail-string-size-controls-20261014/build/prepare-sizes.py",
+    "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/count-one.json",
+    "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/spec.json",
+    "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/validation.json",
+    "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/wrong-result.json"
+  ],
+  "identities": [
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline-manifest.json",
+      "sha256": "faf6eb424b1c7bc59e2a409a95def76e588677397e733ff53eb4562f194e16d6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "f5e13c1c20f0876acf27e85df787b53a6f4a082825f85a25c696d18168b09b1f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/data_ports.py",
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/deriv_port.py",
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/enumeration_ports.py",
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/mbrotz_port.py",
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/measure.py",
+      "sha256": "cacf9b97ceb9d49fc7b83e0c0ec4b51bf24bdbf8b5e634e141a2f48dd12ece33"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/prepared.json",
+      "sha256": "f1c89633e4baca1f3f30d8a235bbe26357a17135e861dfc8425fdc369c495f59"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/simplex_port.py",
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/adapted-kernel.scm",
+      "sha256": "f05b1a0b29f7022cdf6b4f274de0a0a40a71249189823ebacdd111b4f01ca643"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/build.json",
+      "sha256": "66f4a1f8667a581a2c316d1377e4aabf9dfd7b5c9ea518e87ff75395579e50a7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/compile.scm",
+      "sha256": "5a9e43f652d6037d1b85f5b248722fbe507f32896b90889dfba33443482ba459"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/program.scm",
+      "sha256": "f9dc1704024bc5ad547a4e0e19c26c72b596cb94beb36411a974a4daed6ec2e5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/program.so",
+      "sha256": "cc41a90884ef3c7983ed647809391ae4bc660a4145b8e68c1e7638319eac5a10"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-final-append.json",
+      "sha256": "17d48c0a704392c2ee405145e57900221ccc47f3c9b1c41f6b77e6cec105a37a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-first-append.json",
+      "sha256": "02fbdef40943b2da8a9be126793c29549679d65f16ba5be3de9baf6806def8b0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-left-substring.json",
+      "sha256": "bfe9ccb291e96e417862e4106e63979abd6d1fec24c4b1a7f61078ddf1c288df"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-old.json",
+      "sha256": "bb5a10e350bb06fac56f3fbfacab94c263781309a2609b81e28a772ce53174f7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-adapted/validation-right-substring.json",
+      "sha256": "a241268c40c52020532a2d78f527b47eba6c3796d3c9d42c7d4117094e7b8838"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/build.json",
+      "sha256": "a3e94ddef1763d7abc910847ca4d54382239c7749efd69a191aacefd979451a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/compile.scm",
+      "sha256": "4a6d297750dbafcf0975ee87fd77b6ed980699aeb06807d4dd3c4b56413cad5d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/program.scm",
+      "sha256": "d726ed37e1928e8c5def8ed3090f698f4afee884b9931d448566faf3c3b02560"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/program.so",
+      "sha256": "eb03d55641ce84184b4143e7fb46cb37834d87924990333d51e1ad30b1c246fa"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-final-append.json",
+      "sha256": "8ac108ed2c5027d461775496ed200ed0610dc7e1a589cd0046591a20f5974dee"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-first-append.json",
+      "sha256": "dccc1d25439f075e07b781dab99cf4aaa23ade1c4f67ad48fd0000a5862c7c12"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-left-substring.json",
+      "sha256": "c9f517098d5c992b981525aa287b0b6520ca839faf90088c2e5c01b357f362de"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-old.json",
+      "sha256": "42b4f9c5c373f6d617f9bf07f0a030dbb51b10470a447a45f7ab0dc159c29757"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-alias-original/validation-right-substring.json",
+      "sha256": "179fb0df28504a279ed22bff3a33208012bb416997ec64f71273e5d1b2dca11c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-build.json",
+      "sha256": "ee95d573fa357794384d47fbf5dca16a3200d34bf2cc6b21b33da84ccd28008b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/build.json",
+      "sha256": "1afaa631855e9b41fafda5a2771a3c90a0e870ef6393808ea3efc614414da816"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/compile.scm",
+      "sha256": "8254760e6c942a71a93aa6fe3abe4a9f46ba21294fa77cfbd179fb2f90b084bd"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/program.scm",
+      "sha256": "a4327d808220dcd164fa0d1e0b2429a3f7464723b6d2a3a660190cd8d8ed1130"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/program.so",
+      "sha256": "f8946141e7df8387372d56d92fa153c5b58e03fc9563bb269c3a232e0920701a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-empty-seed.json",
+      "sha256": "8bd5c47039af5c9d815e402fbfef51c053e50d0e6c7c857eb14204de4611b39b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-first-grow.json",
+      "sha256": "921faf9743ea830a6b52cf645f01ee36d78bf4d37412dba5509d5fb1df22f1b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-scalar-seed.json",
+      "sha256": "dacc83dfadf4ea45e529d22c3144b202525b8701910b445f7a6c3069710b6905"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold--1.json",
+      "sha256": "4eebea4db73f15ed652510844a846eb3bd680d768f01aa105851bea007ad1e96"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-0.json",
+      "sha256": "b50c5642a60adae12e84a80839306354ab44c1d89a935728cb28c0a85bb85a4b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-21.json",
+      "sha256": "6b0f50a75e2072d18e9c6497e7b13b367dae2f565eb93533ee47e1c3a02b259e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-22.json",
+      "sha256": "bda87b1b41389d616e6933a2ae454bb6bfe284d9aca0fb8719242bb3f4ba9622"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-5.json",
+      "sha256": "a6cea2931f5ed262f77206279e61f0a79d7348aca34158072c59bf3ffee87e43"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-500000.json",
+      "sha256": "893456acc976eb12302e9bbf9bc2854a2185966e15ead8cadbac5a55c00791fb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-53.json",
+      "sha256": "ffb2184e4ac8b2f7c348e16056b944c7b00296f4c66517ef5edcae5e95892c2e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-54.json",
+      "sha256": "365e7b69b37925d33c70820d40151375f98ba826419345dee8e321c2f514f8ae"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-threshold-6.json",
+      "sha256": "9bcfa3bfd6b090ae1eb88c50a63cf4a11d96df968084605703461ade3ba13642"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-adapted/validation-unicode-seed.json",
+      "sha256": "9b8e4a882e1ecbcf95ec650653a2d68d22df4c9d4f14d83b133188c6b96e1bfa"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/build.json",
+      "sha256": "c17eed623042eef149db1723a35bb0c520b02b66d3cb4a50d9f2507cc3d719ea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/compile.scm",
+      "sha256": "98a48ddc27b62c1675528de32d678e1b660311ee4307ca4868430b63a0c7bde7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/program.scm",
+      "sha256": "2f7988ddfef50422480b4480099a00dd5b8617620ab3427d029ec9e4802e8f9f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/program.so",
+      "sha256": "08f88a5579301df90fa9d632fa8468f74a99dd9d8daafd5fe18d7cf761d64c65"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-empty-seed.json",
+      "sha256": "6b7e20b38267df6d62d1d7058a69b9c0df1cdadeb8f0feaa95aa7e284a6fc2b6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-first-grow.json",
+      "sha256": "72eac2050476c17bdbd19a398f3581bdf229fc5ddb16761a999b4c9bacd28992"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-scalar-seed.json",
+      "sha256": "f32dfd236cc5ff5ba3a6709d111bbf7cd568058a769cc8bada05ae3a58d45d7c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold--1.json",
+      "sha256": "a154dc66ad2b01ac59021dccdf57942e3f859bb72fe1b46aa5df2ba15a23b36b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-0.json",
+      "sha256": "997009b541584f92a741414922e6a153a7e9990be2412a1854c26c9fb40fc58d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-21.json",
+      "sha256": "731f04eb5430d37be185d02c91b886c65e5d8047451689cde1f9a65dedc567e8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-22.json",
+      "sha256": "cbc185d2d0028cc34010ca539cd6f971c4cc7ccaa026d4d9d0ff4286eda65d04"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-5.json",
+      "sha256": "197cdba53c8805c59c81e17d205394dbfdde62991569ab6fb9b9bf579d1f8bd7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-500000.json",
+      "sha256": "6d939f7fec03c8beb6b7bf500bb1a2489d63ec6860229c5f29cf75ad9e9d918a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-53.json",
+      "sha256": "30048b8107f130748b243dfb193af0f68a2c0787a7e8284d79f8adaeb4312153"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-54.json",
+      "sha256": "cbe4cb7f88af9bbda4d2c196babe7dcacb5d9f316e55d086c1492f2268d7a89e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-threshold-6.json",
+      "sha256": "65903ddb2f2739e04b8932ee1a1e22991bc7990777d5295f1d1dd7fba820c3a8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-output-original/validation-unicode-seed.json",
+      "sha256": "886206d7df8d598f61154fc22ae8ce479442513fe1eb2f5858fc36807c96a95b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/chez-validation.json",
+      "sha256": "c2807a05bff150ae2be59b86b7e53cd1643eac3cc19a4ce051528d0acf0967d9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/compile.scm",
+      "sha256": "486cb6763b34a5a534de8884f125a538a379135d145028077952e1321befe3e9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/complete-output-oracles.json",
+      "sha256": "992db4b3f62410a1d6c08cab8d228cde8743f249431be9912b9e3a1899058579"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/complete-source-adaptation.patch",
+      "sha256": "f57a28bbcc7262ebeb7576fbbe73dac7c5de43c941f77fe86e35aca4e74059af"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/input.txt",
+      "sha256": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/kernel-adaptation.patch",
+      "sha256": "53c5cede4195b9ebb4ebec054f247f324228f19c8cf0b1d0882fb7cd643d22d7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/original-kernel.scm",
+      "sha256": "ea814831823ee9c134da1020cd7d9e115abde5952393150dd1987b5f20ad2c22"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/program.scm",
+      "sha256": "dd509f86661d15aa9b4c1c41d2712149a5070bed7ab38a89da3514de4fa148e0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/program.so",
+      "sha256": "71a12a628901fd7dc6900559357650cde7b684ab2e9c61e2e8acc80d42ca265e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/build.json",
+      "sha256": "48a28b04f2901cca66348c16eab6d37bd26662b44db48f000612e84a7c4b8bc4"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/compile.scm",
+      "sha256": "73a99e480b58897239c901aec44057e261fbc4efebb41a30bebc5aec314416e7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/program.scm",
+      "sha256": "b3b9354ef413bebc38d453a2f44901a09c7a4d6322155d68256f0c3a1a6b91b2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/program.so",
+      "sha256": "9d5ae70e85e713f2d87522326cc98ed125d39fb2fb964a1947511154d28970a3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-maximum-expected.json",
+      "sha256": "9ce38cfc0f080c3230b2854ea14a5a8a2c593bcfae6f97c3ba48a749b024e2f2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-minimum-count.json",
+      "sha256": "f120e1e561dca12f36eaf1db5f83ef91715fef8a91e89410d358e88310d495d7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-minimum-threshold.json",
+      "sha256": "94228b11331daaef810c6ed9b2f22531a5a4c54befdbb35f10a211b39ed0f3a8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-negative-false.json",
+      "sha256": "9ad1e66de3d0892f0b236818305ee37a64d45eb22d4054e83717750fda6bbcf9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-negative-threshold.json",
+      "sha256": "aae4a4770ad92af41a10c056781b561e26f48cd346820015dab0a4bd8adf89f1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-positive-false.json",
+      "sha256": "b200ba819a24f9593017f1c8e297d2a734ec8937e6370ce124d308b1000619ea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-positive-true.json",
+      "sha256": "d9d8d41d76339b0888309eb7b2fb8e981d28523a335e89e1ac4cf95e8bace1d8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-threshold-six.json",
+      "sha256": "0085bfaeef6af03883a638421df51c0f0f0d8732b8439da9a8cbef9a443925a7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-threshold-twenty-two.json",
+      "sha256": "3087b6ef1d3bdeb2e0c66c7604ba2c6423f12ee656ed472d1368fe380152ee37"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-wrong-high.json",
+      "sha256": "feb3af19324c5dd18cdff616c48545458d706965a2f76a6fba5be1981e9699c7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-wrong-low.json",
+      "sha256": "aca4a89ac51a2fb281f039c6e860f661dbad467a031573c397d2ebaf43e63e92"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-false.json",
+      "sha256": "b91afde5aad7115f7aa5bbbac683c2c3d026c1e013bee95219a5a68ee0a3aa04"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-integer.json",
+      "sha256": "b283f25e92c09d9a638b190507b238ee71f45dfab783005d3e7cdfd222203bbe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-threshold.json",
+      "sha256": "d34af9641a4b3f76c809de4b02c24ff21b7fb67e9b948a9c50ebab68db3f85c4"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/same-source-chez/validation-zero-true.json",
+      "sha256": "e466525a942320872fb46d04c8560151c5f8313eba6d3cfe4e1b27efc8fc4e16"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/source-proof.json",
+      "sha256": "d6dc03e217b4c21f302562719e4c8ae904c0d39b3961b2f8e953580b6fb6400b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/spec.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/host.mjs",
+      "sha256": "4afc7639c579be070dbb483f0755fa5e86c09e78a257c311f92417b1f802721a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/spec.json",
+      "sha256": "537b627d63f8ae5cac7fe236614b35a08374e5e0cb25d7a89eefe1418ae68104"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict-build.json",
+      "sha256": "45959036a19ba441c22a8acb06e530237ff497605791adef38ecef2bd6db60ac"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.optimized.wat",
+      "sha256": "c3d0f10131125457e1470d0c48def16d78303b9de37c3ac878e1dc8c574691e0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.scm",
+      "sha256": "01f580ce4f8a7be3acd09bed7774b328b4f67dd1189aeb2fca3265744c0a7fd7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm",
+      "sha256": "906b99b01b183634f224da146ec3a429ef15d92da64afbe127daf4ba71c67553"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.raw.wasm",
+      "sha256": "3ca2759089d574d51c7e363b9b7dd23fe94977dfc5f0053ea7d83d32b860b91e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.trace.json",
+      "sha256": "8fa02a13f075d0c58c1ec76e6d850e9d49d2de15b5b3d34e54370f61e7bfa5e7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/strict.wasm.wat",
+      "sha256": "9c1011af9201a06851456a4b278151c6bff813c941f216fc937d308936007e3d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-final-append.json",
+      "sha256": "a447c664c52d57e9eb9a57fbebfdf7e3571d8c7e5d469c8d6c04a11b62ebbcfe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-first-append.json",
+      "sha256": "f0fca8ebafaf9b2b8279cb5802e3dd07c11a63e2917ae40c0223d2cf48ac6db2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-left-substring.json",
+      "sha256": "47fc156915d122a2e03ab601310b473e7bc2e51a387719dd2a629737b7c8beac"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-old.json",
+      "sha256": "53c8b1debbe02bb8fd99ff15189c25e8b72490a4a5115f4cbe34c8692ecabcee"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-right-substring.json",
+      "sha256": "c27b3ed1089dc1cd945163647608ed4eafe9bda3115db2ea450b875b2e114322"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-final-append.json",
+      "sha256": "cd080f08c768d004755a7b0f0a80ff7b34daaf3843015515f1f722cdd743e4be"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-first-append.json",
+      "sha256": "df4db737714cca7db37831ee9b546f88787d9393c633e4b0c54862a0e176bdd8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-left-substring.json",
+      "sha256": "16d37f2b5f6136034e723cdf160bcf71ced67f52a204e03df7068784ce091457"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-old.json",
+      "sha256": "869d022f996d6c805bce4e4c9b7411fe1e55bf19fcb01c50efe28f3d251ee5bf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-alias-probe/validation-spec-right-substring.json",
+      "sha256": "b344c20ac9a1dd98148498913df1c4a079fd4bcee144c9a9a3efa8409925094a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-build.json",
+      "sha256": "3eb8622c3de4f55be99f3356d404fe15907569587d68817e80b5c46b49ca5b00"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/empty-seed.json",
+      "sha256": "69336a15c2be8c25494877921a277644f049eea9c216f08a1b736dc01e6bb771"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/empty-seed.raw.json",
+      "sha256": "bbda7ed39792e80a5f91d01afe32e5635bbee88243a76c045b12d58eaa1f1a60"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/first-grow.json",
+      "sha256": "f09feeb8ff9edf33775fe2492b0ad42da3912e810a164806f57891da150d68c0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/first-grow.raw.json",
+      "sha256": "753528e17c597b837a322956b521409f4ef49015215a328765c051e3e40842e1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/host.mjs",
+      "sha256": "4afc7639c579be070dbb483f0755fa5e86c09e78a257c311f92417b1f802721a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/scalar-seed.json",
+      "sha256": "70fd51c4eea5d48e55f3cc255685b7881078ae80e455b517e9cb6eac44f9a0b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/scalar-seed.raw.json",
+      "sha256": "7b962bddd0ba61c9f83d5c3b22dab69ee7a63b7f8dcaee38f6468f2f29127a56"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-empty-seed.json",
+      "sha256": "3dfbf56948abf5a014bc753968564c0c80d7f286400bbc2d04888304de4d56ea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-first-grow.json",
+      "sha256": "fd2692a1704c1034211df7a598e2eaaec76d7e10b9f6cb85f4d0f4f660edee70"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-scalar-seed.json",
+      "sha256": "17428a06ada26dd6e2ecb99eedcd599ec582b61e644b57b2f75279db4b5fd647"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold--1.json",
+      "sha256": "c0d1d9023cdc26d73db62b0168565a7f71c2c4a9e00a99fc203c95e85876852c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-0.json",
+      "sha256": "bff4f4ad55bc46d8ba66b76b5f24aaa1e9e91df21d41d949c854914a211b4d3c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-21.json",
+      "sha256": "b7eee8ef6e06f5cd46401cd7b1068639a0e655f91009ae8505ea86378f831a11"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-22.json",
+      "sha256": "003da212afe9d10187c05ee46ecd6b107de788802e0886613f8024ba116882f7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-5.json",
+      "sha256": "34fb8ffd10a486e5ec4509670fe7be7a18d3c5c9b28f4581d3de1a3b1a7224ca"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-500000.json",
+      "sha256": "d01037813d1341d915d6e224e962d2ce8abd934f8f062345cb47cebf8aa093f9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-53.json",
+      "sha256": "613caced45790ecd733b0a6462c87ca26a78e92bf9246a768d4d0789ea8301d3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-54.json",
+      "sha256": "6d5b574ce2944961f7a7f0fa168db8804a6e808890e9937b71fc5ab835c9423a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-threshold-6.json",
+      "sha256": "7cf667f6c85044309f1e4670908241f4546b3684689f87626bcd5cd8f404d49e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec-unicode-seed.json",
+      "sha256": "11b8c794132b0b60c4890181ad15e3d70001ada5a5664524b7d817e7d2e7cf47"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/spec.json",
+      "sha256": "d747cb398162e1903f54c7190bd244d0326c634f61761d5bb93e3b8b89b2f19b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict-build.json",
+      "sha256": "6c5e775afcdcb0fcb4f93336974c32af2411782f8959fc7a0a982933255f3a79"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.optimized.wat",
+      "sha256": "1476908af78f6fb0a4ccea56ccf0c7f1de61ba0d0a4977846de81b3f32e4a497"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.scm",
+      "sha256": "50b96c45254d9e8d741320bd52df814b588043d18cbc8bb68ddbfea575773cf8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm",
+      "sha256": "9448143dd4fb32eebdadf3383aa41c622532419f7e2378824032408f2ab30cfe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.raw.wasm",
+      "sha256": "d898cfe29b0e3748e5284e9f2bdedf302ec5880d27151ee42996306064c68a63"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.trace.json",
+      "sha256": "5023de3ab2c28c82a6f564b25ffee7cc8c9bf533340b2d35f6d1d840dbf24867"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/strict.wasm.wat",
+      "sha256": "363e71fe5c867040f80d806dffd8460409b4bb41ad1ae6b48caaaffe2f577092"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold--1.json",
+      "sha256": "22432af18f3dc6e77a0a29bb401a9c20529ca26f0085579fa440414c13997dea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold--1.raw.json",
+      "sha256": "58f4ee9d61ed451dea07a2f31a597cc3340cf0c200badfb455ff2c24ce2dffa0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-0.json",
+      "sha256": "9150b63f8b4576bd5af0f9fafaa7e7b3649a1c15959717e4146932e5b12f92c1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-0.raw.json",
+      "sha256": "6f4e2062b24eaa8f59f6ab03beb3b06bf638b2007af19de5bb3a93c005a60fe2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-21.json",
+      "sha256": "0056d420ab96bcada42a9a12e39b0ccd6a3ce265f882a696aaee984b19ae02d6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-21.raw.json",
+      "sha256": "aefde778098a1f4f3049630f1aee878aa6de474e4e883e2b3ef940f0aa0294ee"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-22.json",
+      "sha256": "923a8f63cf9fb65b945711371a08b8037a1b310f5b8f122114417deaf48d750d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-22.raw.json",
+      "sha256": "02f21bd2bb93bb25b61ed40024ad14f4b1211cdf412c1cbc25a2ecc467c9da70"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-5.json",
+      "sha256": "6a5e0f870669bdc62f1d3c4fbfa804c5c1c737582714ddaa6d19776a376417e8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-5.raw.json",
+      "sha256": "9f71424ed4cf0531277fb5f42fb0a0944c4e80914f40f7fcd74d047ba4c65d03"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-500000.json",
+      "sha256": "be60433985c6f325591567f05d14fc4f0596a42cecfa705a74e49229111c4cdd"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-500000.raw.json",
+      "sha256": "013941d2672893418b4be49ebdf43f8189f2aee07fe7e61f32e6dde56513df8f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-53.json",
+      "sha256": "ee6eb6751ad31bc7683c49a470c66812c8bd0780fed82ab0bf283abec843413d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-53.raw.json",
+      "sha256": "d8c456961f99cde73b8e3b7e2e25699ae729a53cf3a78ce66030ef83fc74b5ea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-54.json",
+      "sha256": "a531363b864cbcc73c822581750047e75025621da8adc8e33a7b10c83212abf7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-54.raw.json",
+      "sha256": "d20645cfd134d79ec7e5d776cecb276f675302ce2d97a73f3c74881b705ce92e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-6.json",
+      "sha256": "cdabea3a64bcb296a41e191ba4799e26e675fd8667325558e7a8dfc3f885707c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/threshold-6.raw.json",
+      "sha256": "f6d422b459b8f6186e6714cbbb60dfb604c6cd4acc23ac96270c89a1f67c1a34"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/unicode-seed.json",
+      "sha256": "063780b93e23a7be763fc21749cc4f7d40f7a71f5a7061987e81cf41c33d47c6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict-output-probe/unicode-seed.raw.json",
+      "sha256": "7c3e5d4bd651cc05a07362f448874a92155b2d42b37825fc4a90956287cecc44"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.optimized.wat",
+      "sha256": "ed01584dbd9d03acc6ceeb5c300cd5ae7d2699148ad45db44f646263d69d6a71"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.scm",
+      "sha256": "6f4398738f2abdc6ad2da51a6b4478731e1807aaf39b71ecafa8a9192fef8cbf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+      "sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.raw.wasm",
+      "sha256": "b5d0e88a02353148ef100659c7244b5a4b8298216be7abaf47c0dc22d90aa011"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.trace.json",
+      "sha256": "2a03a12c0c4c72cd9d49a361b4aa383cbdfa54c4cb5738dc5367a1b9f27368de"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm.wat",
+      "sha256": "40710c204f72e7ed269069cfa5d9caf36d38b158fcde72f36208437c0901da56"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/upstream.scm",
+      "sha256": "7bda79f59eda5dccbd770c560a3f6908c16f52ee10aedeb4d8f9904d9b6d3d7d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-maximum-expected.json",
+      "sha256": "41c4b9d4ed454ee8c76679cd2be1c1340847ff34f7345f60bf01113eeeb48b83"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-minimum-count.json",
+      "sha256": "15605304cefdc18abc56edfe0dfd79038a3860dec2f86d76a4c1ce347243c486"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-minimum-threshold.json",
+      "sha256": "659ba2d6b46eaef951c380157ef40b43f47ec4ce83e55c5e4771c5531f0bf6cd"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-negative-false.json",
+      "sha256": "cec5bff10321a996d8da99e585b13dabf260a58a5c2587d7da04a81ddd340925"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-negative-threshold.json",
+      "sha256": "c3db176f00d15306583369014d8ef8beb5297d2f10eb69fe4c6929ca1f89822d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-positive-false.json",
+      "sha256": "55f1f543da94c5f15a024ef7d73399279d74b15760767374575fcf65997fe0d8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-positive-true.json",
+      "sha256": "1df424ff600c4e94cc672d6f9fe2b2b02c4c65598813415b2c093c2a68674292"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-1.json",
+      "sha256": "a50e69f35fe99c57fd82f24cf091fffa6cebdbec2883d7e3d5faefb23ecc62d5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-100.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-2.json",
+      "sha256": "330e95afb19fcabdbdbe613475bc763e99c98fad4271bd050df3f41273070753"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-maximum-expected.json",
+      "sha256": "a69318b128eccfee2d98c718438333ce650b614aa6206e5436905109b2d9ad96"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-minimum-count.json",
+      "sha256": "bcdbe422631d7971fab008a188a8478d06c9f257c27876a2b2fe33428218684a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-minimum-threshold.json",
+      "sha256": "a058d32e6ec5fccff0c319ba619a8a426890c79e362d614385b711df01080fc0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-negative-false.json",
+      "sha256": "fc4ba179d0f5e38270b755aeb65fd0f8f6cc061abfd8c11d0f6bbe278e9b7382"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-negative-threshold.json",
+      "sha256": "0fad31ac8e320aca14ee036a32e1d9ee034113d40adcd89a667dda5891a12682"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-positive-false.json",
+      "sha256": "68782c8fc382eb140d311819c732e0638dab052a572b6a52f9a5a266f2ce816b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-positive-true.json",
+      "sha256": "5d32cda872a990fa52674744cffaa2beffb8343e6d38f1fc57de9cd7aa430cde"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-threshold-six.json",
+      "sha256": "107b276eed84da475c3c7c87a50db336904873b65c646cbb6c3fa81ef0035095"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-threshold-twenty-two.json",
+      "sha256": "04025e938e3de6bee8733227502293f4baf8654fa0fc7e25e1e5db3ca648cfdb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-wrong-high.json",
+      "sha256": "cd4db2dbf4a40022feaa02ad396433513e43b12fabade1db0b4589967b6d9d7c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-wrong-low.json",
+      "sha256": "b58636d7c98fc72fb958beb90ce23c19bb56025c05c59330595418cb634f5158"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-false.json",
+      "sha256": "38d7b6aef04027004694a5a73b2bb8bf829d7f4eab71d0251f5cb555b956f1c5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-integer.json",
+      "sha256": "9fabdbf708ddf05f4c58d39df02b00b0993dbbbac216309218c7d27c39118dbf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-threshold.json",
+      "sha256": "d9ade34e668c03833aa82373c1f990bb8a30631f6e531235bbad898a73178eb2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-spec-zero-true.json",
+      "sha256": "2f76f68d06e74f28c99b11d3b093b2401b37f071aa2aa1cebfd06751beb90627"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-threshold-six.json",
+      "sha256": "4ed52c8ac70abf1873acb97cb7e94bf4c07954ee2a9f32de33fc4c00801705c0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-threshold-twenty-two.json",
+      "sha256": "4197418bf2f0529f6e8d122ffba746a77d046258e4c3b4705ad1d89c7fbd43f9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-wrong-high.json",
+      "sha256": "4e15f57924bc58ee559271189eea4e409e512111d93463e629227e88596e8e63"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-wrong-low.json",
+      "sha256": "bd47178afcda7b2d0447e3d4b94e3487c1461cbf92013a7db14b000759eb4c5d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-false.json",
+      "sha256": "a8b445aeb46e8e7399d9c8458b9191a42450a2ae32d95e5de63b2d35bff9e3b2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-integer.json",
+      "sha256": "831ed925775e1d4ed87437553a55a7717ca3043ed862cc5dad766524d9549513"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-threshold.json",
+      "sha256": "c439da0296976938092e3b27d59d5b5b7cd02f8f4dd1ea5271964ed9629a67ba"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation-zero-true.json",
+      "sha256": "dd69207a04ad4b522020e22bbe2b1a78313ab4e5f3738427bc1662198a895e16"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/validation.json",
+      "sha256": "018593f621a486b6ea8e400b9f8de8dce63479da61f70bb5f28cfdd3a19b7eca"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/baseline/string_port.py",
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate-manifest.json",
+      "sha256": "88591a6093ff2e0a1ce58393dc066bcaaef65dce2ba27a3c801f135cffc66d91"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "40ffddcf62c456aa1cf5d60bbea4f0e3a203cfc7597271bd7c9da92f13894cac"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/data_ports.py",
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/deriv_port.py",
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/enumeration_ports.py",
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/mbrotz_port.py",
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/measure.py",
+      "sha256": "cacf9b97ceb9d49fc7b83e0c0ec4b51bf24bdbf8b5e634e141a2f48dd12ece33"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/prepared.json",
+      "sha256": "3dda6c4865e8e27c1229d4fa66f2c6bed96561105d5d71a806bd2d509c6f0517"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/simplex_port.py",
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/adapted-kernel.scm",
+      "sha256": "f05b1a0b29f7022cdf6b4f274de0a0a40a71249189823ebacdd111b4f01ca643"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/build.json",
+      "sha256": "d6a6eab5bb12a0ba5cc0fa8f2fcc8379bbaff18a6cc1a02994f8c08fd675f2b3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/compile.scm",
+      "sha256": "4f2f5eb0b33248fb73f7821ff32de80c96e3ce82a9b56eba9ed3fa70fe8e7189"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/program.scm",
+      "sha256": "f9dc1704024bc5ad547a4e0e19c26c72b596cb94beb36411a974a4daed6ec2e5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/program.so",
+      "sha256": "47192e686840dcd605ec185fc58bf813e4c30ade5ff72e7e0968566fe36a9206"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-final-append.json",
+      "sha256": "6c810e5fd93541cee0f73aeee96171f8ef3b07d20311de12d9fc168a43a65ac3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-first-append.json",
+      "sha256": "e844490c1167af0493de5077fb505c25705e613d611b8dbc9fe1c8be780edcbc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-left-substring.json",
+      "sha256": "6abda586d92c7e8c62e5eef51aa7e883af25fb95702df77686a35b70d59bfe8e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-old.json",
+      "sha256": "7110861105fbe1a9437f97498eb9828e915bc9fba5fa3ad93eeb15e06b879814"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-adapted/validation-right-substring.json",
+      "sha256": "0550e4f9d0659c24167abe7296059a3bb644703b2c4ecd11995baad293c8ba99"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/build.json",
+      "sha256": "c924267429b04703678a664277e73fa82d12fb4a924164a0cb49d1185aa3a749"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/compile.scm",
+      "sha256": "4faa2784dbb6e0429c8719b378eb2c6baa4469a31aa87a0ac40220caadd0d8c1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/program.scm",
+      "sha256": "d726ed37e1928e8c5def8ed3090f698f4afee884b9931d448566faf3c3b02560"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/program.so",
+      "sha256": "2352f610d2fdf28f377f87a384ae733b6f1765be502513aee758c8aefa2ba763"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-final-append.json",
+      "sha256": "0a6bc7bc146cd88627d43f29be44c4225a4f4cdae846b5dc2c0a93ae6f6ae0e2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-first-append.json",
+      "sha256": "064a69d811292ddf35940bc73265eb9cfce202dd1dd6dd0fbdfdde026c26030d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-left-substring.json",
+      "sha256": "6153ccb93511bacf1bed4228b19e3f5cdd6316487e24b08f69090048179b0453"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-old.json",
+      "sha256": "7427ab95f97b59872d35d57d3c442da62a8da2b1a579926bae403d90d60f68bb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-alias-original/validation-right-substring.json",
+      "sha256": "cc4f4e943bf2a9c3d2cf73037475780a15f2a9127d5838fa3d3225e141add6bc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-build.json",
+      "sha256": "40a648bfdbd447d8d173b5502710570772e8d5b44f63703983b1c43cefa4f104"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/build.json",
+      "sha256": "584b118aaba6db4dbeced5e8136183416ce73160e12c91693f90186e821bdb4f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/compile.scm",
+      "sha256": "4655a27278a511dcd5f8d2a1aa0f0c29faaf134bacb54c92e58946b0bc559461"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/program.scm",
+      "sha256": "a4327d808220dcd164fa0d1e0b2429a3f7464723b6d2a3a660190cd8d8ed1130"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/program.so",
+      "sha256": "16cb1755a8c14b00999b9870ce7905b3d5daced3b9f060fc9f64f7962224dabf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-empty-seed.json",
+      "sha256": "350deb187182880d043165637705384f839f57ff96e1e68c73d1790ced1f93bd"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-first-grow.json",
+      "sha256": "6574fa85292c75c39e48a0b1609e68e8ac35f7a90d478d3d5fb38242f3844bea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-scalar-seed.json",
+      "sha256": "af2854c776bafea2823472d3b9a433646bc283bfc991f8db760619828cd84335"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold--1.json",
+      "sha256": "103cb0ab001702d8392b45b4860a451a784cf82d702f13782ff4451b6e94edea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-0.json",
+      "sha256": "95fc88649dbf657ff7c81a96a400e49a688feef51a071ba466f7a4ac9468809b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-21.json",
+      "sha256": "71ae6f8f4cac2037e418b1d6253af2627929ba1a326536bccb63603ea4a0fe68"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-22.json",
+      "sha256": "a2fe9c4d5402200f7a679b4f202d3685f53682c7ea979df810148d082fbc2786"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-5.json",
+      "sha256": "af4e9ae74185ecd31c5b94a866c3c4acad233a679eb30fe4e30246e87f9a758c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-500000.json",
+      "sha256": "cdaf0d10f466925bbcc55c24a4c4aa027538612dc5c1c83462f948b99d822b57"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-53.json",
+      "sha256": "330e2b33fda02599fe3e787573f6dd7cb27d8a747981290f76fd27b62ed45597"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-54.json",
+      "sha256": "f940e5db37189528c99db2a483523b4bdc5485704c7207f8817fcafe021893cc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-threshold-6.json",
+      "sha256": "a1cb72e6262686027aebfcafff54cefd29b459a782d1911c7af53120a04a3f81"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-adapted/validation-unicode-seed.json",
+      "sha256": "9f89ded92e9e9c19f98f41712fa7d3c110860824e5f1c14e40d59229fee41bdb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/build.json",
+      "sha256": "1d17e87dc68aba1c2c5933ac4321f86a84c841bc56b64359bc837e20511a8aa0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/compile.scm",
+      "sha256": "2f66a33b1ee2be20d940003c102e2d034935e0b9ec3256e315e5228310b5450c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/program.scm",
+      "sha256": "2f7988ddfef50422480b4480099a00dd5b8617620ab3427d029ec9e4802e8f9f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/program.so",
+      "sha256": "d2a27d6751aa7af92a60fd6850fc3d5325918cd409028ed1773905f6f325f279"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-empty-seed.json",
+      "sha256": "2535ec325d0e94b5bd42239ce5ca72e7713b9362b2ddbfa7da022f7aa462384d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-first-grow.json",
+      "sha256": "9973718de5c681bac0904489206b4a62d5b6182c5e6df411816dd7d5f696373b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-scalar-seed.json",
+      "sha256": "c57136c04bdbf9f90ebe517fec8edcac8354ef7cf2ff300b834a164e797ff28a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold--1.json",
+      "sha256": "c5282fc05f2edc3e2caae4e0d0bf48a4aed561926a47c96f487cbc6d3860b8dc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-0.json",
+      "sha256": "89ef13c4a2291688ec31d8aeae97e16d7de9cf75542921e68f439f3e45b4147d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-21.json",
+      "sha256": "379391cb24141076ce3309fae802250b5ef3c589be2bd9c55850b82ab4f93fcc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-22.json",
+      "sha256": "a7adb2d4000eb60aa6e54098925df19b1ba5194712edba68ab0350021ba97004"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-5.json",
+      "sha256": "40b0df332d6c4c0761cb57022480658b113d850bfb08077eb2cb376f248e2457"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-500000.json",
+      "sha256": "f250c182525a8d1d387d98c4e9f666bcc0b916a13edc1ba3410bc11bed420e1f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-53.json",
+      "sha256": "90230579dd9fccfae2097321aaf5e50519da93f1caabc6ad7cff5b6f82d3743d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-54.json",
+      "sha256": "e6545cda8866b9d0ed6d25494cf249a9ea2dfaf5c1059cddfd636d8d5806eb8f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-threshold-6.json",
+      "sha256": "fdca7d6f16309033d351ada89c8062f3d486f976a0a094965e74265e10309c91"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-output-original/validation-unicode-seed.json",
+      "sha256": "bb26e5b18eddd3fe1580be7af6f84f077c3f7c2aebdcbc91a96967ef1795f0b2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/chez-validation.json",
+      "sha256": "b8469a810c5646386a6fef91c57913b4c9cc2ffc99c39c1141be2b3c54bb6b88"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/compile.scm",
+      "sha256": "fbc864daf54f051d2e2c08e3f3bdd8a5b549aa7317b1c23dc889f38d3bd5442f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/complete-output-oracles.json",
+      "sha256": "992db4b3f62410a1d6c08cab8d228cde8743f249431be9912b9e3a1899058579"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/complete-source-adaptation.patch",
+      "sha256": "f57a28bbcc7262ebeb7576fbbe73dac7c5de43c941f77fe86e35aca4e74059af"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/input.txt",
+      "sha256": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/kernel-adaptation.patch",
+      "sha256": "53c5cede4195b9ebb4ebec054f247f324228f19c8cf0b1d0882fb7cd643d22d7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/original-kernel.scm",
+      "sha256": "ea814831823ee9c134da1020cd7d9e115abde5952393150dd1987b5f20ad2c22"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/program.scm",
+      "sha256": "dd509f86661d15aa9b4c1c41d2712149a5070bed7ab38a89da3514de4fa148e0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/program.so",
+      "sha256": "6c8b4a0456cc6f86ab55ed9e9b66ae6e416c0bc8275f6ca5718b31c0e7155947"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/build.json",
+      "sha256": "dd5c0869bd0356f01fcdac429ca89c024c825491ef3c8fcc030f4a9e6f757a48"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/compile.scm",
+      "sha256": "513070c2145bb9e55c03ca8552207a52641e115d18dc8a22bf9ac0b3f960eec9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/program.scm",
+      "sha256": "b3b9354ef413bebc38d453a2f44901a09c7a4d6322155d68256f0c3a1a6b91b2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/program.so",
+      "sha256": "872f395cf379fe3c1653e2e46cc2c667b3ad2be0e7ef8304e7cc744e1d82db26"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-maximum-expected.json",
+      "sha256": "7aea5077b34d76f25460a0a5e968896277ede7ae2ee35cfa46a55d37977862c3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-minimum-count.json",
+      "sha256": "de15ab7e56c8d62f37efdaa46c52d2081714cc8b2309b889d593a46b255101c0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-minimum-threshold.json",
+      "sha256": "d64acbdc6031352ba12a4fa8acf43d854000475ab64d1813a0e5e2f27dc8ddbe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-negative-false.json",
+      "sha256": "7dff008209b2963d9253ab03d15ec05d6c9a3a13848bcb2d44e6c7164b517c4b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-negative-threshold.json",
+      "sha256": "84a1cde55cc550602b0194bc6feb96d7ac80dc73cd4d6e05b0908b8f34b02f78"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-positive-false.json",
+      "sha256": "9258a5a9f4cae850e7496887171c772c46b863afd3d569f2ebe07e2d4835b500"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-positive-true.json",
+      "sha256": "abc9794ecc6630f4e9b2eade58847bb6b0dfcf7d81799735a958cc3fb62e3e11"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-threshold-six.json",
+      "sha256": "dc19f1ec3b29be34b6a9fe082a422a0b37faa9ae8f83be0db9e45ae64215da59"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-threshold-twenty-two.json",
+      "sha256": "2213b2df95dee682da17a6fb6cafe41f931a555459f87a64b2fc895077d76250"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-wrong-high.json",
+      "sha256": "98acdd44da84040d897bd621aac92f47f21210fd4631b886cbc4073fd42795fe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-wrong-low.json",
+      "sha256": "6f142f65ba78c1326a3e988a5baab45c47d87430fc10977ab4c56e93e7040517"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-false.json",
+      "sha256": "a713cc37e6437a3376ec4966bf32c8acf004fa09b0e202844c7de4b433b10439"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-integer.json",
+      "sha256": "8d306078e28ee5a6b411b20c09ae8c5e6afe193900c86b7f37ccb252de8c5b1f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-threshold.json",
+      "sha256": "46da074a50e51baee13e7849df52ebd76d64d072cfa34b4ebfb81aebd8ec44a9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/same-source-chez/validation-zero-true.json",
+      "sha256": "3f023e3e0b0ad4d2e70f69a78091d2249a3af950bb39d2edc9671fb01afdbfb0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/source-proof.json",
+      "sha256": "d6dc03e217b4c21f302562719e4c8ae904c0d39b3961b2f8e953580b6fb6400b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/spec.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/host.mjs",
+      "sha256": "4afc7639c579be070dbb483f0755fa5e86c09e78a257c311f92417b1f802721a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/spec.json",
+      "sha256": "537b627d63f8ae5cac7fe236614b35a08374e5e0cb25d7a89eefe1418ae68104"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict-build.json",
+      "sha256": "43bf9be058ad1c349b105ed71199615edd0f877e0301e894df03ff9fcd364b85"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.optimized.wat",
+      "sha256": "018ad8efda4db9a8ad32ed8a67f7331a2e91006a3d48bb3ce56d04ce0336ad07"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.scm",
+      "sha256": "01f580ce4f8a7be3acd09bed7774b328b4f67dd1189aeb2fca3265744c0a7fd7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm",
+      "sha256": "a5d0626154b94b07d32d01bbce012b74996464040690c3d6a94cd3e79f426b6f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.raw.wasm",
+      "sha256": "ce1616c2ee531f52f974bfffcef62d77bf164c9524fb7a5b20a085a0eb9c726b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.trace.json",
+      "sha256": "e2da8a329a9d7cbf706a6171125b8e0869bbdd655481b61da6e385f1f789f71d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/strict.wasm.wat",
+      "sha256": "3f4a898d25314cf7ad44cc2e36df46c0050d540da4c8e11bb23a76ddab28e8cc"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-final-append.json",
+      "sha256": "55d894ebac4b44dcba46f1e5a459e50eeb0a51725b82df39748ec0b9f0492b0f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-first-append.json",
+      "sha256": "d770866e426b551cbf101588c85d86cd08ffa58ae9623e514a12c2cbdb3d6253"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-left-substring.json",
+      "sha256": "65ab38d25330fc3c2df8f64c3649b6e8e08cbbc358a5b8f0f7908b74bc67b9bb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-old.json",
+      "sha256": "2d5526c5d00084be260d15d6b8ba17099935a03b32932c5951e22470e7a124ff"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-right-substring.json",
+      "sha256": "d956689deb47fa391d1b07ad602b48d3196ab146e689d0c06792386d05e01ab6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-final-append.json",
+      "sha256": "cd080f08c768d004755a7b0f0a80ff7b34daaf3843015515f1f722cdd743e4be"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-first-append.json",
+      "sha256": "df4db737714cca7db37831ee9b546f88787d9393c633e4b0c54862a0e176bdd8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-left-substring.json",
+      "sha256": "16d37f2b5f6136034e723cdf160bcf71ced67f52a204e03df7068784ce091457"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-old.json",
+      "sha256": "869d022f996d6c805bce4e4c9b7411fe1e55bf19fcb01c50efe28f3d251ee5bf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-alias-probe/validation-spec-right-substring.json",
+      "sha256": "b344c20ac9a1dd98148498913df1c4a079fd4bcee144c9a9a3efa8409925094a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-build.json",
+      "sha256": "75ec1447b78f7f0eba726ce8f942633d8285421a29787e846fd8d6bfe6855806"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/empty-seed.json",
+      "sha256": "881a986c8c0cca87d33007baf808cb36d7280a68aa3e6fc02ddc1933a790d2ba"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/empty-seed.raw.json",
+      "sha256": "2d352830fdda11d1cb092e3b445f4a1df4dffa392826cdde46a0d6d0c3004d7a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/first-grow.json",
+      "sha256": "c97c6761a5884cec27ab7aa2df454383df80eb510a266fe75dcb04c56695f367"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/first-grow.raw.json",
+      "sha256": "7788a6f2575a90e30abfa55246a06c089dc81b3830c86f23a4639ac57f54033c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/host.mjs",
+      "sha256": "4afc7639c579be070dbb483f0755fa5e86c09e78a257c311f92417b1f802721a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/scalar-seed.json",
+      "sha256": "f9604b27ae14c92e0fbeafaa279d993729e9e73e4f4d2e3fe03350ca4b0b1616"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/scalar-seed.raw.json",
+      "sha256": "563a9f030d33099d60a23e116df5a10d3fe97240a773ce56ddd5fed044182bf9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-empty-seed.json",
+      "sha256": "3dfbf56948abf5a014bc753968564c0c80d7f286400bbc2d04888304de4d56ea"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-first-grow.json",
+      "sha256": "fd2692a1704c1034211df7a598e2eaaec76d7e10b9f6cb85f4d0f4f660edee70"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-scalar-seed.json",
+      "sha256": "17428a06ada26dd6e2ecb99eedcd599ec582b61e644b57b2f75279db4b5fd647"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold--1.json",
+      "sha256": "c0d1d9023cdc26d73db62b0168565a7f71c2c4a9e00a99fc203c95e85876852c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-0.json",
+      "sha256": "bff4f4ad55bc46d8ba66b76b5f24aaa1e9e91df21d41d949c854914a211b4d3c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-21.json",
+      "sha256": "b7eee8ef6e06f5cd46401cd7b1068639a0e655f91009ae8505ea86378f831a11"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-22.json",
+      "sha256": "003da212afe9d10187c05ee46ecd6b107de788802e0886613f8024ba116882f7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-5.json",
+      "sha256": "34fb8ffd10a486e5ec4509670fe7be7a18d3c5c9b28f4581d3de1a3b1a7224ca"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-500000.json",
+      "sha256": "d01037813d1341d915d6e224e962d2ce8abd934f8f062345cb47cebf8aa093f9"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-53.json",
+      "sha256": "613caced45790ecd733b0a6462c87ca26a78e92bf9246a768d4d0789ea8301d3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-54.json",
+      "sha256": "6d5b574ce2944961f7a7f0fa168db8804a6e808890e9937b71fc5ab835c9423a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-threshold-6.json",
+      "sha256": "7cf667f6c85044309f1e4670908241f4546b3684689f87626bcd5cd8f404d49e"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec-unicode-seed.json",
+      "sha256": "11b8c794132b0b60c4890181ad15e3d70001ada5a5664524b7d817e7d2e7cf47"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/spec.json",
+      "sha256": "d747cb398162e1903f54c7190bd244d0326c634f61761d5bb93e3b8b89b2f19b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict-build.json",
+      "sha256": "f80469c13789a57d5453e66da9e75404ed0762dac0d403a3768cc12efb8b3985"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.optimized.wat",
+      "sha256": "4e3b0e596f1fbfba8a7eb11c4630efcbf2a1a93ab8feb3883047ff58cfdbbe86"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.scm",
+      "sha256": "50b96c45254d9e8d741320bd52df814b588043d18cbc8bb68ddbfea575773cf8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm",
+      "sha256": "467229cd2e01b68f20264da48363d1e0fa97e393280485ffc203ac65bdbc1100"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.raw.wasm",
+      "sha256": "d8b6da0675fdc6bafe5e9118d51c7e317664a44d2258a1c4c68bbf0a3d7a0b85"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.trace.json",
+      "sha256": "2d8d2aa9fd415c1ea1f5bfa2782f65f0db4664a4fc1e93b1d358b1a32e87617c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/strict.wasm.wat",
+      "sha256": "ad2f939b6a13b52849bc57133994d83516870c41da586c67f7809c3a2835d8f7"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold--1.json",
+      "sha256": "9053674193decaa6c8d0b72c45d74d2b40eb795bbbb528a5b74698773bfc1600"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold--1.raw.json",
+      "sha256": "40de253fa3dbd4c582f9b8be34791d6ab2297cab394ab7ce1137d0fda26fb95f"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-0.json",
+      "sha256": "c56e8cc8df2ac72499b401b344fc767e64dd987fc23f0a1469448ac62b847a13"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-0.raw.json",
+      "sha256": "a53e93bb0cb8c06c92bfe979b9801415acba947c34ba9e04b461ad4250779f20"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-21.json",
+      "sha256": "f75acd0de3e4ca044e30996dca624a5137e2f761b8489e97f7a07108b736773a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-21.raw.json",
+      "sha256": "7fea9e5cd0c84543c19408f1a66fa3f431aa13a9f7234c0c9f9a384739395040"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-22.json",
+      "sha256": "e9e458f820c114260def0c616da399b0e92923751ae07d60e134a195f156bca4"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-22.raw.json",
+      "sha256": "406f616fadea2b678e70e26880e92285efab19d8ea14c94deab19ac66b7a6f1a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-5.json",
+      "sha256": "5d844cfbfb20e053666c02024353872f86b0997a21b69de1689c6629ed196ff5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-5.raw.json",
+      "sha256": "6e75735871eecbc07075cba37bf48352137a246cf8b4a0a0153bdafd50cef0fe"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-500000.json",
+      "sha256": "50bc6631f780aa169619a99daf90d4436c89a26fdafe0345a0fe7a5b1d47e7fb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-500000.raw.json",
+      "sha256": "d2163fd7cc6ce3f518cd849e07b5503303fd07618a0ff924c034eaaa46a187b0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-53.json",
+      "sha256": "200ea07df29f52735ef5f8673fe2b41e4b7d4d1ecb381d271d4662ea78e89ded"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-53.raw.json",
+      "sha256": "5ec36e1244e154d344db931fd69f9058c341eb792fb161459ef50feced4876b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-54.json",
+      "sha256": "8e8813eb20bfdd0b7b2a418233e0a2c1e938d3676020ec35fd247639a4225fc1"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-54.raw.json",
+      "sha256": "9a2abb2ec2e3a76ada381896fd8c6cdef971553d5b4e8e499ae1a2ec40f55449"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-6.json",
+      "sha256": "30be01113b7ae199450e9d2d7871d0861d4595b4079380b5316e57bb422fc368"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/threshold-6.raw.json",
+      "sha256": "013481ab802a024dbc71b11f34fb12ddbc693f988685fc5d99de29eb2f083f2c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/unicode-seed.json",
+      "sha256": "b1388f559e3c1b5fa1b005380f93adbe396045142f9897cf15bf1a914f415e9d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict-output-probe/unicode-seed.raw.json",
+      "sha256": "2e31df7b28480369f514d48cb2fda154a01c08a9ce771c8febc6a9050cd2ebca"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.optimized.wat",
+      "sha256": "9a8918b4bd319a8679387a7d1d8e1bf2a50fcb122d29487cd48c8acead0eeea8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.scm",
+      "sha256": "6f4398738f2abdc6ad2da51a6b4478731e1807aaf39b71ecafa8a9192fef8cbf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+      "sha256": "c3389ca3e8f07901f37969cb7e40cf66b47f2fcc8be6d1ce488f87fc2f4de6e0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.raw.wasm",
+      "sha256": "22d966dd0441f7fea2d1aa0501489898f2d33289630578b246d3efedc8913131"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.trace.json",
+      "sha256": "f619596434d9d64058aac30e5ad940d648fa101e13bd63db76005cdf6fff57b8"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm.wat",
+      "sha256": "3fd65b16cc74174b26f93db7d215415084a90ff837d73e927c77e79b3111e3c3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/upstream.scm",
+      "sha256": "7bda79f59eda5dccbd770c560a3f6908c16f52ee10aedeb4d8f9904d9b6d3d7d"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-maximum-expected.json",
+      "sha256": "25d9147715e19221f680ec3245130b4153f38a4cee4ee4332163c263a3bc38a5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-minimum-count.json",
+      "sha256": "36927557fe4c0a53274525ae9441e50e34a94962f5328c6481635961c29529fb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-minimum-threshold.json",
+      "sha256": "e439e2720cfd7b213784006565a1507f20b80461e8ebf8dec9ad873c40b7b357"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-negative-false.json",
+      "sha256": "4f49df5e484ff0a05d2c800ee5f6db7b6f22beb77dc3bb8831071fa9026149be"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-negative-threshold.json",
+      "sha256": "ca9cf8397ca913dad1da5fff5f113bc7a2f032d320c5f52b422e259d92d7c1b6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-positive-false.json",
+      "sha256": "fe09ded9a6388e7281363e4e866655f9aebaaf86045acb99daf7e98f719d6412"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-positive-true.json",
+      "sha256": "3cc874dc8f00baa015957d416fbe7e7ae354918bd8fe7c26ff292cd328fac54b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-1.json",
+      "sha256": "a50e69f35fe99c57fd82f24cf091fffa6cebdbec2883d7e3d5faefb23ecc62d5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-100.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-2.json",
+      "sha256": "330e95afb19fcabdbdbe613475bc763e99c98fad4271bd050df3f41273070753"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-maximum-expected.json",
+      "sha256": "a69318b128eccfee2d98c718438333ce650b614aa6206e5436905109b2d9ad96"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-minimum-count.json",
+      "sha256": "bcdbe422631d7971fab008a188a8478d06c9f257c27876a2b2fe33428218684a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-minimum-threshold.json",
+      "sha256": "a058d32e6ec5fccff0c319ba619a8a426890c79e362d614385b711df01080fc0"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-negative-false.json",
+      "sha256": "fc4ba179d0f5e38270b755aeb65fd0f8f6cc061abfd8c11d0f6bbe278e9b7382"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-negative-threshold.json",
+      "sha256": "0fad31ac8e320aca14ee036a32e1d9ee034113d40adcd89a667dda5891a12682"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-positive-false.json",
+      "sha256": "68782c8fc382eb140d311819c732e0638dab052a572b6a52f9a5a266f2ce816b"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-positive-true.json",
+      "sha256": "5d32cda872a990fa52674744cffaa2beffb8343e6d38f1fc57de9cd7aa430cde"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-threshold-six.json",
+      "sha256": "107b276eed84da475c3c7c87a50db336904873b65c646cbb6c3fa81ef0035095"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-threshold-twenty-two.json",
+      "sha256": "04025e938e3de6bee8733227502293f4baf8654fa0fc7e25e1e5db3ca648cfdb"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-wrong-high.json",
+      "sha256": "cd4db2dbf4a40022feaa02ad396433513e43b12fabade1db0b4589967b6d9d7c"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-wrong-low.json",
+      "sha256": "b58636d7c98fc72fb958beb90ce23c19bb56025c05c59330595418cb634f5158"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-false.json",
+      "sha256": "38d7b6aef04027004694a5a73b2bb8bf829d7f4eab71d0251f5cb555b956f1c5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-integer.json",
+      "sha256": "9fabdbf708ddf05f4c58d39df02b00b0993dbbbac216309218c7d27c39118dbf"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-threshold.json",
+      "sha256": "d9ade34e668c03833aa82373c1f990bb8a30631f6e531235bbad898a73178eb2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-spec-zero-true.json",
+      "sha256": "2f76f68d06e74f28c99b11d3b093b2401b37f071aa2aa1cebfd06751beb90627"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-threshold-six.json",
+      "sha256": "6f59d38d860a4dc347970f50a72cfdeba3910f520ca00b95651c179653cb50b2"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-threshold-twenty-two.json",
+      "sha256": "370d3af521fecb6014c5b78e650cc2fcd480d8a769dad9336fcb65037f6a4fb6"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-wrong-high.json",
+      "sha256": "ffb6688f710b2dafd1885ce9553b79be80d035c47b30423f1c355d66365a3757"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-wrong-low.json",
+      "sha256": "043bf7d137d554e22b78df80ea503b93e78da865e36580b2b44490370e430246"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-false.json",
+      "sha256": "275042f7eeb6bfb50fd9dd77e0dd4cf57a9838c0cb5b28f37f00d9738d97e42a"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-integer.json",
+      "sha256": "d6cf717cda7404ee1a89f4da090fcdebbed93e33987c9fc8f0ab113db46e5ae5"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-threshold.json",
+      "sha256": "8f14fde21a209910c73758f204b5d86166fc92b7a133af6881d9e87a149e0da4"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation-zero-true.json",
+      "sha256": "5e1af24e82f4da293b094f8c839fc52dbc2d40806aa533824a7aef3080d59aed"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/validation.json",
+      "sha256": "1f79eba32f649a0ea03339e658af1f7d3aa2539dd83f63f9f241f3372a6976c3"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/candidate/string_port.py",
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/handoff.json",
+      "sha256": "1f15ad8664587b78602de6f010f9576ae22b9b6333e0e4c609091a69ca260109"
+    },
+    {
+      "path": "/tmp/snail-gc-string-block-preparation-20261014/source-comparison.json",
+      "sha256": "6ecfd4b80cf0a8bf847260b691e0aab5b14cda1faca8aa6adc53e7151ce8b307"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/measure-sizes.py",
+      "sha256": "625b8bb4043a3fe59c6b70c2bd4283fd0db46438eb57c1720c33ffad6528f311"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/prepare-sizes.py",
+      "sha256": "59b0d0a052ded18a715508dba0c9fb81d8bca8efe83663d894e49c8d0f355db9"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/count-one.json",
+      "sha256": "d3d989f496db60c498a1e096169c87295e9e6b2720dba3162a5c85137542bd97"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/spec.json",
+      "sha256": "2364c7677b7f97f7e878097cc3cfdbe4a2521c32752e44bb87f6e323a8a25b07"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/validation.json",
+      "sha256": "0e0e5e8eeea3350f37e1bb6959b15eea32b1c080f14337ed3a3b6bcb5b2b626b"
+    },
+    {
+      "path": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/wrong-result.json",
+      "sha256": "3c369bfee16fe54fec77251e9da8b923c1c329cdfd00cea9ce48c262affd2a25"
+    }
+  ],
+  "protocol": "Parameter control: unchanged String Wasm/source and ten trials; different runtime threshold and repeat count. Four retained balanced alternating pairs after one discarded pair. Not a canonical suite score."
+}
