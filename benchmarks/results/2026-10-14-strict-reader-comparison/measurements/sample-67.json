@@ -1,0 +1,50 @@
+{
+  "benchmark": "read1",
+  "system": "chez-adapted",
+  "round": 0,
+  "retained": true,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "--program",
+    "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted/program.so"
+  ],
+  "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted",
+  "status": "valid",
+  "started": "2026-10-14T19:13:05.306497+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 282,
+  "process_group": 282,
+  "returncode": 0,
+  "stdout": "Running read1:2500\nElapsed time: 1.461438395 seconds (1.461) for read1:2500\n+!CSVLINE!+chez,read1:2500,1.461438395\n",
+  "stderr": "",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 1.493378043989651,
+  "cleanup": {
+    "process_group": 282,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "capture_and_cleanup_seconds": 1.4932265289826319,
+  "workload_seconds": 1.461438395
+}
