@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-c",
+    "pass"
+  ],
+  "status": "completed",
+  "runner_sha256": "c551410d4cecdd402b36709b67149fc07c3d290f548f45c1bb74dff8a9245867",
+  "pid": 6,
+  "process_group": 6,
+  "returncode": 0,
+  "stdout": "",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 6,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.013247197028249502
+}

@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "--program",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/chez/program.so"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform",
+  "phase": "setup-diagnostic",
+  "clean_sample": false,
+  "retained": false,
+  "status": "completed",
+  "pid": 18,
+  "process_group": 18,
+  "returncode": 0,
+  "stdout": "Running conform:500\nElapsed time: 0.890579047 seconds (0.891) for conform:500\n+!CSVLINE!+chez,conform:500,0.890579047\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 18,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.9208316029980779
+}

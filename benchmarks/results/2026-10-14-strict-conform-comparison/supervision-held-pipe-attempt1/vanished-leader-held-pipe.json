@@ -1,0 +1,11 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-c",
+    "import os,time\npid=os.fork()\nif pid==0:\n time.sleep(30)\nelse:\n print(pid,flush=True)"
+  ],
+  "status": "running",
+  "runner_sha256": "c551410d4cecdd402b36709b67149fc07c3d290f548f45c1bb74dff8a9245867",
+  "pid": 3,
+  "process_group": 3
+}
