@@ -1,0 +1,3662 @@
+{
+  "name": "ray",
+  "started_utc": "2026-10-14T11:23:20.547146+00:00",
+  "cpu": 5,
+  "scope": "50 full renders; fresh processes; default V8 tiering; setup excluded and final predicate included.",
+  "case": {
+    "name": "ray",
+    "preparation": "/tmp/snail-strict-ray-preparation-20261014-r2",
+    "spec": {
+      "name": "ray",
+      "count": 50,
+      "inputs": [
+        1,
+        1
+      ],
+      "pathname": "outputs/ray.output",
+      "expected": 1,
+      "barriers_per_iteration": 2,
+      "setup_barriers": 0,
+      "runtime": "scalar-io",
+      "image_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    "rust": {
+      "name": "ray",
+      "artifact": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm",
+      "wasm_sha256": "e66e1b8a221250c113073e9336b5247722de7484464c77963ce9d6d3b61bb081",
+      "artifact_bytes": 131282,
+      "module_source_commit": "296f7ef79829f47d3c0a4c92053d49f2f03a26e2",
+      "module_source": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ray.rs",
+      "module_source_sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+      "exact_source_bundle": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source",
+      "source_bundle_hashes": {
+        "Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+        "Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+        "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "small-inputs.json": "851fbe13f51b8f40c4c2ce32a2a7ae757c13636dde5303974a530869f1fb968f",
+        "src/bin/ack.rs": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+        "src/bin/array1.rs": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+        "src/bin/browse.rs": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+        "src/bin/bv2string.rs": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+        "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+        "src/bin/chudnovsky.rs": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555",
+        "src/bin/compiler.rs": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d",
+        "src/bin/conform.rs": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84",
+        "src/bin/cpstak.rs": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+        "src/bin/ctak.rs": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+        "src/bin/deriv.rs": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+        "src/bin/destruc.rs": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+        "src/bin/diviter.rs": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+        "src/bin/divrec.rs": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+        "src/bin/dynamic.rs": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad",
+        "src/bin/earley.rs": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd",
+        "src/bin/equal.rs": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+        "src/bin/fft.rs": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+        "src/bin/fib.rs": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+        "src/bin/fibc.rs": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+        "src/bin/fibfp.rs": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+        "src/bin/gcbench.rs": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+        "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+        "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+        "src/bin/matrix.rs": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+        "src/bin/maze.rs": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa",
+        "src/bin/mazefun.rs": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481",
+        "src/bin/mbrot.rs": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+        "src/bin/mbrotZ.rs": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+        "src/bin/mperm.rs": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+        "src/bin/nboyer.rs": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347",
+        "src/bin/nqueens.rs": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+        "src/bin/ntakl.rs": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+        "src/bin/nucleic.rs": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8",
+        "src/bin/paraffins.rs": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1",
+        "src/bin/parsing.rs": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9",
+        "src/bin/peval.rs": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b",
+        "src/bin/pi.rs": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca",
+        "src/bin/pnpoly.rs": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+        "src/bin/primes.rs": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+        "src/bin/puzzle.rs": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+        "src/bin/quicksort.rs": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+        "src/bin/ray.rs": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+        "src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+        "src/bin/sboyer.rs": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e",
+        "src/bin/scheme.rs": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed",
+        "src/bin/simplex.rs": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+        "src/bin/slatex.rs": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a",
+        "src/bin/string.rs": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+        "src/bin/sum.rs": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+        "src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+        "src/bin/sumfp.rs": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+        "src/bin/tail.rs": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+        "src/bin/tak.rs": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+        "src/bin/takl.rs": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+        "src/bin/triangl.rs": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+        "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+        "src/boyer-data.scm": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879",
+        "src/boyer.rs": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8",
+        "src/compiler-common-procedures.scm": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9",
+        "src/compiler-multilisp-specific-procedures.scm": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638",
+        "src/compiler-prim-procs.scm": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac",
+        "src/compiler-primitive-recipes.scm": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79",
+        "src/compiler-r4rs-scheme-specific-procedures.scm": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9",
+        "src/compiler.rs": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101",
+        "src/compiler_68000.rs": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222",
+        "src/compiler_asm.rs": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c",
+        "src/compiler_blocks.rs": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2",
+        "src/compiler_gvm.rs": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee",
+        "src/dynamic-types.scm": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b",
+        "src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+        "src/list.rs": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8",
+        "src/nucleic-data.scm": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214",
+        "src/peval-data.scm": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2",
+        "src/scheme-primitives.txt": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955",
+        "src/slatex-keywords.txt": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98",
+        "suite.py": "f3c4088a4cbfad473ae1a7434c960422110aa2abb8ce3d6e742275197091f553"
+      },
+      "original_source": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/original-ray.scm",
+      "original_source_sha256": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e",
+      "original_common": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/original-common.scm",
+      "original_common_sha256": "2dc037f8c6001046b54e4d1712dc6b0c6fecd0ce56afcf195d7c041b26684a07",
+      "host": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+      "host_sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "stdin": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/input.txt",
+      "input_sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c",
+      "input_text": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "cwd": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case",
+      "runtime_target": "wasm32-wasip1 / Node WASI preview1",
+      "timeout_seconds": 900,
+      "count": 50,
+      "parameters": {
+        "outer_iterations": 50,
+        "resolution": 1,
+        "sphere_count": 33,
+        "extent": 100,
+        "pixels_per_invocation": 10000,
+        "expected_symbol": "ok"
+      },
+      "setup_excluded": "Decode all four input datums; process startup/compile/instantiate. Parent uses fresh cwd with outputs directory and initially absent destination; no scene preconstruction.",
+      "predicate_boundary": "Exact retained false/ok result kind/value equality precedes stopped clock. All scene reconstruction, raster/sphere/Euclidean/shading work, formatting, delete/create/write/flush/file close and owned-scene cleanup are timed. Result/CSV printing and complete image hash validation follow stopped clock.",
+      "timed": "50 complete100x100 renders; original33-sphere scenes/traversal and every output pixel. No image validation or tracing added to timed kernel.",
+      "correctness": {
+        "report": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/validation.json",
+        "report_sha256": "6cb74432a7ff39938601375fe07ff79743b9602a845a2482804f7ab8bcc434f2",
+        "full_canonical_pass": true,
+        "all_case_checks_pass": true,
+        "expected_stdout_result": "Result: ok",
+        "csv_case": "ray:50",
+        "original_chez_csv_case": "ray:50",
+        "predicate": "Exact symbol ok for positive repetitions; false for nonpositive counts. String spellings do not satisfy result-kind equality within documented reader domain.",
+        "supplemental_report": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/supplemental-correctness.json",
+        "supplemental_report_sha256": "d96c287aecd8e5d5c9549653fd5a694f62351a44d78a92c1145e4c1aa471e746",
+        "filesystem_report": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/filesystem-correctness.json",
+        "filesystem_report_sha256": "16cff77dd870a7437758c7c97ac627c3f1364e6f52cee643154dfae9684a8e03",
+        "output_path": "outputs/ray.output",
+        "output_bytes": 29517,
+        "output_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "pixel_bytes_sha256": "2504547e212cb609b776f06ac18c74915dac54a988e42f9584d0509c03f044eb",
+        "expected_image": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/expected-ray.pgm",
+        "expected_image_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "complete_image_validation": "After stopped clock, compare all bytes/header/dimensions/all10000 pixel values; exact byte hash required.",
+        "performance_samples": false
+      },
+      "output": {
+        "relative_path": "outputs/ray.output",
+        "initial_state": "absent, prepared before process/workload",
+        "bytes": 29517,
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "validation_boundary": "after stopped clock",
+        "expected_full_lifecycle": {
+          "opens": 50,
+          "unlinks": 49,
+          "closes": 50
+        }
+      },
+      "representation": "Contiguous fresh Vec<Sphere> with inline F64 points and Option root/hit temporaries, vs original vectors/world cons cells and strict products/options/Hit wrappers/Ref world. All33 spheres remain; no physical allocation parity.",
+      "ownership": "Owned scene drops inside each invocation; original global world survives until next reset and final world survives after timing. Buffered File flush/drop closes each invocation; close errors are not propagated by drop.",
+      "control_semantics": "Full original reverse construction order; all sphere visits; smaller including negative roots; Euclidean distance and strict< ties; center-minus-hit normal and ties-even rounding. Original finite scene arithmetic source unchanged.",
+      "opacity": "Existing black_box filename/resolution each invocation only; every pixel consumed by file IO. Compiler hoists ray-invariant a/4a/2a within a pixel; no artificial barriers or per-pixel audit added.",
+      "retained_work": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/retained-work.json",
+      "retained_work_sha256": "30ff63aa80141ff98d11ddee88e389fa242623caa18aa7901e861e74a20793bf",
+      "source_review": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/source-review.md",
+      "source_review_sha256": "e687208bc13b631d408ac69b7b2033a1b410f81d925bbfdeb2c14a378dc7f345",
+      "build_provenance": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/build-provenance.json",
+      "build_provenance_sha256": "d26408e270ccf687c3d5a73ca47ab799d7892a9f0bd63a7da6508f1a2fa95546",
+      "historical_artifact": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-historical-evidence/case/program.wasm",
+      "historical_artifact_sha256": "cc4855cd2bb13b58a38bbcf9eea542b632304d43fc411632b875a430c067950c",
+      "historical_source_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+      "historical_validation": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-historical-evidence/validation.json",
+      "historical_validation_sha256": "3251334b62d6c615798aa6d902c7e5cda74f7beeee89c31192a0a2c917054cd4",
+      "domain_limits": "False is represented by canonical token #f in shared Datum. General alternate boolean/numeric spellings and escaped symbols that coincide with boolean spellings are outside this reader snapshot equivalence; no reader rewrite is included. Counts fit i64; nonnegative resolution/extents/storage fit Wasm32; finite fixed scene. IO error diagnostics/close-error reporting and arbitrary Scheme numeric domains are not claimed."
+    }
+  },
+  "order": [
+    "strict",
+    "original-chez",
+    "adapted-chez",
+    "rust-wasm"
+  ],
+  "removed_environment": [
+    "NODE_OPTIONS",
+    "NODE_V8_COVERAGE",
+    "NODE_DEBUG",
+    "NODE_DEBUG_NATIVE"
+  ],
+  "identities_before": [
+    {
+      "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/measure-matched.py",
+      "sha256": "13009bfc5ab0111e916dd2a450022bb21f2268743dacd789321e112eae91dd97"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/handoff.json",
+      "sha256": "5c2f12f734744fc77ef453e62f505064ce7b3811257dd77f2daad6ffed7839f4"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/build-provenance.json",
+      "sha256": "d26408e270ccf687c3d5a73ca47ab799d7892a9f0bd63a7da6508f1a2fa95546"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/prepared.json",
+      "sha256": "9c4ee1714872377ba4047d5ca8d92d408729f12b4de458015167a5bc6554c212"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/expected-ray.pgm",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-2.json",
+      "sha256": "f3335c22b1b30921a1ad8f6817d6330fd99b6eda7041f543a30af7abe6e4563f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/compile.scm",
+      "sha256": "a1ef58b9e932c38f4616ca13bee2684363f29da4f6c587320518ab7267532e67"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-build.json",
+      "sha256": "781e12e532ac18fb99c89875c284f45e1b245e97e28fdd85eb0a6f67a55a450f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/complete-source-adaptation.patch",
+      "sha256": "cb34a6f4f82ec4d9229df5b0e9ea1bd00413eb7cbf36700553e34a03cbb4a0a0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/upstream.scm",
+      "sha256": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-link-raw.json",
+      "sha256": "d6dda436661599a394771926b51b5578d5483b5b67bb4053c7281807e6913453"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.link.json",
+      "sha256": "696af21dcc8410f308f05d901367e2001032cf6d324e1b2cbd770648804501ac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-native.wasm",
+      "sha256": "d74d7ce60b2c12dbfe4f5c0cec52c624b38fbf65ea899d28f6cfec1e97b4a1c3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm",
+      "sha256": "a7f85a316e1f8dd80ea081142cbf338ff9fa6408e04d740f733370c5dcee8793"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/adapted-kernel.scm",
+      "sha256": "612960b1f6245bcd648226eead374e63120fb4cecb1f2f87b65a5251395baee7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "0e8cb5820ddcec78a9eb65614a8d0b3ad9aaacf95cb837d9458f9e1d5c56fe23"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/input-decoder.scm",
+      "sha256": "63b135c895275d65f1ef1dfd6dc226a1d0d802109a0bda48accbfaf25eba92f1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.optimized.wat",
+      "sha256": "a07893b173527532051b3d6c88df6037b1815172cfebd2397dd672044eff16ed"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.link.json",
+      "sha256": "36e588988107029e6fe1574b6ba6beca72c9aef34b96e4dc86024160d69979bf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.scm",
+      "sha256": "cba5eae0a68ccf32eea895799f3d4eaa57e3d2384a63df57685f5fac5ff92e32"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/reversible-source-edits.json",
+      "sha256": "a47d9d85886d68a8759f4b3bf0d2214d56d0ee3f527bd66be490292e094946b9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/chez-validation.json",
+      "sha256": "d8d2c865ef35e13bb88df70491eb52822ebec211174d99b309a6b161ab40ad57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.linked.wasm",
+      "sha256": "92793e3554d7989b683d1e5bf2b6105036959b2373c0b0e57663a47662549fa2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/original-kernel.scm",
+      "sha256": "e632e98fa502bfb60ac9f85b81b2f50f5d6e50e3a6fd117fc29ce5f21f48f25d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.input.wat",
+      "sha256": "fce2f857e58baaacca5a3364bdc0c2649941f9c51d2a401efcd319b11301b1cf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation.json",
+      "sha256": "336ac37158ccab9baa6fc4637c486d386a79ed025e95f79e170b907412697a8e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-native.wasm.raw.wasm",
+      "sha256": "e40fa27693afa6408aa07a894e7267625583f1acc3096c9ba949570ff949b84e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json",
+      "sha256": "3a0153ca5e781e6b06895ddec3675569efd20f43f9f97fb25fa7c3e383fe4686"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/chez-build.json",
+      "sha256": "4e65becbecda64ff910fbf1956ce1dc7a70a50090731c9404dea1f9a9eb4b375"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.wat",
+      "sha256": "a07893b173527532051b3d6c88df6037b1815172cfebd2397dd672044eff16ed"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-50.json",
+      "sha256": "3a0153ca5e781e6b06895ddec3675569efd20f43f9f97fb25fa7c3e383fe4686"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-build.json",
+      "sha256": "87be46cc8f3614e0acdb7f16d68ad777b45d13f71b0d08df0ee7fc049490842a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/kernel-adaptation.patch",
+      "sha256": "08ae13de138fdbccde9b79c4669c7303d35ee2841085e943eef3238c88fd85ac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.trace.json",
+      "sha256": "c767a2ec33618145a142ba1fe98c8f7ac39aee26a7bf33439a4a03fa564412d4"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.input.wat",
+      "sha256": "0b367bdeef47ab20ddcf99f3c1e9ce9cb6099adce6f8f2bcd81886681dabc5f5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.scm",
+      "sha256": "e931aa99c5c4432ab7ab848fb84e9e7362cfb1f2248e98a69c8deb9df763fe8f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.wat",
+      "sha256": "e865259a7e955a06615878378ce32468175cacc845ac9d2d8e0fe909066ebf8d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/source-proof.json",
+      "sha256": "d0632865b5e4ce41b4c85981e74caa778fd5bae4a3c2ae2dc101508d22d0c663"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/input.txt",
+      "sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+      "sha256": "c0fbff207e707c2de1aa17c063f9f81ecf06b6ba09fa326de5c268b65e8d65ab"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so",
+      "sha256": "7c3874ad04fe2325101c4c0ea7ac70f7007294d56f56deba05478bdeee51a5a9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-1.json",
+      "sha256": "7cfc1267a503f9debf8cd2cc59c74bf9da3db33347f703b6a9a3e9542f4bf157"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-link.json",
+      "sha256": "88a49a654187a99868d23dc18c7cc3e701d6576b4b36f9a3b97c23acdd8aa349"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-toolchain.json",
+      "sha256": "899b2e6007be8d3f36ea3aaa6d40efae57a40150c626f4eb5c9fa7d879e15ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/compile.scm",
+      "sha256": "e346048060ae346333cae73a327ed474a5eef1ee40672ad48ff83a3313783ab9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/build.json",
+      "sha256": "66591799b32c3ea3f5009fbfcd9a5acd617772d07d8593bd2b4dbdfc9740441f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.scm",
+      "sha256": "d28bc40ddf77b5cb83e540f128bb9d88d9a2f196e139b4dee6bf7d0bf8b41448"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so",
+      "sha256": "af4edfe81bdbd591425b21afe6688240b28f8c8d703df47cd6875a8cee747217"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime-link-raw.json",
+      "sha256": "ed71f7daa494792a4aff4c57a04c275c84412d7177a381116ac5b6085b2dc7e7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.link.json",
+      "sha256": "eb3d327daed2702be460d9f664a1eb04b60e88571d6235dd23e4fcc884b643a0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-native.wasm",
+      "sha256": "fdf972de5607891c3650ae64aac934226ac37bebe558710dc68e029046084a49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm",
+      "sha256": "5efcc3dde0bf9d85765815a1b6d8a7d500f23e74c4780a9c26db8949a772274e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "a53ab78e15e2c2da2c31da3ab04f8f6d069d1395e631abca0fafd8b507267d4d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.optimized.wat",
+      "sha256": "d8cf6010b610b8982692843f8a8c3d9ffa89f88715cf9c3fe0370f69bb604e73"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.link.json",
+      "sha256": "833b1e8ede32b4ce1215a9becb5f55cca2465ec31d482990ef6b771d5bf6eca7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/host.mjs",
+      "sha256": "69bbe853dcc2ad50d96b94d15d9c3e40e33df722a11949b16687a09a265acbb5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.scm",
+      "sha256": "98e5ab35d040e0c7077178a801119d1e45d9bf1f786a36ce71b87ee362f08fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.linked.wasm",
+      "sha256": "c873e7c7046219f41b41460a3599aa265f8c618539b18962a1c47a7a2e91086b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.input.wat",
+      "sha256": "6981fb545f52491b6cf67f9f7d72efd54cb37d46a6f932e5b88fa334584c51d6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/validation.json",
+      "sha256": "aa74b0c88c08dd628a96f9d51c63c8850458848e8ca81edaa6246037616e9a66"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-native.wasm.raw.wasm",
+      "sha256": "d21926c42b74f03e4dd8a73b7c35ed680f85b8e687ece3ef673c681abefc1c0d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/spec.json",
+      "sha256": "d5a092df1b36ebbda0200cc1765a830f55fdd0c32c0bfc53ee255578d9623ea2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.wat",
+      "sha256": "d8cf6010b610b8982692843f8a8c3d9ffa89f88715cf9c3fe0370f69bb604e73"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-build.json",
+      "sha256": "891c8492f7b16ed7a661941f2822961cb79e1b1b459a0c03e58de57006699771"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.trace.json",
+      "sha256": "e71e2866435076612a0f7dc7e649fde9704b81f832ec31cb3be4f74b223b5299"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.input.wat",
+      "sha256": "0f918cde49b43b35c2db442c5343d086427331d2a9b40fe8ff014b81f96274b3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.wat",
+      "sha256": "2ecc8e0f2f58ae02380e93d1a6660dbaac09dc8efef74a2bdbf3237c49817d84"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm",
+      "sha256": "2fe4c1fa5f9d86c0c563fc65e44d38c528742ee48a56b905830b3f2d97a8e1f0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime-link.json",
+      "sha256": "a2051dcfbfd5b2b556c52081eafbd6db77972859d806d3dc5047e05c915ba353"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-9.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-3.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-8.json",
+      "sha256": "c585e11c4025c47298e8e4cbc395a19f73825a43b5f2bccf167926d5c8b136c9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-6.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-5.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime-link-raw.json",
+      "sha256": "924335c1a1ddfd64d5cf0605a0a332cafc3c424a5c121cfbf7cf92b0aa753c5e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-0.json",
+      "sha256": "c585e11c4025c47298e8e4cbc395a19f73825a43b5f2bccf167926d5c8b136c9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-8.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-6.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.link.json",
+      "sha256": "9710a635c58ef24fb7a1968797419f27d55660a6aa8437306392fb0f26b0cbe3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-1.json",
+      "sha256": "8a6ce24df25cee74e5e34795bb426527823ceb85183d3e4c77e76ab021c57df8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-native.wasm",
+      "sha256": "da17f1e0b82e1b2a9255ba598974d60e38b4098ca73960d4aa7f5896227572c5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm",
+      "sha256": "12aa52dddd721b7aeaf37dfeb1ab18a8b96e1f39cb6c88406bb73b4abbf96e3d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-2.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "caef76e99f3196b65a3f28da165062f3be88aaf3863001e27544ff7e7fc42260"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-1.json",
+      "sha256": "41dc2a1191d8699ebb2522097dc55f5da7466fe1b41e37230ee8f02511131773"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-0.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-8.json",
+      "sha256": "4cb531b17870de1d5ab50b1a6761702ba5cbe93642af6446e6f39d3a64601ed1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-1.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-2.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-0.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-8.json",
+      "sha256": "4bac6ab39a889584ae495abc3099ad6cf8083e758c6aefbda1d2c0a5e37dafd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.optimized.wat",
+      "sha256": "9865cd342da6fa92b6c4b5583095fbc04793655fb1525399f5e97b84628136d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-1.json",
+      "sha256": "8b439561a607086b4aa7d2b52f879cb772b0bb09d89eaa0603b50a88902e4244"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.link.json",
+      "sha256": "40b1e8ee5e4c3a395a22877e7bc0a9098ea6564c65f999f90e4b178568f63f68"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-0-resolution-0.pgm",
+      "sha256": "aa841551487371a96f0dd9ff90773c2c744ccea40ddae5f1e2f12e6ca8f1d1fd"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-9.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-9.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-3.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/unicode-path.pgm",
+      "sha256": "f163ab8e04939e7bc8a70275204e2a022f0ef72f951f79e2a6974c48f95db705"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-7.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-0.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/unicode-path.json",
+      "sha256": "3394a26db004b885d17e17fb6d8cb765589014a40f7f4781ab5413b02278a731"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.scm",
+      "sha256": "eaff948d2446fe01ac0cf406cb7089d51a2027826b12b08c60bb111aa33246b7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-2.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-3.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-4.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-3.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-7.json",
+      "sha256": "41dc2a1191d8699ebb2522097dc55f5da7466fe1b41e37230ee8f02511131773"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-7.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-4.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-5.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-5.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-1.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-2.json",
+      "sha256": "0353bd950b1b4938b6c2c698dbc57bcddf42c4ec4f72bed5631209ce52a85842"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-0-resolution-0.json",
+      "sha256": "0055e3c73b2a98deffbfb754538e4a5e0f0ca433603783301196638b9b4853b1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.linked.wasm",
+      "sha256": "7b3aaf17b11f067dd8f850269ec6a378f859f188c2ead8191e83af6df6eb5520"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-3.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.input.wat",
+      "sha256": "6eafbdcb59214ae6465102344d0e6c9715eb20c79a48a47087f8775cfa494c36"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/validation.json",
+      "sha256": "1c3aa3595620552e451325860dba12a003bd4edddf0a330c6b07066c1c34208c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-native.wasm.raw.wasm",
+      "sha256": "8a4f0ac59f3a70bf9f1b7891dbedbd6c564dbdcf9f0977659bd9b5e30f3a1264"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-5.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-8.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-5.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-1.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-6.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/spec.json",
+      "sha256": "2099296e2db535a226bdf6d5b7698f91cebc3846f32abe82a48bf2f5ffe022a5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-9.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-6.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.wat",
+      "sha256": "9865cd342da6fa92b6c4b5583095fbc04793655fb1525399f5e97b84628136d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-1-resolution-1.pgm",
+      "sha256": "9765c9f55b81a2a6289ba92dac97f6686b67a423b3fe6d9d605df26b80f2f428"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-2.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-3.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-3.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-1.json",
+      "sha256": "7bcf1bb0d24fb11ba021af1fdb961ec4792399febd1e4db3f6c31c2f19e9578b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-4.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-build.json",
+      "sha256": "5ff38540bfd033a908547cfba5bd04e68edf9bd0e35c58369c31edf949314bc6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-0.json",
+      "sha256": "4cb531b17870de1d5ab50b1a6761702ba5cbe93642af6446e6f39d3a64601ed1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-4.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-5.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-4.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-9.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-1.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-6.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-8.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.trace.json",
+      "sha256": "0218b887e63190522c9ce7e5ed2c0fd7274138b9c8983e89dc098c94ea7bbe5b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-2.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-6.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.input.wat",
+      "sha256": "bf8251634492a1b96dee1874a4b767d97bfb33864c1a8a9e7ea09d1a7a355f08"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.wat",
+      "sha256": "2d51d79d3fdfe65fafa34ccb7d0c87ccc954c4c54a864e712f4a8f0a9b62cf08"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-7.json",
+      "sha256": "8a6ce24df25cee74e5e34795bb426527823ceb85183d3e4c77e76ab021c57df8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm",
+      "sha256": "80f6f6729df1dd71bcbdc472c8c6aa71ea1822ff59c9daf609da2666d7dd9c96"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-1-resolution-1.json",
+      "sha256": "c635fae4f491fd35a115636282e1a01d6ff2b81d0a8eb06b040886e6b3fe1e93"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-3.json",
+      "sha256": "e65dfe1271594d0480daa8c2d569ac5da280bb6c7f1b98a2b6066e974164322b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-2.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-0.json",
+      "sha256": "4bac6ab39a889584ae495abc3099ad6cf8083e758c6aefbda1d2c0a5e37dafd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-9.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-7.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-7.json",
+      "sha256": "7bcf1bb0d24fb11ba021af1fdb961ec4792399febd1e4db3f6c31c2f19e9578b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-4.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-2.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime-link.json",
+      "sha256": "767c01446b1cc58d6a88ee18523c710be84f75763df82b84eb11d588dbe7e25b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/compile.scm",
+      "sha256": "64c98e550fc1ff751ad9d29beba33350b111915982fd8c32458e9ac4d5db53b2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/build.json",
+      "sha256": "a84b87a6ab9cd0cd5f5acaba05a2016802c012b12882fbc804e6d6dea5ed83e1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/program.scm",
+      "sha256": "055f3c4707b5eeecd2914d4676c9c245d95c4641e5daac34c64eb1ac50964b57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/program.so",
+      "sha256": "5feb40f0dbe157a5e803c2f3064e7e0a03b21032386740213b3656792d4de322"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/compile.scm",
+      "sha256": "5b5fee9db771bb9d4729f261c6178e902aaf3d269f99c8a4070e246f28a8e273"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/build.json",
+      "sha256": "0c741aeea9c8c58d60a7db2ac04b05543780dd62b40b14321e9c5885716e70c6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/program.scm",
+      "sha256": "d73b7819245b504e10e3519740b1cb5bea69ae0300b8fbfaeaa29f68ac1d8110"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/program.so",
+      "sha256": "92082d6eaa298cf5b2763dd2e95649592a86243b417a96d478169a5e66009bfc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/compile.scm",
+      "sha256": "2adfe10339e2beda5e530ec8b69c0562909240db509616103d5dedcdad61e6aa"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/build.json",
+      "sha256": "88aa3cdf0f3e2640917e46f5c8a22135a94cb1a0583f72c02b3d085eff2bd608"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/program.scm",
+      "sha256": "2eb48bcd2b61b86f4006daba4299e62b6d187ae762f2c8619fa52b77c00d8c89"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/program.so",
+      "sha256": "7b28ec2b4f1535b1783688be4eca6099dee44d40c3594104a72f744cb53d8655"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/compile.scm",
+      "sha256": "efbbd2e20006f7d96f7b0665c5f5eea712e3de1f4d51d518b44617ac0f5f9f0f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/build.json",
+      "sha256": "08f762869258586ba33a194d29eb688b3641744965eda55ff795466116a1108b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/program.scm",
+      "sha256": "ef92a251a7d62b2fac48a833aea244c0647667a1f8973259c30759907fd5d69f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/program.so",
+      "sha256": "8c9d6e2c949bda2a4539537083d27b125c69276d954e5c2c283a6edffc806d98"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "736ad7b26ff9220b84f5665ea1b63ef6571d6f924a003c4614fb314edffd0c5b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "40ffddcf62c456aa1cf5d60bbea4f0e3a203cfc7597271bd7c9da92f13894cac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/io.sld",
+      "sha256": "79929585d9200fb559bb10b7f84c49e9438d2cec1ee50f5a9bc9aec6f8680b17"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/strict.sld",
+      "sha256": "2cb73ee8f3a91e137497d0152b6f381e427fd624c4c2fe52581172855f9c6154"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/hash.rs",
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/symbols.rs",
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/host.rs",
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/text.rs",
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/strict_io.rs",
+      "sha256": "38b96a9876bdee402ee29345b2cd216ea78aa32458704961709fa2e439d3738e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/platform.rs",
+      "sha256": "19a7e2e34fd97b100edc51e7952db87245ff2ea2fff19671454c88f41d034a78"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/abi.rs",
+      "sha256": "1279629b76d4840b0309ae1ae522c8eaddfd7c2477ef6275a48d45e9ad328b57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/artifacts.rs",
+      "sha256": "746efbcfc6b6248657b459890823b9386c6057bb0fddd89593c22ab59fe9007b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/lib.rs",
+      "sha256": "73b400443430f2fc0783e7bf32fc5332b98f84d9bd28c3286aafbf2861e166c5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/interop_example.rs",
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/unicode.rs",
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/datum.rs",
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/iverson.rs",
+      "sha256": "6df4c8f739df9ce1a82b34fe5091178fd4f69919a77af13dfac749dca1300688"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/Cargo.toml",
+      "sha256": "a1154ab52430f23f49e24b8debd49dc86c08ecb6ec880e7daf58d97c1f8d3cad"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/Cargo.lock",
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/rust-toolchain.toml",
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/scripts/link-strict-runtime",
+      "sha256": "1e871e2d796e1d3d29133c3670607139ed59d2f0ad791884b9486639dfa3ba13"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm",
+      "sha256": "e66e1b8a221250c113073e9336b5247722de7484464c77963ce9d6d3b61bb081"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/input.txt",
+      "sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ray.rs",
+      "sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/small-inputs.json",
+      "sha256": "851fbe13f51b8f40c4c2ce32a2a7ae757c13636dde5303974a530869f1fb968f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/browse.rs",
+      "sha256": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/compiler.rs",
+      "sha256": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/conform.rs",
+      "sha256": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/cpstak.rs",
+      "sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ctak.rs",
+      "sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/destruc.rs",
+      "sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/dynamic.rs",
+      "sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/earley.rs",
+      "sha256": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/equal.rs",
+      "sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fibc.rs",
+      "sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/matrix.rs",
+      "sha256": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/maze.rs",
+      "sha256": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mazefun.rs",
+      "sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mperm.rs",
+      "sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nboyer.rs",
+      "sha256": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nucleic.rs",
+      "sha256": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/paraffins.rs",
+      "sha256": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/parsing.rs",
+      "sha256": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/peval.rs",
+      "sha256": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/pi.rs",
+      "sha256": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/pnpoly.rs",
+      "sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sboyer.rs",
+      "sha256": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/scheme.rs",
+      "sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/simplex.rs",
+      "sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/slatex.rs",
+      "sha256": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/boyer-data.scm",
+      "sha256": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/boyer.rs",
+      "sha256": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-common-procedures.scm",
+      "sha256": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-multilisp-specific-procedures.scm",
+      "sha256": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-prim-procs.scm",
+      "sha256": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-primitive-recipes.scm",
+      "sha256": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-r4rs-scheme-specific-procedures.scm",
+      "sha256": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler.rs",
+      "sha256": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_68000.rs",
+      "sha256": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_asm.rs",
+      "sha256": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_blocks.rs",
+      "sha256": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_gvm.rs",
+      "sha256": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/dynamic-types.scm",
+      "sha256": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/nucleic-data.scm",
+      "sha256": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/peval-data.scm",
+      "sha256": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/scheme-primitives.txt",
+      "sha256": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/slatex-keywords.txt",
+      "sha256": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/suite.py",
+      "sha256": "f3c4088a4cbfad473ae1a7434c960422110aa2abb8ce3d6e742275197091f553"
+    }
+  ],
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.131295286,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/strict",
+      "stdin": null,
+      "process_seconds": 0.15868896199390292,
+      "round": -1,
+      "position": 0,
+      "retained": false,
+      "workload_seconds": 0.131295286,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/strict/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.844558197 seconds (0.845) for ray:50\n+!CSVLINE!+chez,ray:50,0.844558197\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/original-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8743843309930526,
+      "round": -1,
+      "position": 1,
+      "retained": false,
+      "workload_seconds": 0.844558197,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/original-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.794347183 seconds (0.794) for ray:50\n+!CSVLINE!+chez,ray:50,0.794347183\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/adapted-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8249632669612765,
+      "round": -1,
+      "position": 2,
+      "retained": false,
+      "workload_seconds": 0.794347183,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/adapted-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:50,0.053907103\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/rust-wasm",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.07784341904334724,
+      "round": -1,
+      "position": 3,
+      "retained": false,
+      "workload_seconds": 0.053907103,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round--1/rust-wasm/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.12792689,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/strict",
+      "stdin": null,
+      "process_seconds": 0.1509307170053944,
+      "round": 0,
+      "position": 0,
+      "retained": true,
+      "workload_seconds": 0.12792689,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/strict/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.849886133 seconds (0.85) for ray:50\n+!CSVLINE!+chez,ray:50,0.849886133\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/original-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8813007510034367,
+      "round": 0,
+      "position": 1,
+      "retained": true,
+      "workload_seconds": 0.849886133,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/original-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.796017246 seconds (0.796) for ray:50\n+!CSVLINE!+chez,ray:50,0.796017246\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/adapted-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8269297869992442,
+      "round": 0,
+      "position": 2,
+      "retained": true,
+      "workload_seconds": 0.796017246,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/adapted-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:50,0.053750718\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/rust-wasm",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.0784881139989011,
+      "round": 0,
+      "position": 3,
+      "retained": true,
+      "workload_seconds": 0.053750718,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-0/rust-wasm/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.846461987 seconds (0.846) for ray:50\n+!CSVLINE!+chez,ray:50,0.846461987\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/original-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8778550020069815,
+      "round": 1,
+      "position": 0,
+      "retained": true,
+      "workload_seconds": 0.846461987,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/original-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.791982068 seconds (0.792) for ray:50\n+!CSVLINE!+chez,ray:50,0.791982068\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/adapted-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8233525849645957,
+      "round": 1,
+      "position": 1,
+      "retained": true,
+      "workload_seconds": 0.791982068,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/adapted-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:50,0.054235857\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/rust-wasm",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.07847815699642524,
+      "round": 1,
+      "position": 2,
+      "retained": true,
+      "workload_seconds": 0.054235857,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/rust-wasm/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.131207217,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/strict",
+      "stdin": null,
+      "process_seconds": 0.15444226999534294,
+      "round": 1,
+      "position": 3,
+      "retained": true,
+      "workload_seconds": 0.131207217,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-1/strict/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.797585978 seconds (0.798) for ray:50\n+!CSVLINE!+chez,ray:50,0.797585978\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/adapted-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8281321829999797,
+      "round": 2,
+      "position": 0,
+      "retained": true,
+      "workload_seconds": 0.797585978,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/adapted-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:50,0.054089457\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/rust-wasm",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.0771027939626947,
+      "round": 2,
+      "position": 1,
+      "retained": true,
+      "workload_seconds": 0.054089457,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/rust-wasm/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.129094972,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/strict",
+      "stdin": null,
+      "process_seconds": 0.15283747494686395,
+      "round": 2,
+      "position": 2,
+      "retained": true,
+      "workload_seconds": 0.129094972,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/strict/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.84938195 seconds (0.849) for ray:50\n+!CSVLINE!+chez,ray:50,0.84938195\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/original-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8811316040228121,
+      "round": 2,
+      "position": 3,
+      "retained": true,
+      "workload_seconds": 0.84938195,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-2/original-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:50,0.053908736\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/rust-wasm",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.07807054201839492,
+      "round": 3,
+      "position": 0,
+      "retained": true,
+      "workload_seconds": 0.053908736,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/rust-wasm/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.128727882,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/strict",
+      "stdin": null,
+      "process_seconds": 0.15176717500435188,
+      "round": 3,
+      "position": 1,
+      "retained": true,
+      "workload_seconds": 0.128727882,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/strict/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.848184495 seconds (0.848) for ray:50\n+!CSVLINE!+chez,ray:50,0.848184495\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/original-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8792692529968917,
+      "round": 3,
+      "position": 2,
+      "retained": true,
+      "workload_seconds": 0.848184495,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/original-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running ray:50\nElapsed time: 0.798219495 seconds (0.798) for ray:50\n+!CSVLINE!+chez,ray:50,0.798219495\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/adapted-chez",
+      "stdin": "50\n1\n\"outputs/ray.output\"\nok\n",
+      "process_seconds": 0.8288848050287925,
+      "round": 3,
+      "position": 3,
+      "retained": true,
+      "workload_seconds": 0.798219495,
+      "image": {
+        "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/matched-measurements/trials/round-3/adapted-chez/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+        "bytes": 29517
+      },
+      "valid": true
+    }
+  ],
+  "complete": true,
+  "identities_after": [
+    {
+      "path": "/tmp/snail-ray-comparison-20261014/benchmarks/results/2026-10-14-strict-ray-comparison/measure-matched.py",
+      "sha256": "13009bfc5ab0111e916dd2a450022bb21f2268743dacd789321e112eae91dd97"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/handoff.json",
+      "sha256": "5c2f12f734744fc77ef453e62f505064ce7b3811257dd77f2daad6ffed7839f4"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/build-provenance.json",
+      "sha256": "d26408e270ccf687c3d5a73ca47ab799d7892a9f0bd63a7da6508f1a2fa95546"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray-host.mjs",
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/prepared.json",
+      "sha256": "9c4ee1714872377ba4047d5ca8d92d408729f12b4de458015167a5bc6554c212"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/expected-ray.pgm",
+      "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-2.json",
+      "sha256": "f3335c22b1b30921a1ad8f6817d6330fd99b6eda7041f543a30af7abe6e4563f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/compile.scm",
+      "sha256": "a1ef58b9e932c38f4616ca13bee2684363f29da4f6c587320518ab7267532e67"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-build.json",
+      "sha256": "781e12e532ac18fb99c89875c284f45e1b245e97e28fdd85eb0a6f67a55a450f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/complete-source-adaptation.patch",
+      "sha256": "cb34a6f4f82ec4d9229df5b0e9ea1bd00413eb7cbf36700553e34a03cbb4a0a0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/upstream.scm",
+      "sha256": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-link-raw.json",
+      "sha256": "d6dda436661599a394771926b51b5578d5483b5b67bb4053c7281807e6913453"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.link.json",
+      "sha256": "696af21dcc8410f308f05d901367e2001032cf6d324e1b2cbd770648804501ac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-native.wasm",
+      "sha256": "d74d7ce60b2c12dbfe4f5c0cec52c624b38fbf65ea899d28f6cfec1e97b4a1c3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm",
+      "sha256": "a7f85a316e1f8dd80ea081142cbf338ff9fa6408e04d740f733370c5dcee8793"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/adapted-kernel.scm",
+      "sha256": "612960b1f6245bcd648226eead374e63120fb4cecb1f2f87b65a5251395baee7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "0e8cb5820ddcec78a9eb65614a8d0b3ad9aaacf95cb837d9458f9e1d5c56fe23"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/input-decoder.scm",
+      "sha256": "63b135c895275d65f1ef1dfd6dc226a1d0d802109a0bda48accbfaf25eba92f1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.optimized.wat",
+      "sha256": "a07893b173527532051b3d6c88df6037b1815172cfebd2397dd672044eff16ed"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.link.json",
+      "sha256": "36e588988107029e6fe1574b6ba6beca72c9aef34b96e4dc86024160d69979bf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.scm",
+      "sha256": "cba5eae0a68ccf32eea895799f3d4eaa57e3d2384a63df57685f5fac5ff92e32"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/reversible-source-edits.json",
+      "sha256": "a47d9d85886d68a8759f4b3bf0d2214d56d0ee3f527bd66be490292e094946b9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/chez-validation.json",
+      "sha256": "d8d2c865ef35e13bb88df70491eb52822ebec211174d99b309a6b161ab40ad57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.linked.wasm",
+      "sha256": "92793e3554d7989b683d1e5bf2b6105036959b2373c0b0e57663a47662549fa2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/original-kernel.scm",
+      "sha256": "e632e98fa502bfb60ac9f85b81b2f50f5d6e50e3a6fd117fc29ce5f21f48f25d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.input.wat",
+      "sha256": "fce2f857e58baaacca5a3364bdc0c2649941f9c51d2a401efcd319b11301b1cf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation.json",
+      "sha256": "336ac37158ccab9baa6fc4637c486d386a79ed025e95f79e170b907412697a8e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-native.wasm.raw.wasm",
+      "sha256": "e40fa27693afa6408aa07a894e7267625583f1acc3096c9ba949570ff949b84e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/spec.json",
+      "sha256": "3a0153ca5e781e6b06895ddec3675569efd20f43f9f97fb25fa7c3e383fe4686"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/chez-build.json",
+      "sha256": "4e65becbecda64ff910fbf1956ce1dc7a70a50090731c9404dea1f9a9eb4b375"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.wat",
+      "sha256": "a07893b173527532051b3d6c88df6037b1815172cfebd2397dd672044eff16ed"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-50.json",
+      "sha256": "3a0153ca5e781e6b06895ddec3675569efd20f43f9f97fb25fa7c3e383fe4686"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict-build.json",
+      "sha256": "87be46cc8f3614e0acdb7f16d68ad777b45d13f71b0d08df0ee7fc049490842a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/kernel-adaptation.patch",
+      "sha256": "08ae13de138fdbccde9b79c4669c7303d35ee2841085e943eef3238c88fd85ac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.trace.json",
+      "sha256": "c767a2ec33618145a142ba1fe98c8f7ac39aee26a7bf33439a4a03fa564412d4"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.input.wat",
+      "sha256": "0b367bdeef47ab20ddcf99f3c1e9ce9cb6099adce6f8f2bcd81886681dabc5f5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.scm",
+      "sha256": "e931aa99c5c4432ab7ab848fb84e9e7362cfb1f2248e98a69c8deb9df763fe8f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.wat",
+      "sha256": "e865259a7e955a06615878378ce32468175cacc845ac9d2d8e0fe909066ebf8d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/source-proof.json",
+      "sha256": "d0632865b5e4ce41b4c85981e74caa778fd5bae4a3c2ae2dc101508d22d0c663"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/input.txt",
+      "sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/strict.wasm",
+      "sha256": "c0fbff207e707c2de1aa17c063f9f81ecf06b6ba09fa326de5c268b65e8d65ab"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/program.so",
+      "sha256": "7c3874ad04fe2325101c4c0ea7ac70f7007294d56f56deba05478bdeee51a5a9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/validation-spec-1.json",
+      "sha256": "7cfc1267a503f9debf8cd2cc59c74bf9da3db33347f703b6a9a3e9542f4bf157"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-link.json",
+      "sha256": "88a49a654187a99868d23dc18c7cc3e701d6576b4b36f9a3b97c23acdd8aa349"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/runtime-toolchain.json",
+      "sha256": "899b2e6007be8d3f36ea3aaa6d40efae57a40150c626f4eb5c9fa7d879e15ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/compile.scm",
+      "sha256": "e346048060ae346333cae73a327ed474a5eef1ee40672ad48ff83a3313783ab9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/build.json",
+      "sha256": "66591799b32c3ea3f5009fbfcd9a5acd617772d07d8593bd2b4dbdfc9740441f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.scm",
+      "sha256": "d28bc40ddf77b5cb83e540f128bb9d88d9a2f196e139b4dee6bf7d0bf8b41448"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/same-source-chez/program.so",
+      "sha256": "af4edfe81bdbd591425b21afe6688240b28f8c8d703df47cd6875a8cee747217"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime-link-raw.json",
+      "sha256": "ed71f7daa494792a4aff4c57a04c275c84412d7177a381116ac5b6085b2dc7e7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.link.json",
+      "sha256": "eb3d327daed2702be460d9f664a1eb04b60e88571d6235dd23e4fcc884b643a0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-native.wasm",
+      "sha256": "fdf972de5607891c3650ae64aac934226ac37bebe558710dc68e029046084a49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm",
+      "sha256": "5efcc3dde0bf9d85765815a1b6d8a7d500f23e74c4780a9c26db8949a772274e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "a53ab78e15e2c2da2c31da3ab04f8f6d069d1395e631abca0fafd8b507267d4d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.optimized.wat",
+      "sha256": "d8cf6010b610b8982692843f8a8c3d9ffa89f88715cf9c3fe0370f69bb604e73"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.link.json",
+      "sha256": "833b1e8ede32b4ce1215a9becb5f55cca2465ec31d482990ef6b771d5bf6eca7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/host.mjs",
+      "sha256": "69bbe853dcc2ad50d96b94d15d9c3e40e33df722a11949b16687a09a265acbb5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.scm",
+      "sha256": "98e5ab35d040e0c7077178a801119d1e45d9bf1f786a36ce71b87ee362f08fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.linked.wasm",
+      "sha256": "c873e7c7046219f41b41460a3599aa265f8c618539b18962a1c47a7a2e91086b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.input.wat",
+      "sha256": "6981fb545f52491b6cf67f9f7d72efd54cb37d46a6f932e5b88fa334584c51d6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/validation.json",
+      "sha256": "aa74b0c88c08dd628a96f9d51c63c8850458848e8ca81edaa6246037616e9a66"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-native.wasm.raw.wasm",
+      "sha256": "d21926c42b74f03e4dd8a73b7c35ed680f85b8e687ece3ef673c681abefc1c0d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/spec.json",
+      "sha256": "d5a092df1b36ebbda0200cc1765a830f55fdd0c32c0bfc53ee255578d9623ea2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.wat",
+      "sha256": "d8cf6010b610b8982692843f8a8c3d9ffa89f88715cf9c3fe0370f69bb604e73"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict-build.json",
+      "sha256": "891c8492f7b16ed7a661941f2822961cb79e1b1b459a0c03e58de57006699771"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.trace.json",
+      "sha256": "e71e2866435076612a0f7dc7e649fde9704b81f832ec31cb3be4f74b223b5299"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.input.wat",
+      "sha256": "0f918cde49b43b35c2db442c5343d086427331d2a9b40fe8ff014b81f96274b3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.wat",
+      "sha256": "2ecc8e0f2f58ae02380e93d1a6660dbaac09dc8efef74a2bdbf3237c49817d84"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/strict.wasm",
+      "sha256": "2fe4c1fa5f9d86c0c563fc65e44d38c528742ee48a56b905830b3f2d97a8e1f0"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/runtime-link.json",
+      "sha256": "a2051dcfbfd5b2b556c52081eafbd6db77972859d806d3dc5047e05c915ba353"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-9.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-3.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-8.json",
+      "sha256": "c585e11c4025c47298e8e4cbc395a19f73825a43b5f2bccf167926d5c8b136c9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-6.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-5.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime-link-raw.json",
+      "sha256": "924335c1a1ddfd64d5cf0605a0a332cafc3c424a5c121cfbf7cf92b0aa753c5e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-0.json",
+      "sha256": "c585e11c4025c47298e8e4cbc395a19f73825a43b5f2bccf167926d5c8b136c9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-8.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-6.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime.wasm",
+      "sha256": "a104418987675788eb083d2d23cf9b6c38a73cec4e161659a2b9005b48fb457c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.link.json",
+      "sha256": "9710a635c58ef24fb7a1968797419f27d55660a6aa8437306392fb0f26b0cbe3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-1.json",
+      "sha256": "8a6ce24df25cee74e5e34795bb426527823ceb85183d3e4c77e76ab021c57df8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-native.wasm",
+      "sha256": "da17f1e0b82e1b2a9255ba598974d60e38b4098ca73960d4aa7f5896227572c5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm",
+      "sha256": "12aa52dddd721b7aeaf37dfeb1ab18a8b96e1f39cb6c88406bb73b4abbf96e3d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-2.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.linked.wasm",
+      "sha256": "caef76e99f3196b65a3f28da165062f3be88aaf3863001e27544ff7e7fc42260"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-1.json",
+      "sha256": "41dc2a1191d8699ebb2522097dc55f5da7466fe1b41e37230ee8f02511131773"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-0.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-8.json",
+      "sha256": "4cb531b17870de1d5ab50b1a6761702ba5cbe93642af6446e6f39d3a64601ed1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-1.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-2.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-0.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-8.json",
+      "sha256": "4bac6ab39a889584ae495abc3099ad6cf8083e758c6aefbda1d2c0a5e37dafd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.optimized.wat",
+      "sha256": "9865cd342da6fa92b6c4b5583095fbc04793655fb1525399f5e97b84628136d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-1.json",
+      "sha256": "8b439561a607086b4aa7d2b52f879cb772b0bb09d89eaa0603b50a88902e4244"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.link.json",
+      "sha256": "40b1e8ee5e4c3a395a22877e7bc0a9098ea6564c65f999f90e4b178568f63f68"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-0-resolution-0.pgm",
+      "sha256": "aa841551487371a96f0dd9ff90773c2c744ccea40ddae5f1e2f12e6ca8f1d1fd"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-9.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-9.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-3.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/unicode-path.pgm",
+      "sha256": "f163ab8e04939e7bc8a70275204e2a022f0ef72f951f79e2a6974c48f95db705"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-7.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-0.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/unicode-path.json",
+      "sha256": "3394a26db004b885d17e17fb6d8cb765589014a40f7f4781ab5413b02278a731"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.scm",
+      "sha256": "eaff948d2446fe01ac0cf406cb7089d51a2027826b12b08c60bb111aa33246b7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-2.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-3.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-4.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-3.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-7.json",
+      "sha256": "41dc2a1191d8699ebb2522097dc55f5da7466fe1b41e37230ee8f02511131773"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-7.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-4.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-5.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-5.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-1.pgm",
+      "sha256": "3afded41dd6f0a4dfd71267ffdb2f6b0cd49964a1ca4dad9e8aa4567d3366ceb"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-2.json",
+      "sha256": "0353bd950b1b4938b6c2c698dbc57bcddf42c4ec4f72bed5631209ce52a85842"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-0-resolution-0.json",
+      "sha256": "0055e3c73b2a98deffbfb754538e4a5e0f0ca433603783301196638b9b4853b1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.linked.wasm",
+      "sha256": "7b3aaf17b11f067dd8f850269ec6a378f859f188c2ead8191e83af6df6eb5520"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-3.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.input.wat",
+      "sha256": "6eafbdcb59214ae6465102344d0e6c9715eb20c79a48a47087f8775cfa494c36"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/validation.json",
+      "sha256": "1c3aa3595620552e451325860dba12a003bd4edddf0a330c6b07066c1c34208c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-native.wasm.raw.wasm",
+      "sha256": "8a4f0ac59f3a70bf9f1b7891dbedbd6c564dbdcf9f0977659bd9b5e30f3a1264"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-5.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-8.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-5.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-1.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-6.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/spec.json",
+      "sha256": "2099296e2db535a226bdf6d5b7698f91cebc3846f32abe82a48bf2f5ffe022a5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-9.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-6.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.wat",
+      "sha256": "9865cd342da6fa92b6c4b5583095fbc04793655fb1525399f5e97b84628136d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-1-resolution-1.pgm",
+      "sha256": "9765c9f55b81a2a6289ba92dac97f6686b67a423b3fe6d9d605df26b80f2f428"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-2.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-3.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-3.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.adapter.wat",
+      "sha256": "2d548074cfd6121a8df4c893671799e64a7e0917551bbc47d80ede64764d7a11"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-1.json",
+      "sha256": "7bcf1bb0d24fb11ba021af1fdb961ec4792399febd1e4db3f6c31c2f19e9578b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-4.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict-build.json",
+      "sha256": "5ff38540bfd033a908547cfba5bd04e68edf9bd0e35c58369c31edf949314bc6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-0.json",
+      "sha256": "4cb531b17870de1d5ab50b1a6761702ba5cbe93642af6446e6f39d3a64601ed1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-4.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-5.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-4.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-9.json",
+      "sha256": "a6dd21ef0f02ca1161c237a819dd781c74b99ea39df592342bfca9374f0f31cc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-1.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-6.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-8.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.trace.json",
+      "sha256": "0218b887e63190522c9ce7e5ed2c0fd7274138b9c8983e89dc098c94ea7bbe5b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-2.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-6.pgm",
+      "sha256": "c528be67d3635e47454bf5bb6760e17dcc0cd2f3da78b0cd8780c264077714de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.input.wat",
+      "sha256": "bf8251634492a1b96dee1874a4b767d97bfb33864c1a8a9e7ea09d1a7a355f08"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.wat",
+      "sha256": "2d51d79d3fdfe65fafa34ccb7d0c87ccc954c4c54a864e712f4a8f0a9b62cf08"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-7.json",
+      "sha256": "8a6ce24df25cee74e5e34795bb426527823ceb85183d3e4c77e76ab021c57df8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm.raw.wasm.adapter.wasm",
+      "sha256": "43779b69baf64d5835673fb706ec00980cc3093d9c90ca370478010939fc7f55"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/strict.wasm",
+      "sha256": "80f6f6729df1dd71bcbdc472c8c6aa71ea1822ff59c9daf609da2666d7dd9c96"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-1-resolution-1.json",
+      "sha256": "c635fae4f491fd35a115636282e1a01d6ff2b81d0a8eb06b040886e6b3fe1e93"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/image-7-resolution-3.json",
+      "sha256": "e65dfe1271594d0480daa8c2d569ac5da280bb6c7f1b98a2b6066e974164322b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-2.json",
+      "sha256": "4c77de2d04eb2873f0d4757a2a9cbcc0ca5a3730cf9b2ef09babb92dea6dd1fc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-0.json",
+      "sha256": "4bac6ab39a889584ae495abc3099ad6cf8083e758c6aefbda1d2c0a5e37dafd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-9.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-0-7.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-7.json",
+      "sha256": "7bcf1bb0d24fb11ba021af1fdb961ec4792399febd1e4db3f6c31c2f19e9578b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate-2-4.json",
+      "sha256": "182db45d3259058c9d311351f3d27e23d4dfa56403d6741f7f3bb267127e1fee"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/predicate--1-2.pgm",
+      "sha256": "92756755c5053ffa09f6d9646b08f66a024015b0ad6476fe2c6c38bcd8410412"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/runtime-link.json",
+      "sha256": "767c01446b1cc58d6a88ee18523c710be84f75763df82b84eb11d588dbe7e25b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/compile.scm",
+      "sha256": "64c98e550fc1ff751ad9d29beba33350b111915982fd8c32458e9ac4d5db53b2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/build.json",
+      "sha256": "a84b87a6ab9cd0cd5f5acaba05a2016802c012b12882fbc804e6d6dea5ed83e1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/program.scm",
+      "sha256": "055f3c4707b5eeecd2914d4676c9c245d95c4641e5daac34c64eb1ac50964b57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/original/program.so",
+      "sha256": "5feb40f0dbe157a5e803c2f3064e7e0a03b21032386740213b3656792d4de322"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/compile.scm",
+      "sha256": "5b5fee9db771bb9d4729f261c6178e902aaf3d269f99c8a4070e246f28a8e273"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/build.json",
+      "sha256": "0c741aeea9c8c58d60a7db2ac04b05543780dd62b40b14321e9c5885716e70c6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/program.scm",
+      "sha256": "d73b7819245b504e10e3519740b1cb5bea69ae0300b8fbfaeaa29f68ac1d8110"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/viewport-probes/adapted/program.so",
+      "sha256": "92082d6eaa298cf5b2763dd2e95649592a86243b417a96d478169a5e66009bfc"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/compile.scm",
+      "sha256": "2adfe10339e2beda5e530ec8b69c0562909240db509616103d5dedcdad61e6aa"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/build.json",
+      "sha256": "88aa3cdf0f3e2640917e46f5c8a22135a94cb1a0583f72c02b3d085eff2bd608"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/program.scm",
+      "sha256": "2eb48bcd2b61b86f4006daba4299e62b6d187ae762f2c8619fa52b77c00d8c89"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/original/program.so",
+      "sha256": "7b28ec2b4f1535b1783688be4eca6099dee44d40c3594104a72f744cb53d8655"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/compile.scm",
+      "sha256": "efbbd2e20006f7d96f7b0665c5f5eea712e3de1f4d51d518b44617ac0f5f9f0f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/build.json",
+      "sha256": "08f762869258586ba33a194d29eb688b3641744965eda55ff795466116a1108b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/program.scm",
+      "sha256": "ef92a251a7d62b2fac48a833aea244c0647667a1f8973259c30759907fd5d69f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/ray/geometry-probes/adapted/program.so",
+      "sha256": "8c9d6e2c949bda2a4539537083d27b125c69276d954e5c2c283a6edffc806d98"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "736ad7b26ff9220b84f5665ea1b63ef6571d6f924a003c4614fb314edffd0c5b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "40ffddcf62c456aa1cf5d60bbea4f0e3a203cfc7597271bd7c9da92f13894cac"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/io.sld",
+      "sha256": "79929585d9200fb559bb10b7f84c49e9438d2cec1ee50f5a9bc9aec6f8680b17"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/strict.sld",
+      "sha256": "2cb73ee8f3a91e137497d0152b6f381e427fd624c4c2fe52581172855f9c6154"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/hash.rs",
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/symbols.rs",
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/host.rs",
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/text.rs",
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/strict_io.rs",
+      "sha256": "38b96a9876bdee402ee29345b2cd216ea78aa32458704961709fa2e439d3738e"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/platform.rs",
+      "sha256": "19a7e2e34fd97b100edc51e7952db87245ff2ea2fff19671454c88f41d034a78"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/abi.rs",
+      "sha256": "1279629b76d4840b0309ae1ae522c8eaddfd7c2477ef6275a48d45e9ad328b57"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/artifacts.rs",
+      "sha256": "746efbcfc6b6248657b459890823b9386c6057bb0fddd89593c22ab59fe9007b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/lib.rs",
+      "sha256": "73b400443430f2fc0783e7bf32fc5332b98f84d9bd28c3286aafbf2861e166c5"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/interop_example.rs",
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/unicode.rs",
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/datum.rs",
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/src/iverson.rs",
+      "sha256": "6df4c8f739df9ce1a82b34fe5091178fd4f69919a77af13dfac749dca1300688"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/Cargo.toml",
+      "sha256": "a1154ab52430f23f49e24b8debd49dc86c08ecb6ec880e7daf58d97c1f8d3cad"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/Cargo.lock",
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/rust-toolchain.toml",
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b"
+    },
+    {
+      "path": "/tmp/snail-strict-ray-preparation-20261014-r2/compiler-source/scripts/link-strict-runtime",
+      "sha256": "1e871e2d796e1d3d29133c3670607139ed59d2f0ad791884b9486639dfa3ba13"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm",
+      "sha256": "e66e1b8a221250c113073e9336b5247722de7484464c77963ce9d6d3b61bb081"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/input.txt",
+      "sha256": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ray.rs",
+      "sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/small-inputs.json",
+      "sha256": "851fbe13f51b8f40c4c2ce32a2a7ae757c13636dde5303974a530869f1fb968f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/browse.rs",
+      "sha256": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/compiler.rs",
+      "sha256": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/conform.rs",
+      "sha256": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/cpstak.rs",
+      "sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ctak.rs",
+      "sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/destruc.rs",
+      "sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/dynamic.rs",
+      "sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/earley.rs",
+      "sha256": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/equal.rs",
+      "sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fibc.rs",
+      "sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/matrix.rs",
+      "sha256": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/maze.rs",
+      "sha256": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mazefun.rs",
+      "sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/mperm.rs",
+      "sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nboyer.rs",
+      "sha256": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/nucleic.rs",
+      "sha256": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/paraffins.rs",
+      "sha256": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/parsing.rs",
+      "sha256": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/peval.rs",
+      "sha256": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/pi.rs",
+      "sha256": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/pnpoly.rs",
+      "sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sboyer.rs",
+      "sha256": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/scheme.rs",
+      "sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/simplex.rs",
+      "sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/slatex.rs",
+      "sha256": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/boyer-data.scm",
+      "sha256": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/boyer.rs",
+      "sha256": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-common-procedures.scm",
+      "sha256": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-multilisp-specific-procedures.scm",
+      "sha256": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-prim-procs.scm",
+      "sha256": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-primitive-recipes.scm",
+      "sha256": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler-r4rs-scheme-specific-procedures.scm",
+      "sha256": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler.rs",
+      "sha256": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_68000.rs",
+      "sha256": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_asm.rs",
+      "sha256": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_blocks.rs",
+      "sha256": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/compiler_gvm.rs",
+      "sha256": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/dynamic-types.scm",
+      "sha256": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/nucleic-data.scm",
+      "sha256": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/peval-data.scm",
+      "sha256": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/scheme-primitives.txt",
+      "sha256": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/src/slatex-keywords.txt",
+      "sha256": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98"
+    },
+    {
+      "path": "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/suite.py",
+      "sha256": "f3c4088a4cbfad473ae1a7434c960422110aa2abb8ce3d6e742275197091f553"
+    }
+  ],
+  "summary": {
+    "strict": {
+      "workload_seconds": {
+        "samples": [
+          0.12792689,
+          0.131207217,
+          0.129094972,
+          0.128727882
+        ],
+        "median": 0.128911427,
+        "min": 0.12792689,
+        "max": 0.131207217
+      },
+      "process_seconds": {
+        "samples": [
+          0.1509307170053944,
+          0.15444226999534294,
+          0.15283747494686395,
+          0.15176717500435188
+        ],
+        "median": 0.15230232497560792,
+        "min": 0.1509307170053944,
+        "max": 0.15444226999534294
+      }
+    },
+    "original-chez": {
+      "workload_seconds": {
+        "samples": [
+          0.849886133,
+          0.846461987,
+          0.84938195,
+          0.848184495
+        ],
+        "median": 0.8487832225,
+        "min": 0.846461987,
+        "max": 0.849886133
+      },
+      "process_seconds": {
+        "samples": [
+          0.8813007510034367,
+          0.8778550020069815,
+          0.8811316040228121,
+          0.8792692529968917
+        ],
+        "median": 0.8802004285098519,
+        "min": 0.8778550020069815,
+        "max": 0.8813007510034367
+      }
+    },
+    "adapted-chez": {
+      "workload_seconds": {
+        "samples": [
+          0.796017246,
+          0.791982068,
+          0.797585978,
+          0.798219495
+        ],
+        "median": 0.796801612,
+        "min": 0.791982068,
+        "max": 0.798219495
+      },
+      "process_seconds": {
+        "samples": [
+          0.8269297869992442,
+          0.8233525849645957,
+          0.8281321829999797,
+          0.8288848050287925
+        ],
+        "median": 0.827530984999612,
+        "min": 0.8233525849645957,
+        "max": 0.8288848050287925
+      }
+    },
+    "rust-wasm": {
+      "workload_seconds": {
+        "samples": [
+          0.053750718,
+          0.054235857,
+          0.054089457,
+          0.053908736
+        ],
+        "median": 0.053999096499999996,
+        "min": 0.053750718,
+        "max": 0.054235857
+      },
+      "process_seconds": {
+        "samples": [
+          0.0784881139989011,
+          0.07847815699642524,
+          0.0771027939626947,
+          0.07807054201839492
+        ],
+        "median": 0.07827434950741008,
+        "min": 0.0771027939626947,
+        "max": 0.0784881139989011
+      }
+    }
+  },
+  "finished_utc": "2026-10-14T11:23:30.311006+00:00"
+}
