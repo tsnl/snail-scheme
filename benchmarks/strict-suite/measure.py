@@ -1769,7 +1769,7 @@ def validate_lattice_harness(directory, runner, tools, environment):
         validate_lattice_scalar(directory, tools, environment, data, label, accepted)
         for target in (directory, directory / 'same-source-chez'):
             record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
-            save(target / f'validation-{label}.json', record)
+            save(target / f'chez-validation-{label}.json', record)
             require_success(record)
             if record['stderr'] or (runner.parse_result(record['stdout'], 'chez', 'lattice')['status'] == 'ok') != accepted:
                 raise ValueError('lattice canonical scalar predicate differs')
