@@ -53,10 +53,10 @@
     (: delimiter? (-> I64 Bool))
     (define (delimiter? code)
       (or (< code 0) (whitespace? code)
-          (let ((delimiters "()\";|'`,[]{}"))
-            (let loop ((index 0))
-              (and (< index (string-length delimiters))
-                   (or (code=? code (string-ref delimiters index)) (loop (+ index 1))))))))
+          (code=? code #\() (code=? code #\)) (code=? code #\")
+          (code=? code #\;) (code=? code #\|) (code=? code #\')
+          (code=? code #\`) (code=? code #\,) (code=? code #\[)
+          (code=? code #\]) (code=? code #\{) (code=? code #\})))
 
     ;; ---- A geometrically growing Unicode token buffer ----
 
@@ -368,4 +368,23 @@
           (let ((value (byte-value (car reversed))))
             (if (or (< value 0) (> value 255)) (read-error "bytevector requires exact bytes in [0,255]")
                 (begin (bytevector-u8-set! result (- index 1) value)
-                       (fill-bytes (cdr reversed) result (- index 1)))))))))
+                       (fill-bytes (cdr reversed) result (- index 1))))))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-read)
+    (begin
+      (: test-delimiter-members (-> (List I64) Bool))
+      (define (test-delimiter-members codes)
+        (or (null? codes)
+            (and (delimiter? (car codes)) (test-delimiter-members (cdr codes)))))
+      (: test-read (-> I64))
+      (define (test-read)
+        (if (and (test-delimiter-members '(40 41 34 59 124 39 96 44 91 93 123 125))
+                 (delimiter? -1) (delimiter? 9) (delimiter? 10) (delimiter? 32)
+                 (delimiter? 160) (delimiter? 8195)
+                 (not (delimiter? 46)) (not (delimiter? 48)) (not (delimiter? 65))
+                 (not (delimiter? 233)) (not (delimiter? 128512)))
+            42 0))))))

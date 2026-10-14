@@ -121,6 +121,8 @@ def valid_cases():
         'strings': '"" "λ😀" "a\\n\\t\\r\\a\\b\\\\\\\"b" "a\\x1f600;b" "a\rb\r\nc"',
         'continuations': '"a\\ \t\r\n  b" "c\\\n\td"',
         'characters': '#\\) #\\; #\\" #\\λ #\\x0 #\\x1f600 #\\x10ffff #\\space #\\newline',
+        'delimiter-adjacency': 'a() (a) a"b" a;b\nc a|b| a\'b a`b a,b a\u00a0b\u2003c a0A .a aéa',
+        'delimiter-characters': r'''#\( #\) #\" #\; #\| #\' #\` #\, #\[ #\] #\{ #\}''',
         'integers': '-9223372036854775808 9223372036854775807 #x-8000000000000000 #b101 #o17 #d42 #i#x10',
         'exact-decimals': '#e2.0 #e9007199254740993.0 #e-9223372036854775808.0 #e12000e-3 #e0e999',
         'reals': '0.0 -0.0 .5 1. 1e3 -1e-3 5e-324 2.2250738585072014e-308 1e999 -1e-999 +inf.0 -inf.0 +nan.0',
@@ -130,6 +132,10 @@ def valid_cases():
     # Chez's R6RS reader spells these extensions differently. Only these known
     # fixtures receive an explicit oracle spelling; workload inputs are untouched.
     cases['escaped-symbols'] = (cases['escaped-symbols'], cases['escaped-symbols'].replace(r'\x0;', '\0'))
+    # Chez permits bar-escaped fragments inside a bare identifier; the strict
+    # reader's existing contract treats each bar as a delimiter instead.
+    cases['delimiter-adjacency'] = (cases['delimiter-adjacency'],
+                                    cases['delimiter-adjacency'].replace('a|b|', 'a |b|'))
     cases['bytevectors'] = ('#u8() #u8(0 1 127 128 255)', '#vu8() #vu8(0 1 127 128 255)')
     cases['long-booleans'] = ('#true #false #TRUE #FALSE', '#t #f #t #f')
     cases['named-characters'] = ('#\\alarm #\\backspace #\\delete #\\escape #\\null #\\return #\\tab',
@@ -174,7 +180,8 @@ def invalid_cases():
             '#u9()', '#', '#tfoo', '#e#e1', '#x#b10', '123abc', '+2oops', '1e', '1/2', '4/2',
             '9223372036854775808', '-9223372036854775809', '#e1.5', '#e9007199254740993.1',
             '#e1e999', '#e1@1', '#0=(a)', '#0#', '#!fold-case abc', '#!no-fold-case abc', '[a]',
-            '42 #e1.5', '#; #| unfinished']
+            '42 #e1.5', '#; #| unfinished', 'a[', 'a]', 'a{', 'a}',
+            '#\\.a', '#\\0a', '#\\Aa', '#\\éa', '#\\😀a']
 
 
 def check_error(index, source):
@@ -186,6 +193,8 @@ def check_error(index, source):
             raise RuntimeError(f'{name}: {system} confused malformed input with a value/EOF')
         if source == '42 #e1.5' and not output.startswith('i:5\ni:0\ni:42\ni:99\n'):
             raise RuntimeError(f'{name}: {system} lost the preceding value or reused a stale result')
+        if source in ('a[', 'a]', 'a{', 'a}') and not output.startswith('i:4\ni:1\nc:97\ni:99\n'):
+            raise RuntimeError(f'{name}: {system} failed before the atom preceding its delimiter')
     return dict(name=name, input=source)
 
 
