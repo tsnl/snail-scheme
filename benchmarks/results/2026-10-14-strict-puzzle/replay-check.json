@@ -1,0 +1,66 @@
+{
+  "restored_files": 688,
+  "all_hashes_verified": true,
+  "checks": [
+    {
+      "name": "raw",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-puzzle-replay-20261014/host.mjs",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/strict.wasm.raw.wasm",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/validation-spec-2.json",
+        "--validate"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.005480486,\"result\":\"1\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "diagnostic_only": true,
+      "performance_sample": false
+    },
+    {
+      "name": "optimized",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-puzzle-replay-20261014/host.mjs",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/strict.wasm",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/validation-spec-2.json",
+        "--validate"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00468372,\"result\":\"1\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "diagnostic_only": true,
+      "performance_sample": false
+    },
+    {
+      "name": "original Chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/program.so"
+      ],
+      "stdin": "2\n511\n2005\n",
+      "returncode": 0,
+      "stdout": "Running puzzle:2\nElapsed time: 0.002277834 seconds (0.002) for puzzle:2\n+!CSVLINE!+chez,puzzle:2,0.002277834\n",
+      "stderr": "",
+      "diagnostic_only": true,
+      "performance_sample": false
+    },
+    {
+      "name": "adapted Chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-puzzle-replay-20261014/puzzle/same-source-chez/program.so"
+      ],
+      "stdin": "2\n511\n2005\n",
+      "returncode": 0,
+      "stdout": "Running puzzle:2\nElapsed time: 0.002065837 seconds (0.002) for puzzle:2\n+!CSVLINE!+chez,puzzle:2,0.002065837\n",
+      "stderr": "",
+      "diagnostic_only": true,
+      "performance_sample": false
+    }
+  ]
+}
