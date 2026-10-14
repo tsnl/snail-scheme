@@ -26,6 +26,13 @@
     (define (storage-type type)
       (if (memq type '(i8 i16)) (symbol->string type) (value-type type)))
 
+    (define (storage-size type)
+      (cond ((string=? type "i8") 1)
+            ((string=? type "i16") 2)
+            ((member type '("i32" "float")) 4)
+            ((member type '("i64" "double" "ref")) 8)
+            (else (error "unsupported native storage type" type))))
+
     (define (field-type type)
       (if (and (pair? type) (eq? (car type) 'mut)) (cadr type) type))
 
@@ -497,7 +504,8 @@
 
     ;; Zero-filled native allocations contain uncompressed references. The
     ;; emitted type layouts identify reference fields precisely for tracing.
-    ;; Every field occupies eight bytes, including packed numeric fields.
+    ;; Struct fields occupy eight-byte slots. Arrays use their declared storage
+    ;; width; only reference arrays have eight-byte GC edges to trace.
     ;; Interior pointers stay recognizable across allocating operands and calls.
 
     (define (allocate-struct name values)
@@ -540,7 +548,8 @@
 
     (define (new-array name length initial)
       (call-native "native_array_new" "ref"
-                   (list (constant "i64" (type-id name)) length (value-word initial))))
+                   (list (constant "i64" (type-id name)) length (value-word initial)
+                         (constant "i32" (storage-size (storage-type (array-type name)))))))
 
     (define (emit-array-new name default?)
       (let* ((type (value-type (array-type name))) (length (pop-value!))
@@ -548,7 +557,8 @@
         (new-array name length initial)))
 
     (define (array-slot reference index type)
-      (constant type (cdr (call-native "native_array_slot" "ptr" (list reference index)))))
+      (constant type (cdr (call-native "native_array_slot" "ptr"
+                                       (list reference index (constant "i32" (storage-size type)))))))
 
     (define (emit-array-fixed name length)
       (let* ((type (storage-type (array-type name))) (values (pop-values! length))
@@ -569,6 +579,13 @@
              (value (pop-value!)) (index (pop-value!)) (reference (pop-value!)))
         (store (cast "trunc" value type) (array-slot reference index type))
         #f))
+
+    (define (emit-array-copy name)
+      ;; Wasm validation requires compatible element storage types. Reference
+      ;; subtyping changes the allowed values, never the eight-byte stride.
+      (call-native "native_array_copy" "void"
+                   (append (pop-values! 5)
+                           (list (constant "i32" (storage-size (storage-type (array-type name))))))))
 
     ;; ---- Numeric operations ----
 
@@ -739,7 +756,7 @@
            (emit-array-get (car args) (eq? op 'array.get_s)))
           ((array.set) (emit-array-set (car args)))
           ((array.len) (call-native "native_array_length" "i32" (pop-values! 1)))
-          ((array.copy) (call-native "native_array_copy" "void" (pop-values! 5)))
+          ((array.copy) (emit-array-copy (car args)))
           ((table.get table.set table.size table.grow)
            (emit-table op (car args)))
           ((i64.const) (constant "i64" (car args)))
@@ -863,13 +880,18 @@
          (constant "i64" (modulo (cdr value) (case type ((i8) 256) ((i16) 65536) (else 4294967296)))))
         (else value)))
 
+    (define (static-element type value)
+      (if (memq type '(i8 i16))
+          (constant (storage-type type) (modulo (cdr value) (if (eq? type 'i8) 256 65536)))
+          value))
+
     (define (static-object type fields length plan)
       (let* ((name (list "@object." (vector-ref plan 0) "." (vector-ref plan 2)))
              (definition (type-definition type))
              (types (if length (make-list length (array-type type)) (map field-type (cdr definition))))
              (words (append (list (constant "i64" (type-id type)))
                             (if length (list (constant "i64" length)) '())
-                            (map static-word types fields)))
+                            (map (if length static-element static-word) types fields)))
              (mutable? (if length (mutable-type? (cadr definition))
                            (pair? (filter mutable-type? (cdr definition))))))
         (vector-set! plan 1 (cons (list name words mutable?) (vector-ref plan 1)))
@@ -977,6 +999,8 @@
               ", ptr @gc.fields." index " }")))
 
     (define (static-root-slots object)
+      ;; Struct slots and reference-array elements are all eight bytes. Packed
+      ;; numeric arrays contain no references, so their narrower fields add no roots.
       (if (not (caddr object)) '()
           (let loop ((words (cadr object)) (offset 0) (roots '()))
             (if (null? words) roots
@@ -1052,10 +1076,10 @@
         "declare void @native_trap() noreturn cold"
         "declare i64 @native_alloc(i64)"
         "declare i32 @native_ref_test(i64, i64, i32, i32)"
-        "declare i64 @native_array_new(i64, i32, i64)"
-        "declare ptr @native_array_slot(i64, i32)"
+        "declare i64 @native_array_new(i64, i32, i64, i32)"
+        "declare ptr @native_array_slot(i64, i32, i32)"
         "declare i32 @native_array_length(i64)"
-        "declare void @native_array_copy(i64, i32, i64, i32, i32)"
+        "declare void @native_array_copy(i64, i32, i64, i32, i32, i32)"
         "declare void @native_table_init(ptr, i32, i32)"
         "declare void @native_table_check(ptr, i32, i32)"
         "declare ptr @native_table_slot(ptr, i32)"
