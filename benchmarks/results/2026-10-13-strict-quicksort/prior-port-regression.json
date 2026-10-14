@@ -1,0 +1,95 @@
+{
+  "prior_driver_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "checks": [
+    {
+      "name": "ack",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "tak",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "cpstak",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "fib",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "fibfp",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "sum",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "sumfp",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "takl",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "ntakl",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "diviter",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "divrec",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "array1",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "primes",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "nqueens",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "triangl",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "mbrot",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "pnpoly",
+      "specification_equal": true,
+      "generated_source_equal": true
+    },
+    {
+      "name": "fft",
+      "specification_equal": true,
+      "generated_source_equal": true
+    }
+  ]
+}

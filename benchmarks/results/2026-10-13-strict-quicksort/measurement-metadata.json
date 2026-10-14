@@ -1,0 +1,25 @@
+{
+  "status": "prepared; review and timing pending",
+  "compiler_base": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "upstream_commit": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "artifact_root": "strict-quicksort-frozen-final-5894df7",
+  "driver_sha256": "6c8c7273119e90203ec6b4c61acb7ffdf3afcb1c6480cfded62eb199d662ad30",
+  "host_sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2",
+  "runner_sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+  "systems": [
+    "strict",
+    "chez",
+    "chez-adapted"
+  ],
+  "planned_discarded_trios": 1,
+  "planned_retained_trios": 3,
+  "default_v8_tiering": true,
+  "planned_cpu": 5,
+  "quiet_window_authorized": false,
+  "performance_observations": 0,
+  "simplification_scope": [
+    "benchmarks/strict-suite/measure.py",
+    "benchmarks/strict-suite/host.mjs"
+  ],
+  "longer_functions": "The exact source adapter, six-state RNG reference, finite probe enumeration, source-roundtrip proof and validation/build protocols remain cohesive ordered operations; independent review is pending."
+}

@@ -1,0 +1,82 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "total": 57,
+  "measured_separately": [
+    "cat",
+    "wc"
+  ],
+  "failed_default_configuration": {
+    "ack": "Optimized Wasm exceeds default V8 stack. Larger-stack diagnostic succeeds; excluded from passing timings."
+  },
+  "not_yet_ported": [
+    "browse",
+    "deriv",
+    "destruc",
+    "puzzle",
+    "ctak",
+    "fibc",
+    "mbrotZ",
+    "nucleic",
+    "pi",
+    "ray",
+    "simplex",
+    "string",
+    "sum1",
+    "tail",
+    "read1",
+    "compiler",
+    "conform",
+    "dynamic",
+    "earley",
+    "graphs",
+    "lattice",
+    "matrix",
+    "maze",
+    "mazefun",
+    "paraffins",
+    "parsing",
+    "peval",
+    "scheme",
+    "slatex",
+    "chudnovsky",
+    "nboyer",
+    "sboyer",
+    "gcbench",
+    "mperm",
+    "equal",
+    "bv2string"
+  ],
+  "scope": "Prior 19 measured passing ports/slices remain unchanged; quicksort is prepared with canonical correctness evidence and awaits independent review and timing.",
+  "measured_previous_kernel_report": [
+    "tak",
+    "cpstak",
+    "fib",
+    "fibfp",
+    "sum",
+    "sumfp",
+    "takl",
+    "ntakl",
+    "diviter",
+    "divrec"
+  ],
+  "cumulative_measured": 19,
+  "unported_count": 36,
+  "measured_array1": [
+    "array1"
+  ],
+  "measured_next_five_interim": [
+    "primes",
+    "nqueens",
+    "triangl",
+    "mbrot",
+    "pnpoly"
+  ],
+  "measured_here": [],
+  "prior_coverage_source_commit": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "prepared_pending_measurement": [
+    "quicksort"
+  ],
+  "measured_previous_fft": [
+    "fft"
+  ]
+}

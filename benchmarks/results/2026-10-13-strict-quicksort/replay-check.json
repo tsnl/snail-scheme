@@ -1,0 +1,140 @@
+{
+  "restoration_stdout": "Verified 443 files in /tmp/strict-quicksort-checkpoint-replay\n",
+  "verified_files": 443,
+  "all_file_hashes_verified": true,
+  "final_case_hashes_verified": true,
+  "driver_host_runner_tools_verified": true,
+  "no_compilation_or_performance_measurement": true,
+  "bounded_execution_checks": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-duplicates.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000273996,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "process_seconds": 0.02736032201210037,
+      "label": "duplicates",
+      "module_suffix": ".raw.wasm",
+      "expected_rejection": false,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-duplicates.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000175169,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "process_seconds": 0.02449395100120455,
+      "label": "duplicates",
+      "module_suffix": "",
+      "expected_rejection": false,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00427146,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "process_seconds": 0.032589110953267664,
+      "label": "rng",
+      "module_suffix": ".raw.wasm",
+      "expected_rejection": false,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001115974,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "process_seconds": 0.02478107501519844,
+      "label": "rng",
+      "module_suffix": "",
+      "expected_rejection": false,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.03002528997603804,
+      "label": "wrong-value",
+      "module_suffix": ".raw.wasm",
+      "expected_rejection": true,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.025884427013807,
+      "label": "wrong-value",
+      "module_suffix": "",
+      "expected_rejection": true,
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:1\nElapsed time: 8.40076e-4 seconds (0.001) for quicksort:10000:1\n+!CSVLINE!+chez,quicksort:10000:1,8.40076e-4\n",
+      "stderr": "",
+      "process_seconds": 0.04095513600623235,
+      "system": "original",
+      "stdin": "1\n10000\n1000000\nignored\n",
+      "valid": true
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-checkpoint-replay/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:1\nElapsed time: 7.53835e-4 seconds (0.001) for quicksort:10000:1\n+!CSVLINE!+chez,quicksort:10000:1,7.53835e-4\n",
+      "stderr": "",
+      "process_seconds": 0.036371776019223034,
+      "system": "same-source-chez",
+      "stdin": "1\n10000\n1000000\nignored\n",
+      "valid": true
+    }
+  ]
+}
