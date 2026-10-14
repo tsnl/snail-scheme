@@ -80,6 +80,11 @@ All **51 compiler files** match preparation compiler base
 `5894df771cace27507e0f1ab15f6dd320d2a6ad4` byte-for-byte. Timing uses driver
 commit `86d49d4d7f36b00f48724f3fe63854a2afe2413d`; these are separate provenance
 identities.
+[Parent integration](parent-integration.json) independently verifies all 461
+final archive files and recomputes the medians and ratios from the 12
+observations. Recompiling the frozen source on the inferred-overload stack
+(`3bfe802`) produces byte-identical raw and optimized Wasm. This check adds no
+performance observations and preserves the measured compiler identity above.
 [Identity](compiler-identity.json), [environment](environment.json) and
 [metadata](measurement-metadata.json) preserve source/tool hashes and default
 Node 24.19.0 / V8 13.6.233.17-node.51, Binaryen 132 and Chez 10.4.1 at level 2.
