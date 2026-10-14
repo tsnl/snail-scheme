@@ -1,0 +1,292 @@
+{
+  "kind": "Concrete bounded review queue; no runtime refactors and no new canonical/timing claims",
+  "tracking_note": "Expands the coarse linked-list/later-structural/SLaTeX pending labels. Cases without explicit completed fresh review evidence are kept pending here. Existing successful canonical checks remain valid correctness evidence.",
+  "unchanged_historical_cases": [
+    "cat",
+    "wc",
+    "graphs",
+    "lattice",
+    "deriv"
+  ],
+  "completed_new_workload_reviews": {
+    "continuations": [
+      "cpstak",
+      "ctak",
+      "fibc"
+    ],
+    "exact arithmetic": [
+      "pi",
+      "chudnovsky"
+    ],
+    "partial evaluation/parsing": [
+      "peval",
+      "parsing"
+    ],
+    "Scheme/Dynamic": [
+      "scheme",
+      "dynamic"
+    ],
+    "Compiler": [
+      "compiler"
+    ]
+  },
+  "completed_review_evidence": [
+    "benchmarks/results/2026-10-13-rust-peval-parsing/alpha-oracle-review.json",
+    "benchmarks/results/2026-10-13-rust-exact-arithmetic/review.json",
+    "benchmarks/wasm-reference/reviews/scheme-dynamic.json",
+    "benchmarks/results/2026-10-13-rust-compiler-blocks/simplify-review.json",
+    "benchmarks/results/2026-10-13-rust-compiler/simplify-review.json"
+  ],
+  "pending_new_workloads": 42,
+  "bounded_algorithm_cohorts": [
+    {
+      "subject": "Recurrences",
+      "workloads": [
+        "ack",
+        "fib",
+        "fibfp",
+        "tak"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/ack.rs",
+        "benchmarks/wasm-reference/src/bin/fib.rs",
+        "benchmarks/wasm-reference/src/bin/fibfp.rs",
+        "benchmarks/wasm-reference/src/bin/tak.rs"
+      ],
+      "behavioral_focus": "Recurrences and default/optional Ack stack policies; full work rather than closed forms.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Reductions",
+      "workloads": [
+        "sum",
+        "sumfp"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/sum.rs",
+        "benchmarks/wasm-reference/src/bin/sumfp.rs"
+      ],
+      "behavioral_focus": "Loop iteration retention, accumulator barriers and integer/floating operation domains.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Linked division and sieve",
+      "workloads": [
+        "diviter",
+        "divrec",
+        "primes"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/diviter.rs",
+        "benchmarks/wasm-reference/src/bin/divrec.rs",
+        "benchmarks/wasm-reference/src/bin/primes.rs",
+        "benchmarks/wasm-reference/src/list.rs"
+      ],
+      "behavioral_focus": "Fresh result cells, retained inputs, old/new result lifetime overlap, payload adaptation and suffix ownership.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Linked Takeuchi",
+      "workloads": [
+        "takl",
+        "ntakl"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/takl.rs",
+        "benchmarks/wasm-reference/src/bin/ntakl.rs"
+      ],
+      "behavioral_focus": "Tail identity, borrowed result suffixes and complete payloads, including length-only canonical predicates.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Persistent and mutable lists",
+      "workloads": [
+        "nqueens",
+        "mperm",
+        "destruc"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/nqueens.rs",
+        "benchmarks/wasm-reference/src/bin/mperm.rs",
+        "benchmarks/wasm-reference/src/bin/destruc.rs"
+      ],
+      "behavioral_focus": "Copied prefixes/shared suffixes, queue retention and flush order, in-place suffix transfer and restoration.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Allocation and equality",
+      "workloads": [
+        "array1",
+        "gcbench",
+        "equal"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/array1.rs",
+        "benchmarks/wasm-reference/src/bin/gcbench.rs",
+        "benchmarks/wasm-reference/src/bin/equal.rs"
+      ],
+      "behavioral_focus": "Complete buffers/trees/DAGs, retained roots and payloads, source mutation order and collection/ownership boundaries.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Transforms and pixel geometry",
+      "workloads": [
+        "fft",
+        "mbrot",
+        "mbrotZ",
+        "pnpoly"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/fft.rs",
+        "benchmarks/wasm-reference/src/bin/mbrot.rs",
+        "benchmarks/wasm-reference/src/bin/mbrotZ.rs",
+        "benchmarks/wasm-reference/src/bin/pnpoly.rs"
+      ],
+      "behavioral_focus": "Floating operation order, full matrix/polygon work, sample predicates, optimized retention and extra opacity.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "String and byte conversion",
+      "workloads": [
+        "string",
+        "bv2string"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/string.rs",
+        "benchmarks/wasm-reference/src/bin/bv2string.rs"
+      ],
+      "behavioral_focus": "Complete copied payloads and RNG sequence, ASCII/UTF-8/byte storage domains and allocation/opacity differences.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Input reader and text I/O",
+      "workloads": [
+        "read1",
+        "sum1",
+        "tail"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/read1.rs",
+        "benchmarks/wasm-reference/src/bin/sum1.rs",
+        "benchmarks/wasm-reference/src/bin/tail.rs",
+        "benchmarks/wasm-reference/src/lib.rs"
+      ],
+      "behavioral_focus": "Scheme datum/character domains, complete input/output, per-item lifetimes and file/predicate timer boundaries.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Search and partitioning",
+      "workloads": [
+        "quicksort",
+        "puzzle",
+        "triangl"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/quicksort.rs",
+        "benchmarks/wasm-reference/src/bin/puzzle.rs",
+        "benchmarks/wasm-reference/src/bin/triangl.rs"
+      ],
+      "behavioral_focus": "Generator and source traversal order, full result/permutation checks, crossing swaps and board restoration.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Ray and tableau geometry",
+      "workloads": [
+        "ray",
+        "simplex"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/ray.rs",
+        "benchmarks/wasm-reference/src/bin/simplex.rs"
+      ],
+      "behavioral_focus": "Tie/rounding/pivot rules, source quirks, full files/tableaux/basis results and setup/predicate boundaries.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Maze and browse graphs",
+      "workloads": [
+        "maze",
+        "mazefun",
+        "browse"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/maze.rs",
+        "benchmarks/wasm-reference/src/bin/mazefun.rs",
+        "benchmarks/wasm-reference/src/bin/browse.rs"
+      ],
+      "behavioral_focus": "Graph/list identity, ordered traversal and mutation, RNG sequence and complete small structure checks.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Matrix and tree enumeration",
+      "workloads": [
+        "matrix",
+        "paraffins"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/matrix.rs",
+        "benchmarks/wasm-reference/src/bin/paraffins.rs"
+      ],
+      "behavioral_focus": "Original construction/enumeration algorithms, shared substructures, full payload work and scalar-predicate limits.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Chart and conform processing",
+      "workloads": [
+        "earley",
+        "conform"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/earley.rs",
+        "benchmarks/wasm-reference/src/bin/conform.rs"
+      ],
+      "behavioral_focus": "Source algorithm/state transitions, graph sharing, lexical scope and complete output predicates.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Boyer provers",
+      "workloads": [
+        "nboyer",
+        "sboyer"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/nboyer.rs",
+        "benchmarks/wasm-reference/src/bin/sboyer.rs",
+        "benchmarks/wasm-reference/src/boyer.rs"
+      ],
+      "behavioral_focus": "Directional unification, rewrite order, symbol identity and distinct reconstruct/reuse allocation policies.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "Nucleic geometry",
+      "workloads": [
+        "nucleic"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/nucleic.rs",
+        "benchmarks/wasm-reference/audit_nucleic.py"
+      ],
+      "behavioral_focus": "Complete solution identities/transforms, source order, floating checks and independent exact-structure audit rejection.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    },
+    {
+      "subject": "SLaTeX",
+      "workloads": [
+        "slatex"
+      ],
+      "module_paths": [
+        "benchmarks/wasm-reference/src/bin/slatex.rs"
+      ],
+      "behavioral_focus": "Persistent document/configuration state, include/control order, exact generated files, source quirks and always-true canonical predicate.",
+      "status": "pending fresh independent explanation/debate and informed source comparison"
+    }
+  ],
+  "tooling_cohort": {
+    "module_paths": [
+      "benchmarks/wasm-reference/suite.py"
+    ],
+    "focus": "Frozen source/artifact selection, unchanged canonical stdin/counts, positive/negative and complete-result/file audits, default Ack failure and explicit optional variants. Future portable timing preparation must preserve these boundaries.",
+    "status": "pending focused fresh behavioral review; audit_alpha.py parent review and Compiler diagnostic behavior checks already recorded"
+  },
+  "coordination": "Fresh explainers require parent slot handoff; helpers get neutral behavior and no files/history. No whole-program refactor proposed. Re-run canonical inputs only after runtime changes; preserve old source/binary evidence."
+}

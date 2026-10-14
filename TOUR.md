@@ -487,12 +487,46 @@ compares the archived native path with V8 on identical optimized Scheme modules.
 The LLVM emitter and collectors remain on
 [`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
 
-[`benchmarks/wasm-reference/`](benchmarks/wasm-reference/README.md) contains five
-standalone Rust/WASIp1 reference algorithms and their Node runner. Its measurement
-driver freezes original inputs and compiled controls, validates outputs, and
-records separate workload and process times. The [five-case report](benchmarks/results/2026-10-13-wasm-five-reference/README.md)
+[`benchmarks/wasm-reference/`](benchmarks/wasm-reference/README.md) contains
+standalone Rust/WASIp1 reference algorithms and their Node runner. Its suite
+validator covers all 57 canonical source implementations, freezing source/tool/binary
+hashes and preserving target failures separately from successful full-count
+checks. The historical five-case measurement driver freezes original inputs and
+compiled controls and records separate workload and process times. The [five-case report](benchmarks/results/2026-10-13-wasm-five-reference/README.md)
 compares those references with Chez and a separately measured historical Snail
 batch; it does not change the compiler or runtime.
+
+The reference library's `boyer` module shares the full directional-unification,
+rewrite and tautology machinery of the two prover executables. Their distinct
+allocation rules remain visible: `sboyer` reuses unchanged argument and call
+cells, while `nboyer` reconstructs them. Constructor identities refer into an
+owned symbol-record table; quoted lemma data is preserved separately.
+The `peval` executable retains mutable residual-program cells and lexical
+specialization frames; its untimed `audit_alpha.py` comparator checks complete
+programs modulo bound-variable renaming. The `parsing` executable independently
+ports the generated scanner and LL(1) grammar, including temporary list-tail
+copying and original action/error behavior.
+The `scheme` executable recompiles each supplied expression before executing its
+lexical closures; global binding mutation and escaped environment lifetimes
+remain observable. The `dynamic` executable runs the original self-applied type
+inference passes and materializes the complete tagged program, keeping its
+primitive type graphs persistent across calls.
+
+The benchmark's independent `compiler` executable compiles its supplied Scheme
+program to the original 68000 assembly format on each iteration.
+[`compiler.rs`](benchmarks/wasm-reference/src/compiler.rs) owns located syntax,
+lexical identities and normalization;
+[`compiler_gvm.rs`](benchmarks/wasm-reference/src/compiler_gvm.rs) builds register/
+stack/closure graphs, and
+[`compiler_blocks.rs`](benchmarks/wasm-reference/src/compiler_blocks.rs) purifies
+those graphs and records backward slot requirements.
+[`compiler_68000.rs`](benchmarks/wasm-reference/src/compiler_68000.rs) emits machine
+instructions with explicit operand/frame lifetimes;
+[`compiler_asm.rs`](benchmarks/wasm-reference/src/compiler_asm.rs) owns object words,
+symbol/reference records, shared labels, relocation and branch tensioning.
+Complete linked diagnostics accompany the unchanged 2,000-repeat, 497-line
+predicate. These reference modules are separate from Snail's Chibi-hosted
+WasmGC compiler.
 
 [`benchmarks/strict-cat/`](benchmarks/strict-cat/README.md) compiles a scalar copy
 worker from strict Scheme and links it into the frozen cat harness. Preparation,

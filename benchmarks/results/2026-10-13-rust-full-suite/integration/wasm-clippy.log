@@ -1,0 +1,6 @@
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+    Checking num-integer v0.1.47
+    Checking num-bigint v0.4.8
+    Checking r7rs-wasm-reference v0.1.0 (/tmp/snail-rust-full-integration-20261013/benchmarks/wasm-reference)
+    Finished `release` profile [optimized] target(s) in 1.33s

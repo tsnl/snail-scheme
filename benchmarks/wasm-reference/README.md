@@ -1,6 +1,47 @@
-# Five Rust/WASI benchmark references
+# Rust/WASI benchmark references
 
-These references port exactly `cat`, `lattice`, `wc`, `graphs`, and `deriv` from
+The suite implements all 57 canonical workloads. Source
+coverage, successful execution of the unchanged canonical inputs, and measured
+performance are separate statuses. [`PORTING.md`](PORTING.md) records the
+implementation contracts and remaining work. `suite.py` freezes sources and
+tool/binary hashes, runs actual Node/Wasm plus independent original Chez checks,
+and retains failures such as Ackermann's default native-stack overflow.
+
+```sh
+python3 benchmarks/wasm-reference/suite.py --build \
+  --output build/rust-reference-checks --benchmarks all --checks full
+```
+
+`--checks small` executes independent fixtures and wrong-result probes;
+`--checks quick` retains the original algorithm inputs while changing the
+iteration count to one. `all` selects implemented sources, and the report
+explicitly lists the remaining canonical workloads. Neither reduced checks nor
+source presence marks a workload as fully validated. These are correctness
+runs; coordinate a clean window separately before collecting performance data.
+
+The historical five-case measurement driver and report below remain frozen.
+
+At the latest completed execution checkpoint, all 57 workload executables have
+been built and checked, and 56 pass unchanged canonical inputs/counts in Node/Wasm.
+The default recursive Ackermann variant retains its native-stack failure;
+`ack --heap-frames` separately passes the same canonical workload. Pending
+independent sharing/structural/SLaTeX reviews remain visible in the checkpoint.
+The [Compiler archive](../results/2026-10-13-rust-compiler/README.md) records its
+full 2,000 compilations, exact 497-line result, complete word/graph diagnostics,
+negative checks and focused simplify review.
+[`checkpoint.json`](checkpoint.json) retains exact source/binary hashes,
+validation paths, remaining workloads and pending independent reviews.
+The [full-suite evidence store](../results/2026-10-13-rust-full-suite/README.md)
+preserves the selected canonical binaries, corresponding source bundles, inputs
+and original reports for all 57 cases, with verified relocation mappings.
+The [partial-evaluation/parsing archive](../results/2026-10-13-rust-peval-parsing/README.md)
+commits their exact source, binary, input, oracle and retained-work evidence.
+The [SLaTeX archive](../results/2026-10-13-rust-slatex/README.md) records
+all 28,500 canonical generated files and the separate complete-file oracle.
+The [exact-arithmetic archive](../results/2026-10-13-rust-exact-arithmetic/README.md)
+records reviewed Pi/Chudnovsky recurrences and the fixed Chudnovsky setup correction.
+
+The historical measured references port `cat`, `lattice`, `wc`, `graphs`, and `deriv` from
 the pinned R7RS suite at `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each executable
 reads the original Scheme-format benchmark input from stdin and executes its
 original iteration count. They provide a Rust/LLVM, linear-memory allocation,
@@ -33,7 +74,8 @@ domains cover the pinned inputs and results rather than arbitrary Scheme numbers
 the Scheme harness's `hide` allocations. The comparison therefore does not
 isolate engine overhead, GC cost, or one compiler optimization.
 
-Build with the installed Rust toolchain and WASIp1 target, without dependencies:
+Build with the installed Rust toolchain and WASIp1 target. The exact-integer
+workloads use pinned `num-bigint` 0.4.8 and its Cargo.lock dependencies:
 
 ```sh
 cargo build --offline --release --target wasm32-wasip1 \

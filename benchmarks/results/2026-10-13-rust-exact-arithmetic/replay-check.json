@@ -1,0 +1,8 @@
+{
+  "archive_sha256": "893f59fcd4e8dc6681cb316985c05f38e1f0e14b95b163ce40ccea8738a5d6a5",
+  "regular_files_verified": 147,
+  "relative_input_links_verified": 2,
+  "restored_at": "/tmp/snail-rust-bigint-replay-20261013",
+  "complete": true,
+  "execution": "Full canonical and small/rejection executions are in validation.json; replay verified identical artifacts without repeating timings."
+}

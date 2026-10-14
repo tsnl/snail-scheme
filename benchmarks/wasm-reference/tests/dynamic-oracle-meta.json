@@ -1,0 +1,10 @@
+{
+  "input_count": 500,
+  "result": "((218 . 455) (6 . 1892) (2204 . 446))",
+  "complete_program_sha256": "492e5ca2fe0841b126c2a3bfefe25fcc98932fea13d3f63117de2a0e18550170",
+  "type_counter_after_500_plus_one_audit": 11360332,
+  "source_file_sha256": "2c896bb85bea43f91ea10e187bf1c9cac7de8a3289a947556983fb6d70a8a3b9",
+  "oracle_source_sha256": "3705589fb3ea092d0cb6ae5557d113e5dd12ffbf70dabaa607c1cc13384fde0d",
+  "oracle_binary_sha256": "af00cf84ade376d52a05164bba1436490b00f7b7fc2e12e149ac76d5294bffc5",
+  "performance_samples": false
+}
