@@ -1,0 +1,47 @@
+{
+  "performance_samples": 0,
+  "attempts": [
+    {
+      "stage": "first source adaptation",
+      "status": "corrected",
+      "diagnostic": "expected 2 source occurrences of '(eq? '",
+      "cause": "The exact-source replacement initially included two commented assertions. Restrict replacement to the two live Boolean edge comparisons.",
+      "artifact": "No generated artifact; diagnostic retained from the execution transcript."
+    },
+    {
+      "stage": "first mperm compilation",
+      "status": "corrected",
+      "diagnostic": "no compatible overload signature: (Function (I64 I64 I64) #f I64)",
+      "cause": "Rewrite the remaining three-operand subtraction (- k ell 1) as (- (- k ell) 1).",
+      "artifact": "The focused build record was overwritten by its correction; this diagnostic is transcribed from the tool result, not an independently retained log."
+    },
+    {
+      "stage": "initial graphs small expected value",
+      "status": "corrected",
+      "diagnostic": "actual 5, guessed expected 16 for n=3",
+      "cause": "The source prohibits edges into the root. Replace the guess with original Chez and an exhaustive oracle for that exact graph set.",
+      "artifact": "preparation-history/initial-graphs/smallraw.json and preparation-history/initial-graphs/smallopt.json"
+    },
+    {
+      "stage": "first adapted Chez graphs compilation",
+      "status": "corrected",
+      "diagnostic": "multiple definitions for zero? and for-each",
+      "cause": "Use distinct typed helper names in both strict and adapted Chez source.",
+      "artifact": "preparation-history/initial-graphs/same-source-chez/build.json"
+    },
+    {
+      "stage": "diagnostic source map",
+      "status": "corrected",
+      "diagnostic": "Three read-only script mistakes: missing trace scope, missing scheme-write import, and iterating global sites as values.",
+      "cause": "Fix the diagnostic script imports/scope and use exported site-values. No compiler or canonical artifact changed.",
+      "artifact": "audit/function-map-*-failure.json"
+    },
+    {
+      "stage": "retention metadata script",
+      "status": "corrected",
+      "diagnostic": "ValueError: expected one form starting with '(func $main '",
+      "cause": "The main function header ends with a newline rather than a space. Match either whitespace delimiter when locating the WAT function.",
+      "artifact": "Diagnostic transcribed from tool output; canonical artifacts and compiler unchanged."
+    }
+  ]
+}
