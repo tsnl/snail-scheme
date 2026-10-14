@@ -1,0 +1,23 @@
+{
+  "utc": "2026-10-14T10:41:40.035659+00:00",
+  "session": 57453,
+  "runner_pid": 2021704,
+  "pgid": 2021703,
+  "command": [
+    "python3",
+    "scripts/test-strict",
+    "--output",
+    "build/strict-all-contracts"
+  ],
+  "signals": [
+    "SIGTERM",
+    "SIGCONT"
+  ],
+  "status": "canceled-incomplete",
+  "reason": "Parent clean measurements reject the hybrid layout; further broad correctness runs are unnecessary for an unselected experiment.",
+  "completed": 91,
+  "total": 288,
+  "failed": [],
+  "completed_records_preserved": true,
+  "remaining_not_executed": 197
+}

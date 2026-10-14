@@ -1,0 +1,101 @@
+{
+  "kind": "Static optimized-Wasm inspection; no workload run or allocation count",
+  "rows": [
+    {
+      "variant": "flat",
+      "operation": "ref",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/flat/scalar-ref/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function46",
+          "line": 811,
+          "array_get": 1,
+          "array_set": 0,
+          "index_step": "i64.add(index, 1)",
+          "result": "i64 checksum consumes loaded Unicode scalar"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    },
+    {
+      "variant": "flat",
+      "operation": "set",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/flat/scalar-set/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function44",
+          "line": 185,
+          "array_get": 1,
+          "array_set": 1,
+          "index_step": "i64.add(index, 1)",
+          "result": "native stores remain observable through exports and imported per-round barrier"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    },
+    {
+      "variant": "blocks",
+      "operation": "ref",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/blocks/scalar-ref/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function46",
+          "line": 834,
+          "array_get": 2,
+          "array_set": 0,
+          "index_step": "i64.add(index, 1)",
+          "result": "i64 checksum consumes loaded Unicode scalar"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    },
+    {
+      "variant": "blocks",
+      "operation": "set",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/blocks/scalar-set/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function44",
+          "line": 208,
+          "array_get": 1,
+          "array_set": 1,
+          "index_step": "i64.add(index, 1)",
+          "result": "native stores remain observable through exports and imported per-round barrier"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    },
+    {
+      "variant": "hybrid",
+      "operation": "ref",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/hybrid/scalar-ref/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function46",
+          "line": 901,
+          "array_get": 3,
+          "array_set": 0,
+          "index_step": "i64.add(index, 1)",
+          "result": "i64 checksum consumes loaded Unicode scalar"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    },
+    {
+      "variant": "hybrid",
+      "operation": "set",
+      "artifact": "/tmp/snail-string-hybrid-preparation-20261014/hybrid/scalar-set/strict.optimized.wat",
+      "workers": [
+        {
+          "name": "$function44",
+          "line": 275,
+          "array_get": 2,
+          "array_set": 2,
+          "index_step": "i64.add(index, 1)",
+          "result": "native stores remain observable through exports and imported per-round barrier"
+        }
+      ],
+      "interpretation": "Counts include alternate flat/owner branches, permission reads and directory lookups; they are static instructions, not dynamic access counts."
+    }
+  ]
+}
