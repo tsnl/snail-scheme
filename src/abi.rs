@@ -1,8 +1,8 @@
-//! Application binary interface: owned roots into the engine's GC heap.
+//! Application binary interface: owned roots into the program's GC heap.
 //!
 //! Handles are table indices, not pointers. Each `Root` owns a distinct live
 //! table slot in the current instance; dropping it releases that slot. Raw
-//! handles may only cross the documented Wasm call boundary. They cannot be
+//! handles may only cross the documented ABI call boundary. They cannot be
 //! shared between instances or threads. A fatal trap may bypass Rust cleanup;
 //! discard the instance after such a failure.
 
@@ -11,7 +11,7 @@ pub(crate) const PORT_KIND: u32 = 1;
 
 use std::{marker::PhantomData, rc::Rc};
 
-// ---- Scalar Wasm imports ----
+// ---- Scalar program imports ----
 
 // Native translation exports C adapters named wasm.<operation>. Both routes
 // address the Scheme module's own root table; Rust never invents a second heap.
@@ -21,7 +21,12 @@ macro_rules! imports {
         #[cfg(target_arch = "wasm32")]
         #[link(wasm_import_module = "snail.abi")]
         unsafe extern "C" { $(pub fn $name($($arg: $ty),*) $(-> $result)?;)* }
-        $(#[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+        unsafe extern "C" {
+            $(#[link_name = concat!("wasm.", stringify!($name))]
+              pub fn $name($($arg: $ty),*) $(-> $result)?;)*
+        }
+        $(#[cfg(all(not(target_arch = "wasm32"), any(not(feature = "native-runtime"), test)))]
         pub unsafe fn $name($($arg: $ty),*) $(-> $result)? {
             $(let _ = $arg;)*
             panic!("ABI imports require a Wasm instance");
@@ -150,6 +155,12 @@ impl Root {
             handle,
             instance_thread: PhantomData,
         }
+    }
+
+    /// Retains a handle borrowed from a still-live owner on this instance thread.
+    /// The owner must remain alive until this synchronous call returns.
+    pub(crate) unsafe fn retain_handle(handle: u32) -> Self {
+        unsafe { Self::from_handle(raw::retain(handle)) }
     }
 
     pub fn into_handle(self) -> u32 {
