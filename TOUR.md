@@ -689,6 +689,17 @@ diagnostics. Reversible ref edits and exact integer ties-to-even rounding keep
 the original and adapted kernels reviewable. Separate preparation probes compare
 the complete RNG and byte/character streams across Chez, Wasm, native and Rust;
 the canonical timed source retains its original repetition count and work.
+
+[`earley_port.py`](benchmarks/strict-suite/earley_port.py) prepares the complete
+Earley parser, including forward closure, backward filtering, ordered tree
+materialization and the separate counting API. Concrete grammar/token/parser
+records retain callable fields, optional slots retain false-versus-index
+semantics, and typed recursive tree elements retain the original list work.
+The finite atom vocabulary covers the canonical grammar and explicit probes;
+it does not implement general Scheme symbols. Preparation includes untouched
+and adapted Chez controls, complete small-tree observations, mutable-state
+identity probes and native execution. Its preparation does not add measured
+coverage.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
