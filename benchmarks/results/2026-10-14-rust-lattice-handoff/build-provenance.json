@@ -1,0 +1,141 @@
+{
+  "kind": "Immutable historical lattice build provenance; exact artifact reused without rebuild",
+  "handoff_sha256": "59e09ad5a80bea3bef7e21fc89549ee367df38685b342e87d813ae9824515b2a",
+  "historical_report": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/results.json",
+  "historical_report_sha256": "97b9f042ea25fbc5c5e3526fd981708fec7fcc2cb5bb95b886015aa7e83a20fd",
+  "module_history_commit": "9985779136ace05edc0405fa4b5da6e97042065c",
+  "build_git_checkpoint": "684ae6c85dbe175f6adcbf828b14524ba1366272",
+  "tools": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "node": "v24.19.0",
+    "node_versions": {
+      "node": "24.19.0",
+      "acorn": "8.17.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.10",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "3.6.3",
+      "simdjson": "4.6.5",
+      "simdutf": "6.5.0",
+      "sqlite": "3.53.3",
+      "tz": "2026a",
+      "undici": "7.29.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.51",
+      "zlib": "1.3.2",
+      "zstd": "1.5.7"
+    },
+    "paths": {
+      "rustc": "/run/current-system/sw/bin/rustc",
+      "cargo": "/run/current-system/sw/bin/cargo",
+      "node": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "taskset": "/run/current-system/sw/bin/taskset"
+    },
+    "sha256": {
+      "rustc": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "cargo": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "version": "10.4.1"
+    }
+  },
+  "recorded_build": {
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--release",
+      "--target",
+      "wasm32-wasip1"
+    ],
+    "profile": {
+      "opt-level": 3,
+      "lto": true,
+      "codegen-units": 1,
+      "panic": "abort"
+    },
+    "workdir": "/tmp/snail-rust-wasm-five-20261013",
+    "final_command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--release",
+      "--target",
+      "wasm32-wasip1",
+      "--manifest-path",
+      "benchmarks/wasm-reference/Cargo.toml"
+    ],
+    "environment": {}
+  },
+  "release_profile": {
+    "opt-level": 3,
+    "lto": true,
+    "codegen-units": 1,
+    "panic": "abort"
+  },
+  "source_bundle_hashes": {
+    "Cargo.lock": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef",
+    "Cargo.toml": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee",
+    "measure.py": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1",
+    "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+    "src/bin/deriv.rs": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c",
+    "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+    "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+    "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+    "src/lib.rs": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f",
+    "validate.py": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+  },
+  "current_module_identical_sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+  "historical_input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+  "limitations": "The report records final build command, release profile, tools and hashes, but no verbose rustc build log or full inherited environment. Its recorded empty build.environment object is not evidence of an empty process environment or absence of unrecorded overrides. No rebuild occurred.",
+  "prepared_source_note": "Prepared upstream is canonical lattice.scm with leading/trailing blank lines plus the original common benchmark harness. Canonical body equality was checked after trimming only outer whitespace; exact canonical and prepared files/hashes are both preserved.",
+  "identity_files": {
+    "case/input.txt": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+    "case/program.wasm": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2",
+    "case/upstream.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+    "current-reader-checkpoint.json": "cb0122b63e1a4ccfb2865cb59497b26ae5429633617b27610a95ff356e707795",
+    "handoff.json": "59e09ad5a80bea3bef7e21fc89549ee367df38685b342e87d813ae9824515b2a",
+    "lattice.wat": "0136be2063f348e390643d3dd72467a18a17e398ed69254c3f667d5d00b34380",
+    "original-chez/compile.scm": "9bedc92aa1e7366da493cc9558cf4008e1a9126ff37e7d8103e4ecefbe9bdeec",
+    "original-chez/input.txt": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+    "original-chez/program.scm": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b",
+    "original-chez/program.so": "1ea0eb0400aeee3540f492ba85360d5d1af4640345b01848166c0df4501d6e45",
+    "original-chez/upstream.scm": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+    "original-lattice.scm": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
+    "reference-source/Cargo.lock": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef",
+    "reference-source/Cargo.toml": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee",
+    "reference-source/measure.py": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1",
+    "reference-source/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "reference-source/src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+    "reference-source/src/bin/deriv.rs": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c",
+    "reference-source/src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+    "reference-source/src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+    "reference-source/src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+    "reference-source/src/lib.rs": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f",
+    "reference-source/validate.py": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08",
+    "results.json": "97b9f042ea25fbc5c5e3526fd981708fec7fcc2cb5bb95b886015aa7e83a20fd",
+    "retained-work.json": "5081acc13968b9d452cdd3c492d0bc14a7be7b0586ed1b0e66c8924fa304d88d",
+    "source-review.md": "885acdc9da2eda8b2ba08d4f0d5badf9154eaae8da59be3c48aaa3fe57136380",
+    "supplemental-correctness.json": "d6f600f1a12677b6cefb97fe5f5c902a6ac1713be4bdbceac12de5a47682cd88",
+    "validation.json": "92740968eb1d71286f54d114a35bc58adaf24ecbea0adc8034a66a8d2714cedb"
+  }
+}
