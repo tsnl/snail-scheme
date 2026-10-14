@@ -1,0 +1,16 @@
+{
+  "release_utc": "2026-10-14T19:08:11.133822+00:00",
+  "authorization": "Parent /root explicitly released the exact112-process campaign after all other agents confirmed quiescence. No replacements, artifact edits, compression or Git publication during the window.",
+  "preparation_commit": "3c47998",
+  "identities": {
+    "timing-plan.json": "8dad04257910c996f631720c01f11d206b11226ebf8cd380581d00d294cf97ee",
+    "measure-seven.py": "862bcb4d8f151c895d421442f69bf34711302dfd92546d950311c0f3ad7450f7"
+  },
+  "command": [
+    "python3",
+    "benchmarks/results/2026-10-14-strict-reader-preparation/measure-seven.py",
+    "--run",
+    "--output",
+    "/tmp/snail-strict-reader-20261014/build/strict-reader-seven-campaign-20261014"
+  ]
+}
