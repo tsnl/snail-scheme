@@ -1,0 +1,15 @@
+{
+  "scope": "Parent verification after applying the reviewed integration commit above the current String draft layer; canonical binaries and reports remain unchanged. Independent reviews listed in pending-reviews.json remain pending.",
+  "integration_source": "748dbb75fe78e4ffd9a401ff194ad2591646cb75",
+  "published_cherry_pick": "9a544b1c9b67fa81f8b545812098d82d86d4097a",
+  "actual_parent": "a71c1eaa3d62c117ded32dad8d296797f71c7d82",
+  "identical_imported_files": 162,
+  "tour": "Only the Rust reference section changed; it equals the source integration. Existing strict String section retained.",
+  "checks": [
+    "All 162 imported files hash-identical to agent integration",
+    "All 160 non-TOUR changed paths byte-identical to source integration",
+    "TOUR prefix and suffix byte-identical to actual current parent",
+    "make check passed"
+  ],
+  "test_scope": "Source identities preserve the integration test results; full canonical measurements were not rerun."
+}
