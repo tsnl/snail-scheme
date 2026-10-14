@@ -25,25 +25,30 @@ def run(command, label):
         raise SystemExit(result.stdout + result.stderr)
 
 
-def check_form(source, label, runtime):
+def check_form(source, label, runtime, contract):
     linked = OUTPUT / (label + '.wasm')
-    flags = ['--raw'] if label == 'raw' else []
+    flags = ['--raw'] if label.endswith('-raw') else []
     run([ROOT / 'scripts/link-strict-runtime', '--runtime', runtime, *flags, source, linked], label + '-link')
     files = tempfile.mkdtemp(prefix=label + '-', dir=OUTPUT)
-    run([os.environ.get('NODE', 'node'), ROOT / 'tests/strict-io/run.mjs', linked, files], label + '-run')
+    run([os.environ.get('NODE', 'node'), ROOT / 'tests/strict-io/run.mjs', linked, files, contract], label + '-run')
     print('PASS strict text output ' + label, flush=True)
+
+
+def check_fixture(name, runtime):
+    source = OUTPUT / (name + '.wasm')
+    exports = [word for export in EXPORTS for word in ('--export', export)] if name == 'output' else []
+    run([ROOT / 'scripts/build-strict', *exports, ROOT / 'tests/strict-io' / (name + '.scm'), source], name + '-compile')
+    check_form(Path(str(source) + '.raw.wasm'), name + '-raw', runtime, name)
+    check_form(source, name + '-optimized', runtime, name)
 
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     run([os.environ.get('CARGO', 'cargo'), 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
          '--release', '--target', 'wasm32-wasip1', '--target-dir', ROOT / 'build/wasm-runtime'], 'runtime')
-    source = OUTPUT / 'source.wasm'
-    exports = [word for name in EXPORTS for word in ('--export', name)]
-    run([ROOT / 'scripts/build-strict', *exports, ROOT / 'tests/strict-io/output.scm', source], 'compile')
     runtime = ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
-    check_form(Path(str(source) + '.raw.wasm'), 'raw', runtime)
-    check_form(source, 'optimized', runtime)
+    check_fixture('output', runtime)
+    check_fixture('main-trap', runtime)
 
 
 if __name__ == '__main__':

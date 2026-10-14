@@ -79,7 +79,9 @@ close and drop. It is safe to call when no resources remain.
 
 `call-with-output-file` closes after a normally returning callback. A Scheme
 trap cannot run the following Scheme close, so the invocation host must call
-`close-resources` in its cleanup boundary. The original failure stays primary
+`close-resources` in its cleanup boundary. That boundary starts before reactor
+initialization and Scheme `main`, since top-level code can open a file and trap
+before a worker is invoked. The original failure stays primary
 if cleanup also fails. Further Scheme execution in that instance is unsupported
 after a trap; the cleanup export remains available for release.
 
@@ -93,4 +95,5 @@ interface does not claim recovery from arbitrary host failures.
 There is no automatic GC finalization. An open file remains owned by Rust until
 explicit close or invocation cleanup, even if its Scheme wrapper is collected.
 The native tests execute real files, malformed scalar callers, alias behavior,
-callback traps, and injected WASI flush errors through both linked compiler forms.
+initialization and callback traps, and injected WASI flush errors through both
+linked compiler forms.
