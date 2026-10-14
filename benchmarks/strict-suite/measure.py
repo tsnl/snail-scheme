@@ -1229,6 +1229,7 @@ def simplex_oracles(directory, original, environment):
 def build_simplex_wasm_probe(directory, tools, environment, case):
     target = directory / 'strict-output-probe'
     target.mkdir()
+    shutil.copy2(directory.parent / 'host.mjs', directory / 'host.mjs')
     spec = simplex_port.probe_specification(case['case'], case['expected'])
     save(target / 'spec.json', dict(spec, additional_exports=['simplex-predicate-probe']))
     source = simplex_port.control_prelude(PRELUDE) + simplex_port.STRICT_TYPES + simplex_port.PROBE_COMMON
