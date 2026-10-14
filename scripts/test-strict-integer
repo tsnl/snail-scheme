@@ -105,6 +105,14 @@ def fixtures():
         q = (abs(a)//abs(b)) * (-1 if (a<0) != (b<0) else 1) if b else 0
         add(f'quotient-{index}', 4, a, b, q, error=not b)
         add(f'remainder-{index}', 5, a, b, a-q*b, error=not b)
+    # The low subtraction borrows, then product reaches B*(B-1). At that
+    # maximum the low word is zero, so the next carry cannot grow to B.
+    a, b = (base-1)*base**2, base**2-1
+    for left_sign in [-1, 1]:
+        for right_sign in [-1, 1]:
+            label = f'maximum-product-carry-{left_sign}-{right_sign}'
+            add(label+'-quotient', 4, left_sign*a, right_sign*b, left_sign*right_sign*(base-1))
+            add(label+'-remainder', 5, left_sign*a, right_sign*b, left_sign*(base-1))
     squares = list(range(101)) + [rng.getrandbits(rng.randrange(1, 4097)) for _ in range(60)]
     for index, root in enumerate(squares):
         for delta in [-1, 0, 1]:

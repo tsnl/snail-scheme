@@ -1,0 +1,47 @@
+(import (snail strict))
+
+;; ---- First-class operations retain the complete word contract ----
+
+;; Load first-class operations through cells before applying signed words and
+;; wrapped shift counts. Direct calls below exercise ordinary primitive use too.
+(define mask-i32 (ref i32-bitwise-and))
+(define shift-i32 (ref i32-shift-right/logical))
+(define mask-i64 (ref i64-bitwise-and))
+(define shift-i64 (ref i64-shift-right/logical))
+
+(define (test-i32)
+  (let ((mask (ref-get mask-i32)) (shift (ref-get shift-i32)))
+    (and (= (i32->i64 (mask -1 42)) 42)
+         (= (i32->i64 (mask -2147483648 -1)) -2147483648)
+         (= (i32->i64 (mask -1431655766 1431655765)) 0)
+         (= (i32->i64 (shift -1 1)) 2147483647)
+         (= (i32->i64 (shift -2147483648 31)) 1)
+         (= (i32->i64 (shift -1 0)) -1)
+         (= (i32->i64 (shift -2147483648 32)) -2147483648)
+         (= (i32->i64 (shift -2147483648 33)) 1073741824)
+         (= (i32->i64 (shift -1 -1)) 1)
+         (= (i32->i64 (shift -1 -32)) -1)
+         (= (i32->i64 (shift -1 2147483647)) 1)
+         (= (i32->i64 (shift -1 -2147483648)) -1))))
+
+(define (test-i64)
+  (let ((mask (ref-get mask-i64)) (shift (ref-get shift-i64)))
+    (and (= (mask -1 42) 42)
+         (= (mask -9223372036854775808 -1) -9223372036854775808)
+         (= (mask -6148914691236517206 6148914691236517205) 0)
+         (= (shift -1 1) 9223372036854775807)
+         (= (shift -9223372036854775808 63) 1)
+         (= (shift -1 0) -1)
+         (= (shift -9223372036854775808 64) -9223372036854775808)
+         (= (shift -9223372036854775808 65) 4611686018427387904)
+         (= (shift -1 -1) 1)
+         (= (shift -1 -64) -1)
+         (= (shift -1 9223372036854775807) 1)
+         (= (shift -1 -9223372036854775808) -1))))
+
+(if (and (test-i32) (test-i64)
+         (= (i32->i64 (i32-bitwise-and 255 15)) 15)
+         (= (i32->i64 (i32-shift-right/logical 256 4)) 16)
+         (= (i64-bitwise-and 1152921503533105152 1073741823) 0)
+         (= (i64-shift-right/logical 1152921503533105152 30) 1073741823))
+    42 (unreachable))

@@ -218,9 +218,11 @@
                    (> (* trial (limb divisor (- count 2)))
                       (+ (* residue radix) (limb dividend (- (+ offset count) 2)))))
               (correct (- trial 1) (+ residue high)) trial))))
-    ;; carry is the high product word plus a possible subtraction borrow.
-    ;; It is <= B-1, so product + carry <= B*(B-1). The signed low-word
-    ;; difference lies in (-B, B); adding B after a borrow restores one limb.
+    ;; Trial, divisor digit and incoming carry are in [0, B-1]. Thus
+    ;; product <= B*(B-1) < 2^60: masking and logical shifting split it exactly.
+    ;; If its high word is B-1, product must be B*(B-1), so its low word is
+    ;; zero and subtraction cannot borrow. Otherwise high+borrow <= B-1 too.
+    ;; The low difference lies in (-B, B); adding B restores one limb.
     (: subtract-product! (-> (Vector I32) (Vector I32) I64 I64 Bool))
     (define (subtract-product! dividend divisor offset trial)
       (let ((count (vector-length divisor)))
@@ -231,9 +233,11 @@
                 (put-limb! dividend (+ offset count) (if (< high 0) (+ high radix) high))
                 (< high 0))
               (let* ((product (+ (* trial (limb divisor index)) carry))
-                     (difference (- (limb dividend (+ offset index)) (remainder product radix))))
+                     (difference (- (limb dividend (+ offset index))
+                                    (i64-bitwise-and product (- radix 1)))))
                 (put-limb! dividend (+ offset index) (if (< difference 0) (+ difference radix) difference))
-                (loop (+ index 1) (+ (quotient product radix) (if (< difference 0) 1 0))))))))
+                (loop (+ index 1) (+ (i64-shift-right/logical product limb-bits)
+                                     (if (< difference 0) 1 0))))))))
     (: add-back! (-> (Vector I32) (Vector I32) I64 Unit))
     (define (add-back! dividend divisor offset)
       (let ((count (vector-length divisor)))
@@ -422,7 +426,19 @@
       ;; The runner also instantiates this same arithmetic at radix 4. Its
       ;; exhaustive oracle uses bounded machine arithmetic, independently of
       ;; quotient estimation and correction. No test exposes mutable limbs.
+      (define (test-product-carry)
+        ;; (B-1)*B^2 - (B-1)*(B^2-1) = B-1. The first digit borrows;
+        ;; the next product reaches B*(B-1), where another borrow is impossible.
+        (let ((dividend (fresh-limbs 3)) (divisor (fresh-limbs 2)))
+          (put-limb! dividend 2 (- radix 1))
+          (put-limb! divisor 0 (- radix 1))
+          (put-limb! divisor 1 (- radix 1))
+          (unless (and (not (subtract-product! dividend divisor 0 (- radix 1)))
+                       (= (limb dividend 0) (- radix 1))
+                       (= (limb dividend 1) 0) (= (limb dividend 2) 0))
+            (unreachable))))
       (define (test-integer)
+        (test-product-carry)
         (let numerator ((a 0))
           (if (= a 1024) 42
               (begin

@@ -47,6 +47,11 @@ old output digit and carry. Normalized long division checks the next divisor
 digit after estimating a quotient digit, then corrects a remaining borrow by
 adding the divisor back. Its cost is `O((n-m+1)*m)` for `n` dividend limbs and
 `m` divisor limbs. The code records the borrow/carry bounds beside those loops.
+In the trial-product subtraction, the product is nonnegative and at most
+`B*(B-1)` for `B=2^30`. Its low limb and high carry therefore use the ordinary
+I64 bitwise-and and logical-right-shift primitives. If the high carry reaches
+`B-1`, the low limb is zero, so subtraction cannot add another borrow. Signed
+division elsewhere keeps its truncation-toward-zero behavior.
 Newton square root starts at `2^ceil(bitlength(n)/2)` and stops when the next
 estimate does not decrease. This also terminates correctly for `n=3`.
 
