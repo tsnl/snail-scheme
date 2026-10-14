@@ -75,7 +75,7 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **42 of 57 measured workloads**, **41 with paired
+Historical coverage is now **43 of 57 measured workloads**, **42 with paired
 Chez controls**. The explicit name sets are in `capabilities.json`.
 Gcbench's unmeasured retention case is excluded;
 `cat` has strict measurements without a same-window Chez control.
@@ -119,6 +119,15 @@ native uses 32.04% less time than V8 on the identical native-final Scheme Wasm
 and 7.76% less than Chez. Seven retained observations per system preserve all
 observed variance, including the wider explicit-heap Rust/Wasm range.
 
+The [complete Browse comparison](../results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 full-count processes. Production V8 takes 4.037493 s, 7.673×
+original Chez time, 0.635× adapted Chez time and 2.055× Rust/Wasm time.
+Native takes 1.724× V8 time on the identical native-final Scheme Wasm.
+Adapted Chez itself takes 12.088× original Chez time, so source-helper and
+representation changes jointly affect this comparison. Separate bounded
+internal traces and clean matcher retention address the discarded match
+results; Rust's Rc/Vec/Boolean control remains a different representation.
+
 | Workload | Capability and required source work |
 | --- | --- |
 | primes | Measured in the preceding five-port report. Existing I64/List operations; kernel unchanged. Check all 168 expected primes, their order, and list termination. Original count 10,000, limit 1,000. |
@@ -131,7 +140,7 @@ observed variance, including the wider explicit-heap Rust/Wasm range.
 | fft | Measured in its preceding report. The canonical F64 kernel uses a separately compiled scalar Wasm sine provider; 65,536 elements and 100 repeats remain intact. |
 | quicksort | Measured canonical source program: 0.681× the same adapted source on Chez; 1.251× Rust/Wasm after initialized captures and structured calls. Canonical RNG, explicit procedure/seed refs, per-element mapping, adjacent sortedness checks and original 2,500 × 10,000 input retained. Separate checks cover complete sorted values and RNG sequences. |
 | simplex | Measured canonical source program: 0.494× the same adapted source on Chez; 1.589× Rust/Wasm. Full million-invocation two-phase F64 tableau workload; closed result variants and explicit Ref scalar mutation. Original and adapted Chez controls, complete small outputs/store order, final-predicate negatives and original guard checks. One original equality-case discrepancy is preserved and distinguished from mathematical correctness. |
-| browse | [Complete preparation](../results/2026-10-14-strict-browse-preparation/README.md): all 2,000 invocations and the complete 100-value predicate pass on five Scheme paths. Closed Datum, interned symbols, explicit mutable pairs and all three matcher return classes preserve the source property lists, pattern ring and destructive shuffle. Ordered internal traces at counts 1/2 and clean-artifact retention checks pass. Seven controls await measurement; coverage does not increase. |
+| browse | [Measured complete workload](../results/2026-10-14-strict-browse-comparison/README.md): all 56 processes pass the original 2,000 invocations and complete 100-value predicate. V8 4.037493 s, original Chez 0.526165 s, adapted Chez 6.360476 s, Rust/Wasm 1.964427 s. V8 takes 7.673× original Chez time and 0.635× adapted Chez time; native takes 1.724× V8 on identical native-final Scheme Wasm. Closed Datum, interned symbols, explicit mutable pairs and all three matcher return classes preserve property lists, ring, prefix sharing and shuffle. Internal traces cover counts 1/2; clean matcher retention is separate. Rust Rc/Vec/string/Boolean layout and source helpers differ; no isolated collector or engine claim. |
 | deriv | Measured full ten million differentiations: 4.467× original Chez time, 2.589× adapted Chez and 0.674× Rust/Wasm. Closed datums preserve source pair spines, finite atoms, input sharing and the original quotient rule. Full-expression/error/identity probes and optimized Wasm/V8 inspection pass; Rust has different layouts and reclamation. |
 | destruc | Measured complete 4,000 × destructive(600,50): 3.382× original Chez time, 1.344× adapted Chez and 1.167× Rust/Wasm. The full ten-row predicate passes raw/optimized Wasm and original/adapted Chez. Two concrete mutable-list instances, head/tail Ref cells and empty/integer items preserve all splices; explicit operand sequencing matches the original Chez diagnostic trace. Separate graph-model, full-output, node-identity, ordered-store and negative-predicate probes pass. Adapted Chez is already 2.517× original Chez; Ref/variant and Rust Vec/Box/cleanup/predicate differences remain explicit, without isolating their individual costs. No compiler change. |
 | puzzle | Measured all 1,000 original 511-size searches: 1.157× original Chez time, 1.168× adapted Chez and 2.434× Rust/Wasm. The result-2005 predicate passes raw/optimized Wasm and untouched/adapted Chez. The local escape becomes explicit Boolean control with matching complete board/mask states, row identity and ordered search effects. Explicit Ref scalars, closed false/count results and truthiness-preserving Bool fills use existing capabilities; this is a source adaptation, not general continuation support. Both setup regions remain untimed. |
@@ -166,8 +175,8 @@ observed variance, including the wider explicit-heap Rust/Wasm range.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 41 of 57 workloads,
-with 40 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 43 of 57 workloads,
+with 42 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

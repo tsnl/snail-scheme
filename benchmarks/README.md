@@ -46,8 +46,8 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 42 measured workloads,
-41 with paired Chez controls. These are individual checkpoints, not a complete
+[coverage inventory](strict-suite/capabilities.md): 43 measured workloads,
+42 with paired Chez controls. These are individual checkpoints, not a complete
 rerun on the current compiler. The
 [typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
 checks the complete `sum1` and `read1` input streams against Chez on linked raw
@@ -67,6 +67,14 @@ V8 takes 1.109322 s, native64 0.757917 s and original Chez 0.821724 s. Native
 uses 32.04% less time than V8 on the identical native-final Scheme Wasm and
 7.76% less than Chez. Recursive Rust/Wasm still fails the default stack;
 its successful explicit heap-frame controls remain separately labeled.
+The [complete Browse comparison](results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 processes at the original 2,000 invocations and complete predicate.
+Production V8 takes 4.037493 s, original Chez 0.526165 s, adapted Chez 6.360476 s
+and Rust/Wasm 1.964427 s. V8 takes 7.673× original Chez time and 0.635× adapted
+Chez time; native takes 1.724× V8 time on the identical native-final Scheme Wasm.
+Adapted Chez's 12.088× original Chez ratio exposes the joint source-helper and
+representation changes. Bounded internal traces, clean matcher retention and
+Rust's separate Rc/Vec/Boolean representation remain explicit.
 The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
