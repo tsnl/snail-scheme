@@ -70,6 +70,7 @@ and `ref-eq?` provide explicit invariant cells. Each concrete `Ref T` has a
 mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
+`String` is a distinct concrete managed type; string literals have that type.
 
 ## Nominal records and closed recursive variants
 
@@ -317,6 +318,60 @@ use does not grow with the vector length.
 Allocations obey the value restriction: one empty vector cannot be reused at
 different element types. For an otherwise unconstrained empty vector, write
 `(ann (empty-vector) (Vector I64))`.
+
+## Unicode strings and characters
+
+A `String` owns Unicode scalar characters. Lengths and indices count characters,
+so NUL, `é`, and `😀` each occupy one position. Strings are distinct from
+`Vector Char`, including across explicit `Top` conversions. Character operations
+are binary `char=?`, `char<?`, `char<=?`, `char>?`, and `char>=?`.
+`char->integer` returns the I64 scalar value; `integer->char` accepts I64 values
+from 0 through `#x10ffff`, excluding surrogates `#xd800` through `#xdfff`, and
+traps otherwise. Case folding, normalization and grapheme indexing are not
+implemented.
+
+String literals are readonly module constants, allocated before `main`.
+Evaluating one literal occurrence repeatedly returns its constant; equal
+occurrences may share storage. The permission belongs to the string object and
+follows every alias. Constructors and copies return fresh mutable strings,
+including empty results and one-argument append.
+
+| Operation | Contract |
+| --- | --- |
+| `(make-string length fill)` | Fresh string filled with the Char value. |
+| `(make-string length)` | Fresh string filled with NUL characters. |
+| `(string character ...)` | Fresh string containing the supplied characters. |
+| `(string-length source)` | Number of characters as I64. |
+| `(string-ref source index)` | Char at the I64 index. |
+| `(string-set! target index value)` | Replace one character; return Unit. |
+| `(string-copy! target at source start end)` | Copy `[start, end)` into target at `at`; return Unit. |
+| `(string-copy source)` | Fresh mutable copy of the whole source. |
+| `(substring source start end)` | Fresh mutable copy of `[start, end)`. |
+| `(string-append source ...)` | Fresh mutable concatenation, including zero sources. |
+| `(string=? left right)` | Compare lengths and character values. |
+| `(string-eq? left right)` | Compare string identity. |
+| `(string->list source)` / `(list->string characters)` | Convert to/from a `List Char`. |
+
+Every mutating operation checks destination writability, even a zero-length
+copy. A readonly source is permitted. Empty copies on mutable destinations allow
+valid source and destination endpoints; all ranges are checked before any
+write. Overlapping copies have memmove behavior. Negative lengths or indices,
+reversed ranges, and out-of-bounds positions trap. Operands run exactly once,
+left to right before the operator, before any primitive permission/range check.
+
+The native representation is one mutable i32 GC array: cell 0 stores a private
+writability flag, and the remaining cells store Unicode scalars. Length subtracts
+one from the unsigned native length; indexing checks the I64 value before adding
+the metadata offset. The maximum representable string length is `2^32 - 2`,
+with lower allocation limits possible in the engine. No operation exposes the
+metadata cell or permits a string to be used as a character vector. Wasm owns
+all string lifetimes and keeps live references in globals, locals and containers.
+
+Allocation, indexing, mutation, length, identity and bulk copying are native
+primitives. Append, substring, fresh copy, content comparison and list conversions
+are ordinary Scheme functions in `(snail strict)`. `string-copy` currently takes
+one argument and `string-copy!` takes exactly five. String values remain internal
+managed references; native scalar imports/exports do not accept them.
 
 ## Concrete calls and static classes
 
