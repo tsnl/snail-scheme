@@ -54,7 +54,12 @@ checks the complete `sum1` and `read1` input streams against Chez on linked raw
 Wasm, optimized Wasm and native. Their
 [complete reader comparison](results/2026-10-14-strict-reader-comparison/README.md)
 measures Sum1 at 2.621× original Chez time and Read1 at 8.450×, or 1.074× and
-1.850× when Chez runs the same Scheme parser body. The
+1.850× when Chez runs the same Scheme parser body. Subsequent
+[reader ablations](results/2026-10-14-strict-reader-ablations/README.md) isolate
+delimiter scanning and repeated atom staging. Their separately measured
+[combined change](results/2026-10-14-strict-reader-combined/README.md) reduces
+Read1 time by 22.6%; Sum1's median falls 9.2% with a variable baseline. These
+comparisons use a current Snail baseline, without a fresh Chez run. The
 [exact-integer comparison](results/2026-10-14-strict-integer-comparison/README.md)
 passes all 144 planned processes at complete pi and Chudnovsky counts and
 outputs. Snail/V8 takes 10.497× and 8.264× original Chez time; native takes

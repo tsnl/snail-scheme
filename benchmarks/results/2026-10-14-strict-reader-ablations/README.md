@@ -172,10 +172,10 @@ The original [preparation plan](plan.md) is marked historical, and this report
 records its completed status. [simplify-review.md](simplify-review.md) documents
 the focused behavioral explanation, ownership decisions and verification.
 
-## Next combined candidate
+## Follow-up combined candidate
 
-The independent branches and evidence stay separate. A later AB branch starts
-from the same basis and combines only these two changes, then repeats the
-relevant full correctness/ownership and small reference checks. It needs its own
-frozen baseline/combined comparison and explicit coordinated quiet release.
-No combined timing or additive speedup claim exists yet.
+The independent branches and evidence stay separate. The later
+[combined comparison](../2026-10-14-strict-reader-combined/README.md) starts from
+the same basis, combines only these two changes, and repeats full correctness,
+ownership and reference checks before a separately frozen timing campaign.
+Its measured result does not add the independent percentages reported here.
