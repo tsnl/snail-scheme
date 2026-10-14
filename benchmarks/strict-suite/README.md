@@ -828,3 +828,15 @@ build further optimizes its Wasm input, so a separate V8 row executes the exact
 native-final module: 0.700726 s versus native's 1.901276 s, a 2.713× ratio.
 Every ordered result and frozen identity passes; ownership, algorithm and
 allocation differences remain explicit.
+
+The complete pi and Chudnovsky preparation uses the reusable
+[`(snail integer)`](../../src/snail/integer.sld) library. Run
+`python3 benchmarks/strict-suite/integer_ports.py pi chudnovsky` after
+`scripts/test-strict-integer`. The adapter retains all three pi algorithms at
+100 repetitions and the original Chudnovsky binary split at 1,000 repetitions;
+both keep the full 50, 100, ..., 500 digit tables. Source edits are reversible,
+all mathematical integers use the private WasmGC limb representation, and the
+scalar count/digit controls remain I64. Preparation compares every output value
+across original Chez, adapted Chez using native big integers, the same limb
+Scheme body with checked scalar arithmetic on Chez, raw/optimized Wasm and
+native64. These are correctness preparations, with no clean timing claim.
