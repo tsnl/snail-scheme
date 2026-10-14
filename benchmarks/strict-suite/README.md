@@ -840,3 +840,23 @@ scalar count/digit controls remain I64. Preparation compares every output value
 across original Chez, adapted Chez using native big integers, the same limb
 Scheme body with checked scalar arithmetic on Chez, raw/optimized Wasm and
 native64. These are correctness preparations, with no clean timing claim.
+
+## Complete file readers
+
+Select `--benchmarks sum1 read1` to prepare the complete upstream programs with
+the reusable `(snail datum)` and `(snail read)` libraries. Sum1 retains 25 reads
+of its 100,000-number file and the original `1e-9` result tolerance. Read1 retains
+2,500 complete reads of `parsing.data`, its simultaneous `do` updates and the
+complete final list predicate. Configuration parsing happens during setup;
+every worker's actual file open/read-through-EOF/close stays inside its clock.
+
+The [preparation report](../results/2026-10-14-strict-reader-preparation/README.md)
+records original/adapted Chez, raw/optimized Wasm and native correctness,
+complete canonical streams/results, negative predicates and changed-file calls.
+The exact native-final Scheme module has a separate V8 scalar-provider control.
+Unchanged Rust programs pass canonical stream/result checks with their different
+numeric scanner, owned textual atoms and whole-file buffering disclosed.
+This preparation adds no measured-coverage claim. The generic `measure` command
+rejects these reader cases: their separately frozen seven-system plan preserves
+the file I/O, setup and cleanup boundaries and requires a coordinated quiet
+window before clean clocks run.

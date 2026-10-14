@@ -753,6 +753,14 @@ native64, original/adapted Chez and the identical limb Scheme body on Chez with
 checked I64/I32 intermediates. Its scalar providers transport expected decimal
 text and observed characters; all numerical work remains in Scheme.
 
+[`reader_ports.py`](benchmarks/strict-suite/reader_ports.py) preserves the complete
+Sum1 and Read1 file-reading kernels. Reversible edits expose typed read results,
+numeric conversion and the initial false datum. The Chez control uses the exact
+Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
+observe full per-worker file lifecycles and time the unchanged count loops;
+complete stream/result probes and the distinct Rust reader controls remain
+separate from clean measurement.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
