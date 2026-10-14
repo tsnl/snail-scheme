@@ -1,0 +1,124 @@
+{
+  "tools": {
+    "CHIBI": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "command": [
+        "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+        "-V"
+      ],
+      "returncode": 0,
+      "stdout": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n",
+      "stderr": "",
+      "process_seconds": 0.04090499598532915
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "v24.19.0\n",
+      "stderr": "",
+      "process_seconds": 0.008292972983326763
+    },
+    "WASM_AS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "wasm-as version 132\n",
+      "stderr": "",
+      "process_seconds": 0.0038644630112685263
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "wasm-opt version 132\n",
+      "stderr": "",
+      "process_seconds": 0.005240921978838742
+    },
+    "WASM_DIS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "wasm-dis version 132\n",
+      "stderr": "",
+      "process_seconds": 0.0026441719965077937
+    },
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "10.4.1\n",
+      "stderr": "",
+      "process_seconds": 0.0009839360136538744
+    },
+    "TASKSET": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "taskset from util-linux 2.42.2\n",
+      "stderr": "",
+      "process_seconds": 0.001139937958214432
+    },
+    "PYTHON": {
+      "path": "/run/current-system/sw/bin/python",
+      "sha256": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "command": [
+        "/run/current-system/sw/bin/python",
+        "--version"
+      ],
+      "returncode": 0,
+      "stdout": "Python 3.14.7\n",
+      "stderr": "",
+      "process_seconds": 0.002300700987689197
+    },
+    "node_versions": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "-p",
+        "JSON.stringify(process.versions)"
+      ],
+      "returncode": 0,
+      "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+      "stderr": "",
+      "process_seconds": 0.02205948601476848
+    }
+  },
+  "build_environment": {
+    "CHIBI": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "NODE": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "WASM_AS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+    "WASM_OPT": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+    "WASM_DIS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+    "CHEZ": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "TASKSET": "/run/current-system/sw/bin/taskset",
+    "PYTHON": "/run/current-system/sw/bin/python"
+  },
+  "binaryen_cores": 1,
+  "node_options": null,
+  "measurement_attempts": 0
+}

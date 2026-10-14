@@ -1,0 +1,52 @@
+{
+  "canonical_predicates_unchanged": true,
+  "supplemental_probes_in_separate_modules": true,
+  "cases": {
+    "paraffins": {
+      "canonical_wasm_positive": 6,
+      "canonical_chez_positive": 6,
+      "structural_wasm_positive": 12,
+      "structural_wasm_expected_rejections": 6,
+      "structural_chez_complete_encodings": 12,
+      "structural_chez_positive_expected_lists": 2,
+      "structural_chez_expected_rejections": 6,
+      "counts": [
+        1,
+        2,
+        10
+      ],
+      "input": 23,
+      "result": 5731580,
+      "structural_inputs": [
+        1,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "oracle": "Complete ordered prefix encoding plus independent constructor arity/carbon/product-count validation."
+    },
+    "gcbench": {
+      "canonical_wasm_positive": 4,
+      "canonical_chez_positive": 4,
+      "structural_wasm_positive": 4,
+      "structural_wasm_expected_rejections": 10,
+      "structural_chez_positive": 4,
+      "structural_chez_expected_rejections": 10,
+      "counts": [
+        1,
+        2
+      ],
+      "input": 20,
+      "outer_predicate": "always true; returned success flag does not establish the tree/array work",
+      "structural_inputs": [
+        6,
+        8
+      ],
+      "oracle": "Complete node/leaf/padding checks and construction event stream; every array element; malformed shape/padding and independent child updates; first/middle/last/short/long expected arrays."
+    }
+  },
+  "total_expected_outcomes": 86,
+  "performance_samples": 0
+}

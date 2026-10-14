@@ -241,3 +241,6 @@ final tree check false and releases the intended long-lived tree before later
 allocations. The array survives through its final numeric check. A future opaque
 reference-lifetime boundary is proposed in the report; it is not implemented.
 Passing output checks alone cannot establish this benchmark's live-heap overlap.
+The original tree check compares a constructed record with the empty list and is
+also necessarily false. Neither Chez control has a verified lifetime guarantee
+in this preparation; canonical correctness alone is insufficient on every system.

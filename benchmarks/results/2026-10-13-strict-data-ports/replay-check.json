@@ -1,0 +1,213 @@
+{
+  "verified_archive_files": 213,
+  "checks": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-data-ports-replay-20261013/host.mjs",
+        "/tmp/snail-strict-data-ports-replay-20261013/paraffins/strict.wasm.raw.wasm",
+        "/tmp/data-ports-replay-paraffins.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000505845,\"result\":\"75\",\"barriers\":1,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.0289600039832294,
+      "name": "paraffins",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "specification": {
+        "name": "paraffins",
+        "count": 1,
+        "inputs": [
+          10
+        ],
+        "expected": 75,
+        "barriers_per_iteration": 1
+      }
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-data-ports-replay-20261013/host.mjs",
+        "/tmp/snail-strict-data-ports-replay-20261013/paraffins/strict.wasm",
+        "/tmp/data-ports-replay-paraffins.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000333726,\"result\":\"75\",\"barriers\":1,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.023965277010574937,
+      "name": "paraffins",
+      "system": "strict",
+      "suffix": "",
+      "specification": {
+        "name": "paraffins",
+        "count": 1,
+        "inputs": [
+          10
+        ],
+        "expected": 75,
+        "barriers_per_iteration": 1
+      }
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-data-ports-replay-20261013/paraffins/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running paraffins:10:1\nElapsed time: 3.411e-6 seconds (0.0) for paraffins:10:1\n+!CSVLINE!+chez,paraffins:10:1,3.411e-6\n",
+      "stderr": "",
+      "process_seconds": 0.03671317803673446,
+      "name": "paraffins",
+      "system": "original-chez",
+      "stdin": "1\n10\n75\n"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-data-ports-replay-20261013/paraffins/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running paraffins:10:1\nElapsed time: 4.112e-6 seconds (0.0) for paraffins:10:1\n+!CSVLINE!+chez,paraffins:10:1,4.112e-6\n",
+      "stderr": "",
+      "process_seconds": 0.0384095010231249,
+      "name": "paraffins",
+      "system": "same-source-chez",
+      "stdin": "1\n10\n75\n"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-data-ports-replay-20261013/host.mjs",
+        "/tmp/snail-strict-data-ports-replay-20261013/gcbench/strict.wasm.raw.wasm",
+        "/tmp/data-ports-replay-gcbench.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "Garbage Collector Test\n Stretching memory with a binary tree of depth 8\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nGCBench: Main\n Creating a long-lived binary tree of depth 6\n Creating a long-lived array of 508 inexact reals\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nCreating 32 trees of depth 4\nGCBench: Top down construction\nGCBench: Bottom up construction\nCreating 8 trees of depth 6\nGCBench: Top down construction\nGCBench: Bottom up construction\n Total memory available= ???????? bytes  Free memory= ???????? bytes\n{\"seconds\":0.001200903,\"result\":\"1\",\"barriers\":1,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.02665242098737508,
+      "name": "gcbench",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "specification": {
+        "name": "gcbench",
+        "count": 1,
+        "inputs": [
+          8
+        ],
+        "expected": 1,
+        "unused_output_datum": 0,
+        "barriers_per_iteration": 1,
+        "diagnostic_text": [
+          "\n",
+          " Total memory available= ???????? bytes",
+          "  Free memory= ???????? bytes",
+          "Garbage Collector Test",
+          "GCBench: Top down construction",
+          "GCBench: Bottom up construction",
+          "GCBench: Main",
+          "Failed"
+        ],
+        "diagnostic_sizes": [
+          [
+            " Stretching memory with a binary tree of depth ",
+            ""
+          ],
+          [
+            " Creating a long-lived binary tree of depth ",
+            ""
+          ],
+          [
+            " Creating a long-lived array of ",
+            " inexact reals"
+          ]
+        ]
+      }
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-data-ports-replay-20261013/host.mjs",
+        "/tmp/snail-strict-data-ports-replay-20261013/gcbench/strict.wasm",
+        "/tmp/data-ports-replay-gcbench.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "Garbage Collector Test\n Stretching memory with a binary tree of depth 8\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nGCBench: Main\n Creating a long-lived binary tree of depth 6\n Creating a long-lived array of 508 inexact reals\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nCreating 32 trees of depth 4\nGCBench: Top down construction\nGCBench: Bottom up construction\nCreating 8 trees of depth 6\nGCBench: Top down construction\nGCBench: Bottom up construction\n Total memory available= ???????? bytes  Free memory= ???????? bytes\n{\"seconds\":0.000467395,\"result\":\"1\",\"barriers\":1,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.023732216039206833,
+      "name": "gcbench",
+      "system": "strict",
+      "suffix": "",
+      "specification": {
+        "name": "gcbench",
+        "count": 1,
+        "inputs": [
+          8
+        ],
+        "expected": 1,
+        "unused_output_datum": 0,
+        "barriers_per_iteration": 1,
+        "diagnostic_text": [
+          "\n",
+          " Total memory available= ???????? bytes",
+          "  Free memory= ???????? bytes",
+          "Garbage Collector Test",
+          "GCBench: Top down construction",
+          "GCBench: Bottom up construction",
+          "GCBench: Main",
+          "Failed"
+        ],
+        "diagnostic_sizes": [
+          [
+            " Stretching memory with a binary tree of depth ",
+            ""
+          ],
+          [
+            " Creating a long-lived binary tree of depth ",
+            ""
+          ],
+          [
+            " Creating a long-lived array of ",
+            " inexact reals"
+          ]
+        ]
+      }
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-data-ports-replay-20261013/gcbench/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "The garbage collector should touch about 1/32 megabytes of heap storage.\nThe use of more or less memory will skew the results.\nRunning gcbench:8:1\nGarbage Collector Test\n Stretching memory with a binary tree of depth 8\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nGCBench: Main\n Creating a long-lived binary tree of depth 6\n Creating a long-lived array of 508 inexact reals\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nCreating 32 trees of depth 4\nGCBench: Top down construction\nGCBench: Bottom up construction\nCreating 8 trees of depth 6\nGCBench: Top down construction\nGCBench: Bottom up construction\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nElapsed time: 3.7466e-5 seconds (0.0) for gcbench:8:1\n+!CSVLINE!+chez,gcbench:8:1,3.7466e-5\n",
+      "stderr": "",
+      "process_seconds": 0.03497347701340914,
+      "name": "gcbench",
+      "system": "original-chez",
+      "stdin": "1\n8\n0\n"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-data-ports-replay-20261013/gcbench/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "The garbage collector should touch about 1/32 megabytes of heap storage.\nThe use of more or less memory will skew the results.\nRunning gcbench:8:1\nGarbage Collector Test\n Stretching memory with a binary tree of depth 8\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nGCBench: Main\n Creating a long-lived binary tree of depth 6\n Creating a long-lived array of 508 inexact reals\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nCreating 32 trees of depth 4\nGCBench: Top down construction\nGCBench: Bottom up construction\nCreating 8 trees of depth 6\nGCBench: Top down construction\nGCBench: Bottom up construction\n Total memory available= ???????? bytes  Free memory= ???????? bytes\nElapsed time: 3.0764e-5 seconds (0.0) for gcbench:8:1\n+!CSVLINE!+chez,gcbench:8:1,3.0764e-5\n",
+      "stderr": "",
+      "process_seconds": 0.03842071600956842,
+      "name": "gcbench",
+      "system": "same-source-chez",
+      "stdin": "1\n8\n0\n"
+    }
+  ],
+  "performance_samples": 0,
+  "runtime_artifacts_unchanged_after_supplement": true
+}
