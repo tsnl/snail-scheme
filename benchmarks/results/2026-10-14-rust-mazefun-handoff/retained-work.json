@@ -1,0 +1,401 @@
+{
+  "kind": "Separate unreoptimized observer of exact release Wasm sites",
+  "performance_samples": false,
+  "canonical_wasm_sha256": "4e1f45f9c925dde00788408ab97b262c77c7201967c7b49768970bcd50efd885",
+  "canonical_wat_sha256": "f2cbf552c21ff1ec4f40469a6a598488853736ca8b444a2e00df38e55e3a2357",
+  "observer_wasm_sha256": "5f3a0a08ca93f7b95e1041d03f03c2a0eb4af4d4017d52a7cea72d562a81972f",
+  "observer_wat_sha256": "bb45ebf69541ba6f5101552dcb1619ba884b3a32df706f2bd130cecf536f308f",
+  "exact_canonical_text_recovered_by_erasure": true,
+  "sites": [
+    {
+      "counter": "flood_entries",
+      "function": "$_ZN7mazefun13change_cavity17hd3e59074e15c3d33E",
+      "before_line": 3504,
+      "required_text": "(global.set $__stack_pointer",
+      "meaning": "All flood entries, including old-label mismatches."
+    },
+    {
+      "counter": "neighbor_entries",
+      "function": "$_ZN7mazefun9neighbors17h8485b45ad4a1fd63E",
+      "before_line": 4259,
+      "required_text": "(global.set $__stack_pointer",
+      "meaning": "Ordered neighbor enumeration from its incoming cave."
+    },
+    {
+      "counter": "row_write_entries",
+      "function": "$_ZN7mazefun5write17h855c3d8cf9af3c1cE",
+      "before_line": 3928,
+      "required_text": "(block $block3",
+      "meaning": "Copied cavity-row prefix nodes; one result cons per normal entry."
+    },
+    {
+      "counter": "outer_write_entries",
+      "function": "$_ZN7mazefun5write17he01d6d772afb107dE",
+      "before_line": 4112,
+      "required_text": "(block $block6",
+      "meaning": "Copied outer-grid prefix nodes; one result cons per normal entry."
+    },
+    {
+      "counter": "shuffle_entries",
+      "function": "$_ZN7mazefun7shuffle17h22466d77b4effee4E",
+      "before_line": 11808,
+      "required_text": "(global.set $__stack_pointer",
+      "meaning": "Recursive shuffle including its empty base call."
+    },
+    {
+      "counter": "remove_entries",
+      "function": "$_ZN7mazefun6remove17h7c6f035a9d028fc8E",
+      "before_line": 13234,
+      "required_text": "(block $block4",
+      "meaning": "Copied-prefix removal entries, including selected-cell removal."
+    },
+    {
+      "counter": "clock_reads",
+      "function": "$__clock_gettime",
+      "before_line": 52423,
+      "required_text": "(global.set $__stack_pointer",
+      "meaning": "Rust workload start and successful stopped clock."
+    },
+    {
+      "counter": "maze_invocations",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 6226,
+      "required_text": "(loop $label26",
+      "meaning": "One complete signed-dimension invocation per positive repetition."
+    },
+    {
+      "counter": "initial_rows",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 6339,
+      "required_text": "(loop $label3",
+      "meaning": "Initial persistent cave rows."
+    },
+    {
+      "counter": "initial_cavity_cells",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 6352,
+      "required_text": "(loop $label2",
+      "meaning": "Initial persistent cavity cells, including walls."
+    },
+    {
+      "counter": "candidate_list_nodes",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 6734,
+      "required_text": "(loop $label9",
+      "meaning": "Complete persistent candidate list converted from ordered scratch Vec."
+    },
+    {
+      "counter": "piercing_attempts",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 6902,
+      "required_text": "(loop $label21",
+      "meaning": "Each shuffled hole is tried in order."
+    },
+    {
+      "counter": "output_rows_mapped",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 7877,
+      "required_text": "(loop $label24",
+      "meaning": "Complete cave-to-mark conversion, every row."
+    },
+    {
+      "counter": "output_cells_mapped",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 7912,
+      "required_text": "(loop $label22",
+      "meaning": "Every cave cell maps to ASCII _ or *."
+    },
+    {
+      "counter": "output_mark_nodes",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8011,
+      "required_text": "(loop $label23",
+      "meaning": "Complete persistent mark list for each result row."
+    },
+    {
+      "counter": "output_row_nodes",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8182,
+      "required_text": "(loop $label25",
+      "meaning": "Complete persistent outer result list."
+    },
+    {
+      "counter": "predicate_rows",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8572,
+      "required_text": "(loop $label28",
+      "meaning": "Every expected row is compared against its actual result row."
+    },
+    {
+      "counter": "predicate_marks",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8611,
+      "required_text": "(loop $label27",
+      "meaning": "Every expected symbol mark is compared by exact kind/length/byte."
+    },
+    {
+      "counter": "shuffle_advances",
+      "function": "$_ZN7mazefun7shuffle17h22466d77b4effee4E",
+      "before_line": 11862,
+      "required_text": "(block $block7",
+      "meaning": "Nonempty shuffle state/index transition; original constants3581/12751/mask131071."
+    },
+    {
+      "counter": "predicate_entries",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8450,
+      "required_text": "(block $block114",
+      "meaning": "Final result kind/value predicate before successful clock capture."
+    },
+    {
+      "counter": "previous_result_reclaims",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8349,
+      "required_text": "(call $_ZN5alloc2rc15Rc$LT$T$C$A$GT$9drop_slow17h22e3a6dc2a444d80E",
+      "meaning": "Top-level prior grid release after next grid completes, inside repetition timer."
+    },
+    {
+      "counter": "final_result_reclaims",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8927,
+      "required_text": "(call $_ZN5alloc2rc15Rc$LT$T$C$A$GT$9drop_slow17h22e3a6dc2a444d80E",
+      "meaning": "Top-level final grid release after stopped clock and both prints."
+    },
+    {
+      "counter": "result_prints",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8830,
+      "required_text": "(call $_RNvNtNtCset5xJoy1xWQ_3std2io5stdio6__print",
+      "meaning": "Complete result formatting follows stopped clock."
+    },
+    {
+      "counter": "csv_prints",
+      "function": "$_ZN7mazefun4main17h663b35324a770f9aE",
+      "before_line": 8888,
+      "required_text": "(call $_RNvNtNtCset5xJoy1xWQ_3std2io5stdio6__print",
+      "meaning": "Signed-count normal CSV follows stopped clock."
+    }
+  ],
+  "kernel_counters": [
+    "flood_entries",
+    "neighbor_entries",
+    "row_write_entries",
+    "outer_write_entries",
+    "shuffle_entries",
+    "remove_entries",
+    "maze_invocations",
+    "initial_rows",
+    "initial_cavity_cells",
+    "candidate_list_nodes",
+    "piercing_attempts",
+    "output_rows_mapped",
+    "output_cells_mapped",
+    "output_mark_nodes",
+    "output_row_nodes",
+    "shuffle_advances"
+  ],
+  "runs": [
+    {
+      "name": "canonical-1",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-host.mjs",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-results/canonical-1",
+      "input_sha256": "fd4b4ad4ea2452ac37fd99626d48c5969263d49e94eafdfc9f408f1b81f00e11",
+      "returncode": 0,
+      "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:1,0.000911472\n",
+      "stderr": "Audit: {\"flood_entries\":\"1250\",\"neighbor_entries\":\"720\",\"row_write_entries\":\"4466\",\"outer_write_entries\":\"4436\",\"shuffle_entries\":\"61\",\"remove_entries\":\"931\",\"clock_reads\":\"2\",\"maze_invocations\":\"1\",\"initial_rows\":\"11\",\"initial_cavity_cells\":\"121\",\"candidate_list_nodes\":\"60\",\"piercing_attempts\":\"60\",\"output_rows_mapped\":\"11\",\"output_cells_mapped\":\"121\",\"output_mark_nodes\":\"121\",\"output_row_nodes\":\"11\",\"predicate_rows\":\"11\",\"predicate_marks\":\"121\",\"shuffle_advances\":\"60\",\"predicate_entries\":\"1\",\"previous_result_reclaims\":\"0\",\"final_result_reclaims\":\"1\",\"result_prints\":\"1\",\"csv_prints\":\"1\"}\n",
+      "counts": {
+        "flood_entries": 1250,
+        "neighbor_entries": 720,
+        "row_write_entries": 4466,
+        "outer_write_entries": 4436,
+        "shuffle_entries": 61,
+        "remove_entries": 931,
+        "clock_reads": 2,
+        "maze_invocations": 1,
+        "initial_rows": 11,
+        "initial_cavity_cells": 121,
+        "candidate_list_nodes": 60,
+        "piercing_attempts": 60,
+        "output_rows_mapped": 11,
+        "output_cells_mapped": 121,
+        "output_mark_nodes": 121,
+        "output_row_nodes": 11,
+        "predicate_rows": 11,
+        "predicate_marks": 121,
+        "shuffle_advances": 60,
+        "predicate_entries": 1,
+        "previous_result_reclaims": 0,
+        "final_result_reclaims": 1,
+        "result_prints": 1,
+        "csv_prints": 1
+      }
+    },
+    {
+      "name": "canonical-2",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-host.mjs",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-results/canonical-2",
+      "input_sha256": "52418a2085b2ff511fc8e0fa16cd73933c975589b70abfb6792f48a243a1880a",
+      "returncode": 0,
+      "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:2,0.001574864\n",
+      "stderr": "Audit: {\"flood_entries\":\"2500\",\"neighbor_entries\":\"1440\",\"row_write_entries\":\"8932\",\"outer_write_entries\":\"8872\",\"shuffle_entries\":\"122\",\"remove_entries\":\"1862\",\"clock_reads\":\"2\",\"maze_invocations\":\"2\",\"initial_rows\":\"22\",\"initial_cavity_cells\":\"242\",\"candidate_list_nodes\":\"120\",\"piercing_attempts\":\"120\",\"output_rows_mapped\":\"22\",\"output_cells_mapped\":\"242\",\"output_mark_nodes\":\"242\",\"output_row_nodes\":\"22\",\"predicate_rows\":\"11\",\"predicate_marks\":\"121\",\"shuffle_advances\":\"120\",\"predicate_entries\":\"1\",\"previous_result_reclaims\":\"1\",\"final_result_reclaims\":\"1\",\"result_prints\":\"1\",\"csv_prints\":\"1\"}\n",
+      "counts": {
+        "flood_entries": 2500,
+        "neighbor_entries": 1440,
+        "row_write_entries": 8932,
+        "outer_write_entries": 8872,
+        "shuffle_entries": 122,
+        "remove_entries": 1862,
+        "clock_reads": 2,
+        "maze_invocations": 2,
+        "initial_rows": 22,
+        "initial_cavity_cells": 242,
+        "candidate_list_nodes": 120,
+        "piercing_attempts": 120,
+        "output_rows_mapped": 22,
+        "output_cells_mapped": 242,
+        "output_mark_nodes": 242,
+        "output_row_nodes": 22,
+        "predicate_rows": 11,
+        "predicate_marks": 121,
+        "shuffle_advances": 120,
+        "predicate_entries": 1,
+        "previous_result_reclaims": 1,
+        "final_result_reclaims": 1,
+        "result_prints": 1,
+        "csv_prints": 1
+      }
+    },
+    {
+      "name": "canonical-10000",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-host.mjs",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-results/canonical-10000",
+      "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+      "returncode": 0,
+      "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:10000,2.334588457\n",
+      "stderr": "Audit: {\"flood_entries\":\"12500000\",\"neighbor_entries\":\"7200000\",\"row_write_entries\":\"44660000\",\"outer_write_entries\":\"44360000\",\"shuffle_entries\":\"610000\",\"remove_entries\":\"9310000\",\"clock_reads\":\"2\",\"maze_invocations\":\"10000\",\"initial_rows\":\"110000\",\"initial_cavity_cells\":\"1210000\",\"candidate_list_nodes\":\"600000\",\"piercing_attempts\":\"600000\",\"output_rows_mapped\":\"110000\",\"output_cells_mapped\":\"1210000\",\"output_mark_nodes\":\"1210000\",\"output_row_nodes\":\"110000\",\"predicate_rows\":\"11\",\"predicate_marks\":\"121\",\"shuffle_advances\":\"600000\",\"predicate_entries\":\"1\",\"previous_result_reclaims\":\"9999\",\"final_result_reclaims\":\"1\",\"result_prints\":\"1\",\"csv_prints\":\"1\"}\n",
+      "counts": {
+        "flood_entries": 12500000,
+        "neighbor_entries": 7200000,
+        "row_write_entries": 44660000,
+        "outer_write_entries": 44360000,
+        "shuffle_entries": 610000,
+        "remove_entries": 9310000,
+        "clock_reads": 2,
+        "maze_invocations": 10000,
+        "initial_rows": 110000,
+        "initial_cavity_cells": 1210000,
+        "candidate_list_nodes": 600000,
+        "piercing_attempts": 600000,
+        "output_rows_mapped": 110000,
+        "output_cells_mapped": 1210000,
+        "output_mark_nodes": 1210000,
+        "output_row_nodes": 110000,
+        "predicate_rows": 11,
+        "predicate_marks": 121,
+        "shuffle_advances": 600000,
+        "predicate_entries": 1,
+        "previous_result_reclaims": 9999,
+        "final_result_reclaims": 1,
+        "result_prints": 1,
+        "csv_prints": 1
+      }
+    },
+    {
+      "name": "full-count-wrong-last-mark",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-host.mjs",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-results/full-count-wrong-last-mark",
+      "input_sha256": "bf83b52e3f4d0b88a38b11056a33c3a122c35763b45b4fc13769a172a5ba5683",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "\nthread 'main' (1) panicked at src/bin/mazefun.rs:267:5:\nincorrect maze result\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nRuntimeError: unreachable\nAudit: {\"flood_entries\":\"12500000\",\"neighbor_entries\":\"7200000\",\"row_write_entries\":\"44660000\",\"outer_write_entries\":\"44360000\",\"shuffle_entries\":\"610000\",\"remove_entries\":\"9310000\",\"clock_reads\":\"1\",\"maze_invocations\":\"10000\",\"initial_rows\":\"110000\",\"initial_cavity_cells\":\"1210000\",\"candidate_list_nodes\":\"600000\",\"piercing_attempts\":\"600000\",\"output_rows_mapped\":\"110000\",\"output_cells_mapped\":\"1210000\",\"output_mark_nodes\":\"1210000\",\"output_row_nodes\":\"110000\",\"predicate_rows\":\"11\",\"predicate_marks\":\"121\",\"shuffle_advances\":\"600000\",\"predicate_entries\":\"1\",\"previous_result_reclaims\":\"9999\",\"final_result_reclaims\":\"0\",\"result_prints\":\"0\",\"csv_prints\":\"0\"}\n",
+      "counts": {
+        "flood_entries": 12500000,
+        "neighbor_entries": 7200000,
+        "row_write_entries": 44660000,
+        "outer_write_entries": 44360000,
+        "shuffle_entries": 610000,
+        "remove_entries": 9310000,
+        "clock_reads": 1,
+        "maze_invocations": 10000,
+        "initial_rows": 110000,
+        "initial_cavity_cells": 1210000,
+        "candidate_list_nodes": 600000,
+        "piercing_attempts": 600000,
+        "output_rows_mapped": 110000,
+        "output_cells_mapped": 1210000,
+        "output_mark_nodes": 1210000,
+        "output_row_nodes": 110000,
+        "predicate_rows": 11,
+        "predicate_marks": 121,
+        "shuffle_advances": 600000,
+        "predicate_entries": 1,
+        "previous_result_reclaims": 9999,
+        "final_result_reclaims": 0,
+        "result_prints": 0,
+        "csv_prints": 0
+      }
+    },
+    {
+      "name": "zero-false",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-host.mjs",
+        "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/observer-results/zero-false",
+      "input_sha256": "1f143deb6ca8dd209dde213a318e482b4ca046e2950adcd023f513ff068eb4bd",
+      "returncode": 0,
+      "stdout": "Result: #f\n+!CSVLINE!+rust-wasm,mazefun:0,0.000000418\n",
+      "stderr": "Audit: {\"flood_entries\":\"0\",\"neighbor_entries\":\"0\",\"row_write_entries\":\"0\",\"outer_write_entries\":\"0\",\"shuffle_entries\":\"0\",\"remove_entries\":\"0\",\"clock_reads\":\"2\",\"maze_invocations\":\"0\",\"initial_rows\":\"0\",\"initial_cavity_cells\":\"0\",\"candidate_list_nodes\":\"0\",\"piercing_attempts\":\"0\",\"output_rows_mapped\":\"0\",\"output_cells_mapped\":\"0\",\"output_mark_nodes\":\"0\",\"output_row_nodes\":\"0\",\"predicate_rows\":\"0\",\"predicate_marks\":\"0\",\"shuffle_advances\":\"0\",\"predicate_entries\":\"1\",\"previous_result_reclaims\":\"0\",\"final_result_reclaims\":\"0\",\"result_prints\":\"1\",\"csv_prints\":\"1\"}\n",
+      "counts": {
+        "flood_entries": 0,
+        "neighbor_entries": 0,
+        "row_write_entries": 0,
+        "outer_write_entries": 0,
+        "shuffle_entries": 0,
+        "remove_entries": 0,
+        "clock_reads": 2,
+        "maze_invocations": 0,
+        "initial_rows": 0,
+        "initial_cavity_cells": 0,
+        "candidate_list_nodes": 0,
+        "piercing_attempts": 0,
+        "output_rows_mapped": 0,
+        "output_cells_mapped": 0,
+        "output_mark_nodes": 0,
+        "output_row_nodes": 0,
+        "predicate_rows": 0,
+        "predicate_marks": 0,
+        "shuffle_advances": 0,
+        "predicate_entries": 1,
+        "previous_result_reclaims": 0,
+        "final_result_reclaims": 0,
+        "result_prints": 1,
+        "csv_prints": 1
+      }
+    }
+  ],
+  "all_kernel_sites_scale_exactly": true,
+  "limits": "Executed observer Wasm sites, not V8 physical allocation, native instructions or uninstrumented timing. Assembler runs without reoptimization. Canonical program and source stay unchanged; diagnostic globals/code can affect runtime compilation. Constructor claims concern normal completed source sites."
+}
