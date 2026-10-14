@@ -244,12 +244,15 @@
     },
     {
       "name": "conform",
-      "status": "additional-capabilities",
+      "status": "prepared-canonical-unmeasured",
       "source_lines": 469,
       "files": {
         "src/conform.scm": "5b544ec3ea2416df03ef935d45ad96b7204c35ecaf7344118d3d34bbb3dc9de5",
         "inputs/conform.input": "9c0f8f0e5a9e61836442b9b85a6f5b844b31f05f14ed3586a9280f4edf138794"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-conform-preparation/README.md",
+      "representation_note": "Concrete Node/BlueEdge/Graph/Table/Row records with explicit Ref mutation; closed Name/BlueState/Optional variants. Functional unstable sort, sets, copied node-list construction, shared association tables, unresolved memo insertion, red assumptions and equivalent-node ordering remain. Datum is confined to input. Same adapted kernel on Chez; unchanged Rust uses arena indices, Vec/VecDeque and Rc names with different storage and reclamation.",
+      "note": "Original count 500, names (a b \"c\" \"d\") and ordered 31-string predicate pass raw/optimized Wasm, mechanical native64 and both Chez controls. Separate 38-assertion structure streams match; all 500 results and each iteration’s 30 work-counter deltas agree. Forced exact native GC survives 19,005 collections. Rust native/raw/optimized controls pass full results and negative expectations. Preparation adds no measured coverage; clean timing pending."
     },
     {
       "name": "dynamic",
