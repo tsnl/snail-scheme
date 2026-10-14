@@ -70,7 +70,8 @@ and `ref-eq?` provide explicit invariant cells. Each concrete `Ref T` has a
 mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
-`String` is a distinct concrete managed type; string literals have that type.
+`String` and `Bytevector` are distinct concrete managed types; their literals
+have those types.
 
 ## Nominal records and closed recursive variants
 
@@ -387,19 +388,80 @@ write. Overlapping copies have memmove behavior. Negative lengths or indices,
 reversed ranges, and out-of-bounds positions trap. Operands run exactly once,
 left to right before the operator, before any primitive permission/range check.
 
-The native representation is one mutable i32 GC array: cell 0 stores a private
-writability flag, and the remaining cells store Unicode scalars. Length subtracts
-one from the unsigned native length; indexing checks the I64 value before adding
-the metadata offset. The maximum representable string length is `2^32 - 2`,
-with lower allocation limits possible in the engine. No operation exposes the
-metadata cell or permits a string to be used as a character vector. Wasm owns
-all string lifetimes and keeps live references in globals, locals and containers.
+The managed representation has an immutable owner containing writability,
+unsigned scalar length, a direct first i32 character block, and an optional
+directory of remaining blocks. Each block holds at most 8,192 scalars; short
+and empty strings omit the directory. Indexing checks the I64 position before
+selecting its block and offset. The maximum representable string length is
+`2^32 - 2`, with lower allocation limits possible in the engine. No operation
+exposes the private blocks or permits a string to be used as a character vector.
+Live owners and their blocks stay rooted in globals, locals and containers.
 
 Allocation, indexing, mutation, length, identity and bulk copying are native
 primitives. Append, substring, fresh copy, content comparison and list conversions
 are ordinary Scheme functions in `(snail strict)`. `string-copy` currently takes
 one argument and `string-copy!` takes exactly five. String values remain internal
 managed references; native scalar imports/exports do not accept them.
+
+## Packed bytevectors and UTF-8
+
+`(snail bytes)` provides `Bytevector`, fresh mutable bytevectors, checked byte
+access, bulk copies, concatenation, and UTF-8 conversion. A Bytevector owner
+contains immutable writability and a private WasmGC `(array (mut i8))` reference.
+Every mutable owner owns its own byte array, including empty results. Literal
+`#u8(...)` values are readonly rooted constants; equal literals may share.
+Explicit Top conversions preserve the owner and check its semantic type.
+Literal encoding currently uses `array.new_fixed`, limited to 10,000 bytes;
+larger literals produce a located compiler error. Runtime constructors and
+conversions accept larger lengths subject to their usual bounds/allocation checks.
+
+Bytes are I64 values from 0 through 255 at the language boundary. Reads extend
+unsigned; writes and supplied fills trap outside that range, even a fill for an
+empty allocation. Lengths and indices must fit unsigned i32 before narrowing.
+The engine may impose lower allocation limits. Writes check permission before
+touching storage. Copies validate both complete ranges before writing and retain
+overlapping-copy behavior; an empty copy into a readonly owner still traps.
+
+```scheme
+(import (snail strict) (snail bytes))
+(define bytes (bytevector 65 195 169))
+(define text (utf8->string bytes))       ; "Aé", two Unicode scalars
+(define copied (bytevector-copy bytes))
+(bytevector-u8-set! copied 0 90)         ; bytes remains unchanged
+(string->utf8 text 1 2)                 ; a fresh #u8(195 169)
+```
+
+`make-bytevector` accepts a length and optional fill, defaulting to zero.
+`bytevector` and `bytevector-append` accept zero or more arguments.
+`bytevector-copy`, `utf8->string`, and `string->utf8` accept a source and optional
+start/end bounds. `bytevector-copy!` accepts destination, offset, source, and
+optional source bounds. Defaults select the whole source or its suffix.
+`bytevector-length`, `bytevector-u8-ref`, `bytevector-u8-set!`, and
+`bytevector-eq?` expose length, access, mutation, and owner identity.
+
+UTF-8 decoding counts and validates selected bytes before allocating its exact
+string, then fills Unicode scalars. Encoding counts required bytes before
+allocating its exact bytevector. Both are ordinary Scheme functions with scalar
+helpers; no per-character tuple allocation or Rust/JavaScript conversion is
+required. Range units are bytes for decoding and Unicode scalars for encoding.
+Empty in-bounds slices are valid, even between bytes of a multibyte sequence.
+Bytes outside a selected slice are not decoded.
+
+Decoding traps on invalid starters or continuations, truncation, overlong
+encodings, surrogates, and values beyond U+10FFFF. NUL, BOM and Unicode
+noncharacters are preserved; no replacement or normalization occurs. These
+rules follow [RFC 3629](https://www.rfc-editor.org/rfc/rfc3629).
+
+The native executor preserves these semantics but currently expands every
+array element to an eight-byte slot, as described in [native execution](native.md).
+Packed-storage claims here describe the Wasm layout. Bytevectors remain managed
+values, not foreign pointers or Wasm linear-memory offsets.
+
+`scripts/test-strict-bytes` compares both conversion directions for every Unicode
+scalar against Python's independent UTF-8 codec on raw Wasm, optimized Wasm and
+native. It also executes the 10,000-byte literal boundary and checks the located
+error for 10,001 bytes. The ordinary strict/native suites cover invalid encodings,
+range failures, readonly aliases, overlap and fresh mutable results.
 
 ## Concrete calls and static classes
 
