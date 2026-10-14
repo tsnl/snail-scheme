@@ -46,8 +46,8 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 33 measured workloads,
-32 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 34 measured workloads,
+33 with paired Chez controls. The
 [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
@@ -99,6 +99,12 @@ Native allocation requests fall from 35.0 million to 2.30 million in separate
 diagnostic runs. This reaches approximate parity on Ray; the independent
 [Mazefun comparison](results/2026-10-14-native64-mazefun-comparison/README.md)
 still records native at 1.869× V8's time on its frozen common program.
+
+The [Nucleic comparison](results/2026-10-14-strict-nucleic-comparison/README.md)
+records 0.220574 s on V8 for all 50 original searches, 3.359× faster than original
+Chez. Native takes 0.297789 s, 1.350× V8 time. All 20 full-count observations and
+329 source/artifact identities pass; this is a workload result, not a suite-wide
+speed claim.
 
 The [complete Nucleic preparation](results/2026-10-14-strict-nucleic/README.md)
 preserves all 50 searches, the full coordinate database and original ratio
