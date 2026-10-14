@@ -36,13 +36,19 @@ do not prove that every source object is allocated on every path.
 
 ## Actual native backend
 
-The separately compiled non-counting native provider consumes the same optimized
-Scheme Wasm. In its generated LLVM, `wasm.bench` reaches `f.92`, then `f.87` and
+The separately compiled non-counting native provider starts from the production
+optimized Scheme Wasm. The native build further optimizes that input; its final
+`optimized.wasm` is a distinct artifact. In the LLVM generated from that final
+module, `wasm.bench` reaches `f.92`, then `f.87` and
 the repetition function `f.89`. Both initial and repeated paths retain two calls
 to `f.2` (the external `hide_i64` thunk) and one to `f.69` (the complete worker).
 The repeated path compares count/index, adds one and tail-calls `f.89`. The
 provider remains a distinct external translation unit; only counter increments
 are absent. The final native executable passes the unchanged count and predicate.
+The supplemental V8 control executes the exact native-final module at full count
+and observes 5,000 opacity calls. Both final targets are frozen independently,
+including the final Wasm, LLVM, provider object, Rust archive and build record.
+The production V8 module is retained as the separate source-program baseline.
 
 These excerpts precede the native LLVM optimizer. They show the native input
 and compiler-generated control/data path, not a count of surviving machine-code

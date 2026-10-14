@@ -1,0 +1,14 @@
+{
+  "archive_sha256": "e1c25af9b22422cd3365147e72a63fdd3ea219c7deefed458189848fc4048740",
+  "files": {
+    "build.json": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e",
+    "identities.json": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379",
+    "libsnail_runtime.a": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+    "module.ll": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7",
+    "optimized.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
+    "optimized.wat": "707707482a87da7fefe402f84104fc9921a9ea3ef7a71673360d97574e46bec8",
+    "prepare-native-final.py": "f0d9b04a79a27e0751aea66d7384c1a03e7672bceb28a72a635e239a5466f38b",
+    "provider-0.o": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5",
+    "validation.json": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730"
+  }
+}

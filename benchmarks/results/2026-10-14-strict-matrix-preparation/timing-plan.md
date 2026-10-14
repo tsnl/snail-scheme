@@ -1,8 +1,8 @@
-# Frozen six-system Matrix timing plan
+# Frozen seven-system Matrix timing plan
 
 Status: awaiting parent review and a coordinated quiet-window release. Preparing
 this plan does not authorize its clean clocks. One campaign will execute exactly
-42 serial fresh processes: one discarded six-system round followed by six
+56 serial fresh processes: one discarded seven-system round followed by seven
 retained rounds. Each retained round rotates the first system by one position,
 so every system occupies each position once. No in-process warmup or replacement
 sample is added. An error aborts and retains the partial campaign.
@@ -14,7 +14,8 @@ size **5**, and complete expected five matrices. The frozen artifacts are from
 | System | Selected artifact and execution |
 | --- | --- |
 | Snail/V8 | mandatory Binaryen-optimized `matrix/strict.wasm`, clean `host.mjs` |
-| Native Snail | `matrix/native-timing/native`, built from the identical optimized Wasm with non-counting opacity provider |
+| Snail/V8, native-final module | exact `matrix/native-timing/native.native-r2n6qggl/optimized.wasm` used to generate native LLVM, same clean host |
+| Native Snail | `matrix/native-timing/native`, compiled from that native-final module with non-counting opacity provider |
 | Original Chez | compiled `matrix/program.so`, unchanged original kernel and benchmark harness |
 | Adapted Chez | compiled `matrix/same-source-chez/program.so`, same typed kernel edits as Snail |
 | Native Rust | unchanged reference compiled to `matrix/rust-reference/matrix.native` |
@@ -23,10 +24,16 @@ size **5**, and complete expected five matrices. The frozen artifacts are from
 Rust is a validated algorithm/layout control; its internal program and allocation
 strategy differ as described in the preparation report. Raw Wasm artifacts
 remain correctness controls and are not selected for this timing campaign.
+The native build further optimizes its Wasm input. The production V8 and
+native-final modules have different identities; only the second V8 control and
+native Snail share the same final Wasm bytes. Production V8 remains the primary
+Scheme artifact for the Chez/Rust comparisons. One additional count-2,500
+correctness run validates the native-final module on V8 before this plan is
+frozen. The superseded six-system plan was never timed.
 
 ## Timer boundaries
 
-Snail/V8 uses `process.hrtime.bigint()` immediately before the exported
+Both Snail/V8 controls use `process.hrtime.bigint()` immediately before the exported
 `bench(2500)` call and ends after checking its result flag in the host. The
 complete ordered predicate executes inside `bench`. File input, expected-value
 construction, compilation, instantiation and `main` occur before the workload
@@ -60,7 +67,8 @@ clocks will be reported separately.
 ## Identities, supervision and acceptance
 
 The machine-readable plan records exact absolute argv/cwd/stdin paths, tool and
-artifact SHA-256 identities, complete expected Rust result text, compiler/source
+artifact SHA-256 identities, the actual native-final Wasm/module.ll/provider
+object/Rust runtime archive/build record, complete expected Rust result text, compiler/source
 basis, environment, pre-campaign CPU model/governor and available affinity.
 Each child is pinned to CPU 5 with `taskset`. Identity checks run before the
 campaign, before every sample and after the final sample. The input, artifacts,
@@ -97,14 +105,14 @@ not optimization-sensitive assertions.
 Review-only verification starts no guest:
 
 ```sh
-python3 benchmarks/results/2026-10-14-strict-matrix-preparation/measure-six.py
+python3 benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py
 ```
 
 After the separate release, the one planned campaign is:
 
 ```sh
-python3 benchmarks/results/2026-10-14-strict-matrix-preparation/measure-six.py \
-  --run --output build/matrix-six-system-campaign-20261014
+python3 benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py \
+  --run --output build/matrix-seven-system-campaign-20261014
 ```
 
 Preparation validation durations are never included in the campaign summary.

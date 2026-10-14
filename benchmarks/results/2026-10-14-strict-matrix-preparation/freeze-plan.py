@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[3]
 REPORT = Path(__file__).resolve().parent
 PREPARATION = ROOT / 'build/matrix-attempt5'
 CASE = PREPARATION / 'matrix'
+NATIVE_FINAL = CASE / 'native-timing/native.native-r2n6qggl'
+NATIVE_CONTROL = ROOT / 'build/matrix-native-final-control-20261014'
 sys.path.insert(0, str(PREPARATION))
 from matrix_port import scheme_value
 
@@ -52,6 +54,7 @@ def systems(tools):
     node, chez = tools['NODE']['path'], tools['CHEZ']['path']
     commands = {
         'strict-v8': [node, PREPARATION / 'host.mjs', CASE / 'strict.wasm', CASE / 'spec.json'],
+        'strict-v8-native-final': [node, PREPARATION / 'host.mjs', NATIVE_FINAL / 'optimized.wasm', CASE / 'spec.json'],
         'strict-native': [CASE / 'native-timing/native', '2500', CASE / 'native-timing/native-input-canonical.txt'],
         'chez-original': [chez, '--program', CASE / 'program.so'],
         'chez-adapted': [chez, '--program', CASE / 'same-source-chez/program.so'],
@@ -71,12 +74,14 @@ def frozen_identities(prepared, selected):
         'native-timing/native-provider.c', 'native-timing/native-provider.h', 'native-timing/native-entry.c',
         'native-timing/native-input-canonical.txt', 'rust-reference/run-wasi.mjs',
         'rust-reference/src/bin/matrix.rs', 'rust-reference/src/lib.rs', 'rust-reference/Cargo.toml', 'rust-reference/Cargo.lock')]
-    paths += [REPORT / name for name in ('measure-six.py', 'freeze-plan.py', 'timing-plan.md', 'hardware-before.json',
+    paths += [NATIVE_FINAL / name for name in ('optimized.wasm', 'module.ll', 'provider-0.o', 'build.json')]
+    paths += [NATIVE_CONTROL / name for name in ('libsnail_runtime.a', 'identities.json', 'validation.json')]
+    paths += [REPORT / name for name in ('measure-seven.py', 'freeze-plan.py', 'timing-plan.md', 'hardware-before.json',
                                          'inspect-retained-work.py', 'retained-work.json', 'retained-work.md')]
     return {str(path): digest(path) for path in paths}
 
 
-# ---- Six fresh processes per round, with no replacement policy ----
+# ---- Seven fresh processes per round, with no replacement policy ----
 
 def main():
     if (REPORT / 'timing-plan.json').exists():
@@ -84,16 +89,17 @@ def main():
     prepared, spec = load(PREPARATION / 'prepared.json'), load(CASE / 'spec.json')
     selected = ('strict.wasm', 'strict.wasm.raw.wasm', 'native-timing/native', 'program.so',
                 'same-source-chez/program.so', 'rust-reference/matrix.native',
-                'rust-reference/matrix.raw.wasm', 'rust-reference/matrix.wasm')
+                'rust-reference/matrix.raw.wasm', 'rust-reference/matrix.wasm',
+                'native-timing/native.native-r2n6qggl/optimized.wasm')
     import importlib.util
-    module = importlib.util.spec_from_file_location('timing_runner', REPORT / 'measure-six.py')
+    module = importlib.util.spec_from_file_location('timing_runner', REPORT / 'measure-seven.py')
     runner = importlib.util.module_from_spec(module)
     module.loader.exec_module(runner)
     save(REPORT / 'hardware-before.json', machine_state(5))
     configs = systems(prepared['tools'])
     order = list(configs)
     schedule = [dict(round=round_number, retained=round_number != 0, system=name)
-                for round_number in range(7)
+                for round_number in range(8)
                 for name in order[max(0, round_number - 1):] + order[:max(0, round_number - 1)]]
     plan = dict(status='awaiting-parent-release', preparation=str(PREPARATION),
         compiler_commit=prepared['compiler_commit'], upstream_commit=prepared['upstream_commit'],
@@ -103,12 +109,13 @@ def main():
         inherited_environment={name: os.environ.get(name) for name in runner.RECORDED_ENVIRONMENT},
         observations='One complete canonical output/prime-chain invocation, repeated-call and full-count checks; no full2500 internal trace.',
         rust_control='Validated complete outputs, with separately disclosed algorithm/layout differences.',
+        engine_control='strict-v8-native-final and strict-native use the same native-final optimized Wasm bytes; strict-v8 retains the production Scheme artifact.',
         rust_result_line='Result: ' + scheme_value(spec['original_expected']),
         selected_hashes={name: digest(CASE / name) for name in selected},
         identities=frozen_identities(prepared, selected))
     runner.verify(plan)
     save(REPORT / 'timing-plan.json', plan)
-    print('Frozen six-system plan with', len(plan['identities']), 'identities and', len(schedule), 'processes')
+    print('Frozen seven-system plan with', len(plan['identities']), 'identities and', len(schedule), 'processes')
 
 
 if __name__ == '__main__':

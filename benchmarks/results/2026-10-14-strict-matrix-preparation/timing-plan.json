@@ -450,6 +450,16 @@
       "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
       "stdin": null
     },
+    "strict-v8-native-final": {
+      "argv": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "stdin": null
+    },
     "strict-native": {
       "argv": [
         "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
@@ -504,6 +514,11 @@
     {
       "round": 0,
       "retained": false,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 0,
+      "retained": false,
       "system": "strict-native"
     },
     {
@@ -534,6 +549,11 @@
     {
       "round": 1,
       "retained": true,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 1,
+      "retained": true,
       "system": "strict-native"
     },
     {
@@ -559,6 +579,11 @@
     {
       "round": 2,
       "retained": true,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 2,
+      "retained": true,
       "system": "strict-native"
     },
     {
@@ -589,6 +614,11 @@
     {
       "round": 3,
       "retained": true,
+      "system": "strict-native"
+    },
+    {
+      "round": 3,
+      "retained": true,
       "system": "chez-original"
     },
     {
@@ -614,7 +644,12 @@
     {
       "round": 3,
       "retained": true,
-      "system": "strict-native"
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "chez-original"
     },
     {
       "round": 4,
@@ -639,12 +674,17 @@
     {
       "round": 4,
       "retained": true,
-      "system": "strict-native"
+      "system": "strict-v8-native-final"
     },
     {
       "round": 4,
       "retained": true,
-      "system": "chez-original"
+      "system": "strict-native"
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "chez-adapted"
     },
     {
       "round": 5,
@@ -664,6 +704,11 @@
     {
       "round": 5,
       "retained": true,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 5,
+      "retained": true,
       "system": "strict-native"
     },
     {
@@ -672,9 +717,9 @@
       "system": "chez-original"
     },
     {
-      "round": 5,
+      "round": 6,
       "retained": true,
-      "system": "chez-adapted"
+      "system": "rust-native"
     },
     {
       "round": 6,
@@ -689,6 +734,11 @@
     {
       "round": 6,
       "retained": true,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 6,
+      "retained": true,
       "system": "strict-native"
     },
     {
@@ -702,7 +752,37 @@
       "system": "chez-adapted"
     },
     {
-      "round": 6,
+      "round": 7,
+      "retained": true,
+      "system": "rust-wasm-v8"
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-v8"
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-v8-native-final"
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-native"
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "chez-original"
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "chez-adapted"
+    },
+    {
+      "round": 7,
       "retained": true,
       "system": "rust-native"
     }
@@ -724,6 +804,7 @@
   },
   "observations": "One complete canonical output/prime-chain invocation, repeated-call and full-count checks; no full2500 internal trace.",
   "rust_control": "Validated complete outputs, with separately disclosed algorithm/layout differences.",
+  "engine_control": "strict-v8-native-final and strict-native use the same native-final optimized Wasm bytes; strict-v8 retains the production Scheme artifact.",
   "rust_result_line": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))",
   "selected_hashes": {
     "strict.wasm": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46",
@@ -733,7 +814,8 @@
     "same-source-chez/program.so": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3",
     "rust-reference/matrix.native": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
     "rust-reference/matrix.raw.wasm": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
-    "rust-reference/matrix.wasm": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284"
+    "rust-reference/matrix.wasm": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+    "native-timing/native.native-r2n6qggl/optimized.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd"
   },
   "identities": {
     "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
@@ -763,6 +845,7 @@
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.raw.wasm": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/upstream.scm": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
@@ -781,12 +864,18 @@
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
     "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
-    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-six.py": "7c6edc7dae66d4ad40d31f1383125a984abc1e914d4ae494ce58e0f2f3f0de6b",
-    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py": "ca792d6c9009069136b4f3848019a9f91576d2e45bf189bfcc70848c2e39c677",
-    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.md": "7290903c6d2336fa4a366cef72c824db03588fadeb975526d4b56d51ec8c0330",
-    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/hardware-before.json": "6098429555b7687d206823d5661dc24d658b484b2273ceb90a1acb35d4f71130",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/module.ll": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/provider-0.o": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/build.json": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/libsnail_runtime.a": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/identities.json": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379",
+    "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/validation.json": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.md": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/hardware-before.json": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2",
     "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/inspect-retained-work.py": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902",
     "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.json": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c",
-    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.md": "1535088492c1da396209cf137924748a4dba136ee72ad196f5f2de28b7f8de74"
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.md": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1"
   }
 }

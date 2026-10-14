@@ -72,8 +72,13 @@ before timing, then returns the full predicate's integer flag.
 Original/adapted Chez, raw/optimized Scheme Wasm and actual native each pass
 counts 1, 2 and the unchanged 2,500. The Wasm validation host and counting native
 provider observe exactly 5,000 opacity calls at full count. A separately
-compiled non-counting native provider also passes 2,500; its optimized Wasm input
-is byte-identical, and its provider differs only by removing counter increments.
+compiled non-counting native provider also passes 2,500; its initial optimized
+Wasm input is byte-identical to production V8, and its provider differs only by
+removing counter increments. The native build performs further Wasm optimization,
+so its final module differs. A supplemental count-2,500 V8 check of that exact
+native-final module passes the complete predicate and 5,000 opacity calls.
+The timing plan retains both V8 modules so only the matching-final-module pair
+is used for an engine comparison.
 
 Fourteen observation fixtures pass on all five Scheme paths, for 70 complete
 sequence comparisons. These cover the full ordered canonical answer and prime
@@ -172,5 +177,11 @@ python3 benchmarks/strict-suite/replay.py /tmp/matrix-replay \
   --report benchmarks/results/2026-10-14-strict-matrix-preparation
 ```
 
-The [six-system timing plan](timing-plan.md) freezes commands, clock boundaries,
-identity checks and process order. It requires a separately granted quiet window.
+The [seven-system timing plan](timing-plan.md) freezes commands, clock boundaries,
+identity checks and process order. Parent review identified the native build's
+additional Wasm optimization before timing; the original six-system proposal is
+preserved in `superseded-six-system-plan/`. The final native module, LLVM,
+provider object, Rust runtime archive and build record have supplemental frozen
+identities and an independently replayable archive in `native-final-control/`.
+The original preparation archive is unchanged. Clean timing requires a separately
+granted quiet window.
