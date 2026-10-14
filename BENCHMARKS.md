@@ -40,8 +40,16 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records measurements for 30 of 57 workloads at their respective compiler
-checkpoints, including 29 paired Chez comparisons. The latest
+records historical measurements for 45 of 57 workloads at their respective
+compiler checkpoints, including 44 paired Chez comparisons. These accumulated
+revisions do not constitute a whole-suite rerun. The complete
+[Conform comparison](benchmarks/results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes at the original 500-invocation count and ordered
+31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and
+original Chez 0.891038 s. Native takes 13.73% more time than V8 on the exact
+native-final Scheme Wasm; representations, scalar linkage and reclamation differ.
+Separate work counters and forced-GC observations stay outside these timings.
+The preceding
 [Destruc comparison](benchmarks/results/2026-10-14-strict-destruc-comparison/README.md)
 takes 3.382× original Chez time, 1.344× adapted Chez time and 1.167× Rust/Wasm
 time on the original 4,000 × destructive(600,50) workload. Adapted Chez already

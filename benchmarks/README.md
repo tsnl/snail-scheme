@@ -46,8 +46,8 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 44 measured workloads,
-43 with paired Chez controls. These are individual checkpoints, not a complete
+[coverage inventory](strict-suite/capabilities.md): 45 measured workloads,
+44 with paired Chez controls. These accumulate individual compiler revisions, not a complete
 rerun on the current compiler. The
 [complete Equal comparison](results/2026-10-14-strict-equal-comparison/README.md)
 records 2.395007 s on V8, 2.133533 s natively and 0.258255 s on original Chez.
@@ -91,6 +91,14 @@ Chez time; native takes 1.724× V8 time on the identical native-final Scheme Was
 Adapted Chez's 12.088× original Chez ratio exposes the joint source-helper and
 representation changes. Bounded internal traces, clean matcher retention and
 Rust's separate Rc/Vec/Boolean representation remain explicit.
+The [complete Conform comparison](results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes at the original 500-invocation count and ordered
+31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and
+original Chez 0.891038 s. Native takes 13.73% more time than V8 on identical
+native-final Scheme Wasm. Typed mutable records, functional lists, distinct Rust
+layouts/reclamation and source-adaptation caveats remain explicit; work counters
+and forced-GC runs are separate from clean clocks. The preceding full Equal
+comparison and Conform use different compiler/library revisions.
 The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate

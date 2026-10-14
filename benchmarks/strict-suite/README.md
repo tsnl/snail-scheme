@@ -7,8 +7,8 @@ This diagnostic adapts selected original R7RS kernels to the strict compiler:
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
-Historical strict measurements cover **44 of 57 workloads**, **43 with paired
-Chez controls**, including the complete Equal comparison below. The explicit
+Historical strict measurements cover **45 of 57 workloads**, **44 with paired
+Chez controls**, including the complete Equal and Conform comparisons. The explicit
 name sets are in [`capabilities.json`](capabilities.json). These are separate
 compiler checkpoints, not a complete-suite rerun on the current revision.
 
@@ -124,6 +124,13 @@ artifacts have no probe counters. The unchanged Rust control uses arena indices,
 Vec tables/sets, VecDeque sorting and Rc names, with different allocation and
 reclamation. Use `--benchmarks conform` for preparation; clean timing uses the
 separately frozen seven-system commands and needs a coordinated quiet window.
+The [complete Conform comparison](../results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 1.599663 s, original Chez
+0.891038 s and adapted Chez 2.571687 s; native64 takes 1.825969 s versus
+1.605583 s for V8 on the exact native-final Scheme Wasm (13.73% more time).
+Default engine/collector settings and all seven serial position rotations remain.
+Separate counted/GC observations are outside clean timings. This artifact basis
+is `43322a2`, with ledger-only correction `7bd327f` recorded independently.
 
 ## Run
 
