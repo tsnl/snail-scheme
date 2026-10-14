@@ -315,12 +315,15 @@
     },
     {
       "name": "maze",
-      "status": "additional-capabilities",
+      "status": "correctness-prepared",
       "source_lines": 750,
       "files": {
         "src/maze.scm": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
         "inputs/maze.input": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-maze-preparation/README.md",
+      "note": "Complete original count 10000, 20 by 7 grid and all 668 expected characters pass on raw/optimized V8, native64 and original/adapted Chez. Complete ordered observations, full work counts and independent Rust controls pass. Clean timing remains pending.",
+      "representation_note": "Concrete records and Ref fields preserve source identities and mutation. Recursive bitwise-and/div/mod helpers remain. The sole immediate lexical escape becomes short-circuit reverse traversal; this adds no general continuation support. Rust retains indexed Vec cells/walls, native bit operations, temporary child vectors and owned character lists."
     },
     {
       "name": "mazefun",
