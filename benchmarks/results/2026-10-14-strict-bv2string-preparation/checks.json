@@ -1,0 +1,63 @@
+{
+  "cleanup-tests": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "benchmarks/strict-suite/bv2string_port.py"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "...\n----------------------------------------------------------------------\nRan 3 tests in 0.543s\n\nOK\n",
+    "timeout": false,
+    "process_seconds": 0.5904845490003936
+  },
+  "python-syntax": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "-m",
+      "py_compile",
+      "benchmarks/strict-suite/bv2string_port.py",
+      "benchmarks/strict-suite/measure.py",
+      "/tmp/snail-strict-bv2string-20261014/benchmarks/results/2026-10-14-strict-bv2string-preparation/measure-six.py",
+      "/tmp/snail-strict-bv2string-20261014/benchmarks/results/2026-10-14-strict-bv2string-preparation/inspect-retained-work.py"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "timeout": false,
+    "process_seconds": 0.052804120001383126
+  },
+  "whitespace": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "timeout": false,
+    "process_seconds": 0.08469669398618862
+  },
+  "retained-work": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-bv2string-20261014/benchmarks/results/2026-10-14-strict-bv2string-preparation/inspect-retained-work.py"
+    ],
+    "returncode": 0,
+    "stdout": "Retained Scheme Wasm/native and Rust Wasm/native conversion/comparison paths\n",
+    "stderr": "",
+    "timeout": false,
+    "process_seconds": 0.05311108601745218
+  },
+  "timing-dry-verification": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-bv2string-20261014/benchmarks/results/2026-10-14-strict-bv2string-preparation/measure-six.py"
+    ],
+    "returncode": 0,
+    "stdout": "Verified frozen identities; no benchmark process started\n",
+    "stderr": "",
+    "timeout": false,
+    "process_seconds": 0.09866292402148247
+  }
+}
