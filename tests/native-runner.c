@@ -1,6 +1,10 @@
 // Execute lowered Wasm datums, including GC and native stack invariants.
 #include <assert.h>
+#ifdef SNAIL_PRECISE_GC
+#include "precise-gc.h"
+#else
 #include <gc/gc.h>
+#endif
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -71,6 +75,8 @@ void drop_resource(uint32_t kind, uint32_t id) { (void)kind; (void)id; abort(); 
 extern uint32_t check(void) __asm__("wasm.check");
 extern uint64_t tail(uint32_t) __asm__("wasm.tail");
 extern uint64_t root(uint32_t) __asm__("wasm.root");
+extern uint64_t tail_gc(uint32_t) __asm__("wasm.tail-gc");
+extern uint64_t gc_operands(void) __asm__("wasm.gc-operands");
 extern void trap(uint32_t) __asm__("wasm.trap");
 extern int32_t i31_signed(int32_t) __asm__("wasm.i31-s");
 extern uint32_t i31_unsigned(int32_t) __asm__("wasm.i31-u");
@@ -114,6 +120,11 @@ int main(int argc, char **argv) {
     assert(!i31_equal_negative(0));
     assert(tail(2000000) == 42);
     assert(root(500) == 99);
+    assert(tail_gc(20000) == 42);
+    assert(gc_operands() == 42);
+#ifdef SNAIL_PRECISE_GC
+    assert(native_roots == NULL);
+#endif
     assert(GC_get_gc_no() > 1);
     return 0;
 }

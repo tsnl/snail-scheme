@@ -421,6 +421,17 @@ Scheme instance. Finalizers queue scalar resource IDs; cleanup calls Rust only
 after guest frames return, when no Rust host-state borrow is active. See
 [native execution](doc/native.md) for the representation and host contract.
 
+This isolated archive experiment restores [`precise-gc.c`](src/precise-gc.c)
+from the retained nonmoving Immix prototype. The emitter publishes exact
+reference roots around synchronous allocation and guest calls; numeric i64
+values are not roots. The collector retains 32 KiB blocks and 128-byte lines,
+with no evacuation. Array elements still occupy eight-byte native slots.
+[`experiments/current-wasm-llvm/`](experiments/current-wasm-llvm/) lowers frozen
+current Wasm artifacts without rerunning the frontend. Its C host is compiled
+separately without LTO so runtime inputs and opacity calls remain external to
+LLVM's guest optimization. This branch does not restore LLVM to the current
+compiler product.
+
 ## Tests and measurements
 
 [`doc/book/`](doc/book/index.md) is the mdBook source. Its first platforms are

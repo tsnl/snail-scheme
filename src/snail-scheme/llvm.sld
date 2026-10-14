@@ -16,7 +16,7 @@
           (list "@" (llvm-quoted (string-append prefix name)))))
 
     (define (value-type type)
-      (cond ((and (pair? type) (eq? (car type) 'ref)) "i64")
+      (cond ((and (pair? type) (eq? (car type) 'ref)) "ref")
             ((memq type '(i8 i16 i32)) "i32")
             ((eq? type 'i64) "i64")
             ((eq? type 'f32) "float")
@@ -32,7 +32,10 @@
     (define (zero type)
       (if (member type '("double" "float")) "0.0" "0"))
 
-    (define (typed value) (list (car value) " " (cdr value)))
+    ;; Operand types retain reference identity even though the machine ABI is i64.
+    (define (llvm-type type) (if (string=? type "ref") "i64" type))
+    (define (reference-value? value) (string=? (car value) "ref"))
+    (define (typed value) (list (llvm-type (car value)) " " (cdr value)))
     (define (constant type word) (cons type word))
 
     ;; The datum backend receives Scheme f64 values, not encoded bit words.
@@ -151,14 +154,16 @@
     ;; stack holds already-produced SSA values, never deferred reads or calls.
 
     (define-record-type <emitter>
-      (make-emitter locals targets serial live? port slots stack result)
+      (make-emitter locals targets serial live? port slots stack result roots local-roots)
       emitter?
       (locals emitter-locals set-emitter-locals!)
       (targets emitter-targets set-emitter-targets!)
       (serial emitter-serial set-emitter-serial!)
       (live? emitter-live? set-emitter-live!) (port emitter-port)
       (slots emitter-slots set-emitter-slots!)
-      (stack emitter-stack set-emitter-stack!) (result emitter-result set-emitter-result!))
+      (stack emitter-stack set-emitter-stack!) (result emitter-result set-emitter-result!)
+      (roots emitter-roots set-emitter-roots!)
+      (local-roots emitter-local-roots set-emitter-local-roots!))
 
     (define current-emitter (make-parameter #f))
 
@@ -192,7 +197,7 @@
     (define (slot type)
       (let* ((name (fresh "%slot")) (emitter (current-emitter)))
         (set-emitter-slots! emitter
-                            (cons (list "  " name " = alloca " type ", align 8\n")
+                            (cons (list "  " name " = alloca " (llvm-type type) ", align 8\n")
                                   (emitter-slots emitter)))
         (constant type name)))
 
@@ -200,7 +205,7 @@
       (line "store " (typed value) ", ptr " (cdr pointer) ", align 1"))
 
     (define (load pointer)
-      (instruction (car pointer) "load " (car pointer) ", ptr " (cdr pointer) ", align 1"))
+      (instruction (car pointer) "load " (llvm-type (car pointer)) ", ptr " (cdr pointer) ", align 1"))
 
     (define (push-value! value)
       (when (and value (alive?))
@@ -230,11 +235,11 @@
       (instruction "i32" "zext " (typed value) " to i32"))
 
     (define (cast opcode value type)
-      (if (string=? type (car value)) value
-          (instruction type opcode " " (typed value) " to " type)))
+      (if (string=? (llvm-type type) (llvm-type (car value))) (constant type (cdr value))
+          (instruction type opcode " " (typed value) " to " (llvm-type type))))
 
     (define (call-native name result arguments)
-      (let ((call (list "call " result " @" name "(" (llvm-join (map typed arguments) ", ") ")")))
+      (let ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")")))
         (if (string=? result "void") (begin (line call) #f)
             (instruction result call))))
 
@@ -250,7 +255,31 @@
       (trap-unless (instruction "i1" "icmp ne " (typed value) ", 0"))
       value)
 
-    (define (return-value value)
+    ;; Reference locals live directly in the frame. At synchronous safepoints
+    ;; only operand temporaries need copies. Nonmoving objects need no reload.
+    ;; The active count excludes stale temporary slots left by earlier loops.
+    (define (publish-roots arguments)
+      (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
+             (values (filter reference-value? (append (emitter-stack emitter) arguments)))
+             (count (+ offset (length values))))
+        (set-emitter-roots! emitter (max (emitter-roots emitter) count))
+        (for-each (lambda (value index) (store value (root-slot (+ index 3))))
+                  values (iota (length values) offset))
+        (store (constant "i64" count) (root-slot 2))))
+
+    (define (local-storage type)
+      (if (not (string=? type "ref")) (slot type)
+          (let* ((emitter (current-emitter)) (index (emitter-local-roots emitter)))
+            (set-emitter-local-roots! emitter (+ index 1))
+            (constant type (cdr (root-slot (+ index 3)))))))
+
+    (define (root-slot index)
+      (constant "i64" (cdr (instruction "ptr" "getelementptr i64, ptr %roots, i64 " index))))
+
+    (define (leave-roots) (line "call void @native_roots_leave(ptr %roots)"))
+
+    (define (return-value value . tail?)
+      (unless (and (pair? tail?) (car tail?)) (leave-roots))
       (if value (finish "ret " (typed value)) (finish "ret void")))
 
     ;; ---- Structured control flow ----
@@ -368,11 +397,13 @@
       ;; tailcc guarantees tail lowering even when argument counts differ.
       ;; LLVM 22 x86-64 mishandles musttail with growing stack arguments; the
       ;; executable ABI regression covers tailcc + tail across that boundary.
-      (let* ((code (list (if tail? "tail " "") "call tailcc " result " " name
+      ;; No collection can occur between unlinking and the callee publishing.
+      (if tail? (leave-roots) (publish-roots arguments))
+      (let* ((code (list (if tail? "tail " "") "call tailcc " (llvm-type result) " " name
                          "(" (llvm-join (map typed arguments) ", ") ")"))
              (value (if (string=? result "void") (begin (line code) #f)
                         (instruction result code))))
-        (when tail? (return-value value))
+        (when tail? (return-value value #t))
         value))
 
     (define (emit-direct-call index arguments tail?)
@@ -399,7 +430,7 @@
 
     (define (emit-indirect-call table type tail?)
       (let* ((index (pop-value!)) (arguments (call-arguments type))
-             (reference (load (constant "i64" (cdr (table-slot table index)))))
+             (reference (load (constant "ref" (cdr (table-slot table index)))))
              (tag (load (field-pointer reference 0 "i64"))))
         (trap-unless (instruction "i1" "icmp eq " (typed tag) ", " (type-id type)))
         (emit-call (cdr (function-pointer reference)) arguments
@@ -432,7 +463,7 @@
       ;; each payload one canonical odd word; heap references remain full i64s.
       (let* ((shifted (instruction "i32" "shl " (typed value) ", 1"))
              (tagged (instruction "i32" "or " (typed shifted) ", 1")))
-        (cast "zext" tagged "i64")))
+        (cast "zext" tagged "ref")))
 
     (define (emit-i31-get reference signed?)
       (let ((tagged (cast "trunc" (nonnull reference) "i32")))
@@ -445,7 +476,7 @@
     ;; Interior pointers stay recognizable across allocating operands and calls.
 
     (define (allocate-struct name values)
-      (let* ((reference (call-native "native_alloc" "i64"
+      (let* ((reference (call-native "native_alloc" "ref"
                                      (list (constant "i64" (+ 8 (* 8 (length values)))))))
              (fields (cdr (type-definition name))))
         (store (constant "i64" (type-id name)) (field-pointer reference 0 "i64"))
@@ -483,7 +514,7 @@
             (else (cast "zext" value "i64"))))
 
     (define (new-array name length initial)
-      (call-native "native_array_new" "i64"
+      (call-native "native_array_new" "ref"
                    (list (constant "i64" (type-id name)) length (value-word initial))))
 
     (define (emit-array-new name default?)
@@ -620,7 +651,7 @@
       (let* ((pointer (constant "ptr" (symbol-name "table." table)))
              (values (pop-values! (case op ((table.get) 1) ((table.size) 0) (else 2)))))
         (case op
-          ((table.get) (load (constant "i64" (cdr (table-slot table (car values))))))
+          ((table.get) (load (constant "ref" (cdr (table-slot table (car values))))))
           ((table.set) (store (cadr values) (constant "i64" (cdr (table-slot table (car values))))) #f)
           ((table.size) (call-native "native_table_size" "i32" (list pointer)))
           ((table.grow) (call-native "native_table_grow" "i32" (cons pointer values)))
@@ -635,6 +666,10 @@
     ;; Common operations lead the case: Chibi searches its arms linearly.
     (define (emit-operation node)
       (let ((op (car node)) (args (cdr node)))
+        ;; Publish before operands are popped: constructors retain their fields
+        ;; across allocation, including an array's erased initial machine word.
+        (when (memq op '(struct.new struct.new_default array.new array.new_default array.new_fixed table.grow))
+          (publish-roots '()))
         (case op
           ((local.get) (load (local-slot (car args))))
           ((numeric) (emit-numeric (car args) (cadr args) (pop-values! (caddr args))))
@@ -658,8 +693,8 @@
            (emit-reference-call (car args) (eq? op 'return_call_ref)))
           ((call_indirect return_call_indirect)
            (emit-indirect-call (car args) (cadr args) (eq? op 'return_call_indirect)))
-          ((ref.null) (constant "i64" 0))
-          ((ref.func) (constant "i64" (list "ptrtoint (ptr " (symbol-name "ref." (car args)) " to i64)")))
+          ((ref.null) (constant "ref" 0))
+          ((ref.func) (constant "ref" (list "ptrtoint (ptr " (symbol-name "ref." (car args)) " to i64)")))
           ((ref.i31) (emit-i31 (pop-value!)))
           ((i31.get_s i31.get_u) (emit-i31-get (pop-value!) (eq? op 'i31.get_s)))
           ((ref.as_non_null) (nonnull (pop-value!)))
@@ -702,24 +737,52 @@
         (set-emitter-locals! (current-emitter) (make-vector (length locals)))
         (for-each
          (lambda (local index)
-           (let* ((type (value-type local)) (pointer (slot type)))
+           (let* ((type (value-type local)) (pointer (local-storage type)))
              (vector-set! (emitter-locals (current-emitter)) index pointer)
              (store (constant type (if (< index (length params)) (llvm-name "%arg" index) (zero type))) pointer)))
          locals (iota (length locals) 0))))
 
     (define (emit-definition name params body . attributes)
       (let ((emitter (make-emitter '#() '() 0 #t
-                                   (open-output-string) '() '() "void")))
+                                   (open-output-string) '() '() "void" 0 0)))
         (parameterize ((current-emitter emitter)) (body))
         (output "define " name "(" (llvm-join (map typed params) ", ") ") " attributes "{\nentry:")
         (for-each (lambda (line) (write-llvm line (module-output (current-module))))
                   (reverse (emitter-slots emitter)))
+        (output "  %roots = alloca { ptr, i64, i64, [" (max (emitter-roots emitter) (emitter-local-roots emitter)) " x i64] }, align 8")
+        (output "  call void @native_roots_enter(ptr %roots, i64 " (emitter-roots emitter) ")")
         (display (get-output-string (emitter-port emitter)) (module-output (current-module)))
         (close-output-port (emitter-port emitter))
         (output "}\n")))
 
     (define (host-import import)
-      (cond ((equal? import '("snail.rust" "snail:symbol-character"))
+      (cond ((equal? import '("benchmark" "hide_i64"))
+             '("benchmark_hide_i64" "i64" "i64"))
+            ((equal? import '("benchmark" "input_i64"))
+             '("benchmark_input_i64" "i64" "i32"))
+            ((equal? import '("benchmark" "hide_f64"))
+             '("benchmark_hide_f64" "double" "double"))
+            ((equal? import '("benchmark" "input_f64"))
+             '("benchmark_input_f64" "double" "i32"))
+            ((equal? import '("benchmark" "vector_length"))
+             '("benchmark_vector_length" "i64" "i32"))
+            ((equal? import '("benchmark" "vector_i64"))
+             '("benchmark_vector_i64" "i64" "i32" "i64"))
+            ((equal? import '("benchmark" "vector_f64"))
+             '("benchmark_vector_f64" "double" "i32" "i64"))
+            ((equal? import '("benchmark" "expected_length"))
+             '("benchmark_expected_length" "i64"))
+            ((equal? import '("benchmark" "expected_i64"))
+             '("benchmark_expected_i64" "i64" "i64"))
+            ((equal? import '("benchmark" "expected_f64"))
+             '("benchmark_expected_f64" "double" "i64"))
+            ((equal? import '("benchmark" "tolerance"))
+             '("benchmark_tolerance" "double"))
+            ((equal? import '("benchmark" "barrier"))
+             '("benchmark_barrier" "i32"))
+            ((equal? import '("benchmark" "count"))
+             '("benchmark_count" "i64"))
+            ((equal? import '("snail.rust" "snail:symbol-character"))
              (list (llvm-quoted (cadr import)) "i32" "i32" "i32"))
             ((and (member (car import) '("snail.rust" "snail.cli"))
                   (prefix? "snail:" (cadr import)))
@@ -734,8 +797,8 @@
 
     (define (import-name function)
       (let* ((import (function-import function)) (entry (host-import import))
-             (signature (cons (function-result function)
-                              (map value-type (function-params function)))))
+             (signature (map llvm-type (cons (function-result function)
+                                             (map value-type (function-params function))))))
         (unless entry (error "unsupported native host import" import))
         (unless (equal? signature (cdr entry)) (error "native host import type mismatch" import))
         (car entry)))
@@ -743,11 +806,12 @@
     (define (emit-function function)
       (let ((params (parameter-values function)) (result (function-result function)))
         (emit-definition
-         (list "internal tailcc " result " " (symbol-name "f." (function-name function)))
+         (list "internal tailcc " (llvm-type result) " " (symbol-name "f." (function-name function)))
          params
          (lambda ()
            (if (function-import function)
-               (return-value (call-native (import-name function) result params))
+               (begin (publish-roots params)
+                      (return-value (call-native (import-name function) result params)))
                (begin
                  (initialize-locals function)
                  (set-emitter-result! (current-emitter) result)
@@ -764,19 +828,19 @@
       (case (caaddr node)
         ((global)
          (let ((pointer (global-slot (cadr (caddr node)))))
-           (emit-definition (list (car pointer) " " (symbol-name "wasm-global." (cadr node)))
+           (emit-definition (list (llvm-type (car pointer)) " " (symbol-name "wasm-global." (cadr node)))
                             '() (lambda () (return-value (load pointer))))))
         ((func)
          (let* ((function (function-info (cadr (caddr node)))) (params (parameter-values function))
                 (result (function-result function)))
            (emit-definition
-            (list result " " (symbol-name "wasm." (cadr node))) params
+            (list (llvm-type result) " " (symbol-name "wasm." (cadr node))) params
             (lambda () (return-value (emit-call (symbol-name "f." (function-name function))
                                                 params result #f))))))))
 
     (define (emit-import-declaration function)
-      (output "declare " (function-result function) " @" (import-name function)
-              "(" (llvm-join (map value-type (function-params function)) ", ") ")"))
+      (output "declare " (llvm-type (function-result function)) " @" (import-name function)
+              "(" (llvm-join (map (lambda (type) (llvm-type (value-type type))) (function-params function)) ", ") ")"))
 
     ;; ---- Module initialization ----
 
@@ -788,12 +852,15 @@
     (define (static-global index) (vector-ref (module-constants (current-module)) index))
 
     (define (constant-cast opcode value type)
-      (if (string=? type (car value)) value
-          (constant type (list opcode " (" (typed value) " to " type ")"))))
+      (if (string=? (llvm-type type) (llvm-type (car value))) (constant type (cdr value))
+          (constant type (list opcode " (" (typed value) " to " (llvm-type type) ")"))))
 
     (define (static-word type value)
       (case type
         ((f64) (constant-cast "bitcast" value "i64"))
+        ;; Only default f32 initializers reach the static planner today.
+        ((f32) (unless (equal? (cdr value) "0.0") (error "unsupported static f32" value))
+         (constant "i64" 0))
         ((i8 i16 i32)
          (constant "i64" (modulo (cdr value) (case type ((i8) 256) ((i16) 65536) (else 4294967296)))))
         (else value)))
@@ -809,7 +876,7 @@
                            (pair? (filter mutable-type? (cdr definition))))))
         (vector-set! plan 1 (cons (list name words mutable?) (vector-ref plan 1)))
         (vector-set! plan 2 (+ 1 (vector-ref plan 2)))
-        (constant "i64" (list "ptrtoint (ptr " name " to i64)"))))
+        (constant "ref" (list "ptrtoint (ptr " name " to i64)"))))
 
     (define (take-constants stack count)
       (let loop ((stack stack) (left count) (values '()))
@@ -843,10 +910,10 @@
         ((i32.const) (cons (constant "i32" (cadr node)) stack))
         ((i64.const) (cons (constant "i64" (cadr node)) stack))
         ((f64.const) (cons (constant "double" (float-constant (cadr node))) stack))
-        ((ref.null) (cons (constant "i64" 0) stack))
-        ((ref.func) (cons (constant "i64" (list "ptrtoint (ptr " (symbol-name "ref." (cadr node)) " to i64)")) stack))
+        ((ref.null) (cons (constant "ref" 0) stack))
+        ((ref.func) (cons (constant "ref" (list "ptrtoint (ptr " (symbol-name "ref." (cadr node)) " to i64)")) stack))
         ((ref.i31) (and (integer? (cdar stack))
-                        (cons (constant "i64" (+ 1 (* 2 (modulo (cdar stack) 2147483648)))) (cdr stack))))
+                        (cons (constant "ref" (+ 1 (* 2 (modulo (cdar stack) 2147483648)))) (cdr stack))))
         ((global.get)
          (let ((prior (static-global (cadr node))))
            (and prior (not (mutable-type? (caddr (global-info (cadr node))))) (cons (car prior) stack))))
@@ -868,7 +935,7 @@
     (define (declare-static-object object)
       (let ((words (cadr object)))
         (output (car object) " = internal " (if (caddr object) "global " "constant ")
-                "{ " (llvm-join (map car words) ", ") " } { "
+                "{ " (llvm-join (map (lambda (word) (llvm-type (car word))) words) ", ") " } { "
                 (llvm-join (map typed words) ", ") " }, align 8")))
 
     (define (declare-global node)
@@ -877,7 +944,7 @@
             (begin (for-each declare-static-object (cdr plan))
                    (output (cdr pointer) " = internal " (if (mutable-type? (caddr node)) "global " "constant ")
                            (typed (car plan))))
-            (output (cdr pointer) " = internal global " (car pointer) " " (zero (car pointer))))))
+            (output (cdr pointer) " = internal global " (llvm-type (car pointer)) " " (zero (car pointer))))))
 
     (define (declare-function-reference function)
       (output (symbol-name "ref." (function-name function))
@@ -892,6 +959,54 @@
         ((import) (let ((function (function-info (cadr (cadddr node)))))
                     (emit-import-declaration function) (declare-function-reference function)))
         ((table) (output (symbol-name "table." (cadr node)) " = internal global { ptr, i32, i32 } zeroinitializer"))))
+
+    ;; ---- Precise heap layouts and permanent roots ----
+
+    (define (reference-offsets fields start)
+      (let loop ((fields fields) (offset start) (result '()))
+        (if (null? fields) (reverse result)
+            (loop (cdr fields) (+ offset 1)
+                  (if (string=? (value-type (field-type (car fields))) "ref")
+                      (cons offset result) result)))))
+
+    (define (gc-layout index)
+      (let* ((type (type-definition index)) (array? (eq? (car type) 'array))
+             (offsets (if (eq? (car type) 'struct) (reference-offsets (cdr type) 1) '()))
+             (kind (if array? (if (pair? (reference-offsets (cdr type) 2)) 2 0) 1)))
+        (output "@gc.fields." index " = private constant [" (length offsets) " x i32] ["
+                (llvm-join (map (lambda (offset) (list "i32 " offset)) offsets) ", ") "]")
+        (list "{ i32, i32, ptr } { i32 " kind ", i32 " (length offsets)
+              ", ptr @gc.fields." index " }")))
+
+    (define (static-root-slots object)
+      (if (not (caddr object)) '()
+          (let loop ((words (cadr object)) (offset 0) (roots '()))
+            (if (null? words) roots
+                (loop (cdr words) (+ offset 1)
+                      (if (reference-value? (car words))
+                          (cons (list "ptr getelementptr (i64, ptr " (car object) ", i64 " offset ")") roots)
+                          roots))))))
+
+    (define (global-root-slots node)
+      (let ((plan (static-global (cadr node))) (slot (global-slot (cadr node))))
+        (append (if (and (reference-value? slot) (or (not plan) (mutable-type? (caddr node))))
+                    (list (list "ptr " (cdr slot))) '())
+                (if plan (apply append (map static-root-slots (cdr plan))) '()))))
+
+    (define (declare-gc-array name type values)
+      (output "@native_gc_" name "_count = constant i64 " (length values))
+      (output "@native_gc_" name " = constant [" (length values) " x " type "] ["
+              (llvm-join values ", ") "]"))
+
+    (define (declare-gc-layouts declarations)
+      (declare-gc-array "layouts" "{ i32, i32, ptr }"
+                        (map gc-layout (iota (vector-length (module-types (current-module))) 0)))
+      (declare-gc-array "globals" "ptr"
+                        (apply append (map global-root-slots
+                                           (filter (lambda (node) (eq? (car node) 'global)) declarations))))
+      (declare-gc-array "tables" "ptr"
+                        (map (lambda (node) (list "ptr " (symbol-name "table." (cadr node))))
+                             (filter (lambda (node) (eq? (car node) 'table)) declarations))))
 
     (define (initialize-table node)
       (call-native "native_table_init" "void"
@@ -925,7 +1040,9 @@
          (return-value #f))))
 
     (define native-declarations
-      '("declare void @native_trap() noreturn cold"
+      '("declare void @native_roots_enter(ptr, i64)"
+        "declare void @native_roots_leave(ptr)"
+        "declare void @native_trap() noreturn cold"
         "declare i64 @native_alloc(i64)"
         "declare i32 @native_ref_test(i64, i64, i32)"
         "declare i64 @native_array_new(i64, i32, i64)"
@@ -979,6 +1096,7 @@
           (for-each output native-declarations)
           (declare-numeric-helpers)
           (for-each emit-declaration declarations)
+          (declare-gc-layouts declarations)
           (for-each (lambda (node)
                       (case (car node)
                         ((func) (emit-function (function-info (cadr node))))

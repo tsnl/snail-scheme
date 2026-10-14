@@ -3,6 +3,8 @@
   '(module
     (type $box (struct (field (mut i64)) (field (mut eqref))))
     (type $refs (array (mut eqref)))
+    (type $float-prefix (struct (field f32) (field f32) (field (mut eqref))))
+    (global $float-static (ref $float-prefix) (struct.new_default $float-prefix))
     (type $bytes (array (mut i8)))
     (type $short (func (param i32 eqref) (result eqref)))
     (type $integer (func (param i32) (result i32)))
@@ -104,6 +106,38 @@
                 (local.set $n (i32.sub (local.get $n) (i32.const 1)))
                 (br_if $allocate (local.get $n)))
           (struct.get $box 0 (local.get $value)))
+
+    ;; Allocating tail transfers and constructor operands exercise explicit roots.
+    (func $gc-hop (param $n i32) (param $keep eqref) (result eqref)
+          (drop (array.new $refs (local.get $keep) (i32.const 3)))
+          (if (result eqref) (i32.eqz (local.get $n))
+              (then (local.get $keep))
+              (else (return_call $gc-wide (i32.sub (local.get $n) (i32.const 1))
+                                 (local.get $keep) (i64.const 1) (i64.const 2)
+                                 (i64.const 3) (i64.const 4) (i64.const 5) (i64.const 6)))))
+    (func $gc-wide (param $n i32) (param $keep eqref)
+          (param i64 i64 i64 i64 i64 i64) (result eqref)
+          (drop (struct.new $box (i64.const 0) (local.get $keep)))
+          (return_call $gc-hop (local.get $n) (local.get $keep)))
+    (func (export "tail-gc") (param $n i32) (result i64)
+          (struct.get $box 0 (ref.cast (ref $box)
+                                       (call $gc-hop (local.get $n)
+                                             (struct.new $box (i64.const 42) (ref.null eq))))))
+    (func (export "gc-operands") (result i64)
+          (local $array (ref $refs))
+          (struct.set $float-prefix 2 (global.get $float-static)
+                      (struct.new $box (i64.const 41) (ref.null eq)))
+          (struct.set $box 1 (global.get $mutable)
+                      (struct.new $box (i64.const 40) (ref.null eq)))
+          (local.set $array (array.new_fixed $refs 2
+                                             (struct.new $box (i64.const 1) (ref.null eq))
+                                             (struct.new $box (i64.const 2) (ref.null eq))))
+          (if (i64.ne (struct.get $box 0 (ref.cast (ref $box)
+                                                   (struct.get $float-prefix 2 (global.get $float-static))))
+                      (i64.const 41)) (then unreachable))
+          (i64.add
+           (struct.get $box 0 (ref.cast (ref $box) (struct.get $box 1 (global.get $mutable))))
+           (struct.get $box 0 (ref.cast (ref $box) (array.get $refs (local.get $array) (i32.const 1))))))
 
     ;; ---- Containers, branch values and numeric edges ----
 

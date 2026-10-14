@@ -42,6 +42,8 @@ def translate(source, name):
 
 
 def collector_flags():
+    if os.environ.get("SNAIL_PRECISE_GC"):
+        return ["-DSNAIL_PRECISE_GC", "-I", str(ROOT / "src"), str(ROOT / "src/precise-gc.c"), "-lm"]
     flags = ["-lgc", "-lm"]
     if "BDWGC_INCLUDE" in os.environ:
         flags += ["-I", os.environ["BDWGC_INCLUDE"]]

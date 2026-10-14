@@ -1,9 +1,13 @@
-// Native host for lowered Wasm datums: BDWGC objects, traps and finalizers.
+// Native host for lowered Wasm datums: GC objects, traps and finalizers.
+// SNAIL_PRECISE_GC selects this experiment's exact-root, nonmoving Immix host.
 // Rust links natively and retains Scheme values through owned AWI handles.
 // This host knows no Scheme representation beyond AWI's finalizer import.
 
 #define _GNU_SOURCE
+#include "precise-gc.h"
+#ifndef SNAIL_PRECISE_GC
 #include <gc/gc.h>
+#endif
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -24,6 +28,20 @@ _Noreturn void native_trap(void) {
     fputs("WebAssembly trap\n", stderr);
     snail_cli_report_failure();
     exit(1);
+}
+
+// A tail call unlinks before transfer. The callee links before any collection.
+// Rust callbacks temporarily link above suspended guest frames. No async GC.
+NativeRoots *volatile native_roots;
+void native_roots_enter(NativeRoots *frame, uint64_t capacity) {
+    frame->capacity = capacity;
+    frame->count = 0;
+    if (!capacity) return;
+    frame->previous = native_roots;
+    native_roots = frame;
+}
+void native_roots_leave(NativeRoots *frame) {
+    if (frame->capacity) native_roots = frame->previous;
 }
 
 static uint64_t allocations, collection_interval;
@@ -92,14 +110,20 @@ void native_array_copy(uint64_t target, uint32_t to, uint64_t source,
     memmove(destination + 2 + to, origin + 2 + from, (size_t)count * 8);
 }
 
-typedef struct {
-    uint64_t *values;
-    uint32_t length, maximum;
-} NativeTable;
+// Headerless table buffers have explicit ownership in the precise experiment.
+// The collector enumerates current cells through the permanent table identity.
+static uint64_t *table_allocate(uint64_t bytes) {
+#ifdef SNAIL_PRECISE_GC
+    return calloc(1, bytes ? bytes : 1);
+#else
+    return try_allocate(bytes);
+#endif
+}
 
 void native_table_init(NativeTable *table, uint32_t length, uint32_t maximum) {
     if (length > maximum) native_trap();
-    table->values = (void *)(uintptr_t)native_alloc((uint64_t)length * 8);
+    table->values = table_allocate((uint64_t)length * 8);
+    if (!table->values) native_trap();
     table->length = length;
     table->maximum = maximum;
 }
@@ -115,10 +139,13 @@ uint32_t native_table_grow(NativeTable *table, uint64_t initial, uint32_t delta)
     uint32_t old = table->length;
     if (!delta) return old;
     if ((uint64_t)old + delta > table->maximum) return UINT32_MAX;
-    uint64_t *values = try_allocate(((uint64_t)old + delta) * 8);
+    uint64_t *values = table_allocate(((uint64_t)old + delta) * 8);
     if (!values) return UINT32_MAX;
     memcpy(values, table->values, (size_t)old * 8);
     for (uint64_t i = old; i < (uint64_t)old + delta; i++) values[i] = initial;
+#ifdef SNAIL_PRECISE_GC
+    free(table->values);
+#endif
     table->values = values;
     table->length = old + delta;
     return old;
