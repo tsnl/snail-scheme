@@ -5,7 +5,8 @@
           Scalar exact-scalar inexact-scalar scalar->f64 scalar-equivalent?
           Number exact-number inexact-number complex-number number->f64 number-equivalent?
           NumberResult not-a-number parsed-number number-error parsed-number-value number-error-text
-          string->number identifier? datum-fail
+          string->number string->atom identifier? datum-fail
+          ReadResult read-end read-value read-error read-value-datum read-error-message
           Datum datum-null datum-boolean datum-character datum-string datum-symbol datum-number
           datum-pair datum-vector datum-bytevector datum=? datum-cons datum-car datum-cdr
           datum-set-car! datum-set-cdr! datum-number? datum-number-value datum-string-value datum-symbol-value
@@ -158,6 +159,34 @@
       (datum-pair (first (Ref Datum) datum-first) (rest (Ref Datum) datum-rest))
       (datum-vector (values (Vector Datum) datum-vector-values))
       (datum-bytevector (values Bytevector datum-bytevector-values)))
+
+    ;; ---- A shared result for atom interpretation and incremental input ----
+
+    (define-data ReadResult (read-end)
+      (read-value (datum Datum read-value-datum))
+      (read-error (message String read-error-message)))
+    (: token-number-datum (-> I32 I32 ReadResult))
+    (define (token-number-datum handle kind)
+      (let ((result (token-number-result handle kind)))
+        (token-close handle)
+        (match result
+          ((parsed-number number) (read-value (datum-number number)))
+          ((number-error message) (read-error message)) ((not-a-number) (unreachable)))))
+    ;; No callback runs while this ID is owned. Numeric results and invalid
+    ;; identifiers close once; symbol interning consumes the same parsed text.
+    ;; EOF belongs to input, so string->atom never constructs read-end.
+    (: string->atom (-> String ReadResult))
+    (define (string->atom text)
+      (let* ((handle (stage-text text)) (kind (token-parse handle)))
+        (if (i32-eq kind (ann 0 I32))
+            (if (i32-eq (token-identifier handle) (ann 1 I32))
+                (read-value (datum-symbol (symbol (token-intern handle))))
+                (begin (token-close handle)
+                       (read-error "invalid numeric token or identifier; rational numbers are not supported")))
+            (token-number-datum handle kind))))
+
+    ;; ---- Explicit mutable pair fields ----
+
     (: datum-cons (-> Datum Datum Datum))
     (define (datum-cons first rest) (datum-pair (ref first) (ref rest)))
     (: datum-car (-> Datum Datum))
@@ -301,8 +330,38 @@
           (match number
             ((exact-number value) (string=? text (i64->string value)))
             ((inexact-number value) #f) ((complex-number real imaginary) #f))))
+      (: test-atom-number (-> String Bool))
+      (define (test-atom-number text)
+        (match (string->atom text)
+          ((read-value value)
+           (datum=? value (datum-number (parsed-number-value (string->number text)))))
+          ((read-error message) #f) ((read-end) #f)))
+      (: test-atom-error (-> String Bool))
+      (define (test-atom-error text)
+        (match (string->number text)
+          ((number-error message)
+           (match (string->atom text)
+             ((read-error actual) (string=? message actual))
+             ((read-value value) #f) ((read-end) #f)))
+          ((parsed-number number) #f) ((not-a-number) #f)))
+      (: test-invalid-atom (-> String Bool))
+      (define (test-invalid-atom text)
+        (match (string->atom text)
+          ((read-error message)
+           (string=? message "invalid numeric token or identifier; rational numbers are not supported"))
+          ((read-value value) #f) ((read-end) #f)))
+      (: test-atoms (-> Bool))
+      (define (test-atoms)
+        (let ((first (read-value-datum (string->atom "same")))
+              (second (read-value-datum (string->atom (string-copy "same")))))
+          (and (datum-eq? first second)
+               (test-atom-number "42") (test-atom-number "1.0") (test-atom-number "1+2i")
+               (test-atom-error "1/2") (test-atom-error "#e1.5")
+               (test-atom-error "9223372036854775808")
+               (test-invalid-atom "123abc") (test-invalid-atom ""))))
       (define (test-datum)
         (if (and (test-pair-identity) (test-list-sharing) (test-storage-identity)
+                 (test-atoms)
                  (datum-null? (datum-null)) (datum-pair? (datum-list (datum-null)))
                  (datum-truth? (datum-null)) (not (datum-truth? (datum-boolean #f)))
                  (datum-eq? (datum-symbol (string->symbol "same"))

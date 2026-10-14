@@ -10,6 +10,10 @@ value ABI.
 ## Results and resource ownership
 
 `read : InputPort -> ReadResult` returns `read-value`, `read-end` or `read-error`.
+The result data is defined in `(snail datum)` and re-exported by `(snail read)`.
+`string->atom : String -> ReadResult` stages ordinary atom text once, then
+checks number parsing, numeric errors and identifier validity in that order.
+It returns a datum or syntax error; only input can produce `read-end`.
 Their payload accessors are `read-value-datum` and `read-error-message`.
 `read-end?` tests EOF; `read-value!` extracts a datum or reports a fatal diagnostic.
 Syntax errors consume the characters already inspected and make no recovery
@@ -26,7 +30,9 @@ Rust temporary tokens have explicit, monotonically increasing scalar handles.
 Only live handles occupy the table. A handle starts as owned text and transitions
 once to a numeric result, a nonnumeric result retaining its spelling, or an
 error. Numeric getters validate both state and component type. Scheme copies the
-result and closes the handle; symbol interning consumes its text handle. No
+result and closes the handle; symbol interning consumes owned text or a parsed
+nonnumeric handle. It rejects and consumes parsed-number and numeric-error
+handles; terminal failure cleanup also drops other outstanding handles. No
 library operation calls user code while transferring a token. Separate handles
 can be interleaved on one execution thread. Handles are thread-local and cannot
 be transferred between threads. Terminal cleanup drops all outstanding tokens
