@@ -114,3 +114,27 @@ before any later timing, and preserves failures. Its public scalar providers do
 no numerical work. These two workloads are prepared for later suite integration
 and coordinated clean measurement; the suite's measured-coverage count is not
 changed by this report.
+
+## Review follow-up
+
+The [follow-up manifest](followup/manifest.json) records 2,904 oracle cases:
+2,861 complete answers and 43 required traps on raw Wasm, Binaryen-optimized
+Wasm, and native64. Forty-two ownership/interface/exponent cases also passed
+with native collection at every allocation. Eight added long-division cases
+cover all sign combinations with normalization scale one, including an addback
+witness. They retain both input values, their negations and absolute values,
+then check both division equations and every retained alias after division.
+
+Small direct interface assertions now call `integer-power`, `root-value`, unary
+`-`, all four ordered comparison overloads, and sign predicates. Static checks
+also reject the private `integer-limbs` accessor. The first ownership run and
+the final interface run have separate source snapshots and command archives.
+The library changed only one proof comment: `B^2 = 2^60` replaces the incorrect
+strict inequality; arithmetic code is byte-for-byte unchanged.
+
+The runner now records only groups executed in its current invocation and
+removes an older summary before starting. A focused synthetic runner check
+confirms stale unit/oracle files cannot credit an omitted group, and a failed
+invocation cannot leave a successful summary. The final follow-up used
+`--only oracle`; the exhaustive radix checks remain the earlier recorded
+evidence. No timing was taken.

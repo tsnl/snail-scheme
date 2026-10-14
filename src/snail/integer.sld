@@ -206,7 +206,7 @@
     ;; Knuth's normalization makes the highest divisor limb >= B/2.
     ;; The two-high-limb estimate is never low and at most two high. Checking
     ;; the next limb reduces that error to at most one; full subtraction decides
-    ;; the last correction. Every numerator/product is below B^2 < 2^60.
+    ;; the last correction. Every numerator/product is below B^2 = 2^60.
     (: estimate-digit (-> (Vector I32) (Vector I32) I64 I64))
     (define (estimate-digit dividend divisor offset)
       (let* ((count (vector-length divisor)) (high (limb divisor (- count 1)))
