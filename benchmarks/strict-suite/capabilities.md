@@ -75,7 +75,7 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **37 of 57 measured workloads**, **36 with paired
+Historical coverage is now **39 of 57 measured workloads**, **38 with paired
 Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann's
 default-stack failure and gcbench's unmeasured retention case are excluded;
 `cat` has strict measurements without a same-window Chez control.
@@ -86,8 +86,14 @@ intended long-lived
 tree root during later allocation. That lifetime issue blocks its GC comparison.
 The [typed reader library report](../results/2026-10-14-strict-reader-library/README.md)
 checks complete canonical `sum1` and `read1` input streams on linked raw Wasm,
-optimized Wasm and native against Chez. Their complete workload adapters and
-timings remain in preparation, so this adds no measured coverage.
+optimized Wasm and native against Chez. Their
+[seven-system comparison](../results/2026-10-14-strict-reader-comparison/README.md)
+now passes all 112 planned processes. Production V8 takes 1.054333 s for Sum1
+and 2.703861 s for Read1: 2.621× and 8.450× original Chez time, or 1.074× and
+1.850× the same Scheme parser body on Chez. Native takes 0.980× and 1.113×
+V8 time on the identical native-final Scheme module. This frozen native build
+predates the later allocator changes; provider linkage and representation
+differences prevent isolating an engine or collector cost.
 The [exact-integer report](../results/2026-10-14-strict-integer/README.md)
 adds full-count correctness preparations for pi and Chudnovsky on raw/optimized
 Wasm, native64 and three Chez controls. Every original output digit and pi's
@@ -118,9 +124,9 @@ implementation.
 | pi | Full 100 repetitions at 50 through 500 digits pass raw/optimized Wasm, native64 and original/adapted/same-limb Chez. Immutable Integer arithmetic preserves all three original algorithms and complete output columns. Explicit constant lifting and square-root result extraction are recorded; clean timings remain in preparation. |
 | ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
-| sum1 | Typed input and reader libraries pass all 100,000 canonical numeric values against Chez. Full 25-invocation adapter and timings remain in preparation; each file read belongs inside the workload clock. |
+| sum1 | Measured all 25 reads of the unchanged 100,000-number file: V8 1.054333 s, original Chez 0.402220 s, same Scheme parser body on Chez 0.981268 s, Rust/Wasm 0.195842 s. Sequential F64 accumulation, original tolerance and every open/read-through-EOF/close remain. Native is 1.100904 s versus 1.123597 s for its exact Scheme module on V8; provider/linkage differs. |
 | tail | Measured all 50 complete 4,460,056-byte bibliography reversals: 5.173× original Chez time, 2.712× adapted Chez and 22.658× Rust/Wasm. Full outputs and separate file-lifecycle/byte observations pass. Strict Unicode-scalar lists/scalar I/O, adapted Chez helpers and Rust UTF8 Vec<String>/buffered I/O/earlier input-close differ. |
-| read1 | Typed datum reader passes every field of the complete canonical file against Chez. Full 2,500-invocation adapter and timings remain in preparation; preserve every open/read/close. |
+| read1 | Measured all 2,500 complete reads: V8 2.703861 s, original Chez 0.320001 s, same Scheme parser body on Chez 1.461438 s, Rust/Wasm 0.439175 s. Every datum, simultaneous do update, final list predicate and file lifecycle remain. Native is 3.098514 s versus 2.785069 s for its exact Scheme module on V8; provider/linkage differs. The parser and runtime gaps require separate profiling. |
 | compiler | Symbolic heterogeneous compiler IR, mutable pairs/vectors, strings, files and binary/text output; a scalar kernel slice would not port this compiler workload. |
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
@@ -142,8 +148,8 @@ implementation.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 37 of 57 workloads,
-with 36 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 39 of 57 workloads,
+with 38 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

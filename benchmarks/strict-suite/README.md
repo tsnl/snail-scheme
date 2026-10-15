@@ -856,7 +856,11 @@ complete canonical streams/results, negative predicates and changed-file calls.
 The exact native-final Scheme module has a separate V8 scalar-provider control.
 Unchanged Rust programs pass canonical stream/result checks with their different
 numeric scanner, owned textual atoms and whole-file buffering disclosed.
-This preparation adds no measured-coverage claim. The generic `measure` command
-rejects these reader cases: their separately frozen seven-system plan preserves
-the file I/O, setup and cleanup boundaries and requires a coordinated quiet
-window before clean clocks run.
+The [seven-system comparison](../results/2026-10-14-strict-reader-comparison/README.md)
+records all 112 planned fresh processes at the original counts. Production V8
+takes 2.621× original Chez time for Sum1 and 8.450× for Read1; the corresponding
+adapted-Chez ratios are 1.074× and 1.850×. The report keeps the earlier native
+allocator basis, scalar-provider differences and narrower Rust readers explicit.
+The generic `measure` command rejects these reader cases: their separately frozen
+plan preserves file I/O, setup and cleanup boundaries and requires a coordinated
+quiet window. The initial zero-sample dependency failure remains archived.

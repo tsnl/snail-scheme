@@ -187,12 +187,16 @@
     },
     {
       "name": "sum1",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 28,
       "files": {
         "src/sum1.scm": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
         "inputs/sum1.input": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-reader-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+      "note": "Full 25 reads of the unchanged 100000-number file: production V8 1.054332711 seconds, original Chez 0.402219664, same Scheme parser body on Chez 0.981267778, Rust/Wasm 0.195841952. V8 takes 2.621 times original Chez and 1.074 times adapted Chez. Native takes 1.100904381 versus 1.123596828 for the identical native-final Scheme module on V8. Provider linkage differs; the native build predates later allocator changes. All full loops, sequential F64 accumulation, original tolerance and per-worker open/read/close remain.",
+      "representation_note": "Scheme owns typed tokens and recursive datums; Rust provides scalar I/O, numeric parsing and symbol services. Adapted Chez shares the Scheme parser body with native scalar services and vector products; Rust references use different scanners, owned textual atoms and whole-file buffering. All 112 planned clean processes pass, 98 retained; source, result, schedule and identity checks pass. Ratios do not isolate parser, runtime, collector or codegen costs."
     },
     {
       "name": "tail",
@@ -210,12 +214,16 @@
     },
     {
       "name": "read1",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 50,
       "files": {
         "src/read1.scm": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
         "inputs/read1.input": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-reader-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+      "note": "Full 2500 reads of unchanged parsing.data: production V8 2.703861287 seconds, original Chez 0.320001243, same Scheme parser body on Chez 1.461438395, Rust/Wasm 0.439174770. V8 takes 8.450 times original Chez and 1.850 times adapted Chez. Native takes 3.098514315 versus 2.785068733 for the identical native-final Scheme module on V8. Provider linkage differs; the native build predates later allocator changes. Every full datum, simultaneous do update, final predicate and per-worker open/read/close remain.",
+      "representation_note": "Scheme owns typed tokens and recursive datums; Rust provides scalar I/O, numeric parsing and symbol services. Adapted Chez shares the Scheme parser body with native scalar services and vector products; Rust references use different scanners, owned textual atoms and whole-file buffering. All 112 planned clean processes pass, 98 retained; source, result, schedule and identity checks pass. Ratios do not isolate parser, runtime, collector or codegen costs."
     },
     {
       "name": "compiler",
@@ -466,8 +474,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 37,
-  "historical_paired_chez_count": 36,
+  "historical_measured_strict_count": 39,
+  "historical_paired_chez_count": 38,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -527,9 +535,11 @@
     "puzzle",
     "quicksort",
     "ray",
+    "read1",
     "simplex",
     "string",
     "sum",
+    "sum1",
     "sumfp",
     "tail",
     "tak",
@@ -565,9 +575,11 @@
     "puzzle",
     "quicksort",
     "ray",
+    "read1",
     "simplex",
     "string",
     "sum",
+    "sum1",
     "sumfp",
     "tail",
     "tak",
@@ -581,5 +593,6 @@
     "cat": "Measured strict worker, without same-window Chez comparison."
   },
   "earley_measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
-  "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md"
+  "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
+  "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md"
 }
