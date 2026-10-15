@@ -45,8 +45,13 @@ all 50 reversals and every byte of the 4,460,056-byte output pass. It takes
 line I/O, storage and ownership differences remain explicit.
 Nucleic adds a [complete four-system comparison](../results/2026-10-14-strict-nucleic-comparison/README.md):
 V8 takes 0.220574 s, 3.359× faster than original Chez; native takes 1.350× V8
-time. All 50 searches and complete ordered-value checks remain. The integrated
-stack now covers 34 of 57 measured workloads, 33 with paired Chez controls.
+time. All 50 searches and complete ordered-value checks remain.
+Bytevector conversion now adds a
+[six-system comparison](../results/2026-10-14-strict-bv2string-comparison/README.md):
+V8 takes 0.939191 s, 1.992× original Chez time and 20.569× Rust/Wasm time;
+native takes 1.029586 s. All 42 processes passed. Unicode-scalar versus UTF-8
+storage, native slot widths and ownership differences are explicit. Historical
+coverage is now 35 of 57 measured workloads, 34 with paired Chez controls.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -97,11 +102,11 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | sboyer | Symbolic terms and sharing-cons structures with heterogeneous data; preserve rewrite-count check and sharing behavior. Kernel definitions follow its harness definition. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
 | equal | Recursive heterogeneous trees and cyclic mutable pairs; requires cycle-safe structural equality and symbols, including improper tails. |
-| bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
+| bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 34 of 57 workloads,
-with 33 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 35 of 57 workloads,
+with 34 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
