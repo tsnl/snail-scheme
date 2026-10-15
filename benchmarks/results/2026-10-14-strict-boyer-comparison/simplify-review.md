@@ -42,6 +42,6 @@ ten-line target. No compiler or prover source was refactored.
 
 Actual retained synthetic tests passed terminal chunks 6c14c7 and 023619. All
 fourteen current complete frames and forty predicate/reset controls passed in
-preparation 43414, actual terminal0/chunk75c08d. Forced-GC diagnostics use four
+preparation 43414, actual terminal 0/chunk75c08d. Forced-GC diagnostics use four
 separate processes. Clean timing still requires independent parent plan review
 and an explicit quiet-window release.

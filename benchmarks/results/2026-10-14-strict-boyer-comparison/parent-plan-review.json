@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "plan_sha256": "b650443ae4e2069340561cda8937da9b7416c06090ea02f5b9f5adee751d6773",
+  "identities": 1014,
+  "diagnostic_command_records": 85,
+  "processes": 112,
+  "expected_input": {
+    "count": 1,
+    "size": 5,
+    "rewrites": 51507739
+  },
+  "parent_code_review": "Read all four focused preparation/freeze/runner/audit modules; no implementation changes requested after independent explanation and informed debate."
+}

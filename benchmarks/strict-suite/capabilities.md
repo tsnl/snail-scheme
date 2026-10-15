@@ -17,14 +17,18 @@ exact numbers remain bounded to I64; rational numbers and first-class
 continuations remain outside this strict subset. Representation support alone
 does not establish a completed port.
 
-The [complete Boyer preparation](../results/2026-10-14-strict-boyer-preparation/README.md)
-passes both original size-5 workloads and their numeric 51,507,739-rewrite
-predicates on raw/optimized Wasm, native64 and original/adapted Chez. Separate
-full-count work streams, complete ordered lemma tables, small result trees and
-sharing/reset probes pass. Native uses explicit 2 GiB/1 GiB reservations for
-NBoyer/SBoyer; the default capacity failures remain recorded. Rust controls
-retain their independent algorithms and layouts. Clean timing remains pending,
-so these preparations do not increase historical measured coverage.
+The [complete Boyer comparison](../results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes across both original count 1/size 5 workloads and
+successful theorem/numeric 51,507,739-rewrite predicates. Production V8 takes
+11.950027 s for NBoyer and 3.504130 s for SBoyer, versus original Chez 0.887105 s
+and 0.372582 s. Native takes 10.299261 s and 4.685959 s using the `a707974`
+default growing collector, with all policy knobs unset. It takes 13.52% less
+time than identical-Wasm V8 for NBoyer and 33.26% more for SBoyer. The
+[historical preparation](../results/2026-10-14-strict-boyer-preparation/README.md)
+retains exact ordered work/lemma/term, alias and reset observations plus fixed
+2 GiB/1 GiB reservation controls and old capacity failures. These diagnostic
+observations stay outside clean statistics. Reused Rust artifacts retain their
+independent representations; neither native nor Rust gaps isolate a cause.
 
 The five selected ports and FFT have preceding measured reports. Quicksort,
 graphs, mperm and simplex have reviewed canonical measurements against both
@@ -84,8 +88,8 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **47 of 57 measured workloads**, **46 with paired
-Chez controls**, including the later complete Equal, Conform, Maze and Parsing comparisons.
+Historical coverage is now **49 of 57 measured workloads**, **48 with paired
+Chez controls**, including the later complete Equal, Conform, Maze, Parsing and Boyer comparisons.
 These accumulated compiler revisions are not a whole-suite rerun. The explicit
 name sets are in `capabilities.json`.
 Gcbench's unmeasured retention case is excluded;
@@ -179,15 +183,15 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
 | slatex | String/character processing, symbolic token state, destructive list edits and actual TeX file IO. |
 | chudnovsky | Measured all 1,000 repetitions and ten exact results through 500 digits: V8 0.716851 s, native 0.658789 s, original Chez 0.086746 s, Rust/Wasm 0.177955 s. V8 takes 8.264× original Chez time; native takes 0.917× V8 on identical native-final Scheme Wasm. Complete binary splitting, exact products and the original F64 term-count expression remain. Arithmetic/library, scalar controls and ownership differ across controls. |
-| nboyer | Full correctness preparation: original count 1, size 5 and numeric 51,507,739 rewrites pass on raw/optimized Wasm, native64 with an explicit 2 GiB reservation, and original/adapted Chez. Complete kernel definitions after the harness, association lists and all 106 lemmas remain. Separate full-count work streams and ordered structure/reset checks pass; default capacity failure and independent Rust differences are retained. Clean timing pending. |
-| sboyer | Full correctness preparation: original count 1, size 5 and numeric 51,507,739 rewrites pass on raw/optimized Wasm, native64 with an explicit 1 GiB reservation, and original/adapted Chez. Separate probes validate reuse only when both pair fields retain identity, plus full work counts and constructor cycles/reset. Default capacity failure and independent Rust differences are retained. Clean timing pending. |
+| nboyer | [Measured complete workload](../results/2026-10-14-strict-boyer-comparison/README.md): original count 1, size 5, successful theorem and numeric 51,507,739 rewrites. Production V8 11.950027 s, native64 10.299261 s, exact-native-final V8 11.909353 s, original Chez 0.887105 s, adapted Chez 8.047786 s, Rust native 1.985137 s and Rust/Wasm 6.208150 s. V8 takes 13.471× original Chez; native takes 13.52% less time than identical-Wasm V8 under the default growing collector. All 112 campaign processes and independent raw replay pass across both Boyers. Byte-identical historical source/work/alias/reset evidence and old fixed-reservation failures remain separate; no isolated cost claim. |
+| sboyer | [Measured complete workload](../results/2026-10-14-strict-boyer-comparison/README.md): original count 1, size 5, successful theorem and numeric 51,507,739 rewrites. Production V8 3.504130 s, native64 4.685959 s, exact-native-final V8 3.516283 s, original Chez 0.372582 s, adapted Chez 4.755614 s, Rust native 0.725050 s and Rust/Wasm 2.517642 s. V8 takes 9.405× original Chez; native takes 33.26% more time than identical-Wasm V8 under the default growing collector. Source sharing retains an old pair exactly when both resulting fields preserve identity. Historical ordered observations and old capacity failures remain separate; Rust representations/artifacts are explicit. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
 | equal | Full pinned source port with reusable cycle-aware datum equality. Retains shared DAG parameter 100, unshared tree height 8, vectors 1000, shallow lists 2000, and deep car-chain 5000 with all original repetitions. Original cyclic case stays disabled in the clean workload and runs in separate probes. All 56 clean processes pass: V8 takes 2.395007 s, 9.274 times original Chez, 0.511 times adapted Chez and 2.566 times Rust/Wasm time. Native takes 11.434% less time than identical-Wasm V8. Representation, helpers and equality implementation change together in the adapted control; no isolated collector or codegen claim. [Complete report](../results/2026-10-14-strict-equal-comparison/README.md). |
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 47 of 57 workloads,
-with 46 paired Chez comparisons; these accumulate different compiler revisions,
+measured coverage. Historical strict measurements now cover 49 of 57 workloads,
+with 48 paired Chez comparisons; these accumulate different compiler revisions,
 not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes

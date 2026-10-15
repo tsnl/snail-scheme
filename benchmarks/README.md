@@ -46,9 +46,17 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 47 measured workloads,
-46 with paired Chez controls. These accumulate individual compiler revisions, not a complete
+[coverage inventory](strict-suite/capabilities.md): 49 measured workloads,
+48 with paired Chez controls. These accumulate individual compiler revisions, not a complete
 rerun on the current compiler. The
+[complete Boyer comparison](results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes at both original count 1/size 5/51,507,739-rewrite
+predicates. Production V8 medians are NBoyer 11.950027 s and SBoyer 3.504130 s,
+versus original Chez 0.887105 s and 0.372582 s. Native takes 13.52% less time
+than identical-Wasm V8 for NBoyer and 33.26% more for SBoyer, with the current
+`a707974` default growing collector. Seven controls and separate historical
+source/work/alias/reset evidence retain their scope; no isolated GC cause is
+established. The
 [complete Parsing comparison](results/2026-10-14-strict-parsing-comparison/README.md)
 passes all 56 processes with the full 28,300-byte timed file load, 2,500 parses
 and original final-list predicate. V8 takes 2.361375 s, native64 1.481803 s and
