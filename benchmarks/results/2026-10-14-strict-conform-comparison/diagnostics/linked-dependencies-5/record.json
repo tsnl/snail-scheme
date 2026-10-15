@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/nix/store/axmdd5wlxg1c9dbblvj09pjhkawqxmqx-glibc-2.42-84-bin/bin/ldd",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/rust/conform.native"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014",
+  "phase": "setup-diagnostic",
+  "clean_sample": false,
+  "retained": false,
+  "status": "completed",
+  "pid": 59,
+  "process_group": 59,
+  "returncode": 0,
+  "stdout": "\tlinux-vdso.so.1 (0x00007641613f1000)\n\tlibgcc_s.so.1 => /nix/store/0vqb1mcas5j8dv6bhbrshinlgsg6bvgi-gcc-15.3.0-lib/lib/libgcc_s.so.1 (0x000076416135b000)\n\tlibc.so.6 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libc.so.6 (0x0000764161000000)\n\t/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/ld-linux-x86-64.so.2 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib64/ld-linux-x86-64.so.2 (0x00007641613f3000)\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 59,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.0040439419681206346
+}

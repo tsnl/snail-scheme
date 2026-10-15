@@ -1,0 +1,586 @@
+{
+  "purpose": "Current integration checks for compiler foundations; no full compiler workload or timing",
+  "base": "34a7aad9b6a2567d913c95d79f11d58de343ae47",
+  "source_sha256": {
+    "benchmarks/strict-suite/compiler-data.scm": "89ecd1cd42b18613af065d74173048c56971b842be160dd3cb14a1bc27674f46",
+    "benchmarks/strict-suite/compiler-result.scm": "3cfde9a9abc05d5713fe8080aec80d6ae646d8d3b7d10bf08ec2d0659fe708fd",
+    "benchmarks/strict-suite/compiler_port.py": "6affcfafef4ec3d2f0723522ffa46b777e02de07e3b8bcf6780798a123c915fd",
+    "benchmarks/strict-suite/reader_ports.py": "8f8efd5e83565eb3337f4b2aa77f4c2f51c78c21a5696016ed75ef03244468cf",
+    "tests/strict-compiler/check.py": "0a999d152208c9d3611263381b9a1207f153825abb3427acbb51e828cd189915",
+    "tests/strict-compiler/data-probe.mjs": "f485f2718ab905e15caff08ac961ee3d95df42fa6c9e9cd4b72c615ef138c7fa",
+    "tests/strict-compiler/data-probe.scm": "ee64f4755093450f2c8e07a38dec5f94ba9672cac49a6aaaa1f6bf92ff5f4e5d",
+    "tests/strict-compiler/original-map-mutation.scm": "b06c34b59c53e6c7341249c6a39a0e8d2bd9d9777d7e8b57dd8e5a3d596e9488",
+    "tests/strict-compiler/result-host-failure.scm": "a1dcd446fc84ee0ddaea69bef2c4aa86e361b9dd6cb97dbf86282f60246c1de2",
+    "tests/strict-compiler/result-no-handler.scm": "b1749a60981ec64337319eb5d9d72031429f6ab39f8e6ff761ee0f4325ef6ec5",
+    "tests/strict-compiler/result-original-probe.scm": "ad8b1d0c8c5119a5dde7e1e7729d8efed0ec223901ef9384508e137c634a043d",
+    "tests/strict-compiler/result-probe.scm": "75995901c34fc2b0af31a9b0040229d94d8fa44824495e85b773a8d77130bd42"
+  },
+  "author_checks": "checks.json retains the author revision and source hashes unchanged",
+  "integration_changes": [
+    "Preserve Parsing and compiler paragraphs in TOUR merge",
+    "Normalize four Scheme fixtures with repository formatter"
+  ],
+  "actual_tool_completion": {
+    "session_id": 48141,
+    "terminal_chunk": "5899c2",
+    "exit_code": 0
+  },
+  "checks": {
+    "make_check_before_format": {
+      "chunk": "e67880",
+      "exit_code": 2
+    },
+    "make_check_after_format": {
+      "chunk": "69ec58",
+      "exit_code": 0
+    },
+    "source_extent_and_historical_record_audit": {
+      "chunk": "4b4030",
+      "exit_code": 0,
+      "retained_records": 117,
+      "source_forms": 1345,
+      "input_iterations": 2000,
+      "expected_lines": 497
+    }
+  },
+  "runtime": {
+    "source": "/tmp/snail-general-specialization-20261012/build/parsing-integration-review/current/parsing/runtime.wasm",
+    "sha256": "76b829a3ef400500c3e9f94fd7a02030782b666323e980065cf9e9358843a511"
+  },
+  "executions": {
+    "data-probe-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.scm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 6,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.chez.scm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 5,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 44,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-native-run.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-native"
+      ],
+      "returncode": 42,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 113,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-optimized-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 31,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-optimized-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 37,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-raw-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "--diagnostic-prune-only",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 18,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "data-probe-raw-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/data-probe-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 24,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "original-map-mutation-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/original-map-mutation.scm"
+      ],
+      "returncode": 0,
+      "stdout": "(312 (1 4 5) (1 2 3) (2 3) #f #f)\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 4,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.scm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 224,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.chez.scm"
+      ],
+      "returncode": 255,
+      "stdout": "",
+      "stderr": "Exception in reader: compiler probe ordinary host failure\n",
+      "timeout": false,
+      "process_group": 223,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 262,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-native-run.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-native"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: compiler probe ordinary host failure\n",
+      "timeout": false,
+      "process_group": 331,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-optimized-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 249,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-optimized-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-linked-optimized.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: compiler probe ordinary host failure\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\n(Use `node --trace-uncaught ...` to show where the exception was thrown)\n\nNode.js v24.19.0\n",
+      "timeout": false,
+      "process_group": 255,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-raw-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "--diagnostic-prune-only",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 236,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-host-failure-raw-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-host-failure-linked-raw.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: compiler probe ordinary host failure\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\n(Use `node --trace-uncaught ...` to show where the exception was thrown)\n\nNode.js v24.19.0\n",
+      "timeout": false,
+      "process_group": 242,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.scm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 333,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.chez.scm"
+      ],
+      "returncode": 255,
+      "stdout": "",
+      "stderr": "Exception in reader: Internal error, no exception handler at this point\n",
+      "timeout": false,
+      "process_group": 332,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 371,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-native-run.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-native"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: Internal error, no exception handler at this point\n",
+      "timeout": false,
+      "process_group": 440,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-optimized-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 358,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-optimized-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-linked-optimized.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: Internal error, no exception handler at this point\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\n(Use `node --trace-uncaught ...` to show where the exception was thrown)\n\nNode.js v24.19.0\n",
+      "timeout": false,
+      "process_group": 364,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-raw-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "--diagnostic-prune-only",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 345,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-no-handler-raw-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-no-handler-linked-raw.wasm"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "snail-scheme: Internal error, no exception handler at this point\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\n(Use `node --trace-uncaught ...` to show where the exception was thrown)\n\nNode.js v24.19.0\n",
+      "timeout": false,
+      "process_group": 351,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-original-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-original-probe.scm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS original continuation effect and nesting controls\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 3,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.scm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 115,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-chez.json": {
+      "command": [
+        "scheme",
+        "--script",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.chez.scm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 114,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 153,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-native-run.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-native"
+      ],
+      "returncode": 42,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 222,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-optimized-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 140,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-optimized-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-linked-optimized.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 146,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-raw-link.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/link-strict-runtime",
+        "--runtime",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/runtime.wasm",
+        "--diagnostic-prune-only",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 127,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "result-probe-raw-run.json": {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/tests/strict-compiler/data-probe.mjs",
+        "/tmp/snail-general-specialization-20261012/build/compiler-foundation-integration-20261014/result-probe-linked-raw.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "PASS compiler internal probe: 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 133,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    }
+  }
+}

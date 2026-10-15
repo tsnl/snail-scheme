@@ -1,0 +1,50 @@
+{
+  "assertions": 38,
+  "snapshots": [
+    99,
+    100,
+    101,
+    102
+  ],
+  "work_counts": {
+    "meet": 3155,
+    "join": 3155,
+    "conforms": 16138,
+    "does-conform": 48695,
+    "nodes": 572,
+    "blue-edges": 1008,
+    "lookup": 4348,
+    "insert": 568,
+    "unfinished-cache-hits": 6,
+    "copy-graph": 4,
+    "clean-graph": 1,
+    "reduce": 4,
+    "classify": 4,
+    "sort": 108,
+    "split": 2741,
+    "merge": 1993,
+    "adjoin": 49473,
+    "intersect": 284,
+    "union": 785,
+    "red-assumptions": 24485,
+    "greenifications": 3723,
+    "red-clears": 19150,
+    "operation-lookup": 98002,
+    "successful-conforms": 6680,
+    "failed-conforms": 9458,
+    "clean-node": 6,
+    "lattice-step": 4,
+    "make-node": 572,
+    "copied-node-list-lengths": 83,
+    "unfinished-inserts": 568
+  },
+  "systems": [
+    "chez",
+    "chez-adapted",
+    "raw",
+    "optimized",
+    "native"
+  ],
+  "identical_complete_stream": true,
+  "copied_spines": "original vector->list(list->vector(nodes)) is retained verbatim; all node identities/order and graph mutations are checked, but strict List exposes no pair-identity predicate"
+}

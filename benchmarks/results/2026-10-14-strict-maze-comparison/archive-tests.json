@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "guests_started": false,
+  "records_retained": "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f",
+  "scope": "Actual binary archive, incorrect identity, trailing compressed bytes, unsafe path, file/parent conflicts, and nonzero member padding.",
+  "files": {
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/conflict.tar.xz": "954d55d595513176b7d75085e235456f20f28f3a0872b3002b1b2ca83ef40209",
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/member-padding.tar": "07883a3c9e0fdc209cf989f3cc6a03644c201e9f34ec6893a242d2077aa427df",
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/source": "251213b7a7e3985740b3989afcd44b6460c3c17b2308532451c3e9ada5b893d3",
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/test.tar.xz": "943ba2c53ef04d4824a6179046837e5f596a3946d3a60a9295f66d61c0bac8a0",
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/trailing.tar": "1be64f92a7e61a657cf07995bbd089d69d6d4a2d7f1c669822fc9dedbf3ed69d",
+    "/tmp/snail-maze-measurement-20261014/build/maze-archive-tests-da8519f/trailing.tar.xz": "93ada9b78fdf9a7707f47e122a51107ba2f7868d2e1c0b82b53bcef3e9f34632"
+  },
+  "package_code_sha256": "7531bfdf1bf4dc5d073c58e91da001c21c07b9e69238f999aad22033438a880b"
+}

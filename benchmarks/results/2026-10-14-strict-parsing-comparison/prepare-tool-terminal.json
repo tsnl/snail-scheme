@@ -1,0 +1,35 @@
+{
+  "actual_tool_terminal": true,
+  "session_id": 45868,
+  "initial": {
+    "chunk_id": "1bc3be",
+    "wall_time_seconds": 1.001269285,
+    "session_id": 45868,
+    "original_token_count": 40,
+    "output": "utf8-host-assemble starting\nutf8-host-assemble terminal 0\nutf8-host-node-execution starting\nutf8-host-node-execution terminal 0\nstrict-compile-current starting\n"
+  },
+  "intermediate": [
+    {
+      "chunk_id": "e7d995",
+      "wall_time_seconds": 5.001308369,
+      "session_id": 45868,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "chunk_id": "f19a2b",
+      "wall_time_seconds": 5.001022114,
+      "session_id": 45868,
+      "original_token_count": 50,
+      "output": "strict-compile-current terminal 0\nraw-link-current starting\nraw-link-current terminal 0\noptimized-link-current starting\noptimized-link-current terminal 0\nnative-current-counter-free-build starting\n"
+    }
+  ],
+  "terminal": {
+    "chunk_id": "5e3cae",
+    "wall_time_seconds": 0.000006975,
+    "exit_code": 0,
+    "original_token_count": 981,
+    "output": "native-current-counter-free-build terminal 0\nexact-native-provider-interfaces starting\nexact-native-provider-interfaces terminal 0\nchez-compile-current-source starting\nchez-compile-current-source terminal 0\nchez-adapted-compile-current-source starting\nchez-adapted-compile-current-source terminal 0\ncomplete-frame-snail-production-v8 starting\ncomplete-frame-snail-production-v8 terminal 0\ncomplete-frame-snail-native64 starting\ncomplete-frame-snail-native64 terminal 0\ncomplete-frame-snail-identical-wasm-v8 starting\ncomplete-frame-snail-identical-wasm-v8 terminal 0\ncomplete-frame-chez starting\ncomplete-frame-chez terminal 0\ncomplete-frame-chez-adapted starting\ncomplete-frame-chez-adapted terminal 0\ncomplete-frame-rust-native starting\ncomplete-frame-rust-native terminal 0\ncomplete-frame-rust-optimized-wasm starting\ncomplete-frame-rust-optimized-wasm terminal 0\ncomplete-frame-raw-v8 starting\ncomplete-frame-raw-v8 terminal 0\npredicate-count-1-raw starting\npredicate-count-1-raw terminal 0\npredicate-count-1-optimized starting\npredicate-count-1-optimized terminal 0\npredicate-count-1-native starting\npredicate-count-1-native terminal 0\npredicate-count-1-chez-adapted starting\npredicate-count-1-chez-adapted terminal 0\npredicate-count-2-raw starting\npredicate-count-2-raw terminal 0\npredicate-count-2-optimized starting\npredicate-count-2-optimized terminal 0\npredicate-count-2-native starting\npredicate-count-2-native terminal 0\npredicate-count-2-chez-adapted starting\npredicate-count-2-chez-adapted terminal 0\npredicate-wrong-final-element-raw starting\npredicate-wrong-final-element-raw terminal 0\npredicate-wrong-final-element-optimized starting\npredicate-wrong-final-element-optimized terminal 0\npredicate-wrong-final-element-native starting\npredicate-wrong-final-element-native terminal 0\npredicate-wrong-final-element-chez-adapted starting\npredicate-wrong-final-element-chez-adapted terminal 0\npredicate-zero-parses-raw starting\npredicate-zero-parses-raw terminal 0\npredicate-zero-parses-optimized starting\npredicate-zero-parses-optimized terminal 0\npredicate-zero-parses-native starting\npredicate-zero-parses-native terminal 0\npredicate-zero-parses-chez-adapted starting\npredicate-zero-parses-chez-adapted terminal 0\npredicate-zero-wrong-predicate-raw starting\npredicate-zero-wrong-predicate-raw terminal 0\npredicate-zero-wrong-predicate-optimized starting\npredicate-zero-wrong-predicate-optimized terminal 0\npredicate-zero-wrong-predicate-native starting\npredicate-zero-wrong-predicate-native terminal 0\npredicate-zero-wrong-predicate-chez-adapted starting\npredicate-zero-wrong-predicate-chez-adapted terminal 0\npredicate-nested-raw starting\npredicate-nested-raw terminal 0\npredicate-nested-optimized starting\npredicate-nested-optimized terminal 0\npredicate-nested-native starting\npredicate-nested-native terminal 0\npredicate-nested-chez-adapted starting\npredicate-nested-chez-adapted terminal 0\npredicate-values-raw starting\npredicate-values-raw terminal 0\npredicate-values-optimized starting\npredicate-values-optimized terminal 0\npredicate-values-native starting\npredicate-values-native terminal 0\npredicate-values-chez-adapted starting\npredicate-values-chez-adapted terminal 0\npredicate-missing-final-raw starting\npredicate-missing-final-raw terminal 0\npredicate-missing-final-optimized starting\npredicate-missing-final-optimized terminal 0\npredicate-missing-final-native starting\npredicate-missing-final-native terminal 0\npredicate-missing-final-chez-adapted starting\npredicate-missing-final-chez-adapted terminal 0\npredicate-extra-final-raw starting\npredicate-extra-final-raw terminal 0\npredicate-extra-final-optimized starting\npredicate-extra-final-optimized terminal 0\npredicate-extra-final-native starting\npredicate-extra-final-native terminal 0\npredicate-extra-final-chez-adapted starting\npredicate-extra-final-chez-adapted terminal 0\nPASS complete current Parsing preparation; clean timing not started\n"
+  },
+  "clean_measurement_started": false
+}

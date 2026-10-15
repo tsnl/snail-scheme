@@ -1,0 +1,43 @@
+{
+  "benchmark": "ack",
+  "system": "native64",
+  "retained": false,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native",
+    "2",
+    "3",
+    "12",
+    "32765",
+    "--time"
+  ],
+  "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+  "stdin_path": null,
+  "status": "valid",
+  "started": "2026-10-14T20:14:48.758923+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "diagnostic_only": true,
+  "identities_before": "verified",
+  "pid": 18,
+  "process_group": 18,
+  "returncode": 0,
+  "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":0.763089475}\n",
+  "stderr": "",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 0.7655014710035175,
+  "cleanup": {
+    "process_group": 18,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "workload_seconds": 0.763089475,
+  "identities_after": "verified",
+  "stop_signal": null
+}

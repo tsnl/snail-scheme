@@ -1,0 +1,34 @@
+{
+  "root_explicit_release": true,
+  "plan_sha256": "2928486cb9a2d3bd759095afa0ddef146f5fd6fca68b44da51b8ce300118c8d2",
+  "output": "/tmp/snail-equal-hash-measurement-20261014/build/equal-hash-clean-20261014",
+  "root_reported_terminal_handles": {
+    "21737": {
+      "exit_status": 0,
+      "tool_chunk": "066b13",
+      "result": "all 307 strict contracts pass; prior timed-out group drained"
+    },
+    "27959": {
+      "exit_status": 0,
+      "result": "Conform stack publication"
+    },
+    "39439": {
+      "terminal": true,
+      "result": "Parsing build"
+    },
+    "63266": {
+      "exit_status": 0,
+      "result": "Conform integration build"
+    },
+    "79494": {
+      "terminal": true,
+      "result": "Parsing build"
+    },
+    "89421": {
+      "exit_status": 0,
+      "result": "Maze archive"
+    }
+  },
+  "root_commitment": "No builds, tests, workloads or compression during this campaign. Parsing is holding builds, compression and workloads.",
+  "preservation_policy": "Run all 78 predetermined fresh processes. Retain failed attempts without silent retry. Wait for actual runner tool terminal status before declaring completion. Independent raw-byte audit follows; defer compression until raw campaign terminal."
+}

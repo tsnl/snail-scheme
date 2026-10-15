@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/nix/store/axmdd5wlxg1c9dbblvj09pjhkawqxmqx-glibc-2.42-84-bin/bin/ldd",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_hashlib.cpython-314-x86_64-linux-gnu.so"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014",
+  "phase": "setup-diagnostic",
+  "clean_sample": false,
+  "retained": false,
+  "status": "completed",
+  "pid": 84,
+  "process_group": 84,
+  "returncode": 0,
+  "stdout": "\tlinux-vdso.so.1 (0x0000760ee815b000)\n\tlibcrypto.so.3 => /nix/store/hg41dqig0qxm7shyi0a0xkw29a14i3js-openssl-3.6.3/lib/libcrypto.so.3 (0x0000760ee7a00000)\n\tlibgcc_s.so.1 => /nix/store/0vqb1mcas5j8dv6bhbrshinlgsg6bvgi-gcc-15.3.0-lib/lib/libgcc_s.so.1 (0x0000760ee8116000)\n\tlibc.so.6 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libc.so.6 (0x0000760ee7600000)\n\tlibdl.so.2 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libdl.so.2 (0x0000760ee810f000)\n\tlibpthread.so.0 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libpthread.so.0 (0x0000760ee810a000)\n\t/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib64/ld-linux-x86-64.so.2 (0x0000760ee815d000)\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 84,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.003488526970613748
+}

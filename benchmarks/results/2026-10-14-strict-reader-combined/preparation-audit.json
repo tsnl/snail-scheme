@@ -1,0 +1,51 @@
+{
+  "source_commit": "20b4d2100c3640c50fb535a70956d0b4128a9554",
+  "plan_sha256": "c9f573cacaf32c3af39d5c0f7e66cb86fe6ec207a80fab90882b8158ca2808bc",
+  "frozen_identities_verified": 265,
+  "declared_processes": 44,
+  "retained_positions": 5,
+  "counts_and_filecycles": {
+    "sum1": {
+      "counts": [
+        1,
+        2,
+        25
+      ],
+      "file_bytes": 1100000,
+      "per_worker_buffered_reads": 136,
+      "one_eof_and_close_per_worker": true,
+      "complete_repeated_cycle_raw_and_optimized": true,
+      "native_close_counts": true,
+      "original_and_adapted_chez": true
+    },
+    "read1": {
+      "counts": [
+        1,
+        2,
+        2500
+      ],
+      "file_bytes": 28300,
+      "per_worker_buffered_reads": 5,
+      "one_eof_and_close_per_worker": true,
+      "complete_repeated_cycle_raw_and_optimized": true,
+      "native_close_counts": true,
+      "original_and_adapted_chez": true
+    }
+  },
+  "corpus": {
+    "valid": 32,
+    "syntax_errors": 60,
+    "utf8_traps": 3
+  },
+  "public_datum_units": 42,
+  "owned_terminal_handles": {
+    "checks10933": 0,
+    "corpus50333": 0,
+    "preparation85922": 0,
+    "units62224": 0
+  },
+  "all_recorded_process_cleanup_checked": true,
+  "recorded_commands": 546,
+  "expected_nonzero_commands": 35,
+  "combined_clean_timing_not_started": true
+}

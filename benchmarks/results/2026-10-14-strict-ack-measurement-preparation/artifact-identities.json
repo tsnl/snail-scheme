@@ -1,0 +1,39 @@
+{
+  "production-v8": {
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm": "590a5d3acec095bb81aaa40ee1b4a941c5e79c09c2e0c90b6d959d8861b39704",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5"
+  },
+  "native-final-v8": {
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/native-final.wasm": "efbf4ea6a3e27682b015e3087408c25730ea3628deb55a641e8a7f834aec3a4a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5"
+  },
+  "native64": {
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native": "a7194ae7ae0c06a7a19bbfbb46711e2898687c38847f2ee02fec9116c90f3ebd"
+  },
+  "chez-original": {
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/program.so": "b9771a26e3f50d1eb10cd467cb86610273acffa9a13e1afb666b22f87f10f325",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c"
+  },
+  "rust-native-recursive": {
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.native": "adb931e8215afd4fbc60b6e847ad961c193ba2fb85ff9abddb4bd6cec79d2354",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c"
+  },
+  "rust-native-heap": {
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.native": "adb931e8215afd4fbc60b6e847ad961c193ba2fb85ff9abddb4bd6cec79d2354",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c"
+  },
+  "rust-wasm-heap": {
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.wasm": "e4bdb070fd5531eb2eb498af7cf1a536821a79437812f172f9aa9bc07c9f5440",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c"
+  },
+  "native-provider-object": {
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/provider-0.o": "42274fa6da755d48337e02058e6c5cccefde902cbb289f11853a944f2275cdf4"
+  }
+}

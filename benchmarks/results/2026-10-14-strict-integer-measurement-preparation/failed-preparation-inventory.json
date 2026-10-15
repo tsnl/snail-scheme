@@ -1,0 +1,8 @@
+{
+  "command": ["python3", "-I", "-B", "benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py"],
+  "returncode": 1,
+  "error": "FileNotFoundError: /tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/retention.json",
+  "benchmark_processes_started": 0,
+  "reason": "The retention summary belongs to the landed report; its supporting code captures and disassembly belong to the original workload archive. The identity inventory initially looked for the summary in the original build directory.",
+  "correction": "The frozen plan now identifies the existing landed retention summary. No source, guest or original artifact changed."
+}

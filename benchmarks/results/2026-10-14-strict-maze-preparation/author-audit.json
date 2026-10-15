@@ -1,0 +1,670 @@
+{
+  "adapter_commit": "af0d3a68ea4e85fc63d8380fee756f5e02962a22",
+  "source_reconstruction_equal": [
+    "upstream.scm",
+    "upstream-kernel.scm",
+    "adapted-kernel.scm",
+    "strict.scm",
+    "chez/program.scm",
+    "chez-adapted/program.scm"
+  ],
+  "schema_edits": 68,
+  "five_system_fixtures": 17,
+  "five_system_observations": 2,
+  "rust_executions": 21,
+  "exact_native_final_wasm_verified": true,
+  "clean_native_opacity_counters": false,
+  "development_failure_records": [
+    "maze/commands/strict-compile-attempt-1/record.json",
+    "maze/dimension-oracles-attempt-1/commands/1x1/record.json",
+    "maze/observations-attempt-1/commands/strict-build/record.json",
+    "maze/observations/commands/chez-compile-attempt-1/record.json"
+  ],
+  "records": [
+    {
+      "path": "maze/controls/native/commands/provider-assemble/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/provider-final-interface/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/full-count-validation/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/native-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/prune-scalar-provider/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/provider-input-interfaces/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/identical-wasm-v8-validation/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native/commands/provider-disassemble/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/maze-wasm-disassemble/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/once-native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/maze-wasm-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/maze-native-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/once-raw-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/canonical-optimized-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-order-raw-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/twice-native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-character-native/record.json",
+      "returncode": -6
+    },
+    {
+      "path": "maze/controls/rust/commands/extra-character-native/record.json",
+      "returncode": -6
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-character-optimized-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-order-optimized-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/extra-character-optimized-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/canonical-native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-character-raw-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/canonical-raw-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/missing-character-native/record.json",
+      "returncode": -6
+    },
+    {
+      "path": "maze/controls/rust/commands/twice-raw-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/missing-character-optimized-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/wrong-order-native/record.json",
+      "returncode": -6
+    },
+    {
+      "path": "maze/controls/rust/commands/maze-wasm-optimize/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/twice-optimized-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/once-optimized-wasm/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/rust/commands/missing-character-raw-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/rust/commands/extra-character-raw-wasm/record.json",
+      "returncode": 1
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/provider-assemble/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/provider-final-interface/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/full-count-validation/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/native-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/prune-scalar-provider/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/provider-input-interfaces/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/identical-wasm-v8-validation/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/controls/native-counting-diagnostic/commands/provider-disassemble/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/extra-character/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/extra-character/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/extra-character/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/extra-character/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/extra-character/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/twice/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/twice/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/twice/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/twice/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/twice/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-order/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-order/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-order/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-order/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-order/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x1/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x1/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x1/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x1/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x1/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/once/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/once/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/once/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/once/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/once/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/canonical/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/canonical/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/canonical/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/canonical/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/canonical/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-list/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-list/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-list/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-list/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-list/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/3x3/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/3x3/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/3x3/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/3x3/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/3x3/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-false/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-false/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-false/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-false/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/zero-false/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/negative-false/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/negative-false/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/negative-false/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/negative-false/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/negative-false/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x2/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x2/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x2/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x2/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x2/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-character/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-character/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-character/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-character/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/wrong-character/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/non-character/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/non-character/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/non-character/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/non-character/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/non-character/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x1/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x1/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x1/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x1/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/1x1/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x2/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x2/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x2/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x2/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/2x2/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/missing-character/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/missing-character/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/missing-character/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/missing-character/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/missing-character/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/4x4/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/4x4/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/4x4/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/4x4/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/validation/4x4/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations-attempt-1/commands/strict-build/record.json",
+      "returncode": 70
+    },
+    {
+      "path": "maze/observations/full-count/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/full-count/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/full-count/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/full-count/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/full-count/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/once/commands/raw/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/once/commands/chez-adapted/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/once/commands/native/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/once/commands/chez/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/once/commands/optimized/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/optimized-link/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/chez-compile-attempt-1/record.json",
+      "returncode": 255
+    },
+    {
+      "path": "maze/observations/commands/strict-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/native-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/chez-adapted-compile/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/chez-compile/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/observations/commands/raw-link/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/strict-compile-attempt-2/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/optimized-link/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/native-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/rust-runtime/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/chez-adapted-once/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/raw-link/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/chez-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/chez-adapted-build/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/chez-once/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/commands/strict-compile-attempt-1/record.json",
+      "returncode": 70
+    },
+    {
+      "path": "maze/dimension-oracles/commands/4x4/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles/commands/2x2/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles/commands/1x1/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles/commands/1x2/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles/commands/3x3/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles/commands/2x1/record.json",
+      "returncode": 0
+    },
+    {
+      "path": "maze/dimension-oracles-attempt-1/commands/1x1/record.json",
+      "returncode": 255
+    }
+  ],
+  "note": "The initial exact-edit generation guard also caught a parent pattern duplicated in an upstream comment; no executable was generated. The match was scoped to the DFS initializer."
+}

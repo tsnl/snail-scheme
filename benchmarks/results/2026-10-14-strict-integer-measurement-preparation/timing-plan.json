@@ -1,0 +1,1502 @@
+{
+  "cpu": 5,
+  "timeout_seconds": 300,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "supervisor": "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "SNAIL_INTEGER_TIME": null,
+    "CHEZSCHEMELIBDIRS": null,
+    "SCHEMEHEAPDIRS": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "workloads": {
+    "pi": {
+      "name": "pi",
+      "count": 100,
+      "inputs": [
+        50,
+        500,
+        50
+      ],
+      "expected": [
+        "314159265358979323846264338327950288419716939937507",
+        "-54",
+        "124",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170673",
+        "-51",
+        "-417",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408122",
+        "-57",
+        "-819",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038195",
+        "-76",
+        "332",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019089",
+        "-83",
+        "477",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141268",
+        "-72",
+        "-2981",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536431",
+        "-70",
+        "-2065",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116089",
+        "-79",
+        "1687",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609433057270365759591953092186117381932611793105118542",
+        "-92",
+        "-2728",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194907",
+        "-76",
+        "-3726"
+      ],
+      "output": "((314159265358979323846264338327950288419716939937507 -54 124) (31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170673 -51 -417) (3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408122 -57 -819) (314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038195 -76 332) (31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019089 -83 477) (3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141268 -72 -2981) (314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536431 -70 -2065) (31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116089 -79 1687) (3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609433057270365759591953092186117381932611793105118542 -92 -2728) (314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194907 -76 -3726))\n",
+      "diagnostic_only": true
+    },
+    "chudnovsky": {
+      "name": "chudnovsky",
+      "count": 1000,
+      "inputs": [
+        50,
+        500,
+        50
+      ],
+      "expected": [
+        "314159265358979323846264338327950288419716939937510",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436",
+        "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094",
+        "3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609433057270365759591953092186117381932611793105118548",
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912"
+      ],
+      "output": "(314159265358979323846264338327950288419716939937510 31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679 3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128 314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196 31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091 3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273 314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436 31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094 3141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609433057270365759591953092186117381932611793105118548 314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912)\n",
+      "diagnostic_only": true
+    }
+  },
+  "systems": {
+    "pi": {
+      "production-v8": {
+        "name": "pi",
+        "system": "production-v8",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/production.wasm",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/production.wasm": "1bf1d61500abd5fef7ac4723008b92d09dddb7ca2d5a428e5db5c646539e5e97",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json": "45e2e52bef4aea0a5631c5ce913760a9bd13e86197befcddc9ec1f1831769698"
+        }
+      },
+      "native-final-v8": {
+        "name": "pi",
+        "system": "native-final-v8",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native-final.wasm",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native-final.wasm": "d8f3aaf2746e71255cc607fdcd50030cbe78a0754c57e99b97b6735c0ff237b8",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json": "45e2e52bef4aea0a5631c5ce913760a9bd13e86197befcddc9ec1f1831769698"
+        }
+      },
+      "native64": {
+        "name": "pi",
+        "system": "native64",
+        "command": [
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.native-input",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native": "3dc439a94b7850e76c744e52a6009164bcaadb2b62b9a68e6de314ef6e15204d",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.native-input": "9fdbb0a60c0389fe4afcb36083b6708a7c527a4a319c1223b118dd4f41da938c"
+        }
+      },
+      "chez-original": {
+        "name": "pi",
+        "system": "chez-original",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.so": "34a49eab5cffb5d6431428f2a98d5f7ac372ac6b8c2a3e5bbf7b7ff8a1c08c6a",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+        }
+      },
+      "chez-adapted": {
+        "name": "pi",
+        "system": "chez-adapted",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.so": "dc5ee2e7a7a2431536e4e19728bc073db7c80792565d1487fe10f30f7145dcfc",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+        }
+      },
+      "chez-limbs": {
+        "name": "pi",
+        "system": "chez-limbs",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.so": "c619cf0b8cfbb765acfa943a82c3fde955956d2a9691d491bf2c36ac0666e5a3",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+        }
+      },
+      "rust-native": {
+        "name": "pi",
+        "system": "rust-native",
+        "command": [
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-native"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+        "environment": {
+          "SNAIL_INTEGER_TIME": "1"
+        },
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-native": "ac7969fc932c979e4d2aaa9b82f8cf3d2ab077ea8f05f57130289f565998fd24",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+        }
+      },
+      "rust-wasm": {
+        "name": "pi",
+        "system": "rust-wasm",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.wasm"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+        "environment": {
+          "SNAIL_INTEGER_TIME": "1"
+        },
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.wasm": "de328f8929186ec9d5f1315999159952a95bdb1cbdd6bb521a27bb7c7fb2bca7",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+        }
+      }
+    },
+    "chudnovsky": {
+      "production-v8": {
+        "name": "chudnovsky",
+        "system": "production-v8",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/production.wasm",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/production.wasm": "76a3fe38f8680f8d7c5872b0280bf7aee7aa7cf168fde371ac4e6d1d06faabb5",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json": "4decc62794fc7d00741b63ecacd81010e2f0f78345be56114fab2d8f71cb8bf0"
+        }
+      },
+      "native-final-v8": {
+        "name": "chudnovsky",
+        "system": "native-final-v8",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native-final.wasm",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native-final.wasm": "e04e70a093026ba9833847228ad95481f65408181d9dc260fb76e12833f344fa",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json": "4decc62794fc7d00741b63ecacd81010e2f0f78345be56114fab2d8f71cb8bf0"
+        }
+      },
+      "native64": {
+        "name": "chudnovsky",
+        "system": "native64",
+        "command": [
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.native-input",
+          "--time"
+        ],
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native": "61afd69ebe6dddf470bf42f054dd7f47e6d9b58deef5bd347913f882ace7e195",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.native-input": "07460cf392aede615c0fe01409da0db1596288f4a1b9f292847853d88568130d"
+        }
+      },
+      "chez-original": {
+        "name": "chudnovsky",
+        "system": "chez-original",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.so": "1ea181d447a7a6e8d7885dddd360d6f5f474b2b63a529d119422b21aca86f31f",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+        }
+      },
+      "chez-adapted": {
+        "name": "chudnovsky",
+        "system": "chez-adapted",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.so": "2d9163c330a591f5303f364bad42af3c6ab009fa80e0c690df8ddc0e46e14e87",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+        }
+      },
+      "chez-limbs": {
+        "name": "chudnovsky",
+        "system": "chez-limbs",
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.so",
+          "--time"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.so": "318fe59693fe09df788d1061e5076e53c197fa9f861ab1fbb1a6e05d903e0b19",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+        }
+      },
+      "rust-native": {
+        "name": "chudnovsky",
+        "system": "rust-native",
+        "command": [
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-native"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+        "environment": {
+          "SNAIL_INTEGER_TIME": "1"
+        },
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-native": "5e7f657259b4ef86ba6cd5c326ebbee8201eee9c7a858080b0ad999786deb5c6",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+        }
+      },
+      "rust-wasm": {
+        "name": "chudnovsky",
+        "system": "rust-wasm",
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.wasm"
+        ],
+        "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+        "environment": {
+          "SNAIL_INTEGER_TIME": "1"
+        },
+        "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+        "artifact_sha256": {
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.wasm": "4f805995996a6d663de145ee02d598741bf872648b31f50c034563a583964853",
+          "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+        }
+      }
+    }
+  },
+  "schedule": [
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": -1,
+      "position": 0,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": -1,
+      "position": 1,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": -1,
+      "position": 2,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": -1,
+      "position": 3,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": -1,
+      "position": 4,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": -1,
+      "position": 5,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": -1,
+      "position": 6,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": -1,
+      "position": 7,
+      "retained": false
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 0,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 0,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 0,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 0,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 0,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 0,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 0,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 0,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 1,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 1,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 1,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 1,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 1,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 1,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 1,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 1,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 2,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 2,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 2,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 2,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 2,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 2,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 2,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 2,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 3,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 3,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 3,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 3,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 3,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 3,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 3,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 3,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 4,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 4,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 4,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 4,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 4,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 4,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 4,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 4,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 5,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 5,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 5,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 5,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 5,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 5,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 5,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 5,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 6,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 6,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 6,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 6,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 6,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 6,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 6,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 6,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-wasm",
+      "round": 7,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "production-v8",
+      "round": 7,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native-final-v8",
+      "round": 7,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "native64",
+      "round": 7,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-original",
+      "round": 7,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-adapted",
+      "round": 7,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "chez-limbs",
+      "round": 7,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "pi",
+      "system": "rust-native",
+      "round": 7,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": -1,
+      "position": 0,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": -1,
+      "position": 1,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": -1,
+      "position": 2,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": -1,
+      "position": 3,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": -1,
+      "position": 4,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": -1,
+      "position": 5,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": -1,
+      "position": 6,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": -1,
+      "position": 7,
+      "retained": false
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 0,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 0,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 0,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 0,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 0,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 0,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 0,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 0,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 1,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 1,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 1,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 1,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 1,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 1,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 1,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 1,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 2,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 2,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 2,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 2,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 2,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 2,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 2,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 2,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 3,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 3,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 3,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 3,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 3,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 3,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 3,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 3,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 4,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 4,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 4,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 4,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 4,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 4,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 4,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 4,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 5,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 5,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 5,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 5,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 5,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 5,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 5,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 5,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 6,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 6,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 6,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 6,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 6,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 6,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 6,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 6,
+      "position": 7,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-wasm",
+      "round": 7,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "production-v8",
+      "round": 7,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native-final-v8",
+      "round": 7,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "native64",
+      "round": 7,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-original",
+      "round": 7,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-adapted",
+      "round": 7,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "chez-limbs",
+      "round": 7,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "chudnovsky",
+      "system": "rust-native",
+      "round": 7,
+      "position": 7,
+      "retained": true
+    }
+  ],
+  "identities": {
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/run/current-system/sw/bin/python3": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/adapted.scm": "3555bbaefdb35b60be1c2499578df645bc2bc6af5a42284c49d3e223b1e806ea",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted-compile.json": "27634c10f0302062d708485162cf5c5b739b1c662e702866f956a9bae847139f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted-compile.sps": "b8924973f4e2a8dc845e28fb9cc1ab9d09fcea7311ab9b666267bb2e2f042b00",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.so": "2d9163c330a591f5303f364bad42af3c6ab009fa80e0c690df8ddc0e46e14e87",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.sps": "65556adb9eb6f7262f2d18a933c35961aa3fbe793d891b8903884cebf21f4890",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs-compile.json": "3856f5e504ff197355f31139cf74d483377a2f8d6f73fe4b7d949c3364e104a6",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs-compile.sps": "337580308e7d571967ff6c0eddfd8e38a9f064db4cf7f0efce5d1ca0ab50ab79",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.so": "318fe59693fe09df788d1061e5076e53c197fa9f861ab1fbb1a6e05d903e0b19",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.sps": "74d86dcb93dcf50e48a51d0ffbca1c7573a7e4b7e175a7c31104af48a5d01b23",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original-compile.json": "86448aea0cebe1875ae52441dac752d7cc77095a55641dcda500ae111ccc40d5",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original-compile.sps": "21561f959814a217a171d98e428232471c22f6ee333225725401d223cd29fc29",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.so": "1ea181d447a7a6e8d7885dddd360d6f5f474b2b63a529d119422b21aca86f31f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.sps": "a883b2e1786ed6921809028b68e761fbf82ef427b57d7684976511f49fb9cc76",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/edits.json": "a7ab3156f1f95e5fe01a815b2b0a9364909d31ed73837dae23afd7d6ffd665ec",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.native-input": "07460cf392aede615c0fe01409da0db1596288f4a1b9f292847853d88568130d",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json": "4decc62794fc7d00741b63ecacd81010e2f0f78345be56114fab2d8f71cb8bf0",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native": "61afd69ebe6dddf470bf42f054dd7f47e6d9b58deef5bd347913f882ace7e195",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native-final.wasm": "e04e70a093026ba9833847228ad95481f65408181d9dc260fb76e12833f344fa",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native.native-fhwnkqzq/build.json": "019a8d1cb612d1a6477229359ec98ffe5be32c9a3be00d63f1e52880982d0ecf",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native.native-fhwnkqzq/module.ll": "abc4b71d8e06e6be0e47a379a80d9c3a3b217cf665fc5f46a833e7c75e9f51b4",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native.native-fhwnkqzq/optimized.wasm": "e04e70a093026ba9833847228ad95481f65408181d9dc260fb76e12833f344fa",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native.native-fhwnkqzq/provider-0.o": "ffd36d5564ff4449934b96da795f7309887cab5144089f71138a9666085e565f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/original.scm": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/production.wasm": "76a3fe38f8680f8d7c5872b0280bf7aee7aa7cf168fde371ac4e6d1d06faabb5",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/strict.scm": "4d197c7261910c9d3d31d8fb5f082f5315744974b2a955f433be8783527d290d",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-entry.c": "19944ac1122c964860e41813bfafaf7ed33591e1a4d781ca88fa62de8f834bba",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-entry.c": "d3a2ee68cf1150b1675bd66da6677a53d4a0dbfbf6471d917b430089d67ab071",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-host.mjs": "15a719c9c9d1f97742231767567a5308ebed043e802492beb58639b4167e8ee4",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-provider.c": "dec4c1ad8db4083c0a857c3c27fa1172b04bb525bf3519b8a984b189cbd95ea6",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-provider.h": "1bf30fdce06db48eb23a7b654e8624e3c9806b62c0effa95e46e890d389562d2",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer_controls.py": "a55467e2903a6775adab4ffad0a55b4a3aecc8f1e2a71ea80ffbd0fc8980770d",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer_ports.py": "2ec918b32bf7b400b350519813399c24fe74c67aa4e37e47439dff0b401d5c53",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/src/snail/integer.sld": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/adapted.scm": "75a8e69f86e4d40c2bb545e25541767ef8f5abb3b6f9dae7067b7d1da00da0a9",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted-compile.json": "f3886778a788c61d6c45753394094e26913d6405b1e3a7a445f87a690371e86b",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted-compile.sps": "b5eb1b0db0659ccb3e3543486d56383fbd168fe4ad7bf8dcd750265265ed3a2e",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.so": "dc5ee2e7a7a2431536e4e19728bc073db7c80792565d1487fe10f30f7145dcfc",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.sps": "67523905203adfe41c6b552d67593ba41c638290f924c86cc3311b1bfee6a9d2",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs-compile.json": "ab9abe6953bb18ccaafa764e184cbd719487c9e867adeac48dae3811347024e4",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs-compile.sps": "de35a2005f53e8301d1afeaec0b6ef3ed9963d3c1f5790925a21946f4a67eb97",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.so": "c619cf0b8cfbb765acfa943a82c3fde955956d2a9691d491bf2c36ac0666e5a3",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.sps": "0cf2bd8c6c8f77ace62e96d1e940bb95654f4c28fafb158fa01834e00ca050cf",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original-compile.json": "31b958c7b8576e75b625f2fa29b0deb711dda98b6f7ff295426c5e13322416ee",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original-compile.sps": "2fe41877574d037af9d25559d478920370342e5cbb84dc021d4231d607227d17",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.so": "34a49eab5cffb5d6431428f2a98d5f7ac372ac6b8c2a3e5bbf7b7ff8a1c08c6a",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.sps": "f7e3d3df17a6dce0cc6af8a10dea79bc26e5603bc15025dbcd5fb23a29e5ef4f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/edits.json": "314a26a7984846f9b9ec1764bd8e1158677512d413c62d96609881b21f5de88f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.native-input": "9fdbb0a60c0389fe4afcb36083b6708a7c527a4a319c1223b118dd4f41da938c",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json": "45e2e52bef4aea0a5631c5ce913760a9bd13e86197befcddc9ec1f1831769698",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native": "3dc439a94b7850e76c744e52a6009164bcaadb2b62b9a68e6de314ef6e15204d",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native-final.wasm": "d8f3aaf2746e71255cc607fdcd50030cbe78a0754c57e99b97b6735c0ff237b8",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native.native-85j4to3d/build.json": "d560861bfc2422ae60b9947b765e25faf850720e71d367bc78027b4fcc0786e5",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native.native-85j4to3d/module.ll": "821bde2bac516db2ece6eda43cf0ff5b6a73b9528b18fb1a07e745882cfe7aab",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native.native-85j4to3d/optimized.wasm": "d8f3aaf2746e71255cc607fdcd50030cbe78a0754c57e99b97b6735c0ff237b8",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native.native-85j4to3d/provider-0.o": "ffd36d5564ff4449934b96da795f7309887cab5144089f71138a9666085e565f",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/original.scm": "f9317c5ada556aee4fde4c3c959bd4b604e45cbf05c9b5f84157c32ce346faa9",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/production.wasm": "1bf1d61500abd5fef7ac4723008b92d09dddb7ca2d5a428e5db5c646539e5e97",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/strict.scm": "e657f1ac79c81dccdde56ae94f0107f8155eb2016127f3f389912d20c7cd9b54",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-native": "5e7f657259b4ef86ba6cd5c326ebbee8201eee9c7a858080b0ad999786deb5c6",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-reporting-edits.json": "a43972f9aebaef8ab094a24c92f86c39c67fff61f94ecca6ebd6d6949bae77d8",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.raw.wasm": "5d0af5aac5959815ab4504008a3625c39d8ed169e2eaa10965bc88b01ec6a406",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.wasm": "4f805995996a6d663de145ee02d598741bf872648b31f50c034563a583964853",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-native": "ac7969fc932c979e4d2aaa9b82f8cf3d2ab077ea8f05f57130289f565998fd24",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-reporting-edits.json": "6b6446b3bfe6ad227b5f89fb92c26dfcda3df678ac2f8f0c395d26f2623dea9d",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.raw.wasm": "6b567057b96f16f4edbf311165e14a321255b05cb00055b16eee3806907f5098",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.wasm": "de328f8929186ec9d5f1315999159952a95bdb1cbdd6bb521a27bb7c7fb2bca7",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/src/bin/chudnovsky.rs": "4069299bd41729867798864e1b43f982c3e31967fdd705a268937e2ea1938a73",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/src/bin/pi.rs": "3e2f2dfc6e6fcda3602d398f40399954fec3817f6e275b9563ff15e1b3b6e67b",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/timing-plan.json": "b098ef30a57aefed2be7ba41a3bc2d5cb8ed5c2d7ec04a2119dbbda74565d7a6",
+    "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/tools.json": "b4f330e7fc75b288f69511693b31588d77ab36f29d3293fcf4aa3e5b40d4cea3",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-controls/chudnovsky/retention.json": "b70cb44e527f3f5910f8afe2b5ea65d84955d7eeaba09e87477c129d2d1d696b",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-controls/pi/retention.json": "448f91a8bf50f52ddf9efc03a0136348c1b41a134066ec6e5717be1a8702e67b",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/measure.py": "1607e9f88521fe88ee707ffceaf8e1554a3cd4154251c28bcb0b5811a20df4ea",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py": "680395231b9a4aed510c07c19104693e1f5adc07c2468f5aca5d320e697c965f",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/deriv_port.py": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/destruc_port.py": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/earley_port.py": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/enumeration_ports.py": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/lattice_port.py": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/mazefun_port.py": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/mbrotz_port.py": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/measure.py": "daac1f31f2464183d99a0820e1ffe571d93f086246fb7561416f41ad7b6b401c",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/nucleic_port.py": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/puzzle_port.py": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/ray_port.py": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/reader_ports.py": "33869537222e79f73b575ca796249a962b12d485130d7dbef48d010247c9d217",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/simplex_port.py": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/supervisor/tail_port.py": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/verify.py": "95b04023007892ef9577c71dd0ce42b05fd3c5f2377aaab3e0e249a2b8520e4e"
+  },
+  "clock_boundary": "Input/expected parsing and module initialization precede the clock; computation and final complete numeric predicate are inside; serialization follows.",
+  "original_plan": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/timing-plan.json",
+  "exclusions": "Only the predetermined round -1: one fresh process per system/workload. No replacement or later exclusion.",
+  "runtime_policy": "Default V8 tiers and default GC. Three opacity imports per Scheme iteration stay timed. CPU 5, serial fresh processes.",
+  "process_clock": "Popen through capture, leader reap and bounded group cleanup.",
+  "comparison": "Original/adapted native-bigint Chez, checked limb-body Chez and independent Rust retain arithmetic/layout/ownership differences."
+}

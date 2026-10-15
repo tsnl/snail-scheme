@@ -1,0 +1,773 @@
+{
+  "cpu": 5,
+  "timeout_seconds": 120,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "python": "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+  "supervisor": "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor",
+  "supervisor_modules": [
+    "bv2string_port",
+    "data_ports",
+    "deriv_port",
+    "destruc_port",
+    "earley_port",
+    "enumeration_ports",
+    "lattice_port",
+    "matrix_port",
+    "mazefun_port",
+    "mbrotz_port",
+    "measure",
+    "nucleic_port",
+    "puzzle_port",
+    "ray_port",
+    "reader_ports",
+    "simplex_port",
+    "string_port",
+    "tail_port"
+  ],
+  "prepared_directory": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "CHEZSCHEMELIBDIRS": null,
+    "SCHEMEHEAPDIRS": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "workload": {
+    "name": "ack",
+    "count": 2,
+    "inputs": [
+      3,
+      12
+    ],
+    "expected": 32765,
+    "barriers_per_iteration": 2
+  },
+  "systems": {
+    "production-v8": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": null
+    },
+    "native-final-v8": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/native-final.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": null
+    },
+    "native64": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native",
+        "2",
+        "3",
+        "12",
+        "32765",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": null
+    },
+    "chez-original": {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/program.so"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt"
+    },
+    "rust-native-recursive": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.native"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt"
+    },
+    "rust-native-heap": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.native",
+        "--heap-frames"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt"
+    },
+    "rust-wasm-heap": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/run-wasi.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.wasm",
+        "--heap-frames"
+      ],
+      "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+      "stdin": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt"
+    }
+  },
+  "schedule": [
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": -1,
+      "position": 0,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": -1,
+      "position": 1,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": -1,
+      "position": 2,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": -1,
+      "position": 3,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": -1,
+      "position": 4,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": -1,
+      "position": 5,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": -1,
+      "position": 6,
+      "retained": false
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 0,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 0,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 0,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 0,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 0,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 0,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 0,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 1,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 1,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 1,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 1,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 1,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 1,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 1,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 2,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 2,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 2,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 2,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 2,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 2,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 2,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 3,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 3,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 3,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 3,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 3,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 3,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 3,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 4,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 4,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 4,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 4,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 4,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 4,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 4,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 5,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 5,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 5,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 5,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 5,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 5,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 5,
+      "position": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-wasm-heap",
+      "round": 6,
+      "position": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "production-v8",
+      "round": 6,
+      "position": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native-final-v8",
+      "round": 6,
+      "position": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "native64",
+      "round": 6,
+      "position": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "chez-original",
+      "round": 6,
+      "position": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-recursive",
+      "round": 6,
+      "position": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "ack",
+      "system": "rust-native-heap",
+      "round": 6,
+      "position": 6,
+      "retained": true
+    }
+  ],
+  "identities": {
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native": "a7194ae7ae0c06a7a19bbfbb46711e2898687c38847f2ee02fec9116c90f3ebd",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/build.json": "17fd762f3b546d25a4cf1dcbd62c5b5d306f01889d7ad98fe3ea947e62cd7104",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/build.scm": "bcd1f2ca16b2da30856ab46edf2df443331cf05783a4efcaff1da8ea41fe1338",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/compile.trace.json": "e73f13afdcbf08fd74b4ae2ea73e153b93a23019da0bcbb30170238d5808a5a5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/module.ll": "b1220a6182779bdffd64d134a215a48ea8535850d6925d5eaf121591ec21b9d9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/optimized.wasm": "efbf4ea6a3e27682b015e3087408c25730ea3628deb55a641e8a7f834aec3a4a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/optimized.wat": "03e3861c69928147510ed18e2cc2f5c27f866ad9be528b896efe7b1c9e31e43f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/provider-0.o": "42274fa6da755d48337e02058e6c5cccefde902cbb289f11853a944f2275cdf4",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack-native.native-o6hywise/reader.scm": "03e3861c69928147510ed18e2cc2f5c27f866ad9be528b896efe7b1c9e31e43f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/chez-build.json": "b9625b455c8cd187b63f92841260c6c127d3b8d17dd443ce8ac6843d1319d82e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/compile.scm": "8bf0468f152e4693bba5a8225028740ba2a3f78daf8c97affa391d3b615c7031",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/native-final.wasm": "efbf4ea6a3e27682b015e3087408c25730ea3628deb55a641e8a7f834aec3a4a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/program.scm": "a251d6f5fb853569d527dcdc8d0f49ed277a8ea5c60d245c492532e0d806889f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/program.so": "b9771a26e3f50d1eb10cd467cb86610273acffa9a13e1afb666b22f87f10f325",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict-build.json": "477132fdca7e958e3b1bb01974b1f3b47b2be00bf95a8abd8adb4ab14fff6a3f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.optimized.wat": "a4c76f10513be72c0c72aa574324d577580f334f9946e4bfd1617c1b9d07f6e3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.scm": "5de295636b46db2530466696fd3c4fff4a5a95b03278ee9d4355e67d650dec47",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm": "590a5d3acec095bb81aaa40ee1b4a941c5e79c09c2e0c90b6d959d8861b39704",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm.raw.wasm": "8b1e6d9b3509ea55f9a67e0373044e2bd55a9ebc0a50f22aacd31767556d03ae",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm.trace.json": "9b10d408d7efdb13a6739fcb1fb09589bbaa5a4c2a64feafee8b4c3c52e631e0",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/strict.wasm.wat": "d5a6f14e65cfd3e1d9602f2f93c57a5446f3c5939ee5ff49b02ec5b0043690db",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/upstream.scm": "63de11cf70b1b785261e63685d1b5e1f5801ccde8b60af00f6d303cc5d4a7546",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/validation-spec-1.json": "6c14d2d3091729fec031d6b751ad09eba3a6a980fe9b2de90062f8d23cef8b8d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/validation-spec-2.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/validation.json": "80564ba78818a26f87797c8115454caea781297abae1c827d7177740d8acaefa",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/checks.json": "eb05bbe8d7cdd25ed1adc685b7dc8a8cd552c317fe9d84b82f420393eacb1d16",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/old-spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/old-strict.optimized.wat": "a0b8e6d1b4f68fab7a6dc4fcf7462f4e4c2c87be9ec632488c720e5fdbd91287",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/old-strict.scm": "5de295636b46db2530466696fd3c4fff4a5a95b03278ee9d4355e67d650dec47",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/old-strict.wasm": "b96438a8307505b3deb5448442a4f059673dc5e88772b3cc5cc6084968b95d07",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/archive-comparison/old-strict.wasm.raw.wasm": "2da91b2dc6e8b75e98075a1e7567dfdd7ccf0324e340f5d5838c2ba492fb108d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/scripts/build-strict": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/bootstrap.sld": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/build-host.sld": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/build.sld": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/chromium-trace.sld": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/compile-build.sld": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/effects.sld": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/expand.sld": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/ir.sld": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/iverson-ghost.sld": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/iverson-typed.sld": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/llvm.sld": "8a81c3d98b13451b89768c995d9dbe3747023feda4add2b6eadfd2217b0dddd3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/native.sld": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-compiler.sld": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-core.sld": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-data.sld": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-infer.sld": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-overloads.sld": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-primitives.sld": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-specialize.sld": "851619644b51c8dabf81192c70d6db3f0e324f26f8c21c13c1bf2bc8d0784a42",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-types.sld": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/strict-wasm.sld": "3e2f8673183028c521a0c807a3ba7f1d2d52f5ba67b72814c7a6e34d21d3b70c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/syntax-parser.sld": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/type-analysis.sld": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/type-inference.sld": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/typeclasses.sld": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/types.sld": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-abi.sld": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-extern.sld": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-i32.sld": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-link.sld": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-literals.sld": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-optimize.sld": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-read.sld": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-resolve.sld": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm-runtime.sld": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail-scheme/wasm.sld": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/bytes.sld": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/datum.sld": "25a0059c15fb3e89170dd5652d27a0f700bffe3216ceeee2db70a1144474dcd7",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/integer.sld": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/io.sld": "6e159834f7889e41d5de2db0ae5ccf611d4bc02ef46d954281ed9b6af40f0551",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/math.sld": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/read.sld": "136c8d211586c6592f3ad88ea88a0d9f58184ce130ebcc99b5acaca75c4d308e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/strict.sld": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/src/snail/typing.sld": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/compiler-source/tests/build-strict-program.scm": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/deriv_port.py": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/destruc_port.py": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/earley_port.py": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/enumeration_ports.py": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/extra-control-identities.json": "a9a470c47c9f8bf39363fb20dcd1d9fc6a8f8d3fdc1a5af69a85d68a1148cbe9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/extra-controls.json": "b7d79746e06ee35e3bf12cc1def79980dcdf3ee7aeab8d9da248d6b941e14f08",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/heap-and-clock-validation.json": "8f31c1bee6f899f874cd116b294d9db5f18bc1e8cb8d28bcd1ed22c5913dc5e6",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/lattice_port.py": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/mazefun_port.py": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/mbrotz_port.py": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/measure.py": "daac1f31f2464183d99a0820e1ffe571d93f086246fb7561416f41ad7b6b401c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-disassembly.json": "a01c1b9a516cf1eb2433db2803dc77ccb467fa264d5633d4a6cf01e40defaec6",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-entry.c": "de08afd8e9cc2b372b29430983f9e98dd486a7ade68b97ea2e2ef27c78a05af9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-f.2.asm": "8d2cf724834d9cef0457cef83c71a60dadd11e961c631a0d73165261df946344",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-f.5.asm": "890ce9b34c02a57f63217fb1425d06d10efc111b1f43bdcc17e6d6d3ee3f0481",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-provider.c": "121532b2110d110ba7e52bbb7b86b674b347a17a7f1bf5f051e5bfcab3e14e9e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-provider.h": "5450b052d30a66257d29e21fbb04b09b6e7acaf1baa6332f4df2973b19e6e88e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-source/scripts/build-native": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-source/scripts/build-native.scm": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-source/src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-source/src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-source/src/precise-gc.h": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/native-validation.json": "58a5cb4791ba34052f4e12c47192d500dc9d3a3b7a7584e1658e87a30b3c0968",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/nucleic-host.mjs": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/nucleic_port.py": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/preparation-drivers/snail-ack-artifact-check-20261014.py": "35ab47793ea98406c96cf947c529646df42bea9be0d4be47cb5905d4b055c36a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/preparation-drivers/snail-ack-current-probe-20261014.py": "9053f7c36e4e40ad38bdb4db28fd7de52e1d1273e6633b820910d31103bff0bc",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/preparation-drivers/snail-ack-extra-controls-20261014.py": "b1e0aef18c46f02eb1cb9ec409b27390ef5b8ce0ecbc5f4a6bbc513cde524a17",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/prepared.json": "6f620a5c5babc9f1826a09a3ee2282bc74a3aa9a87fbe0e5220ce709c5ce37ad",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/puzzle_port.py": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ray-host.mjs": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ray_port.py": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/reader-host.mjs": "bf73e26783478d154a41c6d9e997c22cc70c3de51053f59f37304d6c671fb681",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/reader_ports.py": "33869537222e79f73b575ca796249a962b12d485130d7dbef48d010247c9d217",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.native": "adb931e8215afd4fbc60b6e847ad961c193ba2fb85ff9abddb4bd6cec79d2354",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.raw.wasm": "1f7d1de8d7f4ab6b6db77634e386ea225056b1238c8adcd9401b791724f12442",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.wasm": "e4bdb070fd5531eb2eb498af7cf1a536821a79437812f172f9aa9bc07c9f5440",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/ack.wat": "e522e5863a02afef9756470db33a8cedc5ff140c048827ec5fda0a1e805c2c44",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/code/native-ack-2398e7c6bae7ef06.ll": "ebf17e4d9ce4c47f6ad9bc9b873edb4dc99b50b8454e26bf7ad1f4d95f09e38d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/code/native-ack-2398e7c6bae7ef06.s": "29d3ff59972e907abe6ea3c66675faf213d089c7772840f97e5ec523326a02f7",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/code/wasm-ack-c0aefe14aa4c273a.ll": "f83a13d664ec509f355ef4e64acc0b64a0404b346f5830c664ba7e2751c1a4a9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/ack.rs": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/array1.rs": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/browse.rs": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/bv2string.rs": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/chudnovsky.rs": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/compiler.rs": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/conform.rs": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/cpstak.rs": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/ctak.rs": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/deriv.rs": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/destruc.rs": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/diviter.rs": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/divrec.rs": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/dynamic.rs": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/earley.rs": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/equal.rs": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/fft.rs": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/fib.rs": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/fibc.rs": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/fibfp.rs": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/gcbench.rs": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/matrix.rs": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/maze.rs": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/mazefun.rs": "4418df981dfc3a25c0b303e095c799f04abb50b0f7d35483b55fe1f7e0cd8a19",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/mbrot.rs": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/mbrotZ.rs": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/mperm.rs": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/nboyer.rs": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/nqueens.rs": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/ntakl.rs": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/nucleic.rs": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/paraffins.rs": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/parsing.rs": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/peval.rs": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/pi.rs": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/pnpoly.rs": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/primes.rs": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/puzzle.rs": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/quicksort.rs": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/ray.rs": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/sboyer.rs": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/scheme.rs": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/simplex.rs": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/slatex.rs": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/string.rs": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/sum.rs": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/sumfp.rs": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/tail.rs": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/tak.rs": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/takl.rs": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/triangl.rs": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/boyer-data.scm": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/boyer.rs": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler-common-procedures.scm": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler-multilisp-specific-procedures.scm": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler-prim-procs.scm": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler-primitive-recipes.scm": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler-r4rs-scheme-specific-procedures.scm": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler.rs": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler_68000.rs": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler_asm.rs": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler_blocks.rs": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/compiler_gvm.rs": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/dynamic-types.scm": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/list.rs": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/nucleic-data.scm": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/peval-data.scm": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/scheme-primitives.txt": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/rust-reference/src/slatex-keywords.txt": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/simplex_port.py": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/tail-host.mjs": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/tail_port.py": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/measure.py": "320bda3ba13d3c2916aa920f3b53fa064e5c102491164fb26161f04f88856171",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/static-inspection.json": "28cd27ae1b32b4827f6d19a0de78855b022142641a88fc7b436bf9bdeb2ce3d8",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/deriv_port.py": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/destruc_port.py": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/earley_port.py": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/enumeration_ports.py": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/lattice_port.py": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/mazefun_port.py": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/mbrotz_port.py": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/measure.py": "daac1f31f2464183d99a0820e1ffe571d93f086246fb7561416f41ad7b6b401c",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/nucleic_port.py": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/puzzle_port.py": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/ray_port.py": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/reader_ports.py": "33869537222e79f73b575ca796249a962b12d485130d7dbef48d010247c9d217",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/simplex_port.py": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/supervisor/tail_port.py": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+    "/tmp/snail-strict-ack-measurement-20261014/benchmarks/results/2026-10-14-strict-ack-preparation/manifest.json": "f34310a13a6e86f69bb77d5dc2e6d0ae7275afff3f752c5ae91cbad40a45b7ce"
+  }
+}

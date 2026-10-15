@@ -1,0 +1,84 @@
+{
+  "skill": ".agents/skills/simplify/SKILL.md",
+  "scope": [
+    "src/snail/text.sld",
+    "src/strict_text.rs"
+  ],
+  "independent_explanation": {
+    "agent": "/root/strict_datum_output/unicode_text_explainer",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "max",
+    "fork_turns": "none",
+    "files_inspected": false,
+    "behavioral_model": [
+      "Character helpers expose existing simple Unicode scalar mapping and properties through a validated scalar ABI.",
+      "String ordering maintains an equal prefix, checks both ends, then uses the first unequal scalar; a proper prefix is smaller.",
+      "No normalized copies, cached ordering, encoded strings, generic comparison framework or extra ownership state is required."
+    ],
+    "invariants": [
+      "Input and mapped character are valid Unicode scalars; malformed raw scalars take terminal cleanup.",
+      "The string index is in both ranges whenever characters are read; earlier characters are equal.",
+      "Inputs remain unchanged; a later invocation observes mutations made between calls."
+    ]
+  },
+  "local_source_comparison": {
+    "status": "completed by implementing agent after the independent explanation",
+    "decisions": [
+      "Existing Char extern support permits direct Char-to-Char downcase without conversion wrappers.",
+      "Predicates retain the existing I32 0/1 scalar convention and small Scheme Bool wrappers.",
+      "Whitespace binds the existing strict datum reader provider directly; no duplicate property implementation.",
+      "Three new Rust functions reuse unicode::lowercase, unicode::digit_value and char::is_alphabetic.",
+      "String ordering uses existing char=?/char<? primitives in one loop.",
+      "Documentation separates pinned Unicode16 simple casing/decimal data from native Rust property version17.0.0."
+    ]
+  },
+  "informed_debate": {
+    "status": "completed",
+    "agent": "/root/strict_datum_output/unicode_text_explainer",
+    "fresh_model_reused": true,
+    "files_inspected": false,
+    "code_changes_required": false,
+    "review_scope": "Informed critique of relevant source facts against the existing independent behavioral model; no implementation or diff inspection.",
+    "discussion": [
+      {
+        "challenge": "Does a direct Char-to-Char extern remove validation or a required representation bridge?",
+        "response": "No. Rust still validates raw input with char::from_u32, and the existing simple lowercase function returns a valid Rust char. Extra Scheme conversions were explanatory pseudocode, not required implementation state."
+      },
+      {
+        "challenge": "Is the existing I32 predicate encoding sufficient?",
+        "response": "Yes. The providers return exactly zero or one, so the Scheme equality-to-one wrappers establish Bool directly."
+      },
+      {
+        "challenge": "Does binding the exact reader whitespace provider preserve classification and failure effects?",
+        "response": "Yes. The same provider shares classification and malformed-input cleanup. A second implementation or wrapper validator would create another place for divergence."
+      },
+      {
+        "challenge": "Do cached lengths and exhaustion-before-read establish bounds, proper prefixes and first-unequal-scalar ordering?",
+        "response": "Yes. The index starts at zero and advances only across an equal pair after both end checks. Left exhaustion distinguishes a proper prefix from simultaneous exhaustion; right exhaustion handles the opposite prefix. No extra traversal or comparison state is needed."
+      },
+      {
+        "challenge": "Does the split Unicode-version contract preserve established semantics?",
+        "response": "Yes. Existing Unicode16 lowercase and decimal tables remain authoritative for those operations; existing native Rust Alphabetic and White_Space properties remain authoritative for those predicates. The observed native version must not become an unintended permanent version promise."
+      },
+      {
+        "challenge": "Do the actual-target cases address the important integration risks rather than merely restating helper bodies?",
+        "response": "Yes. Supplementary scalars and U+E000/U+10000 expose scalar-versus-UTF16 mistakes; mutation checks recomputation; raw I32 declarations bypass typed Char worker validation; observed file release verifies terminal failure effects. Source invariants, rather than passing cases alone, establish the general behavior."
+      }
+    ],
+    "conclusion": "No unresolved semantic gap or unnecessary implementation state was found. Do not add a generic comparator, normalization, a snapshot, cached ordering or extra scalar-validation abstraction merely to reproduce explanatory pseudocode.",
+    "history": [
+      {
+        "status": "pending",
+        "reason": "Follow-up to the fresh explainer failed with collaboration.followup_task: agent thread limit reached.",
+        "parent_direction": "Keep the fresh independent model and your local source comparison separate in evidence; do not label the informed debate complete. Continue the bounded implementation and actual-target validation, with that review step explicitly pending.",
+        "resolution": "Retry to the existing explainer succeeded after capacity became available; the informed debate above supersedes the pending status."
+      }
+    ],
+    "validation_after_review": "No production or test source changed. Existing raw/optimized linked Wasm and native64 evidence remains applicable; only review records were updated."
+  },
+  "combined_runtime_integration": {
+    "requirement": "Rebuild the combined Rust runtime after both writer43c8929 and Unicode/text2035bc2 are integrated; neither standalone cache contains both feature sets.",
+    "compiler_agent_acknowledged": true,
+    "compiler_agent_plan": "Keep the verified writer-only runtime for the already-built collection probe, then rebuild combined source when the compiler port imports (snail text). No Unicode-cache substitution or mixed-artifact claim."
+  }
+}

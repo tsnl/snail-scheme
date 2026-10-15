@@ -1,0 +1,962 @@
+{
+  "integration_commit": "2528e23",
+  "diagnostic_only": true,
+  "summary": {
+    "passed": true,
+    "cases": 2904,
+    "diagnostic_only": true,
+    "library_sha256": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [GCC 15.3.0]",
+    "completed_groups": [
+      "small-radix",
+      "production-radix",
+      "oracle"
+    ]
+  },
+  "source_sha256": {
+    "src/snail/integer.sld": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+    "scripts/test-strict-integer": "e86287b7975c1eff32dd8fdfbf756f259f7e11f28e295e906832ef80e3fc79e7",
+    "tests/strict-integer/oracle.scm": "81ea3c2f326535be9c0e22aa602fcbe5ea7351369d14733a67965dda64835ae4",
+    "src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+    "src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec"
+  },
+  "command_records": 62,
+  "commands": {
+    "oracle-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "--export",
+        "integer-probe",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 241,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "--c-provider",
+        "oracle",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle.h",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle-provider.c",
+        "--entry-c",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle.c",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 267,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-0.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-0.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 350,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-1.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-1.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 351,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-10.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-10.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 360,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-11.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-11.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 361,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-12.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-12.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 362,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-13.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-13.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 363,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-14.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-14.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 364,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-15.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-15.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 365,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-16.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-16.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 366,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-17.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-17.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 367,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-18.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-18.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 368,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-19.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-19.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 369,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-2.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-2.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 352,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-20.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-20.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 370,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-21.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-21.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 371,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-22.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-22.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 372,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-23.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-23.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 373,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-24.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-24.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 374,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-25.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-25.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 375,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-26.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-26.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 376,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-27.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-27.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 377,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-28.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-28.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 378,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-29.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-29.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 379,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-3.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-3.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 353,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-30.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-30.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 380,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-31.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-31.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 381,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-32.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-32.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 382,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-33.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-33.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 383,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-34.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-34.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 384,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-35.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-35.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 385,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-36.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-36.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 386,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-37.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-37.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 387,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-38.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-38.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 388,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-39.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-39.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 389,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-4.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-4.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 354,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-40.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-40.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 390,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-41.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-41.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 391,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-42.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-42.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 392,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-5.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-5.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 355,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-6.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-6.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 356,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-7.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-7.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 357,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-8.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-8.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 358,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-failure-9.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/failure-9.tsv"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "WebAssembly trap\n",
+      "timeout": false,
+      "process_group": 359,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-native-gc-stress.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/stress.tsv"
+      ],
+      "returncode": 0,
+      "stdout": "cases 42 passed\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 349,
+      "diagnostic_only": true,
+      "native_gc_interval": "1",
+      "executing_descendants": []
+    },
+    "oracle-native.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle-native",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/valid.tsv"
+      ],
+      "returncode": 0,
+      "stdout": "cases 2861 passed\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 348,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-optimized.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"cases\":2904,\"passed\":true}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 260,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "oracle-raw.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict-integer/oracle.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.wasm.raw.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/oracle.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"cases\":2904,\"passed\":true}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 253,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "reject-limbs.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-limbs.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-limbs.wasm"
+      ],
+      "returncode": 70,
+      "stdout": "",
+      "stderr": "ERROR: /tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-limbs.scm:2:2: unbound identifier: integer-limbs\n  called from strict-source-file->wasm on line 44 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from strict-source-file->wat-file on line 46 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from <anonymous> on line 12 of file /tmp/snail-general-specialization-20261012/tests/build-strict-program.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n",
+      "timeout": false,
+      "process_group": 231,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "reject-mixed.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-mixed.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-mixed.wasm"
+      ],
+      "returncode": 70,
+      "stdout": "",
+      "stderr": "ERROR: /tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-mixed.scm:2:1: no compatible overload signature: (Function ((Data #<<value-definition> 134900894142240>) I64) #f (Hole 18490))\n  called from strict-source-file->wasm on line 44 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from strict-source-file->wat-file on line 46 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from <anonymous> on line 12 of file /tmp/snail-general-specialization-20261012/tests/build-strict-program.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n",
+      "timeout": false,
+      "process_group": 211,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "reject-private.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-private.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-private.wasm"
+      ],
+      "returncode": 70,
+      "stdout": "",
+      "stderr": "ERROR: /tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-private.scm:2:2: unbound identifier: integer\n  called from strict-source-file->wasm on line 44 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from strict-source-file->wat-file on line 46 of file /tmp/snail-general-specialization-20261012/src/snail-scheme/strict-compiler.sld\n  called from <anonymous> on line 12 of file /tmp/snail-general-specialization-20261012/tests/build-strict-program.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n",
+      "timeout": false,
+      "process_group": 221,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-1073741824-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 107,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-1073741824-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 141,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-1073741824-native.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824-native"
+      ],
+      "returncode": 42,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 210,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-1073741824-optimized.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict/run.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824.wasm",
+        "42"
+      ],
+      "returncode": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 130,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-1073741824-raw.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict/run.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-1073741824.wasm.raw.wasm",
+        "42"
+      ],
+      "returncode": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 119,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-4-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-strict",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4.scm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4.wasm"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 3,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-4-native-build.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/scripts/build-native",
+        "--wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4.wasm",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4-native"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 37,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-4-native.json": {
+      "command": [
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4-native"
+      ],
+      "returncode": 42,
+      "stdout": "",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 106,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-4-optimized.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict/run.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4.wasm",
+        "42"
+      ],
+      "returncode": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 26,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    },
+    "unit-4-raw.json": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-general-specialization-20261012/tests/strict/run.mjs",
+        "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/unit-4.wasm.raw.wasm",
+        "42"
+      ],
+      "returncode": 0,
+      "stdout": "result bigint 42\n",
+      "stderr": "",
+      "timeout": false,
+      "process_group": 15,
+      "diagnostic_only": true,
+      "native_gc_interval": null,
+      "executing_descendants": []
+    }
+  },
+  "incomplete_error_traces": [
+    {
+      "path": "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-limbs.wasm.trace.json",
+      "sha256": "fa03cbb0f0e08ab7502be99916ace15552a332c189b6ab5b0ec181c5900a8c8f",
+      "reason": "Compiler trace stops before final JSON delimiter on required source rejection; not a test-command record."
+    },
+    {
+      "path": "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-mixed.wasm.trace.json",
+      "sha256": "3c8680bac92f35d013882649fff2fd1a7662feafdbf6c5704541c711da14136e",
+      "reason": "Compiler trace stops before final JSON delimiter on required source rejection; not a test-command record."
+    },
+    {
+      "path": "/tmp/snail-general-specialization-20261012/build/strict-integer-integration-20261014/reject-private.wasm.trace.json",
+      "sha256": "92cfd5adf5871710fbcfab3ac8b9fcdda6781dd6107af33d2a802e8005cda126",
+      "reason": "Compiler trace stops before final JSON delimiter on required source rejection; not a test-command record."
+    }
+  ],
+  "repository_checks": {
+    "make check": {
+      "exit_code": 0,
+      "source_basis": "8b62d90"
+    },
+    "make test": {
+      "exit_code": 0,
+      "source_basis": "8b62d90",
+      "last_line": "All tests ok"
+    }
+  },
+  "independent_review": {
+    "reviewer": "Astra max read-only review",
+    "arithmetic_defects_found": [],
+    "resolved_findings": [
+      "Current-invocation completed_groups replaces stale-file inference.",
+      "Scale-one long division observes both operands and shared negation/absolute values under forced GC.",
+      "Direct public-interface and private-accessor rejection coverage added.",
+      "B^2 = 2^60 proof comment corrected."
+    ]
+  }
+}

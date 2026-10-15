@@ -1,0 +1,29 @@
+{
+  "system": "snail-native64",
+  "round": -1,
+  "retained": false,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/native/native"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/native",
+  "status": "valid",
+  "started": "2026-10-14T23:13:03.181398+00:00",
+  "pid": 11,
+  "process_group": 11,
+  "returncode": 0,
+  "stdout": "{\"seconds\":1.826172814,\"result\":1,\"barriers\":0,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 11,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 1.8304743290063925,
+  "workload_seconds": 1.826172814
+}

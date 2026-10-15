@@ -1,0 +1,15 @@
+{
+  "coordinator": "/root",
+  "tool_session": 78512,
+  "terminal_exit_code": 0,
+  "actual_session_polled_to_completion": true,
+  "window_source": "campaign host-before.json and host-after.json",
+  "held_work": ["builds", "guest execution", "profiling", "compression", "publication"],
+  "permitted_work": ["static source review", "static editing", "light metadata reads"],
+  "active_agents_on_hold": ["/root/profile_strict_readers", "/root/prepare_ack_measurement"],
+  "reader_hold_reaffirmed_before_launch": true,
+  "ack_measurement_agent_created_under_static_only_hold": true,
+  "other_known_preparation_handles_terminal_before_launch": true,
+  "release_after_terminal_session_and_independent_audit": true,
+  "operating_system_idle_claimed": false
+}

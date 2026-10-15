@@ -4,6 +4,14 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust ABI library.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
+- Use type checking to prove invariants that enable optimization. Preserve
+  evidence about representations, ownership, effects and foreign boundaries
+  through lowering, so later passes can act on established facts. Keep runtime
+  checks where those facts cannot be proved statically.
+- Parse, don't validate: turn syntax and external data into structured values
+  whose construction establishes the required invariants. Carry that evidence
+  forward instead of returning a Boolean and repeatedly checking the same raw
+  data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Write section headers as `;; ---- Title ----` in Scheme,

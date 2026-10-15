@@ -1,0 +1,118 @@
+{
+  "protocol_records": [
+    {
+      "benchmark": "sum1",
+      "system": "strict-v8",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-validation-attempt1/commands/sum1-production-timing-host/record.json",
+      "sha256": "f5fef9093a97669b6869c1a0270342e26ec742253632287a749b1a8000532d83",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "strict-v8-native-module",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/commands/shared-module-v8-validation/record.json",
+      "sha256": "ab05d04996528e68a8d09c0cf9e20f1dc67f1f9de6b787b494384636995a7f16",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "strict-native",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/commands/full-count-validation/record.json",
+      "sha256": "07da930e5b3e22f01cb0c347979a4573b1e9c04831de0d4c78c18c6ff078e4bb",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "chez-original",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/commands/count-25-chez/record.json",
+      "sha256": "86ccf4ecb94da529c2cfa3f7cee495d8086c7ec7d0e871aa40007298a4e4a4fa",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "chez-adapted",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/commands/count-25-chez-adapted/record.json",
+      "sha256": "755e35789487da4cf5d848423b4c17c6f78493340bcdbac2c8ac696f9ff6cbb1",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "rust-wasm",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/commands/sum1-count-25-optimized-wasm/record.json",
+      "sha256": "b1900e21e52d1e868e33c3e014eaf4682509455c4349ab20ab9d5c7813c2bd20",
+      "passed": true
+    },
+    {
+      "benchmark": "sum1",
+      "system": "rust-native",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/commands/sum1-count-25-native/record.json",
+      "sha256": "cc981243112f0b8284209337b198fb5db67efe9fe7291e6326da27819fda2089",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "strict-v8",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-validation-attempt1/commands/read1-production-timing-host/record.json",
+      "sha256": "4aa1f4ec82f8ff2581749c8956f6167aa993161e9c792beb37c1c803e63c477c",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "strict-v8-native-module",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/commands/shared-module-v8-validation/record.json",
+      "sha256": "cbd7dedd3571991c0d7ce4e86fb2f0e589139036808b09089942375fc88c69c0",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "strict-native",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/commands/full-count-validation/record.json",
+      "sha256": "4fec94e2f5b7ee1bbf3fe0f7dd2b653cddbbe6092dd7c9e803b2494fc3a7b18b",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "chez-original",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/commands/count-2500-chez/record.json",
+      "sha256": "9089a1629f7e3e0f6f6135dd02b51436da2af0fe1a09bec1b11abd99d464f92a",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "chez-adapted",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/commands/count-2500-chez-adapted/record.json",
+      "sha256": "bd79f91b34e255b58d4e5acbe4ab73991ccffd59f2c820f09f26ba1dacdae2de",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "rust-wasm",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/commands/read1-count-2500-optimized-wasm/record.json",
+      "sha256": "0bdd393c861d8f741b28778195fa6784ffeb6964fc9cf00ee6dae92d5d9b53a9",
+      "passed": true
+    },
+    {
+      "benchmark": "read1",
+      "system": "rust-native",
+      "path": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/commands/read1-count-2500-native/record.json",
+      "sha256": "3f649fa5d7a0286b118b273378bed1d04e83207151bb2163695cf6c1196c7ccd",
+      "passed": true
+    }
+  ],
+  "dry_identity_verification": true,
+  "canonical_counts": {
+    "sum1": [
+      1,
+      2,
+      25
+    ],
+    "read1": [
+      1,
+      2,
+      2500
+    ]
+  },
+  "five_scheme_edge_checks": 105,
+  "rust_complete_results": 18,
+  "full_count_internal_trace": false
+}

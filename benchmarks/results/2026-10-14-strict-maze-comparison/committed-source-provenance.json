@@ -1,0 +1,160 @@
+{
+  "compiler_commit": "da8519f83f54dabb9cbfef1297bb46a29d7683b7",
+  "recorded_after_clean_campaign": true,
+  "scope": "Postmeasurement Git-byte proof of the already frozen compiler/GC sources and unchanged current local preparation adapter modules; frozen plan remains authoritative.",
+  "frozen_compiler_files_verified": 112,
+  "adapter_files": {
+    "benchmarks/strict-suite/array1-control.py": {
+      "sha256": "c2f2e4d7d47839a8855baf8b884a0d18fb995c364ebf1a018e4d7fc9908c5e3d",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/array1-control.py"
+    },
+    "benchmarks/strict-suite/boyer_port.py": {
+      "sha256": "e62a2fbf0d6f608bee5eaad0ca43c1c229c420b07c48f99290ea21386f2136a3",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/boyer_port.py"
+    },
+    "benchmarks/strict-suite/browse_port.py": {
+      "sha256": "531316c200249879f30df7c255448b03fe5d576f774bb4c8532e7ab2be307178",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/browse_port.py"
+    },
+    "benchmarks/strict-suite/bv2string_port.py": {
+      "sha256": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/bv2string_port.py"
+    },
+    "benchmarks/strict-suite/conform_port.py": {
+      "sha256": "ca8d5f74fe2c14b181b9ee2535580cb34a13e9ea0044a6fdc80a0539a4e4f2b0",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/conform_port.py"
+    },
+    "benchmarks/strict-suite/data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/data_ports.py"
+    },
+    "benchmarks/strict-suite/deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/deriv_port.py"
+    },
+    "benchmarks/strict-suite/destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/destruc_port.py"
+    },
+    "benchmarks/strict-suite/earley_port.py": {
+      "sha256": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/earley_port.py"
+    },
+    "benchmarks/strict-suite/enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/enumeration_ports.py"
+    },
+    "benchmarks/strict-suite/equal_port.py": {
+      "sha256": "6efe9a9974a3fe391b0c3dadff8b8a84de60ccc5a35ed00984f88107fa15fd02",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/equal_port.py"
+    },
+    "benchmarks/strict-suite/flonum.py": {
+      "sha256": "aec8e5de16583079ceb51026b13f9ac9726bcf752b4bf731c051ad4b3c9a4077",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/flonum.py"
+    },
+    "benchmarks/strict-suite/integer_controls.py": {
+      "sha256": "a55467e2903a6775adab4ffad0a55b4a3aecc8f1e2a71ea80ffbd0fc8980770d",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/integer_controls.py"
+    },
+    "benchmarks/strict-suite/integer_ports.py": {
+      "sha256": "3f305e658606e2ca26667f1df98aea73cd9a7725db888ccc11897c1088c17a2f",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/integer_ports.py"
+    },
+    "benchmarks/strict-suite/lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/lattice_port.py"
+    },
+    "benchmarks/strict-suite/matrix_port.py": {
+      "sha256": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/matrix_port.py"
+    },
+    "benchmarks/strict-suite/maze_port.py": {
+      "sha256": "cdf2caf752b2efdf4b0abcc51b4ebe4300d9bbfe40ab141705de706247f453b7",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/maze_port.py"
+    },
+    "benchmarks/strict-suite/mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/mazefun_port.py"
+    },
+    "benchmarks/strict-suite/mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/mbrotz_port.py"
+    },
+    "benchmarks/strict-suite/measure.py": {
+      "sha256": "fc034914118090acde3d926ff24bc744a0c37193b2674c815bd9f745e8e6193c",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/measure.py"
+    },
+    "benchmarks/strict-suite/nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/nucleic_port.py"
+    },
+    "benchmarks/strict-suite/puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/puzzle_port.py"
+    },
+    "benchmarks/strict-suite/ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/ray_port.py"
+    },
+    "benchmarks/strict-suite/reader_ports.py": {
+      "sha256": "48c5bd49fb46adc33f47be2902be985fc91814a91ee78c5096c3f0e59c11025b",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/reader_ports.py"
+    },
+    "benchmarks/strict-suite/replay.py": {
+      "sha256": "74d0691c4bbc61702ff7114e5ae653534e284ba8d8cf0d6f9ca862c73d21bea9",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/replay.py"
+    },
+    "benchmarks/strict-suite/simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/simplex_port.py"
+    },
+    "benchmarks/strict-suite/string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/string_port.py"
+    },
+    "benchmarks/strict-suite/tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/tail_port.py"
+    },
+    "benchmarks/strict-suite/browse-observe.mjs": {
+      "sha256": "75b9468184f20081e8c6fdbc5563fe435d3c7e771d768e06d160db9cf2952c84",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/browse-observe.mjs"
+    },
+    "benchmarks/strict-suite/host.mjs": {
+      "sha256": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/host.mjs"
+    },
+    "benchmarks/strict-suite/integer-control-host.mjs": {
+      "sha256": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/integer-control-host.mjs"
+    },
+    "benchmarks/strict-suite/integer-host.mjs": {
+      "sha256": "15a719c9c9d1f97742231767567a5308ebed043e802492beb58639b4167e8ee4",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/integer-host.mjs"
+    },
+    "benchmarks/strict-suite/nucleic-host.mjs": {
+      "sha256": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/nucleic-host.mjs"
+    },
+    "benchmarks/strict-suite/ray-host.mjs": {
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/ray-host.mjs"
+    },
+    "benchmarks/strict-suite/reader-host.mjs": {
+      "sha256": "bf73e26783478d154a41c6d9e997c22cc70c3de51053f59f37304d6c671fb681",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/reader-host.mjs"
+    },
+    "benchmarks/strict-suite/reader-timing.mjs": {
+      "sha256": "31cb5347838fba7d27982be8dbeabc799baf01efc944d7e56018b28b0977b987",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/reader-timing.mjs"
+    },
+    "benchmarks/strict-suite/tail-host.mjs": {
+      "sha256": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/strict-suite/tail-host.mjs"
+    },
+    "benchmarks/r7rs.py": {
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "snapshot": "/tmp/snail-maze-measurement-20261014/build/maze-report-source-provenance/benchmarks/r7rs.py"
+    }
+  }
+}

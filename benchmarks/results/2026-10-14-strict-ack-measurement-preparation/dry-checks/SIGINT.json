@@ -1,0 +1,32 @@
+{
+  "fixture": "SIGINT",
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+    "-I",
+    "-B",
+    "-c",
+    "import os,signal,time\nprint(\"stop fixture\",flush=True)\nos.kill(os.getppid(),2)\ntime.sleep(0.05)\n"
+  ],
+  "diagnostic_only": true,
+  "status": "recorded",
+  "pid": 6,
+  "process_group": 6,
+  "returncode": 0,
+  "stdout": "stop fixture\n",
+  "stderr": "",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 0.06156530504813418,
+  "cleanup": {
+    "process_group": 6,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "stop_error": "KeyboardInterrupt('received SIGINT')",
+  "stop_signal": 2
+}

@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "guests_started": false,
+  "complete_frames": 7,
+  "corruptions": 43,
+  "canonical_characters": 668,
+  "canonical_newlines": 42,
+  "capture_sha256": {
+    "/tmp/snail-maze-measurement-20261014/benchmarks/results/2026-10-14-strict-maze-comparison/timing-plan.json": "09f16e4cded8ee975a7426dfca357d102bb45bea4beaecff5550f052501da7e9",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/maze/input.txt": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-production-v8/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-production-v8/stdout.bin": "cf0843aa2d0891ce30de09e2b8eb0713223858092c320d6f35dff89201bb3d36",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-native64/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-native64/stdout.bin": "044cd7ee619605f4f732321f925fbd508a39c2432d2141d18da516664cf18518",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-identical-wasm-v8/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-snail-identical-wasm-v8/stdout.bin": "4c3220df02a254d7e21cb13cd73c54aa47bfc7c0af04dcd4d35c1c84a01b61e0",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-chez/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-chez/stdout.bin": "b0eef86d6da65c6bfff2b53cd50347102df16f7ed9ce27766ae21a041b2f0a2e",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-chez-adapted/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-chez-adapted/stdout.bin": "7cc1f21201302a44f2087a60168ee6dffd5bc16318c0077585a9ee903e02d930",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-rust-native/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-rust-native/stdout.bin": "15204bd046c162540e3705a9de025647d0dd688440a39f083a630f08f3efe0b6",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-rust-optimized-wasm/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/snail-maze-measurement-20261014/build/maze-measurement-prepared-da8519f/commands/complete-frame-rust-optimized-wasm/stdout.bin": "f74f38d5287ae7d8360a95be8148badffeaf326c4372cde0123f02c4f3f97c7c"
+  },
+  "review_code_sha256": "953c3a016b82ded3988e4bd037afcf5933bbc9d153e959b745f51ff05a18b702"
+}

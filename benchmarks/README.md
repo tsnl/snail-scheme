@@ -46,14 +46,74 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 37 measured workloads,
-36 with paired Chez controls. These are individual checkpoints, not a complete
+[coverage inventory](strict-suite/capabilities.md): 49 measured workloads,
+48 with paired Chez controls. These accumulate individual compiler revisions, not a complete
 rerun on the current compiler. The
+[complete Boyer comparison](results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes at both original count 1/size 5/51,507,739-rewrite
+predicates. Production V8 medians are NBoyer 11.950027 s and SBoyer 3.504130 s,
+versus original Chez 0.887105 s and 0.372582 s. Native takes 13.52% less time
+than identical-Wasm V8 for NBoyer and 33.26% more for SBoyer, with the current
+`a707974` default growing collector. Seven controls and separate historical
+source/work/alias/reset evidence retain their scope; no isolated GC cause is
+established. The
+[complete Parsing comparison](results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 processes with the full 28,300-byte timed file load, 2,500 parses
+and original final-list predicate. V8 takes 2.361375 s, native64 1.481803 s and
+original Chez 1.195848 s. Native takes 38.07% less time than V8 on its exact
+native-final Wasm. The frozen `8930aaa` growing-GC basis, adapted Chez and
+independent Rust representations remain explicit. The
+[complete Equal comparison](results/2026-10-14-strict-equal-comparison/README.md)
+records 2.395007 s on V8, 2.133533 s natively and 0.258255 s on original Chez.
+Native takes 11.434% less time than V8 on identical final Scheme Wasm. The
+adapted Scheme body takes 4.687177 s on Chez, exposing combined representation,
+helper and equality-algorithm costs without isolating any one cause. The
 [typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
 checks the complete `sum1` and `read1` input streams against Chez on linked raw
-Wasm, optimized Wasm and native. Full workload preparation is still underway;
-these library checks add no measured coverage. The
-[Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
+Wasm, optimized Wasm and native. Their
+[complete reader comparison](results/2026-10-14-strict-reader-comparison/README.md)
+measures Sum1 at 2.621× original Chez time and Read1 at 8.450×, or 1.074× and
+1.850× when Chez runs the same Scheme parser body. Subsequent
+[reader ablations](results/2026-10-14-strict-reader-ablations/README.md) isolate
+delimiter scanning and repeated atom staging. Their separately measured
+[combined change](results/2026-10-14-strict-reader-combined/README.md) reduces
+Read1 time by 22.6%; Sum1's median falls 9.2% with a variable baseline. These
+comparisons use a current Snail baseline, without a fresh Chez run. The
+[exact-integer comparison](results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned processes at complete pi and Chudnovsky counts and
+outputs. Snail/V8 takes 10.497× and 8.264× original Chez time; native takes
+19.88% and 8.28% less time than V8 on the identical native-final Scheme Wasm.
+The I32-limb Scheme library, original/adapted native-bigint Chez, checked limb
+library on Chez, and Rust num-bigint controls retain their documented differences.
+The later [bounded limb-product comparison](results/2026-10-14-strict-limb-bits/README.md)
+replaces division/remainder by a power of two with a proved mask/shift in the
+Integer library. Fresh production builds reduce Pi time by 20.5% on V8 and
+29.5% natively; Chudnovsky takes 13.1% and 16.6% less time. All 156 scheduled
+processes pass with complete outputs. This comparison does not rerun Chez or
+Rust, and the preceding integer ratios remain the earlier checkpoint.
+The [complete Ackermann comparison](results/2026-10-14-strict-ack-comparison/README.md)
+passes all 56 processes at the original `ack(3,12)` input and two repetitions.
+V8 takes 1.109322 s, native64 0.757917 s and original Chez 0.821724 s. Native
+uses 32.04% less time than V8 on the identical native-final Scheme Wasm and
+7.76% less than Chez. Recursive Rust/Wasm still fails the default stack;
+its successful explicit heap-frame controls remain separately labeled.
+The [complete Browse comparison](results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 processes at the original 2,000 invocations and complete predicate.
+Production V8 takes 4.037493 s, original Chez 0.526165 s, adapted Chez 6.360476 s
+and Rust/Wasm 1.964427 s. V8 takes 7.673× original Chez time and 0.635× adapted
+Chez time; native takes 1.724× V8 time on the identical native-final Scheme Wasm.
+Adapted Chez's 12.088× original Chez ratio exposes the joint source-helper and
+representation changes. Bounded internal traces, clean matcher retention and
+Rust's separate Rc/Vec/Boolean representation remain explicit.
+The [complete Conform comparison](results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes at the original 500-invocation count and ordered
+31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and
+original Chez 0.891038 s. Native takes 13.73% more time than V8 on identical
+native-final Scheme Wasm. Typed mutable records, functional lists, distinct Rust
+layouts/reclamation and source-adaptation caveats remain explicit; work counters
+and forced-GC runs are separate from clean clocks. The preceding full Equal
+comparison and Conform use different compiler/library revisions.
+The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
 retained-file work checks pass; line I/O, storage and reclamation differences

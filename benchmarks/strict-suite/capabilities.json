@@ -13,12 +13,16 @@
   "cases": [
     {
       "name": "browse",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 203,
       "files": {
         "src/browse.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776",
         "inputs/browse.input": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-browse-preparation/README.md",
+      "representation_note": "Complete original 2000 invocations and 100-value predicate; interned symbols, closed Datum, explicit Ref pairs and bindings, original property lists/cyclic pattern ring/destructive shuffle and prefix sharing. Three MatchResult variants retain truthy empty-list returns. Five Scheme executors pass counts 1/2/2000 and bounded complete internal traces at 1/2; full-count internal traces were not recorded. The final database predicate is independent of matcher results; clean matcher retention is separately inspected. Unchanged Rust controls use Vec database/properties, Rc lists, string symbols, copied star-prefixes and Boolean Empty/True collapse. Provider linkage, source helpers, allocation and reclamation differ.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
+      "note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance."
     },
     {
       "name": "deriv",
@@ -131,12 +135,16 @@
     },
     {
       "name": "pi",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 120,
       "files": {
         "src/pi.scm": "f9317c5ada556aee4fde4c3c959bd4b604e45cbf05c9b5f84157c32ce346faa9",
         "inputs/pi.input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-integer-controls/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+      "note": "All 100 full repetitions, three algorithms and ten complete precision rows including rounding differences. V8 median 2.2430266385 s, native64 1.782729284 s, original Chez 0.213676165 s and Rust/Wasm 0.4343124065 s. V8 takes 10.497 times original Chez; native takes 0.801 times V8 on identical native-final Scheme Wasm.",
+      "representation_note": "Immutable Integer values over private 30-bit I32 limb arrays with I64 intermediates. Original/adapted Chez uses native exact arithmetic; same-limb Chez retains checked scalar operations and general vectors; Rust uses num-bigint and bounded scalar controls. All 144 planned clean processes pass; source adaptation, opacity, arithmetic, allocation and ownership differences remain explicit."
     },
     {
       "name": "pnpoly",
@@ -187,12 +195,16 @@
     },
     {
       "name": "sum1",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 28,
       "files": {
         "src/sum1.scm": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
         "inputs/sum1.input": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-reader-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+      "note": "Full 25 reads of the unchanged 100000-number file: production V8 1.054332711 seconds, original Chez 0.402219664, same Scheme parser body on Chez 0.981267778, Rust/Wasm 0.195841952. V8 takes 2.621 times original Chez and 1.074 times adapted Chez. Native takes 1.100904381 versus 1.123596828 for the identical native-final Scheme module on V8. Provider linkage differs; the native build predates later allocator changes. All full loops, sequential F64 accumulation, original tolerance and per-worker open/read/close remain.",
+      "representation_note": "Scheme owns typed tokens and recursive datums; Rust provides scalar I/O, numeric parsing and symbol services. Adapted Chez shares the Scheme parser body with native scalar services and vector products; Rust references use different scanners, owned textual atoms and whole-file buffering. All 112 planned clean processes pass, 98 retained; source, result, schedule and identity checks pass. Ratios do not isolate parser, runtime, collector or codegen costs."
     },
     {
       "name": "tail",
@@ -210,12 +222,16 @@
     },
     {
       "name": "read1",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 50,
       "files": {
         "src/read1.scm": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
         "inputs/read1.input": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-reader-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+      "note": "Full 2500 reads of unchanged parsing.data: production V8 2.703861287 seconds, original Chez 0.320001243, same Scheme parser body on Chez 1.461438395, Rust/Wasm 0.439174770. V8 takes 8.450 times original Chez and 1.850 times adapted Chez. Native takes 3.098514315 versus 2.785068733 for the identical native-final Scheme module on V8. Provider linkage differs; the native build predates later allocator changes. Every full datum, simultaneous do update, final predicate and per-worker open/read/close remain.",
+      "representation_note": "Scheme owns typed tokens and recursive datums; Rust provides scalar I/O, numeric parsing and symbol services. Adapted Chez shares the Scheme parser body with native scalar services and vector products; Rust references use different scanners, owned textual atoms and whole-file buffering. All 112 planned clean processes pass, 98 retained; source, result, schedule and identity checks pass. Ratios do not isolate parser, runtime, collector or codegen costs."
     },
     {
       "name": "compiler",
@@ -228,12 +244,16 @@
     },
     {
       "name": "conform",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 469,
       "files": {
         "src/conform.scm": "5b544ec3ea2416df03ef935d45ad96b7204c35ecaf7344118d3d34bbb3dc9de5",
         "inputs/conform.input": "9c0f8f0e5a9e61836442b9b85a6f5b844b31f05f14ed3586a9280f4edf138794"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-conform-preparation/README.md",
+      "representation_note": "Concrete Node/BlueEdge/Graph/Table/Row records with explicit Ref mutation; closed Name/BlueState/Optional variants. Functional unstable sort, sets, copied node-list construction, shared association tables, unresolved memo insertion, red assumptions and equivalent-node ordering remain. Datum is confined to input. Same adapted kernel on Chez; unchanged Rust uses arena indices, Vec/VecDeque and Rc names with different storage and reclamation.",
+      "note": "All 56 planned fresh processes pass original count 500 and the complete ordered 31-string predicate; seven excluded warmups and 49 position-balanced retained observations. Compiler/library basis 43322a2 remains distinct from metadata-only correction 7bd327f. Production V8 median 1.599662733 s, native64 1.825969003 s, identical-Wasm V8 1.605583018 s, original Chez 0.891038255 s, adapted Chez 2.571686675 s, Rust native 0.502839416 s and optimized Rust/Wasm 0.712783650 s. Native takes 13.73% more time than V8 on identical final Scheme Wasm. Separate identity/alias/order probes, per-invocation work counters and forced exact GC remain outside clean timings; physical immutable-list spine identity is not directly observed. Rust layout/algorithm/reclamation and UTF-8-length differences remain explicit.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md"
     },
     {
       "name": "dynamic",
@@ -295,12 +315,16 @@
     },
     {
       "name": "maze",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 750,
       "files": {
         "src/maze.scm": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
         "inputs/maze.input": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-maze-preparation/README.md",
+      "note": "All 56 planned processes pass the original 10000 constructions of a 20 by 7 grid and all 668 expected characters; seven discarded warmups and 49 position-balanced retained samples. Current compiler/library/growing-GC basis da8519f. Production V8 median 0.419036819 s, native64 0.461827422 s, identical-Wasm V8 0.417998163 s, original Chez 0.332521329 s, adapted Chez 0.500966136 s, Rust native 0.229180672 s and optimized Rust/Wasm 0.246174006 s. V8 takes 1.260 times original Chez; native takes 10.4855% more time than its identical-Wasm V8 control. Separate full ordered observations, work counts and 32 current predicate controls remain outside clean timings.",
+      "representation_note": "Concrete records and Ref fields preserve source identities and mutation. Recursive bitwise-and/div/mod helpers remain. The sole immediate lexical escape becomes short-circuit reverse traversal; this adds no general continuation support. Rust retains indexed Vec cells/walls, native bit operations, temporary child vectors and owned character lists.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md"
     },
     {
       "name": "mazefun",
@@ -336,12 +360,17 @@
     },
     {
       "name": "parsing",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 936,
       "files": {
         "src/parsing.scm": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
-        "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65"
-      }
+        "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65",
+        "inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8"
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-parsing-preparation/README.md",
+      "note": "All 56 fixed processes pass the complete 28300-byte timed file load, 2500 parses and original final proper-list predicate; seven discarded warmups and 49 retained position-balanced observations. Frozen compiler/library/growing-GC basis 8930aaa. Medians: production V8 2.361375272 s, native64 1.481803339 s, identical-Wasm V8 2.392722683 s, original Chez 1.195848294 s, adapted Chez 1.971950837 s, Rust native 0.626001002 s and optimized Rust/Wasm 0.759768657 s. V8 takes 1.975 times original Chez; native takes 38.0704% less time than identical-Wasm V8. No per-parse assertion, trimming, replacement or rerun. All 919 identities and 56 raw captures independently reviewed twice. Separate token/datum/work/alias/reset observations and 36 current predicate controls remain outside clean timings. Rust binary reuse and independent representation remain explicit.",
+      "representation_note": "Generated scanner and LL(1) grammar remain; existing Symbol and Datum values, eight explicit Ref bindings and the original character-list file loader preserve source control and sharing. Exact reversible source edits; nonnegative I64 counts and existing bounded numeric service. Rust retains independent Rc pairs, interned Rc symbols, LinkedList loading and its own state machine.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md"
     },
     {
       "name": "peval",
@@ -392,30 +421,46 @@
     },
     {
       "name": "chudnovsky",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 66,
       "files": {
         "src/chudnovsky.scm": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
         "inputs/chudnovsky.input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-integer-controls/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+      "note": "All 1000 full repetitions, complete binary splitting and ten exact results. V8 median 0.7168509775 s, native64 0.6587886825 s, original Chez 0.0867463655 s and Rust/Wasm 0.1779545115 s. V8 takes 8.264 times original Chez; native takes 0.917 times V8 on identical native-final Scheme Wasm.",
+      "representation_note": "Immutable Integer values over private 30-bit I32 limb arrays with I64 intermediates. Original/adapted Chez uses native exact arithmetic; same-limb Chez retains checked scalar operations and general vectors; Rust uses num-bigint and bounded scalar controls. All 144 planned clean processes pass; source adaptation, opacity, arithmetic, allocation and ownership differences remain explicit."
     },
     {
       "name": "nboyer",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 772,
       "files": {
         "src/nboyer.scm": "0597caf3d1434c2aedcc57c6bdbd6aec3bdb10c3d606cd240e4b949a334a71bf",
         "inputs/nboyer.input": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
+      "note": "All112 planned fresh processes pass both full original count1/size5 workloads and successful theorem/numeric51507739-rewrite predicates; seven retained samples per workload/system after fourteen discarded warmups. Current compiler/library/growing-GC basis a707974. nboyer production V8 median 11.950026532 s, native64 10.299260572 s, exact-native-final V8 11.909352554 s, original Chez 0.887105447 s, adapted Chez 8.047786483 s, Rust native 1.985136748 s and optimized Rust/Wasm 6.208150207 s. Production V8 takes 13.471 times original Chez; native/exact-V8 ratio 0.864804. All seven controls and independent raw replay pass. Historical source/work/alias/reset and fixed-reservation failures remain separate; Rust artifacts reused and freshly executed, not rebuilt. No isolated GC/engine claim.",
+      "representation_note": "Existing closed Datum values and typed Ref mutation retain source association lists, recursive substitution/rewrite/unification and constructor-record cycles. Three explicit operand-order edits match the observed original Chez setup order. Rust uses independent Rc cells, vector constructor records, integer constructor IDs, tail loops and destruction.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md",
+      "historical_preparation_native_heap_bytes": 2147483648,
+      "native_gc_policy": "Current a707974 default growing precise collector; all policy knobs unset, including initial bytes; source-default initial256MiB, no configured hard cap."
     },
     {
       "name": "sboyer",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 785,
       "files": {
         "src/sboyer.scm": "df46ebaa16879a5366b8b550dfbb2115bce378ffb854c4468c9c0af1df53d9e4",
         "inputs/sboyer.input": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
+      "note": "All112 planned fresh processes pass both full original count1/size5 workloads and successful theorem/numeric51507739-rewrite predicates; seven retained samples per workload/system after fourteen discarded warmups. Current compiler/library/growing-GC basis a707974. sboyer production V8 median 3.504129565 s, native64 4.685959290 s, exact-native-final V8 3.516282952 s, original Chez 0.372582306 s, adapted Chez 4.755613612 s, Rust native 0.725049711 s and optimized Rust/Wasm 2.517641779 s. Production V8 takes 9.405 times original Chez; native/exact-V8 ratio 1.332646. All seven controls and independent raw replay pass. Historical source/work/alias/reset and fixed-reservation failures remain separate; Rust artifacts reused and freshly executed, not rebuilt. No isolated GC/engine claim.",
+      "representation_note": "Source sharing-cons reuses an original pair exactly when both resulting fields keep their identities; equal but distinct children allocate. Closed Datum and Ref values preserve the complete recursive prover, with three explicit Chez-order adaptations. Rust retains its independent Rc/vector/ID representation and tail loops.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md",
+      "historical_preparation_native_heap_bytes": 1073741824,
+      "native_gc_policy": "Current a707974 default growing precise collector; all policy knobs unset, including initial bytes; source-default initial256MiB, no configured hard cap."
     },
     {
       "name": "gcbench",
@@ -440,12 +485,15 @@
     },
     {
       "name": "equal",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 158,
       "files": {
         "src/equal.scm": "931f53304a38b231470c38985be2d595723cb5bbd2c70ba983616e75058fe533",
         "inputs/equal.input": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03"
-      }
+      },
+      "measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
+      "representation_note": "Complete original enabled aggregate and counts 100:100:8:1000:2000:5000; shared and unshared trees, vectors, shallow lists and deep car chains preserved. Original cyclic phase stays disabled in clean execution and runs separately. Adapted Chez shares the concrete Datum/Ref representation and cycle-aware equality bodies; Rust uses Rc cells, pointer-pair HashSet history, a work vector and iterative destruction.",
+      "note": "All 56 planned fresh processes pass, with 49 retained observations. Production V8 median 2.395007397 s, native64 2.133532650 s, original Chez 0.258255367 s, adapted Chez 4.687177296 s, Rust/Wasm 0.933199088 s and Rust native 0.813260313 s. V8 takes 9.274 times original Chez, 0.511 times adapted Chez and 2.566 times Rust/Wasm. Native takes 11.434% less time than V8 on identical native-final Scheme Wasm. Source representation, helpers, equality algorithm and reclamation differ; no isolated GC or codegen attribution. Compiler/driver basis 6fd5ca4; 451 identities independently rechecked."
     },
     {
       "name": "bv2string",
@@ -466,9 +514,9 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 37,
-  "historical_paired_chez_count": 36,
-  "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
+  "historical_measured_strict_count": 49,
+  "historical_paired_chez_count": 48,
+  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector. Parsing is measured separately at 8930aaa with the growing collector and a narrow UTF8 timing-host import; these accumulated revisions are not a fresh full-suite run. Both complete Boyer workloads are measured separately at a707974 using the default growing collector and seven controls; coverage49/48 accumulates revisions, not a fresh full suite.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
@@ -499,37 +547,49 @@
   "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md",
   "bv2string_measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md",
   "historical_measured_strict_names": [
+    "ack",
     "array1",
+    "browse",
     "bv2string",
     "cat",
+    "chudnovsky",
+    "conform",
     "cpstak",
     "deriv",
     "destruc",
     "diviter",
     "divrec",
     "earley",
+    "equal",
     "fft",
     "fib",
     "fibfp",
     "graphs",
     "lattice",
     "matrix",
+    "maze",
     "mazefun",
     "mbrot",
     "mbrotZ",
     "mperm",
+    "nboyer",
     "nqueens",
     "ntakl",
     "nucleic",
     "paraffins",
+    "parsing",
+    "pi",
     "pnpoly",
     "primes",
     "puzzle",
     "quicksort",
     "ray",
+    "read1",
+    "sboyer",
     "simplex",
     "string",
     "sum",
+    "sum1",
     "sumfp",
     "tail",
     "tak",
@@ -538,36 +598,48 @@
     "wc"
   ],
   "historical_paired_chez_names": [
+    "ack",
     "array1",
+    "browse",
     "bv2string",
+    "chudnovsky",
+    "conform",
     "cpstak",
     "deriv",
     "destruc",
     "diviter",
     "divrec",
     "earley",
+    "equal",
     "fft",
     "fib",
     "fibfp",
     "graphs",
     "lattice",
     "matrix",
+    "maze",
     "mazefun",
     "mbrot",
     "mbrotZ",
     "mperm",
+    "nboyer",
     "nqueens",
     "ntakl",
     "nucleic",
     "paraffins",
+    "parsing",
+    "pi",
     "pnpoly",
     "primes",
     "puzzle",
     "quicksort",
     "ray",
+    "read1",
+    "sboyer",
     "simplex",
     "string",
     "sum",
+    "sum1",
     "sumfp",
     "tail",
     "tak",
@@ -576,10 +648,21 @@
     "wc"
   ],
   "coverage_exclusions": {
-    "ack": "Prior default-stack failure; larger-stack diagnostic excluded.",
     "gcbench": "Correctness ready; intended live-heap retention unproven, no timing.",
     "cat": "Measured strict worker, without same-window Chez comparison."
   },
   "earley_measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
-  "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md"
+  "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
+  "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+  "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md",
+  "integer_measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
+  "ack_measurement_report": "benchmarks/results/2026-10-14-strict-ack-comparison/README.md",
+  "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained.",
+  "browse_measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
+  "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance.",
+  "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
+  "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md",
+  "maze_measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md",
+  "parsing_measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md",
+  "boyer_measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md"
 }

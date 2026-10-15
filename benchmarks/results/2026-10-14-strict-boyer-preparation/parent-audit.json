@@ -1,0 +1,117 @@
+{
+  "complete": true,
+  "preparation_sha256": "d566c2b501790ab7fc930d72c955e46253ccf8eecb497fef871160e5d41a0389",
+  "verified_identities": 837,
+  "terminal_record_count": 190,
+  "cases": [
+    {
+      "name": "nboyer",
+      "scheme_frames": 25,
+      "observations": [
+        {
+          "label": "all-lemmas",
+          "bytes": 41701,
+          "sha256": "ee6fdc409f584469b7a64bd790371fcb7d601ff7c320403745b72d036e76b97a",
+          "systems": 5
+        },
+        {
+          "label": "identity-and-unification",
+          "bytes": 10,
+          "sha256": "119e1d736a520e42a1ecf106630944bff39f705830016fe36eb0d7cfbcfa2846",
+          "systems": 5
+        },
+        {
+          "label": "lemma-evaluation-order",
+          "bytes": 142,
+          "sha256": "1ef5d9bd790dbc3905126a735948b1b81f12287bb57200f63b1dc932b85ab7a4",
+          "systems": 5
+        },
+        {
+          "label": "complete-small-term",
+          "bytes": 719827,
+          "sha256": "4d162b3628bd7a3a416b00f049f5da8b37a449f7fdb1c09efcfa9591b93e648a",
+          "systems": 5
+        },
+        {
+          "label": "full-original-work",
+          "bytes": 155,
+          "sha256": "0ef282798904f1e88f09c82a18266c138841a310fdba9d14700e34346eb8f626",
+          "systems": 5
+        }
+      ],
+      "source_work_counters": {
+        "rewrite": 51507739,
+        "rewrite-args": 101900430,
+        "rewrite-with-lemmas": 68699742,
+        "apply-subst": 6590695,
+        "apply-subst-lst": 7908889,
+        "one-way-unify": 18307050,
+        "one-way-unify1": 40911692,
+        "one-way-unify1-lst": 24059434,
+        "term-equal?": 204265,
+        "tautologyp": 186,
+        "translate-term": 1262,
+        "add-lemma": 106,
+        "source-cons": 118128901,
+        "sharing-cons": 0,
+        "sharing-reuse": 0
+      },
+      "common_native_wasm_sha256": "8b1e3d29f3abaa976f126c867cd1561122db1eeea84b3400e09501129a7b26e3"
+    },
+    {
+      "name": "sboyer",
+      "scheme_frames": 25,
+      "observations": [
+        {
+          "label": "all-lemmas",
+          "bytes": 41701,
+          "sha256": "ee6fdc409f584469b7a64bd790371fcb7d601ff7c320403745b72d036e76b97a",
+          "systems": 5
+        },
+        {
+          "label": "identity-and-unification",
+          "bytes": 10,
+          "sha256": "119e1d736a520e42a1ecf106630944bff39f705830016fe36eb0d7cfbcfa2846",
+          "systems": 5
+        },
+        {
+          "label": "lemma-evaluation-order",
+          "bytes": 142,
+          "sha256": "1ef5d9bd790dbc3905126a735948b1b81f12287bb57200f63b1dc932b85ab7a4",
+          "systems": 5
+        },
+        {
+          "label": "complete-small-term",
+          "bytes": 719836,
+          "sha256": "364fc6ceb4a40ee9962051612f629a6a994c2987df4e0a21c59f86b28062d1c7",
+          "systems": 5
+        },
+        {
+          "label": "full-original-work",
+          "bytes": 170,
+          "sha256": "d1ab78707ef1bae0ad42531ca28a06901df558bc369479e59b89703bf50fcf5a",
+          "systems": 5
+        }
+      ],
+      "source_work_counters": {
+        "rewrite": 51507739,
+        "rewrite-args": 101900430,
+        "rewrite-with-lemmas": 68699742,
+        "apply-subst": 6590695,
+        "apply-subst-lst": 7908889,
+        "one-way-unify": 18307050,
+        "one-way-unify1": 40911692,
+        "one-way-unify1-lst": 24059434,
+        "term-equal?": 204265,
+        "tautologyp": 186,
+        "translate-term": 1262,
+        "add-lemma": 106,
+        "source-cons": 17982522,
+        "sharing-cons": 101900430,
+        "sharing-reuse": 100146379
+      },
+      "common_native_wasm_sha256": "516f1a41d794e724828df9a985a93d00ef220abf2dcf526064a89480b7f7bb0a"
+    }
+  ],
+  "scope": "Independent read-only checks of current original inputs, 50 complete Scheme frames, 50 ordered diagnostic streams, full source work counts and native-final module byte identity. No timing claims."
+}
