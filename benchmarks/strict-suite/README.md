@@ -31,12 +31,19 @@ production source. Rust remains the independent indexed-cell implementation:
 native bit operations, a temporary child vector, and owned character-list
 destruction differ from Scheme. Preparation starts no clean timing and does
 not increase historical measured coverage.
-It records failures alongside successful cases. It is
-an explicit subset, separate from the complete default R7RS benchmark command.
 
-Historical strict measurements cover **45 of 57 workloads**, **44 with paired
-Chez controls**, including the complete Equal and Conform comparisons. The explicit
-name sets are in [`capabilities.json`](capabilities.json). These are separate
+The [complete Maze comparison](../results/2026-10-14-strict-maze-comparison/README.md)
+now passes all 56 planned clean processes. Production V8 takes 0.419037 s,
+original Chez 0.332521 s and optimized Rust/Wasm 0.246174 s. Native64 takes
+0.461827 s versus 0.417998 s for its exact final Wasm on V8 (10.49% more time).
+This separate campaign uses current source/growing-GC basis `da8519f`.
+
+The preparation driver records failures alongside successful cases. This
+adapted subset is separate from the complete default R7RS benchmark command.
+
+Historical strict measurements cover **46 of 57 workloads**, **45 with paired
+Chez controls**, including the complete Equal, Conform and Maze comparisons.
+The explicit name sets are in [`capabilities.json`](capabilities.json). These are separate
 compiler checkpoints, not a complete-suite rerun on the current revision.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros

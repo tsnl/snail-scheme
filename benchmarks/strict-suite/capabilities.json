@@ -315,15 +315,16 @@
     },
     {
       "name": "maze",
-      "status": "correctness-prepared",
+      "status": "measured-canonical-source",
       "source_lines": 750,
       "files": {
         "src/maze.scm": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
         "inputs/maze.input": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-maze-preparation/README.md",
-      "note": "Complete original count 10000, 20 by 7 grid and all 668 expected characters pass on raw/optimized V8, native64 and original/adapted Chez. Complete ordered observations, full work counts and independent Rust controls pass. Clean timing remains pending.",
-      "representation_note": "Concrete records and Ref fields preserve source identities and mutation. Recursive bitwise-and/div/mod helpers remain. The sole immediate lexical escape becomes short-circuit reverse traversal; this adds no general continuation support. Rust retains indexed Vec cells/walls, native bit operations, temporary child vectors and owned character lists."
+      "note": "All 56 planned processes pass the original 10000 constructions of a 20 by 7 grid and all 668 expected characters; seven discarded warmups and 49 position-balanced retained samples. Current compiler/library/growing-GC basis da8519f. Production V8 median 0.419036819 s, native64 0.461827422 s, identical-Wasm V8 0.417998163 s, original Chez 0.332521329 s, adapted Chez 0.500966136 s, Rust native 0.229180672 s and optimized Rust/Wasm 0.246174006 s. V8 takes 1.260 times original Chez; native takes 10.4855% more time than its identical-Wasm V8 control. Separate full ordered observations, work counts and 32 current predicate controls remain outside clean timings.",
+      "representation_note": "Concrete records and Ref fields preserve source identities and mutation. Recursive bitwise-and/div/mod helpers remain. The sole immediate lexical escape becomes short-circuit reverse traversal; this adds no general continuation support. Rust retains indexed Vec cells/walls, native bit operations, temporary child vectors and owned character lists.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md"
     },
     {
       "name": "mazefun",
@@ -507,9 +508,9 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 45,
-  "historical_paired_chez_count": 44,
-  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded.",
+  "historical_measured_strict_count": 46,
+  "historical_paired_chez_count": 45,
+  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
@@ -560,6 +561,7 @@
     "graphs",
     "lattice",
     "matrix",
+    "maze",
     "mazefun",
     "mbrot",
     "mbrotZ",
@@ -606,6 +608,7 @@
     "graphs",
     "lattice",
     "matrix",
+    "maze",
     "mazefun",
     "mbrot",
     "mbrotZ",
@@ -646,5 +649,6 @@
   "browse_measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
   "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance.",
   "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
-  "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md"
+  "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md",
+  "maze_measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md"
 }
