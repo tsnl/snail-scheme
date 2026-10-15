@@ -32,7 +32,7 @@
          (provider (option-ref options 'provider #f)) (exports (options-named options 'export))
          (outputs (map (lambda (suffix) (string-append output suffix)) '("" ".wat" ".trace.json" ".raw.wasm"))))
     (unless (= (length exports) (length (delete-duplicates exports))) (error "export names must be distinct"))
-    (when (or (member source outputs) (and provider (member provider outputs)))
+    (when (any (lambda (output) (or (paths-alias? output source) (paths-alias? output provider))) outputs)
       (error "build outputs must not replace the source"))
     (create-directory* (path-directory output))
     (check-binaryen-tools)

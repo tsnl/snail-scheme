@@ -27,7 +27,10 @@
   (when (string=? (option-ref options 'action "") "compile")
     (let ((output (option-ref options 'output #f)))
       (unless output (error "compile requires -o OUTPUT"))
-      (when (or (member output (list (option-ref options 'source #f) (option-ref options 'provider #f) (path-join root "snail-sfir")))
+      (when (or (any (lambda (input) (paths-alias? output input))
+                     (append (list (option-ref options 'source #f) (option-ref options 'provider #f) (path-join root "snail-sfir"))
+                             (append-map directory-files-recursive
+                                         (append (map (lambda (name) (path-join root name)) '("src" "lib" "scripts")) (libraries options)))))
                 (any (lambda (directory) (string-prefix? (string-append directory "/") output))
                      (append (map (lambda (name) (path-join root name)) '("src" "lib" "scripts")) (libraries options))))
         (error "compile output must not replace compiler or library inputs"))
