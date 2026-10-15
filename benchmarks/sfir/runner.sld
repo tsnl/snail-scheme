@@ -11,7 +11,7 @@
           (srfi 1) (srfi 95) (except (chibi filesystem) file-exists?)
           (only (srfi 130) string-contains)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (chibi json) (snail-tools process) (snail-tools native-build) (sfir support))
+          (snail-tools json) (snail-tools process) (snail-tools native-build) (sfir support))
   (begin
 
     ;; ---- Corpus and explicit configuration ----

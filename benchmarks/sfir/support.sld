@@ -6,7 +6,7 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file)
           (scheme inexact) (scheme write) (srfi 1) (srfi 69) (srfi 95)
           (only (chibi string) string-join string-split string-prefix? string-null? string-any)
-          (except (chibi filesystem) file-exists?) (chibi json)
+          (except (chibi filesystem) file-exists?)
           (snail-tools process))
   (begin
 

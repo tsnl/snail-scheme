@@ -6,7 +6,7 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
           (scheme process-context) (scheme write) (srfi 1) (srfi 95)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (except (chibi filesystem) file-exists?) (chibi json)
+          (except (chibi filesystem) file-exists?) (snail-tools json)
           (snail-tools process) (sfir runner) (sfir support))
   (begin
 

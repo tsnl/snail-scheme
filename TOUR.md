@@ -328,7 +328,9 @@ native managed collection. Root and slot lifetime invariants live beside
 the lowering and collector that rely on them.
 
 [`snail-tools/process.sld`](src/snail-tools/process.sld) owns concrete command
-capture, files and evidence. [`native-build.sld`](src/snail-tools/native-build.sld)
+capture, files and evidence. [`json.sld`](src/snail-tools/json.sld) reads one
+complete JSON packet, preserving standard control escapes across the Chibi host
+boundary and rejecting trailing input. [`native-build.sld`](src/snail-tools/native-build.sld)
 checks scalar provider declarations, runs LLVM, and assembles a Cargo package
 with one runtime dependency and ordinary provider crates. Rust target `cfg`s
 select Wasm or native host behavior inside that shared runtime library. The
