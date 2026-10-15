@@ -68,6 +68,7 @@
         (i32->i64 (I32) I64 i64.extend_i32_s)
         (i64->i32 (I64) I32 i32.wrap_i64)
         (f32->f64 (F32) F64 f64.promote_f32)
+        (f32->i32 (F32) I32 i32.trunc_f32_s)
         (f64->f32 (F64) F32 f32.demote_f64)
         (f64->i64 (F64) I64 i64.trunc_f64_s)
         (char=? (Char Char) Bool i32.eq)
