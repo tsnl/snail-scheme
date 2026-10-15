@@ -124,6 +124,16 @@ this constant stride to checked allocation, indexing and overlapping copies.
 Static arrays use the same payload layout. Reference-array layout and permanent
 static reference roots remain unchanged; numeric payloads are never scanned.
 
+Both allocation layers are explicitly inlined during LLVM link-time optimization.
+This exposes the collector's zeroing beside each Wasm constructor's field stores,
+so LLVM can remove zeros that are immediately overwritten. The public allocator
+still returns zeroed storage; default initialization, collection thresholds,
+root publication and allocation counters keep their existing contracts. Hole
+searches remain out of line. Inlining only the inner allocator leaves the outer
+call boundary in place. The
+[allocation visibility experiment](../benchmarks/results/2026-10-14-native-allocation-visibility/README.md)
+measures the benefit and increased code size on two complete workloads.
+
 Roots include live reference locals/operands, globals, tables, mutable static
 literal reference slots and Rust-owned ABI table entries. A collection excludes
 stale temporary slots. Nonfinal types carry their concrete type identity and

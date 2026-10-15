@@ -83,7 +83,7 @@ static void *try_allocate(uint64_t size) {
     return object;
 }
 
-uint64_t native_alloc(uint64_t size) {
+__attribute__((always_inline)) uint64_t native_alloc(uint64_t size) {
     void *object = try_allocate(size);
     if (!object) native_fail("native GC arena exhausted (SNAIL_GC_HEAP_BYTES)");
     return (uintptr_t)object;
