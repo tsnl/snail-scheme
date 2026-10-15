@@ -1,60 +1,60 @@
-(import (sfir core) (sfir text) (sfir io))
+(import (sfir base) (sfir text) (sfir io))
 
 ;; ---- Public Char APIs retain scalar types across the worker boundary ----
 
-(define lower (-> Char Char)
+(def lower (-> Char Char)
   (lambda (value) (char-downcase value)))
 
-(define alphabetic (-> Char Bool)
+(def alphabetic (-> Char Bool)
   (lambda (value) (char-alphabetic? value)))
 
-(define numeric (-> Char Bool)
+(def numeric (-> Char Bool)
   (lambda (value) (char-numeric? value)))
 
-(define whitespace (-> Char Bool)
+(def whitespace (-> Char Bool)
   (lambda (value) (char-whitespace? value)))
 
 ;; ---- Hosts populate ordinary mutable SFIR strings through scalar workers ----
 
-(define left
+(def left
   (ref (make-string 0)))
-(define right
+(def right
   (ref (make-string 0)))
 
-(define fresh-strings (-> I64 I64 Unit)
+(def fresh-strings (-> I64 I64 Unit)
   (lambda (a b)
     (begin (ref-set! left (make-string a)) (ref-set! right (make-string b)))))
 
-(define fill-left (-> I64 Char Unit)
+(def fill-left (-> I64 Char Unit)
   (lambda (index value) (string-set! (ref-get left) index value)))
 
-(define fill-right (-> I64 Char Unit)
+(def fill-right (-> I64 Char Unit)
   (lambda (index value) (string-set! (ref-get right) index value)))
 
-(define ordered (-> Bool)
+(def ordered (-> Bool)
   (lambda () (string<? (ref-get left) (ref-get right))))
 
-(define self-ordered (-> Bool)
+(def self-ordered (-> Bool)
   (lambda () (string<? (ref-get left) (ref-get left))))
 
-(define fold-left (-> Unit)
+(def fold-left (-> Unit)
   (lambda () (ref-set! right (string-foldcase (ref-get left)))))
 
-(define read-left (-> I64 Char)
+(def read-left (-> I64 Char)
   (lambda (index) (string-ref (ref-get left) index)))
 
-(define read-right (-> I64 Char)
+(def read-right (-> I64 Char)
   (lambda (index) (string-ref (ref-get right) index)))
 
-(define right-length (-> I64)
+(def right-length (-> I64)
   (lambda () (string-length (ref-get right))))
 
-(define same-strings (-> Bool)
+(def same-strings (-> Bool)
   (lambda () (string-eq? (ref-get left) (ref-get right))))
 
-(define fold-literal (-> Bool)
+(def fold-literal (-> Bool)
   (lambda ()
-    (let ((folded (string-foldcase "Straße")))
+    (begin (let folded (string-foldcase "Straße"))
       (begin
         (string-set! folded 0 #\S)
         (string=? folded "Strasse")))))
@@ -68,16 +68,16 @@
 (define-extern raw-full-fold-length "snail.library" "snail:text/full-fold-length" (-> I32 I32))
 (define-extern raw-full-fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> I32 I32 I32))
 
-(define fold-count (-> I32 I32)
+(def fold-count (-> I32 I32)
   (lambda (code) (raw-full-fold-length code)))
 
-(define fold-component (-> I32 I32 I32)
+(def fold-component (-> I32 I32 I32)
   (lambda (code index) (raw-full-fold-scalar code index)))
 
-(define malformed (-> I64 I32 Unit)
+(def malformed (-> I64 I32 Unit)
   (lambda (operation code)
     (begin
-      (let ((port (open-output-file "pending.txt"))) (write-string "buffered" port))
+      (begin (let port (open-output-file "pending.txt")) (write-string "buffered" port))
       (if (= operation 0)
           (raw-downcase code)
           (if (= operation 1)

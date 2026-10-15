@@ -1,14 +1,14 @@
-(import (sfir core))
-(define unordered
+(import (sfir base))
+(def unordered
   (lambda (nan zero)
     (if (not (= nan nan))
         (if (not (< nan zero))
             (if (not (<= nan zero)) (if (not (> nan zero)) (not (>= nan zero)) #f) #f)
             #f)
         #f)))
-(define nan32
+(def nan32
   (/ (ann 0.0 F32) (ann 0.0 F32)))
-(define nan64
+(def nan64
   (/ 0.0 0.0))
 (if (if (unordered nan32 (ann 0.0 F32))
         (if (unordered nan64 0.0)

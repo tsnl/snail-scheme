@@ -1,12 +1,12 @@
-(import (sfir core))
-(define values
+(import (sfir base))
+(def values
   (list->vector
    (begin
-     (define loop
+     (def loop
        (lambda (index result)
          (if (< index 0) result (loop (- index 1) (cons index result)))))
-     (loop 99999 (quote ())))))
-(define joined
+     (loop 99999 (empty-list )))))
+(def joined
   (vector-append (vector -1) values (vector 100000)))
 (if (if (= (vector-length values) 100000)
         (if (= (vector-ref values 0) 0)

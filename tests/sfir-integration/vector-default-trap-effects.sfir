@@ -1,16 +1,16 @@
-(import (sfir core))
-(define count
+(import (sfir base))
+(def count
   (ref 0))
 
-(define calls (-> I64)
+(def calls (-> I64)
   (lambda () (ref-get count)))
-(define-instance (Default (Ref I64))
+(def sfir-migration-instance-1 (instance (Default (Ref I64))
   (default (lambda ()
              (begin
                (ref-set! count (+ (ref-get count) 1))
-               (if (= (ref-get count) 3) (unreachable) (ref (ref-get count)))))))
+               (if (= (ref-get count) 3) (unreachable) (ref (ref-get count))))))))
 
-(define allocate (-> I64)
+(def allocate (-> I64)
   (lambda ()
     (begin
       (ann (make-vector 5) (Vector (Ref I64)))

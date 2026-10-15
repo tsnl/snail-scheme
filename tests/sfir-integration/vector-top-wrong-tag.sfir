@@ -1,4 +1,4 @@
-(import (sfir core))
-(define hidden
-  (ann (make-vector 1 #t) Top))
+(import (sfir base))
+(def hidden
+  (ann (make-vector 1 #t) Any))
 (vector-ref (ann hidden (Vector I32)) 0)

@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 1))))) loop.1)))
       xs
       0)))
 
@@ -20,16 +20,16 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define hide (lambda (count.1 x) (hide-f64 x)))
+(def hide (lambda (count.1 x) (hide-f64 x)))
 
-(define fibfp
+(def fibfp
   (lambda (n) (if (f64-lt n 2.0) n (f64-add (fibfp (f64-sub n 1.0)) (fibfp (f64-sub n 2.0))))))
 
-(define input0 (native-input-f64 (ann 0 I32)))
+(def input0 (native-input-f64 (ann 0 I32)))
 
-(define bench (-> I64 F64)
+(def bench (-> I64 F64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (fibfp (hide count input0))) result))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (fibfp (hide count input0))) result))) loop)))
       0
       0.0)))
 

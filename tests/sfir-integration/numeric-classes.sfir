@@ -1,10 +1,10 @@
-(import (sfir core))
+(import (sfir base))
 
-(define square (All (T) (=> ((* (-> T T T))) (-> T T)))
+(def square (All (T) (=> ((* (-> T T T))) (-> T T)))
   (lambda (x) (* x x)))
-(define distance
+(def distance
   (lambda (a b) (if (< a b) (- b a) (- a b))))
-(define quadratic
+(def quadratic
   (lambda (a b) (+ (square a) (square b))))
 (if (if (= (quadratic (ann 3 I32) (ann 4 I32)) (ann 25 I32))
         (if (= (quadratic 3 4) 25)

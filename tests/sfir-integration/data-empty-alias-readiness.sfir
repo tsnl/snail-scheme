@@ -1,18 +1,18 @@
-(import (sfir core))
-(define-data Empty (empty))
-(define calls
+(import (sfir base))
+(def Empty (datatype () (empty)))
+(def calls
   (ref 0))
 
-(define observed (-> I64)
+(def observed (-> I64)
   (lambda () (ref-get calls)))
 
-(define invoke (-> I64)
+(def invoke (-> I64)
   (lambda ()
     (begin
       ;; Evaluating a nullary call's operator can have effects and fail readiness.
-      (define first
+      (def first
         ((begin (ref-set! calls 1) alias)))
-      (define alias
+      (def alias
         empty)
       (match first ((empty) 42)))))
 42

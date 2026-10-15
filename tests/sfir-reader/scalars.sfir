@@ -1,15 +1,15 @@
-(import (sfir core) (sfir datum))
+(import (sfir base) (sfir datum))
 
 ;; ---- Exactness, stable symbols and observable mutable datum fields ----
 
-(define parsed (-> String Number)
+(def parsed (-> String Number)
   (lambda (text) (parsed-number-value (string->number text))))
 
-(define check (-> I64)
+(def check (-> I64)
   (lambda ()
-    (let ((name (string->symbol "λ😀")))
-      (let ((same (string->symbol (string-copy "λ😀"))))
-        (let ((pair (datum-cons (datum-symbol name) (datum-null))))
+    (begin (let name (string->symbol "λ😀"))
+      (begin (let same (string->symbol (string-copy "λ😀")))
+        (begin (let pair (datum-cons (datum-symbol name) (datum-null)))
           (begin
             (datum-set-car! pair (datum-number (parsed "#e9007199254740993.0")))
             (if (if (symbol=? name same)

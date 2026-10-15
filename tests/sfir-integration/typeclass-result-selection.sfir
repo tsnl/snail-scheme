@@ -1,11 +1,11 @@
-(import (sfir core))
-(define-class (Zero T) (: zero (-> T)))
-(define-instance (Zero I32) (zero (lambda () (ann 0 I32))))
-(define-instance (Zero F64) (zero (lambda () 0.0)))
+(import (sfir base))
+(def Zero (typeclass ( T) (: zero (-> T))))
+(def sfir-migration-instance-1 (instance (Zero I32) (zero (lambda () (ann 0 I32)))))
+(def sfir-migration-instance-2 (instance (Zero F64) (zero (lambda () 0.0))))
 
-(define first I32
+(def first I32
   (zero))
 
-(define second F64
+(def second F64
   (zero))
 (if (if (i32-eq first (ann 0 I32)) (f64-eq second 0.0) #f) 42 0)

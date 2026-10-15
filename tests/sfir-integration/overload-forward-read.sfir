@@ -1,7 +1,7 @@
-(import (sfir core))
+(import (sfir base))
 (define-overload add-two (-> I64 I64) implementation)
-(define answer
+(def answer
   (add-two 40))
-(define implementation
+(def implementation
   (lambda (value) (+ value 2)))
 answer

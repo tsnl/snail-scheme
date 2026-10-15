@@ -17,7 +17,7 @@ spec.loader.exec_module(contracts)
 
 def compile_case(name, source):
     path, wasm = OUTPUT / f'{name}.sfir', OUTPUT / f'{name}.wasm'
-    prefix = '' if source.startswith('(library') else '(import (sfir primitive))\n'
+    prefix = '' if source.startswith('(define-library') else '(import (sfir primitive))\n'
     path.write_text(prefix + source + '\n')
     result = subprocess.run([ROOT / 'scripts/build-sfir', '-I', OUTPUT / 'lib', path, wasm], capture_output=True, text=True,
                             timeout=180, env={**os.environ, 'BINARYEN_CORES': '1'})

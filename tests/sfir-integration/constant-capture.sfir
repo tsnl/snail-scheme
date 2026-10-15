@@ -1,26 +1,26 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; Constants and mutable aliases share a recursive scope. Escaping closures
 ;; must preserve separate activations while all aliases observe one Ref.
-(define make-step
+(def make-step
   (lambda (start)
     (begin
-      (define advance
+      (def advance
         (lambda (delta)
           (begin
             (ref-set! alias (+ (ref-get state) delta))
             (+ factor (remainder (ref-get alias) modulus)))))
-      (define factor
+      (def factor
         7)
-      (define modulus
+      (def modulus
         16)
-      (define state
+      (def state
         (ref start))
-      (define alias
+      (def alias
         state)
       (lambda (delta) (advance delta)))))
-(define first
+(def first
   (make-step 1))
-(define second
+(def second
   (make-step 10))
 (+ (first 2) (+ (second 3) (first 4)))

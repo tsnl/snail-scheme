@@ -1,4 +1,4 @@
 (import (sfir primitive))
-(define increment (-> I64 I64)
+(def increment (-> I64 I64)
   (lambda (value) (i64-add value 1)))
 (increment 41)

@@ -1,11 +1,11 @@
-(import (sfir core))
-(define copy-values
+(import (sfir base))
+(def copy-values
   (lambda (source) (vector-append (empty-vector) (vector-copy source))))
-(define integers
-  (copy-values (list->vector (cons 40 (cons 2 (quote ()))))))
-(define flags
+(def integers
+  (copy-values (list->vector (cons 40 (cons 2 (empty-list ))))))
+(def flags
   (copy-values (vector #t #f)))
-(define returned
+(def returned
   (vector->list integers))
 (if (if (= (vector-length (ann (vector-append) (Vector I64))) 0)
         (if (= (vector-length (ann (vector) (Vector Bool))) 0)

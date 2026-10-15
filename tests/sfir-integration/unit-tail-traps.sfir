@@ -1,27 +1,27 @@
-(import (sfir core))
+(import (sfir base))
 
-(define state
+(def state
   (ref 0))
 
-(define calls (-> I64)
+(def calls (-> I64)
   (lambda () (ref-get state)))
 
-(define after-forward (-> I64)
+(def after-forward (-> I64)
   (lambda () (ref-get state)))
 
-(define checked (-> Unit)
+(def checked (-> Unit)
   (lambda ()
     (begin
       (ref-set! state 1)
-      (ann (ann 42 Top) Unit)
+      (ann (ann 42 Any) Unit)
       (unit))))
 
-(define forward (-> Unit)
+(def forward (-> Unit)
   (lambda ()
     (begin
-      (define early
+      (def early
         (begin (ref-set! state 2) later (unit)))
-      (define later
+      (def later
         (unit))
       early
       (unit))))

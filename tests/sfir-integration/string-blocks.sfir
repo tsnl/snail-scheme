@@ -1,19 +1,19 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; ---- Independent scalar oracle ----
 
-(define pattern-character
+(def pattern-character
   (lambda (index)
-    (let ((choice (remainder index 5)))
+    (begin (let choice (remainder index 5))
       (if (= choice 0)
           #\null
           (if (= choice 1) #\é (if (= choice 2) #\x1f600 (if (= choice 3) #\x10ffff #\x301)))))))
-(define pattern-string
+(def pattern-string
   (lambda (length)
-    (let ((value (make-string length)))
+    (begin (let value (make-string length))
       (begin
         (begin
-          (define loop
+          (def loop
             (lambda (index)
               (if (= index length)
                   (unit)
@@ -23,14 +23,14 @@
                     (unit)))))
           (loop 0))
         value))))
-(define copied-range?
+(def copied-range?
   (lambda (length at start end)
-    (let ((value (pattern-string length)))
-      (let ((before (string-copy value)))
-        (let ((expected (string-copy value)))
+    (begin (let value (pattern-string length))
+      (begin (let before (string-copy value))
+        (begin (let expected (string-copy value))
           (begin
             (begin
-              (define loop
+              (def loop
                 (lambda (index)
                   (if (= index end)
                       (unit)
@@ -44,15 +44,15 @@
 
 ;; ---- Fresh buffers, aliases and block-edge overlap ----
 
-(define original
+(def original
   (pattern-string 16385))
-(define alias
+(def alias
   original)
-(define copied
+(def copied
   (string-copy original))
-(define middle
+(def middle
   (substring original 8191 16385))
-(define joined
+(def joined
   (string-append "[" original "]"))
 (string-set! alias 8192 #\Z)
 (if (if (string-eq? alias original)

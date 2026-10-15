@@ -1,9 +1,9 @@
-(import (sfir core))
-(define-data (Box T) (box (value T unbox)))
-(define make
+(import (sfir base))
+(def Box (datatype ( T) (box (value T unbox))))
+(def make
   box)
-(define read
+(def read
   unbox)
-(define apply1
+(def apply1
   (lambda (f x) (f x)))
 (+ (apply1 read (apply1 make 34)) (f64->i64 (read (make 3.5))))

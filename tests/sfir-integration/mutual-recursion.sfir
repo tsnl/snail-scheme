@@ -1,6 +1,6 @@
-(import (sfir core))
-(define even
+(import (sfir base))
+(def even
   (lambda (n) (if (= n 0) #t (odd (- n 1)))))
-(define odd
+(def odd
   (lambda (n) (if (= n 0) #f (even (- n 1)))))
 (if (even 100001) 1 0)

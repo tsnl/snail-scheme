@@ -1,11 +1,11 @@
-(import (sfir core))
-(define forward
+(import (sfir base))
+(def forward
   (string-copy "abcdef"))
-(define backward
+(def backward
   (string-copy "abcdef"))
-(define shared
+(def shared
   (ref forward))
-(define alias
+(def alias
   (ref-get shared))
 (string-copy! forward 2 forward 0 4)
 (string-copy! backward 0 backward 2 6)

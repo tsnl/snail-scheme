@@ -1,8 +1,8 @@
-(import (sfir core))
-(define exercise
+(import (sfir base))
+(def exercise
   (lambda (seed)
     (begin
-      (define loop
+      (def loop
         (lambda (n) (if (= n 0) seed (+ 1 (loop (- n 1))))))
       (loop 40))))
 (exercise 2)

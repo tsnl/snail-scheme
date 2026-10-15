@@ -1,26 +1,26 @@
-(import (sfir core))
+(import (sfir base))
 
-(define digits
+(def digits
   (ref 0))
-(define record
+(def record
   (lambda (digit)
     (begin
       (ref-set! digits (+ (* 10 (ref-get digits)) digit))
       digit)))
 
-(define checked (-> I64)
+(def checked (-> I64)
   (lambda ()
     (begin
-      (define early
+      (def early
         ((begin
            (record 3)
-           (let ((ignored (record 4))) later))
+           (begin (let ignored (record 4)) later))
          (record 1) (record 2)))
-      (define later
+      (def later
         (lambda (left right) (+ left right)))
       early)))
 
-(define observed (-> I64)
+(def observed (-> I64)
   (lambda () (ref-get digits)))
 
 42

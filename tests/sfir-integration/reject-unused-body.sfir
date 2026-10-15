@@ -1,4 +1,4 @@
-(import (sfir core))
-(define unused
+(import (sfir base))
+(def unused
   (lambda (x) (+ #t x)))
 42

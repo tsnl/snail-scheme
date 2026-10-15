@@ -1,24 +1,24 @@
-(import (sfir core))
+(import (sfir base))
 
-(define effects
+(def effects
   (ref 0))
 
-(define checked (-> I64)
+(def checked (-> I64)
   (lambda ()
     (begin
-      (define read-later
+      (def read-later
         (lambda ()
           (begin
             (ref-set! effects (+ (ref-get effects) 1))
             later)))
-      (define invoke
+      (def invoke
         read-later)
-      (define early
+      (def early
         (invoke))
-      (define later
+      (def later
         42)
       early)))
 
-(define observed (-> I64)
+(def observed (-> I64)
   (lambda () (ref-get effects)))
 42

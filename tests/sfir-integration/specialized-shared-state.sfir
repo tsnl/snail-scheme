@@ -1,7 +1,7 @@
-(import (sfir core))
-(define count
+(import (sfir base))
+(def count
   (ref 0))
-(define counted
+(def counted
   (lambda (x)
     (begin
       (ref-set! count (+ (ref-get count) 1))

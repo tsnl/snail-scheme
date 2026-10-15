@@ -1,18 +1,20 @@
-(import (sfir core))
+(import (sfir base))
 
-(define digits
+(def digits
   (ref 0))
-(define record
+(def record
   (lambda (digit)
     (begin
       (ref-set! digits (+ (* 10 (ref-get digits)) digit))
       digit)))
-(define answer
-  ((let ((left (record 3)) (right (record 4)))
-     (begin
-       (define middle
+(def answer
+  ((begin (let sfir-migration-let-1 (record 3)) (let sfir-migration-let-2 (record 4))
+     (let left sfir-migration-let-1)
+(let right sfir-migration-let-2)
+(begin
+       (def middle
          (record 5))
-       (define finish
+       (def finish
          (lambda (first second)
            (begin
              (record 7)

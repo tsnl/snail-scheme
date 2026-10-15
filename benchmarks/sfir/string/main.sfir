@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 1))))) loop.3)))
       xs
       0)))
 
@@ -20,11 +20,11 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define hide (lambda (count.1 x) (hide-i64 x)))
+(def hide (lambda (count.1 x) (hide-i64 x)))
 
-(define s (ref "abcdef"))
+(def s (ref "abcdef"))
 
-(define grow
+(def grow
   (lambda ()
     (begin
       (ref-set! s (string-append "123" (ref-get s) "456" (ref-get s) "789"))
@@ -38,25 +38,25 @@
           (substring (ref-get s) 0 (+ 1 (quotient (string-length (ref-get s)) 2)))))
       (ref-get s))))
 
-(define trial
+(def trial
   (lambda (n.1)
-    (((lambda () (begin (define loop.2 (lambda (i.2) (if (> (string-length (ref-get s)) n.1) (string-length (ref-get s)) (begin (grow) (loop.2 (+ i.2 1)))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (i.2) (if (> (string-length (ref-get s)) n.1) (string-length (ref-get s)) (begin (grow) (loop.2 (+ i.2 1)))))) loop.2)))
       0)))
 
-(define my-try
+(def my-try
   (lambda (n)
-    (((lambda () (begin (define loop.1 (lambda (i.1) (if (>= i.1 10) (string-length (ref-get s)) (begin (ref-set! s "abcdef") (trial n) (loop.1 (+ i.1 1)))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (i.1) (if (>= i.1 10) (string-length (ref-get s)) (begin (ref-set! s "abcdef") (trial n) (loop.1 (+ i.1 1)))))) loop.1)))
       0)))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define input1 (native-input-i64 (ann 1 I32)))
+(def input1 (native-input-i64 (ann 1 I32)))
 
-(define input2 (native-input-i64 (ann 2 I32)))
+(def input2 (native-input-i64 (ann 2 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (my-try (hide count input0))) (if (if (= i 0) (= input1 0) (if (= input1 2) (= result input2) #f)) 1 0)))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (my-try (hide count input0))) (if (if (= i 0) (= input1 0) (if (= input1 2) (= result input2) #f)) 1 0)))) loop)))
       0
       0)))
 

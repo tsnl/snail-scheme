@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.3) (cdr (cdr xs.3))))
+(def cddr (lambda (xs.3) (cdr (cdr xs.3))))
 
-(define length
+(def length
   (lambda (xs.1)
-    (((lambda () (begin (define loop.3 (lambda (xs.2 n.2) (if (null? xs.2) n.2 (loop.3 (cdr xs.2) (+ n.2 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.2 n.2) (if (null? xs.2) n.2 (loop.3 (cdr xs.2) (+ n.2 1))))) loop.3)))
       xs.1
       0)))
 
@@ -20,33 +20,33 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define list (lambda elements elements))
+(def list (lambda elements elements))
 
-(define append (lambda (xs ys) (if (null? xs) ys (cons (car xs) (append (cdr xs) ys)))))
+(def append (lambda (xs ys) (if (null? xs) ys (cons (car xs) (append (cdr xs) ys)))))
 
-(define hide (lambda (count.2 x.2) (hide-i64 x.2)))
+(def hide (lambda (count.2 x.2) (hide-i64 x.2)))
 
-(define count
+(def count
   (lambda (r.1 i.3 step.1 x.1 y.1)
-    ((lambda (max-count radius^2) ((lambda (cr ci) (((lambda () (begin (define loop.2 (lambda (zr zi c) (if (= c max-count) c ((lambda (zr^2 zi^2) (if (> (+ zr^2 zi^2) radius^2) c ((lambda (new-zr new-zi) (loop.2 new-zr new-zi (+ c 1))) (+ (- zr^2 zi^2) cr) (+ (* 2.0 (* zr zi)) ci)))) (* zr zr) (* zi zi))))) loop.2))) cr ci 0)) (+ r.1 (* (i64->f64 x.1) step.1)) (+ i.3 (* (i64->f64 y.1) step.1))))
+    ((lambda (max-count radius^2) ((lambda (cr ci) (((lambda () (begin (def loop.2 (lambda (zr zi c) (if (= c max-count) c ((lambda (zr^2 zi^2) (if (> (+ zr^2 zi^2) radius^2) c ((lambda (new-zr new-zi) (loop.2 new-zr new-zi (+ c 1))) (+ (- zr^2 zi^2) cr) (+ (* 2.0 (* zr zi)) ci)))) (* zr zr) (* zi zi))))) loop.2))) cr ci 0)) (+ r.1 (* (i64->f64 x.1) step.1)) (+ i.3 (* (i64->f64 y.1) step.1))))
       64
       16.0)))
 
-(define mbrot
+(def mbrot
   (lambda (matrix.1 r i.2 step n.1)
-    (((lambda () (begin (define loop1 (lambda (y) (if (>= y 0) (begin (((lambda () (begin (define loop2 (lambda (x) (if (>= x 0) (begin (vector-set! (vector-ref matrix.1 x) y (count r i.2 step x y)) (loop2 (- x 1))) (loop1 (- y 1))))) loop2))) (- n.1 1)) (unit)) (unit)))) loop1)))
+    (((lambda () (begin (def loop1 (lambda (y) (if (>= y 0) (begin (((lambda () (begin (def loop2 (lambda (x) (if (>= x 0) (begin (vector-set! (vector-ref matrix.1 x) y (count r i.2 step x y)) (loop2 (- x 1))) (loop1 (- y 1))))) loop2))) (- n.1 1)) (unit)) (unit)))) loop1)))
       (- n.1 1))))
 
-(define test
+(def test
   (lambda (n)
-    ((lambda (matrix) (begin (((lambda () (begin (define loop.1 (lambda (i.1) (if (>= i.1 0) (begin (vector-set! matrix i.1 (make-vector n 0)) (loop.1 (- i.1 1)) (unit)) (unit)))) loop.1))) (- n 1)) (mbrot matrix -1.0 -0.5 0.005 n) (vector-ref (vector-ref matrix 0) 0)))
+    ((lambda (matrix) (begin (((lambda () (begin (def loop.1 (lambda (i.1) (if (>= i.1 0) (begin (vector-set! matrix i.1 (make-vector n 0)) (loop.1 (- i.1 1)) (unit)) (unit)))) loop.1))) (- n 1)) (mbrot matrix -1.0 -0.5 0.005 n) (vector-ref (vector-ref matrix 0) 0)))
       (make-vector n (empty-vector)))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count.1)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count.1) (loop (+ i 1) (test (hide count.1 input0))) result))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count.1) (loop (+ i 1) (test (hide count.1 input0))) result))) loop)))
       0
       0)))
 

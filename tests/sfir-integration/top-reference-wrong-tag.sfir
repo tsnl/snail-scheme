@@ -1,6 +1,6 @@
-(import (sfir core))
-(define cell
+(import (sfir base))
+(def cell
   (ref #t))
-(define alias
-  (ann (ann cell Top) (Ref I32)))
+(def alias
+  (ann (ann cell Any) (Ref I32)))
 (ref-get alias)

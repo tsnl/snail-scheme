@@ -1,27 +1,27 @@
-(import (sfir core))
+(import (sfir base))
 (define-extern collect "probe" "callback" (-> Unit))
-(define data
+(def data
   (vector 0 1 2 3 4 5))
-(define trace
+(def trace
   (ref 0))
-(define mark
+(def mark
   (lambda (digit) (ref-set! trace (+ (* (ref-get trace) 10) digit))))
 
-(define worker (-> I32 I32)
+(def worker (-> I32 I32)
   (lambda (x) x))
 
-(define read (-> I64 I64)
+(def read (-> I64 I64)
   (lambda (index) (vector-ref data index)))
 
-(define marks (-> I64)
+(def marks (-> I64)
   (lambda () (ref-get trace)))
 
-(define reset (-> Unit)
+(def reset (-> Unit)
   (lambda ()
     (begin
       (ref-set! trace 0)
       (begin
-        (define loop
+        (def loop
           (lambda (index)
             (if (= index 6)
                 (unit)
@@ -31,27 +31,27 @@
                   (unit)))))
         (loop 0)))))
 
-(define write (-> I64 Unit)
+(def write (-> I64 Unit)
   (lambda (index)
     ((begin (mark 4) vector-set!)
      (begin (mark 1) data)
      (begin (mark 2) index)
      (begin (mark 3) 99))))
 
-(define allocate (-> I64 I64)
+(def allocate (-> I64 I64)
   (lambda (count)
     (vector-length (make-vector (begin (mark 1) count) (begin (mark 2) 42)))))
 
-(define copy (-> I64 I64 I64 Unit)
+(def copy (-> I64 I64 I64 Unit)
   (lambda (at start end)
     ((begin (mark 6) vector-copy!)
      (begin (mark 1) data) (begin (mark 2) at)
      (begin (mark 3) data) (begin (mark 4) start) (begin (mark 5) end))))
 
-(define gc-check (-> I64)
+(def gc-check (-> I64)
   (lambda ()
-    (let ((cell (ref 42)))
-      (let ((values (make-vector 2 cell)))
+    (begin (let cell (ref 42))
+      (begin (let values (make-vector 2 cell))
         (begin
           (collect)
           (ref-set! (vector-ref values 0) 43)

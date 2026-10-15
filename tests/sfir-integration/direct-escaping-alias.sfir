@@ -1,13 +1,13 @@
-(import (sfir core))
+(import (sfir base))
 
-(define exercise
+(def exercise
   (lambda (amount)
     (begin
-      (define add
+      (def add
         (lambda (value) (+ amount value)))
-      (define alias
+      (def alias
         add)
-      (define invoke
+      (def invoke
         (lambda (value) (alias value)))
       (invoke 2))))
 

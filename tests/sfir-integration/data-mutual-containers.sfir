@@ -1,14 +1,14 @@
-(import (sfir core))
-(define-data Node
-  (node (children (Ref (List Edge)) node-children) (cache (Vector Edge) node-cache)))
-(define-data Edge (edge (target Node edge-target)))
-(define root
-  (node (ref (quote ())) (empty-vector)))
-(define link
+(import (sfir base))
+(def Node (datatype ()
+  (node (children (Ref (List Edge)) node-children) (cache (Vector Edge) node-cache))))
+(def Edge (datatype () (edge (target Node edge-target))))
+(def root
+  (node (ref (empty-list )) (empty-vector)))
+(def link
   (edge root))
-(ref-set! (node-children root) (cons link (quote ())))
-(define other
-  (node (ref (quote ())) (vector link)))
+(ref-set! (node-children root) (cons link (empty-list )))
+(def other
+  (node (ref (empty-list )) (vector link)))
 (if (ref-eq? (node-children (edge-target (vector-ref (node-cache other) 0)))
              (node-children (edge-target (car (ref-get (node-children root))))))
     23

@@ -1,16 +1,18 @@
-(import (sfir core))
+(import (sfir base))
 
-(define effects
+(def effects
   (ref 0))
-(define x
+(def x
   40)
-(define make-probe
+(def make-probe
   (lambda ()
-    (let ((x (begin (ref-set! effects (+ (ref-get effects) 1)) 1))
-          (outer (begin (ref-set! effects (+ (ref-get effects) 10))
-                        (lambda () x))))
-      (lambda () (+ x (outer))))))
+    (begin (let sfir-migration-let-1 (begin (ref-set! effects (+ (ref-get effects) 1)) 1))
+          (let sfir-migration-let-2 (begin (ref-set! effects (+ (ref-get effects) 10))
+                        (lambda () x)))
+      (let x sfir-migration-let-1)
+(let outer sfir-migration-let-2)
+(lambda () (+ x (outer))))))
 
-(define saved
+(def saved
   (make-probe))
 (+ (saved) (ref-get effects))

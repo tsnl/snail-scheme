@@ -1,13 +1,13 @@
-(import (sfir core))
-(define truncates
+(import (sfir base))
+(def truncates
   (lambda (operation input expected) (= (operation input) expected)))
-(define nan32
+(def nan32
   (truncate (/ (ann 0.0 F32) (ann 0.0 F32))))
-(define nan64
+(def nan64
   (truncate (/ 0.0 0.0)))
-(define infinity32
+(def infinity32
   (/ (ann 1.0 F32) (ann 0.0 F32)))
-(define infinity64
+(def infinity64
   (/ 1.0 0.0))
 (if (if (truncates truncate (ann 3.75 F32) (ann 3.0 F32))
         (if (truncates truncate (ann -3.75 F32) (ann -3.0 F32))

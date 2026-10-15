@@ -1,58 +1,59 @@
 ;; Incremental typed datum input. Rust owns UTF-8 decoding and port lookahead;
 ;; SFIR owns tokens, syntax, mutable pair fields and every returned datum.
-(library (sfir read)
+(define-library (sfir read)
   (export ReadResult read read-end read-value read-error read-end?
           read-value-datum read-error-message read-value!
           test-read)
-  (import (sfir core) (sfir io) (sfir datum) (sfir bytes))
+  (import (sfir base) (sfir io) (sfir datum) (sfir bytes))
 
 
   ;; ---- A datum, normal EOF and malformed input are distinct results ----
 
-  (define-data Token (value-token (datum Datum)) (end-token) (close-token) (dot-token)
-    (open-token (kind I64)) (prefix-token (name String)) (error-token (message String)))
-  (define-data TextResult (text-value (text String)) (text-error (message String)))
-  (define-data Escape (escaped-character (value Char)) (escaped-gap) (escape-error (message String)))
+  (begin
+(def Token (datatype () (value-token (datum Datum)) (end-token) (close-token) (dot-token)
+    (open-token (kind I64)) (prefix-token (name String)) (error-token (message String))))
+  (def TextResult (datatype () (text-value (text String)) (text-error (message String))))
+  (def Escape (datatype () (escaped-character (value Char)) (escaped-gap) (escape-error (message String))))
 
-  (define read-end? (-> ReadResult Bool)
+  (def read-end? (-> ReadResult Bool)
     (lambda (result)
       (match result ((read-end) #t) ((read-value value) #f) ((read-error message) #f))))
 
-  (define read-value! (-> ReadResult Datum)
+  (def read-value! (-> ReadResult Datum)
     (lambda (result)
       (match result ((read-value value) value)
              ((read-end) (datum-fail "read: expected a datum, received end of file"))
              ((read-error message) (datum-fail (string-append "read: " message))))))
 
-  (define read (-> InputPort ReadResult)
+  (def read (-> InputPort ReadResult)
     (lambda (port) (token-datum port (next-token port))))
 
   ;; ---- Port lookahead survives every reader invocation ----
 
   (define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> Char I32))
 
-  (define character-code (-> CharacterResult I64)
+  (def character-code (-> CharacterResult I64)
     (lambda (result)
       (match result ((character-end) -1) ((character-value value) (char->integer value)))))
 
-  (define peek-code (-> InputPort I64)
+  (def peek-code (-> InputPort I64)
     (lambda (port) (character-code (peek-char port))))
 
-  (define take-code (-> InputPort I64)
+  (def take-code (-> InputPort I64)
     (lambda (port) (character-code (read-char port))))
 
-  (define code=? (-> I64 Char Bool)
+  (def code=? (-> I64 Char Bool)
     (lambda (code character) (= code (char->integer character))))
 
-  (define take-if (-> InputPort Char Bool)
+  (def take-if (-> InputPort Char Bool)
     (lambda (port character)
       (if (code=? (peek-code port) character) (begin (read-char port) #t) #f)))
 
-  (define whitespace? (-> I64 Bool)
+  (def whitespace? (-> I64 Bool)
     (lambda (code)
       (if (>= code 0) (i32-eq (raw-whitespace (integer->char code)) (ann 1 I32)) #f)))
 
-  (define delimiter? (-> I64 Bool)
+  (def delimiter? (-> I64 Bool)
     (lambda (code)
       (if (< code 0)
           #t
@@ -80,14 +81,14 @@
 
   ;; ---- A geometrically growing Unicode token buffer ----
 
-  (define-data Buffer (buffer (text (Ref String) buffer-text) (count (Ref I64) buffer-count)))
+  (def Buffer (datatype () (buffer (text (Ref String) buffer-text) (count (Ref I64) buffer-count))))
 
-  (define new-buffer (-> Buffer)
+  (def new-buffer (-> Buffer)
     (lambda () (buffer (ref (make-string 32)) (ref 0))))
 
-  (define append-character! (-> Buffer Char Unit)
+  (def append-character! (-> Buffer Char Unit)
     (lambda (buffer character)
-      (let ((count (ref-get (buffer-count buffer))))
+      (begin (let count (ref-get (buffer-count buffer)))
         (begin
           (if (= count (string-length (ref-get (buffer-text buffer))))
               (begin (grow-buffer! buffer count)
@@ -96,42 +97,42 @@
           (string-set! (ref-get (buffer-text buffer)) count character)
           (ref-set! (buffer-count buffer) (+ count 1))))))
 
-  (define grow-buffer! (-> Buffer I64 Unit)
+  (def grow-buffer! (-> Buffer I64 Unit)
     (lambda (buffer count)
       (if (>= count 4294967294)
           (datum-fail "read: token exceeds String capacity")
-          (let ((size (if (> count 2147483647) 4294967294 (* count 2))))
-            (let ((grown (make-string size)))
+          (begin (let size (if (> count 2147483647) 4294967294 (* count 2)))
+            (begin (let grown (make-string size))
               (begin
                 (string-copy! grown 0 (ref-get (buffer-text buffer)) 0 count)
                 (ref-set! (buffer-text buffer) grown)))))))
 
-  (define buffer-string (-> Buffer String)
+  (def buffer-string (-> Buffer String)
     (lambda (buffer)
       (substring (ref-get (buffer-text buffer)) 0 (ref-get (buffer-count buffer)))))
 
-  (define read-word (-> InputPort I64 String)
+  (def read-word (-> InputPort I64 String)
     (lambda (port first)
-      (let ((buffer (new-buffer)))
+      (begin (let buffer (new-buffer))
         (begin
           (append-character! buffer (integer->char first))
           (begin
-            (define loop
+            (def loop
               (lambda ()
                 (if (delimiter? (peek-code port))
                     (buffer-string buffer)
                     (begin (append-character! buffer (integer->char (take-code port))) (loop)))))
             (loop))))))
 
-  (define ascii-lower (-> String String)
+  (def ascii-lower (-> String String)
     (lambda (text)
-      (let ((result (string-copy text)))
+      (begin (let result (string-copy text))
         (begin
-          (define loop
+          (def loop
             (lambda (index)
               (if (= index (string-length result))
                   result
-                  (let ((code (char->integer (string-ref result index))))
+                  (begin (let code (char->integer (string-ref result index)))
                     (begin
                       (if (if (>= code 65) (<= code 90) #f)
                           (begin
@@ -143,17 +144,17 @@
 
   ;; ---- Layout includes complete, recursively parsed datum comments ----
 
-  (define skip-line (-> InputPort Unit)
+  (def skip-line (-> InputPort Unit)
     (lambda (port)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (if (< code 0) #t (if (code=? code #\newline) #t (code=? code #\return)))
             (unit)
             (begin (skip-line port)
                    (unit))))))
 
-  (define skip-block (-> InputPort I64 Bool)
+  (def skip-block (-> InputPort I64 Bool)
     (lambda (port depth)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (< code 0)
             #f
             (if (if (code=? code #\#) (take-if port #\|) #f)
@@ -162,16 +163,16 @@
                     (if (= depth 1) #t (skip-block port (- depth 1)))
                     (skip-block port depth)))))))
 
-  (define discard-datum (-> InputPort Token)
+  (def discard-datum (-> InputPort Token)
     (lambda (port)
       (match (read port)
         ((read-value value) (next-token port))
         ((read-end) (error-token "datum comment requires a datum"))
         ((read-error message) (error-token message)))))
 
-  (define next-token (-> InputPort Token)
+  (def next-token (-> InputPort Token)
     (lambda (port)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (< code 0)
             (end-token)
             (if (whitespace? code)
@@ -182,7 +183,7 @@
 
   ;; ---- Token dispatch exposes all supported syntax in one place ----
 
-  (define ordinary-token (-> InputPort I64 Token)
+  (def ordinary-token (-> InputPort I64 Token)
     (lambda (port code)
       (if (code=? code #\()
           (open-token 0)
@@ -206,9 +207,9 @@
                                           (error-token "unsupported datum delimiter")
                                           (atom-token (read-word port code)))))))))))))
 
-  (define sharp-token (-> InputPort Token)
+  (def sharp-token (-> InputPort Token)
     (lambda (port)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (< code 0)
             (error-token "incomplete # syntax")
             (if (code=? code #\()
@@ -227,15 +228,15 @@
                                         (error-token "datum labels are not supported")
                                         (sharp-word (string-append "#" (read-word port code))))))))))))))
 
-  (define bytevector-token (-> InputPort Token)
+  (def bytevector-token (-> InputPort Token)
     (lambda (port)
       (if (if (take-if port #\8) (take-if port #\() #f)
           (open-token 2)
           (error-token "expected #u8( bytevector syntax"))))
 
-  (define sharp-word (-> String Token)
+  (def sharp-word (-> String Token)
     (lambda (text)
-      (let ((folded (ascii-lower text)))
+      (begin (let folded (ascii-lower text))
         (if (if (string=? folded "#t") #t (string=? folded "#true"))
             (value-token (datum-boolean #t))
             (if (if (string=? folded "#f") #t (string=? folded "#false"))
@@ -245,7 +246,7 @@
                   ((number-error message) (error-token message))
                   ((not-a-number) (error-token "invalid or unsupported # numeric syntax"))))))))
 
-  (define atom-token (-> String Token)
+  (def atom-token (-> String Token)
     (lambda (text)
       (if (string=? text ".")
           (dot-token)
@@ -255,18 +256,18 @@
 
   ;; ---- Strings and escaped symbols share scalar escapes ----
 
-  (define quoted-token (-> InputPort Char Bool Token)
+  (def quoted-token (-> InputPort Char Bool Token)
     (lambda (port end symbol?)
       (match (read-text port end)
         ((text-value text) (value-token (if symbol? (datum-symbol (string->symbol text)) (datum-string text))))
         ((text-error message) (error-token message)))))
 
-  (define read-text (-> InputPort Char TextResult)
+  (def read-text (-> InputPort Char TextResult)
     (lambda (port end) (text-loop port end (new-buffer))))
 
-  (define text-loop (-> InputPort Char Buffer TextResult)
+  (def text-loop (-> InputPort Char Buffer TextResult)
     (lambda (port end buffer)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (< code 0)
             (text-error "unterminated string or escaped symbol")
             (if (code=? code end)
@@ -277,22 +278,22 @@
                       (append-character! buffer (text-character port end code))
                       (text-loop port end buffer))))))))
 
-  (define text-character (-> InputPort Char I64 Char)
+  (def text-character (-> InputPort Char I64 Char)
     (lambda (port end code)
       (if (if (char=? end #\") (code=? code #\return) #f)
           (begin (take-if port #\newline) #\newline)
           (integer->char code))))
 
-  (define continue-escape (-> InputPort Char Buffer Escape TextResult)
+  (def continue-escape (-> InputPort Char Buffer Escape TextResult)
     (lambda (port end buffer escape)
       (match escape
         ((escaped-character value)
          (begin (append-character! buffer value) (text-loop port end buffer)))
         ((escaped-gap) (text-loop port end buffer)) ((escape-error message) (text-error message)))))
 
-  (define read-escape (-> InputPort Char Escape)
+  (def read-escape (-> InputPort Char Escape)
     (lambda (port end)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (code=? code #\a)
             (escaped-character (integer->char 7))
             (if (code=? code #\b)
@@ -311,13 +312,13 @@
                                         (line-continuation port code)
                                         (escape-error "unknown or incomplete escape"))))))))))))
 
-  (define continuation-space? (-> I64 Bool)
+  (def continuation-space? (-> I64 Bool)
     (lambda (code)
       (if (code=? code #\space)
           #t
           (if (code=? code #\tab) #t (if (code=? code #\newline) #t (code=? code #\return))))))
 
-  (define skip-horizontal (-> InputPort Unit)
+  (def skip-horizontal (-> InputPort Unit)
     (lambda (port)
       (if (if (code=? (peek-code port) #\space) #t (code=? (peek-code port) #\tab))
           (begin
@@ -325,7 +326,7 @@
             (unit))
           (unit))))
 
-  (define line-continuation (-> InputPort I64 Escape)
+  (def line-continuation (-> InputPort I64 Escape)
     (lambda (port code)
       (if (if (code=? code #\space) #t (code=? code #\tab))
           (line-continuation port (take-code port))
@@ -336,7 +337,7 @@
 
   ;; ---- Hexadecimal escapes validate Unicode before constructing Char ----
 
-  (define hex-digit (-> I64 I64)
+  (def hex-digit (-> I64 I64)
     (lambda (code)
       (if (if (>= code 48) (<= code 57) #f)
           (- code 48)
@@ -344,34 +345,34 @@
               (- code 55)
               (if (if (>= code 97) (<= code 102) #f) (- code 87) -1)))))
 
-  (define unicode-scalar? (-> I64 Bool)
+  (def unicode-scalar? (-> I64 Bool)
     (lambda (value)
       (if (>= value 0) (if (<= value 1114111) (if (< value 55296) #t (> value 57343)) #f) #f)))
 
-  (define finish-hex (-> I64 I64 Escape)
+  (def finish-hex (-> I64 I64 Escape)
     (lambda (value count)
       (if (if (> count 0) (unicode-scalar? value) #f)
           (escaped-character (integer->char value))
           (escape-error "invalid Unicode scalar escape"))))
 
-  (define hex-escape (-> InputPort I64 I64 Escape)
+  (def hex-escape (-> InputPort I64 I64 Escape)
     (lambda (port value count)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (code=? code #\;)
             (finish-hex value count)
-            (let ((digit (hex-digit code)))
+            (begin (let digit (hex-digit code))
               (if (if (< digit 0) #t (> value 69631))
                   (escape-error "invalid hexadecimal escape")
                   (hex-escape port (+ (* value 16) digit) (+ count 1))))))))
 
-  (define hex-character (-> String Escape)
+  (def hex-character (-> String Escape)
     (lambda (text)
       (begin
-        (define loop
+        (def loop
           (lambda (index value)
             (if (= index (string-length text))
                 (finish-hex value (- index 1))
-                (let ((digit (hex-digit (char->integer (string-ref text index)))))
+                (begin (let digit (hex-digit (char->integer (string-ref text index))))
                   (if (if (< digit 0) #t (> value 69631))
                       (escape-error "invalid character code")
                       (loop (+ index 1) (+ (* value 16) digit)))))))
@@ -379,16 +380,16 @@
 
   ;; ---- Character literals can contain a delimiter as their one scalar ----
 
-  (define character-token (-> InputPort Token)
+  (def character-token (-> InputPort Token)
     (lambda (port)
-      (let ((code (take-code port)))
+      (begin (let code (take-code port))
         (if (< code 0)
             (error-token "incomplete character literal")
             (if (delimiter? code)
                 (value-token (datum-character (integer->char code)))
                 (named-character-token (read-word port code)))))))
 
-  (define named-character-token (-> String Token)
+  (def named-character-token (-> String Token)
     (lambda (text)
       (if (= (string-length text) 1)
           (value-token (datum-character (string-ref text 0)))
@@ -396,7 +397,7 @@
             ((escaped-character value) (value-token (datum-character value)))
             ((escape-error message) (error-token message)) ((escaped-gap) (unreachable))))))
 
-  (define named-character (-> String Escape)
+  (def named-character (-> String Escape)
     (lambda (text)
       (if (string=? text "alarm")
           (escaped-character (integer->char 7))
@@ -422,17 +423,17 @@
 
   ;; ---- Containers preserve source order and dotted-tail structure ----
 
-  (define token-datum (-> InputPort Token ReadResult)
+  (def token-datum (-> InputPort Token ReadResult)
     (lambda (port token)
       (match token
         ((value-token value) (read-value value)) ((end-token) (read-end))
         ((error-token message) (read-error message))
-        ((open-token kind) (container-loop port kind (quote ())))
+        ((open-token kind) (container-loop port kind (empty-list )))
         ((prefix-token name) (prefix-datum port name))
         ((close-token) (read-error "unexpected closing parenthesis"))
         ((dot-token) (read-error "unexpected dot")))))
 
-  (define prefix-datum (-> InputPort String ReadResult)
+  (def prefix-datum (-> InputPort String ReadResult)
     (lambda (port name)
       (match (read port)
         ((read-value value) (read-value (datum-cons (datum-symbol (string->symbol name))
@@ -440,9 +441,9 @@
         ((read-end) (read-error "quote abbreviation requires a datum"))
         ((read-error message) (read-error message)))))
 
-  (define container-loop (-> InputPort I64 (List Datum) ReadResult)
+  (def container-loop (-> InputPort I64 (List Datum) ReadResult)
     (lambda (port kind reversed)
-      (let ((token (next-token port)))
+      (begin (let token (next-token port))
         (match token
           ((close-token) (finish-container kind reversed))
           ((end-token) (read-error "unexpected end of input inside container"))
@@ -454,13 +455,13 @@
           ((open-token nested-kind) (container-element port kind reversed (token-datum port token)))
           ((prefix-token name) (container-element port kind reversed (token-datum port token)))))))
 
-  (define container-element (-> InputPort I64 (List Datum) ReadResult ReadResult)
+  (def container-element (-> InputPort I64 (List Datum) ReadResult ReadResult)
     (lambda (port kind reversed result)
       (match result
         ((read-value value) (container-loop port kind (cons value reversed)))
         ((read-error message) (read-error message)) ((read-end) (unreachable)))))
 
-  (define dotted-tail (-> InputPort (List Datum) ReadResult)
+  (def dotted-tail (-> InputPort (List Datum) ReadResult)
     (lambda (port reversed)
       (match (read port)
         ((read-value tail) (match (next-token port)
@@ -474,21 +475,21 @@
         ((read-end) (read-error "missing dotted tail"))
         ((read-error message) (read-error message)))))
 
-  (define attach-reversed (-> (List Datum) Datum Datum)
+  (def attach-reversed (-> (List Datum) Datum Datum)
     (lambda (reversed tail)
       (if (null? reversed)
           tail
           (attach-reversed (cdr reversed) (datum-cons (car reversed) tail)))))
 
-  (define reverse-elements (-> (List Datum) (List Datum))
+  (def reverse-elements (-> (List Datum) (List Datum))
     (lambda (elements)
       (begin
-        (define loop
+        (def loop
           (lambda (elements result)
             (if (null? elements) result (loop (cdr elements) (cons (car elements) result)))))
-        (loop elements (quote ())))))
+        (loop elements (empty-list )))))
 
-  (define finish-container (-> I64 (List Datum) ReadResult)
+  (def finish-container (-> I64 (List Datum) ReadResult)
     (lambda (kind reversed)
       (if (= kind 0)
           (read-value (attach-reversed reversed (datum-null)))
@@ -496,27 +497,27 @@
               (read-value (datum-vector (list->vector (reverse-elements reversed))))
               (finish-bytes reversed)))))
 
-  (define finish-bytes (-> (List Datum) ReadResult)
+  (def finish-bytes (-> (List Datum) ReadResult)
     (lambda (reversed)
-      (let ((count (begin
-                     (define loop
+      (begin (let count (begin
+                     (def loop
                        (lambda (tail count)
                          (if (null? tail) count (loop (cdr tail) (+ count 1)))))
-                     (loop reversed 0))))
+                     (loop reversed 0)))
         (fill-bytes reversed (make-bytevector count) count))))
 
-  (define byte-value (-> Datum I64)
+  (def byte-value (-> Datum I64)
     (lambda (value)
       (if (datum-number? value)
           (match (datum-number-value value) ((exact-number value) value)
                  ((rational-number value) -1) ((inexact-number value) -1) ((complex-number real imaginary) -1))
           -1)))
 
-  (define fill-bytes (-> (List Datum) Bytevector I64 ReadResult)
+  (def fill-bytes (-> (List Datum) Bytevector I64 ReadResult)
     (lambda (reversed result index)
       (if (null? reversed)
           (read-value (datum-bytevector result))
-          (let ((value (byte-value (car reversed))))
+          (begin (let value (byte-value (car reversed)))
             (if (if (< value 0) #t (> value 255))
                 (read-error "bytevector requires exact bytes in [0,255]")
                 (begin (bytevector-u8-set! result (- index 1) value)
@@ -526,15 +527,15 @@
 
   ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
 
-  (define test-delimiter-members (-> (List I64) Bool)
+  (def test-delimiter-members (-> (List I64) Bool)
     (lambda (codes)
       (if (null? codes)
           #t
           (if (delimiter? (car codes)) (test-delimiter-members (cdr codes)) #f))))
 
-  (define test-read (-> I64)
+  (def test-read (-> I64)
     (lambda ()
-      (if (if (test-delimiter-members (cons 40 (cons 41 (cons 34 (cons 59 (cons 124 (cons 39 (cons 96 (cons 44 (cons 91 (cons 93 (cons 123 (cons 125 (quote ()))))))))))))))
+      (if (if (test-delimiter-members (cons 40 (cons 41 (cons 34 (cons 59 (cons 124 (cons 39 (cons 96 (cons 44 (cons 91 (cons 93 (cons 123 (cons 125 (empty-list ))))))))))))))
               (if (delimiter? -1)
                   (if (delimiter? 9)
                       (if (delimiter? 10)
@@ -554,4 +555,4 @@
                   #f)
               #f)
           42
-          0))))
+          0)))))

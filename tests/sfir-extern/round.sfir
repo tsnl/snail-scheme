@@ -1,24 +1,24 @@
-(import (sfir core))
+(import (sfir base))
 
-(define worker (-> F64 F64)
+(def worker (-> F64 F64)
   (lambda (value) (round value)))
 
-(define round32 (-> F32 F32)
+(def round32 (-> F32 F32)
   (lambda (value) (round value)))
 
-(define native64 (-> F64 F64)
+(def native64 (-> F64 F64)
   (lambda (value) (f64-round value)))
 
-(define native32 (-> F32 F32)
+(def native32 (-> F32 F32)
   (lambda (value) (f32-round value)))
-(define concrete64
+(def concrete64
   (ann round (-> F64 F64)))
-(define concrete32
+(def concrete32
   (ann round (-> F32 F32)))
 
-(define view64 (-> F64 F64)
+(def view64 (-> F64 F64)
   (lambda (value) (concrete64 value)))
 
-(define view32 (-> F32 F32)
+(def view32 (-> F32 F32)
   (lambda (value) (concrete32 value)))
 (unit)

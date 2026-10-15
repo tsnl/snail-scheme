@@ -1,53 +1,53 @@
-(import (sfir core))
+(import (sfir base))
 
-(define calls
+(def calls
   (ref 0))
-(define make-counter
+(def make-counter
   (lambda (seed early?)
     (begin
-      (define cell
+      (def cell
         (ref seed))
-      (define saved
+      (def saved
         (lambda (amount)
-          ((let ((increment amount))
+          ((begin (let increment amount)
              (begin
-               (define apply
+               (def apply
                  (lambda ()
                    (begin
                      (ref-set! calls (+ (ref-get calls) 1))
-                     ((let () step) increment))))
+                     ((begin step) increment))))
                apply)))))
-      (define early
+      (def early
         (if early? (saved 1) 0))
-      (define step
+      (def step
         (lambda (amount)
           (begin
             (ref-set! cell (+ (ref-get cell) amount))
             (ref-get cell))))
       saved)))
-(define left
+(def left
   (make-counter 40 #f))
-(define right
+(def right
   (make-counter 100 #f))
-(define make-next
+(def make-next
   (lambda (seed)
-    ((let ((cell (ref seed)))
+    ((begin (let cell (ref seed))
        (begin
-         (define step
+         (def step
            (lambda (amount)
              (begin
                (ref-set! cell (+ (ref-get cell) amount))
                (ref-get cell))))
-         (define build
-           (lambda () (lambda (amount) ((let () step) amount))))
+         (def build
+           (lambda () (lambda (amount) ((begin step) amount))))
          build)))))
-(define next
+(def next
   (make-next 40))
 
-(define checked (-> I64)
+(def checked (-> I64)
   (lambda () ((make-counter 0 #t) 1)))
 
-(define observed (-> I64)
+(def observed (-> I64)
   (lambda () (ref-get calls)))
 
 (if (if (= (left 1) 41)

@@ -1,7 +1,7 @@
-(import (sfir core))
-(define cell
+(import (sfir base))
+(def cell
   (ref 42))
-(define filled
+(def filled
   (make-vector 2 cell))
 (if (if (ref-eq? (vector-ref filled 0) (vector-ref filled 1))
         (= (ref-get (vector-ref filled 1)) 42)

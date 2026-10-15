@@ -1,0 +1,4384 @@
+{
+  "numeric_policy": "unchanged",
+  "files": [
+    {
+      "path": "benchmarks/sfir/ack/main.sfir",
+      "before": "cf5e9a73980e8640b96677a114d394478407c9ff5a68631d78b1084f4f0b0e48",
+      "after": "fff3ee295bb64681a1bf4f6c4e295b86b001855c4f65c0861e6650a2374482bd",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 9
+      }
+    },
+    {
+      "path": "benchmarks/sfir/array1/main.sfir",
+      "before": "edca000fa71292e6766820b211d752aa9f365e3818d2084f78ce6ad243f98e55",
+      "after": "57b90a4a5703e9b87e555ca9c7d4a20951e200335e6f2119c450f1605fd05e0a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 16
+      }
+    },
+    {
+      "path": "benchmarks/sfir/browse/main.sfir",
+      "before": "93f026cf88e11cec4b9fddd7a5c044eca59c7213a340625b28999be376744e05",
+      "after": "31dbecc4149d77922562b80735e221e9deb7a3f70d49045cb36888c1a3cc5425",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 55
+      }
+    },
+    {
+      "path": "benchmarks/sfir/bv2string/main.sfir",
+      "before": "dfe822a62860ce2e8898d4dbd1d93b6c66e8664bf3072bcc4731ac02f35e44b0",
+      "after": "07e04f0ec71f3dd3d3f4357f36bd1d6e80d94cf1306a54d7835b06ad3094c4c8",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 34,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/cat/main.sfir",
+      "before": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
+      "after": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 9,
+        "static-definitions": 1,
+        "parallel-lets": 3
+      }
+    },
+    {
+      "path": "benchmarks/sfir/chudnovsky/main.sfir",
+      "before": "514f4403f0113fa0d884f2b275f74489b8558deb2a90473d5fac6c6e148f1a26",
+      "after": "f9102bbb2dd1c9e6053d1326f89b102e6df60f80878c705653acb8257cd27bbc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 32,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/conform/main.sfir",
+      "before": "e8f7a95daf8d0213f01fe5c95e8974c261a9a49117f991cec58947a4f101f2e2",
+      "after": "a5ba5f9f8dd7e639a3e03dd752c7d66e09815a60a3458928eff4302f989a59a3",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 14,
+        "value-definitions": 140,
+        "empty-list-values": 20
+      }
+    },
+    {
+      "path": "benchmarks/sfir/cpstak/main.sfir",
+      "before": "b1ec18440a56e9772b474451b4172f05e054c3d17392be98954dfff358aa8774",
+      "after": "ba982c4c9c2190f28ee47563ade21c40f5daea890ac4aaef4eaf8fc4ea1730aa",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 11
+      }
+    },
+    {
+      "path": "benchmarks/sfir/ctak/main.sfir",
+      "before": "131cc176b043f6273fe86c20c485eb4094e673e8fcb8363c05316f0559fccbb5",
+      "after": "6461651e96f110cde2242fa5b2ccd557f33e1a239c9413319e77a6693ca74bf1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 9,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/ctak/observe.sfir",
+      "before": "1566ae3ab841505eec941a94a309877ad1ce7d22ad0c9caa21c96b0b0955fede",
+      "after": "29d7ef37d47f4318f6f935cee52c374be4d1c8935b1bb6e77eb22c1ebc746bcf",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 9,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/deriv/main.sfir",
+      "before": "686eefce17a596c1e10c250a3fba75f582c9c303d14b2553a5d21008c27e2000",
+      "after": "d35c2848afcab2c127494be2042ed2a691fad59a336e2b8688f891ef6f6ecf0c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 40,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/destruc/main.sfir",
+      "before": "33e4dca5eef38a1f232094d1c85cfc63286ddf9f8b70deaba9f5b3c7bbfe6a67",
+      "after": "69573c8b4f46291f0b16adb3a907c33dbc5197adfb201d9a1c7c884ab8c5e734",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 39,
+        "static-definitions": 2,
+        "empty-list-values": 2
+      }
+    },
+    {
+      "path": "benchmarks/sfir/diviter/main.sfir",
+      "before": "b60cd6a5751210dfa44035969a52b0cf1d43d43429e16280649221d290a612a4",
+      "after": "00067ed76a243c67b3117c8978cc769fa0c68817b84e251ce65e7cefc352db2c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 11,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/divrec/main.sfir",
+      "before": "1250d8b93b6912df4af44cc50fc3a35124192db21705dcd2adf44b4bece8844b",
+      "after": "f74d49f6b253bda4b7f6548cc40f3292142ac4d2056cab499d47559bf7871bfc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 10,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/dynamic/main.sfir",
+      "before": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+      "after": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 7,
+        "value-definitions": 947,
+        "parallel-lets": 37,
+        "empty-list-values": 9,
+        "simultaneous-initializers": 16
+      }
+    },
+    {
+      "path": "benchmarks/sfir/earley/main.sfir",
+      "before": "a5970319eae0886405aaa258010f1a1e8fc132547a28c05dfb7402617be38cc2",
+      "after": "48e9aac42afc68704943316d53877ffcf5da40dcc2f0d80b030dc4b5e76107fa",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 105,
+        "static-definitions": 10,
+        "empty-list-values": 9,
+        "reserved-binding-renames": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/equal/main.sfir",
+      "before": "2b90055df54db6794b9654760ebb71bf54e1df7b06b512a9d964ca8eaa8dc1e5",
+      "after": "c63ab0fd7d523748540bd339384967f02681a5e5fd91647f550737b0bcdb2064",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 34
+      }
+    },
+    {
+      "path": "benchmarks/sfir/fft/main.sfir",
+      "before": "8f84806d67e02612ae5c1274dcc81d313f81b4bfb6dbcaf5093a6786b1ebde1b",
+      "after": "62b7d375e7465ce1adcb26855837b335454b6e55bc0a55052852d49533c3c2f5",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 22
+      }
+    },
+    {
+      "path": "benchmarks/sfir/fib/main.sfir",
+      "before": "b7fdd2e809989f6be961f2ac9acd10701dea7bb0b2efb1eed5f6b57f70c505c0",
+      "after": "93592dfe76c1eee159c6bc2d022a765f3a0e72315a99527d6c20812403b716be",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 8
+      }
+    },
+    {
+      "path": "benchmarks/sfir/fibc/main.sfir",
+      "before": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
+      "after": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 10
+      }
+    },
+    {
+      "path": "benchmarks/sfir/fibc/observe.sfir",
+      "before": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3",
+      "after": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 10
+      }
+    },
+    {
+      "path": "benchmarks/sfir/fibfp/main.sfir",
+      "before": "111cc5a3f2da162d0b3def1b405176b7a009bb91e4a2125ac5cfde876c7bab07",
+      "after": "3622848eabe3ea9d2cf280c7adeb190812d20a0e6d979ca75576838eb8699f56",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 8
+      }
+    },
+    {
+      "path": "benchmarks/sfir/gcbench/main.sfir",
+      "before": "881810f6254bd7b11846a4f0037a888aaec17dc4ad1a4a14a32804ef07dba1db",
+      "after": "6e382091864b237830fa1bc5ea72fdcdae24d7e551fcf35ae077c55dea06d75d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 32,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/graphs/main.sfir",
+      "before": "b94c877661de62fe91ca1de923eae0baf2fb311c9eceb0036eee677f93600489",
+      "after": "a9742b923a2d4be6c19074f775a0b6d0585e4abe288246d46287ca60022d6f43",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 40,
+        "empty-list-values": 6
+      }
+    },
+    {
+      "path": "benchmarks/sfir/lattice/main.sfir",
+      "before": "dad4505d387d7bf2fc9c0855dc58a785bf0658909ca4a1c9346064f00d0cc1ff",
+      "after": "e8c46d1ceafc3b714d32e2f461d1a6cbb3864c005a0434b45bd4471f09a8c229",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 36,
+        "static-definitions": 3
+      }
+    },
+    {
+      "path": "benchmarks/sfir/matrix/main.sfir",
+      "before": "df9d7f825c9cc46d49e2ffcf0ecc052802b2cf6f754971125822699d15f268d6",
+      "after": "275f123f8c5e360a676f4ad9e5106565574ff8111a45ee852562218dda875048",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 96,
+        "static-definitions": 6,
+        "empty-list-values": 20
+      }
+    },
+    {
+      "path": "benchmarks/sfir/maze/main.sfir",
+      "before": "a39ac05093dedd7a5b18a8584e94471a8a8688fc2866608addf01fc36968400b",
+      "after": "c36e7e17c3bcf0e926506ead0b3c0007f3b6f5a33dec871bb42a6e7f02666b4b",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 11,
+        "value-definitions": 109,
+        "empty-list-values": 5
+      }
+    },
+    {
+      "path": "benchmarks/sfir/mazefun/main.sfir",
+      "before": "439e956375665d0a1150eb334d92def865e2773521cfca837ba190e075048b8c",
+      "after": "f2377bc51a421514eba8855931fa768367e2db63cf195b293b8ae808092da550",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 60,
+        "static-definitions": 3,
+        "empty-list-values": 12
+      }
+    },
+    {
+      "path": "benchmarks/sfir/mbrot/main.sfir",
+      "before": "e487d1f867cbd2c640bd6f3e94814942def17a7b836fb9dc107c736b6c1ac16e",
+      "after": "16f6f7c0b67068c22f26a0a49468e77977ea8e231c9a6677604cb82488156749",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 16
+      }
+    },
+    {
+      "path": "benchmarks/sfir/mbrotZ/main.sfir",
+      "before": "c3a61f7ab46f4637c04cefdb679ff4de4f7ed555b8996aa41ba9b07247efb760",
+      "after": "30fe89e7e4cb5df6e304d6bc17ccf2470df7f3e5f074302d51eba35dfb222e4c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 19,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/mperm/main.sfir",
+      "before": "50ecb7cf189fd211480fc6846c93972164efa87a13ddd5e96fa546de032d9c08",
+      "after": "4c6f1951bd4597717b12de58d3b307c1767abbf08a50dd8c0f1f40124d3c599b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 35,
+        "static-definitions": 1,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/nboyer/main.sfir",
+      "before": "672e9d831117ac1b691e4d2c1103db5a28893953c6e1ae49f5bbee802da2985f",
+      "after": "244095608cf4bed1425750668eaeda998441fce9d88886cdb58f8c3f4a6d734c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 93,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/nqueens/main.sfir",
+      "before": "c404a8bc45fab78eb835ae3876f399f4b9b1a80914e4c947760dbc2aeffd9a12",
+      "after": "401a7403b0e815939127b8e9afa1ebb6def0098f664bf910b6cff29e3d69ff26",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/ntakl/main.sfir",
+      "before": "607564eb82d5bb7bb42b0230ffb47fefd1f55b684713be5281d2b8871b033906",
+      "after": "a58e7546e5bff8a3ab6ceaad10d19697a3157091bbe48d99127881321918b1c3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15,
+        "empty-list-values": 2
+      }
+    },
+    {
+      "path": "benchmarks/sfir/nucleic/main.sfir",
+      "before": "dcc0eaec9d005555c91a30da5aad4250903d2c74e4da1fbf85f384601981927d",
+      "after": "1b8ce9ce1ab2e3df297e4b42eb846726e5e7c1aa05eb8fb56fd965e9c84ce838",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 277,
+        "static-definitions": 3,
+        "empty-list-values": 5
+      }
+    },
+    {
+      "path": "benchmarks/sfir/paraffins/main.sfir",
+      "before": "77755a931d81c287a44e5e2381069b5fbf3c758e1ca55c844c1673fb2f43aa52",
+      "after": "838e3e2965be3a649f20be26eec1a78f364f83a687da0754128f43fa7b5ec574",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 33,
+        "static-definitions": 2,
+        "empty-list-values": 7
+      }
+    },
+    {
+      "path": "benchmarks/sfir/parsing/main.sfir",
+      "before": "77a1c476389aea704e8467b63918ac108cfc1889a77110865422cfdb8590d4dc",
+      "after": "ba1c4f7b5ef4216763615c6a35be1cd7518c78ea16e2544a0bb1c3627d575f4d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 157,
+        "empty-list-values": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/peval/main.sfir",
+      "before": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+      "after": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 196,
+        "static-definitions": 3
+      }
+    },
+    {
+      "path": "benchmarks/sfir/peval/observe.sfir",
+      "before": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
+      "after": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 263,
+        "static-definitions": 3
+      }
+    },
+    {
+      "path": "benchmarks/sfir/pi/main.sfir",
+      "before": "d2df9b664562252c84828b3f08ff2ac10ab9ebfc37212335de6f213743b36db0",
+      "after": "b6fb89536305c2f9101a9e2ed43f16b46bbf19deeacae3fd3dc23e50645dd315",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 33,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/pnpoly/main.sfir",
+      "before": "08a4ddee90f1b15abce9752756822b3e7d63a86e933f7311cec4dc60f077fa2b",
+      "after": "971fef05de26115015a5ef0d6d54eebee1387d4a7e60f4b3cd631391bdcd0193",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15
+      }
+    },
+    {
+      "path": "benchmarks/sfir/primes/main.sfir",
+      "before": "d4a5708e13a1df0c9d87b0e932953bf7ebd6d7dd4e725bf663ed0036f6f49e81",
+      "after": "8688e1db92bf09c59f7aa33033c3c96ed79f50ed1b8a49200b9a3981df0e9dba",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 17,
+        "empty-list-values": 5
+      }
+    },
+    {
+      "path": "benchmarks/sfir/puzzle/main.sfir",
+      "before": "b8f37bd9bdea54a02ca0fb0392dac5c0967a3ac65a764d4dad161a1728c13b2e",
+      "after": "e1d2608ac034dde1f1410caae5334e7257245e817a2de679efced89022f7d6b4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 46,
+        "static-definitions": 1,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/quicksort/main.sfir",
+      "before": "1d7b55ba6d3161e3c2b25ef451c379549fd61764fadf60eef905f61c00f4fa6e",
+      "after": "05df96c7c543544d0d6c7be3d2ed49f1a340f7f78f0d27102b2127451b9de156",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 43
+      }
+    },
+    {
+      "path": "benchmarks/sfir/ray/main.sfir",
+      "before": "003adaebd0384eadbd4ffd27f7d2a1ae888c65becb17051aed2c1074d04146ed",
+      "after": "855669fa4c2864555207d11e1373d3d1336bd7e3fb29df3580402e00d616372d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 42,
+        "static-definitions": 5,
+        "empty-list-values": 2
+      }
+    },
+    {
+      "path": "benchmarks/sfir/read1/main.sfir",
+      "before": "9a76bd20bd4fe6d78e222381b09928479418872940a636bd33f1ed7dd6e045b8",
+      "after": "e1fa8779b0279e45f395904849f1c909d3fe39c46f589b63db972d3fcc83bf41",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 17,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/sboyer/main.sfir",
+      "before": "c87197011aed702b8bac63a8132cabf85244929545f98b695163ab19a31f54de",
+      "after": "b1f52158ed0abbf2660aed100cbb2824294d00aa2cfa2eb2b734fd8fa9ac2e93",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 94,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/scheme/main.sfir",
+      "before": "f7981b5be4419369fcc7089964dfa67cd7803ebd49adb38ca96c5722502869ba",
+      "after": "2a3c5ef2f1a4d601a387197312981e0c2fed9962dd0aa7e96ff1408a9e34740f",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 7,
+        "value-definitions": 932,
+        "parallel-lets": 37,
+        "empty-list-values": 9,
+        "simultaneous-initializers": 16
+      }
+    },
+    {
+      "path": "benchmarks/sfir/simplex/main.sfir",
+      "before": "d231e0095f090a721768f45d65c9f70a9203ea6c61eaef5f0a3431cafd6f9166",
+      "after": "3f3ea6f51b1b34156fe18642cee47ecedfce0ad18f7472bed81778a94151cbd1",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 52,
+        "static-definitions": 1,
+        "empty-list-values": 2
+      }
+    },
+    {
+      "path": "benchmarks/sfir/string/main.sfir",
+      "before": "eb9493d85177ba0b51cc936dbd30d4dea9bfeb8814deea4c68429fd2de8b69d9",
+      "after": "6182b3817116fa3eb3023d2545c636acea86c2bef1cb00c1ab27456dd7bad026",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15
+      }
+    },
+    {
+      "path": "benchmarks/sfir/sum/main.sfir",
+      "before": "5ed4a390c83f5267548bc58c440b2c88efa9904d2a253918403289185b123645",
+      "after": "b22013731bd413e957bb986fc820f40d32478f8a5e9e2946bd8a8398f2c9fdce",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 9
+      }
+    },
+    {
+      "path": "benchmarks/sfir/sum1/main.sfir",
+      "before": "d9cb451df067634ed2ae58e22d19b646cd465234a4c847b83827c264e645e28a",
+      "after": "1e2d7b3caa87bcdcc6bbe1a8e7612d12df3c692bfc117182dde3153f562130ff",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 18,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/sumfp/main.sfir",
+      "before": "21673a68869c475812c5c6e08597031524eefb6e28281f2596ab9087e3dd9be9",
+      "after": "544f0106736ceb291b5dc30588d10c42e46da7ab7f92c70d80e493b0af94c8f7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 9
+      }
+    },
+    {
+      "path": "benchmarks/sfir/tail/main.sfir",
+      "before": "f773cb1eec7472dc6d3c5a94a6e6b446cef5ad62d3746752c0cbba654002f9ea",
+      "after": "2381091b9f662b68336ebd61d82ec445193a53b1e3e84056aed1b83c8cc1b25c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "benchmarks/sfir/tak/main.sfir",
+      "before": "f49a74c5f7593b756c7a2da197ad8b51faa64c4d1721651f8d48bd8e93e64fc8",
+      "after": "d5df7bd13265347e2ea64fc0dfd252872d1fcea67ce8460269763ecc2eb4127f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 10
+      }
+    },
+    {
+      "path": "benchmarks/sfir/takl/main.sfir",
+      "before": "426e87db528892d636b3e385070f3e5fc8f0ea349fbcc7cb3f992f6d31fd46f3",
+      "after": "cbec61caa13fe2a637e851909649620999268477973fe014f4cc6c6bc515fb6b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15,
+        "empty-list-values": 2
+      }
+    },
+    {
+      "path": "benchmarks/sfir/triangl/main.sfir",
+      "before": "7dc221bc00bbffac13ce40b2ddee29f7ac9f899e52b8a14faf02bf8109287f5e",
+      "after": "d9cb1d335da677aa7393e85f70becc79e8bff7d1233fd8894ccbebadf4aabedb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 23,
+        "empty-list-values": 4
+      }
+    },
+    {
+      "path": "benchmarks/sfir/wc/main.sfir",
+      "before": "6044bdcca3219c871925155ebd2c839461bd687989c6ba5aaa4528903080eccd",
+      "after": "af7a51a75dbc04bdc4a5f110a82660fbce7320c1936456a65e138862ff5b128d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 12,
+        "empty-list-values": 1,
+        "static-definitions": 2,
+        "parallel-lets": 3
+      }
+    },
+    {
+      "path": "examples/fibonacci.sfir",
+      "before": "9833390003512d81f437258e7396cbab0d2343f155ba863bedcdcc2cdf892d24",
+      "after": "8208a1dceb52da386b23fa7222c5c41a7d4b0064881ee4e9128467d1b570cadf",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/bytes.sfir",
+      "before": "605f1f70812f171852b3fcc94d49c2e37ba4aee8bae707d5b820d60e11b2a7e5",
+      "after": "dac9e89c216ac16476f36d923c5dd848a4610ae90d00be2ceca2565debce8d58",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 27,
+        "parallel-lets": 12,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/core.sfir",
+      "before": "d33da43e681f7dd2cb36d24d7ab0fd113e0decf14776478e33316ab4873f7749",
+      "after": "ab4bd9c3e224e2281d7b1e755da18162e761c6aa900a0a4ec979e7cc51be514c",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 8,
+        "value-definitions": 27,
+        "parallel-lets": 11,
+        "empty-list-values": 2,
+        "library-descriptions": 1
+      },
+      "target": "lib/sfir/base.sfir",
+      "manual_changes": [
+        "Export the new polymorphic empty-list primitive."
+      ]
+    },
+    {
+      "path": "lib/sfir/datum.sfir",
+      "before": "c24509116eb4147556284914fb38909d0ea330326bfdb3a94f07b82edc1e9c4c",
+      "after": "ec5fca5614c82c6a79617363ab60ef78a79584e19c963a423c9fef535a1be5b4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 90,
+        "simultaneous-initializers": 19,
+        "parallel-lets": 89,
+        "static-definitions": 6,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/integer.sfir",
+      "before": "97ee15cdd80126052dcac4c4062ebe4df9efab87bdb24ed9ae95507b079c2f9e",
+      "after": "36fc446d655a4f060aa26df21f6617784eb32a83deac1e66d7eed36220bcb3dc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 114,
+        "static-definitions": 3,
+        "parallel-lets": 102,
+        "simultaneous-initializers": 14,
+        "empty-list-values": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/io.sfir",
+      "before": "5d15c3023a46751dc26f09c2c5403e0436ba202ce4c491a8ba26765f718b48e5",
+      "after": "96c795d4802ebb06501046cea52d53be3a9bc5e9a8113e67d732171c10481d64",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 4,
+        "value-definitions": 31,
+        "parallel-lets": 13,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/math.sfir",
+      "before": "8874d03006e98d9b8c286b3026221b7f1e06a97c75f2f3ac4cdb0ffaf8a92d2d",
+      "after": "90dee09bc534dfc6c12d656c83ad6a35a5ba4290129098adda0cb17cb0f2c1f7",
+      "changes": {
+        "base-imports": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/number.sfir",
+      "before": "8e01342bfba2633d7af2418add34a261183e469ba45521a87f2f7cbff2a79a01",
+      "after": "1dbe63b8ad249cd938f8401514876ad428b718f281a503b7ade4b58cfae8b263",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 63,
+        "simultaneous-initializers": 12,
+        "parallel-lets": 26,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/rational.sfir",
+      "before": "452d3da874d649babc93fe26ebd707e68db0ef5142b6c25fe0ca9c3a04f8e176",
+      "after": "fb970b6e40f4c5d05ca7ebf7d9d4916d4278e90050eecff11bdaa399f4c17642",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 25,
+        "parallel-lets": 7,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/read.sfir",
+      "before": "959fc57da32cd06263bd92596b04d5ca68ce67f3f52e102bf65f72f54d513597",
+      "after": "316319a8fbe5ffc32ce12d249fae37e0146a17421a68640dbe0f072dfd32b7b1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 4,
+        "value-definitions": 60,
+        "parallel-lets": 20,
+        "empty-list-values": 3,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/text.sfir",
+      "before": "9b52eef3f325208968d75b3693f0474e804b85415474f935abd088de27fe8243",
+      "after": "e8c7a5ef7175f1c618b3b6fdf3f213b679e62a41616fb3746dcb72ad19d8707a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 13,
+        "parallel-lets": 4,
+        "simultaneous-initializers": 4,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "lib/sfir/write.sfir",
+      "before": "761002391a23161706c28260aac9343ff19bf00631fad0763a072f946882fbcd",
+      "after": "fc1b5343475ac860e7a7548ef9dc766101b72da623f4a25df2f37a662fb874f1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 4,
+        "value-definitions": 31,
+        "parallel-lets": 17,
+        "empty-list-values": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/native-exhaust.sfir",
+      "before": "94287e6dfe83ce15e96ac8eccaddc1d3afc7dab29bc6771697b7324cfe596ca9",
+      "after": "041507d4d4d0ed535bd48adc9d3442ed6ed17de66fcf92891c832aea0bb7e330",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/native-mixed.sfir",
+      "before": "0cb991effd672ffa72d7bbf763f2cf4c9bfc41e984785093d723d39b87708d6c",
+      "after": "7d3e2627ebad9ba5f6b320fd5b19a5b9ec0753eefc9a20ec9b16d13fbe8a8f79",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-bytes/literal-10000.sfir",
+      "before": "6fd448935b351ab6568b81b08d8be863dbba7c4362a2491278f8db4df50da3a0",
+      "after": "2e2f21131a6593392ec33ababfb22df9d2028fc7a0ef569de0de63ba705f432a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-bytes/literal-10001.sfir",
+      "before": "afe719a2ebf3e4ffce94737f439073c88b6afa6a48e417989dd504378ff4981c",
+      "after": "a5b5fbe05ab6111cbe1d22cf100cf7bb7ae9b4dc2b6817bca25a75c21e682a94",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-bytes/unicode.sfir",
+      "before": "abf9281d6c421ab5102a4e20a915f0a18aa81f09895fab3cb19f6d85ae49c019",
+      "after": "bc99b61e8573a589ad9a3be586807cc7b5de0514165a677d25cb9115a211ff4d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "parallel-lets": 3
+      }
+    },
+    {
+      "path": "tests/sfir-extern/early-closure.sfir",
+      "before": "31d26c43ce6a92f47f19ce0ebc929be8f96c7d4139f0a5f2857cce85b940545b",
+      "after": "e9703441a49178aadb3d3ce9747cd6e8f56199c8c816c2731fd3ec3cc8b3a985",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6
+      }
+    },
+    {
+      "path": "tests/sfir-extern/failed-main.sfir",
+      "before": "6f5857723c58fb5e73c987f2d01c373f4c2d05d6e1c8f5736e9c0529639ce8a6",
+      "after": "b227dec77f6a42cfbd24e49783d5b38bcbd2f4e339fbb340e8261cd7bf86acff",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/native.sfir",
+      "before": "b34a686034e07b2b7860267eca0d5b8cbe7cbbc03905b1fbe24d39849082bfae",
+      "after": "c690fa16ab3e41c9eb70c60c32ab351e027c2357cb2bbb01292093930ab7767d",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 13,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reentrant-main.sfir",
+      "before": "dd4d125864855a76068c1317299843529eb245ee76d395a2a245fd15981604b8",
+      "after": "0393594f42f5eab8e48fc31788486d196d783bb955fb82fd33f2d03e32a87361",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-argument-type.sfir",
+      "before": "86889b96053637290c72c975d5bc5d23c7e2398497e8c798ae10eed82763db16",
+      "after": "293b4138fd463bc325ad2cad7426b778eacbb6fa4e23f8b0e51286cb6184a15b",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-class-member.sfir",
+      "before": "a0e81bfffb8e0afb7edffe5414b6626983c6f6e5059f7eec6dac8e8e219fda55",
+      "after": "62623d42ed6f886d65d198aa93f83c90b90820e2d4b89ac229755c9f7cfccecc",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-export-inferred.sfir",
+      "before": "3f083cf33a507e422f20c38e7d305492599e52c522aaab4808d111ce64528400",
+      "after": "17a6acf00ca968c365b1d53a6bec495ae02f3f455326a201c137af4b367aa9c2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-export-polymorphic.sfir",
+      "before": "0b305750af2e78df801fb51db5b871634a3bd2bdf0a526507a3027b005cc7f3f",
+      "after": "d4aea5c9e2e5f31381167814ebd3e44d65200ba4484b96abbede3cc8b2545ed5",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-export-reference.sfir",
+      "before": "1c894eb27597dec95d5d0e3bb98d19758de7fbc7632c2bf50fef218e11380043",
+      "after": "137ddb5f6f6cfe5b6a8fad3acaaf84308d7cb9f02fc4dcbca9239b81c373d411",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-export-rest.sfir",
+      "before": "b813342a3413e548d99ca37c5aa4659e20623ffd95c637da31be40f13ff3fc36",
+      "after": "c55ef1f4c116f2f5ad8e22b069e551aba173921a2d87a34dbad932013233a084",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-polymorphic.sfir",
+      "before": "0ecc81ce02fa3d00d80d2bcb299ff3f7f661de2478016ddde5df720aa2b519d3",
+      "after": "6f9d9d39ad704421974621a3bcd7fc85065ae2bbc2f6936a62b1dc4f1217f48f",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-reference.sfir",
+      "before": "cc1ae4690050d5d48281f97997bcf0e44a68f6d51d9c9448634827b31dc87e47",
+      "after": "b0edd80934c72e1d70ae7f9d32ef47553ce2edf4b86a2ac9e7005c082ac3fe81",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-rest.sfir",
+      "before": "3a5e1aa09b6ecd7b6ec6ab6c3e1c45f8bce4cc0f02d5e5b90944ad1839c602ff",
+      "after": "b291ea3c86f647914a8d41296b95057e9e8f8947834b5bd564d467f4c539b4e5",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-symbol.sfir",
+      "before": "df87f1fc87bd4b833444f257b18676b19cf3e6532ff33808b32281bc6e7e5f22",
+      "after": "73d6c86a0151927ca0f030cb4eb495277c8e06d2c84d16cab5e3db2f9c175dac",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-top.sfir",
+      "before": "da92871faf376a90b003064d6cba82209a27d15e3fe4c444a0a82909274bf0d7",
+      "after": "317dec98225d2947de0c4f128de0a3f777fe1540a37c6388ed767ad2fd5c72b4",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/reject-unit-argument.sfir",
+      "before": "d2af122b3d9665847b0c0e7bc7f8311dc1f5143712e09ab23be4d22914ab7701",
+      "after": "1e2d99f9577647e2bf07d55768059eb6cbccd992761b598b096a264c8223482e",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/round.sfir",
+      "before": "1d881bf45db18619db956b20043dc7f2e02f700e59074c90ab38a02d815cfd4f",
+      "after": "794e2d096c5b1dbf560e010dd831d142411b9eafbac5da010eabe49e5598c4be",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 8
+      }
+    },
+    {
+      "path": "tests/sfir-extern/unit-main.sfir",
+      "before": "77e9ff57920590f9ec5d59b09304c3e73adcbe1536acce58535e220db6d0dc7c",
+      "after": "b11ebd18db97a8598a4239476af561e83fad6bc9e467467b387744f398ab6f9a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-extern/vectors.sfir",
+      "before": "7d984ba249586823ef1f7953cde57fbbfb7cb745ad091bcc4dae1b17a71500cb",
+      "after": "0ae239f61d7b5a6436dd0a9da1568f080093a96637149edd6c407409a191f28a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 12,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integer/oracle.sfir",
+      "before": "e7ca77d4975005f7ec13c6fe1189d7cf442a4fb485f4fce11653d1ad9ec3144f",
+      "after": "2f6af4ba2ebd985502a1685c00a61170a1df862a8a7f67bc5684949a2624355c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 11,
+        "parallel-lets": 23
+      }
+    },
+    {
+      "path": "tests/sfir-integer/reject-limbs.sfir",
+      "before": "17536135d1fabed7910d9abf79ae24e7e1ab47d8023989c8079f929153de118c",
+      "after": "245952a43129280b0b891f40596c94d743c9b00635348693bdacab485685590d",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integer/reject-mixed.sfir",
+      "before": "6ec25e9b443368fcf2da9c822a6054e79286a61a1bd6a012cfaf65da1ebd19e6",
+      "after": "c43e3f6e92d291a81fb910ab0047132c0e5772314804c5d071bc8741a05de857",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integer/reject-private.sfir",
+      "before": "d8844eadaa6bfef696a93e344e7d945bba648e860d0e73d14bbd27c224e51b70",
+      "after": "f22c3b032524a4792e6bf803786c7937e78053eb9f75232cac47faec25d2b9b9",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integer/small-radix/sfir/integer.sfir",
+      "before": "e0433f0987f87417beecdfb19323e9d0918be1cae3da60c7736fe93d082de91c",
+      "after": "37041755e55f33bab20439936e52bccc45ecc3340a1d5879d044cdcbb31eed40",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 114,
+        "static-definitions": 3,
+        "parallel-lets": 102,
+        "simultaneous-initializers": 14,
+        "empty-list-values": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integer/unit.sfir",
+      "before": "06a9caa5fe64add84b2d17f0837281c3f19bc0c7d5cfa1ed5dddfa714739f070",
+      "after": "d24d8499fc15b71049fb3e2b898f9bc725ad119713d4bdba0dcf4ff17e9beeff",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/annotated-polymorphism.sfir",
+      "before": "3a6b718e18e876ec1fe315ec0fd17cc64b9302531d0008bbe5729234be348b92",
+      "after": "c4f00938684e2e5b888e14b5a1c3d5801f973fe5253b63698fb6244f37c9af55",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/bitwise-words.sfir",
+      "before": "d2e8c977b446a3cf4316b5cbe64de92855afc4cf0fdd1b22681b67af48a9d367",
+      "after": "45f651714fbaab435c515ed3153f609f80f809ca09da3833d2cee9d28b10b84a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 8,
+        "simultaneous-initializers": 6,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/bytevector-builtins.sfir",
+      "before": "9321ce73ab76cbc52c8212831d92e3314c65a44f34aaabed928719019c69cb42",
+      "after": "684ee92a66fbc3c1831fca78b6f04e5b50a72747bebe0836a97229fdd6827866",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 12,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/bytevector-errors.sfir",
+      "before": "14d2190b65ef29533c77ab71c1343309a19a4bfd41fd919d1b5fe99f1a54bdbb",
+      "after": "464b8ac5faf06854e62baddb6195007bc8f759236521dd7f126f00e55344c95d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 24,
+        "any-types": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/bytevector-utf8-errors.sfir",
+      "before": "4bf7fefb35cd0dadc7ce37777f74d9bd2d024dbd9850c6f6d6733d5f7e0cad2a",
+      "after": "abf0dbab80ee64291420df508429e138b7fd32a8f29f59dd38ace144932150e3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 18
+      }
+    },
+    {
+      "path": "tests/sfir-integration/bytevector-utf8.sfir",
+      "before": "a106d119f5b8112c027a02b79677a7afdf68c590db012497b6270a7161c2fbc8",
+      "after": "a94c35bc2794f1f02df75fd64ebc5cbd3cf3359d3da20e3b75821273250755e6",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 11
+      }
+    },
+    {
+      "path": "tests/sfir-integration/capture-in-operator-initializer.sfir",
+      "before": "3c00d954165a4d669f407a1e122bd6fc94c0485d2bb1381b13fe77e9a00f4734",
+      "after": "46643418ac669bf49330007e1a17d2284460438bebd3f7fa276a06055a69e2f9",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/capture-initialized-let.sfir",
+      "before": "0c0d160669280c637ef1bb1506702426156fa6ef020d4131e4cb7fbe11cc2401",
+      "after": "8d6632fde6b93026b8e97dbdccc6c66f5a7877cf9b427b3806b8023e8f39f375",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "simultaneous-initializers": 3,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/capture-initializer-scope.sfir",
+      "before": "371b3d3bf97e4f6d22947ab42ffcc50cf07019a55cced41454ff52501c77bccf",
+      "after": "b521c1c7116e16ec898b7fc4507d3b212d58ad213c1471aa4c09ee6d58199bf7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/capture-let-alias-initialization.sfir",
+      "before": "4eba60ff5f08df155a2fc944077488763aab4fe5ebde11d34c8b90f6f41f882e",
+      "after": "9db4edab5d455a6bdab660b38bfd36c1b0d395d0f5381899e700b3e1b8e3b11f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/capture-recursive-alias.sfir",
+      "before": "06c25047437ac11d27673c6a6dc26c5f0137ec8719acd0f5c63a022c55fd2ab8",
+      "after": "836c3f6b2c3ae709fd95fce93ab5861bd895a3c55af3707aafece78833fdb2d2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/character-conversions.sfir",
+      "before": "3ac3ed25ba9aac2609b60634ecd9730420efe59e12978e9c2b1f5267def30048",
+      "after": "b3b704531f1b12cf5de139770ef0b9d3838a76ced0e050acc8714b77a48a04cd",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6
+      }
+    },
+    {
+      "path": "tests/sfir-integration/character.sfir",
+      "before": "6c1e24bb9422446892e9f14cb94b99eae4ea5910c775826b62c3e0b1ee55f1b5",
+      "after": "7ae5852f7c70c30463c190fad2c230ef8525b5731b16847310ca175f17d0c3a4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/closure.sfir",
+      "before": "85d09166e0aae285438bbb8307652045e654c6abee98c9e36a50a22e2e0339aa",
+      "after": "97e0b8d1c4210c9a2c7278ed961c06732e4db3d6a6ad142db12b447f2eb99318",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/constant-capture-readiness.sfir",
+      "before": "f7aaab08b65f6b42c50de2e050b3f394aa5c09a76f010f93b5b816298395ae7a",
+      "after": "335f33e428f41dc6bd82abc488304f93a977016c91419502a6f74e50854fcd82",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 7
+      }
+    },
+    {
+      "path": "tests/sfir-integration/constant-capture.sfir",
+      "before": "1f8909e0fcf385354b0799bb823d45442207822f83aa871835e3d175fccb5d05",
+      "after": "a80f4957d9283dd9202da105d7c61a2bbdac35b4248d0484dae50586ef4b78d3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 8
+      }
+    },
+    {
+      "path": "tests/sfir-integration/constant-forward-read.sfir",
+      "before": "24d409f65a5a949b88f8e58267d78e90b93ae25ef49c7797b1d57c5f12612f47",
+      "after": "de1d91944aa22e2143ec5fb2fc32fcd98fa0e3692dfb15610ec10d29785f857b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-accessor-case.sfir",
+      "before": "61e1d9187467150b23c2f6203f7d70ba18cf35f0ee5e5e5da3bdc52461af63ac",
+      "after": "0ee0e228eebad069f6c5306ca9630214a30a38973777c4a863e95c4c8f77108b",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-accessor-trap.sfir",
+      "before": "f8ed86dddfbb9c279cecf995e3a93218dff75648df15a35780c7aa72ac7a6988",
+      "after": "562137ea8b3361b087ce8b2d6fda4371e647a867dadc83cf291a6acbcbb74849",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-alias-initializer.sfir",
+      "before": "9b5e2863e903e6bfe3ca84f7e852a13279e9567ce203da39c2012be00f1df3fc",
+      "after": "87ec6b180fc34c107b3cd794490a14b170c9308fb3edd37c5570e3b01e3d3756",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-alias-readiness.sfir",
+      "before": "a0f8cf1485d44ccf1c36748159b1c1435ca798719db6354c8ea6f981a8339024",
+      "after": "9f2c4bf093deb2b3defcc68b8da281b69e38689206494d94b3bae9f6db6a36e4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-callables.sfir",
+      "before": "724209daf712e699a9f851de2e6a458f630825845501bac965acf4d7269ad7b5",
+      "after": "d3b18a49d2f471b66649499e7b2ef8dd5692ffac90a39054435b7ffdf5eca9ac",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-default-constructor.sfir",
+      "before": "ddad4288028eae5a77cf332f99d1205315261d43393d1599145e9e741e370f16",
+      "after": "2da3a8c63a12331f1dc655ffab1f8dbaf4ad4fb9284900d474baaad185cd54da",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-default.sfir",
+      "before": "6bf992f00d65402f5d5f4e48cec9b8553e5686eb6b1879fd8756c0b0d062cc5b",
+      "after": "74315b556c9fdd1d2a464c90ebcdf11423608b3132d04934a3ee9a1b8efb98d9",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-empty-alias-readiness.sfir",
+      "before": "d5679d6e610d3dbe4227959958fcaa86500656c4bbe0a14e349504a090399267",
+      "after": "28ab31d1a3fbfa7aa1c80fb73b0c51c9d4394721b132d5042e34e60922ab80c8",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-empty-cases.sfir",
+      "before": "6e9e67da9360fc2ef7a3c4dc65072fbbfab675fcdd8427b0d6e806a17477a7a5",
+      "after": "09d91835d19a80858ab22a7bad0d9302743b3ff24e9a119bb945824990a335cd",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 7
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-empty-top.sfir",
+      "before": "3119fb06046b75c485f9220249f33df269d17bb9c44254a0a4b645d69b9de933",
+      "after": "82115b8086990fff54a55eff8d26ea55204289537fc4388766065bf6d4858b18",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 3,
+        "any-types": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-explicit-tree.sfir",
+      "before": "ba665cd2bb805ea90c54b5d8d5a80d0ce1b9232d4a19600327ae2b4c02c330cf",
+      "after": "d43f28d3ac952bc8d292d32c19bf6d292b54682ce02e594f73ed544f9b5de7d4",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-finite-arguments.sfir",
+      "before": "8910f4b80ee0ca7103f0db578e29e893dc06e65e23fde080c326d1e972001336",
+      "after": "624124117437bb3a95669cd57431b888e4c281c8a9817969eec9392958b92a52",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-forward-constructor.sfir",
+      "before": "72610ee08c903c1e609eab91893affa28368e00964f318eaaa26f1d841b6e4da",
+      "after": "136c73960a5a07ea62c24d876bb3cc09d3033275dc01edbeae41fc1712112cef",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-gcbench.sfir",
+      "before": "0c7e087efe1d40519912e47d1cd106010b5a0529c780d864b492c635f47b1c75",
+      "after": "5a8cf6d637198ec2eef206fc22bab2c5006681cde7ef300a736e6d50c21e1f9a",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 7,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-hygiene.sfir",
+      "before": "77377000f41a2a729a504db9bafaabd5561d0c3b3056c9b00f5e118b27da72ca",
+      "after": "0268d678af28f3648775ae01f8a1861db1b1d4aad9b2f809d059ad8f643fa319",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-initialization-trap.sfir",
+      "before": "775f1917dec4759eba537991b315220f0bc404738c5f289f44ecc0fac42a2a85",
+      "after": "2bf65ddd05da1b68a69a0207d72d6b6753ae7b5c127b41baca431b5048d0753d",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-match-capture.sfir",
+      "before": "b4f63f8d2314ddbed7199ea798a035f303a0f66454cad57b92439e2e20bed09d",
+      "after": "7c827d3fa103ce17335c73afd93fec7bd96ad3a8a80c61d0fa2c7e8a9d33a442",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-match-once.sfir",
+      "before": "50a93b7831fa2118452f89496db834468b5701895a8acdc0c859f8db1af618f2",
+      "after": "b37a79c19049647fa20763352cc0446a2f812d8956a7a61b61ca520c3eabf1e4",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-mutual-containers.sfir",
+      "before": "5f48bebd642f355e32fae718d8e2c31b93ccac38ed15ae54d1364745d845a2a6",
+      "after": "c19518599066b73150248e58aef0ffa4d17df696284d0c20fbb3dd88b5dae498",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 3,
+        "empty-list-values": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-native-fields.sfir",
+      "before": "60974a4e236c14eeb896eb673fdbf042ca916a876ff059dd41f78fa9802b8eed",
+      "after": "c40831fb2baccddf57db1d0b61f0824148373f2181a24141b9fd4b1099437fb1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-accessor.sfir",
+      "before": "e8501c9d8555c4a05c133bcb3e42b271b93f2b039b8fad3d70c8dee1b15f7e51",
+      "after": "f0381006f821fd57639310b6289535c93e64c771076ca74eba91ba6c70a11ca1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-argument.sfir",
+      "before": "f369953baf57c8fdb1db73e4b580db805aaab6d9711540132eb672f816d91805",
+      "after": "df7564bef860c6251908a25fb8726388e7f161dae50201110068860446e8cb17",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-arm.sfir",
+      "before": "25b6a285cb0e220ef9679d01c81ce027138d4b21349a16d6ff8f85b62f04f90b",
+      "after": "eb42d54277cda62684e47ac94378c5afe26752ca93ede074729eb1039c399b33",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-effects.sfir",
+      "before": "bc278d941fc7c9a7f8afbf734f3643f3db359f0c60dd5b7cf8a7e912cdb451d0",
+      "after": "9ae106a53b9e8eeb192295a62165c7811485335974e3233ce3deb67da1f697c0",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-field.sfir",
+      "before": "11f576a2b206b9d37fc12f19d29459548a988c4d0aceae3f501d6dee02072f2a",
+      "after": "b1746b19053c37599b337a169646ee2b163256064a10693f1656754bb8213c4e",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-never-match.sfir",
+      "before": "065ed1c1b51316bc042cbed464256901eaa4b1245b1ed397152d070c29457c04",
+      "after": "00744267d1bec145c3e275d87421bbb04c13d20d55b1df2db12745c3871b8ec5",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-paraffins.sfir",
+      "before": "a870d730675ceffcb592af75fb2c684c45aeb4f694df1e1c1bf1c3fd448a9376",
+      "after": "3360e2e72a99d8b9153d5f3011665545fb9e2c0112636a7aba908583f2e21fab",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 26,
+        "empty-list-values": 7,
+        "parallel-lets": 13
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-record.sfir",
+      "before": "ef70b3fb889f8d956dfa9d015cec0fefbaeb2396315bca9fc77ca1e927c5e286",
+      "after": "67d892afd966f3a2f670b95fbb7eebf2a5eeef13d578e0d51d48eee33114b2d8",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-ref-alias.sfir",
+      "before": "1889671af604f53a049e8aed2788d340a640a49ca1bbb01d3c91575fabc95ff8",
+      "after": "cc199186f8e11249eccb23e5d45898c035fc3d435c5fe440575c95af0f04e0e3",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-scope.sfir",
+      "before": "ed9907481ed9d3ed1c4443bf5dc20d2a5fff56e4d5588de3fb0d8a3bf3299c57",
+      "after": "4aa2ceb8d2dd73440f85e2fd46f03c7b1fada850bb0bdff2a9fdb8c9cfe312b3",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-top-arguments-trap.sfir",
+      "before": "445789b682178a831718bda2e6fcc5bbb0968651a59b4d885a27219c9f6d0529",
+      "after": "e481c9a3635396d98261651e007ac9d3c2796d466ffbbb6983678a629bd60aac",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-top-nested-trap.sfir",
+      "before": "ec9950665d14ca5b895d88c39a185f8dde1c7e70b39863f8549d08da1796bce3",
+      "after": "b0f234fb635818a7fa752e2ee6bdf97713f7410b9efe0579da52820ed1380aae",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-top-nominal-trap.sfir",
+      "before": "56e3acd3d90a717237b4d2d778437e6c130624ef8b93df6b5ceefafa69345b4e",
+      "after": "b7b8b1785bdc662f56a764bc28d764d53ac6cd8a550477fd4ab12261d49aa8b9",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-top-roundtrip.sfir",
+      "before": "ac0a563961750bc4b1fc4654fd4f447a13560b40be0b37f5c7e15c642f4722ed",
+      "after": "f17c1085cfa67fe7e5af6a3bede37d0573e3920386ea8a92d15c7afdb6cc7c85",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/data-tree.sfir",
+      "before": "58bedf8f664cbb3356dbf4b87748616e22f338e3e12bf42ba5a393fc7db43b0d",
+      "after": "f3dd4e7c48f1b1550edcfbbc0bbc79776bea4ef61a89325e8c5dd84504a2fe37",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/delayed-forward-read.sfir",
+      "before": "591608807317cee05a24c9dc9665d41adaea0850175375786ce59e9607d59831",
+      "after": "f0c6fc2ab6f2cdbcb4fcfb79937ecdf47f8ddd2c985920c36a9151b1f477ecfb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/dependency-diamond.sfir",
+      "before": "7087b9736a6c1a031198b286d45120f94d5cd5763f596d3b5aec6771b7862eeb",
+      "after": "dcd76a597f73671ac4c8ba2387064676e2973c34dbef3970a3a1d3ce47538c71",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 21
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-activation-cells.sfir",
+      "before": "5737e7fb63d823781a40ce72f78fbc0826dd110a3a7e2bfd9640c7fcf16ac775",
+      "after": "d820fa9b50250a408953395bef2953c3a7a430d7c913a4f1a40188541fe3e8ab",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-deferred-captures.sfir",
+      "before": "40d7ebacc9ded07a2319374d6d5c113250064aab3a8eec659d1c4fdc358a929f",
+      "after": "3e0b93253ec3403b4151ddc77c6cba51b393f04311c942c71a2ef321a4fc722d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-early-call-order.sfir",
+      "before": "418ad430037c0a438c504f90eeb182225cd736b20bb5de7607aa33de8e96d20c",
+      "after": "53a43c507945f7f96907f4f591082e2f3b14b74f003e29c2dca9723fbbcdd9fc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-early-read-order.sfir",
+      "before": "61ac68ccad4c0b6b32eac17799978052167e2deb07094f21556b9a9b80505a90",
+      "after": "0295083ac98758f8a5e916fba4628bf586ac8a99354e081db0a2cf63cf685034",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-escaping-alias.sfir",
+      "before": "cceb1ed7082f95afca2d1a5a78e94835519bf2f3d0bdeb2db41694ed8a8b1c2f",
+      "after": "9799c0752cedb438cdcd9182d99ffed6f181bcd7707047989fe0194dd56306c9",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-escaping-chain.sfir",
+      "before": "28bda13c66270ad433318f836c83b7a853fd824b66e308ca3ad51ff7e8cfb585",
+      "after": "68dc49643ffae7fa96534c6d4766e55103008976bb97f1d9e9a47690124b6bff",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-escaping-readiness.sfir",
+      "before": "6b9964f531061275149daa6a4687f51b4b8ad90c8224cb0f002786e26ea2ef07",
+      "after": "8b28346a1cf451da3f71a48ba0944421212f60366ed9bc869d762a7d0711d627",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 11
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-shadowed-reference.sfir",
+      "before": "6d4724cbed807c3f13a540ad7ab0da81ab057c8edef7687ca779ebef7e162f58",
+      "after": "9c836bb4f07ae63705ea2fc5d62b2c15bffe8bb7b55f13a1dd0254b91633a7d8",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-alias-read.sfir",
+      "before": "3c9ab7e43b9e04232deecf5a38373a9aa7f4bb31af43f0ca94f9a7799dbf37a5",
+      "after": "c48541386ef2e14ff416e253e19d157f478b136487449cf72306d137b4329ab6",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-early-read.sfir",
+      "before": "3ea413f29bc2d32e2846a20ef0aa1504d112ab54f92101a1637b7a795d8c561f",
+      "after": "9826eebd9a5461cef8b3c961df826f18f1c3b38583d2d01d49f42cc092a57d58",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-escaping.sfir",
+      "before": "466b84feee7080487b2f5efe36b03ad52c6edf505aac7e5b62e4690bf9dbc264",
+      "after": "51eb487a81b9edf7b78ea9e9d809d0845555371e55dde1ce20d56c0935e5ab7b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 15,
+        "parallel-lets": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-order.sfir",
+      "before": "d2b5a7662039da0882a4c353408a8706d426cc0647a9b4060dfacb3f2f6ff898",
+      "after": "50d1b6be67f4a0b3def78c1b1a4c62d7b94880e9881a640abf1a9bc5c7245032",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-scope.sfir",
+      "before": "7a7a8dc5b570464ee988b8e017bdf55b34efa8aa9958332cbe7533d8cbf0a5e0",
+      "after": "9d53b524dba58078a004a2110e6c11d3b1556f477060eec584541cddba8287a4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-tail.sfir",
+      "before": "08589b28c75d81b7934ff979c33f0309e344414d2058e213d73402da4ed9cfd7",
+      "after": "6759d16c61307cf2a09749b89ffebde0f1ecddc9fa567751d269c3ab52453028",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-structured-value-uses.sfir",
+      "before": "701e2d90ae404dbb0f4f2f76768b737647ef323724a97fe141037d6fa7870334",
+      "after": "59b09f21209b02ae5918b31a77dbcc731adeb17fd96202c93e3278fd6ac481f8",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/direct-tail-rest.sfir",
+      "before": "b2497158d4528370a152142a2e62aae7f366de98d047b5332f0b6521175341f4",
+      "after": "9e822e71f50433b8d90681b70a0e347ee5820145b4b7799e0a580c2457e8e426",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6
+      }
+    },
+    {
+      "path": "tests/sfir-integration/explicit-instantiation.sfir",
+      "before": "a23d1ca725c5f361edd72d92e1b6bbffdbfdc161c9705834709df8753667164f",
+      "after": "6504937005151d9e96547bd6f99ad0c16b4b78c3ce4a0b4ea22421623ccdb5b0",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/explicit-ref-annotation.sfir",
+      "before": "c00ef256e89d06019c7839f35242ec52439270c5feefe3cc80c65f4a9344db62",
+      "after": "60cd7827942c484e9c1ed0222568af2c5994ebd38aff021bc6bdc4d6f06b3572",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/float32.sfir",
+      "before": "cff752afad03b81b48ed3c9dff9b5bb2ce75e40f28a6fc3915d4731f1b8b4959",
+      "after": "61c48f6ec865a8aab3f62510367da4b0ce513c5a255ae80169d3533ac5ad8362",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/float64.sfir",
+      "before": "579420fc2d2dad44ce6b86db2735e8f86f5be07a00cd5b1921fba13864f4f1f3",
+      "after": "3030b12d31955b15475177bffcb032580f1023efb082cd1581b1b21108fd01f3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/global-creation-owner.sfir",
+      "before": "fe4174bfa71696b376e5391524e22d6d162f39fe92b4ca8bb2b27802ebb7457d",
+      "after": "68a2a80500f5c4c3dbd66bbb6bb9d7a7170707f42c999af2554d2a74fff94665",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/higher-order.sfir",
+      "before": "37f9bcb9e9d00b89d9a7e4242b1e60fe83cbf497f3499d58bca7c6d8e3265f8e",
+      "after": "d43217500894d59b72539ed2fa6dd4b72cff2d32e1e668f44cd9a192b5194ac0",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/inferred-polymorphism.sfir",
+      "before": "6315282e64c2fa9d748d573afd5eefc15fcbb392ad52491dff9e1ed3bd1de6ec",
+      "after": "0e95ac4c8f3f65088b51382a2f252b2cc52c0ced3a32175f5a16c86c0cdd4b46",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/inferred-typeclass.sfir",
+      "before": "e619f3fa0f7af49b250bffdf572f556527f36d0aec98aaf2a8420a65b012fa54",
+      "after": "d6cb167f289cf1ade8b988ebb43e12e408fd795e4aea1770da9b0f1ccf645ff2",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/let-caller-scope.sfir",
+      "before": "6f8a2230e412555534952234a7434bd9326864d3e10f2712bf8f42d00e3b6ed3",
+      "after": "db939e414da6a8e70e848fb3421e3afe324446294f814a31573bd85edab7e0bc",
+      "changes": {
+        "base-imports": 1,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/let-initializer-order.sfir",
+      "before": "d06cd5f555e9cb9a3221d518949c2a15573ddc69d1c51c7680dd37e04f7d8428",
+      "after": "f8a7ec53974cac736620f357375a431aaccebb348e3bd5246fb9f3c4dddfcc87",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/let-polymorphism.sfir",
+      "before": "04010cc1d17ea60d323ad97e25aae14440d8707d095f11926a254e9a5d196323",
+      "after": "6ae8cbfa36efc80a855cdab0e37abc4db42614f1152cfa74fcff42df1ff88432",
+      "changes": {
+        "base-imports": 1,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/local-specialized-state.sfir",
+      "before": "1d6d79f063776177659ffd059cb55c71826fa2be9c261335da089288a51d64d7",
+      "after": "9c7e0b1821f06c6b431a1bb53bba176dd62983618ff20242a3cd709de62d0c8c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/mutual-recursion.sfir",
+      "before": "d991e38aac95ec01ff41d794568b4fa92c722c6a015557e9f5c5364f6d0da16e",
+      "after": "694410fe89103c8a207136007121f7eea1b69b9ed4a8df8948691a2e6eb06451",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/mutual-recursive-capture.sfir",
+      "before": "8522a0fd492d30860742d97a7cf69f0fcab4083ba9d1df82d2ddef0467fba136",
+      "after": "e598a74c81365a161215ee627c34e13f86d8e580fe33188dbf8e068540352a99",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/never-branch.sfir",
+      "before": "adb60480f14364d03bfb84415ea45144437396a7f272174432c4c6ec786fd971",
+      "after": "7ecc09799f3744681a5e8932852a73fb787972acf43a1856f66a30340905152c",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/never-call.sfir",
+      "before": "496168c58926c779d60ce5767fc639dd58a0a31844767e05ba983688f68b888c",
+      "after": "f719a0af35f5aad4f68c696fdf38679377ee5cb4625756189fbf6ab076eaf0c8",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/never-list.sfir",
+      "before": "397fe2683b576893e2a60332d17d641158e95a097d2a9c06f7213bddf70134bc",
+      "after": "bdb7f2f3a4f65b3191c4614759335d89801446a724fd5ca81db94531ae0de8be",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-classes.sfir",
+      "before": "1c920d243e6badf60e27fb8eed915866f07d055e769a65de76fb3f54e02c749d",
+      "after": "6b0a6f31d9bd92ff9d9a68b29ce5c5a0591d36f9fd8597f0de8b023522a9e069",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-conversion-trap.sfir",
+      "before": "3c8f65ebe27ada7686da55c39fbb6e268bd912297a40a2907627c940ef4cc46b",
+      "after": "3e844878db04515b8a644c540bd35f13ef8ba5ab5e476ec05784cc5e278da6d2",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-conversions.sfir",
+      "before": "4d01287e1cf62b7d03f8dfaab7dd9e667d9d7b52134d1ac17c9a7039d39fd2ce",
+      "after": "cd39cf705fbd50819bef1d71b661a9ae815bba833b64c008ddbc640341bd2488",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-division-overflow.sfir",
+      "before": "0df0c31b305af9c53edcff07be639f2509d9d77277e59521142bbd515a93d922",
+      "after": "1cba3d6e4c8b5e882e28182e46b0ea740b3c241a098ab007b123d0544df64497",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-float-edges.sfir",
+      "before": "37fced53ff83025457a4874b2d338eeb79b0be4d75884d2462ac742c7e13c46f",
+      "after": "3a30167426d62d98e00f29c290fca93742ab04dcbe457213d4c90575f8b3e568",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-integer-edges.sfir",
+      "before": "cae119fd836e2da8e9a7d28073ff885b7754c0ca288018b1abe56789709641c7",
+      "after": "4f9776735af587210dac95804a2e53921c77f813295f632c04939421c926c3f4",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-method-values.sfir",
+      "before": "d69e9cd4c92c116a20de81b4d3079e676ed93dd9c0912338e4cce17ed427b70e",
+      "after": "55f4be363f302a6a6a0aff4562f81a4b6bebe104ff8445e216eeb3a9690b2e79",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-operand-order.sfir",
+      "before": "cc0bb06a48a0a90dff03e4e514150a528866f9736ced2e0b5edf0c6c0a81b721",
+      "after": "03cca10077fe635d15404c0e009f0d1df5c8a647fb61ad4b631b14fe15ac519d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/numeric-truncate.sfir",
+      "before": "3747df106ae6b406719a8b57435acac0ff0de45632f662e7aa0ca6b213293ac1",
+      "after": "f4b4f17c975178545c981843f7c08a9c3fbeb6f2318c1ef75caba43e19acc0b9",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-abstract-premise.sfir",
+      "before": "2020feab4a36b14026ba0252930e1b6c1ebf349ee71f8e97936e18f7b315d1da",
+      "after": "c5c8c63d4f38a7703ece2e409065cf7e78e58588f6baea6ad9f37d342a3e1384",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-arities.sfir",
+      "before": "d8295a80045686a875ef9ca32f089ada228b4f916800aaef14d9d2450de5f03d",
+      "after": "2369d2b6db25667c74f48f09c7824f5da4ac0b84c119e62f53932ad5e8085dcd",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-explicit-view.sfir",
+      "before": "f1ffcb72a6d1aad5b599a8ad818d963a5ab8d7384cedb31e2d93a08300fc768e",
+      "after": "0444b9429a00b3514fd71a54515ef103d37134c54fe9447f9b72a1ef9004dc61",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-first-class.sfir",
+      "before": "af151f32fa2d47859ab98c892a09a543292cda547cc0b509a6d49da0470d8e02",
+      "after": "051901eb0041a1f1a2e898cfbc12e68415e8e359b612ad3498d205ad6e0ad403",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-forward-read.sfir",
+      "before": "a051a00195d3c7f63e35d928cf94fa05abd3f826fb70f7370d5adc82900a2a51",
+      "after": "30d3b7771ef047fd2af314f2a6c8f66bbc679aa45bb1ccd2b355237aca2d2904",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-generic-named.sfir",
+      "before": "956071e49ab524c185e8eadbd933afe8248d854eac29a642eb4f09b7b0787030",
+      "after": "0a46b23b22a3ccd441a0b74f9e3e8b640427fd5744ee414985a9800aca712bcc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-generic-row.sfir",
+      "before": "e14de4ae47b7f12680229d5289dc82a1e9b636a652787911cf433cb39dee9a11",
+      "after": "a4e4ba1a01f07d864d4c8b88cb53bc2ad0bc06a6fdb445fa76a77a05d7631da5",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-generic.sfir",
+      "before": "49e78d701d58ba4634e2a83dc39a32a19a938f35a5c40c254446e3781b0573af",
+      "after": "5bb42c685b2aa62e6fdfbeda576cb2905b69de84f1ee69bc0ad1efb4d186cc95",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-import-extension.sfir",
+      "before": "a343d60b811de1170603f3258905c2f5a6480fd73a0f9f1c658a3be877f3d462",
+      "after": "c1fddc5818ac5bb01dbc6022e27a5b62b045aaef5dc7b69f81eb26bce4fde88e",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-arities.sfir",
+      "before": "f7446d24f52f8c161783c82670d705af33d6d883d7717d63aa5ceb04486df8a9",
+      "after": "e67c1af2f0760bfeb78725b272957cf578b2c894cf2b6d48f9f5a6f1e9e17d23",
+      "changes": {
+        "base-imports": 1,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-concrete.sfir",
+      "before": "465940b407234135defbb6fa06caadac699926598edae4d44cba0caf531d37a8",
+      "after": "b79b9c7a87fd6d6211459d6e1866b257e602a631615778d688f79f1ac1213e4c",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-cycle-annotation.sfir",
+      "before": "bf2fd8f5d945bc19a17f8f43132b47a15cdeee25c99c265afe57982c983e6db8",
+      "after": "09f1461dd556b4fd8952d9edc50f6361c3e955d4392371bad4fa9ab8031b31eb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-dependencies-reversed.sfir",
+      "before": "baebdb85e26e7e5b1751cee739000b89f2ed07eb4e8390d2d3f6e2f974547a26",
+      "after": "377709ace36cd4df4919052f77aeaed74264f5ed6cf1c9730a7eba13a6028a0f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-dependencies.sfir",
+      "before": "6960836d0a0eb612343d0dd6ac4f64c87a0e26fe29df5e081d917f2f6e2062e0",
+      "after": "fff7f5d187ad7307a7c00ad95c6adcd547cd6c3369287242565aeaa6d68b708d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-forward-read.sfir",
+      "before": "fa0dd70b0dd73e6787124f5e16e1d38d07529be213af56f47eb1d7e080210ffa",
+      "after": "fa11e7758f1a84aa6a323c23a76a4d36266d0aaeb2093ec53c9766ebfb37c04e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-generic.sfir",
+      "before": "fedddedcb38ff4176ae110ffc144fd0d2bb0406c3bc2d11ba6164c9ca7f42db8",
+      "after": "af5cda0c4364a9215c0663f61ffabe56337362263fda29f4274c7fa214190cf8",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-import-extension.sfir",
+      "before": "5d592ff832e83635e42a01e919d01bbeaebfd37e9951e0a0f9b0b2c23db4f44f",
+      "after": "8774f442522fe90d46e491e9706c82d12a7a176b31b1df318b82915b5ceec96d",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-initializer.sfir",
+      "before": "05f42e1dfffe8f5a0738c274d970f7854fcef4b2182ca3d70901d8e7f2ec46e8",
+      "after": "c83a03824033d3d969e7488433a0313a219eab9ebabf5fe355756a3e29a5421c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-prerequisite-dependency.sfir",
+      "before": "e4ae32125fd4f6f8b40e5e5dc1b1d9c9b191d5a0db43ff82de778cd340385020",
+      "after": "4f8347e7a182319f38f6bad128178e54b6fe24ebba7ef025c0072cde0bd0d673",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-qualified.sfir",
+      "before": "d52ce667688623c43901bd13ef0854f310930f3b6194436cadb5069f140a51e3",
+      "after": "c8e46107bbff9e71da15665a43b856b8d34eb0db2946af1b19d81f9378f47a37",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-result-context.sfir",
+      "before": "6249834bcc00851f84f239e72428df63ad22346d45322d2b5c049f8fb5450c21",
+      "after": "ae8a94df1ba9b4f973c7e2c24401b0959f5e1268b1b533f61cda122af9488c6f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-storage-after.sfir",
+      "before": "ce5addaab60a302fb76323d9bb3584dbd778ca2800a5b7f049d4a6c9cd516670",
+      "after": "a34b3bf9920a33563c48f5d00b5d81f8e37c6bb96a95f93939a45050ce0f4c44",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-storage-annotation.sfir",
+      "before": "34e59edcb3e37f4adcb2557c4ae6b8c6a0d316965ca724c47da84daf708fc5ec",
+      "after": "b59f15a82cde7e2d76d8c37f8e297de37c7aa7b80a56e1d3f9e37482afea48f6",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-inferred-storage-before.sfir",
+      "before": "fa4822ff8403be70e706b13e5f839a4197070faf564305ae54a7c62e159407a9",
+      "after": "5d62668425210b633cff46df914a28971b62b4e85485cfcb4c77a9cf71a70821",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-initializer.sfir",
+      "before": "25f19a308c554564b27e560d85844fc78b827baed6dec44f91748797a9370a3f",
+      "after": "5276fbb81d3a95428664b6c6c43156d2031ad70af52e6c399b5ddd5663363813",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-lambda-readiness.sfir",
+      "before": "2140b12fdeb74ac86d4e63c611f84f1310282de3c4591fd0ca7be5b2a5161c0a",
+      "after": "16de56f046fa5ed1d2b2f72460517e8831efd8bdd1ac450e1890ef6394730f41",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-late-overlap.sfir",
+      "before": "174175765ada6f158c63ac899c8ba3f760b0f3350ac70e16dd19913ece3cbca7",
+      "after": "cbd1c38b4334748e404c28f83ee1244aba48d7159c783961dfe5c3b84ae7c6e3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-local-generalization.sfir",
+      "before": "01983a47ef34eabd6b80f500c816b08c0126dc4d244e32c064b1f3d0d04fbe81",
+      "after": "e15d303cd796836f48f15e0ac51e8d560ce2dbe86570a7e816be36427fe37b62",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-macro.sfir",
+      "before": "17e5984374ba8e2ec2816597f06024d45e38ddf55eb98c3e0f3de094e6395341",
+      "after": "22c3ab920f44718c5dd7ac9e0ee0c4298e761b4a950c68f473110af0be603b29",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-overlap-unused.sfir",
+      "before": "0697c38bfe566ffa7a3ff6d0bd84c8c5fdccf9f8ab360061322bc965c1b68b21",
+      "after": "dc87ce365ba0cbc397697de2688227ed108cd984cd02ddff74d9d0d47f51121d",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-promotion.sfir",
+      "before": "6e331531846c97c447678a698f437cef9ecf463c3ce863aa9d4d239eaaaa97b4",
+      "after": "ba8a8c4b3995638044916e1c4f3d2096aa85ac55d1220fe59e0d40568bccde02",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-proof-sharing.sfir",
+      "before": "2b583d0fd123d8e82baf8534f1c7d2a16642eec3c114349b764d66989f7734b5",
+      "after": "01b70716556a62f96e316cd6af694776405af16fc894b305a311409fdf000c68",
+      "changes": {
+        "base-imports": 1,
+        "parallel-lets": 15
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-qualified-results.sfir",
+      "before": "f8ed5b65207dc7599cac09e996097087266bf80a45744eb7ba758ec479bfe6fc",
+      "after": "0fa6b0a044d6ec83ead989ee495a4606b7b8c45c9bc822a024d1efbb9d74de5e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-result-context.sfir",
+      "before": "dc49d30f17317679110315f422b3cd2be5a862f4d0285b822f0369fdd7204d17",
+      "after": "35333a3993d2775a2b86ce01cd196569ab4b9835a0b3a7efc3b161a8f4a3135c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-returned-closure.sfir",
+      "before": "777cbea0e43030d1ef4a56c979102a33d0c97053d9ce8b259b203cf70ef9df6c",
+      "after": "a8db818fb6eb1df15abebd18bf400c8bee60114faf85e7ff26ae2ead16cec5c0",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-semantic-types.sfir",
+      "before": "d94af96e517b6973415264f3bca2a8fbea3d372497c3b5a98087e2c4a74bceeb",
+      "after": "cd96d683d5f59c74db8ab7911e03d33318106394719db8fe224a58afd6bfe172",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-sibling-prerequisites.sfir",
+      "before": "5d40efb33b65a1c1eaf394a064baf9071c390ec329c67ab73444a779b26dbd3f",
+      "after": "67ab7fdbb4380a0225684de31b69531c0e526369bf2ee8767d6df3e5f2d01b10",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/overload-truncate.sfir",
+      "before": "7ee70c69f016e868d440bba6ca906006607756fac8c28e2fa702c5356c8f7515",
+      "after": "25ed32c4677db1b960a6b1b8e6f943216efcf4a58c4f2bf06dc5d2621aa8e974",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/parameter-relations.sfir",
+      "before": "dc8d3c7b7974d04c18d5b5cf43444dd5f3a10ba86a31904e8e0e06cd66fe1304",
+      "after": "b3ec9fce707cf4ba2d77ab29debae31a1c6fa5cf82a94c144844901de22b74c3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/recursive-capture.sfir",
+      "before": "d1ba3566a787d969154e277a724e8c7c5f24ee7fa743b39ba779bede185be52f",
+      "after": "82df808704850ba8a4fd14c6c9e11d0264533606d9dddd1b1a233dd7a2572c8e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reference-alias.sfir",
+      "before": "9967649051977641fdfc2bfb079fab1168a32cc8b3116697adbc69eaf54c3822",
+      "after": "877e45e6f67789227c7bf271680bec02c16b3f0f6891746d9a63321e3f1bd24f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reference-float.sfir",
+      "before": "63dd73a2d3a4efc34316f25538767fff5e979b8719e480c2d8962abc5297cb34",
+      "after": "ff7c92fa59bc35ae3f52df422651a87cb93d4700f7aca159f00e0516a717026b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-arity.sfir",
+      "before": "6c01c117336de72d01538b08bce0304263adcda1865c7fb1954e722db66b1589",
+      "after": "57e946f946f7dbd344c6082bf5c3c8e6d0452b839222356b956e74a774bbc9da",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-bitwise-float.sfir",
+      "before": "8d68bf74a6e1605d533b10ad7849cf2658830c1f9d8eb73a4d73abb86fa640a2",
+      "after": "921eb7b229af2c24688129dd5ae6ef1d1cb2a87d96736dbc7f7f2b0f627bc26b",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-bitwise-mixed-width.sfir",
+      "before": "735134eedb229535af9d140f2279d8c5624c00ef0e96ae0c1d8e9df647a7f8ce",
+      "after": "fdd017d5fd46fa319dad858742729215e206af4d1e058386df7381bcc0c8d830",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-bitwise-shift-width.sfir",
+      "before": "1326b08e3a262f4037c3516684a25ad8058b5549b5e137bbc2f9d63eef3fadd6",
+      "after": "c3e587f999fd23cb099d36aab80004abcd9100d649652eb6bd344fc42ac78b80",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-branch-widening.sfir",
+      "before": "b8c2de215b97bc2367bf9272e9664f001d24d29b0129c5db20f365ca7e842af6",
+      "after": "c6800d44b0d81c81fb3133f887f481011975e58e3ffcc8f0641342bf7d46252d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-captured-generalization.sfir",
+      "before": "30693234d0211956665707049c66fcf3f7c136c90a9584f7ab63e39a37870632",
+      "after": "5ede8029e77bd1ef4f15787db7e21730f4504bf0b13c7f50eb919417917a5323",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-class-constraint.sfir",
+      "before": "18e182439ef1198cfc56bb7d7d01e5354c142e95eeb1d02b47bfe08a4d26877d",
+      "after": "f0f23f0184b40fd74f2d7853877f47bebe85f88c92bb110738431a83b4e5dfb8",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-class-duplicate.sfir",
+      "before": "c9a23fdecb939751cd1c9320e00ea3908b971e084ef27306ab89157f5afaa655",
+      "after": "06b00ac2b9bd96d32b1138a00807a6eb64d370e08b9437d7d63016661fcd958d",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-class-member.sfir",
+      "before": "02b0e3e86853844908ab135784ae8fc05fe4fe1f1121d40780bb7dbd6b28f770",
+      "after": "095f2e582669f8fb36f8e5ce0dcf421b2f546fd186c7840ae4e754f805b21d09",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-class-missing-instance.sfir",
+      "before": "c3166d8a95a1b14e550dc20fea6b46c24408f5969a74f0a07c5acc924e769178",
+      "after": "75b5cdffa480693efe6ddce3d5500c99a08592d6e5f04a4d14acbfd3cbe7bb72",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-alias-generalization.sfir",
+      "before": "d9944e5799d28dc156bc8219f6b5fd74950079c6e2e34d1a13366c5f2ad45f18",
+      "after": "2149aff19f216ed9a43e6d7d067e6175ce56d3846133a1bcac4aa4c2e823ef25",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-constructor-overload.sfir",
+      "before": "52e806216eae00ede4b45c100d2d240c926c367415bf733af4bfcebfc07b9c71",
+      "after": "cd1ce19696115c207a2daf592c896f0d125f0c9f4e5ba7cbf5f5b3979d6c9c04",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-field-all.sfir",
+      "before": "3509456c978329ac659cbd728de42f64694805a847fc611f8939ed9a8b293d62",
+      "after": "fdfbbf4ef261cd83759245ed0c5f7b2158fb3ec39ebe2f47229199b777fb209b",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-layout-growth.sfir",
+      "before": "067f297bb42b95340222075fac0773e875820e706e8c5bbfea007b6fe1246748",
+      "after": "dcd5f20d3936ef95042a3a4bbaa019c64913e1877a5896e398718432e2377a24",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-match-arity.sfir",
+      "before": "827179f728f2d7f81493b7c42560ed13aecda299f3209412d49001c6b1be5c75",
+      "after": "24fe4b07d2e0791882082b6b19efa0ed6af2f59a9ad245f1c468620fe49127e6",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-match-duplicate.sfir",
+      "before": "887e733bb3e08859d21aa4ce4d49cc63c2fb10e259dea8d3037850c303a9ae7f",
+      "after": "0db6fa345548f6fb857e7f776e05c7c4d5df0b5ba095fdd30d2ede04976476e8",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-match-incomplete.sfir",
+      "before": "101b9a1f92b62e8e677d54022b1f75cbc17dc9fe8c3d843d86226b273a1451c6",
+      "after": "2ee3c73dec630b5f454bfe075dd18d55b249763db5228c88a9269f2ab7c1a8d8",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-match-mixed.sfir",
+      "before": "3e9c361ee1421750911a3f9997c6e9d11b4bb92c5850c12a045fac436b05fe1b",
+      "after": "06394dca9a903aac76f74208e02621a082e88ae02508d353f215269c65fd3c39",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-match-nested.sfir",
+      "before": "d97eecb4ed07af475b406a84900fb8ed7973abb5dc87ea33be7e08fac11c7858",
+      "after": "b0782b732c7b9f6777b15dbc1b3df7bb080daff9dd4be05759a40cff5e8f1356",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-nominal.sfir",
+      "before": "ce1c6aa0725b34dd1af07b1e1bb6cf8086a733e32cbc17c592b49423a79bb123",
+      "after": "975f775b81c5812375f9f55808a2aa1e04d9076d83721c2e9945f79dfdc97950",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-ref-invariant.sfir",
+      "before": "ce431c5ac9317acfd4b8cd4971f8dd02eef0c52bb3ceaff0b068310e276a9cad",
+      "after": "1ad9317c589ed79d91aef5d207556c92774e5e599690e5cec9260840f5277d16",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-scope.sfir",
+      "before": "4373f5bff35605ab33f14524ab1d561b4fa6fd405a60f3b5fe7e268f697eb408",
+      "after": "73739099a90608c775cd7f1a84925bfc5cabfb7bf338518186097e29d0b8305c",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-data-type-arity.sfir",
+      "before": "da43dc423b79cec31d8f37f8c071e66e29128d1335867ef81e9a36fbfa9a3b02",
+      "after": "f09e3471e08a42a6eb531426f44717a78079242ee7af60dd5fdb9fba97dc5fa0",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-duplicate-declaration.sfir",
+      "before": "e1f323c86e303f8703cb56c82420c75043374b19aa322e37c3d8df1a954abae9",
+      "after": "a7e6fde2c3b1ab374edb113f404f91ac003db58ec310eac75fcfe0d860636bc3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-i32-overflow.sfir",
+      "before": "836909ed35cda085b29136ebc5d25fba33d21f355a1d684edfc7fea71f1bc715",
+      "after": "ccb3591039c2f3024f840341dc2aaaea89ffde0101adf05b584e697dbfd922ca",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-imported-declaration.sfir",
+      "before": "92b79560a62f07c56a721f49fdefea9dcf5c03117983fe0e51b6d09d617c5e30",
+      "after": "0deb5893f84cfd200e2a4f52071cb9b1e3d51ff6df2c90d0f0819e21cca1dbaf",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-nested-all-parameter.sfir",
+      "before": "b8b02ebc7e387ef7afaeb6d63273e71d9d1e88d9193ac05271ef7f9192312bb9",
+      "after": "f5ea3bb203f126e6d014a1a1a906510b168935cee268db2faea5b52e67589c52",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-nested-all-result.sfir",
+      "before": "dcf1254b048a158a2eb659e7fd60cbd3230c67f499ba8a6bde4ed8735d3c4c8d",
+      "after": "6b0066c8d7992a9c229e57550b390bb23d2361faf452469d47261c40045eec0a",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-nested-all-storage.sfir",
+      "before": "9f10526dee2cded8a038d7ef8bdd49f1430cab960388545ed8cf132c1240b5d9",
+      "after": "ad79fc979a95ff503ca6529a0f67f7ac325a6a3d70879e188a22bcb22e5e012b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-nonboolean.sfir",
+      "before": "20c7ef216ee6f20d471da0606d1a236c05111af4e70d3864c0235ae1bf3b92e4",
+      "after": "5a726e9d58025d6259c3f28f72b9b074a71905b06d18d3672eea33116289c07e",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-bool.sfir",
+      "before": "2aa0142432bf3e7356a8b211ecc45c08a280a6b27d1e6fd09a5e6bb6ed6f4a1f",
+      "after": "4078c8718fc194bec0bc4c915c8f4b1a533eeb27dc7ac7ccdfe60eca8dc42551",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-char.sfir",
+      "before": "b91d62b8f57a5d6eb075d05ae0f6aed7f25736a2f5ae45089ce231ea65300c7e",
+      "after": "9dca16f73c8f446f1a2f1f8590f1695c271cb93020617d1817d0a0379dfbdd52",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-coercion.sfir",
+      "before": "42a3d173f6db4da3895bfb3e8d7f09e2432615b3e0d29d2edf6e2b9ebe6616f1",
+      "after": "2feb57d13ee2e8684ccc26ab863c7a31c1674da7f62f2d0e03c012dc83592e71",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-constraint.sfir",
+      "before": "0c988f67bf7b76c679b9dd9f1bbb2c1ecb67f436613dbd0dcd19d961ebd4790e",
+      "after": "c1b4b785da596db67d56bcb7797e0b32bc31a546dd3003b36159ad850673c447",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-float-quotient.sfir",
+      "before": "c395b04f66c8455b3e3d29394f7e889ac6b12b2cbe835e2bc8fde555cdf5f827",
+      "after": "4eb88fb4a70ee5e8b131b53225f1ea55bc3300a701acf3b1dfcfd784c9d4838f",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-integer-division.sfir",
+      "before": "a7e4f037e05be61ea17011aca2ea478275cff8dd367b8a26f5e4be090a1b3a06",
+      "after": "145a359de3d832f4e9d6ad96b82f7eb213080b5acb12bcfda0253175dff7cbf4",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-integer-sqrt.sfir",
+      "before": "e630bf269c0f5108af6906de95d5c4b05588e9c924598edd7e674b1e8594c1bf",
+      "after": "d4b0fbca44630ca0deb71dc61294719f473a4db6c861af9df7f60df8bc6f7e37",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-literal-first.sfir",
+      "before": "9332efff0d53d92652821db32133a06eac8b270e599299ca3fb04dfe8fed3e98",
+      "after": "e778ec8b24687188083138f61eeb9124fba50d7b7d7f992ece0bf3ab38b17664",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-literal-last.sfir",
+      "before": "56716b6eff0f93d86f79eca84b317bcf50c2608b5875566b14343f32665ab6ef",
+      "after": "f5f39c21b8fcade9f29540e01a6507594343cb38fc30ec69cabedee891bc9b6b",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-mixed-float.sfir",
+      "before": "e32cd7a533e2095b549e715fd929a3bb817f66d204ecacf7c212afdab234e430",
+      "after": "5db6c37aa894f229e8d956b46d415078b984d244b14c7adf30829a8cb9648132",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-round-arity.sfir",
+      "before": "5d066a5851a88b09ffbf79045e79314d14bef123efba303c9be9e709620253f4",
+      "after": "46cd582ce2dde743141696da09a3f45d33df4735b1d468281c2ba35b0dee2240",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-round-integer.sfir",
+      "before": "01ac15d0626d8c5e9bbab97b45aad1503d9503083c342d44d02a253f8cb145dd",
+      "after": "c6245254ab06d9399d3b8dbb4cccd186f0dd1cf8f086c212b85568e8c56af62b",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-truncate-arity.sfir",
+      "before": "44db323ee6a96ad977fa1236636f693208b2003444c015222ff339a30f956ba6",
+      "after": "90394cc3c435b1be17030f96b57a4554e68ce195f8ce90352778206d378d1cef",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-numeric-truncate-integer.sfir",
+      "before": "1dfea701d5ac53503ead6478771fbb8a9c1b71391319c81655ac4999ac91cbd1",
+      "after": "7552f2d9a1cbfa1884d5e913f51a04e67dcf4e1370cd2a29675fdfd263136c46",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-occurs.sfir",
+      "before": "d01106a9a99d324d59cceb1538f901b71430fdbc3d9f398f3cae5cd476975f79",
+      "after": "bf1d4ee8218d6dd2bf2bc0096317c8234edb7afa3f0046514aad55d8d282c125",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-outer-declaration.sfir",
+      "before": "53494ad015662a29bc483ce50ac9192aa5c35023de93964aeb0b0b366545a447",
+      "after": "be9fea38b5b4a106b699873ce42598c8114b2641a440f091901d505b5877ef01",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-abstract-premise-use.sfir",
+      "before": "550078d399a51e1ab8fb3fa1f21fc5bf7b0de1e3cf1fc75b96f9b83cf53699fa",
+      "after": "efd49d26be6e182514255a71d723724811277b0b2ffac81f79725a088285223e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-ambiguous-givens.sfir",
+      "before": "e8541ea2e91ff304bc893a8426a19b9b84d66b07cc66ddb56dbf5215ef302da9",
+      "after": "67c918a8edb5040ab21f059fa95e5dd2443ebcd70c490b44b2f7f0b97d580a23",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-class-method.sfir",
+      "before": "c88975d62753d54866348fd6246de896fd4fdbe83cb98d99b916ca7eaecf1e05",
+      "after": "d026112e28d901b174e389bf834668f80d1ad783ccb5c632d74668198c223ec1",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-detached-signature.sfir",
+      "before": "80c5b486cd14344376b4c2ac912fc410891a8b9ea555439ef6f6da8490b558bf",
+      "after": "ab209acee01759da7f02ea8276859528e3cc95173780d5611fe5b7b9ac3ec2f7",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-duplicate.sfir",
+      "before": "1e9a3693a4440ef232cc21000a5145bd25bd275762dd3cdec066378ed7198774",
+      "after": "4e27988653d58919e375c66e2b5da818e5e67990f352c2f37394ff4cb0b645ab",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-explicit-result.sfir",
+      "before": "b432616b2cd3ab30ba4741b029267d0be035b886b9d436210915dba4a56afc5a",
+      "after": "33ae5e9ec4c8fba623af7e147c64fa682dbbe3f536c8112730da091c8e293583",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-first-class-result.sfir",
+      "before": "ea47438d51617f1529a7b6a9498d0d099df8b21d53caa8d50580defeac471991",
+      "after": "c2dd67ee0463d292e49ec0c2ee0e2b92672057697611509b3c4d7361af6120b2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-generic-duplicate.sfir",
+      "before": "334d88c27e356ca1c5a466a0e4d2ed080740d6cae6f5744c8ba507bd6e6e698d",
+      "after": "966b47f636d7db5391407ca1dfa261a9aa47f20ef6a8872b00d176118d40ff6d",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-generic-obligation.sfir",
+      "before": "48bec839753c24931c519aa78ff103eeb8cb2dc23e9a2426ad109e777c66650a",
+      "after": "89a523014611e9c02a2f0f7c3364c26488ff2b132323173da53cd5208613f21c",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-generic-reordered.sfir",
+      "before": "523d647d6ac989560fa43e0afc9e1c0f5fe3a1768a71830673cc3bb11433fbfa",
+      "after": "7575375b7bb176e1273b6f1cc63545fb00a97a1839a13b9324e686f5957670b6",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-arity.sfir",
+      "before": "520f63dbd382fe97a6d6db85c02531de83f369d99bf77e788cfc40e27c63e8fc",
+      "after": "3133a6454f8ef4bf3fed9fb235f91a494b39ed5e6678919026e220e3d25f0cb8",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-capture.sfir",
+      "before": "be42050af599e656288e5018dd18094cff660d3331c13656879e04681d8b87ac",
+      "after": "1bf36751708c66aefa0f4a9277451c9402c7161166f4a778fca35b91b753cab7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-cycle.sfir",
+      "before": "9524fd95a5db5e5c27ce2a796a5c049d73861a1d4d1a455477c8764f1126c3dc",
+      "after": "93c068b87f987fa1095b7534aba58a3b9a7d6bc4ef68f2d49d53ae71c3f3e64f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-declared-body.sfir",
+      "before": "1f2bfad819fef96bfcabb617a55ad20fba48fdd41230dd688b8ff3704b147206",
+      "after": "23db0e123af8258dbf7664d4765553c2d7985de3d56a90fbc8830fede1d0ec53",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-duplicate.sfir",
+      "before": "bab0bc4148d94c971f3e719aa0cf018bd0adceb7a175b9395762250a4094ff1f",
+      "after": "61b55bae0ef655446c6b2930de9c393aae8b9c5c6f01ba2568d6ed8fb0cae455",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-expression-after.sfir",
+      "before": "fdae799ba53f74b3f98198adad6f5e8e1d29eb840fd170d9d44a74568b1c2a87",
+      "after": "55d1cf935c2de64b10e2e29c11cb0c8b7a4cfd8e49d7289a507d6784d59a30ee",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-expression-before.sfir",
+      "before": "efa6be1de5c433250b46ed5b10378a6898d6dafb4459c6ebe9ccda3d319f1fd3",
+      "after": "7ecc40308e38a6c45c0c77949940d44acdf0045f7f62af13fac6ee5cb98ed0cf",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-generic-duplicate.sfir",
+      "before": "4df58c6ed37dc710758243eb0ac292640b0b9e2cac0bba82e82d3c7f53d50245",
+      "after": "9e0f55c0806b2dffd983c9e33f00bdd51a27b46127f4ac80c07f79c0eed31a05",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-method.sfir",
+      "before": "fee2108ca737b435f04ef74d050401f921ae399a723db681c14b35751df51529",
+      "after": "faf4f024618c88fa66942a70fa4f230d107a6c47d6ba14910669e23b4a747ff7",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-nonfunction.sfir",
+      "before": "64f987f78e6d781d81630a2d61226310cf4bf39fb74bbd3baf7e849248c7a052",
+      "after": "865bb3a833e8bcec83e31f4fbc3ebff0991565d300c5d728678787d6b4f7fc4e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-overlap.sfir",
+      "before": "58b6b58a82d1abb3a0a607790a22a7b9a10fe4ee9e8a917c10523cfe6f1126f8",
+      "after": "1863e69ca861c181732f3e327c74c9f377cec5a9f5d099857cdb063a0e5df84d",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-prerequisite-ranking.sfir",
+      "before": "2d8d12d99ab1388f06fff841cb7b6049545b463f076c3b30fb6f8c0a9946f65a",
+      "after": "cf07cc5b798acad04176fe0611c20a7e294d357a52a07035cda4764ac2f22a01",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-rest.sfir",
+      "before": "6c1c3b80fb4186c289cd08c4762dda2c50d7847e436387ae452c2cbebafd37fa",
+      "after": "28b522bc9220718a8beafe0e858b9c479393ce45ecb03390a7f268ae81a6bf44",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-result-ambiguity.sfir",
+      "before": "270cdb6dc8286217b8b7a9f920c661dfb06dd2b1b88978b70e27a2c7423afb46",
+      "after": "140978628903d4af1f711d52d628ec8801b8deb292d90f6f90e4bda52f4e5778",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-rigid.sfir",
+      "before": "9afad648bec0572af51e5aba5d7c8414bc64b09b60c6d8f5217d646fb06516d9",
+      "after": "07469956fb75f5b0710fbef3b64bb77e9b251c474b5fc1b81ab7052e8ed5a73b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-inferred-unused.sfir",
+      "before": "9c3b1093a16ad713a8898d4937e1a142bc3c523b21a2732da29ef73bab9dfc28",
+      "after": "a0980b0b7ce03aabd15ad470214b24db1a061ee555f544c33ecbc7fe6db492c7",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-instance-form.sfir",
+      "before": "3c22f6ec93474049769258f2700f35324587b9ef24afd07b5b5e74a3ca14fc2e",
+      "after": "3001cb2c70efc268afbe80dd87ec80345bd501d86075da2c2e7daf32c82becfc",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-late-overlap.sfir",
+      "before": "7ea0ea9ade2013748e7b4f11a147666f2020a5e429423ae66c989c2802af6c52",
+      "after": "bdd9d070bb194a8c9feec6e4d697ec5567bf52247329d4a7144e37fa8c3a7607",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-local.sfir",
+      "before": "e26b61d1106cb0a0b12063ad745be455ac1461bad58906c892dc67b2b19ef595",
+      "after": "521ce4929698612521b7e341347f3d3cc9eea633028bf152ee0e0aa1313c16af",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-missing.sfir",
+      "before": "e8ad61e67b38554cebd6ad16516879eceaf27b5afab6d48b2f02b83e8434c524",
+      "after": "358de1a644d08fd3aa2afc6f0b3659ae0207fbd967b818419f2acf60f24d0d62",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-no-class-guess.sfir",
+      "before": "5e269e9be3d7857a9c3d4c8f6d602b756743d1e1d1c893027830be4b69f972e6",
+      "after": "343f2f4dc512dac193861a4c782bb5845a0c14cc817f08061ad107e5c9c28b0a",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-overlap.sfir",
+      "before": "98253769054d74253032df4c5e4a06605e8b924d0a0b91817e50677820cafeef",
+      "after": "21111f2fddb4129b353d04ad39ff1be1316e24f2c6f70ac7e297d48d920e506b",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-prerequisite-ranking.sfir",
+      "before": "db2b578e8e4eee639b75b83b8415f461c4160f7831e51af3d2524e8d40632954",
+      "after": "9856682702eb8f4b1a880caca15065ca8dbf425010f369fc89e5b3a1bb3197e0",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-rest.sfir",
+      "before": "2389fcd641956a5a8fa13bc6cdc20541e3ef644a0c90339583d8cca6cd13cc70",
+      "after": "ee3d4263f9e5ff0d23862c56fa7fb1411181077ac9ba43ab4e9c43e5814b225a",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-result-ambiguity.sfir",
+      "before": "ded9fd71df32492f0a424414cdce2d56d51a579cdcee83dc913375729b9a1775",
+      "after": "eebb3e95bc5daf13d5d47bfe7bdaea21805da52486f99d92aede19056b6000c2",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-result-conflict.sfir",
+      "before": "cc172ede57ae356d42dd97c495fdb097f85641b3a11b3976557f2b48364cf7b6",
+      "after": "e22329da45c6b2c795ef7cc0fa805ca89a6f06964907b2ab2b4f7ac971440709",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-rigid.sfir",
+      "before": "4ff5871b23039467265f4cd6cf54e86f788193ab0d27aadff82ac0ff180ca6b3",
+      "after": "a6de967ca0da46c7315779a14ec57ccc6b9c907e3e2c6f3185c62cd3bd3ef6f3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-round-arity.sfir",
+      "before": "9573d67c8dfeeb5d46402a8c0996fe070d6f60ef7ed9ab908fc8d0ef01ccb3b7",
+      "after": "cfd85f31fe95762cfc8272d7db606355e97f371cf503e6e31b1ab20a3c1eb3a7",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-round-integer.sfir",
+      "before": "262c965afc519956fae59f4f4720293cd9592c145615e85ae3d417f446149860",
+      "after": "26621d73105f9a656173b1b01fdacbf5f8bb27ea1b150398e5b1a0196fcdf1c6",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-round-view.sfir",
+      "before": "e7467b84e896ab4680721979c6a871b1365529145ecc2a4c44a70f76e66be6b5",
+      "after": "30a1208dc66124f525a385d12797a2d59529c4e7ce6835bf97c00a8678bc3efc",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-short-constraint.sfir",
+      "before": "c282461c5c7dfdc9f9e048336a4f126d1010200aebd8bfa6de3a20eef1492dc4",
+      "after": "01e48af3910ac97cc8cc6db2e544f66e71fb4022716ae229fe838e5d352cf445",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-unused-body.sfir",
+      "before": "18dc3458512df85c301084282a7fbbe11c0fc1d121eb8c29be23e1d592e4eda8",
+      "after": "39c03083313381570864e5d5e13576736eeb0e994d4637316fee504f3b76073a",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-overload-value-name.sfir",
+      "before": "d9f3637a53fae2c8f2506eee45d5d9d46bff20aacd98b42df651df553f280037",
+      "after": "6127edce5faa44b3e1094de310c7e7c6f7e9d049e337c8f2b4e16bb5d02d0ad0",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-primitive-declaration.sfir",
+      "before": "ff2e709d9e8f8007451b78bc3bb4031a5ae1e3fd28600bc4769fd263a44dbd47",
+      "after": "c5fe6b3174939a5615a87e5db24b60286ebc4e3f4a970b3e523055810b196131",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-reference-covariance.sfir",
+      "before": "b8163e842a79b4a8fe7c33d6c5bb62f649f171f125dbfd12c155177ee00a3c29",
+      "after": "8c3f0261410faf20dc4bbc24d217b65b790c0f8e2e540bb92071f707963923b3",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "any-types": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-reference-polymorphism.sfir",
+      "before": "27d192818e2b18fee16b666d6d2f82be7b1b89b55e8fbbfe228f570f4a968e9a",
+      "after": "430ca1d3c0ea1cc65fa0784fc18bef33e204d0732b304b2310085126a842d88f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-reference-write.sfir",
+      "before": "ff481611648cf27ef43936c946dac9e81b0ed85ef52424eab2122e909a3a1fb0",
+      "after": "262062e2396841b8a939e7c05ea426064d6c6bebbfcdc2338fd2a2b6219ecfcc",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-rest-element.sfir",
+      "before": "4f94715792ded7f21cbad1a3364563f85e94cd36e968c638956991071d0e59d3",
+      "after": "6ba8f7057088b3171720386750a6a2709870d00dd786dd9716dd9e16ccb7f318",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-rigid-all.sfir",
+      "before": "49a7e8c730e21d9259c4c204e19e32b12b26fc1736a4ae74f1bcb81eb88dfa8e",
+      "after": "a52ca70367f19afe938eba09cca76f38b595eab0f7fa48fc47bd7cb7893da19d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-set.sfir",
+      "before": "bf32d4c62486d406f52ba22c42b5667fbf7ff62668ecdbc2ed4180b95234df2f",
+      "after": "032118ef773fec1386f084071b7ffd674911746404641f88d5617cfb24eeea92",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-string-character.sfir",
+      "before": "de9a4e75b783a8722a69d0b2f344ccffd0b27cee3ef96c96abc906bcd9b8df6a",
+      "after": "29df454ed8f70ee1eb419d1af82a1966f01c536014d216d172743ddb14c86be6",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-string-vector.sfir",
+      "before": "05673cf5e5900c31b637b786e2e2c98624f5d2959b3dba7ed90e2f9d44902de3",
+      "after": "98de1ccf3af29544827f51d647799c0edee49efcfecf2317a4f3798d32802a8e",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-unused-body.sfir",
+      "before": "903f1dbe6ad24e8509ce7add90214dfdb8a6e026ff6d0ac1318640f8be12c420",
+      "after": "b1291ec74f11def9f979cc6815432a8dba95ce7e44456e810d90e8bec18a0161",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-covariance.sfir",
+      "before": "0f5d04da9bf00691bcc823859c81e7c95a52b407de8c858c76d8612349a67001",
+      "after": "7a7d5eded657c860aff0acc9dbd330dea05546fae3b33e3f674aee1e63915202",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-default-missing.sfir",
+      "before": "99ffa4b07959942e1206385c3820a0773f1ef748eac6029bd5bb73c74b3d06d9",
+      "after": "86b072978094a5c88fb4e84ab9535761c9093ed1d5d0ce8ee4d21901695d8c5a",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-default-unresolved.sfir",
+      "before": "402fb80b9b75b7c0a7cd653b89df3f36cd8acf391ea282e0e54345f93621887d",
+      "after": "9b27194b64374461866bfe3dda844bfda8b2148b2ac50f793d950c484fd89b7e",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-mixed-append.sfir",
+      "before": "0737fd03021ebb5e4242422388925637119fc3a26c8619f2356c8fd7061ac0bf",
+      "after": "ae4cf9821d0537204e4869253262f59032743dc4d816b478ad1ddbfee4181c81",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-polymorphism.sfir",
+      "before": "371ba481cfc9f4a5863df0efe7b4c069b18fd2dbe5ba9eaa1d57a306480ed681",
+      "after": "2abfbc1b280139f341b8c19d443910f18fe391770d707c3edfbf67ef84b3ae5e",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-unresolved-empty.sfir",
+      "before": "ea5cb2d34a23b296e2e30c8403c15e110af805e88b0adc3e81b91a0c15c9552a",
+      "after": "ad7431a88b7b226e163c7ea8bd1b6ab28e5f92464ee13ac4a4096f1967b10b90",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/reject-vector-write.sfir",
+      "before": "81da16b801cd27c43a755cfffb8916290bff8aa806146448df0dbff61318def0",
+      "after": "03f35dd43764f514ca74011f5ff614b647778527f9b0445b30d08b0ebc8ebc40",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/scalar.sfir",
+      "before": "3b03aafb19ac017e8d3a49fc2fc9472aa5efaa3bc666c2c9b771ae0cdbef625a",
+      "after": "cc2bc5aa6c72b60c516ed974daf1cd3913201da94157ba8c5b6b766b8d1feec5",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/specialized-shared-state.sfir",
+      "before": "5bdab009c4b7f89e18468cdd894c540163f3d0f1fbe6d826162ead5578e095c2",
+      "after": "24219d76f8198c000baf097f822d7831272592d53ce75b5392dd988f6201a505",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-block-literal.sfir",
+      "before": "5c1747e220ceba8908d69aad7324e9f157d408a79f990dac02079d701a2526cf",
+      "after": "d52908072c2847f4159b3fba3fc39577edf1d2ce2d0ededfe7a6403e6aae077d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 10,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-block-range-errors.sfir",
+      "before": "757ca83f0fb73920ea5edce66d68ef5615360f16a07ef83ecd7208996c665468",
+      "after": "6bcbb6c50607c065baf8420e6ab4cffde2988204c67aca8f8744c1a6ea91e26b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 12
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-blocks.sfir",
+      "before": "bdc5899c8ec03e89aa31ab00dc87690b228b009bf30d7dc0e8d4a5a5a4954b8c",
+      "after": "f81d98f74c367435c735a32b83777272cf1fc45b67c906bfbc6eae0b25ad67a6",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 10,
+        "parallel-lets": 5
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-builtins.sfir",
+      "before": "06f9c3a97aa828f428c220a8ebc03bd35aecf3f19f2ec760459ae2baa3b6de5c",
+      "after": "0e4c249eea96d511ecf36032acd168b625559137b86600cac58bfbf4e12efce4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 7,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-first-class.sfir",
+      "before": "21f5eb56660d5bcfdc5ed9a07087c0091038c23243ca92ae0abfb4c6e4010cfe",
+      "after": "85688c1f5eca296796706da4b34ae5135c2f0aedbce8d88c8b58d57484ccd994",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 6,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-literals.sfir",
+      "before": "a1624fb29a256a79b7109626d91bbd5b6744672bef723f77f9406c437d8c24fe",
+      "after": "89e541bc42c077077a424748306413388d18567f5ac5672f1e13946b61f88583",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-mutation.sfir",
+      "before": "75b87afb358ee8911a12609f090db182fbaa9e38cc86903b10f7084f9f6da0e1",
+      "after": "d65c432225a47fa2a834814885e325edce853e464d1d7764d2661d1f2f584c53",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-range-errors.sfir",
+      "before": "bc98bf4bb3fcaba172f8df4abf760e4c01e2b0b4b60b4f55c945e5c4ba3599c8",
+      "after": "64f451ba6be4e4d7b970aa82170f6fd9c4e07a6dcdf45b904e2e9745a7582521",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 21,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-readonly-errors.sfir",
+      "before": "38a7a584fb185953b6db3ce049e4e04247ff9ab6ee50cd16055ad0ee6469466b",
+      "after": "2ebe0a3f65f420cc1e76a3704a68ef03ab69668c54a9429d9b77d634b9ebab87",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 10,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-top-string-trap.sfir",
+      "before": "35fa8d4487bdb3ce44c18081627d81bbbcd2d998f15a57eff0d4a27ff0c07e80",
+      "after": "d442ba9866ed15101d7e0c6c25b7e9cc557a7a15f9fc7e9e68f8807c2ea2abde",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-top-vector-trap.sfir",
+      "before": "28829c98b1abb0452a7831c84faeebbd27b0c4d8d75593fee08ef1657c35a55a",
+      "after": "5f6a53b32b77cf7614f639bb1a2247424fc4b0ead34675ff06f035ea1f715eab",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/string-top.sfir",
+      "before": "a3de136496cdd17c7639719e88487c1e1d71d4c7e0db901fe944a427830a96a8",
+      "after": "4cc2821eb7e733d2157559b35bdc0cd7ae0ec044a670c36e446a9812751a8e85",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 1,
+        "value-definitions": 5,
+        "any-types": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/tail-recursion.sfir",
+      "before": "c43b358a9e3637fe75c8195cf7e21088c1cffcf8c49016036213c50b41ff23f1",
+      "after": "def1f3795d4709420c54a97140ef1c6f7d604803defb38937c0118782772aab0",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-character.sfir",
+      "before": "7b0a406a091ce0dfd67279fb1375c0e211b4165efb18fde33382a72228c09c68",
+      "after": "0068c48b515b6bb3bc6a87252ce8b52db35f2c6ae617b1c36da6c69e2440863c",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-float.sfir",
+      "before": "396c67e6f038459c76b903c66104dc50c1229e4c01e0ceecdcf492dd51ec582f",
+      "after": "9b64f43c97bd9de12137be7acc561531d62f3944c0b7a28c1104bbe197f2b66a",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-integer-boundaries.sfir",
+      "before": "653e7510afddcf508d1576f4b402c689178193d3d6cb60a3b19c3f1849653903",
+      "after": "8153d455f7df94eb673c58d0a99e1b198ad0c7a9934562312d5cd311807aa952",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-integer.sfir",
+      "before": "9ede83b9f9cdd3ecca9efc975195775e2a87deb652b2b2760aebfe37449af27b",
+      "after": "554099a671232d113b16b318e0a54b4952f2e3f9036b982105a0b2505776ff50",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-never.sfir",
+      "before": "e3eac5b998b09cae542617af33e555f06073ceaf1b2b2bcdb76ab99d01c5b448",
+      "after": "9c3a93a4f6823fce464f10720e25f50e73837d95dfb24fad8043043655b64ac7",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-procedure-wrong-tag.sfir",
+      "before": "b75dbea660c4c7f788ca47158486a4a587acb9ba69cb8f5640ccc9b947f0cd74",
+      "after": "ce61d487aae53a361c5e1fc8725cdfd431c4b327f412b920fec6f4536879d902",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-procedure.sfir",
+      "before": "ce7838eb7243575873c59285c0a95b1fe7d983b293ae4de5881ec11f4e414144",
+      "after": "2013ad7a23e214afbaea090fef4f920199048c706f42098d5e675643adfc9652",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-reference-wrong-tag.sfir",
+      "before": "09a93cf907f4f7e17340b244ed89fda120ff197a516469b351344e5014b66803",
+      "after": "167627d3c260b280c6c12d4c7d4ce8bb2d023aa67726fc5d90cbae7ad5545481",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-reference.sfir",
+      "before": "37302b3907fb76a92d4b63283f7e48b77fd91648456ed9a5f5695b76999ca1bb",
+      "after": "0d0f8f3732b1262dcf75d044beba8184111483231f365f37e9a97f8ee6ad5df4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/top-wrong-tag.sfir",
+      "before": "65b267557d1f0d930ad0188ee61da92b9990f5ffabbfb4da1aea80b9161ad790",
+      "after": "60a6eafc707bbd91b43a969e3e6b03cbb9f82dec8b82ee25c8fa639d3c5af35f",
+      "changes": {
+        "base-imports": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-member-initializer.sfir",
+      "before": "1c5a781893ded1ae719ff9ae0ee708a754fd23c92b13f94facaeb911d88e7412",
+      "after": "fed0cdee9f1f1495ebe69a11774b4bc8068082b7e4ed1ee0ebda34b7d8579982",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-method-value.sfir",
+      "before": "e478f7f15fdc66294f48bd1f72e42601b72a49f50599a2fbcae6a1f6631261da",
+      "after": "79d36436ad8c2e92fa14ebfde34372ff2523af67b089fd10e019f405dca33aa3",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-multiple-parameters.sfir",
+      "before": "29c4209ad7ec29ba0c6ded839e734ee99f3eeb55fb935b7a18be824af49ee7ae",
+      "after": "9d391891ad7a55733a53d7910a6a24b53c6cd3249b09e65728a9dffc8292d950",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-phantom.sfir",
+      "before": "b31da82ded2b07b3ddf6d39003f8d74cae6a615769ff2839dce904324c42e7a6",
+      "after": "fedbd5d9a9ec36f9aebf0410cff4edeaa69cc6f1e304bb44b03bec91a67ed77d",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-rest.sfir",
+      "before": "9bb896542c0b2338794bf3118fa17355cb5decd0f6e38a1f0d339b9ae48c355b",
+      "after": "832b02c60c52759833bc89d6ce4a5f400114a0d88840c56c548f8c3333866475",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass-result-selection.sfir",
+      "before": "8e8a0becb5a3202c815cf04f726bae4de29383352ec78ba99558a3c8de3d37fe",
+      "after": "5f9752163af6478d003102c983219ac08f25225946f01b868050699933853b85",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typeclass.sfir",
+      "before": "5bc879c5953234861037698e487b74dc664614f36415d2ca98bdf7d98d992a86",
+      "after": "d4f888494c30c05c7fcacea957ff695854ae6e36e0332bf92d3d4dec276ff899",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 2,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/typed-rest.sfir",
+      "before": "564ab8feb863fea1119d29ebc4ecc51fb73f5a1665745e6fefcb5afa9596d191",
+      "after": "04bf8da8b485c0a999b0f3cf430a6a0d65d3fece6f075ea66e6030112e6b0475",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unit-control.sfir",
+      "before": "1f1e7ece3a540b702c18deadab597d0ce8123018b55f54ac4344b8aa12288bfa",
+      "after": "6c395c7e53e4df99d6035dff3351fbc8240917a15d662152516cb4076f8dd1bf",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unit-tail-discard.sfir",
+      "before": "72e4174e659627738457bc758bf8c108bafb1bc2853f891349ce8bd7d02dde8d",
+      "after": "207cdb2b5875c191a8c93bcdc95d9e65e29313291f5a84af7c4bf7b3b57047bb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 7
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unit-tail-effects.sfir",
+      "before": "94b62267c0b3113cb72b0c8d4a97db9e10694ec447a374436bdc82085eb4f128",
+      "after": "f69a49e1b6b77cef958a71f8eb064463bd56ef30689f5a6082be793b818889eb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unit-tail-recursion.sfir",
+      "before": "aad7efbba8530abb86ad3b0df6982676dad0d83f362c79ac1a3d7a7ee0a9dd9a",
+      "after": "0afcb1583e4c695152e0edde7e921c7a4860227d147db18e2e8017a2fabfe897",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unit-tail-traps.sfir",
+      "before": "9e7e7d02f72f27340b8ef2a228dcb79e5b5331a2e3e430b0eb593a48b53a47b5",
+      "after": "0ae4dd3b657f07766fc6061b00bc1db677b11038fed65ed3016317e195e79883",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 7,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unused-annotated-forward-alias.sfir",
+      "before": "11899bf0ea1c48e686e97bb4bf925ba90a19eca291e32aef8a9fa41376b04456",
+      "after": "58f78bce41e90026fcf8309581d0a18e02e03cecf6c76b326261faf3fcc4b9f6",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/unused-forward-alias.sfir",
+      "before": "49f5eb6aee290c18881392dc967334b791d2f27f6b7902bede02c7001163ecb5",
+      "after": "736ff9d9412c7f6bebddce5252af726d2e51518c108d148dc47ad6a2beaf9fe7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-builtins.sfir",
+      "before": "3d3dcfc94a360265c29ba2cf2bca418a1f6a9988ed78d3fba4dc6d50fbee0935",
+      "after": "0feb7ef62321a96127e402fdca69a781f26a85d1cd5c4550ad645ee9c89572fd",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-character.sfir",
+      "before": "57eef045319399be49317acaf2d7a03bf5e0fad0c39694ddfee8c42cb55e5db0",
+      "after": "28bac72e82e84511bd38aa0fa7bb1d8f71925e538fb43d2a9b574c86db12cec9",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-conversion-large.sfir",
+      "before": "0b99292f5b66be095db5153df623899c5005c445d858681e206b6cdb0c0e16a1",
+      "after": "cbe9517f31b821cbfe3f120f8040e721408731d656b3627f59e595911917d5f1",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "empty-list-values": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-fill.sfir",
+      "before": "739a86a63fc85a937a3c9f6012ce38b5896fdc4ea669d4e93a5a7b5569a523ce",
+      "after": "76e34b4be3c59546bc1d27c40573ab160511fb2cdc0644d9c10a5e2b10d0198f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-identity.sfir",
+      "before": "ef98837b25217ed33b5ab93f539b380cfc433d879034cf11345872db9e4d49df",
+      "after": "cbba3dfdb98eb7a2c7a4e5afb183ceed45e053d749e73c23ff25060fd83755a7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-large.sfir",
+      "before": "00c5e6866b5e32a26bd7d3dcc259aff9a98834cc868d922618febfb93086a997",
+      "after": "81880674f854b1e4284ac3a7df40acf142e60ad1da7b135d3416c72c9bec8137",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-negative.sfir",
+      "before": "2a228acf92f8a26cdf9a0c0207d187f9fbd5d397aae4bd7fceeb60c5314578ca",
+      "after": "18aed54e715f4752db2d51fc4e4bb559613e9e842d58dbdab59ff72cae09cb0d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-overflow.sfir",
+      "before": "d954a825dd3c11a3048d169cfae44be3b086eac454fb680e12483c6997b742d7",
+      "after": "4c6fda8fc1ed593189474e0376f42e70c06fe1e17fe27f7800604708e87e96f2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-shared.sfir",
+      "before": "f77628b10ebb10af587ea6373c0df529dbc4dff154e24a6da43442b85818f69b",
+      "after": "a1194ad9323252404e25b1aea1dd47dd301ce7db40baf02be403de9355ebc45b",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default-trap-effects.sfir",
+      "before": "567d0e73ba94e3e5acc9cff38928f565d138678b157a6530b7f86cc231aa0b6e",
+      "after": "b2c88b238e0bbf9d269bac1c2043b3fe81a747de507e6d5e8f5d8aaec419b9ad",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-default.sfir",
+      "before": "e3e61fac2e712ae2f6c98cfa1b4dfce3f3f539a6a02f1d99901db7ed04b42e31",
+      "after": "ebe19081f42bfc7df393c7d503d68afbe18feda5c733b54a7dbb4072e767d0df",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-float32.sfir",
+      "before": "deb99820183a28fe2896a5f15a6e1aa5f02f91a40563d4d1e9152d8694f7cfdd",
+      "after": "7a6044781bc10b5011b3d8fde3f13893e43a2a1d0442cde7d32ba0bea334d639",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-float64.sfir",
+      "before": "a766fcba02b500db9513c8d162310f1dd4917163b646a8ab2cdc65b7ad78c296",
+      "after": "6cc51589ad190b408516a40eb6742dc8cb39311cf01055b0ac1f23585bc658db",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-i32-bool.sfir",
+      "before": "c8384a94cab0e144ebecd7d9af914c70fdcecff0b876efda2692fa53a7045486",
+      "after": "75cfea9d968cf1e97633bf78d81ab8a0ffaf8e4d739c506913c28122bcbecec4",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-nested.sfir",
+      "before": "10cd16ac4a3977fcbcb7694435302103c43b0350d5b840860bcec513a7c8493a",
+      "after": "7068bda8cbca4c2423f592694edf57fcfcab1b2a3a03c046d9df0a19a6043585",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-never.sfir",
+      "before": "9528d0bd77168dd8d01c5c38233a59233ae0248cab892abbcb495d26c9f4136c",
+      "after": "33a9ebbec4fafaf78c7236554a8a7d57aa9a5bef3d29fe274caab59a2de939df",
+      "changes": {
+        "base-imports": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-procedure.sfir",
+      "before": "177cd71220daec404320fc00780002c1e314ab9d3a694267abcde6b90ef28672",
+      "after": "d55358c07b2aba54854ed6008da61361d267c40e4e92d0d21a7398d458b6d8f1",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-reference.sfir",
+      "before": "9e23ac343ace668302909d58e467a21312a8c53a6838737b6ad2280642222a2e",
+      "after": "895a4514b6dcf8f70d50f1810eebca4390e0bc3fc698896ea35974ceaaba16e2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-state.sfir",
+      "before": "8f5cb8f0c9978acec1b6c3cbfc88933a2b3ad37198bb0b2ed829e330420f049d",
+      "after": "e2bd845ec21cea4def4a41ffbc331e49ebfe27ad8b3f8b6ef4362d79eb39895f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-top-elements.sfir",
+      "before": "7724033a14627aed0f47c9112370c2bda1f5e7280a36cc620e888c0dcc880386",
+      "after": "01c2d31bdcfbb88be2b9416765bbf6179777e7045e29599d3b4d443eac6333b2",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 2
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-top-wrong-tag.sfir",
+      "before": "a22933d04456746dc68863157ddccbc60a387e778b62ed411ca689b67ebdfb0e",
+      "after": "d5ea2778de12b78ad010c34228c534160e9b999a904893c117cdfefb0fad6a5c",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-top.sfir",
+      "before": "b33ea2d19116ddbca479c80a3a597d3b1bf63d37021c9d33307b17f0b0863fbb",
+      "after": "448838c2796a7c7807b39c1ead9d5b67197007c1289235f53258617b5f28f861",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3,
+        "any-types": 1
+      }
+    },
+    {
+      "path": "tests/sfir-integration/vector-typeclass.sfir",
+      "before": "1f141ce73807807af6a12cd3cecdeea53645ea71cda30d9e726d1f14d2eba3c5",
+      "after": "e73203d522796781228ba35d16726fb94e79a96a639c486d7a31e48facb1c75f",
+      "changes": {
+        "base-imports": 1,
+        "static-definitions": 3,
+        "value-definitions": 5
+      }
+    },
+    {
+      "path": "tests/sfir-io/input-main-trap.sfir",
+      "before": "c9443f9e5bab30b82d91197815ff55371504ff6a1f7020a5270ad98cc1c04451",
+      "after": "4756845f0571165678a71d5654fdd69d7a0bb2f64f016ab5407950df1f5f3447",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-io/input.sfir",
+      "before": "2b2b104426302ff333ed5ce22a61d8c2fab1d3b6a4c96334a5c95ecf8db4eccd",
+      "after": "3ea714f8f1368d81ba887c9664c5c35fe3d07ec12864d6cadba4a02def719a32",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 13,
+        "parallel-lets": 8,
+        "simultaneous-initializers": 2
+      }
+    },
+    {
+      "path": "tests/sfir-io/main-trap.sfir",
+      "before": "b78a1b3d3967f17aad9a5ba505cf32a56198676c2de8b43217fb9acb685d669d",
+      "after": "034933f97f6e11772833d18c2eaa26a6ac3394db6034201da6835a1055a14080",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-io/output.sfir",
+      "before": "2fc597f1c4c8a07834c4ed39c072b39191c486afdea3cb31f7faf3767ba529ef",
+      "after": "b2d6fbcfc7ceffab09c2ad7e26f1fb374a98d43cc886029f41fd0f5e81214f00",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 16,
+        "parallel-lets": 4,
+        "simultaneous-initializers": 2
+      }
+    },
+    {
+      "path": "tests/sfir-math.sfir",
+      "before": "3a81be8e8bd304e0c72e889a3e8578fbb0101c809a4136bfb2122272ce910d27",
+      "after": "13d8dd71757608b9e47a1f996ebaf3637768ab3ab71094eed37709ecf3a94445",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir-numbers/bridge.sfir",
+      "before": "9705e0de171505f23a6a7a3f20cf63a1f0ba59b1061a801016d7efc1a7e5e27b",
+      "after": "bfb64ddcdad6e9ffb1d91b48c49ca265232df2e84f35cbfa77cfbc73f01be03f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 18,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 8
+      }
+    },
+    {
+      "path": "tests/sfir-numbers/domain.sfir",
+      "before": "452888ad17e40103d95365eb591beeb8a01ce8cf5498fda368fcbee022a3d881",
+      "after": "3fb8211d11b5c2eddc6783a01d87d369b0cbe54c6bcea99f6e7e7793452b7a8f",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 13,
+        "parallel-lets": 8,
+        "simultaneous-initializers": 2
+      }
+    },
+    {
+      "path": "tests/sfir-numbers/oracle.sfir",
+      "before": "380f87c57b9fe1402d9a98ebfbc30f1361dd25a6dfe9b4cff4dff3a5b258ac15",
+      "after": "1b80dc18befe9bb91d42d37800c2534146eca862a0ded813776d46065d8a75bb",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 9,
+        "parallel-lets": 3,
+        "simultaneous-initializers": 2
+      }
+    },
+    {
+      "path": "tests/sfir-reader/reader.sfir",
+      "before": "1e22794d5f7c2ed0b9fd715181b6e16bb480354a230ab52ca40fd640cded056a",
+      "after": "dc511a3e1607c76f68a2c61ec0598d0e61fe5aab43b8c73f09622f2bdd11a0bf",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 16,
+        "parallel-lets": 18
+      }
+    },
+    {
+      "path": "tests/sfir-reader/scalars.sfir",
+      "before": "467b06082577fdaa407a73b2fedd4e48464ba59db4fa9d99caa052cc24ce4730",
+      "after": "a0838807aafc36c7f2a3360e1986a8c28be942a5a9283125c6b7587438435868",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 2,
+        "parallel-lets": 3
+      }
+    },
+    {
+      "path": "tests/sfir-text/text.sfir",
+      "before": "d9a3f97dbeb0321bf9b6217ea78f9a604b9d906a4cc8976999f86e63e3145f21",
+      "after": "a8c04257e7316641514528e1fa2b1be0c695832c530c1c788fbc03815a1df06d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 20,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir-write/output.sfir",
+      "before": "611fb5972eb38bd0c210138e8c7a140bcfd6f6e574f6d0c8d99280e2972810eb",
+      "after": "9b78c28d532f2a2c1a824f06c494c51420b48879d94c83d99cce49297ea84ba7",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 19,
+        "parallel-lets": 20,
+        "simultaneous-initializers": 4
+      }
+    },
+    {
+      "path": "tests/sfir/reader-input.sfir",
+      "before": "0de5ef5b6429e853c4baa4f5e697658fdea643b04da183b00ddcbb4124ba4072",
+      "after": "0c04a625c3d6935e6d870fe9866095a63eda3eac3bd22e19c9e36db6f6bff11c",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/scalar-services.sfir",
+      "before": "16e355077c0f8f8dd1ab6f9a002c5dd967fcdee61e125943be89d3b42768f199",
+      "after": "866e1fe515031fe979589eb23ff56453ec8816e897af54c16acd8fe8f43f822d",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir/scalar.sfir",
+      "before": "b484b30c07c44ac6fcda70742f900dd60064ef4e35f0a742ddae72501d249daa",
+      "after": "50eabaac9fd175fdf1e42c0a5b9a8d7367fa1afc5328c29cd9a9ad7e686eafab",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/standard-input.sfir",
+      "before": "cfb9e9e596f34823f86b074dae8979689de8c88c84dd7a98cfddc50596fde155",
+      "after": "8aa25d82e9c485cec887e62122edff4436eb51066e92a6708688df83714ce7d9",
+      "changes": {
+        "base-imports": 1,
+        "value-definitions": 4,
+        "parallel-lets": 1
+      }
+    }
+  ],
+  "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+  "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+  "literal_spellings": "Verified unchanged for every source file.",
+  "comments": "Verified unchanged for every source file.",
+  "validation": "Eight migration unit tests pass. All 30 accepted authored programs execute on optimized V8. All 42 authored rejection contracts are verified; five diagnostic assertions were corrected and rerun after the initial campaign. This source migration is not full benchmark execution evidence.",
+  "renames": {
+    "lib/sfir/core.sfir": "lib/sfir/base.sfir"
+  },
+  "embedded_sources": [
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/shared.sfir",
+      "before": "1092fc43a178c3e11ca441ed246313cfc263accb41b2ffbcabd6ce9782d659e2",
+      "after": "dc9b0200950ccafcd9c890a3291d5b9ba764876cea391826a7f3ea9ae91043c8",
+      "changes": {
+        "value-definitions": 1,
+        "static-definitions": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/left.sfir",
+      "before": "0cf1edbd207027eb240e499ad694706939e9c80a659679f792b74fb48cfba931",
+      "after": "440b39714e2ce5a29b0afb5b3e906cc3cf04b1ffc2818d4b9b7784373aacbf8d",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/right.sfir",
+      "before": "891b75fc793431eab73afcd5cda83f2441999499f64d51df04e5b7d1c553d34e",
+      "after": "c240c0ff3802a675ac41c27b825c151dced2049c6f95ced759c1a683ecc4f6eb",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/extension.sfir",
+      "before": "0599ce826f1792e7600ba1dbcd47c35f42f7bb0dd48f69d39690ff97b2c8dda3",
+      "after": "6a17094124fbb6b9d58db3918976957b2b957a717d21cb26be80915455daa49a",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/cycle-a.sfir",
+      "before": "26be461a1843604e371aa99b9181d95053cb83ffd1425aaf3506603aa099a50e",
+      "after": "f548bec3a339c9915ba3876689984f13937e0e2b1cc06452c7e83fa4e03822d0",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/cycle-b.sfir",
+      "before": "c90af727766002492f2b807329919a24aa702d806451b6434c7ed29255c88d63",
+      "after": "8787542049376863b15e55786c87c9f12ddd50abf3214b079b3075aee4602207",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/wrong-name.sfir",
+      "before": "819c41561a0f2fdd5f15daa189376067d02ca57a2879776c4c114134aaf5ee4e",
+      "after": "8f4b9800302457ebb0ba7801855019272d57184f3bf2e66451336b20b6efd160",
+      "changes": {
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "MODULES",
+      "case": "test/conflict.sfir",
+      "before": "446022684a69ba3c247b42e4a34beef8d059ed0bab84441e1ccb6a3ea1fd069b",
+      "after": "5c37e05afa634459b0ed350f6813cef69793c2e53ef0fed040bc937edca134e7",
+      "changes": {
+        "value-definitions": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "scalar",
+      "before": "0894e22a2a898ee3ee6b94721f2f145a45f6b0221b58c121112f24bf65758906",
+      "after": "47d939f74135c4fdaccce798939ae6d48ee87b15977085ad67d27b8a1bcf6717",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "inferred-polymorphism",
+      "before": "6cc4cfe3e1e569b7d62c61e2a7bc951b590b2d76766fd52a0dadfe3134a414f6",
+      "after": "e34b3eac69e2297cef5cf06cb73cf4ce8e056ebf493620a6642ba234d64c4ecc",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "declared-polymorphism",
+      "before": "37192c5bb9ac38b67f743f90ae9facd87dabe6c6c808c9f45c6f3f55dac98ec0",
+      "after": "dc2019093a28f6fab84803f280655163ce81bd8025591e17e1e19f4790ab9e89",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "local-polymorphism",
+      "before": "074465c871b58e6e09575f935bf9c74b4af47fd6fc179bea5324f6c05874e59d",
+      "after": "42e772b91d957d4f7588685a80131aa2e6c0bf9cd1bd938d3d7207f30322f3a2",
+      "changes": {
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "let-outer-scope",
+      "before": "e7c980935cb657c283d4324b1b00f9ea8bec7bb8abee90a40a92d7b3fd35a757",
+      "after": "9ff0ad22cbaa81480778923e70d343e33061c4d029cdda91a9133a7685673971",
+      "changes": {
+        "simultaneous-initializers": 2,
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "let-effects",
+      "before": "6502c6e7d574fdb41e0d9ea916b28122b02a816d22c13e04ef1dd2cdc8926adf",
+      "after": "f8176aff893493f0266c949f325f7363a6f3ca76adb774918acaddedd7f993be",
+      "changes": {
+        "value-definitions": 2,
+        "simultaneous-initializers": 2,
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "call-effects",
+      "before": "6c8063f21904c9babc6b6ca4992f2095e8f9372ce87df02da11009846779b967",
+      "after": "35e9e0c4e5be2cfaf306f9c3038084cf570abf0b147dd75c63f762b97e4e3658",
+      "changes": {
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "block-shadowing",
+      "before": "5e0dd992bac25547770b4e548ecb23a11ee48dcf43e47fc9dedf903692908f6f",
+      "after": "bd9df86fb9929ce6eea8ebb1e86c1caf5ae80fd9c32af4109f6b3acc1e02d1cf",
+      "changes": {
+        "value-definitions": 3
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "recursive-block",
+      "before": "f8b67e10910b62fd4b4f2af6a59019c885c75b9193e56d3892b0cadea46c773b",
+      "after": "4d1f4c7533e6e897adf5b0f02fa245f2c60fbe6ead230c2db5a6b7916b1550e9",
+      "changes": {
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "forward-read",
+      "before": "fe7445b4315857d1cbd1b4f2d5433c6a00b3f6d6a8cf8a3d422f95bbd029f88d",
+      "after": "63cbac1c5014ff6c2d7bfe4ef5adb5095208622b383a07378335e8fb544c7e80",
+      "changes": {
+        "value-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "class",
+      "before": "2c6c9ee25c1bf288b96addf9f237fe676e79392f259fbccd0fae9940b4973b8c",
+      "after": "a46e32a5df0b7c49f1959ac78490123518d74582ddd0b32a23897623e6788393",
+      "changes": {
+        "static-definitions": 2
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "data",
+      "before": "6dfdf5a4d5725e157844477efaadde672085564ab7c81436d72a9aa65c865702",
+      "after": "ece1fc47df51db2e2675faf5e7cbb15217c36b8d9739059e7f6a6d2ab95c78b7",
+      "changes": {
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "quoted-empty-list",
+      "before": "035c7b3a8c07feec7964e320946246959dcbf88b2c87cf4c1587db48f3569868",
+      "after": "2b2c9ba90bc86b8a1ba5ec0bb3137b4b71def122c449ef840c33da7680e7f76b",
+      "changes": {
+        "empty-list-values": 1
+      },
+      "target_case": "empty-list-operation"
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "rest-arguments",
+      "before": "dc63f66df5bee4c42ef43eb34b058654543eec802dadab52328b441cf8ecf540",
+      "after": "af6f6120c3b45c1708525970ed032bb456b6973f3e3844a50149266684ece20b",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "reference-alias",
+      "before": "38f7cee3ad4aaaa82541097b161ec2e93166359b1201c790cb22297bc91f83d5",
+      "after": "af0f330ebe3623ba25891f6a01e95f469b13eada6c56a6df6d807655300023d0",
+      "changes": {
+        "parallel-lets": 2
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "PASS",
+      "case": "module-program",
+      "before": "1732a033ba765cb1508dcfb9c23107b7f05ae31b393f97303dcc0e1bb8d6c4fe",
+      "after": "84149c06f185fcd8e612fe1ed12668fb4cac60aba688656e5f62c7be1a4767f2",
+      "changes": {
+        "value-definitions": 1,
+        "library-descriptions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "function-shorthand",
+      "before": "2ed1ef28015e2ea60b0e3e667301c8ab0b1510cf1264d61d707165e959b73f3f",
+      "after": "3ae0d48c922a29a763b4449de132e251714dce6a8d6547f3f17ce061d02f122e",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "definition-only-block",
+      "before": "a6512d4b8fd9544a5ae5bde03fcd441118c16bd0bae347232f519326e4969bff",
+      "after": "4f7c2a5d982d0c3aadab91f0a30613530c0279dbb633a955d9a0baf1a1167838",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "declaration-only-block",
+      "before": "96dd04edad83a341b5691660e305c5c781be6c22d4f80693de0b3a7fc897d116",
+      "after": "4fd90ca100d473da4204ddccf6353236ae647142cf69756f74827ab2754bcde0",
+      "changes": {
+        "static-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "detached-signature",
+      "before": "d57a01d5f0285195c55ca570a352040c8b07398e4ef640dc890f55bd7e14f428",
+      "after": "359815aeae3d18e90dae47f76201e6d89fc4af2a22fbd81f78147825fe593f6e",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "immutable-binding",
+      "before": "755538ab29a86246c3dd3bba937eae7ac4c44bb1a022b056ecc7e51932c36381",
+      "after": "c55c4f8c12179a5375d17a910d5fe6a1072e2779dad3e49d203f5d7beb505ef3",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "unused-macro",
+      "before": "11936473220472f29364eb8249e9326742ab2e918b2692b4c2bfaae7e137773a",
+      "after": "7b7fa1453046ee5be0fcb1b4b42c4505e6346d810aa46aedb0a199794dd116f7",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "rigid-signature",
+      "before": "f6f464b87ff385bbd19b9f1abc7a2b6db6030dc60f1aaa99ef7c9b04e327e50b",
+      "after": "81cf145ae6b024217e10324758c2386f65af0d909079c930f8a1d38558dbe873",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "invariant-reference",
+      "before": "373c9c60282e62a2f821fb83b545938c26bd200138c0654ef5d53bc9da89c993",
+      "after": "a55fe80c60800a90e87ae25f1a90c705652020d23f60ec0ecae924e63cac3f7d",
+      "changes": {
+        "parallel-lets": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "nested-all",
+      "before": "e3083ac9aab8da6b3fda8df60ba7aa79682fd17ca239481a479e1797dc3e39d9",
+      "after": "699f2261d0eb2cedcd3adbd5389421b984ae289b620e7a8fbd742435fe1bcb54",
+      "changes": {
+        "value-definitions": 1
+      }
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "group": "FAIL",
+      "case": "module-empty-name",
+      "before": "e780f2da534a49b71c8c07da92adb1b1d2b72c9c7dcbf7d3a47b8d191977538a",
+      "after": "3f5ca8555b0c057cbf6738741122fc4a6c4bddcb58a6f6ea2045e46f54545144",
+      "changes": {}
+    }
+  ],
+  "authored_contracts": {
+    "accepted": 30,
+    "rejected": 42,
+    "modules": 8
+  },
+  "support_files": [
+    {
+      "path": "scripts/test-sfir",
+      "before": "47b1065c2565f7712028df34f00a1a10e264826cdacd5f7e28dea6be6692fcfb",
+      "after": "e2c34a210b6ca4940f02c174d9891a8446cce8cee507197fcdf550d0edf0d679"
+    },
+    {
+      "path": "tests/sfir/contracts.py",
+      "before": "270bf3519d61c2e08b7d096bfed4f3335f51321453fb2a080c5fcc88cb9966df",
+      "after": "2320f687e6f9f0fbd3c3aadfe813408ad2e787c38881a40837b395a420a70868"
+    },
+    {
+      "path": "tests/sfir/command.py",
+      "before": "f7bde76f8345429202b9b21fcdb4fcaefb9e1ff6fdc6abdbd2e21403b3a52809",
+      "after": "6bb9444e615d5edc799023e178409fd40373f78fa805c26f7c676d616a7f1d4e"
+    },
+    {
+      "path": "src/snail-scheme/reader.sld",
+      "before": "215db3cf4878f121c3f78c4432f6943c2e8b79abbe45e4c1d3d0848aa11b9f38",
+      "after": "80892fe332d9727086f2a435455a4ff84a1ff7b305d65682112369c71b57eac5"
+    },
+    {
+      "path": "tests/sfir-integration/cases.json",
+      "before": "bd2296fdaccc7af81bc9e57a9461ec345c46aadb58358ca18f537113ce320613",
+      "after": "872486384237b49b3403da7548172b32fddd37964e3d037eafabbf094570fe8c"
+    }
+  ],
+  "scope_notes": [
+    "Numeric literal spelling and current numeric inference are unchanged; I32 defaults and checked overflow are a separate implementation slice.",
+    "Parallel let initializers run left to right in the original outer scope, before fresh aliases introduce the original names; existing begin scopes remain intact.",
+    "Earley has the only newly reserved value binder: its def parameter and resolved references are renamed hygienically.",
+    "Local datatype fixtures intentionally become rejection cases because static definitions now require library scope.",
+    "Existing benchmark provenance, canonical inputs/counts/predicates, Chez/Rust controls, and archived execution artifacts are unchanged.",
+    "The Compiler and SLaTeX full drafts are preserved outside this tracked-source migration and still require complete target validation."
+  ],
+  "validation_commands": [
+    "python3 scripts/migrate-sfir-surface --self-test",
+    "python3 scripts/test-sfir"
+  ]
+}

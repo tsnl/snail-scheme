@@ -1,4 +1,4 @@
-(import (sfir core))
-(define values
+(import (sfir base))
+(def values
   (make-vector 1 #\λ))
 (vector-ref values 0)

@@ -1,36 +1,36 @@
-(import (sfir core))
+(import (sfir base))
 ;; Gcbench's top-down writes and bottom-up construction with explicit Ref
 ;; child slots. One shared Nil replaces the original numeric zero sentinel.
-(define-data Tree
+(def Tree (datatype ()
   (Nil)
   (Node (left (Ref Tree) node-left) (right (Ref Tree) node-right)
-        (i I64) (j I64)))
-(define empty
+        (i I64) (j I64))))
+(def empty
   (Nil))
-(define make-empty-node
+(def make-empty-node
   (lambda () (Node (ref empty) (ref empty) 0 0)))
-(define make-node
+(def make-node
   (lambda (left right) (Node (ref left) (ref right) 0 0)))
-(define populate
+(def populate
   (lambda (depth node)
     (if (<= depth 0)
         (unit)
-        (let ((next (- depth 1)))
+        (begin (let next (- depth 1))
           (begin
             (ref-set! (node-left node) (make-empty-node))
             (ref-set! (node-right node) (make-empty-node))
             (populate next (ref-get (node-left node)))
             (populate next (ref-get (node-right node))))))))
-(define make-tree
+(def make-tree
   (lambda (depth)
     (if (<= depth 0)
         (make-empty-node)
         (make-node (make-tree (- depth 1)) (make-tree (- depth 1))))))
-(define size
+(def size
   (lambda (tree)
     (match tree ((Nil) 0)
            ((Node left right i j) (+ 1 (+ (size (ref-get left)) (size (ref-get right))))))))
-(define top
+(def top
   (make-empty-node))
 (populate 4 top)
 (+ (size top) (size (make-tree 4)))

@@ -1,10 +1,12 @@
-(import (sfir core))
-(define cell
+(import (sfir base))
+(def cell
   (ref 0))
-(define record
+(def record
   (lambda (digit)
     (begin
       (ref-set! cell (+ (* (ref-get cell) 10) digit))
       digit)))
-(let ((first (record 4)) (second (record 2)))
-  (ref-get cell))
+(begin (let sfir-migration-let-1 (record 4)) (let sfir-migration-let-2 (record 2))
+  (let first sfir-migration-let-1)
+(let second sfir-migration-let-2)
+(ref-get cell))

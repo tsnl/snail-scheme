@@ -1,2 +1,2 @@
-(import (sfir core) (sfir integer))
+(import (sfir base) (sfir integer))
 (integer-limbs (integer-from-i64 1))

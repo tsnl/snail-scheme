@@ -1,18 +1,18 @@
-(import (sfir integer) (sfir rational) (sfir core) (sfir datum) (sfir read) (sfir io) (sfir bytes))
+(import (sfir integer) (sfir rational) (sfir base) (sfir datum) (sfir read) (sfir io) (sfir bytes))
 
 ;; ---- Exactness, stable symbols and observable mutable datum fields ----
 
-(define parsed (-> String Number)
+(def parsed (-> String Number)
   (lambda (text) (parsed-number-value (string->number text))))
 
-(define equivalence (-> Bool)
+(def equivalence (-> Bool)
   (lambda ()
-    (let ((one (datum-number (exact-number 1))))
-      (let ((two (datum-number (exact-number 2))))
-        (let ((left (datum-cons one (datum-null))))
-          (let ((right (datum-cons one (datum-null))))
-            (let ((bytes (bytevector 1 2)))
-              (let ((elements (vector one two)))
+    (begin (let one (datum-number (exact-number 1)))
+      (begin (let two (datum-number (exact-number 2)))
+        (begin (let left (datum-cons one (datum-null)))
+          (begin (let right (datum-cons one (datum-null)))
+            (begin (let bytes (bytevector 1 2))
+              (begin (let elements (vector one two))
                 (if (datum=? left right)
                     (if (not (datum=? left (datum-cons two (datum-null))))
                         (if (not (datum=? left (datum-cons one right)))
@@ -29,11 +29,11 @@
                         #f)
                     #f)))))))))
 
-(define check (-> I64)
+(def check (-> I64)
   (lambda ()
-    (let ((name (string->symbol "λ😀")))
-      (let ((same (string->symbol (string-copy "λ😀"))))
-        (let ((pair (datum-cons (datum-symbol name) (datum-null))))
+    (begin (let name (string->symbol "λ😀"))
+      (begin (let same (string->symbol (string-copy "λ😀")))
+        (begin (let pair (datum-cons (datum-symbol name) (datum-null)))
           (begin
             (datum-set-car! pair (datum-number (parsed "#e9007199254740993.0")))
             (if (if (equivalence)
@@ -60,17 +60,17 @@
 
 ;; ---- Independently read mutable fields and names keep their ownership ----
 
-(define storage (-> Bool)
+(def storage (-> Bool)
   (lambda ()
     (call-with-input-file "ownership.scm"
       (lambda (port)
-        (let ((pair (read-value! (read port))))
-          (let ((alias pair))
-            (let ((name (datum-symbol-value (datum-car pair))))
-              (let ((same (datum-symbol-value (read-value! (read port)))))
-                (let ((spelling (symbol->string same)))
-                  (let ((first (datum-string-value (read-value! (read port)))))
-                    (let ((second (datum-string-value (read-value! (read port)))))
+        (begin (let pair (read-value! (read port)))
+          (begin (let alias pair)
+            (begin (let name (datum-symbol-value (datum-car pair)))
+              (begin (let same (datum-symbol-value (read-value! (read port))))
+                (begin (let spelling (symbol->string same))
+                  (begin (let first (datum-string-value (read-value! (read port))))
+                    (begin (let second (datum-string-value (read-value! (read port))))
                       (begin
                         (datum-set-cdr! pair (datum-number (exact-number 42)))
                         (string-set! first 0 #\X)
@@ -93,12 +93,12 @@
 (define-extern emit-f64 "reader.test" "emit_f64" (-> F64 Unit))
 (define-extern emit-char "reader.test" "emit_char" (-> Char Unit))
 
-(define observe-string (-> String Unit)
+(def observe-string (-> String Unit)
   (lambda (text)
     (begin
       (emit-i64 (string-length text))
       (begin
-        (define loop
+        (def loop
           (lambda (index)
             (if (= index (string-length text))
                 (unit)
@@ -107,14 +107,14 @@
                   (unit)))))
         (loop 0)))))
 
-(define observe-rational (-> Rational Unit)
+(def observe-rational (-> Rational Unit)
   (lambda (value)
     (begin
       (emit-i64 3)
       (observe-string (integer->string (rational-numerator value)))
       (observe-string (integer->string (rational-denominator value))))))
 
-(define observe-scalar (-> Scalar Unit)
+(def observe-scalar (-> Scalar Unit)
   (lambda (value)
     (match value
       ((exact-scalar value)
@@ -123,7 +123,7 @@
       ((inexact-scalar value)
        (begin (emit-i64 1) (emit-f64 value))))))
 
-(define observe-number (-> Number Unit)
+(def observe-number (-> Number Unit)
   (lambda (value)
     (match value
       ((exact-number value)
@@ -134,11 +134,11 @@
       ((complex-number real imaginary)
        (begin (emit-i64 2) (observe-scalar real) (observe-scalar imaginary))))))
 
-(define observe (-> Datum Unit)
+(def observe (-> Datum Unit)
   (lambda (datum)
     ;; Recursive constructors are private so callers cannot forge traversal IDs.
     ;; Observe the same nine public contents through read-only projections.
-    (let ((kind (datum-kind datum)))
+    (begin (let kind (datum-kind datum))
       (begin
         (emit-i64 kind)
         (if (= kind 0)
@@ -150,7 +150,7 @@
                     (if (= kind 3)
                         (observe-string (datum-string-value datum))
                         (if (= kind 4)
-                            (let ((value (datum-symbol-value datum))) (observe-string (symbol->string value)))
+                            (begin (let value (datum-symbol-value datum)) (observe-string (symbol->string value)))
                             (if (= kind 5)
                                 (observe-number (datum-number-value datum))
                                 (if (= kind 6)
@@ -159,12 +159,12 @@
                                         (observe-vector (datum-vector-values datum))
                                         (observe-bytes (datum-bytevector-values datum))))))))))))))
 
-(define observe-vector (-> (Vector Datum) Unit)
+(def observe-vector (-> (Vector Datum) Unit)
   (lambda (values)
     (begin
       (emit-i64 (vector-length values))
       (begin
-        (define loop
+        (def loop
           (lambda (index)
             (if (= index (vector-length values))
                 (unit)
@@ -173,12 +173,12 @@
                   (unit)))))
         (loop 0)))))
 
-(define observe-bytes (-> Bytevector Unit)
+(def observe-bytes (-> Bytevector Unit)
   (lambda (values)
     (begin
       (emit-i64 (bytevector-length values))
       (begin
-        (define loop
+        (def loop
           (lambda (index)
             (if (= index (bytevector-length values))
                 (unit)
@@ -187,12 +187,12 @@
                   (unit)))))
         (loop 0)))))
 
-(define scan (-> I64)
+(def scan (-> I64)
   (lambda ()
     (call-with-input-file "input.scm"
       (lambda (port)
         (begin
-          (define loop
+          (def loop
             (lambda (count)
               (match (read port)
                 ((read-value value)

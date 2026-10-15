@@ -1,10 +1,10 @@
-(import (sfir core))
-(define exercise
+(import (sfir base))
+(def exercise
   (lambda (seed)
     (begin
-      (define even
+      (def even
         (lambda (n) (if (= n 0) seed (odd (- n 1)))))
-      (define odd
+      (def odd
         (lambda (n) (if (= n 0) 0 (even (- n 1)))))
       (even 100000))))
 (exercise 42)

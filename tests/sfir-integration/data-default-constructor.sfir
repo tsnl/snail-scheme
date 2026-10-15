@@ -1,6 +1,6 @@
-(import (sfir core))
-(define-data Choice (empty) (full (value I64)))
-(define-instance (Default Choice) (default empty))
-(define choices
+(import (sfir base))
+(def Choice (datatype () (empty) (full (value I64))))
+(def sfir-migration-instance-1 (instance (Default Choice) (default empty)))
+(def choices
   (ann (make-vector 2) (Vector Choice)))
 (match (vector-ref choices 1) ((empty) 9) ((full value) value))

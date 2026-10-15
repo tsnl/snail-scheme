@@ -1,19 +1,21 @@
-(import (sfir core))
+(import (sfir base))
 
-(define make-probe
+(def make-probe
   (lambda (count)
     (begin
-      (define loop
+      (def loop
         (lambda (n)
           (begin
-            (define owned
+            (def owned
               n)
-            (define hold
+            (def hold
               (lambda () (lambda () owned)))
             (if (= n 0)
                 (hold)
-                (let ((previous (loop (- n 1))) (current (hold)))
-                  (lambda () (+ (previous) (current))))))))
+                (begin (let sfir-migration-let-1 (loop (- n 1))) (let sfir-migration-let-2 (hold))
+                  (let previous sfir-migration-let-1)
+(let current sfir-migration-let-2)
+(lambda () (+ (previous) (current))))))))
       (loop count))))
 
 (+ 6 ((make-probe 8)))

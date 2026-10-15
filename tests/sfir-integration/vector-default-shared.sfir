@@ -1,16 +1,16 @@
-(import (sfir core))
-(define count
+(import (sfir base))
+(def count
   (ref 0))
-(define shared
+(def shared
   (ref 0))
-(define-instance (Default (Ref I64))
+(def sfir-migration-instance-1 (instance (Default (Ref I64))
   (default (lambda ()
              (begin
                (ref-set! count (+ (ref-get count) 1))
-               shared))))
-(define empty
+               shared)))))
+(def empty
   (ann (make-vector 0) (Vector (Ref I64))))
-(define values
+(def values
   (ann (make-vector 3) (Vector (Ref I64))))
 (ref-set! (vector-ref values 1) 42)
 (if (if (= (ref-get count) 3)

@@ -1,10 +1,10 @@
-(import (sfir core))
+(import (sfir base))
 (define-overload f (lambda (value) value))
-(define forward
+(def forward
   (lambda (value) (f value)))
-(define helper
+(def helper
   forward)
-(define bridge
+(def bridge
   (lambda (value) (helper value)))
 (define-overload g (-> I64 Bool) (lambda (value) #t))
 (define-overload g (lambda (value) (bridge value)))

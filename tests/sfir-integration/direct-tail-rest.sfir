@@ -1,11 +1,11 @@
-(import (sfir core))
+(import (sfir base))
 
-(define exercise
+(def exercise
   (lambda ()
     (begin
-      (define count
+      (def count
         (ref 0))
-      (define even (-> I64 Unit)
+      (def even (-> I64 Unit)
         (lambda (n)
           (begin
             (if (> n 0)
@@ -15,7 +15,7 @@
                   (unit))
                 (unit))
             (unit))))
-      (define odd (-> I64 Unit)
+      (def odd (-> I64 Unit)
         (lambda (n)
           (begin
             (if (= n 0)
@@ -25,9 +25,9 @@
                   (even (- n 1))
                   (unit)))
             (unit))))
-      (define add-first (-> I64 (Rest I64) I64)
+      (def add-first (-> I64 (Rest I64) I64)
         (lambda (first . remaining) (+ first (car remaining))))
-      (define stop
+      (def stop
         (lambda () (unreachable)))
       (even 100000)
       (if (= (ref-get count) 100000) (add-first 40 2 99) (stop)))))

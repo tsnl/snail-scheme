@@ -1,7 +1,7 @@
-(import (sfir core))
+(import (sfir base))
 (define-extern callback "probe" "callback" (-> Unit))
 
-(define worker (-> I32 I32)
+(def worker (-> I32 I32)
   (lambda (value) value))
 (callback)
 42

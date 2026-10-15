@@ -1,8 +1,8 @@
-(import (sfir core) (sfir math))
+(import (sfir base) (sfir math))
 
 ;; ---- A scalar worker exercises all three shared Rust exports ----
 
-(define trigonometry (-> I64 F64 F64)
+(def trigonometry (-> I64 F64 F64)
   (lambda (operation value)
     (if (= operation 0) (sin value) (if (= operation 1) (cos value) (atan value)))))
 

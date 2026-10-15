@@ -1,21 +1,21 @@
-(import (sfir core))
+(import (sfir base))
 
-(define saved
+(def saved
   (ref (ann (lambda () 0) (-> I64))))
-(define answer
-  ((let ()
+(def answer
+  ((begin
      (begin
-       (define value
+       (def value
          (lambda () 42))
        (ref-set! saved value)
        value))))
-(define choose
+(def choose
   (lambda (flag)
-    ((let ()
+    ((begin
        (begin
-         (define yes
+         (def yes
            (lambda () answer))
-         (define no
+         (def no
            (lambda () 0))
          (if flag yes no))))))
 

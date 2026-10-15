@@ -1,4 +1,4 @@
-(import (sfir core))
-(define identity
+(import (sfir base))
+(def identity
   (lambda (x) x))
 (if (identity #t) (+ (identity 40) (identity 2)) 0)

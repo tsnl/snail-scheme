@@ -1,8 +1,8 @@
-(import (sfir core))
-(define value
+(import (sfir base))
+(def value
   (empty-vector))
-(define read-as-int
+(def read-as-int
   (lambda () (+ (vector-ref value 0) 1)))
-(define read-as-bool
+(def read-as-bool
   (lambda () (not (vector-ref value 0))))
 42

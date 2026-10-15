@@ -1,25 +1,25 @@
-(import (sfir core) (sfir integer) (sfir rational))
+(import (sfir base) (sfir integer) (sfir rational))
 
 ;; ---- Scalar test transport leaves exact values in SFIR ----
 
 (define-extern argument-length "oracle" "argument_length" (-> I32 I64))
 (define-extern argument-character "oracle" "argument_character" (-> I32 I64 Char))
 (define-extern emit-character "oracle" "emit_character" (-> Char Unit))
-(define argument
+(def argument
   (lambda (index)
-    (let ((count (argument-length index)))
-      (let ((text (make-string count)))
+    (begin (let count (argument-length index))
+      (begin (let text (make-string count))
         (begin
-          (define loop
+          (def loop
             (lambda (at)
               (if (= at count)
                   text
                   (begin (string-set! text at (argument-character index at)) (loop (+ at 1))))))
           (loop 0))))))
-(define emit
+(def emit
   (lambda (text)
     (begin
-      (define loop
+      (def loop
         (lambda (at)
           (if (= at (string-length text))
               (unit)
@@ -31,10 +31,10 @@
 ;; ---- Public conversion and rounding contracts ----
 
 ;; Fixture fractions are decimal and intentionally independent of the reader.
-(define rational-input
+(def rational-input
   (lambda (text)
     (begin
-      (define loop
+      (def loop
         (lambda (at)
           (if (= at (string-length text))
               (rational-from-integer (integer-from-string text))
@@ -43,7 +43,7 @@
                                  (integer-from-string (substring text (+ at 1) (string-length text))))
                   (loop (+ at 1))))))
       (loop 0))))
-(define rational-operation
+(def rational-operation
   (lambda (operation left right)
     (if (= operation 8)
         (rational->string (+ left right))
@@ -57,7 +57,7 @@
                      (if (= operation 12)
                          (integer-from-i64 (rational-compare left right))
                          (if (= operation 13) (truncate left) (rational-floor left))))))))))
-(define rational-probe
+(def rational-probe
   (lambda (operation value)
     (if (= operation 15)
         (rational->f64 (rational-from-f64 value))
@@ -68,13 +68,15 @@
                                         (rational-input (argument (ann 1 I32))))))
           0.0))))
 
-(define probe (-> I64 F64 F64)
+(def probe (-> I64 F64 F64)
   (lambda (operation value)
     (if (>= operation 8)
         (rational-probe operation value)
-        (let ((a (integer-from-string (argument (ann 0 I32))))
-              (b (integer-from-string (argument (ann 1 I32)))))
-          (if (= operation 0)
+        (begin (let sfir-migration-let-1 (integer-from-string (argument (ann 0 I32))))
+              (let sfir-migration-let-2 (integer-from-string (argument (ann 1 I32))))
+          (let a sfir-migration-let-1)
+(let b sfir-migration-let-2)
+(if (= operation 0)
               (integer-ratio->f64 a b)
               (if (= operation 5)
                   (integer->f64 a)

@@ -1,11 +1,11 @@
 ;; Packed storage stays in WasmGC. Library loops translate bytes and Unicode
 ;; scalars without exposing a native pointer or crossing a foreign boundary.
-(library (sfir bytes)
+(define-library (sfir bytes)
   (export make-bytevector bytevector bytevector-length
           bytevector-u8-ref bytevector-u8-set! bytevector-eq?
           bytevector-copy bytevector-copy! bytevector-append
           utf8->string string->utf8)
-  (import (sfir core)
+  (import (sfir base)
           (rename (only (sfir primitive)
                         make-bytevector bytevector-length bytevector-u8-ref
                         bytevector-u8-set! bytevector-eq? bytevector-copy!)
@@ -14,14 +14,15 @@
 
   ;; ---- Fresh mutable bytes and bounded ranges ----
 
-  (define-overload make-bytevector (-> I64 I64 Bytevector) make-filled-bytevector)
+  (begin
+(define-overload make-bytevector (-> I64 I64 Bytevector) make-filled-bytevector)
   (define-overload make-bytevector (-> I64 Bytevector)
     (lambda (count) (make-filled-bytevector count 0)))
-  (define bytevector
+  (def bytevector
     (lambda bytes
-      (let ((result (make-bytevector (byte-count bytes))))
+      (begin (let result (make-bytevector (byte-count bytes)))
         (begin
-          (define loop
+          (def loop
             (lambda (remaining index)
               (if (null? remaining)
                   result
@@ -29,16 +30,16 @@
                     (bytevector-u8-set! result index (car remaining))
                     (loop (cdr remaining) (+ index 1))))))
           (loop bytes 0)))))
-  (define byte-count
+  (def byte-count
     (lambda (bytes)
       (begin
-        (define loop
+        (def loop
           (lambda (remaining count)
             (if (null? remaining)
                 count
                 (if (= count 4294967295) (unreachable) (loop (cdr remaining) (+ count 1))))))
         (loop bytes 0))))
-  (define check-range
+  (def check-range
     (lambda (length start end)
       (if (if (< start 0) #t (if (< end start) #t (> end length)))
           (begin (unreachable)
@@ -57,7 +58,7 @@
     (lambda (source start end)
       (begin
         (check-range (bytevector-length source) start end)
-        (let ((result (make-bytevector (- end start))))
+        (begin (let result (make-bytevector (- end start)))
           (begin
             (copy-bytes! result 0 source start end)
             result)))))
@@ -65,24 +66,24 @@
     (lambda (source start) (bytevector-copy source start (bytevector-length source))))
   (define-overload bytevector-copy (-> Bytevector Bytevector)
     (lambda (source) (bytevector-copy source 0 (bytevector-length source))))
-  (define bytevector-append
+  (def bytevector-append
     (lambda sources
-      (let ((result (make-bytevector (appended-length sources))))
+      (begin (let result (make-bytevector (appended-length sources)))
         (begin
-          (define loop
+          (def loop
             (lambda (remaining at)
               (if (null? remaining)
                   result
-                  (let ((length (bytevector-length (car remaining))))
+                  (begin (let length (bytevector-length (car remaining)))
                     (begin
                       (copy-bytes! result at (car remaining) 0 length)
                       (loop (cdr remaining) (+ at length)))))))
           (loop sources 0)))))
-  (define appended-length
+  (def appended-length
     (lambda (sources)
       ;; Check every prefix; the next addition is at most twice U32_MAX.
       (begin
-        (define loop
+        (def loop
           (lambda (remaining count)
             (if (> count 4294967295)
                 (unreachable)
@@ -96,7 +97,7 @@
   ;; No callbacks or mutation intervene between validation/counting and fill.
   ;; Helpers return scalars; decoding one character allocates no product value.
   ;; Both passes inspect only the selected byte range, including empty slices.
-  (define leading-width
+  (def leading-width
     (lambda (byte)
       (if (< byte 128)
           1
@@ -105,50 +106,50 @@
               (if (if (>= byte 224) (< byte 240) #f)
                   3
                   (if (if (>= byte 240) (< byte 245) #f) 4 (unreachable)))))))
-  (define leading-prefix
+  (def leading-prefix
     (lambda (width)
       (if (= width 1) 0 (if (= width 2) 192 (if (= width 3) 224 240)))))
-  (define minimum-scalar
+  (def minimum-scalar
     (lambda (width)
       (if (= width 1) 0 (if (= width 2) 128 (if (= width 3) 2048 65536)))))
-  (define utf8-width
+  (def utf8-width
     (lambda (source index end)
-      (let ((width (leading-width (bytevector-u8-ref source index))))
+      (begin (let width (leading-width (bytevector-u8-ref source index)))
         (if (> width (- end index)) (unreachable) width))))
-  (define continuation-payload
+  (def continuation-payload
     (lambda (source index)
-      (let ((byte (bytevector-u8-ref source index)))
+      (begin (let byte (bytevector-u8-ref source index))
         (if (if (< byte 128) #t (> byte 191)) (unreachable) (- byte 128)))))
-  (define utf8-character
+  (def utf8-character
     (lambda (source index width)
       (begin
-        (define loop
+        (def loop
           (lambda (offset scalar)
             (if (= offset width)
                 (if (< scalar (minimum-scalar width)) (unreachable) (integer->char scalar))
                 (loop (+ offset 1) (+ (* scalar 64) (continuation-payload source (+ index offset)))))))
         (loop 1 (- (bytevector-u8-ref source index) (leading-prefix width))))))
-  (define decoded-length
+  (def decoded-length
     (lambda (source start end)
       (begin
-        (define loop
+        (def loop
           (lambda (index count)
             (if (= index end)
                 count
-                (let ((width (utf8-width source index end)))
+                (begin (let width (utf8-width source index end))
                   (begin
                     (utf8-character source index width)
                     (loop (+ index width) (+ count 1)))))))
         (loop start 0))))
-  (define decode-into!
+  (def decode-into!
     (lambda (target source start end)
       (begin
-        (define loop
+        (def loop
           (lambda (index at)
             (if (= index end)
                 (unit)
                 (begin
-                  (let ((width (utf8-width source index end)))
+                  (begin (let width (utf8-width source index end))
                     (begin
                       (string-set! target at (utf8-character source index width))
                       (loop (+ index width) (+ at 1))))
@@ -158,7 +159,7 @@
     (lambda (source start end)
       (begin
         (check-range (bytevector-length source) start end)
-        (let ((result (make-string (decoded-length source start end))))
+        (begin (let result (make-string (decoded-length source start end)))
           (begin
             (decode-into! result source start end)
             result)))))
@@ -171,13 +172,13 @@
 
   ;; String indices count scalars. Count bytes before allocating the exact
   ;; result; all additions are bounded before the next character is visited.
-  (define scalar-width
+  (def scalar-width
     (lambda (scalar)
       (if (< scalar 128) 1 (if (< scalar 2048) 2 (if (< scalar 65536) 3 4)))))
-  (define encoded-length
+  (def encoded-length
     (lambda (source start end)
       (begin
-        (define loop
+        (def loop
           (lambda (index count)
             (if (> count 4294967295)
                 (unreachable)
@@ -185,10 +186,10 @@
                     count
                     (loop (+ index 1) (+ count (scalar-width (char->integer (string-ref source index)))))))))
         (loop start 0))))
-  (define encode-character!
+  (def encode-character!
     (lambda (target at scalar width)
       (begin
-        (define loop
+        (def loop
           (lambda (remaining payload)
             (if (= remaining 1)
                 (bytevector-u8-set! target at (+ (leading-prefix width) payload))
@@ -196,16 +197,16 @@
                   (bytevector-u8-set! target (+ at (- remaining 1)) (+ 128 (remainder payload 64)))
                   (loop (- remaining 1) (quotient payload 64))))))
         (loop width scalar))))
-  (define encode-into!
+  (def encode-into!
     (lambda (target source start end)
       (begin
-        (define loop
+        (def loop
           (lambda (index at)
             (if (= index end)
                 (unit)
                 (begin
-                  (let ((scalar (char->integer (string-ref source index))))
-                    (let ((width (scalar-width scalar)))
+                  (begin (let scalar (char->integer (string-ref source index)))
+                    (begin (let width (scalar-width scalar))
                       (begin
                         (encode-character! target at scalar width)
                         (loop (+ index 1) (+ at width)))))
@@ -215,11 +216,11 @@
     (lambda (source start end)
       (begin
         (check-range (string-length source) start end)
-        (let ((result (make-bytevector (encoded-length source start end))))
+        (begin (let result (make-bytevector (encoded-length source start end)))
           (begin
             (encode-into! result source start end)
             result)))))
   (define-overload string->utf8 (-> String I64 Bytevector)
     (lambda (source start) (string->utf8 source start (string-length source))))
   (define-overload string->utf8 (-> String Bytevector)
-    (lambda (source) (string->utf8 source 0 (string-length source)))))
+    (lambda (source) (string->utf8 source 0 (string-length source))))))

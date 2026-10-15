@@ -1,5 +1,5 @@
-(import (sfir core))
-(define cell
+(import (sfir base))
+(def cell
   (ref (lambda (x) x)))
 (ref-set! cell (lambda (x) (+ x 1)))
 ((ref-get cell) #t)

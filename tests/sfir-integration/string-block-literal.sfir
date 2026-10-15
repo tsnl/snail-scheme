@@ -1,10 +1,10 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; ---- Readonly literal spanning a full block and one scalar ----
 
 ;; Each complete literal line is 127 lambdas, an emoji and a newline.
 
-(define literal (-> String)
+(def literal (-> String)
   (lambda () "λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
@@ -69,21 +69,21 @@
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ􏿿"))
-(define shared
+(def shared
   (literal))
-(define copied
+(def copied
   (string-copy shared))
-(define expected-character
+(def expected-character
   (lambda (index)
     (if (= index 8192)
         #\x10ffff
-        (let ((offset (remainder index 129)))
+        (begin (let offset (remainder index 129))
           (if (= offset 128) #\newline (if (= offset 127) #\x1f600 #\λ))))))
-(define complete-literal?
+(def complete-literal?
   (lambda (value)
     (if (= (string-length value) 8193)
         (begin
-          (define loop
+          (def loop
             (lambda (index)
               (if (= index 8193)
                   #t
@@ -91,16 +91,16 @@
           (loop 0))
         #f)))
 
-(define set-literal (-> Unit)
+(def set-literal (-> Unit)
   (lambda () (string-set! shared 8192 #\Z)))
 
-(define copy-literal (-> Unit)
+(def copy-literal (-> Unit)
   (lambda () (string-copy! shared 8191 "ZZ" 0 2)))
 
-(define empty-literal-copy (-> Unit)
+(def empty-literal-copy (-> Unit)
   (lambda () (string-copy! shared 8193 "" 0 0)))
 
-(define unchanged (-> Bool)
+(def unchanged (-> Bool)
   (lambda () (complete-literal? shared)))
 (string-set! copied 8192 #\Z)
 (if (if (string-eq? shared (literal))

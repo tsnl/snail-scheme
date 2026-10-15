@@ -1,10 +1,10 @@
-(import (sfir core))
-(define-data Point (point (x I64 point-x)))
-(define outer
+(import (sfir base))
+(def Point (datatype () (point (x I64 point-x))))
+(def outer
   (point 8))
-(define local
+(def local
   (lambda ()
     (begin
-      (define-data Point (point (x F64 point-x)))
+      (def Point (datatype () (point (x F64 point-x))))
       (f64->i64 (point-x (point 7.5))))))
 (+ (point-x outer) (local))

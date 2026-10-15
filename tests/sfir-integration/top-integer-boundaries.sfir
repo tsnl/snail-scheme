@@ -1,7 +1,7 @@
-(import (sfir core))
+(import (sfir base))
 
-(define round-trip (-> I64 I64)
-  (lambda (n) (ann (ann n Top) I64)))
+(def round-trip (-> I64 I64)
+  (lambda (n) (ann (ann n Any) I64)))
 (if (if (= (round-trip -9223372036854775808) -9223372036854775808)
         (if (= (round-trip -1073741825) -1073741825)
             (if (= (round-trip -1073741824) -1073741824)

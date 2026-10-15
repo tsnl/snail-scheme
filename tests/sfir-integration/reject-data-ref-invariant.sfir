@@ -1,8 +1,8 @@
-(import (sfir core))
-(define-data (Cell T) (cell (value (Ref T) cell-ref)))
-(define x
+(import (sfir base))
+(def Cell (datatype ( T) (cell (value (Ref T) cell-ref))))
+(def x
   (cell (ref 1)))
-(define alias
+(def alias
   x)
 (ref-set! (cell-ref alias) #t)
 (ref-get (cell-ref x))

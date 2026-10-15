@@ -107,7 +107,7 @@
       (define (test-file->reader)
         (let* ((filename "tests/sfir/reader-input.sfir")
                (reader (file->reader filename)))
-          (expect (list->string (reader-chars reader)) "(define answer I64 42)\nanswer\n")
+          (expect (list->string (reader-chars reader)) "(def answer I64 42)\nanswer\n")
           (expect (test-value (reader-loc reader)) (list filename 1 1)))
         (expect
          (guard (ex ((file-error? ex) #t))

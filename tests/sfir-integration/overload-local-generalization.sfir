@@ -1,8 +1,8 @@
-(import (sfir core))
-(define outer
+(import (sfir base))
+(def outer
   (lambda (value)
     (begin
-      (define count
+      (def count
         (lambda (index) (if (= index 0) index (count (- index 1)))))
       (+ value (count 2)))))
 (outer 42)

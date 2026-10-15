@@ -1,7 +1,7 @@
-(import (sfir core))
-(define values
+(import (sfir base))
+(def values
   (make-vector 3 1))
-(define alias
+(def alias
   values)
 (vector-set! alias 1 42)
 (if (if (vector-eq? values alias)

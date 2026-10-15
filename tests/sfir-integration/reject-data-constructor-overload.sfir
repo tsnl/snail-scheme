@@ -1,4 +1,4 @@
-(import (sfir core))
-(define-data Box (box (value I64)))
+(import (sfir base))
+(def Box (datatype () (box (value I64))))
 (define-overload box (-> I64 I64) (lambda (value) value))
 (box 1)

@@ -1,8 +1,8 @@
-(import (sfir core) (sfir io) (sfir datum) (sfir read) (sfir write) (sfir bytes))
+(import (sfir base) (sfir io) (sfir datum) (sfir read) (sfir write) (sfir bytes))
 
 ;; ---- Complete readable and displayed streams preserve the input data ----
 
-(define copy-output (-> I64)
+(def copy-output (-> I64)
   (lambda ()
     (call-with-input-file "input.scm"
       (lambda (input)
@@ -11,28 +11,30 @@
             (call-with-output-file "displayed.txt"
               (lambda (shown)
                 (begin
-                  (define loop
+                  (def loop
                     (lambda (count)
-                      (let ((result (read input)))
+                      (begin (let result (read input))
                         (if (read-end? result)
                             count
-                            (let ((value (read-value! result)))
+                            (begin (let value (read-value! result))
                               (begin
                                 (write value written) (newline written)
                                 (display value shown) (newline shown) (loop (+ count 1))))))))
                   (loop 0))))))))))
 
-(define roundtrip (-> Bool)
+(def roundtrip (-> Bool)
   (lambda ()
     (call-with-input-file "input.scm"
       (lambda (first)
         (call-with-input-file "written.scm"
           (lambda (second)
             (begin
-              (define loop
+              (def loop
                 (lambda ()
-                  (let ((left (read first)) (right (read second)))
-                    (if (read-end? left)
+                  (begin (let sfir-migration-let-1 (read first)) (let sfir-migration-let-2 (read second))
+                    (let left sfir-migration-let-1)
+(let right sfir-migration-let-2)
+(if (read-end? left)
                         (read-end? right)
                         (if (not (read-end? right))
                             (if (datum=? (read-value! left) (read-value! right)) (loop) #f)
@@ -41,24 +43,24 @@
 
 ;; ---- Shared storage, cyclic diagnostics and fresh per-call labels ----
 
-(define named (-> String Datum)
+(def named (-> String Datum)
   (lambda (text) (datum-symbol (string->symbol text))))
 
-(define output-line (-> Datum OutputPort Unit)
+(def output-line (-> Datum OutputPort Unit)
   (lambda (value port)
     (begin (write-datum value port) (newline port))))
 
-(define cyclic-sharing (-> OutputPort Unit)
+(def cyclic-sharing (-> OutputPort Unit)
   (lambda (port)
-    (let ((first (ref (named "a"))))
-      (let ((rest (ref (datum-null))))
-        (let ((pair (datum-pair first rest)))
-          (let ((alias (datum-pair first rest)))
-            (let ((text (string-copy "s")))
-              (let ((bytes (bytevector 1 2)))
-                (let ((values (vector pair alias (datum-string text) (datum-string text)
-                                      (datum-bytevector bytes) (datum-bytevector bytes) (datum-null))))
-                  (let ((root (datum-vector values)))
+    (begin (let first (ref (named "a")))
+      (begin (let rest (ref (datum-null)))
+        (begin (let pair (datum-pair first rest))
+          (begin (let alias (datum-pair first rest))
+            (begin (let text (string-copy "s"))
+              (begin (let bytes (bytevector 1 2))
+                (begin (let values (vector pair alias (datum-string text) (datum-string text)
+                                      (datum-bytevector bytes) (datum-bytevector bytes) (datum-null)))
+                  (begin (let root (datum-vector values))
                     (begin
                       (vector-set! values 6 root)
                       (output-line root port) (output-line root port)
@@ -71,38 +73,38 @@
                           (begin (unreachable)
                                  (unit))))))))))))))
 
-(define shared-tail (-> OutputPort Unit)
+(def shared-tail (-> OutputPort Unit)
   (lambda (port)
-    (let ((tail (datum-list (named "b") (named "c"))))
-      (let ((values (vector (datum-cons (named "a") tail) tail (datum-null))))
-        (let ((root (datum-vector values)))
+    (begin (let tail (datum-list (named "b") (named "c")))
+      (begin (let values (vector (datum-cons (named "a") tail) tail (datum-null)))
+        (begin (let root (datum-vector values))
           (begin
             (vector-set! values 2 (datum-vector values))
             (output-line root port)))))))
 
-(define graphs (-> Unit)
+(def graphs (-> Unit)
   (lambda ()
     (call-with-output-file "graphs.txt"
       (lambda (port)
         (begin
-          (let ((pair (datum-cons (named "a") (datum-null))))
+          (begin (let pair (datum-cons (named "a") (datum-null)))
             (begin
               (output-line (datum-vector (vector pair pair)) port)
               (datum-set-cdr! pair pair) (output-line pair port)
               (datum-set-car! pair pair) (output-line pair port)
               (display-datum pair port) (newline port)))
-          (let ((values (vector (named "a") (datum-null))))
-            (let ((root (datum-vector values)))
+          (begin (let values (vector (named "a") (datum-null)))
+            (begin (let root (datum-vector values))
               (begin
                 (vector-set! values 1 root) (output-line root port))))
           (cyclic-sharing port) (shared-tail port))))))
 
-(define deep-output (-> Unit)
+(def deep-output (-> Unit)
   (lambda ()
     (call-with-output-file "deep.txt"
       (lambda (port)
         (begin
-          (define loop
+          (def loop
             (lambda (depth value)
               (if (= depth 0)
                   (output-line value port)
@@ -115,10 +117,12 @@
 (define-extern raw-write "snail.library" "snail:io/write-character" (-> I32 I32 Unit))
 (define-extern raw-read "snail.library" "snail:io/read-character" (-> I32 I32))
 
-(define stdout-check (-> Unit)
+(def stdout-check (-> Unit)
   (lambda ()
-    (let ((port (current-output-port)) (file (open-output-file "identity.txt")))
-      (begin
+    (begin (let sfir-migration-let-3 (current-output-port)) (let sfir-migration-let-4 (open-output-file "identity.txt"))
+      (let port sfir-migration-let-3)
+(let file sfir-migration-let-4)
+(begin
         (if (if (output-port=? port (current-output-port))
                 (if (output-port=? file file) (not (output-port=? port file)) #f)
                 #f)
@@ -134,34 +138,34 @@
 
 ;; ---- Each failure owns a fresh terminal invocation ----
 
-(define pending-file (-> Unit)
+(def pending-file (-> Unit)
   (lambda ()
-    (let ((file (open-output-file "pending.txt"))) (write-string "buffered" file))))
+    (begin (let file (open-output-file "pending.txt")) (write-string "buffered" file))))
 
-(define closed-empty (-> Unit)
+(def closed-empty (-> Unit)
   (lambda ()
-    (let ((file (open-output-file "closed.txt")))
+    (begin (let file (open-output-file "closed.txt"))
       (begin
         (close-output-port file) (display (datum-string "") file)))))
 
-(define callback-trap (-> Unit)
+(def callback-trap (-> Unit)
   (lambda ()
     (begin
       (pending-file) (display (datum-string "before trap")) (unreachable))))
 
-(define invalid-character (-> Unit)
+(def invalid-character (-> Unit)
   (lambda ()
     (begin (pending-file) (raw-write (ann -2 I32) (ann 55296 I32)))))
 
-(define invalid-handle (-> Unit)
+(def invalid-handle (-> Unit)
   (lambda ()
     (begin (pending-file) (raw-write (ann -3 I32) (ann 65 I32)))))
 
-(define read-stdout (-> Unit)
+(def read-stdout (-> Unit)
   (lambda ()
     (begin (pending-file) (raw-read (ann -2 I32)) (unit))))
 
-(define stdout-failure (-> Unit)
+(def stdout-failure (-> Unit)
   (lambda ()
     (begin (pending-file) (write-string "failed output"))))
 (unit)

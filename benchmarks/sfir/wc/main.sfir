@@ -1,15 +1,15 @@
 ;; Word boundaries are exactly ASCII space and LF, as in the pinned source.
-(import (sfir core) (sfir io) (sfir datum) (sfir read))
+(import (sfir base) (sfir io) (sfir datum) (sfir read))
 
 ;; ---- Canonical counting algorithm ----
 
-(define wcport (-> InputPort (List I64))
+(def wcport (-> InputPort (List I64))
   (lambda (port)
     (begin
-      (define loop (-> I64 I64 I64 Bool (List I64))
+      (def loop (-> I64 I64 I64 Bool (List I64))
         (lambda (lines words characters in-word)
           (match (read-char port)
-            ((character-end) (cons lines (cons words (cons characters (quote ())))))
+            ((character-end) (cons lines (cons words (cons characters (empty-list )))))
             ((character-value character)
               (if (char=? character #\space)
                 (loop lines words (+ characters 1) #f)
@@ -18,13 +18,13 @@
                   (loop lines (if in-word words (+ words 1)) (+ characters 1) #t)))))))
       (loop 0 0 0 #f))))
 
-(define go (-> String (List I64))
+(def go (-> String (List I64))
   (lambda (filename) (call-with-input-file filename wcport)))
 
 ;; ---- Complete result predicate and typed input boundary ----
 
 (define-extern barrier "benchmark" "barrier" (-> Bool))
-(define exact-input (-> Datum I64)
+(def exact-input (-> Datum I64)
   (lambda (value)
     (match (datum-number-value value)
       ((exact-number number) number)
@@ -32,35 +32,35 @@
       ((inexact-number number) (datum-fail "count must be exact"))
       ((complex-number real imaginary) (datum-fail "count must be exact")))))
 
-(define-data Specification
+(def Specification (datatype ()
   (specification (count I64 specification-count) (path String specification-path)
-    (expected Datum specification-expected)))
+    (expected Datum specification-expected))))
 
-(define read-specification (-> InputPort Specification)
+(def read-specification (-> InputPort Specification)
   (lambda (port)
-    (let ((count (exact-input (read-value! (read port)))))
-      (let ((path (datum-string-value (read-value! (read port)))))
-        (let ((expected (read-value! (read port))))
+    (begin (let count (exact-input (read-value! (read port))))
+      (begin (let path (datum-string-value (read-value! (read port))))
+        (begin (let expected (read-value! (read port)))
           (specification count path expected))))))
 
-(define configured (call-with-input-file "input.txt" read-specification))
-(define configured-count (-> I64) (lambda () (specification-count configured)))
-(define hide-path (-> I64 String String)
+(def configured (call-with-input-file "input.txt" read-specification))
+(def configured-count (-> I64) (lambda () (specification-count configured)))
+(def hide-path (-> I64 String String)
   (lambda (count path) (if (barrier) path (unreachable))))
 
-(define-data Result (not-run) (counts (values (List I64))))
-(define counts->datum (-> (List I64) Datum)
+(def Result (datatype () (not-run) (counts (values (List I64)))))
+(def counts->datum (-> (List I64) Datum)
   (lambda (values)
     (if (null? values) (datum-null)
       (datum-cons (datum-number (exact-number (car values))) (counts->datum (cdr values))))))
-(define result->datum (-> Result Datum)
+(def result->datum (-> Result Datum)
   (lambda (result)
     (match result ((not-run) (datum-boolean #f)) ((counts values) (counts->datum values)))))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
     (begin
-      (define repeat (-> I64 Result I64)
+      (def repeat (-> I64 Result I64)
         (lambda (index result)
           (if (< index count)
             (repeat (+ index 1) (counts (go (hide-path count (specification-path configured)))))

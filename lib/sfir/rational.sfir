@@ -1,6 +1,6 @@
 ;; A rational owns two immutable Integers. Its constructor establishes the
 ;; positive, coprime denominator that every operation below may rely on.
-(library (sfir rational)
+(define-library (sfir rational)
   (export Rational make-rational rational-numerator rational-denominator
           rational-from-integer rational-from-f64 rational->f64 rational->string
           rational-integer? rational-zero? rational-negative? rational-negate rational-abs
@@ -9,97 +9,98 @@
           rational-truncate rational-floor
           + - * / = < <= > >= truncate
           test-rational)
-  (import (sfir core) (sfir integer))
+  (import (sfir base) (sfir integer))
 
   ;; ---- Normalization establishes the representation contract ----
 
-  (define-data Rational
-    (rational (numerator Integer rational-numerator) (denominator Integer rational-denominator)))
-  (define one
+  (begin
+(def Rational (datatype ()
+    (rational (numerator Integer rational-numerator) (denominator Integer rational-denominator))))
+  (def one
     (integer-from-i64 1))
 
-  (define make-rational (-> Integer Integer Rational)
+  (def make-rational (-> Integer Integer Rational)
     (lambda (numerator denominator)
       (if (integer-zero? denominator)
           (unreachable)
-          (let ((negative (integer-negative? denominator)))
-            (let ((numerator (if negative (integer-negate numerator) numerator)))
-              (let ((denominator (integer-abs denominator)))
-                (let ((factor (integer-gcd numerator denominator)))
+          (begin (let negative (integer-negative? denominator))
+            (begin (let numerator (if negative (integer-negate numerator) numerator))
+              (begin (let denominator (integer-abs denominator))
+                (begin (let factor (integer-gcd numerator denominator))
                   (rational (integer-quotient numerator factor) (integer-quotient denominator factor)))))))))
 
-  (define rational-from-integer (-> Integer Rational)
+  (def rational-from-integer (-> Integer Rational)
     (lambda (value) (rational value one)))
 
-  (define rational-integer? (-> Rational Bool)
+  (def rational-integer? (-> Rational Bool)
     (lambda (value) (integer=? (rational-denominator value) one)))
 
-  (define rational-zero? (-> Rational Bool)
+  (def rational-zero? (-> Rational Bool)
     (lambda (value) (integer-zero? (rational-numerator value))))
 
-  (define rational-negative? (-> Rational Bool)
+  (def rational-negative? (-> Rational Bool)
     (lambda (value) (integer-negative? (rational-numerator value))))
 
-  (define rational-negate (-> Rational Rational)
+  (def rational-negate (-> Rational Rational)
     (lambda (value)
       (rational (integer-negate (rational-numerator value)) (rational-denominator value))))
 
-  (define rational-abs (-> Rational Rational)
+  (def rational-abs (-> Rational Rational)
     (lambda (value) (if (rational-negative? value) (rational-negate value) value)))
 
   ;; ---- Arithmetic remains exact before reducing the result ----
 
-  (define rational-add (-> Rational Rational Rational)
+  (def rational-add (-> Rational Rational Rational)
     (lambda (left right)
       (make-rational
        (integer-add (integer-multiply (rational-numerator left) (rational-denominator right))
                     (integer-multiply (rational-numerator right) (rational-denominator left)))
        (integer-multiply (rational-denominator left) (rational-denominator right)))))
 
-  (define rational-subtract (-> Rational Rational Rational)
+  (def rational-subtract (-> Rational Rational Rational)
     (lambda (left right) (rational-add left (rational-negate right))))
 
-  (define rational-multiply (-> Rational Rational Rational)
+  (def rational-multiply (-> Rational Rational Rational)
     (lambda (left right)
       (make-rational (integer-multiply (rational-numerator left) (rational-numerator right))
                      (integer-multiply (rational-denominator left) (rational-denominator right)))))
 
-  (define rational-divide (-> Rational Rational Rational)
+  (def rational-divide (-> Rational Rational Rational)
     (lambda (left right)
       (make-rational (integer-multiply (rational-numerator left) (rational-denominator right))
                      (integer-multiply (rational-denominator left) (rational-numerator right)))))
 
-  (define rational-truncate (-> Rational Integer)
+  (def rational-truncate (-> Rational Integer)
     (lambda (value)
       (integer-quotient (rational-numerator value) (rational-denominator value))))
 
-  (define rational-floor (-> Rational Integer)
+  (def rational-floor (-> Rational Integer)
     (lambda (value)
       (integer-floor-quotient (rational-numerator value) (rational-denominator value))))
 
   ;; ---- Ordering uses positive denominators and exact cross products ----
 
-  (define rational-compare (-> Rational Rational I64)
+  (def rational-compare (-> Rational Rational I64)
     (lambda (left right)
       (integer-compare (integer-multiply (rational-numerator left) (rational-denominator right))
                        (integer-multiply (rational-numerator right) (rational-denominator left)))))
 
-  (define rational=? (-> Rational Rational Bool)
+  (def rational=? (-> Rational Rational Bool)
     (lambda (left right)
       (if (integer=? (rational-numerator left) (rational-numerator right))
           (integer=? (rational-denominator left) (rational-denominator right))
           #f)))
 
-  (define rational<? (-> Rational Rational Bool)
+  (def rational<? (-> Rational Rational Bool)
     (lambda (left right) (< (rational-compare left right) 0)))
 
-  (define rational<=? (-> Rational Rational Bool)
+  (def rational<=? (-> Rational Rational Bool)
     (lambda (left right) (<= (rational-compare left right) 0)))
 
-  (define rational>? (-> Rational Rational Bool)
+  (def rational>? (-> Rational Rational Bool)
     (lambda (left right) (> (rational-compare left right) 0)))
 
-  (define rational>=? (-> Rational Rational Bool)
+  (def rational>=? (-> Rational Rational Bool)
     (lambda (left right) (>= (rational-compare left right) 0)))
 
   ;; ---- Binary64 exactness and decimal presentation ----
@@ -109,25 +110,25 @@
   ;; integral, including the smallest subnormal. Normalization removes powers
   ;; of two shared by the scaled integer and denominator; -0.0 becomes 0/1.
 
-  (define rational-from-f64 (-> F64 Rational)
+  (def rational-from-f64 (-> F64 Rational)
     (lambda (value)
       (if (not (if (= value value) (if (< value (/ 1.0 0.0)) (> value (/ -1.0 0.0)) #f) #f))
           (unreachable)
           (begin
-            (define loop
+            (def loop
               (lambda (value exponent)
                 (if (= value (truncate value))
                     (make-rational (integer-from-f64 value) (integer-power (integer-from-i64 2) exponent))
                     (loop (* value 1073741824.0) (+ exponent 30)))))
             (loop value 0)))))
 
-  (define rational->f64 (-> Rational F64)
+  (def rational->f64 (-> Rational F64)
     (lambda (value)
       (integer-ratio->f64 (rational-numerator value) (rational-denominator value))))
 
-  (define rational->string (-> Rational String)
+  (def rational->string (-> Rational String)
     (lambda (value)
-      (let ((numerator (integer->string (rational-numerator value))))
+      (begin (let numerator (integer->string (rational-numerator value)))
         (if (rational-integer? value)
             numerator
             (string-append numerator "/" (integer->string (rational-denominator value)))))))
@@ -151,10 +152,10 @@
 
   ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
 
-  (define test-rational
+  (def test-rational
     (lambda ()
-      (let ((half (make-rational (integer-from-i64 2) (integer-from-i64 -4))))
-        (let ((zero (make-rational (integer-from-i64 0) (integer-from-i64 -9))))
+      (begin (let half (make-rational (integer-from-i64 2) (integer-from-i64 -4)))
+        (begin (let zero (make-rational (integer-from-i64 0) (integer-from-i64 -9)))
           (begin
             (if (if (string=? (rational->string half) "-1/2")
                     (if (string=? (rational->string zero) "0")
@@ -169,4 +170,4 @@
                 (begin
                   (unreachable)
                   (unit)))
-            42))))))
+            42)))))))

@@ -1,6 +1,6 @@
-(import (sfir core) (sfir io))
+(import (sfir base) (sfir io))
 
-(define fibonacci (-> I64 I64)
+(def fibonacci (-> I64 I64)
   (lambda (n)
     (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))
 

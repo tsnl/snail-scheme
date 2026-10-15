@@ -1,4 +1,4 @@
-(import (sfir core))
-(define make-adder
+(import (sfir base))
+(def make-adder
   (lambda (amount) (lambda (x) (+ amount x))))
 ((make-adder 40) 2)

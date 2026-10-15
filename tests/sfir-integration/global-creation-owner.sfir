@@ -1,13 +1,13 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; Both concrete factories own their nested creation at this first event.
 ;; A later demand must not lend its initialized globals to the earlier code.
-(define make
+(def make
   (lambda (ignored) (lambda () later)))
-(define early
+(def early
   ((make #t)))
-(define later
+(def later
   42)
-(define late
+(def late
   (make 1))
 early
