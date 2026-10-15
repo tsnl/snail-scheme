@@ -71,6 +71,12 @@ outputs. Snail/V8 takes 10.497× and 8.264× original Chez time; native takes
 19.88% and 8.28% less time than V8 on the identical native-final Scheme Wasm.
 The I32-limb Scheme library, original/adapted native-bigint Chez, checked limb
 library on Chez, and Rust num-bigint controls retain their documented differences.
+The later [bounded limb-product comparison](results/2026-10-14-strict-limb-bits/README.md)
+replaces division/remainder by a power of two with a proved mask/shift in the
+Integer library. Fresh production builds reduce Pi time by 20.5% on V8 and
+29.5% natively; Chudnovsky takes 13.1% and 16.6% less time. All 156 scheduled
+processes pass with complete outputs. This comparison does not rerun Chez or
+Rust, and the preceding integer ratios remain the earlier checkpoint.
 The [complete Ackermann comparison](results/2026-10-14-strict-ack-comparison/README.md)
 passes all 56 processes at the original `ack(3,12)` input and two repetitions.
 V8 takes 1.109322 s, native64 0.757917 s and original Chez 0.821724 s. Native
