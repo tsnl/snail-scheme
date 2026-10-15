@@ -49,6 +49,26 @@ ordinary aliasing. Strings, vectors and bytes retain their existing mutable
 storage. The reader constructs acyclic data. Applications can create cycles via
 mutation, but the initial `datum=?` contract covers finite acyclic data only.
 
+`datum-null?`, `datum-pair?` and `datum-truth?` classify these values; only a
+false Boolean datum is false, so the null datum remains true in a condition.
+`datum-list`, `datum-length`, `datum-append`, `datum-assq` and `datum-map` operate
+on finite proper list spines. Append copies the first spine and shares the final
+suffix. Association lookup returns the original entry pair or a false datum.
+Map invokes its procedure from left to right and constructs fresh spine nodes.
+
+`datum-eq?` compares symbols by interned identity, atomic values by their existing
+scalar equivalence, and mutable strings/vectors/bytes by backing storage.
+Pairs have an explicit logical storage identity: both their first-field Ref and
+their rest-field Ref must be identical. Each `datum-cons` creates two fresh Refs.
+The public `datum-pair` constructor can also make two views of the same two Refs;
+those views are aliases under this contract. Sharing only one field is not pair
+identity. This API does not claim distinct wrapper-allocation identity or every
+implementation-dependent choice of R7RS `eq?` for numbers.
+
+`i64->string` constructs a fresh decimal String for every signed I64, including
+the minimum value. Its digit loop uses a nonpositive magnitude so it never needs
+an unrepresentable positive counterpart.
+
 ## Numbers and equality
 
 `Number` distinguishes signed I64 exact integers, F64 inexact reals and complex
