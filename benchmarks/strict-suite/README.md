@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-five original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-six original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, and `deriv`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, and `mbrotZ`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -371,3 +371,44 @@ construction. Separate instrumented runs complete 49 pair constructors per
 invocation, including 490,000,000 for the full workload; these are instruction
 completions, not native allocator events or timing samples. No clean deriv
 measurement has been collected.
+
+Select `--benchmarks mbrotZ --compiler-basis 7ff18c0` for the complex Mandelbrot
+workload. Its original 1,000 repetitions, 75-by-75 matrix, 64-step escape limit,
+radius 4.0 and final result-equals-5 predicate remain intact. `mbrotz_port.py`
+adapts the original complex-number source to one immutable nominal product of
+two F64 components. It adds no production compiler capability.
+
+Complex addition creates both component sums. Complex multiplication keeps four
+component products, one subtraction and one addition; multiplying by the real
+step keeps its two products. The kernel retains the separate magnitude test,
+complex square and addition, and all descending pixel and row-allocation loops.
+It does not substitute the real-valued `mbrot` source or reuse the magnitude
+squares by hand. Rectangular construction and component access become typed
+operations, and `inexact` becomes I64-to-F64 conversion. This port covers the
+benchmark's inexact complex arithmetic, not Scheme's general numeric tower.
+
+The `-1.0-0.5i` literal becomes one shared nominal value before timing. A shared
+empty I64 row supplies the outer vector's required fill; every slot is replaced
+before use. Inner rows receive explicit zero fills. The same adapted kernel and
+arithmetic-helper text runs on Chez with two-element vectors as complex values.
+The original Chez source and its native complex values remain a separate
+control. Their allocation costs differ from WasmGC structs. Optimizers may
+remove unobserved intermediate complex objects; retained work is inspected
+separately before timing.
+
+Unlike a managed datum, the I64 matrix size crosses the existing value-returning
+hiding import on every invocation. Zero or negative repetitions fail because the
+original numeric result predicate receives its initial false value. The strict
+wrapper rejects these counts before its homogeneous loop; positive counts
+replace the loop's I64 initializer before it becomes observable. Empty and
+negative matrix sizes also preserve failure, without promising identical error
+messages across systems.
+
+Separate modules compare all values and every ordered pixel store for six grids,
+including the full 5,625-pixel input, ten exact component-bit cases, and eight
+escape-boundary/cap cases. Signed zeros, subnormal results, rounding and overflow
+are included. Seven harness cases exercise small inputs, altered expected
+results and invalid counts/sizes. The canonical modules export only `bench` and
+`main`; complete-output diagnostics do not add observability to those artifacts.
+Preparation passes all four systems at counts 1, 2 and 1,000. No clean mbrotZ
+timing has been collected.
