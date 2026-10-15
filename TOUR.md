@@ -328,6 +328,14 @@ Scheme and invokes the retained cleanup export after traps. See
 [strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
 [`scripts/test-strict-io`](scripts/test-strict-io).
 
+[`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
+one-argument `atan` as ordinary typed externs. Their scalar C signatures call
+[`strict_math.rs`](src/strict_math.rs) in both the native and Wasm runtime;
+neither side creates Scheme roots or delegates arithmetic to the JavaScript host.
+[`scripts/test-strict-math`](scripts/test-strict-math) executes both linked Wasm
+forms and the native worker, checking finite values, signed zeros and nonfinite
+inputs. Mathematical accuracy follows the target's Rust standard library.
+
 [`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
 syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record
 schemas in IR, with resolved binding identities and source locations. The
