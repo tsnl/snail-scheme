@@ -276,10 +276,16 @@ they are not another expression representation. The same initializer policy serv
 recursive definitions and typed lets, with their source scopes explicit. This
 module also owns the enumeration of concrete site storage used by the emitter;
 readiness tokens and payload copies therefore have one definition.
+After concrete demand settles, it records global sites initialized before each
+function's creation can execute. Nested functions inherit this conservative
+proof; no function assumes later globals ready merely because it can be exported.
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
 and emits explicit universal-value conversions. Immutable scalar literal reads
 expose the constant payload while retaining the source binding's readiness check.
+Function bodies omit global readiness checks only for the completed sites proved
+by specialization. Ordinary closure reads, direct binding tokens and the export
+initialization guard preserve the callable-entry guarantee behind that proof.
 Direct local procedures receive
 lexical state as native parameters. Parameters and nonrecursive let values are
 initialized before capture and travel as concrete values. Recursive local

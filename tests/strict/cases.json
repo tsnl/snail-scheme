@@ -39,6 +39,7 @@
   {"name": "constant-capture", "result": "44"},
   {"name": "constant-forward-read", "result": "trap"},
   {"name": "constant-capture-readiness", "result": "42", "exports": {"checked": "trap", "observed": "1"}},
+  {"name": "global-creation-owner", "result": "trap"},
   {"name": "capture-initializer-scope", "result": "52"},
   {"name": "capture-recursive-alias", "result": "42", "exports": {"checked": "trap", "observed": "1"}},
   {"name": "capture-let-alias-initialization", "result": "42", "exports": {"checked": "trap", "observed": "0"}},

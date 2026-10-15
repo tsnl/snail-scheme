@@ -44,6 +44,12 @@ if (contract === 'native') {
   trap(() => api.worker(1));
   assert.equal(producer.trace.value, 8);
   assert.equal(producer.marks.value, 1);
+} else if (contract === 'early-closure') {
+  trap(() => api.main());
+  assert.equal(producer.trace.value, 3, 'callback effect precedes its forward read');
+  trap(() => api.main());
+  trap(() => api.worker(2));
+  assert.equal(producer.marks.value, 1, 'failed initialization cannot repeat effects');
 } else if (contract === 'unit-main') {
   assert.equal(api.main(), undefined);
   assert.equal(api.worker(), undefined);
@@ -70,7 +76,10 @@ if (contract === 'native') {
     assert.equal(api[name](2 ** 24 + 1), 2 ** 24);
   }
 } else if (contract === 'reentrant-main') {
-  callback = () => trap(() => api.main());
+  callback = () => {
+    trap(() => api.worker(1));
+    trap(() => api.main());
+  };
   assert.equal(api.main(), 42n);
   assert.equal(api.worker(42), 42);
   const secondProducer = new WebAssembly.Instance(producerModule, {
