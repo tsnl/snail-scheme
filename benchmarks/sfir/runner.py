@@ -24,14 +24,18 @@ COMPILER_ROOTS = ('src/', 'lib/', 'runtime/', 'scripts/')
 COMPILER_FILES = ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'build.rs')
 TOOLS = {'CHIBI': 'chibi-scheme', 'WASM_OPT': 'wasm-opt', 'WASM_AS': 'wasm-as', 'WASM_DIS': 'wasm-dis',
          'NODE': 'node', 'CHEZ': 'scheme', 'RUSTC': 'rustc', 'CARGO': 'cargo',
-         'CLANG': 'clang', 'LLD': 'ld.lld', 'WASM_MERGE': 'wasm-merge', 'PYTHON': 'python3'}
+         'CLANG': 'clang', 'LLD': 'ld.lld', 'WASM_MERGE': 'wasm-merge', 'PYTHON': 'python3',
+         'TASKSET': 'taskset', 'LDD': 'ldd'}
 RUNTIME_FEATURES = ['--mvp-features', '--enable-mutable-globals', '--enable-nontrapping-float-to-int',
                     '--enable-bulk-memory', '--enable-sign-ext', '--enable-reference-types',
                     '--enable-multivalue', '--enable-extended-const', '--enable-bulk-memory-opt',
                     '--enable-call-indirect-overlong']
 EXECUTION_ENVIRONMENT = ('BINARYEN_CORES', 'RUSTUP_TOOLCHAIN', 'RUSTUP_HOME', 'CARGO_HOME',
                          'NODE_OPTIONS', 'NODE_V8_COVERAGE', 'LD_PRELOAD', 'SNAIL_NATIVE_GC_INTERVAL',
-                         'SNAIL_GC_STATS', 'SNAIL_GC_HEAP_BYTES', 'SNAIL_GC_MIN_BYTES')
+                         'SNAIL_GC_STATS', 'SNAIL_GC_HEAP_BYTES', 'SNAIL_GC_MIN_BYTES',
+                         'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_BUILD_TARGET', 'CC', 'CXX',
+                         'AR', 'LD_LIBRARY_PATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH', 'CPATH',
+                         'CHIBI_MODULE_PATH', 'SCHEMEHEAPDIRS', 'LANG', 'LC_ALL', 'TZ')
 
 
 def load(path):
@@ -46,7 +50,8 @@ def save(path, value):
 
 
 def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    with Path(path).open('rb') as source:
+        return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
 def positive_timeout(value):
@@ -177,6 +182,7 @@ def verify_preparation(directory):
         positive_timeout(manifest['config'][key])
     verify_files(directory / 'source', manifest['files'])
     verify_files(directory / 'data', manifest['inputs'])
+    verify_files(directory, manifest.get('build_dependencies', {}))
     for tool in manifest['tools'].values():
         if digest(tool['path']) != tool['sha256']:
             raise ValueError(f'immutable tool changed: {tool["path"]}')

@@ -34,6 +34,7 @@ try {
   assert.equal(instance.exports['configured-count'](), BigInt(config.count));
   const start = process.hrtime.bigint();
   result = instance.exports.bench(BigInt(config.count));
+  assert.equal(result, BigInt(config.expected));
   seconds = Number(process.hrtime.bigint() - start) / 1e9;
 } catch (error) { failure = error; }
 finally {

@@ -5,7 +5,15 @@
 
 // ---- Scalar configuration mirrors the Wasm host's external input services ----
 
+#ifndef OBSERVE_BARRIERS
+#define OBSERVE_BARRIERS 1
+#endif
 static int64_t observed_barriers;
+static void observe_barrier(void) {
+#if OBSERVE_BARRIERS
+    observed_barriers++;
+#endif
+}
 int64_t input_i64(int32_t index) { return input_integers[index]; }
 double input_f64(int32_t index) { return input_reals[index]; }
 int64_t vector_length(int32_t index) { return vector_sizes[index]; }
@@ -16,9 +24,9 @@ int64_t expected_i64(int64_t index) { return expected_integers[index]; }
 double expected_f64(int64_t index) { return expected_reals[index]; }
 double tolerance(void) { return expected_tolerance; }
 int64_t count(void) { return configured_count; }
-int64_t hide_i64(int64_t value) { observed_barriers++; return value; }
-double hide_f64(double value) { observed_barriers++; return value; }
-int32_t barrier(void) { observed_barriers++; return 1; }
+int64_t hide_i64(int64_t value) { observe_barrier(); return value; }
+double hide_f64(double value) { observe_barrier(); return value; }
+int32_t barrier(void) { observe_barrier(); return 1; }
 int64_t benchmark_barriers(void) { return observed_barriers; }
 void benchmark_reset_barriers(void) { observed_barriers = 0; }
 

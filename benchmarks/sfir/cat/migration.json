@@ -10,12 +10,27 @@
   "equivalence_status": "Target and identically adapted Chez validation pending.",
   "controls": {
     "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
-    "chez-adapted.scm": "b9cccc87d8374f57c83f861195c6b7f9a2b52a81e9aea3f30fe4b12a397c1158"
+    "chez-adapted.scm": "adf2a5ae1fa50d8f5b098f5999275a1e925fefcd3b05c3bfc95cba1068e32125"
   },
   "sfir_sha256": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
   "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services.",
   "adapted_control_import_correction": {
     "before_sha256": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2",
     "change": "Exclude Chez string-copy! and vector-copy! imports because the identical typed-library control defines both operations; benchmark and library bodies unchanged."
+  },
+  "adapted_control_timing_wrapper": {
+    "before_sha256": "b9cccc87d8374f57c83f861195c6b7f9a2b52a81e9aea3f30fe4b12a397c1158",
+    "change": "Add monotonic nanosecond clock around the unchanged canonical bench call and full predicate. Setup precedes the clock; report formatting and final port cleanup follow it. Benchmark and library bodies unchanged.",
+    "edits": [
+      {
+        "before": "(define report-string display)\n",
+        "after": "(define report-string display)\n;; The clock and formatter are captured outside the typed library bindings.\n(define (benchmark-clock)\n  (let ((now (current-time 'time-monotonic)))\n    (+ (* (time-second now) 1000000000) (time-nanosecond now))))\n(define (benchmark-seconds start finish)\n  (number->string (/ (- finish start) 1000000000.0)))\n"
+      },
+      {
+        "before": "(if (= (bench (configured-count)) 1) (report-string \"+!CSVLINE!+typed-control,passed\\n\") (error 'benchmark \"INCORRECT result\"))",
+        "after": "(let ((start (benchmark-clock)))\n  (if (= (bench (configured-count)) 1)\n      (let ((finish (benchmark-clock)))\n        (report-string \"+!CSVLINE!+typed-control,cat:50,\")\n        (report-string (benchmark-seconds start finish))\n        (report-string \"\\n\"))\n      (error 'benchmark \"INCORRECT result\")))"
+      }
+    ],
+    "exact_reverse_verified": true
   }
 }
