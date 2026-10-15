@@ -4,7 +4,8 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-for name in ('test-sfir', 'test-sfir-integration', 'test-sfir-entry', 'test-sfir-extern', 'test-sfir-bytes',
+for name in ('test-sfir', 'test-sfir-integration', 'test-sfir-entry', 'test-sfir-execution',
+             'test-sfir-extern', 'test-sfir-bytes',
              'test-sfir-integer', 'test-sfir-io', 'test-sfir-math', 'test-sfir-numbers',
              'test-sfir-reader', 'test-sfir-text', 'test-sfir-write', 'test-binaryen'):
     subprocess.run([ROOT / 'scripts' / name], cwd=ROOT, check=True)
