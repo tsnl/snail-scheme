@@ -58,7 +58,9 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Complete library constructors and typed inspection views for book syntax,
   including explicit type identities, ordered local scopes, static declarations
   and the existing extern/overload extensions. Preserve the checked transfer boundary.
-- [ ] Add native loading with independent state and general compiler/execution
+- [x] Add native loading with independent state, a checked scalar bridge and
+  explicit providers; see [the native adapter](sfir-native-loading.md).
+- [ ] Add general compiler/execution
   APIs callable from SFIR; Scheme elaboration and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.
   Retain the existing source and artifact snapshots as historical baselines.
