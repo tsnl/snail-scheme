@@ -15,8 +15,10 @@ python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-check
 Preparation copies checked-in target sources; it does not elaborate Scheme or
 expand macros. The compiler always runs Binaryen. Wasm execution and mechanical
 native lowering must use the same optimized module. Missing ports and pending
-execution routes stay visible in the corpus manifest. No SFIR clean timing
-coverage has been established yet.
+execution routes stay visible in the corpus manifest. The first [clean SFIR
+timing report](sfir/evidence/20261015-clean-six.md) covers Ack, Fibfp, Cat, WC,
+CTAK and FIBC on 33 available target/control routes; it retains default Rust
+Wasm Ack's stack failure. The remaining workloads are not measured.
 
 [`wasm-reference`](wasm-reference/README.md) contains the 57 separate Rust ports
 and complete correctness fixtures. Its original Chez controls now come from

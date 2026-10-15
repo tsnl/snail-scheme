@@ -234,7 +234,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "ctak/chez-original.scm",
       "chez_adapted": "ctak/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/ctak.rs",
@@ -245,7 +245,16 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-continuations.json"
+      "validation_evidence": "evidence/20261015-continuations.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ]
     },
     {
       "name": "fib",
@@ -276,7 +285,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "fibc/chez-original.scm",
       "chez_adapted": "fibc/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/fibc.rs",
@@ -287,7 +296,16 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-continuations.json"
+      "validation_evidence": "evidence/20261015-continuations.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ]
     },
     {
       "name": "fibfp",
@@ -298,7 +316,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "fibfp/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/fibfp.rs",
@@ -309,7 +327,15 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "unavailable",
-      "validation_evidence": "evidence/20261015-canonical.json"
+      "validation_evidence": "evidence/20261015-canonical.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ]
     },
     {
       "name": "sum",
@@ -528,7 +554,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "partial-routes",
       "chez_original": "ack/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/ack.rs",
@@ -539,7 +565,14 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "unavailable",
-      "validation_evidence": "evidence/20261015-canonical.json"
+      "validation_evidence": "evidence/20261015-canonical.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-native"
+      ]
     },
     {
       "name": "array1",
@@ -610,7 +643,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "cat/chez-original.scm",
       "chez_adapted": "cat/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/cat.rs",
@@ -621,7 +654,16 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-canonical.json"
+      "validation_evidence": "evidence/20261015-canonical.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ]
     },
     {
       "name": "tail",
@@ -654,7 +696,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "wc/chez-original.scm",
       "chez_adapted": "wc/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/wc.rs",
@@ -665,7 +707,16 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-canonical.json"
+      "validation_evidence": "evidence/20261015-canonical.json",
+      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ]
     },
     {
       "name": "read1",
@@ -1169,5 +1220,6 @@
       "rust_native_validation": "pending",
       "source_resolution": "passed"
     }
-  ]
+  ],
+  "measurement_status_meaning": "Measured status names only the listed routes and exact evidence protocol; unavailable and failed routes remain visible. It never establishes all-57 coverage."
 }

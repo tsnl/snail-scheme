@@ -373,6 +373,11 @@ def comparison_ratios(rows):
     return ratios
 
 
+def measurement_passed(report):
+    eligible = [row for row in report['rows'] if row['eligibility'] == 'ready']
+    return report['status'] == 'complete' and bool(eligible) and all(row['complete'] for row in eligible)
+
+
 def publish_measurement(directory, report, plan):
     rows = [route_statistics(row, report['attempts'], plan['protocol']) for row in plan['rows']]
     if report['status'] != 'complete':
@@ -439,12 +444,15 @@ def main():
     enter_frozen_driver(directory, args.action, args.quiet_window)
     if args.action == 'build':
         plan = build(directory)
-        print(json.dumps(dict(ready=sum(row['eligibility'] == 'ready' for row in plan['rows']), routes=plan['rows']), indent=2))
+        rows = [{key: row[key] for key in ('case', 'route', 'eligibility')} for row in plan['rows']]
+        print(json.dumps(dict(ready=sum(row['eligibility'] == 'ready' for row in rows), routes=rows), indent=2))
     elif args.action == 'verify':
         verify_ready(directory)
     elif args.action == 'measure':
         report = measure(directory, args.quiet_window)
         print(json.dumps(dict(status=report['status'], rows=report['rows'], ratios=report['ratios']), indent=2))
+        if not measurement_passed(report):
+            raise SystemExit(1)
 
 
 # ---- Tests ----
@@ -453,6 +461,15 @@ import unittest
 
 
 class TimingTests(unittest.TestCase):
+    def test_complete_schedule_still_fails_when_an_eligible_route_is_incomplete(self):
+        report = dict(status='complete', rows=[dict(eligibility='ready', complete=False),
+                                             dict(eligibility='unavailable', complete=False)])
+        self.assertFalse(measurement_passed(report))
+        report['rows'][0]['complete'] = True
+        self.assertTrue(measurement_passed(report))
+        report['status'] = 'interrupted'
+        self.assertFalse(measurement_passed(report))
+
     def test_changed_execution_input_is_rejected_before_process_launch(self):
         import tempfile
         with tempfile.TemporaryDirectory() as temporary:

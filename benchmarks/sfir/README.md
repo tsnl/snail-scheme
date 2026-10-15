@@ -130,7 +130,8 @@ without changing any benchmark or library body.
 source hashes, frozen attempts, artifacts, outcomes and diagnostic records. All
 53 authored main programs have also passed the direct SFIR frontend's source
 resolution. Resolution alone does not establish inference or target correctness.
-No SFIR performance coverage is claimed.
+The first [clean timing report](evidence/20261015-clean-six.md) covers six
+workloads and 33 eligible routes; the remaining workloads are not measured.
 
 The focused review kept process launch, waiting, group termination and terminal
 recording together despite that function exceeding the ten-line guideline: one
@@ -156,3 +157,9 @@ The native clock transition and exhaustive route selection remain together even
 where they exceed the ten-line guideline, because splitting would hide timer
 boundaries or artifact identity. Tests cover failed warmups, missing samples,
 malformed/wrong-count timer reports, schedule exclusions and input tampering.
+
+The first CPU-2 campaign completed all 33 warmups and 165 measured processes
+successfully, followed by full integrity verification. Its report preserves
+original/adapted Chez separately and discloses Rust FIBC's additional opacity
+at each Peano step. A completed future schedule exits nonzero if any eligible
+route lacks its successful warmup or all five valid measurements.
