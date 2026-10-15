@@ -18,15 +18,9 @@ extern uint32_t same_left(uint64_t) __asm__("wasm.same-left");
 extern uint32_t is_right(uint64_t) __asm__("wasm.is-right");
 extern uint32_t cyclic(uint64_t) __asm__("wasm.cyclic");
 extern void native_module_init(void);
-extern void native_poll_finalizers(void);
-extern uint64_t native_finalizer_count(void);
 
 // The instruction fixture has no Rust services or resource wrappers.
 int snail_native_cleanup(void) { return 0; }
-void drop_resource(uint32_t, uint32_t) __asm__("snail:drop-resource");
-void drop_resource(uint32_t kind, uint32_t id) { (void)kind; (void)id; abort(); }
-void drop_array(uint32_t) __asm__("snail:drop-array");
-void drop_array(uint32_t id) { (void)id; abort(); }
 
 extern uint32_t check(void) __asm__("wasm.check");
 extern uint64_t tail(uint32_t) __asm__("wasm.tail");
