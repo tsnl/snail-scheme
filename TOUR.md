@@ -503,6 +503,12 @@ long-lived tree root and is excluded from timing.
 graphs/mperm source adaptations, complete-value encoders and independent finite
 graph/permutation oracles. Their observer modules remain separate from canonical
 workloads; mperm keeps initial queue construction before the timer. The
+[`simplex_port.py`](benchmarks/strict-suite/simplex_port.py) module makes simplex's
+mutable scalar bindings explicit and gives its three result forms a closed
+nominal type. Separate probes compare the complete result, tableau and ordered
+matrix stores. A small rational LP oracle distinguishes source equivalence from
+mathematical correctness, including a preserved upstream equality-case failure.
+The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
 coverage table retains failed and unported workloads.
