@@ -1,0 +1,38 @@
+
+*** ERROR -- diagnostic escape detail
+((#f (before) unchanged #t) (#f (before) unchanged #t) (#f () changed #t) (#f (inner outer) unchanged #t) (#f (inner outer) unchanged #t) (#f (operator) unchanged #t) (#f (first) unchanged #t) (#f (first second) unchanged #t) (#f (value) unchanged #t) (#f (first) unchanged #t) ((#f #f #f) (a b c) unchanged #t) (#f (a b) unchanged #t) (#f (a b) unchanged #t) (#f (applied) unchanged #t) (#f () unchanged #t))
+
+*** ERROR -- Compiler internal error detected
+*** in procedure queue-get!, queue is empty
+#f
+#t
+
+*** ERROR -- Compiler limit reached
+*** procedure is too long [too many labels]
+#f
+#t
+
+*** ERROR -- In expression (if)
+*** Syntax error -- Ill-formed special form if
+#f
+#t
+
+*** ERROR -- In expression x
+*** Syntax error -- Duplicate parameter in parameter list
+#f
+#t
+
+*** ERROR -- In expression set!
+*** Syntax error -- Predefined keyword can't be used as a variable: set!
+#f
+#t
+
+*** ERROR -- In expression (quote a b)
+*** Syntax error -- Ill-formed special form quote
+#f
+#t
+
+*** ERROR -- Target package is not available missing-target
+#f
+#t
+22

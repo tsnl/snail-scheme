@@ -456,6 +456,42 @@ def workload_validation(directory, case, target, manifest, environment):
     return 'passed' if succeeded(result) else 'failed'
 
 
+# ---- Compiler diagnostics include the initial fatal handler ----
+
+def compiler_validation(directory, case, target, manifest, environment):
+    status = workload_validation(directory, case, target, manifest, environment)
+    if status != 'passed':
+        return status
+    source = directory / 'source/benchmarks/sfir/compiler'
+    return compiler_fatal_validation(directory, source, target, manifest, environment, False)
+
+
+def compiler_native_result(directory, source, target, manifest, environment, result):
+    expected = (source / 'expected-observations.txt').read_text() + 'canonical2000 passed\n'
+    if not succeeded(result) or result['stdout'] != expected:
+        return 'failed'
+    return compiler_fatal_validation(directory, source, target, manifest, environment, True)
+
+
+def compiler_fatal_matches(result):
+    diagnostic = '(#f "Internal error, no exception handler at this point" #f)\n'
+    return (result.get('status') == 'finished' and result.get('returncode') == 1
+            and not result.get('timeout') and not result.get('unexpected_descendants')
+            and not result.get('executing_descendants') and result.get('stdout') == diagnostic
+            and result.get('stderr', '').startswith('snail-sfir: benchmark primitive error\n')
+            and 'fatal compiler handler returned' not in result.get('stderr', ''))
+
+
+def compiler_fatal_validation(directory, source, target, manifest, environment, native):
+    route = 'sfir-native-fatal' if native else 'sfir-wasm-fatal'
+    working = workload_execution_directory(directory, source, target, route)
+    command = ([target / 'program.native', 'fatal'] if native else
+               [manifest['tools']['NODE']['path'], '--no-warnings', source / 'verify.mjs',
+                target / 'program.wasm', target / 'provider.wasm', 'fatal'])
+    result = record(target, route, command, environment, working, manifest['config']['run_timeout'])
+    return 'passed' if compiler_fatal_matches(result) else 'failed'
+
+
 # ---- Separate scalar sine and decimal-text interfaces preserve the workloads ----
 
 def fft_provider(directory, target, manifest, environment, wasm):
@@ -629,7 +665,7 @@ def native_sources(directory, source, target):
     for name in ('scalar-provider.c', 'scalar-provider.h', 'scalar-entry.c'):
         shutil.copy2(directory / 'source/benchmarks/sfir/support' / name, target / name)
     (target / 'case-config.h').write_text(native_configuration(load(source / 'spec.json')))
-    if source.name in ('slatex', 'dynamic', 'scheme'):
+    if source.name in ('slatex', 'dynamic', 'scheme', 'compiler'):
         shutil.copy2(source / 'native-entry.c', target / 'scalar-entry.c')
 
 
@@ -659,6 +695,8 @@ def native_execution(directory, source, target, manifest, environment):
     if 'native_heap_bytes' in spec:
         active['SNAIL_GC_HEAP_BYTES'] = str(spec['native_heap_bytes'])
     result = record(target, 'sfir-native', [target / 'program.native'], active, working, manifest['config']['run_timeout'])
+    if source.name == 'compiler':
+        return compiler_native_result(directory, source, target, manifest, environment, result)
     return 'passed' if succeeded(result) and output_files_match(source, working, target, 'sfir-native') else 'failed'
 
 
@@ -795,6 +833,8 @@ def wasm_validation(directory, case, target, manifest, environment):
     try:
         if case['host'] == 'slatex':
             return slatex_validation(directory, target, manifest, environment)
+        if case['host'] == 'compiler':
+            return compiler_validation(directory, case, target, manifest, environment)
         if case['host'] in ('dynamic', 'scheme'):
             return workload_validation(directory, case, target, manifest, environment)
         if case['host'] == 'datum-io':
@@ -816,7 +856,7 @@ def sfir_validation(directory, case, source, target, manifest, environment, stat
         return
     if not sfir_artifacts(directory, case, source, target, manifest, environment, status):
         return
-    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer', 'slatex', 'dynamic', 'scheme'):
+    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer', 'slatex', 'dynamic', 'scheme', 'compiler'):
         stage_result(target, status, 'unavailable', f'{case["host"]} execution route has not been integrated')
         return
     stage_result(target, status, 'wasm_validation', wasm_validation(directory, case, target, manifest, environment))
@@ -981,6 +1021,16 @@ class FrozenInputTests(unittest.TestCase):
                 save(source / 'spec.json', dict(execution_files=[name]))
                 with self.assertRaises(ValueError):
                     workload_execution_directory(root, source, root, f'invalid-{index}')
+
+    def test_compiler_fatal_requires_expected_exit_and_diagnostic(self):
+        result = dict(status='finished', returncode=1, timeout=False,
+                      stdout='(#f "Internal error, no exception handler at this point" #f)\n',
+                      stderr='snail-sfir: benchmark primitive error\n')
+        self.assertTrue(compiler_fatal_matches(result))
+        for change in (dict(returncode=0), dict(returncode=-11), dict(timeout=True), dict(stdout=''),
+                       dict(stderr='unrelated failure'), dict(executing_descendants=[42]),
+                       dict(stderr=result['stderr'] + 'fatal compiler handler returned')):
+            self.assertFalse(compiler_fatal_matches(dict(result, **change)))
 
     def test_failed_adapted_control_prevents_complete_validation(self):
         case = dict(wasm_validation='passed', native_validation='passed', chez_validation='passed',
