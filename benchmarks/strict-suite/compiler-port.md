@@ -137,6 +137,12 @@ checks and the added argument-abort check. The
 contains every original form and the complete input specification. These are
 diagnostic evidence, with no clean performance samples.
 
+The [integration checks](../results/2026-10-14-strict-compiler-foundation/integration-checks.json)
+rerun the complete foundation checker on the current stack after normalizing four
+Scheme fixtures with the repository formatter. They retain current source hashes,
+runtime identity and all execution results separately from the original checks;
+the original source hashes and earlier failures remain unchanged.
+
 The checker saves the complete original source/input and form inventory. It runs
 the unchanged original continuation helpers under Chez as a control, then runs
 identical adapted bodies on Chez, linked raw diagnostic Wasm, mandatory-Binaryen

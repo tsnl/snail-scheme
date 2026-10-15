@@ -19,15 +19,15 @@
 (define (probe-failure-after-mutation)
   (let* ((trace (ref 0))
          (result (compiler-with-exception-handling
-                   (lambda () (probe-call-callback trace probe-failing-callback)))))
+                  (lambda () (probe-call-callback trace probe-failing-callback)))))
     (and (not result) (= (ref-get trace) 12)
          (not (ref-get compiler-handler-active)))))
 (define (probe-success-after-mutation)
   (let* ((trace (ref 0))
          (result (compiler-with-exception-handling
-                   (lambda ()
-                     (probe-call-callback trace
-                       (lambda (trace) (probe-step trace 2) (compiler-success 7)))))))
+                  (lambda ()
+                    (probe-call-callback trace
+                                         (lambda (trace) (probe-step trace 2) (compiler-success 7)))))))
     (and result (= (ref-get trace) 123) (not (ref-get compiler-handler-active)))))
 (define (probe-sink entered value)
   (ref-set! entered #t)
@@ -35,10 +35,10 @@
 (define (probe-argument-abort)
   (let* ((entered (ref #f))
          (result (compiler-with-exception-handling
-                   (lambda ()
-                     (match (ann (compiler-abort-result) (CompilerResult Bool))
-                       ((compiler-failure) (compiler-failure))
-                       ((compiler-success value) (compiler-success (probe-sink entered value))))))))
+                  (lambda ()
+                    (match (ann (compiler-abort-result) (CompilerResult Bool))
+                      ((compiler-failure) (compiler-failure))
+                      ((compiler-success value) (compiler-success (probe-sink entered value))))))))
     (and (not result) (not (ref-get entered)) (not (ref-get compiler-handler-active)))))
 
 ;; ---- Inner failure is a normal false result for the outer computation ----
@@ -57,14 +57,14 @@
 (define (probe-nested-handlers)
   (let* ((trace (ref 0)) (restored (ref #f))
          (result (compiler-with-exception-handling
-                   (lambda () (probe-nested-outer trace restored)))))
+                  (lambda () (probe-nested-outer trace restored)))))
     (and (not result) (ref-get restored) (= (ref-get trace) 123)
          (not (ref-get compiler-handler-active)))))
 (define (probe-false-is-success)
   (compiler-with-exception-handling
-    (lambda ()
-      (let ((inner (compiler-with-exception-handling (lambda () (compiler-success #f)))))
-        (compiler-success (and (not inner) (ref-get compiler-handler-active)))))))
+   (lambda ()
+     (let ((inner (compiler-with-exception-handling (lambda () (compiler-success #f)))))
+       (compiler-success (and (not inner) (ref-get compiler-handler-active)))))))
 
 (if (and (probe-failure-after-mutation) (probe-success-after-mutation) (probe-argument-abort)
          (probe-nested-handlers) (probe-false-is-success)

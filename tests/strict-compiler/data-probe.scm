@@ -23,8 +23,8 @@
 (define (probe-list-order)
   (let* ((trace (ref 0))
          (result (compiler-map
-                   (lambda (value) (ref-set! trace (+ (* 10 (ref-get trace)) value)) (* 2 value))
-                   (compiler-list 1 2 3))))
+                  (lambda (value) (ref-set! trace (+ (* 10 (ref-get trace)) value)) (* 2 value))
+                  (compiler-list 1 2 3))))
     (and (= (ref-get trace) 123)
          (begin (ref-set! trace 0)
                 (compiler-for-each (lambda (value) (ref-set! trace (+ (* 10 (ref-get trace)) value))) result)
@@ -38,11 +38,11 @@
   (let* ((input (compiler-list 1 2 3)) (old-tail (compiler-cdr input))
          (replacement (compiler-list 4 5)) (trace (ref 0))
          (output (compiler-map
-                   (lambda (value)
-                     (ref-set! trace (+ (* 10 (ref-get trace)) value))
-                     (when (= value 1) (compiler-set-cdr! input replacement))
-                     value)
-                   input)))
+                  (lambda (value)
+                    (ref-set! trace (+ (* 10 (ref-get trace)) value))
+                    (when (= value 1) (compiler-set-cdr! input replacement))
+                    value)
+                  input)))
     (and (= (ref-get trace) 145) (= (compiler-car old-tail) 2)
          (= (compiler-car (compiler-cdr old-tail)) 3)
          (compiler-list-eq? (compiler-cdr input) replacement)
@@ -76,8 +76,8 @@
 (define (probe-environment-sharing)
   (let* ((first (probe-environment))
          (second (compiler-environment (compiler-environment-variable-cell first)
-                                        (compiler-empty) (compiler-list (datum-boolean #t))
-                                        (compiler-environment-parent first)))
+                                       (compiler-empty) (compiler-list (datum-boolean #t))
+                                       (compiler-environment-parent first)))
          (variable (compiler-make-variable (compiler-anonymous-variable) (compiler-temporary-binding)
                                            (compiler-empty) (compiler-empty) (compiler-none))))
     (ref-set! (compiler-environment-variable-cell first) (compiler-list variable))
@@ -86,7 +86,7 @@
          (not (compiler-null? (compiler-environment-declarations second))))))
 (define (probe-variable-positions)
   (let ((variable (compiler-make-variable (compiler-position-variable 0) (compiler-temporary-binding)
-                                         (compiler-empty) (compiler-empty) (compiler-none))))
+                                          (compiler-empty) (compiler-empty) (compiler-none))))
     (= (compiler-variable-position (ref-get (compiler-variable-name-cell variable))) 0)))
 
 ;; ---- Located improper tails and concrete callback fields ----
@@ -101,8 +101,8 @@
                   (compiler-source-code-cell (compiler-source-tail-value tail)))
          (not (datum-boolean-value (compiler-atom-value (compiler-source-code leaf))))
          (ref-eq? (compiler-source-code-cell leaf)
-                   (compiler-source-code-cell (compiler-option-value
-                     (compiler-location-source (compiler-source-location root))))))))
+                  (compiler-source-code-cell (compiler-option-value
+                                              (compiler-location-source (compiler-source-location root))))))))
 (define (probe-callback)
   (let* ((count (ref 0))
          (macro (compiler-macro 2 (lambda (value) (ref-set! count (+ (ref-get count) 1)) value))))
