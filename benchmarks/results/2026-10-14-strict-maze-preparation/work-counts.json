@@ -1,0 +1,48 @@
+{
+  "one": {
+    "run": 1,
+    "cell": 140,
+    "wall": 367,
+    "rand": 365,
+    "bitwise-and": 3213,
+    "div": 5827,
+    "mod": 736,
+    "get-set-root": 1267,
+    "union": 139,
+    "visited-wall": 286,
+    "reroot": 8,
+    "path-length": 49,
+    "write-character": 668,
+    "parent-write": 224,
+    "mark-write": 55,
+    "compression-write": 130
+  },
+  "full": {
+    "run": 10000,
+    "cell": 1400000,
+    "wall": 3670000,
+    "rand": 3650000,
+    "bitwise-and": 32130000,
+    "div": 58270000,
+    "mod": 7360000,
+    "get-set-root": 12670000,
+    "union": 1390000,
+    "visited-wall": 2860000,
+    "reroot": 80000,
+    "path-length": 490000,
+    "write-character": 6680000,
+    "parent-write": 2240000,
+    "mark-write": 550000,
+    "compression-write": 1300000
+  },
+  "iterations": 10000,
+  "skipped_walls": 81,
+  "structure": {
+    "removed_internal_walls": 139,
+    "entrance": 6,
+    "exit": 2,
+    "marked_cells": 55,
+    "complete_output_characters": 668,
+    "exact_reverse_prefix": true
+  }
+}

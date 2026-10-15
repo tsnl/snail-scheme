@@ -3,7 +3,34 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, and `conform`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, `conform`, and `maze`.
+
+`--benchmarks maze` prepares the complete Olin Shivers hexagonal Maze workload:
+10,000 constructions of a 20 × 7 grid, with the supplied 668-character result.
+It preserves all recursive `bitwise-and`, `div`, and `mod` operations, 367 initial
+walls and 365 random shuffle draws per construction. Typed records and explicit
+Refs replace mutable source fields; unfinished array cells and absent parents
+and entrance choices are distinct variants. The only continuation is an
+immediate lexical escape after the final connecting union and wall write. Its
+adaptation returns a completion Boolean to the reverse traversal and skips the
+same remaining walls. This does not implement general continuations.
+
+The output buffer's unobserved initial false becomes an empty typed list; `run`
+still resets it before construction and prepends/reverses every character.
+The benchmark's separate initial false result remains observable for zero or
+negative counts. The exact final predicate covers all characters, list ending,
+and false versus list values. Original and adapted Chez execute their complete
+respective kernels and preserve wrong-result printing.
+
+Maze's separate observation program checks set/cell identity, both union-find
+walks, all signed integer helper results in a small range, RNG values, the full
+constructed and shuffled wall vectors, the visited reverse prefix and skipped
+suffix, complete cell/parent/link states, every output character, and operation
+counts for all 10,000 iterations. Its instrumentation is absent from the
+production source. Rust remains the independent indexed-cell implementation:
+native bit operations, a temporary child vector, and owned character-list
+destruction differ from Scheme. Preparation starts no clean timing and does
+not increase historical measured coverage.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
