@@ -76,7 +76,12 @@ runs four current optimized Wasm artifacts on both V8 and native LLVM. It record
 three native wins, one V8 win, and the archived emitter/capacity failures at that
 checkpoint. A later [String layout comparison](results/2026-10-14-string-block-native-comparison/README.md)
 changes that workload's winner: V8 runs the improved Wasm 2.27× faster. The
-restored emitter remains an isolated experiment.
+earlier reports used an isolated emitter. The current
+[native64 Ray comparison](results/2026-10-14-native64-ray-comparison/README.md)
+uses the restored production build command, mandatory Binaryen optimization,
+checked C linkage and the shared Rust runtime. For all 50 original renders,
+native takes 0.193 s versus 0.128 s on V8 (1.512× the time); complete images and
+separate file/iteration diagnostics pass on both targets.
 
 ## Compiler throughput
 

@@ -1,0 +1,13 @@
+{
+  "started_utc": "2026-10-14T11:58:03.165753+00:00",
+  "agents_holding_builds": true,
+  "acknowledgements": {
+    "native64_restore": "Final full checks complete; every execution handle terminal.",
+    "rust_mazefun_handoff": "CPU hold acknowledged; no compression, build, test or replay process running.",
+    "parent": "All build/correctness/trace handles terminal; only this timing campaign runs."
+  },
+  "cpu": 5,
+  "scope": "Coordinated agent workloads paused; unrelated desktop/system activity remains possible.",
+  "released_utc": "2026-10-14T11:59:25.901746+00:00",
+  "release_note": "Released immediately after all10 observations and post-run identity verification; diagnostic/profiling work may resume."
+}
