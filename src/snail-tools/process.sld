@@ -8,7 +8,6 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (chibi filesystem) (chibi pathname)
           (snail-tools json)
-          (only (chibi bytevector) bytevector->hex-string)
           (only (chibi io) port->string port->bytevector)
           (only (chibi process) fork execute waitpid current-process-id)
           (only (chibi string) string-trim string-prefix?) (srfi 1) (srfi 151))
@@ -116,6 +115,16 @@
     (define (captured-text path)
       (guard (failure (else "<non-UTF-8 output; consult the retained bytes>")) (read-text path)))
 
+    (define (bytevector->hex-string bytes)
+      ;; Two ASCII bytes per input byte: one bounded allocation, without
+      ;; temporary strings or repeated Unicode string-index traversal.
+      (let* ((digits #u8(48 49 50 51 52 53 54 55 56 57 97 98 99 100 101 102))
+             (length (bytevector-length bytes)) (output (make-bytevector (* 2 length))))
+        (do ((index 0 (+ index 1))) ((= index length) (utf8->string output))
+          (let ((byte (bytevector-u8-ref bytes index)))
+            (bytevector-u8-set! output (* 2 index) (bytevector-u8-ref digits (quotient byte 16)))
+            (bytevector-u8-set! output (+ 1 (* 2 index)) (bytevector-u8-ref digits (modulo byte 16)))))))
+
     (define (capture-process argv options directory)
       (let* ((input (path-join directory "stdin")) (output (path-join directory "stdout"))
              (errors (path-join directory "stderr")) (record (path-join directory "process.json")) (start (current-jiffy))
@@ -160,4 +169,29 @@
     (define (command-line-main main)
       (guard (failure (else (display "snail-sfir: " (current-error-port))
                             (write failure (current-error-port)) (newline (current-error-port)) (exit 1)))
-        (exit (main (cdr (command-line))))))))
+        (exit (main (cdr (command-line)))))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-process)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (test-captured-byte-identity)
+        (expect (bytevector->hex-string #u8()) "")
+        (expect (bytevector->hex-string #u8(0 1 15 16 31 32 127 128 254 255)) "00010f101f207f80feff")
+        (let ((bytes (make-bytevector 256)))
+          (do ((index 0 (+ index 1))) ((= index 256)) (bytevector-u8-set! bytes index index))
+          (expect (bytevector->hex-string bytes)
+                  (string-append
+                   "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+                   "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+                   "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f"
+                   "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f"
+                   "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+                   "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+                   "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
+                   "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"))))
+      (define (test-process) (run-test test-captured-byte-identity))))
+   (else)))
