@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Compile SFIR to a WasmGC module, always optimized with Binaryen."""
+
+import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--export', dest='exports', action='append', default=[], metavar='NAME')
+    parser.add_argument('-I', '--library', action='append', default=[], type=Path, metavar='DIR')
+    parser.add_argument('source', type=Path)
+    parser.add_argument('output', type=Path)
+    options = parser.parse_args()
+    if len(set(options.exports)) != len(options.exports):
+        parser.error('export names must be distinct')
+    source, output = options.source.resolve(), options.output.resolve()
+    outputs = [output, *(Path(str(output) + suffix) for suffix in ('.wat', '.trace.json', '.raw.wasm'))]
+    if source in outputs:
+        parser.error('build outputs must not replace the source')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    command = [os.environ.get('CHIBI', 'chibi-scheme'), '-I', str(ROOT / 'src'),
+               str(ROOT / 'scripts/build-sfir.scm'), str(ROOT), str(source), str(output),
+               str(len(options.library)), *[str(path.resolve()) for path in options.library], *options.exports]
+    return subprocess.run(command).returncode
+
+
+if __name__ == '__main__':
+    sys.exit(main())

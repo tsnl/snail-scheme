@@ -1,5 +1,26 @@
 # A tour of Snail-Scheme
 
+## SFIR migration entry
+
+[The language contract](doc/sfir.md) defines the supported direction. The direct
+SFIR entry is [`scripts/build-sfir`](scripts/build-sfir); `-I` adds directories
+containing `.sfir` libraries. [`frontend.sld`](src/snail-sfir/frontend.sld) resolves
+located, macro-free syntax into the existing binding IR. It reserves a block's
+identities before resolving initializers, preserves import identity, and attaches
+declared signatures to definitions. It performs no type inference.
+
+[`compiler.sld`](src/snail-sfir/compiler.sld) composes resolution, inference,
+specialization and Wasm emission. The existing `strict-*` modules still implement
+the latter three passes while their namespace and callers are migrated.
+[`signatures.sld`](src/snail-sfir/signatures.sld) retains quantified source type
+identities without depending on the old gradual Scheme type system. Binaryen
+always optimizes the emitted module. [`scripts/test-sfir`](scripts/test-sfir)
+executes accepted programs and checks rejected syntax, typing and module cases.
+
+The remaining tour describes the pre-migration tree. Its Scheme entry points,
+macro expansion and generated benchmark sources are being removed, rather than
+being added to the supported SFIR interface.
+
 Chibi hosts the bootstrap compiler. It emits WasmGC for Node.js and native LLVM
 lowering. Binaryen optimizes the program Wasm on both paths. Wasm engines own
 Scheme memory in Wasm; the native path uses the in-house precise collector.

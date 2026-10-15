@@ -12,7 +12,7 @@
                 binding-initializer set-binding-initializer! binding-kind binding-payload
                 binding-declaration set-binding-declaration! children copy-ir-graph)
           (prefix (snail-scheme ir) ir:)
-          (prefix (snail-scheme types) source:))
+          (prefix (snail-sfir signatures) source:))
   (begin
 
     ;; ---- Lexical checking scopes ----
