@@ -15,6 +15,7 @@
         (only (snail-sfir frontend) test-frontend)
         (only (snail-sfir compiler) test-compiler)
         (only (snail-sfir artifact) test-artifact)
+        (only (snail-sfir library-transfer) test-library-transfer)
         (only (snail-sfir numeric-literals) test-numeric-literals)
         (only (snail-scheme strict-types) test-strict-types)
         (only (snail-scheme strict-infer) test-strict-infer)
@@ -24,6 +25,7 @@
 (test-chromium-trace)
 (test-compiler)
 (test-artifact)
+(test-library-transfer)
 (call-with-temp-dir
  "sfir-unit-traces"
  (lambda (directory preserve)

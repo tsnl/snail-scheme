@@ -37,6 +37,9 @@ explicit library maps, and compile a public `Entry` to a Wasm or native64
 artifact. Entries currently use the existing monomorphic scalar function ABI;
 provider linking is separate. A JavaScript Wasm adapter loads those artifact
 bytes, creates independent instances with typed providers and checks scalar
-entry calls. These APIs are not yet exposed as SFIR library functions. Native
-loading, compiler/library transport and generation recipes remain implementation
-work; see [the compiler tour](../TOUR.md) for the supported stages and their limits.
+entry calls. An SFIR constructor library and explicit checked transport now let
+compiled Wasm producers return a limited structured library subset to Chibi.
+General compiler/execution services are not yet exposed as SFIR library
+functions. Native loading, full declaration construction/inspection and source
+generation recipes remain implementation work; see [the compiler tour](../TOUR.md)
+and [builder API](sfir-builder.md) for the supported stages and their limits.

@@ -45,9 +45,13 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Provide explicit Wasm loading, independent instantiation and checked scalar
   Entry invocation through a JavaScript host adapter, with provider checks before
   initialization and no callable instance after failed initialization.
-- [ ] Add native loading with independent state and make compiler/execution APIs
-  available to SFIR. Implement library generation through an explicit checked
-  data-transfer protocol; Scheme elaboration and macro staging remain deferred.
+- [x] Execute compiled SFIR producers that construct a limited library syntax
+  subset through typed builders and transfer owned structured data into Chibi.
+  Preserve explicit receiving-context identities and separate output imports.
+- [ ] Complete library constructors/accessors and source-level `generate-library`
+  recipes with preparation-cycle diagnostics. Add native loading with independent
+  state and general compiler/execution APIs callable from SFIR; Scheme elaboration
+  and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.
   Retain the existing source and artifact snapshots as historical baselines.
 
