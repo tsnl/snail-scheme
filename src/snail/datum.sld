@@ -298,21 +298,25 @@
     (: make-equality-history (-> EqualityHistory))
     (define (make-equality-history)
       (equality-history (ref (make-vector 32 0)) (ref (make-vector 32 0)) (ref 0)))
-    ;; Fold all three base-2^21 digits before reducing to a prime. A nonlinear
-    ;; final mix avoids the low-bit correlations of sequential/strided IDs.
-    ;; Every intermediate stays positive and below I64's maximum, including
-    ;; the square (2147483646^2). This is not an adversarial hash guarantee.
-    (: equality-identity-hash (-> I64 I64))
-    (define (equality-identity-hash identity)
-      (let ((high (quotient identity 4398046511104))
-            (middle (remainder (quotient identity 2097152) 2097152))
-            (low (remainder identity 2097152)))
-        (remainder (+ (* (+ (* high 48271) middle) 48271) low) 2147483647)))
+    ;; Mix complete I64 bit patterns with wrapping arithmetic and logical shifts.
+    ;; Odd multiplication and xor-with-shift are each invertible. Mixing the
+    ;; right ID before combining it with the left avoids diagonal cancellation.
+    ;; These constants are signed spellings of 64-bit words; negative results
+    ;; are expected. Exact keys, never hashes, decide membership. This is not
+    ;; an adversarial collision guarantee.
+    (: equality-mix-word (-> I64 I64))
+    (define (equality-mix-word word)
+      (let* ((first (i64-mul (i64-bitwise-xor word (i64-shift-right/logical word 30)) -4658895280553007687))
+             (second (i64-mul (i64-bitwise-xor first (i64-shift-right/logical first 27)) -7723592293110705685)))
+        (i64-bitwise-xor second (i64-shift-right/logical second 31))))
+    (: equality-pair-hash (-> I64 I64 I64))
+    (define (equality-pair-hash left right)
+      (equality-mix-word (i64-bitwise-xor left (equality-mix-word (i64-add right -7046029254386353131)))))
+    ;; Capacity starts at 32 and only doubles, through at most 2^31. Its mask
+    ;; selects a nonnegative bucket even when the full hash has its high bit set.
     (: equality-bucket (-> I64 I64 I64 I64))
     (define (equality-bucket left right capacity)
-      (let ((hash (remainder (+ (* (equality-identity-hash left) 48271)
-                                (equality-identity-hash right)) 2147483647)))
-        (remainder (remainder (+ (+ (* hash hash) hash) 1) 2147483647) capacity)))
+      (i64-bitwise-and (equality-pair-hash left right) (- capacity 1)))
     (: equality-slot (-> I64 I64 (Vector I64) (Vector I64) I64))
     (define (equality-slot left right keys partners)
       (let ((capacity (vector-length keys)))
@@ -551,6 +555,74 @@
               (different (test-deep-datum 5000 (datum-character #\b))))
           (and (datum=? left right) (not (datum=? left different))
                (datum=? (datum-vector (empty-vector)) (datum-vector (empty-vector))))))
+      ;; Reference words were computed with independent unsigned-64 arithmetic.
+      ;; Include changes above 32 bits, both result signs, and reversed keys.
+      (define (test-equality-hash-words)
+        (and (= (equality-pair-hash 1 1) 6652587683579779273)
+             (= (equality-pair-hash 1 2) -972091869234291113)
+             (= (equality-pair-hash 2 1) 583880340377267059)
+             (= (equality-pair-hash 9223372036854775807 9223372036854775807) 4218948218474539009)
+             (= (equality-pair-hash 1 9223372036854775807) 6459536036652829431)
+             (= (equality-pair-hash 9223372036854775807 1) -421409582817843346)
+             (= (equality-pair-hash 2097153 7) 1992281314829590827)
+             (= (equality-pair-hash 2147483649 7) -1548759241620248504)
+             (= (equality-pair-hash 4294967297 7) 2205320672614223687)
+             (= (equality-pair-hash 4398046511105 7) -2359351969197311418)
+             (= (equality-pair-hash 4611686018427387905 7) -5466481419058493644)
+             (= (equality-pair-hash 4611690416475996161 7) -5320575393637501446)
+             (= (equality-pair-hash 7 4611690416475996161) -1025925624717699660)))
+      (define (test-equality-history-high-bits)
+        (let ((ids (vector 1 2097153 2147483649 4294967297 4398046511105
+                           4611686018427387905 4611690416475996161 9223372036854775807))
+              (history (make-equality-history)))
+          (let loop ((index 0))
+            (if (= index (vector-length ids)) (= (ref-get (history-size history)) 16)
+                (let ((id (vector-ref ids index)))
+                  (and (not (equality-seen? id 7 history))
+                       (not (equality-seen? 7 id history))
+                       (equality-seen? id 7 history) (equality-seen? 7 id history)
+                       (loop (+ index 1))))))))
+      (define (test-insert-colliding-keys keys history)
+        (let loop ((index 0))
+          (if (= index (vector-length keys)) #t
+              (and (or (not (= index 32))
+                       (= (vector-length (ref-get (history-left history))) 32))
+                   (not (equality-seen? (vector-ref keys index) (vector-ref keys (+ index 1)) history))
+                   (loop (+ index 2))))))
+      (define (test-find-colliding-keys keys history)
+        (let loop ((index 0))
+          (if (= index (vector-length keys)) #t
+              (and (equality-seen? (vector-ref keys index) (vector-ref keys (+ index 1)) history)
+                   (loop (+ index 2))))))
+      (define (test-equality-history-collisions)
+        ;; All keys start at bucket 31 modulo 32. Growth splits their homes
+        ;; between 31 and 63, exercising wraparound and rehashing together.
+        (let ((keys (vector 23 4611686018427387973
+                            46 4611686018427388042
+                            65 4611686018427388099
+                            134 4611686018427388306
+                            189 4611686018427388471
+                            213 4611686018427388543
+                            247 4611686018427388645
+                            271 4611686018427388717
+                            284 4611686018427388756
+                            387 4611686018427389065
+                            474 4611686018427389326
+                            486 4611686018427389362
+                            506 4611686018427389422
+                            513 4611686018427389443
+                            529 4611686018427389491
+                            539 4611686018427389521
+                            541 4611686018427389527
+                            567 4611686018427389605))
+              (history (make-equality-history)))
+          (and (test-insert-colliding-keys keys history)
+               (= (vector-length (ref-get (history-left history))) 64)
+               (= (ref-get (history-size history)) 18)
+               (test-find-colliding-keys keys history)
+               (= (ref-get (history-size history)) 18)
+               (not (equality-seen? 640 4611686018427389824 history))
+               (not (equality-seen? (vector-ref keys 0) (vector-ref keys 1) (make-equality-history))))))
       (define (test-datum)
         (if (and (test-pair-identity) (test-list-sharing) (test-storage-identity)
                  (test-atoms)
@@ -558,6 +630,8 @@
                  (test-equality-vector-cycles) (test-equality-depth)
                  (test-equality-pending-cdr) (test-equality-pending-vector)
                  (test-equality-coprime-cycles)
+                 (test-equality-hash-words) (test-equality-history-high-bits)
+                 (test-equality-history-collisions)
                  (datum-null? (datum-null)) (datum-pair? (datum-list (datum-null)))
                  (datum-truth? (datum-null)) (not (datum-truth? (datum-boolean #f)))
                  (datum-eq? (datum-symbol (string->symbol "same"))
