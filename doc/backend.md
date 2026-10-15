@@ -122,3 +122,13 @@ rejects incompatible bindings. Formatting and compilation alone are insufficient
 [Benchmarks](../BENCHMARKS.md) describe the full pinned R7RS suite, compiler
 baseline, failures, and reproducibility. Historical native comparisons remain
 separate from the restored [native implementation and contracts](native.md).
+
+## Actor prototype
+
+`scripts/build-actor INPUT.sld OUTPUT.wasm` compiles one library and the portable
+S-expression codec, links the current Rust library and WASI platform, and always
+runs Binaryen. Value exports become same-instance ABI functions; macros are
+excluded. The Node host in `runtime/actors.mjs` creates a separate process for
+each instance and exposes connection-owned calls. See
+[the actor example](../examples/actors/README.md); `scripts/test-actors` executes
+linked Wasm and `scripts/test-ui` exercises the separate Chibi HTTP prototype.
