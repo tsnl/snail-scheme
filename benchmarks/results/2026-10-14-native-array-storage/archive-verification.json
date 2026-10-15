@@ -1,0 +1,39 @@
+{
+  "archive_sha256": "93650be98554d9016e3d18b1d0dc85350c31ef5da98ace41a6b0ebd946922046",
+  "archive_bytes": 6020088,
+  "regular_files": 506,
+  "all_bytes_verified_before_and_after": true,
+  "replays": [
+    {
+      "system": "strict-v8",
+      "status": "valid",
+      "count": 100,
+      "cleanup": {
+        "process_group": 3,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      }
+    },
+    {
+      "system": "strict-native",
+      "status": "valid",
+      "count": 100,
+      "cleanup": {
+        "process_group": 10,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      }
+    },
+    {
+      "system": "strict-packed",
+      "status": "valid",
+      "count": 100,
+      "cleanup": {
+        "process_group": 11,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      }
+    }
+  ],
+  "not_clean_timing": true
+}

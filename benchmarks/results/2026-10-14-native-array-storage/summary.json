@@ -1,0 +1,57 @@
+{
+  "complete": true,
+  "systems": {
+    "strict-v8": {
+      "samples": 6,
+      "workload_median": 0.938473552,
+      "workload_range": [
+        0.937357882,
+        0.941497903
+      ],
+      "process_median": 0.9627909745031502,
+      "process_range": [
+        0.9598324699909426,
+        0.9661764120100997
+      ]
+    },
+    "strict-native": {
+      "samples": 6,
+      "workload_median": 1.031043527,
+      "workload_range": [
+        1.029605269,
+        1.033509931
+      ],
+      "process_median": 1.0340295024798252,
+      "process_range": [
+        1.031712674011942,
+        1.0359726260066964
+      ]
+    },
+    "strict-packed": {
+      "samples": 6,
+      "workload_median": 0.9781973930000001,
+      "workload_range": [
+        0.978010197,
+        0.981035492
+      ],
+      "process_median": 0.9810129224497359,
+      "process_range": [
+        0.9804460440063849,
+        0.983764523989521
+      ]
+    }
+  },
+  "ratios": {
+    "packed_over_baseline": 0.9487450019168784,
+    "packed_over_v8": 1.0423281411770675,
+    "baseline_over_v8": 1.0986388745881248
+  },
+  "diagnostic_allocations": 801730,
+  "diagnostic_baseline_bytes": 1601725128,
+  "diagnostic_packed_bytes": 512663528,
+  "diagnostic_byte_reduction": 0.6799303956477606,
+  "diagnostic_collections": {
+    "baseline": 192,
+    "packed": 62
+  }
+}

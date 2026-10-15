@@ -1,0 +1,20 @@
+{
+  "directory": "/tmp/snail-native-array-layout-20261014/build/array-storage/packed.native-lkg7d5lg",
+  "checks": {
+    "optimized.wasm": {
+      "old": "2463c3f837b5133d6a622fe0d690da47cffb464bbda63d2f90f000b27649e41e",
+      "packed": "2463c3f837b5133d6a622fe0d690da47cffb464bbda63d2f90f000b27649e41e",
+      "identical": true
+    },
+    "provider-0.o": {
+      "old": "8b8c5727a5514af836cea39fa4680069abf82dcc240fbaba3c79f767b71f140e",
+      "packed": "8b8c5727a5514af836cea39fa4680069abf82dcc240fbaba3c79f767b71f140e",
+      "identical": true
+    },
+    "runtime": {
+      "old": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+      "packed": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+      "identical": true
+    }
+  }
+}
