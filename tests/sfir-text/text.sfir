@@ -14,7 +14,7 @@
 (define whitespace (-> Char Bool)
   (lambda (value) (char-whitespace? value)))
 
-;; ---- Hosts populate ordinary mutable Scheme strings through scalar workers ----
+;; ---- Hosts populate ordinary mutable SFIR strings through scalar workers ----
 
 (define left
   (ref (make-string 0)))
@@ -37,12 +37,42 @@
 (define self-ordered (-> Bool)
   (lambda () (string<? (ref-get left) (ref-get left))))
 
+(define fold-left (-> Unit)
+  (lambda () (ref-set! right (string-foldcase (ref-get left)))))
+
+(define read-left (-> I64 Char)
+  (lambda (index) (string-ref (ref-get left) index)))
+
+(define read-right (-> I64 Char)
+  (lambda (index) (string-ref (ref-get right) index)))
+
+(define right-length (-> I64)
+  (lambda () (string-length (ref-get right))))
+
+(define same-strings (-> Bool)
+  (lambda () (string-eq? (ref-get left) (ref-get right))))
+
+(define fold-literal (-> Bool)
+  (lambda ()
+    (let ((folded (string-foldcase "Straße")))
+      (begin
+        (string-set! folded 0 #\S)
+        (string=? folded "Strasse")))))
+
 ;; ---- Malformed raw callers must release files before the fatal diagnostic ----
 
 (define-extern raw-downcase "snail.library" "snail:text/downcase" (-> I32 I32))
 (define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> I32 I32))
 (define-extern raw-numeric "snail.library" "snail:text/numeric" (-> I32 I32))
 (define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> I32 I32))
+(define-extern raw-full-fold-length "snail.library" "snail:text/full-fold-length" (-> I32 I32))
+(define-extern raw-full-fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> I32 I32 I32))
+
+(define fold-count (-> I32 I32)
+  (lambda (code) (raw-full-fold-length code)))
+
+(define fold-component (-> I32 I32 I32)
+  (lambda (code index) (raw-full-fold-scalar code index)))
 
 (define malformed (-> I64 I32 Unit)
   (lambda (operation code)
@@ -52,6 +82,14 @@
           (raw-downcase code)
           (if (= operation 1)
               (raw-alphabetic code)
-              (if (= operation 2) (raw-numeric code) (raw-whitespace code))))
+              (if (= operation 2)
+                  (raw-numeric code)
+                  (if (= operation 3)
+                      (raw-whitespace code)
+                      (if (= operation 4)
+                          (raw-full-fold-length code)
+                          (if (= operation 5)
+                              (raw-full-fold-scalar code (ann 0 I32))
+                              (raw-full-fold-scalar (if (= operation 6) (ann 223 I32) (ann 912 I32)) code)))))))
       (unreachable))))
 (unit)
