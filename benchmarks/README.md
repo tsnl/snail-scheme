@@ -118,6 +118,15 @@ records 0.939191 s on V8, 1.992× original Chez time and 20.569× Rust/Wasm
 time. Unicode-scalar versus UTF-8 storage, native slot widths and ownership
 differences remain explicit. All 42 full-count processes passed.
 
+The [bytevector attribution](results/2026-10-14-strict-bv2string-diagnostics/README.md)
+finds retained divisions, capture loads and repeated initialization checks; separate
+collection observations account for only small recorded brackets. A subsequent
+[native array storage comparison](results/2026-10-14-native-array-storage/README.md)
+uses identical final Wasm: storing elements at their declared widths reduces
+native time from 1.031044 s to 0.978197 s, 5.13%. V8 takes 0.938474 s on that
+module, leaving native 1.042× slower. Separate diagnostic requested bytes fall
+67.99%, with the same allocation count. This is one workload, not a suite rerun.
+
 The [Earley comparison](results/2026-10-14-strict-earley-comparison/README.md)
 records 2.644450 s on production V8, 1.484× original Chez time and 0.754×
 adapted Chez time. Native takes 3.882573 s, 1.458× V8 on the identical final

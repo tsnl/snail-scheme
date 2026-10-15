@@ -3,7 +3,7 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `3dcce40`: result-context overloads, `Default T`, rank-one
+compiler basis is `fd29b6c`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
 calls to nonescaping local procedures and structured operators, plus direct captures
 of initialized let values, are implemented. Native Unicode strings have
@@ -52,6 +52,10 @@ V8 takes 0.939191 s, 1.992× original Chez time and 20.569× Rust/Wasm time;
 native takes 1.029586 s. All 42 processes passed. Unicode-scalar versus UTF-8
 storage, native slot widths and ownership differences are explicit. Historical
 coverage before Earley was 35 of 57 measured workloads, 34 with paired Chez controls.
+The later [native array storage experiment](../results/2026-10-14-native-array-storage/README.md)
+changes only native lowering: declared-width array storage reduces bytevector
+native time 5.13%, to 0.978197 s versus 0.938474 s for identical-Wasm V8.
+Its separate requested-byte count falls 67.99%; coverage does not increase.
 Earley adds a [five-system comparison](../results/2026-10-14-strict-earley-comparison/README.md):
 production V8 takes 2.644450 s, 1.484× original Chez time and 0.754× adapted
 Chez time. Native takes 1.458× V8 on the identical final Wasm, using an explicit
