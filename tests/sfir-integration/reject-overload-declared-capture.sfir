@@ -1,0 +1,7 @@
+(import (sfir base))
+(def storage
+     (empty-vector))
+(define-overload get-storage (All (T) (-> (Vector T))) (lambda () storage))
+;; Shared monomorphic storage cannot implement a universally quantified result.
+(ann (get-storage) (Vector I64))
+42

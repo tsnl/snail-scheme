@@ -1,6 +1,0 @@
-(import (sfir base))
-(define-overload identity (lambda (value) value))
-
-(def impossible (All (T) (-> T Bool))
-     (lambda (value) (identity value)))
-(ann 42 I64)

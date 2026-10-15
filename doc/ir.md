@@ -10,7 +10,8 @@ expand macros, infer types or optimize expressions.
 A reference points to a binding identity, not a printed name. Import renaming
 changes the name visible to a client while preserving the original identity.
 Each overload family likewise has an identity; its members retain separate
-signatures and initializers.
+explicit signatures and initializers. Overload signatures are available before
+checking bodies; they are never inferred from the implementations or call sites.
 
 A lexical block reserves its immediate definitions before resolving their
 initializers. This admits recursion and forward references without reordering

@@ -110,7 +110,7 @@ const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'condi
   'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match', 'number-literal'];
 const staticKinds = ['datatype', 'typeclass', 'instance'];
 const declarationKinds = ['definition', 'inferred-definition', 'local-binding', 'inferred-local-binding',
-  'expression-statement', 'extern', 'overload', 'inferred-overload', ...staticKinds, 'kind-annotation'];
+  'expression-statement', 'extern', 'overload', ...staticKinds, 'kind-annotation'];
 const kindKinds = ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence'];
 const selectionKinds = ['all', 'only', 'rename'];
 const sequenceKinds = ['nil', 'cons'];
@@ -149,7 +149,6 @@ const syntaxForms = [
   ['kind-annotation', ['kind', 'static-declaration', 'span']],
   ['extern', ['binding', 'name', 'name', 'type', 'span']],
   ['overload', ['binding', 'signature', 'expression', 'span']],
-  ['inferred-overload', ['binding', 'expression', 'span']],
   ['number-literal', ['name', 'span']], ['rest-type', ['type']],
 ];
 const categories = {

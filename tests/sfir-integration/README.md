@@ -1,19 +1,28 @@
 # SFIR integration contracts
 
-`../../scripts/test-sfir-integration` checks all 315 retained compiler cases in
+`../../scripts/test-sfir-integration` checks all 320 compiler cases in
 `cases.json`. Each case names one authored `.sfir` fixture. The runner verifies
 that the two inventories agree, compiles with the direct SFIR frontend, and
 executes both the raw diagnostic module and mandatory-Binaryen optimized module.
 `run.mjs` preserves the original assertions, including ordered scalar observers
 on the same instance after an expected `WebAssembly.RuntimeError`.
 
-The case identities and original source hashes are recorded in `migration.json`.
+The original 315 case identities and source hashes are recorded in `migration.json`.
 The source base was `78734dd`; the subsequent compiler checkpoint `6983894` changes
 inference scheduling and removes the old gradual emitter. A disposable converter
 outside the repository performed the one-time syntax migration. It is neither
 shipped nor invoked by a runner. Target fixtures contain explicit lambdas,
 attached signatures, lexical blocks, sequential `let`, recursive definitions,
 and two-branch conditionals. Existing constants and mutable operations remain.
+
+Every overload alternative now declares its complete signature. The former
+`overload-inferred-*` fixtures are named `overload-declared-*` and retain their
+ordinary helper inference, class proofs, result selection and initialization
+checks. The declared signatures make the former row-cycle and executable-storage
+readiness failures valid programs. Five additional rejection cases cover unsigned
+lambdas, named implementations, mixed families, unused alternatives and imported
+extensions. The migration records remain historical evidence for the original
+source snapshot.
 
 Five former detached-signature tests now explicitly check rejection of syntax
 removed from SFIR. They do not establish the old detached-declaration rules.
@@ -39,8 +48,8 @@ binding is now explicit and distinct from its surrounding parameter.
 
 The adjacent `sfir-bytes`, `sfir-extern`, `sfir-integer`, `sfir-io`,
 `sfir-numbers`, `sfir-reader`, `sfir-text`, and `sfir-write` directories retain the
-custom Node and C hosts and independent data oracles. Scalar trigonometry remains
-in `../sfir-math.sfir` with its existing Node/C hosts. Their corresponding commands
+custom Node and Rust hosts and independent data oracles. Scalar trigonometry remains
+in `../sfir-math.sfir` with its existing Node/Rust hosts. Their corresponding commands
 are `scripts/test-sfir-<name>`.
 
 These runners compile static target sources. They may generate input values,

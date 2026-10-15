@@ -22,7 +22,7 @@
    inferred-definition local-binding inferred-local-binding expression-statement data-field
    accessor-field data-constructor datatype-definition class-method typeclass-definition
    method-implementation instance-definition kind-annotated-definition extern-definition overload-definition
-   inferred-overload-definition type-string type-bytevector type-never type-any
+   type-string type-bytevector type-never type-any
    binding-signature signature-definition builder-name-text same-binding? same-scope?
    same-type-variable? SourceSpanView view-span inspect-span ScopeIdView
    view-scope view-child-scope inspect-scope BindingIdView view-binding
@@ -37,7 +37,7 @@
    view-annotation view-instantiation view-match inspect-expression DeclarationView
    view-definition view-inferred-definition view-local-binding view-inferred-local-binding view-expression-statement
    view-datatype view-typeclass view-instance view-kind-annotation view-extern
-   view-overload view-inferred-overload inspect-declaration ImportRenameView view-rename-pair
+   view-overload inspect-declaration ImportRenameView view-rename-pair
    inspect-import-rename ImportSelectionView view-all view-only view-rename
    inspect-import-selection ImportView view-import inspect-import ExportView
    view-export inspect-export SfirLibraryView view-library inspect-library
@@ -154,7 +154,6 @@
     (define-extern raw-kind-annotation "sfir.builder" "kind-annotation" (-> I64 I64 I64 I64))
     (define-extern raw-extern "sfir.builder" "extern" (-> I64 I64 I64 I64 I64 I64))
     (define-extern raw-overload "sfir.builder" "overload" (-> I64 I64 I64 I64 I64))
-    (define-extern raw-inferred-overload "sfir.builder" "inferred-overload" (-> I64 I64 I64 I64))
     (define-extern raw-byte "sfir.builder" "byte" (-> I64 I64))
     (define-extern raw-inspect-tag "sfir.builder" "inspect-tag" (-> I64 I32))
     (define-extern raw-inspect-field "sfir.builder" "inspect-field" (-> I64 I32 I64))
@@ -233,9 +232,8 @@
     (def tag-kind-annotation I32 58)
     (def tag-extern I32 59)
     (def tag-overload I32 60)
-    (def tag-inferred-overload I32 61)
-    (def tag-number-literal I32 62)
-    (def tag-rest-type I32 63)
+    (def tag-number-literal I32 61)
+    (def tag-rest-type I32 62)
 
     ;; ---- Ordinary lists are copied into immutable sequence nodes ----
 
@@ -627,9 +625,6 @@
     (def overload-definition (-> BindingId Signature Expression SourceSpan Declaration)
          (lambda (binding signature value span)
            (wrap-declaration (raw-overload (binding-token binding) (signature-token signature) (expression-token value) (span-token span)))))
-    (def inferred-overload-definition (-> BindingId Expression SourceSpan Declaration)
-         (lambda (binding value span)
-           (wrap-declaration (raw-inferred-overload (binding-token binding) (expression-token value) (span-token span)))))
     (def type-string (-> TypeSyntax)
          (lambda () (wrap-type (raw-scalar-type 7))))
     (def type-bytevector (-> TypeSyntax)
@@ -937,8 +932,7 @@
                    (view-instance (binding BindingId) (head ConstraintSyntax) (methods (List MethodImplementation)) (span SourceSpan))
                    (view-kind-annotation (kind KindSyntax) (declaration Declaration) (span SourceSpan))
                    (view-extern (binding BindingId) (module String) (symbol String) (type TypeSyntax) (span SourceSpan))
-                   (view-overload (binding BindingId) (signature Signature) (value Expression) (span SourceSpan))
-                   (view-inferred-overload (binding BindingId) (value Expression) (span SourceSpan)) ))
+                   (view-overload (binding BindingId) (signature Signature) (value Expression) (span SourceSpan)) ))
     (def inspect-declaration (-> Declaration DeclarationView)
          (lambda (value)
            (begin (let token (declaration-token value))
@@ -1007,12 +1001,7 @@
                                                                (wrap-signature (raw-inspect-field token 1))
                                                                (wrap-expression (raw-inspect-field token 2))
                                                                (wrap-span (raw-inspect-field token 3)))
-                                                              (if (i32-eq tag tag-inferred-overload)
-                                                                  (view-inferred-overload
-                                                                   (wrap-binding (raw-inspect-field token 0))
-                                                                   (wrap-expression (raw-inspect-field token 1))
-                                                                   (wrap-span (raw-inspect-field token 2)))
-                                                                  (unreachable))))))))))))))))
+                                                              (unreachable)))))))))))))))
     (def ImportRenameView
          (datatype ()
                    (view-rename-pair (from Name) (to Name)) ))
