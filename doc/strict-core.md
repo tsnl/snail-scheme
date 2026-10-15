@@ -521,6 +521,11 @@ Ref and Vector allocation identities are exposed by the language. Pure
 specialized closures may have separate wrappers while sharing their captured
 cells and vectors.
 
+The [three-way V8 comparison](../benchmarks/results/2026-10-14-strict-constant-visibility-comparison/README.md)
+measures scalar forwarding and completed-global facts separately on an unchanged
+full workload. Its preparation report records the creation-entry audit and
+forward-reference, recursion, alias, mutation and linked-execution checks.
+
 ## Reading the specialization pass
 
 Three compiler objects explain this separation. A **site** belongs to a lexical
