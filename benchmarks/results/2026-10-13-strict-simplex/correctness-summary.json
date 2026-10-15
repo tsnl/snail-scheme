@@ -1,0 +1,239 @@
+{
+  "canonical_checks": 12,
+  "full_canonical_checks": 4,
+  "canonical_counts": [
+    1,
+    2,
+    1000000
+  ],
+  "canonical_count": 1000000,
+  "expected": [
+    [
+      4,
+      1,
+      3,
+      2
+    ],
+    [
+      0,
+      5,
+      7,
+      6
+    ]
+  ],
+  "full_wasm_hide_calls": [
+    1000000,
+    1000000
+  ],
+  "probe_outcomes": 176,
+  "complete_cases": 12,
+  "complete_expectation_negatives": 16,
+  "final_predicate_cases": 11,
+  "invalid_guard_cases": 5,
+  "systems": [
+    "original Chez",
+    "adapted Chez",
+    "raw Wasm",
+    "optimized Wasm"
+  ],
+  "source_equivalent_cases": 12,
+  "independent_mathematical_agreements": 11,
+  "oracles": [
+    {
+      "label": "bounded-one",
+      "independent_lp": {
+        "status": 2,
+        "objective": "2",
+        "feasible_vertices": 2
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 4
+    },
+    {
+      "label": "bounded-two",
+      "independent_lp": {
+        "status": 2,
+        "objective": "8",
+        "feasible_vertices": 4
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 18
+    },
+    {
+      "label": "ratio-tie",
+      "independent_lp": {
+        "status": 2,
+        "objective": "2",
+        "feasible_vertices": 5
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 9
+    },
+    {
+      "label": "duplicate-constraint",
+      "independent_lp": {
+        "status": 2,
+        "objective": "2",
+        "feasible_vertices": 3
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 6
+    },
+    {
+      "label": "greater-equal",
+      "independent_lp": {
+        "status": 2,
+        "objective": "3",
+        "feasible_vertices": 2
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 21
+    },
+    {
+      "label": "equality",
+      "independent_lp": {
+        "status": 2,
+        "objective": "2",
+        "feasible_vertices": 1
+      },
+      "complete_values_checked": true,
+      "source_status": 1,
+      "source_matches_independent": false,
+      "source_discrepancy": {
+        "source_status": 1,
+        "independent_status": 2,
+        "reason": "Phase one removes the only candidate, but simp1 still reads l1[0] when nl1 is zero."
+      },
+      "ordered_matrix_stores": 12
+    },
+    {
+      "label": "zero-equality",
+      "independent_lp": {
+        "status": 2,
+        "objective": "0",
+        "feasible_vertices": 2
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 12
+    },
+    {
+      "label": "infeasible",
+      "independent_lp": {
+        "status": 0,
+        "explanation": "No feasible vertex in the nonnegative orthant."
+      },
+      "complete_values_checked": true,
+      "source_status": 0,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 10
+    },
+    {
+      "label": "unbounded",
+      "independent_lp": {
+        "status": 1,
+        "feasible_point": [
+          "0"
+        ],
+        "improving_ray": [
+          "1"
+        ]
+      },
+      "complete_values_checked": true,
+      "source_status": 1,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 0
+    },
+    {
+      "label": "unbounded-after-pivot",
+      "independent_lp": {
+        "status": 1,
+        "feasible_point": [
+          "1",
+          "0"
+        ],
+        "improving_ray": [
+          "0",
+          "1"
+        ]
+      },
+      "complete_values_checked": true,
+      "source_status": 1,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 6
+    },
+    {
+      "label": "no-improvement",
+      "independent_lp": {
+        "status": 2,
+        "objective": "0",
+        "feasible_vertices": 2
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 0
+    },
+    {
+      "label": "canonical-tableau",
+      "independent_lp": {
+        "status": 2,
+        "objective": "681/40",
+        "feasible_vertices": 6
+      },
+      "complete_values_checked": true,
+      "source_status": 2,
+      "source_matches_independent": true,
+      "source_discrepancy": null,
+      "ordered_matrix_stores": 104
+    }
+  ],
+  "canonical_record_paths": [
+    "simplex/validation.json",
+    "simplex/chez-validation.json"
+  ],
+  "invalid_record_paths": [
+    "simplex/strict-output-probe/negative-m1-rejection.json",
+    "simplex/strict-output-probe/negative-m1.raw-rejection.json",
+    "simplex/strict-output-probe/negative-m2-rejection.json",
+    "simplex/strict-output-probe/negative-m2.raw-rejection.json",
+    "simplex/strict-output-probe/negative-m3-rejection.json",
+    "simplex/strict-output-probe/negative-m3.raw-rejection.json",
+    "simplex/strict-output-probe/negative-rhs-rejection.json",
+    "simplex/strict-output-probe/negative-rhs.raw-rejection.json",
+    "simplex/strict-output-probe/wrong-row-count-rejection.json",
+    "simplex/strict-output-probe/wrong-row-count.raw-rejection.json",
+    "simplex/chez-output-probe-original/negative-m1-rejection.json",
+    "simplex/chez-output-probe-original/negative-m2-rejection.json",
+    "simplex/chez-output-probe-original/negative-m3-rejection.json",
+    "simplex/chez-output-probe-original/negative-rhs-rejection.json",
+    "simplex/chez-output-probe-original/wrong-row-count-rejection.json",
+    "simplex/chez-output-probe-adapted/negative-m1-rejection.json",
+    "simplex/chez-output-probe-adapted/negative-m2-rejection.json",
+    "simplex/chez-output-probe-adapted/negative-m3-rejection.json",
+    "simplex/chez-output-probe-adapted/negative-rhs-rejection.json",
+    "simplex/chez-output-probe-adapted/wrong-row-count-rejection.json"
+  ],
+  "performance_samples": 0
+}

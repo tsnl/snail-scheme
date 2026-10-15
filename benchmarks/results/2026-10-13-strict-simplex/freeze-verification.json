@@ -1,0 +1,29 @@
+{
+  "compiler_commit": "a4030ce190058db3e9d64f6942401b5fa38dbd58",
+  "driver_commit": "d92e8be8383ed45e107e2065b0d14cf3972acd78",
+  "compiler_files_verified": 52,
+  "case_payload_hashes_verified": 228,
+  "earlier_sources_and_specs_unchanged": 23,
+  "driver_hashes": {
+    "data_ports_sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "enumeration_ports_sha256": "dc1d2d169cbc173b750c6b6652d9d11a012cb125994a80528e997ab03d82c307",
+    "simplex_port_sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+    "host_sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b",
+    "runner_sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "driver_sha256": "2064aa499f8ae0d8d5b3db85fac019cfc2377b92da6b15c8c61afda71fcf2491"
+  },
+  "payload_comparison_across_host_path_fix": {
+    "strict.scm": true,
+    "strict.wasm.raw.wasm": true,
+    "strict.wasm": true,
+    "strict.optimized.wat": true,
+    "adapted-kernel.scm": true,
+    "original-kernel.scm": true,
+    "program.scm": true,
+    "program.so": false,
+    "same-source-chez/program.scm": true,
+    "same-source-chez/program.so": false
+  },
+  "chez_binary_comparison_note": "Sources are identical and both builds pass, but Chez compiled outputs differ between builds. Final compiled artifact hashes are frozen in prepared.json; no byte-identical Chez build claim.",
+  "performance_samples": 0
+}

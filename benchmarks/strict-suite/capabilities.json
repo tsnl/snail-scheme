@@ -142,13 +142,13 @@
     },
     {
       "name": "simplex",
-      "status": "additional-capabilities",
+      "status": "prepared-unmeasured",
       "source_lines": 202,
       "files": {
         "src/simplex.scm": "f309787ad2da1f943abf83031dedfb4f81447b11306dcd9e4d2bd836df5bfec1",
         "inputs/simplex.input": "73260b28bb02454f35673cf4ece62eb11f2fd25df016bbb837332426e657de0c"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Concrete F64 matrix, I64/Bool work vectors, explicit Ref scalar mutation and closed infeasible/unbounded/solved result. Full canonical input and complete-output/store-order probes preserved; one upstream equality-case discrepancy is documented separately from source equivalence. No clean timing."
     },
     {
       "name": "string",
