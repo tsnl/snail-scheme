@@ -3,6 +3,8 @@
 (define-library (snail integer)
   (export Integer IntegerDivision IntegerRoot
           integer-from-i64 integer->i64 integer-from-string integer->string
+          integer-from-f64 integer-truncate-f64 integer->f64 integer-ratio->f64
+          integer-bit-length integer-gcd integer-floor-quotient integer-modulo
           integer-zero? integer-negative? integer-abs integer-negate
           integer-compare integer=? integer<? integer<=? integer>? integer>=?
           integer-add integer-subtract integer-multiply
@@ -402,6 +404,105 @@
     (define (integer-sqrt/remainder value)
       (let ((root-value (integer-sqrt value)))
         (root root-value (integer-subtract value (integer-multiply root-value root-value)))))
+
+    ;; ---- Exact conversion from finite binary64 integers ----
+
+    ;; Division by the power-of-two limb radix is exact. Once the quotient is
+    ;; truncated, cancellation recovers an integer digit smaller than the radix.
+    ;; Negative zero maps to the unique exact zero. Fractional/nonfinite inputs
+    ;; are rejected; the separately named truncating conversion is explicit.
+    (: finite-f64? (-> F64 Bool))
+    (define (finite-f64? value)
+      (and (= value value) (< value (/ 1.0 0.0)) (> value (/ -1.0 0.0))))
+    (: float-limb-count (-> F64 I64))
+    (define (float-limb-count value)
+      (let loop ((value value) (count 0))
+        (if (= value 0.0) count
+            (loop (truncate (/ value (i64->f64 radix))) (+ count 1)))))
+    (: integer-from-f64 (-> F64 Integer))
+    (define (integer-from-f64 value)
+      (if (not (and (finite-f64? value) (= value (truncate value)))) (unreachable)
+          (let* ((negative (< value 0.0)) (value (if negative (- 0.0 value) value))
+                 (digits (fresh-limbs (float-limb-count value))) (base (i64->f64 radix)))
+            (let loop ((value value) (at 0))
+              (if (= value 0.0) (publish negative digits)
+                  (let ((next (truncate (/ value base))))
+                    (put-limb! digits at (f64->i64 (- value (* next base))))
+                    (loop next (+ at 1))))))))
+    (: integer-truncate-f64 (-> F64 Integer))
+    (define (integer-truncate-f64 value) (integer-from-f64 (truncate value)))
+
+    ;; ---- One nearest-even rounding from an exact ratio to binary64 ----
+
+    ;; Choose the final binary64 spacing before dividing. The quotient retains
+    ;; at most 53 bits; its exact remainder decides rounding once, including
+    ;; halfway cases, subnormals, signed underflow and overflow to infinity.
+    (: integer-bit-length (-> Integer I64))
+    (define (integer-bit-length value)
+      (let* ((digits (integer-limbs value)) (count (vector-length digits)))
+        (if (= count 0) 0
+            (+ (* (- count 1) limb-bits) (leading-bits (limb digits (- count 1)))))))
+    (: binary-power (-> I64 Integer))
+    (define (binary-power exponent) (integer-power (integer-from-i64 2) exponent))
+    (: binary64-power (-> I64 F64))
+    (define (binary64-power exponent)
+      (let ((factor (if (< exponent 0) 0.5 2.0))
+            (count (if (< exponent 0) (- 0 exponent) exponent)))
+        (let loop ((left count) (value 1.0))
+          (if (= left 0) value (loop (- left 1) (* value factor))))))
+    (: ratio-below-power? (-> Integer Integer I64 Bool))
+    (define (ratio-below-power? numerator denominator exponent)
+      (if (< exponent 0)
+          (integer<? (integer-multiply numerator (binary-power (- 0 exponent))) denominator)
+          (integer<? numerator (integer-multiply denominator (binary-power exponent)))))
+    (: rounded-ratio (-> Integer Integer I64))
+    (define (rounded-ratio numerator denominator)
+      (let* ((answer (integer-divide numerator denominator))
+             (whole (integer->i64 (division-quotient answer)))
+             (twice (integer-add (division-remainder answer) (division-remainder answer)))
+             (order (integer-compare twice denominator)))
+        (if (or (> order 0) (and (= order 0) (= (remainder whole 2) 1))) (+ whole 1) whole)))
+    (: scaled-ratio (-> Integer Integer I64 F64))
+    (define (scaled-ratio numerator denominator spacing)
+      (let ((whole (if (< spacing 0)
+                       (rounded-ratio (integer-multiply numerator (binary-power (- 0 spacing))) denominator)
+                       (rounded-ratio numerator (integer-multiply denominator (binary-power spacing))))))
+        (* (i64->f64 whole) (binary64-power spacing))))
+    (: positive-ratio->f64 (-> Integer Integer F64))
+    (define (positive-ratio->f64 numerator denominator)
+      (let ((estimate (- (integer-bit-length numerator) (integer-bit-length denominator))))
+        (if (> estimate 1024) (/ 1.0 0.0)
+            (if (< estimate -1075) 0.0
+                (let ((exponent (if (ratio-below-power? numerator denominator estimate) (- estimate 1) estimate)))
+                  (if (> exponent 1023) (/ 1.0 0.0)
+                      (scaled-ratio numerator denominator
+                                    (if (< exponent -1022) -1074 (- exponent 52)))))))))
+    (: integer-ratio->f64 (-> Integer Integer F64))
+    (define (integer-ratio->f64 numerator denominator)
+      (if (integer-zero? denominator) (unreachable)
+          (if (integer-zero? numerator) 0.0
+              (let ((value (positive-ratio->f64 (integer-abs numerator) (integer-abs denominator))))
+                (if (if (integer-negative? numerator) (not (integer-negative? denominator))
+                        (integer-negative? denominator)) (* -1.0 value) value)))))
+    (: integer->f64 (-> Integer F64))
+    (define (integer->f64 value) (integer-ratio->f64 value (integer-from-i64 1)))
+
+    ;; ---- Euclidean reduction and floor division ----
+
+    (: integer-gcd (-> Integer Integer Integer))
+    (define (integer-gcd left right)
+      (let loop ((left (integer-abs left)) (right (integer-abs right)))
+        (if (integer-zero? right) left (loop right (integer-remainder left right)))))
+    (: integer-floor-quotient (-> Integer Integer Integer))
+    (define (integer-floor-quotient left right)
+      (let ((answer (integer-divide left right)))
+        (if (and (not (integer-zero? (division-remainder answer)))
+                 (if (integer-negative? left) (not (integer-negative? right)) (integer-negative? right)))
+            (integer-subtract (division-quotient answer) (integer-from-i64 1))
+            (division-quotient answer))))
+    (: integer-modulo (-> Integer Integer Integer))
+    (define (integer-modulo left right)
+      (integer-subtract left (integer-multiply right (integer-floor-quotient left right))))
 
     ;; ---- Ordinary static numeric methods ----
 
