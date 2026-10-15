@@ -22,6 +22,10 @@ retains its existing bounded behavior. There is no dynamic numeric fallback.
 | Operation | Contract |
 | --- | --- |
 | `integer-from-i64`, `integer->i64` | Exact conversion; narrowing traps outside signed I64. |
+| `integer-from-f64`, `integer-truncate-f64` | The first requires a finite integral binary64 value. The second truncates a finite value toward zero before exact conversion. Both map negative zero to exact zero and reject infinity/NaN. |
+| `integer->f64`, `integer-ratio->f64` | One correctly rounded nearest-even binary64 conversion, including subnormals, signed underflow and overflow to infinity. The ratio conversion rejects a zero denominator. |
+| `integer-bit-length`, `integer-gcd` | Magnitude bit length (zero has length zero), and nonnegative greatest common divisor. |
+| `integer-floor-quotient`, `integer-modulo` | Floor division and its remainder; the remainder is zero or has the divisor's sign. |
 | `integer-from-string`, `integer->string` | Decimal grammar `[+-]?[0-9]+`; canonical decimal output with no leading zeros or negative zero. |
 | `integer-zero?`, `integer-negative?`, `integer-abs`, `integer-negate` | Sign operations on immutable values. |
 | `integer-compare` | Returns I64 `-1`, `0` or `1`. Named comparison and arithmetic procedures accompany the operator methods. |
@@ -72,3 +76,11 @@ compile rejections check the private constructor and explicit I64 conversion. Th
 materializes the same arithmetic at radix 4 as a separate diagnostic source,
 retaining both changed constants and all generated artifacts. This small-radix
 copy tests arithmetic; production decimal grouping remains radix 2^30.
+
+`scripts/test-strict-numbers` supplies independent Python `Fraction` and integer
+oracles for the binary64 boundary. It compares every output bit, including
+negative zero, halfway cases at the smallest subnormal and largest finite value,
+and large ratios whose independently rounded operands would overflow. Exact
+conversion and truncation exercise separate success and rejection cases. The
+same scalar inputs execute on raw/optimized Wasm and native64, including forced
+native collection while exact intermediate values remain live.
