@@ -54,11 +54,18 @@ The local comparison selected direct Char externs, existing I32 predicate
 encoding, the exact reader whitespace service and a single ordinary String loop.
 Every production function stays within the ten-line logic target.
 
-The follow-up informed debate is **pending**. Delegation returned
-`agent thread limit reached`; the parent explicitly directed implementation and
-actual-target checks to proceed while recording that incomplete review step.
-This evidence does not claim the debate or the complete simplify review finished.
+The follow-up informed debate is complete. Its first attempt returned
+`agent thread limit reached`; that capacity failure is retained as historical
+in `review.json`. A retry to the same explainer succeeded without another fresh
+model or file inspection. The explainer confirmed that direct Char binding
+retains Rust scalar validation, exact whitespace-provider reuse shares failure
+effects, the string loop establishes bounds/prefix ordering, and the split
+Unicode-version contract preserves established semantics. No code change or
+additional implementation state was needed. Production and test source hashes
+still match the actual-target evidence, so no execution check was repeated.
 
 The benchmark-only Chez bridge remains the compiler agent's responsibility.
 This worktree starts before the writer commit, so its standalone runtime cache
 must not replace the combined compiler runtime without rebuilding after integration.
+The compiler agent acknowledged this requirement and will rebuild combined
+writer/Unicode source after its already-built writer-only collection probe.
