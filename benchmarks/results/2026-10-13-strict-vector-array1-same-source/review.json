@@ -1,0 +1,7 @@
+{
+  "independent_brief_only_review": true,
+  "discarded_trio_checks_original_size_before_retained_rounds": true,
+  "retained_system_positions_balanced": true,
+  "exact_kernel_and_complete_source_reversal_verified": true,
+  "function_length_exceptions": "Preparation, process-result parsing, CLI data setup, and the save-after-each-observation measurement loop remain complete operations; splitting them further would move bookkeeping rather than simplify the contract."
+}
