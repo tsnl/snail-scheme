@@ -64,14 +64,6 @@
 
     ;; ---- Compilation from supplied library values ----
 
-    (define-record-type <entry>
-      (new-entry library export) entry?
-      (library entry-library) (export entry-export))
-    (define (make-entry library export)
-      (unless (and (list? library) (pair? library) (symbol? export))
-        (error "entry requires a nonempty library key and an export name"))
-      (for-each (lambda (name) (unless (symbol? name) (error "entry library key requires names" name))) library)
-      (new-entry (append library '()) export))
     (define (resolved-root libraries key)
       (let ((root (assoc key (resolve-library-map libraries))))
         (unless root (error "SFIR root library not found" key)) (cdr root)))
