@@ -29,6 +29,9 @@ separate element width, fresh buffers and zeroing. Puzzle now has its
 [complete four-system comparison](../results/2026-10-14-strict-puzzle-comparison/README.md).
 Lattice has a [full-count four-system comparison](../results/2026-10-14-strict-lattice-comparison/README.md)
 with its mutable-list/closure and Rust vector/enum/Rc differences disclosed.
+Destruc has a [complete four-system comparison](../results/2026-10-14-strict-destruc-comparison/README.md):
+the adapted source is already slower on Chez, and Rust ownership/predicate
+materialization differ. The comparison does not isolate a Ref or codegen cost.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -49,7 +52,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | simplex | Measured canonical source program: 0.494× the same adapted source on Chez; 1.589× Rust/Wasm. Full million-invocation two-phase F64 tableau workload; closed result variants and explicit Ref scalar mutation. Original and adapted Chez controls, complete small outputs/store order, final-predicate negatives and original guard checks. One original equality-case discrepancy is preserved and distinguished from mathematical correctness. |
 | browse | Symbols, generated symbol/string names, heterogeneous pattern trees and mutable property-list pairs. |
 | deriv | Measured full ten million differentiations: 4.467× original Chez time, 2.589× adapted Chez and 0.674× Rust/Wasm. Closed datums preserve source pair spines, finite atoms, input sharing and the original quotient rule. Full-expression/error/identity probes and optimized Wasm/V8 inspection pass; Rust has different layouts and reclamation. |
-| destruc | Prepared for review, unmeasured. Complete 4,000 × destructive(600,50) and full ten-row predicate pass raw/optimized Wasm and original/adapted Chez. Two concrete mutable-list instances, head/tail Ref cells and empty/integer items preserve all splices; explicit operand sequencing matches the original Chez diagnostic trace. Separate graph-model, full-output, node-identity, ordered-store and negative-predicate probes pass. Ref/variant layout costs are disclosed; no compiler change. |
+| destruc | Measured complete 4,000 × destructive(600,50): 3.382× original Chez time, 1.344× adapted Chez and 1.167× Rust/Wasm. The full ten-row predicate passes raw/optimized Wasm and original/adapted Chez. Two concrete mutable-list instances, head/tail Ref cells and empty/integer items preserve all splices; explicit operand sequencing matches the original Chez diagnostic trace. Separate graph-model, full-output, node-identity, ordered-store and negative-predicate probes pass. Adapted Chez is already 2.517× original Chez; Ref/variant and Rust Vec/Box/cleanup/predicate differences remain explicit, without isolating their individual costs. No compiler change. |
 | puzzle | Measured all 1,000 original 511-size searches: 1.157× original Chez time, 1.168× adapted Chez and 2.434× Rust/Wasm. The result-2005 predicate passes raw/optimized Wasm and untouched/adapted Chez. The local escape becomes explicit Boolean control with matching complete board/mask states, row identity and ordered search effects. Explicit Ref scalars, closed false/count results and truthiness-preserving Bool fills use existing capabilities; this is a source adaptation, not general continuation support. Both setup regions remain untimed. |
 | ctak | Essential first-class escape continuations. |
 | fibc | Essential first-class continuations, including re-entering captured continuations. |
@@ -82,8 +85,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 29 of 57 workloads,
-with 28 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 30 of 57 workloads,
+with 29 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
