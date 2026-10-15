@@ -20,7 +20,7 @@ this list contains work that has not landed.
   - Keep source initialization, concrete specialization, representation,
     and execution visibly distinct; avoid hidden fallback representations
   - Update the tour and contracts as responsibilities change, preserve measured
-    artifacts, and keep the implementation in a reviewable draft PR stack
+    artifacts, and audit the consolidated implementation through small follow-up PRs
 - [ ] Follow up the [57-workload comparison](../benchmarks/results/2026-10-12-native-v8/README.md)
   - Reduce measured compiler allocation churn and repeated single-value handling
   - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC
