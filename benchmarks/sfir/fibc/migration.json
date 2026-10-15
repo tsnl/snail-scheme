@@ -5,10 +5,14 @@
   "canonical_input_sha256": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
   "historical_port_revision": "0cda43f",
   "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
-  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
-  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
-  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "conversion": "Authored directly as static SFIR; upstream call/cc contexts are immutable closed continuation variants. No Scheme elaborator is used by preparation, compilation, or execution.",
+  "equivalence_status": "Complete canonical predicate passed on optimized SFIR/V8 and original/adapted Chez; complete small call/capture/invocation traces matched actual call/cc with explicit left-to-right order. Native validation pending.",
   "controls": {
+    "chez-adapted.scm": "3e668901c5e072d69cc5987d43359a02413929f4ee58a18b28c824735939a0eb",
+    "chez-observe.scm": "e7e6977e273a91058a3a16b08d3bd2f1178da620babeb575b28cf42a8b323f75",
     "chez-original.scm": "ddca50c7c5ea6db504cd887428eec0e4ea587f09dcb011ec3f4df9201ecc2eb1"
-  }
+  },
+  "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
+  "sfir_sha256": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
+  "observation_sfir_sha256": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3"
 }

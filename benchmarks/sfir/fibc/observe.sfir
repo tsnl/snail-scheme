@@ -1,0 +1,67 @@
+;; Instrumented control; event calls are absent from main.sfir.
+;; FIBC, with captured operand contexts and Peano addition kept explicit.
+(import (sfir core))
+(define-extern trace "observation" "event" (-> I32 I64 I64 I64 Unit))
+
+;; ---- Captured Fibonacci operands ----
+
+;; The source captures the continuation of each recursive operand. Immutable
+;; frames retain the unevaluated operand and the enclosing return context.
+(define-data Continuation
+  (done)
+  (first-operand (n I64) (next Continuation))
+  (second-operand (first I64) (next Continuation)))
+
+(define capture (-> Continuation Continuation)
+  (lambda (current) (begin (trace (ann 1 I32) 0 0 0) current)))
+
+(define succ (-> I64 I64) (lambda (n) (+ n 1)))
+(define pred (-> I64 I64) (lambda (n) (- n 1)))
+
+;; Each successor/predecessor pair is part of the benchmark's algorithm.
+(define addc (-> I64 I64 Continuation I64)
+  (lambda (x y next)
+    (if (= y 0)
+      (resume next x)
+      (begin (trace (ann 3 I32) x y 0) (addc (succ x) (pred y) next)))))
+
+(define fibc (-> I64 Continuation I64)
+  (lambda (x next)
+    (begin (trace (ann 0 I32) x 0 0)
+    (if (= x 0)
+      (resume next 0)
+      (if (= (pred x) 0)
+        (resume next 1)
+        (fibc (pred x) (capture (first-operand x next))))))))
+
+(define resume (-> Continuation I64 I64)
+  (lambda (continuation value)
+    (begin (trace (ann 2 I32) value 0 0)
+    (match continuation
+      ((done) value)
+      ((first-operand x next)
+        (fibc (pred (pred x)) (capture (second-operand value next))))
+      ((second-operand first next) (addc first value next))))))
+
+;; ---- Canonical benchmark driver ----
+
+(define-extern input-i64 "benchmark" "input_i64" (-> I32 I64))
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+(define input (input-i64 (ann 0 I32)))
+
+;; The original hides the identity continuation separately from the input.
+(define hidden-identity (-> Continuation)
+  (lambda () (if (barrier) (done) (done))))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (begin
+      (define repeat (-> I64 I64 I64)
+        (lambda (iteration result)
+          (if (< iteration count)
+            (repeat (+ iteration 1) (fibc (hide-i64 input) (hidden-identity)))
+            result)))
+      (repeat 0 0))))
+
+(unit)
