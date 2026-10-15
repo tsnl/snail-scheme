@@ -1,13 +1,12 @@
 [book]
-title = "The Snail-Scheme book"
-authors = ["Snail-Scheme contributors"]
+title = "SFIR"
+authors = ["SFIR contributors"]
 language = "en"
 src = "doc/book"
 
 [build]
 build-dir = "build/book"
 create-missing = false
-extra-watch-dirs = ["build.scm", "examples/typeclasses", "examples/iverson-ghost"]
 
 [output.html]
 git-repository-url = "https://github.com/tsnl/snail-scheme"
@@ -15,8 +14,3 @@ edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{pa
 
 [output.html.playground]
 runnable = false
-
-[output.html.redirect]
-"actors.html" = "nodes.html"
-"actor-runtime-contracts.html" = "runtime-contracts.html"
-"awi.html" = "abi-reference.html"

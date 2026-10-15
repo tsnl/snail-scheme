@@ -1,0 +1,45 @@
+{
+  "source_revision": "78734dd1103f450dfe2969a39dc2268358730792",
+  "files": [
+    {
+      "old_path": "tests/strict-io/input-main-trap.scm",
+      "old_sha256": "0939065f0ab2a34b6046ed82d682f85009a925fab6bd4eb9da8ac9c7d497d513",
+      "path": "tests/sfir-io/input-main-trap.sfir",
+      "transformations": {},
+      "sha256": "c9443f9e5bab30b82d91197815ff55371504ff6a1f7020a5270ad98cc1c04451"
+    },
+    {
+      "old_path": "tests/strict-io/input.scm",
+      "old_sha256": "1c19b0f1e98169c04d0b7845195fad3223340f1bde76d924f19c39b61714157f",
+      "path": "tests/sfir-io/input.sfir",
+      "transformations": {
+        "attached-signatures": 12,
+        "recursive-loop-blocks": 1,
+        "explicit-lambdas": 12,
+        "explicit-and": 1,
+        "explicit-body-blocks": 12,
+        "nested-sequential-lets": 2
+      },
+      "sha256": "2b2b104426302ff333ed5ce22a61d8c2fab1d3b6a4c96334a5c95ecf8db4eccd"
+    },
+    {
+      "old_path": "tests/strict-io/main-trap.scm",
+      "old_sha256": "cb0050f25ab74dcf1e29750b24f8b22d343eb734c236be7c6e34f6f044c427fc",
+      "path": "tests/sfir-io/main-trap.sfir",
+      "transformations": {},
+      "sha256": "b78a1b3d3967f17aad9a5ba505cf32a56198676c2de8b43217fb9acb685d669d"
+    },
+    {
+      "old_path": "tests/strict-io/output.scm",
+      "old_sha256": "bd94e05a83a189add23e94cef689887f6843353bad104dac487abefbffad24ee",
+      "path": "tests/sfir-io/output.sfir",
+      "transformations": {
+        "attached-signatures": 16,
+        "explicit-body-blocks": 10,
+        "explicit-lambdas": 16,
+        "nested-sequential-lets": 1
+      },
+      "sha256": "2fc597f1c4c8a07834c4ed39c072b39191c486afdea3cb31f7faf3767ba529ef"
+    }
+  ]
+}

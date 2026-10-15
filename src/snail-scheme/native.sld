@@ -1,11 +1,10 @@
-;; Both backends consume shared optimized program Wasm; their linked providers
-;; differ. Native links the Rust archive; Wasm merges provider Wasm and optimizes.
-;; Binaryen owns Wasm optimization; LLVM only lowers its typed operations.
+;; Optimize program Wasm with Binaryen, then mechanically lower it to LLVM.
+;; Native links the Rust archive; Wasm links the scalar provider's Wasm.
 (define-library (snail-scheme native)
-  (export native-wasm->llvm native-binary->llvm native-platform-bindings)
+  (export native-wasm->llvm native-binary->llvm)
   (import (scheme base) (scheme cxr) (scheme file)
           (snail-scheme wasm) (snail-scheme wasm-read) (snail-scheme wasm-optimize)
-          (snail-scheme llvm) (snail-scheme build-host) (snail-scheme effects))
+          (snail-scheme llvm) (snail-scheme build-host))
   (begin
 
     ;; ---- Shared Wasm optimization ----
@@ -26,25 +25,4 @@
         (check-binaryen-tools)
         (call-with-output-file text (lambda (port) (write-wasm datum port)))
         (assemble-wasm text binary)
-        (native-binary->llvm binary directory output)))
-
-    ;; ---- Selected platform aliases ----
-
-    ;; Effect names resolve to the selected provider before lowering. A provider
-    ;; still needs an authoritative C signature; absent bindings remain errors.
-    (define (handler-native-bindings handler bindings)
-      (let ((interface (handler-interface handler)))
-        (map (lambda (operation)
-               (let* ((name (cdr (assq (operation-name operation) (handler-bindings handler))))
-                      (entry (assoc (list (handler-module handler) name) bindings)))
-                 (and entry (cons (list "snail.platform" (operation-export interface operation))
-                                  (cdr entry)))))
-             (effect-operations interface))))
-
-    (define (native-platform-bindings bindings)
-      (let loop ((rest (apply append (map (lambda (handler) (handler-native-bindings handler bindings))
-                                          (platform-handlers (current-platform)))))
-                 (result bindings))
-        (cond ((null? rest) result)
-              ((car rest) (loop (cdr rest) (cons (car rest) result)))
-              (else (loop (cdr rest) result)))))))
+        (native-binary->llvm binary directory output)))))

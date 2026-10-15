@@ -1,0 +1,35 @@
+(import (sfir core))
+
+(define state
+  (ref 0))
+(define make-probe
+  (lambda (early?)
+    (begin
+      (define probe
+        (lambda ()
+          (begin
+            (ref-set! state (+ 1 (ref-get state)))
+            (later))))
+      (define early
+        (if early? (probe) 0))
+      (define later
+        (lambda () (vector-ref payload 0)))
+      (define payload
+        (make-vector 1 42))
+      probe)))
+(define saved
+  (make-probe #f))
+
+(define checked (-> I64)
+  (lambda () ((make-probe #t))))
+
+(define before (-> I64)
+  (lambda () (ref-get state)))
+
+(define after (-> I64)
+  (lambda () (saved)))
+
+(define observed (-> I64)
+  (lambda () (ref-get state)))
+
+42

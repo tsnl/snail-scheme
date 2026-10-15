@@ -1,0 +1,36 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/cat.scm",
+  "upstream_sha256": "63835925d09ce503e795005dd75c2a662ebb81bfe0ea15e427c2f4f401c11c9b",
+  "canonical_input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "Direct bare SFIR port of the complete pinned character loop and file lifecycle; no migration compiler.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target and identically adapted Chez validation pending.",
+  "controls": {
+    "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+    "chez-adapted.scm": "adf2a5ae1fa50d8f5b098f5999275a1e925fefcd3b05c3bfc95cba1068e32125"
+  },
+  "sfir_sha256": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
+  "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services.",
+  "adapted_control_import_correction": {
+    "before_sha256": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2",
+    "change": "Exclude Chez string-copy! and vector-copy! imports because the identical typed-library control defines both operations; benchmark and library bodies unchanged."
+  },
+  "adapted_control_timing_wrapper": {
+    "before_sha256": "b9cccc87d8374f57c83f861195c6b7f9a2b52a81e9aea3f30fe4b12a397c1158",
+    "change": "Add monotonic nanosecond clock around the unchanged canonical bench call and full predicate. Setup precedes the clock; report formatting and final port cleanup follow it. Benchmark and library bodies unchanged.",
+    "edits": [
+      {
+        "before": "(define report-string display)\n",
+        "after": "(define report-string display)\n;; The clock and formatter are captured outside the typed library bindings.\n(define (benchmark-clock)\n  (let ((now (current-time 'time-monotonic)))\n    (+ (* (time-second now) 1000000000) (time-nanosecond now))))\n(define (benchmark-seconds start finish)\n  (number->string (/ (- finish start) 1000000000.0)))\n"
+      },
+      {
+        "before": "(if (= (bench (configured-count)) 1) (report-string \"+!CSVLINE!+typed-control,passed\\n\") (error 'benchmark \"INCORRECT result\"))",
+        "after": "(let ((start (benchmark-clock)))\n  (if (= (bench (configured-count)) 1)\n      (let ((finish (benchmark-clock)))\n        (report-string \"+!CSVLINE!+typed-control,cat:50,\")\n        (report-string (benchmark-seconds start finish))\n        (report-string \"\\n\"))\n      (error 'benchmark \"INCORRECT result\")))"
+      }
+    ],
+    "exact_reverse_verified": true
+  }
+}

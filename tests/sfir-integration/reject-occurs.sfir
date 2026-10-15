@@ -1,0 +1,4 @@
+(import (sfir core))
+(define self
+  (lambda (x) (x x)))
+0

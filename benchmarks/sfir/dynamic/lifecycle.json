@@ -1,0 +1,19 @@
+{
+  "input_path": "inputs/dynamic.data",
+  "input_bytes_per_open": 83872,
+  "input_sha256": "2c896bb85bea43f91ea10e187bf1c9cac7de8a3289a947556983fb6d70a8a3b9",
+  "setup": {
+    "input_closes": 1
+  },
+  "worker": {
+    "input_opens": 500,
+    "input_bytes": 41936000,
+    "input_eof_reads": 500,
+    "input_closes": 0,
+    "output_opens": 0
+  },
+  "cleanup": {
+    "input_closes": 500
+  },
+  "ownership": "The unchanged source does not close its parsed input ports. Typed port registry entries remain live throughout the worker and close during host cleanup; no automatic GC resource cleanup occurs during these runs."
+}

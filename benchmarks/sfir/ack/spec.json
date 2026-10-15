@@ -1,0 +1,10 @@
+{
+  "name": "ack",
+  "count": 2,
+  "inputs": [
+    3,
+    12
+  ],
+  "expected": 32765,
+  "barriers_per_iteration": 2
+}

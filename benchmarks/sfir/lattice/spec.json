@@ -1,0 +1,9 @@
+{
+  "name": "lattice",
+  "count": 10,
+  "inputs": [
+    44
+  ],
+  "expected": 120549,
+  "barriers_per_iteration": 1
+}

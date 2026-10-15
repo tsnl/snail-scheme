@@ -1,0 +1,66 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import (sfir core))
+
+(define cddr (lambda (xs.5) (cdr (cdr xs.5))))
+
+(define length
+  (lambda (xs.3)
+    (((lambda () (begin (define loop.2 (lambda (xs.4 n.4) (if (null? xs.4) n.4 (loop.2 (cdr xs.4) (+ n.4 1))))) loop.2)))
+      xs.3
+      0)))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(define list (lambda elements elements))
+
+(define append
+  (lambda (xs.2 ys.1) (if (null? xs.2) ys.1 (cons (car xs.2) (append (cdr xs.2) ys.1)))))
+
+(define-extern native-expected-length "benchmark" "expected_length" (-> I64))
+
+(define-extern native-expected-i64 "benchmark" "expected_i64" (-> I64 I64))
+
+(define expected-list
+  (lambda ()
+    (((lambda () (begin (define loop.1 (lambda (n.3 xs.1) (if (= n.3 0) xs.1 (loop.1 (- n.3 1) (cons (native-expected-i64 (- n.3 1)) xs.1))))) loop.1)))
+      (native-expected-length)
+      (quote ()))))
+
+(define same-i64-list? (-> (List I64) (List I64) Bool)
+  (lambda (xs ys)
+    (if (null? xs)
+      (null? ys)
+      (if (not (null? ys)) (if (= (car xs) (car ys)) (same-i64-list? (cdr xs) (cdr ys)) #f) #f))))
+
+(define hide (lambda (count.1 x) (hide-i64 x)))
+
+(define interval-list
+  (lambda (m n.2) (if (> m n.2) (quote ()) (cons m (interval-list (+ 1 m) n.2)))))
+
+(define sieve
+  (lambda (l)
+    ((lambda () (begin (define remove-multiples (lambda (n.1 l.1) (if (null? l.1) (quote ()) (if (= (remainder (car l.1) n.1) 0) (remove-multiples n.1 (cdr l.1)) (cons (car l.1) (remove-multiples n.1 (cdr l.1))))))) (if (null? l) (quote ()) (cons (car l) (sieve (remove-multiples (car l) (cdr l)))))))
+)))
+
+(define primes<= (lambda (n) (sieve (interval-list 2 n))))
+
+(define input0 (native-input-i64 (ann 0 I32)))
+
+(define expected (expected-list))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (if (same-i64-list? (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (primes<= (hide count input0))) result))) loop))) 0 (quote ())) expected)
+      1
+      0)))
+
+(unit)

@@ -1,0 +1,5 @@
+(import (sfir core))
+
+(define values (Vector (All (T) (-> T T)))
+  (empty-vector))
+42

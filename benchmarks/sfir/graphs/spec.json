@@ -1,0 +1,9 @@
+{
+  "name": "graphs",
+  "count": 3,
+  "inputs": [
+    7
+  ],
+  "expected": 213829,
+  "barriers_per_iteration": 1
+}

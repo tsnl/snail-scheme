@@ -1,0 +1,16 @@
+{
+  "name": "dynamic",
+  "count": 500,
+  "pathnames": [
+    "inputs/dynamic.data"
+  ],
+  "expected": 1,
+  "inputs": [],
+  "barriers_per_iteration": 1,
+  "setup_barriers": 0,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader",
+  "expected_datum": "((218 . 455) (6 . 1892) (2204 . 446))"
+}

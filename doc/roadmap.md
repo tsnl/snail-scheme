@@ -1,61 +1,63 @@
 # Roadmap
 
-The [TODO tracking issue](https://github.com/tsnl/snail-scheme/issues/11)
-coordinates project work. This repository copy preserves the implementation
-follow-ups added after that issue was created.
+The active goal is a complete, understandable SFIR compiler and benchmark suite.
+[The language contract](sfir.md) defines the target; [the tour](../TOUR.md)
+describes the implementation. Chibi continues to host the compiler.
 
-The compiler stays Chibi-hosted. Current behavior is described in [TOUR.md](../TOUR.md);
-this list contains work that has not landed.
+## Current SFIR migration
 
-- [ ] Complete the strict native compiler and measure the entire benchmark suite
-  - Preserve the language contracts in [the strict core guide](../doc/strict-core.md)
-  - Extend the [arithmetic/list measurements](../benchmarks/results/2026-10-13-strict-kernels/README.md)
-    and [vector measurements](../benchmarks/results/2026-10-13-strict-vector-array1/README.md)
-    without shortening inputs, hiding failures, or claiming unmeasured gains
-  - Hold the entire project to an educational standard: each module explains
-    its data, inputs, outputs, decisions, and required invariants
-  - Simplify extensively, including complete module rewrites when warranted;
-    repeat independent explanation, critique, rewriting, and execution checks
-    until the remaining complexity has a concrete behavioral purpose
-  - Keep source initialization, concrete specialization, representation,
-    and execution visibly distinct; avoid hidden fallback representations
-  - Update the tour and contracts as responsibilities change, preserve measured
-    artifacts, and audit the consolidated implementation through small follow-up PRs
-- [ ] Follow up the [57-workload comparison](../benchmarks/results/2026-10-12-native-v8/README.md)
-  - Reduce measured compiler allocation churn and repeated single-value handling
-  - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC
-  - Retain original inputs and all failures when measuring improvements
-- [ ] Browser loader and browser implementations of selected effect interfaces
-- [ ] Node spawn/connect, serialization, supervision, and asynchronous host effects
-  - Follow the recovered [runtime contracts](../doc/book/runtime-contracts.md)
-  - Keep terminal CLI faults distinct from recoverable connection failures
-- [ ] Independently packaged Wasm providers and explicit shared-resource domains
-- [ ] Source mappings for generated Wasm
-- [ ] Frontend conformance
-  - Complete the syntax parser's remaining R7RS forms
-  - Phase-aware resolution to shared definition identities
-  - Retain `syntax-rules` repetition extents, including empty and variable-free repetitions
-  - Diagnose unbound literal identifiers and missing imported auxiliary keywords
-  - Handle interacting macro-generated binders
-- [ ] Rust interop and embedding ([ABI](../doc/rust-interop.md))
-  - Version/instance checks for externally stored raw handles
-  - Resource-kind registration and release callbacks
-  - Recoverable errors/traps and explicit instance shutdown
-  - Rust host embedding example
-  - Test cleanup cycles; a resource rooting its wrapper needs explicit release
-  - Revisit independent extension packaging when needed
-- [ ] Single-shot delimited continuations and coroutines
-  - Wasm stack switching and a Scheme API
-  - Explicit suspension-safe Rust APIs and cancellation/unwinding
-  - Reusable multi-shot continuations are not a goal; `call/cc` is unsupported today
-- [ ] Extend [type checking](../doc/typing-prototype.md)
-  - Complete an operational soundness proof and optimization simulation
-  - Higher-order interfaces, variadic signatures, and multiple-value result types
-  - Typed local generative records and parameterized records
-  - Broaden primitive signature coverage and runtime blame diagnostics
-  - Broaden recursive generic groups beyond matching positional type parameters
-  - General representation specialization and measured monomorphization
-  - Investigate boxed i32 guard costs and broader workload performance
-  - Keep [the full proposal](../doc/occurrence-typing.md) distinct from implemented behavior
-- [ ] Reprofile hosted parsing, expansion, and Wasm emission with Chromium traces
-- [ ] Switch the compiler build to self-hosting after capability validation
+- [x] Land the SFIR language design before implementation (PR #225).
+- [x] Make `snail-sfir` the sole product command and remove Scheme compilation,
+  interpretation, macro expansion and the legacy emitter.
+- [x] Complete the direct located-syntax → resolved IR → inference → concrete
+  specialization → WasmGC pipeline, with visible contracts between passes.
+- [x] Retain explicit storage, positional calls, typed externs and library
+  specialization; reject unresolved representations instead of adding a fallback.
+- [x] Retire obsolete Scheme-only examples, commands and documentation. Keep
+  `build.scm` outside this migration and historical measurements identifiable.
+- [x] Remove the boxed Scheme-value runtime and wrapper-finalizer bridge. Keep
+  scalar host services, explicit resource cleanup and native managed roots.
+- [x] Validate the public command, imported libraries, error paths and actual
+  linked Wasm/native execution. Compilation alone is insufficient.
+- [ ] Complete all 57 bare SFIR benchmark ports with canonical inputs,
+  algorithms and result predicates. Keep absent ports and failing targets visible.
+- [ ] Measure SFIR, original/adapted Chez controls and Rust, recording native
+  versus Wasm separately. Freeze sources, tools, inputs and artifacts; separate
+  compile time, clean execution time and instrumented diagnostics.
+- [ ] Repeatedly simplify measured compiler and runtime bottlenecks. Preserve
+  type evidence and ownership invariants; use independent explanations and
+  execution checks to justify each substantial rewrite.
+
+The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
+with frontend, integration, library, public-command and native execution checks.
+[PR #228](https://github.com/tsnl/snail-scheme/pull/228) adds full Unicode string
+folding through scalar services. The first [six clean measurements](../benchmarks/sfir/evidence/20261015-clean-six.md)
+are complete; full-corpus validation and measurement remain ongoing.
+
+The [corpus manifest](../benchmarks/sfir/corpus.json) tracks source presence,
+validation and measurement independently. Pre-migration strict-Scheme results
+are historical evidence, not a current SFIR score.
+
+## After the migration
+
+- Broaden typed foreign interfaces and additional 64-bit native targets only
+  with ABI and actual target validation. Native remains a mechanical lowering
+  of Binaryen-optimized Wasm.
+- Add optional affine grades and `Drop` using type evidence to establish cleanup
+  obligations. `Top` stays unrestricted; affine values need an explicit shared
+  wrapper to enter it. Borrow checking and stack promotion are separate work.
+- Revisit platform effects, actors and heterogeneous targets on typed SFIR
+  interfaces, without assuming that a resource can cross an ownership boundary.
+- Add source mappings from emitted code back to located SFIR and future source
+  frontends.
+
+## Deferred frontends and self-hosting
+
+A later Scheme frontend may construct located SFIR ASTs inside `generate-library`.
+It will perform elaboration and macro expansion, while SFIR owns checking and
+optimization. Scheme code may depend on SFIR definitions and must check against
+their types. Other languages can use the same boundary.
+
+Cross-module macros, compile-time datum access, staged execution and self-hosting
+are deliberately deferred. No Scheme compiler or interpreter is required by the
+current goal. Older designs and implementation history remain in Git.

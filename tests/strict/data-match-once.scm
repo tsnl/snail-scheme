@@ -1,5 +1,0 @@
-(import (snail strict))
-(define-data Choice (yes (value I64)) (no))
-(define count (ref 0))
-(define (choose) (ref-set! count (+ (ref-get count) 1)) (yes 11))
-(+ (match (choose) ((no) 0) ((yes value) value)) (ref-get count))

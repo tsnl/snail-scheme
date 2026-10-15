@@ -1,8 +1,0 @@
-(import (snail strict))
-(define-class (Combine T) (: combine (-> T T T)))
-(define-instance (Combine I64) (combine (lambda (a b) (+ a b))))
-(define combine-alias combine)
-(: selected (-> I64 I64 I64))
-(define selected combine-alias)
-(define (twice-with operation x) (operation x x))
-(twice-with selected 21)

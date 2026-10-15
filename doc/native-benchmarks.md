@@ -1,10 +1,9 @@
-# Runtime benchmarks
+# Historical runtime benchmarks
 
-This page archives the earlier single-workload experiments. Current
-`make benchmark` and `benchmarks/r7rs.py` run the entire R7RS suite on Wasm; see
-[BENCHMARKS.md](../BENCHMARKS.md). The custom Fibonacci and sieve runners
-are retired. To use the historical commands below, first check out their
-original implementation:
+This page archives the October 10 Scheme experiments, including their language
+scope, collector and build commands. It does not describe current SFIR behavior.
+See [BENCHMARKS.md](../BENCHMARKS.md) for the active SFIR, Chez and Rust corpus.
+The commands and fixtures below require their historical source checkout:
 
 ```sh
 git worktree add --detach /tmp/snail-historical-cpu 9129147
@@ -84,7 +83,7 @@ the cold-only arm copies attributes from the current emitter by matching functio
 headers, without hardcoded benchmark function indices. No experimental calling
 convention is used.
 
-## Reproduce the current comparison
+## Reproduce the historical comparison
 
 Use an otherwise idle x86-64 Linux machine. Enter `nix-shell` for the repository
 build tools, and add Guile (`guile` and `guild`) to `PATH`. Then run:
@@ -98,7 +97,7 @@ checks every answer, and saves `build/native-benchmark/results.json`. `BENCH_CPU
 selects another allowed core; it defaults to 2. `CHIBI`, `CHEZ`, `GUILE`, `GUILD`,
 `NODE`, `CLANG`, and Binaryen tool variables accept executable paths. Separate
 BDWGC installations can set `BDWGC_INCLUDE` and `BDWGC_LIB` as described in
-[native execution](native.md). Record changed tools when comparing results;
+the native execution guide in that historical checkout. Record changed tools when comparing results;
 the Nix shell and Rust stable channel are not a frozen benchmark toolchain.
 
 Build scripts can also produce just the two Snail artifacts:
@@ -143,8 +142,8 @@ Writing integers directly and putting common operations first in Chibi's linear
 roughly 2.6×, not another 10×. These development timings excluded startup and
 were not the controlled process comparison above.
 
-To measure current translation time, first generate the resource
-fixture with `scripts/test-native`, then time just the translator:
+To repeat this translation experiment in the historical checkout, generate its
+resource fixture with `scripts/test-native`, then time just the translator:
 
 ```sh
 python3 - <<'PY'
@@ -168,14 +167,15 @@ Do not count disassembly in this comparison. Program paths embedded by Rust and
 installed tool versions can change the fixture's exact bytes; record their
 hashes when comparing across checkouts or machines.
 
-## Language scope
+## Historical language scope
 
-Snail Scheme is not fully R7RS compliant. We deliberately leave reusable,
+The measured Scheme implementation was not fully R7RS compliant. Its design left reusable,
 re-entrant (multi-shot) continuations out of the intended language. Calling
-these a “1% feature” expresses a design priority, not a measured percentage
-of Scheme programs. `call/cc` is currently unsupported; single-shot delimited
-continuations and coroutines are planned. Other conformance gaps remain.
-The benchmark does not isolate the cost of continuations. See [the roadmap](roadmap.md).
+these a “1% feature” expressed a design priority, not a measured percentage
+of Scheme programs. `call/cc` was unsupported; single-shot delimited
+continuations and coroutines were planned. Other conformance gaps remained.
+The benchmark does not isolate the cost of continuations. The current
+[roadmap](roadmap.md) defers Scheme support entirely.
 
 ## Historical bounded experiment
 

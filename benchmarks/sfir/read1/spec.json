@@ -1,0 +1,16 @@
+{
+  "name": "read1",
+  "count": 2500,
+  "pathnames": [
+    "inputs/parsing.data"
+  ],
+  "expected": 1,
+  "expected_datum": "(should return this list)",
+  "inputs": [],
+  "barriers_per_iteration": 1,
+  "setup_barriers": 0,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader"
+}

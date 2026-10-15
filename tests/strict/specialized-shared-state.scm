@@ -1,8 +1,0 @@
-(import (snail strict))
-(define count (ref 0))
-(define (counted x)
-  (ref-set! count (+ (ref-get count) 1))
-  x)
-(counted 42)
-(counted #t)
-(ref-get count)

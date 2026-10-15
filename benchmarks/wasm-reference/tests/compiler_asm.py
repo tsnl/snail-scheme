@@ -13,7 +13,7 @@ import unittest
 REFERENCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REFERENCE))
 from audit_alpha import read_program
-from suite import pinned_sources, tools
+from suite import pinned_sources, tools, chez_source
 
 # ---- Original assembler diagnostics ----
 
@@ -32,8 +32,8 @@ def supplied_cases():
 
 
 def prepare_oracle(output):
-    module, files = pinned_sources(REFERENCE.parent / "r7rs-benchmarks")
-    source = module.source_text(files, "compiler", "chez").rstrip()
+    files = pinned_sources(REFERENCE.parent / "r7rs-benchmarks")
+    source = chez_source("compiler").rstrip()
     assert source.endswith("(run-benchmark)")
     source = source[:-len("(run-benchmark)")]
     source = source.replace("    current-time\n", "    current-time\n    parameterize\n    print-extended-identifiers\n", 1)

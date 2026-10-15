@@ -1,0 +1,28 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/equal.scm",
+  "upstream_sha256": "931f53304a38b231470c38985be2d595723cb5bbd2c70ba983616e75058fe533",
+  "canonical_input_sha256": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "8497687d24a44978af6fe62af3a3719061b819fabced40e8ba47fe39a33ec434",
+  "sfir_sha256": "2b90055df54db6794b9654760ebb71bf54e1df7b06b512a9d964ca8eaa8dc1e5",
+  "controls": {
+    "chez-adapted.scm": "ecb9888d058a1171ffc08604a0cf7ae0583aa388e803dbea5374e5816307f2a0",
+    "chez-original.scm": "e9edbb5e7669e8d4d57fb580fb9a6a1d2e504510325523e50fcca3b0d5b82ed7"
+  },
+  "control_boundary_corrections": [
+    {
+      "before_sha256": "d5a59d086c717905e8c42c0d6ecab2dcaa599095ed9dc5dbeac6508f8e383dbb",
+      "change": "Import Chez vector-copy for the unchanged Integer library decimal-chunks procedure; target, benchmark, library bodies and input are unchanged.",
+      "edit": {
+        "before": "(import\n",
+        "after": "(import\n  (only (chezscheme) vector-copy)\n"
+      },
+      "exact_reverse_verified": true
+    }
+  ]
+}

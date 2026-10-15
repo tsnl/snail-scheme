@@ -1,0 +1,5 @@
+(import (sfir core))
+
+(define add (All (T) (-> T T))
+  (lambda (value) (+ value value)))
+0

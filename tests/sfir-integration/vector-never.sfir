@@ -1,0 +1,2 @@
+(import (sfir core))
+(vector-length (ann (empty-vector) (Vector Never)))

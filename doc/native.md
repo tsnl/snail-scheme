@@ -1,78 +1,52 @@
 # Native execution
 
-The native backend lowers the existing compiler's optimized program Wasm to
-LLVM, then links a native executable with the same Rust runtime implementations.
-LLVM has no Scheme frontend, type inference, or Scheme optimization pass.
-The installed command remains the Chibi-hosted Wasm compiler; native builds use
-`scripts/build-native`.
+The native backend mechanically lowers Binaryen-optimized Wasm to LLVM, then
+links the same Rust scalar extern implementations used by Wasm. SFIR inference,
+specialization and representation choices happen before Wasm emission.
 
 ```text
-existing Scheme frontend -> program Wasm -> mandatory Binaryen optimization
-  -> Binaryen text -> canonical Wasm types and instruction order
-  -> mechanical LLVM lowering -> Clang/LLD + native Rust archive + C providers
+located SFIR -> checked and specialized program -> Wasm -> Binaryen
+  -> canonical Wasm types and operations -> LLVM -> Clang/LLD + C/Rust providers
 ```
 
-The Wasm output pipeline merges its Rust/provider Wasm and optimizes again.
-Consequently the two final linked outputs have different opportunities for
-cross-provider inlining. A pure program can use exactly the same optimized
-program Wasm for both executors; a native executable and a fully linked Wasm
-module are not identical program images.
+The Wasm pipeline links its provider Wasm and optimizes the linked module too.
+Native linking and Wasm linking offer different cross-provider optimization
+opportunities. Comparisons retain the common program Wasm identity and disclose
+these final provider/linkage differences.
 
 ## Build and invoke
 
-The supported target is **64-bit x86-64 Linux**. This restoration is exercised
-with Clang/LLD 22.1.8, Binaryen 132, Chibi 0.12 and Rust's native toolchain.
-`nix-shell` supplies Clang, LLD, Binaryen and the bootstrap tools. Other 64-bit
-targets need ABI, tail-call and operating-system validation before enabling them.
-32-bit native targets are rejected.
+The tested target is **64-bit x86-64 Linux**. Other 64-bit targets need explicit
+ABI, collector and tail-call validation. 32-bit native targets are rejected.
 
 ```sh
-scripts/build-native examples/fibonacci.scm build/fibonacci
-build/fibonacci
+./snail-sfir run --target native examples/fibonacci.sfir
+./snail-sfir compile --target native -o build/fibonacci examples/fibonacci.sfir
 
-scripts/build-native --strict tests/strict/data-tree.scm build/tree
-build/tree                         # returns the strict main result, 14
-
-scripts/build-native --strict \
+scripts/build-native \
   --c-provider fixture tests/native-mixed.h tests/native-mixed.c \
-  tests/native-mixed.scm build/mixed
+  tests/native-mixed.sfir build/mixed
 
 scripts/build-native --wasm --entry-c tests/native-runner.c \
   build/native-tests/semantics.wasm build/semantics
 ```
 
-Ordinary Scheme initializes its module, runs `snail_main`, drains pending
-resource notices and returns zero. Strict or supplied-Wasm builds require a
-zero-argument `main` returning Unit, I32 or I64. Unit returns zero; an integer in
-0..255 becomes the process status, and an out-of-range integer returns one.
-`--export NAME` retains additional strict exports. `--foreign NAME MODULE`
-supplies an ordinary Scheme extension binding; `-I DIRECTORY` selects project
-libraries. Arguments after the executable name are available through the shared
-Rust `command-line` implementation.
+A command's final result is `Unit`, `I32` or `I64`. Unit produces status zero;
+integers in 0..255 become the process status and other integers produce status
+one. `-I DIRECTORY` selects SFIR libraries. See [command options](options.md).
 
-`--entry-c FILE` selects an explicit C invocation host, useful for libraries and
-tests. The host calls `native_host_init(argc, argv)`, `native_module_init()`, then
-the required `wasm.EXPORT` C adapter, and finally `native_finish(status)`. Strict
-module-level forms live in `wasm.main`; call it before other strict exports.
-A host retaining a managed reference across another guest call must publish an
-explicit native root; ordinary external bindings use scalars or owned ABI handles.
+The lower-level helper accepts `--export NAME` and `--entry-c FILE`. A custom
+host calls `native_host_init(argc, argv)`, `native_module_init()`, `wasm.main`,
+then additional typed exports, and finishes with `native_finish(status)`.
+Its C declarations must match those exports exactly. Ordinary foreign interfaces
+carry scalars; a native host that retains managed references across guest calls
+must explicitly publish roots.
 
-`CHIBI`, `CLANG`, `LLD`, and `CARGO` select build tools. `WASM_AS`, `WASM_OPT`,
-`WASM_DIS`, and `WASM_MERGE` select Binaryen executables. Preflight reports missing
-tools before compiling. Every production build runs Binaryen, including
-`--wasm` inputs. Direct `wasm->llvm` calls and
-`link-strict-runtime --diagnostic-prune-only` are test/diagnostic intermediates.
-They do not provide a production optimization bypass.
-
-Each build retains a unique adjacent `OUTPUT.native-*` directory with Wasm,
-LLVM, the generated entry, a compilation trace, and `build.json`. The JSON keeps
-tool paths/versions, exact command arguments, diagnostics and SHA-256 identities
-for sources and outputs. Successful publication atomically replaces the output;
-failure preserves its previous contents. A program with generated companions is
-published through a relative symlink into its complete retained generation.
-Native artifact lookup uses the physical executable's `artifacts` directory,
-unless `SNAIL_ARTIFACT_ROOT` explicitly supplies a directory. Generator execution
-still uses the existing linked-Wasm build machinery.
+The driver checks tools before compilation and publishes a successful build
+atomically. Failed builds retain intermediates without replacing an existing
+executable. Configuration, commands, hashes and compiler traces remain beside
+the output in its uniquely named build directory. Binaryen is mandatory even
+for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
 
 ## Direct C contracts
 
@@ -91,7 +65,7 @@ prebuilt archive, its supplied header is the authoritative C contract; the
 builder cannot reconstruct C types from machine-code symbols. Headers should
 contain only the provider's supported scalar prototypes and required typedefs.
 
-| Scheme/Wasm value | C/Rust carrier |
+| SFIR/Wasm value | C/Rust carrier |
 | --- | --- |
 | I32, Bool, Char / i32 | `int32_t` or `uint32_t`; Rust `i32` or `u32` |
 | I64 / i64 | `int64_t` or `uint64_t`; Rust `i64` or `u64` |
@@ -200,34 +174,28 @@ reusable native-instance lifecycle yet.
 
 Expected Wasm failures check divisors, overflow, conversion ranges, nulls, bounds
 and casts before LLVM operations can produce undefined behavior. Unsupported
-optimized instructions and module shapes fail with a Wasm-specific diagnostic;
-the backend does not substitute another operation. Linear memory, SIMD, atomics,
-exceptions and multivalue results are outside the supported lowering subset.
-Function and global exports have C adapters; exporting a table to a C host is
-unsupported and rejected. Active element segments validate their complete range,
-including empty segments at offsets beyond the table length.
+optimized instructions or module shapes fail with a Wasm-specific diagnostic.
+Linear memory, SIMD, atomics, exceptions and multivalue results remain outside
+the native lowering subset. Function and global exports have C adapters;
+exporting a table to a C host is rejected. Active element segments validate the
+whole range, including empty segments beyond the table end.
 
-Rust keeps the same owned `Root` ABI used by Wasm and calls the generated C ABI
-adapters. Resource borrows end before allocations and callbacks. GC finalizers
-only queue scalar resource IDs and never retain the watched wrapper. The outer
-invocation drains them when Rust resource borrows have ended. Kind 1 goes to
-the shared port cleanup; kind 2 goes to the shared numeric-array cleanup.
-
-Normal return, explicit exit, guest traps, I/O failures and arena exhaustion call
-`native_finish`. It disables callbacks, drains owned files and numeric arrays once, then
-terminates. Cleanup never reenters Scheme. Expected errors neither longjmp through
-Rust nor use panic-abort as their control mechanism. Native failures are terminal;
-there is no resumable exception protocol across Rust frames. Tests observe file
-destruction and buffered output before process exit, including `/dev/full`
-failure and a trap raised by a Scheme callback invoked from Rust.
+SFIR I/O wrappers own scalar Rust resource handles. Alias-visible close detaches
+the handle before flushing, and callbacks do not keep a Rust resource borrow
+across a guest call. Normal return, traps, I/O failures and arena exhaustion
+finish through terminal cleanup. Cleanup does not reenter generated code or
+unwind through Rust. Resumable exceptions and reusable native instances are not
+implemented.
 
 ## Validation
 
-`scripts/test-native` executes shared Wasm/native scalar semantics, conversion
-boundaries, traps, subtype identity, cyclic graphs, precise tracing, tail calls,
-the real mixed C fixture, current strict variants/strings/rounding, and shared
-Rust roots, callbacks and Unicode/I64 file services. It retains commands and
-results in `build/native-tests/results.json` and source hashes beside them.
-`make test`, `make check`, `cargo test --offline`, `cargo fmt --all -- --check`,
-`scripts/test-backend`, `scripts/test-build`, and `scripts/test-strict-io` cover
-the existing compiler and actual linked-Wasm behavior as well.
+`scripts/test-native` executes common Wasm/native scalar semantics, conversions,
+traps, subtype identity, cyclic graphs, exact tracing and tail calls. SFIR cases
+also exercise mixed C signatures, concrete variants/strings/bytevectors and
+Unicode/I64 I/O, including `/dev/full`, stale aliases and allocation failure.
+Commands and terminal outcomes remain under `build/native-tests`.
+
+The shared checks are `make test`, `make check`, `cargo test --offline`,
+`cargo fmt --all -- --check`, `scripts/test-backend` and `scripts/test-build`.
+The public command and linked Wasm must actually execute; compilation alone is
+not target validation. See [build requirements](backend.md).

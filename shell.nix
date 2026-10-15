@@ -28,6 +28,5 @@ pkgs.mkShell {
     llvmPackages.lld
     nodejs
     mdbook
-    graphviz
   ];
 }

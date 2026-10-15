@@ -1,0 +1,14 @@
+{
+  "name": "ray",
+  "count": 50,
+  "inputs": [
+    1,
+    1
+  ],
+  "pathname": "outputs/ray.output",
+  "expected": 1,
+  "barriers_per_iteration": 2,
+  "setup_barriers": 0,
+  "runtime": "scalar-io",
+  "image_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+}

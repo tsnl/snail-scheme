@@ -1,0 +1,13 @@
+{
+  "name": "browse",
+  "count": 2000,
+  "expected": 1,
+  "inputs": [],
+  "setup_barriers": 0,
+  "barriers_per_iteration": 1,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader",
+  "result_kind": "complete-datum-list"
+}

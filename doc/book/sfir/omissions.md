@@ -31,7 +31,7 @@ binding traps instead of forcing its initializer early.
 ## Open work
 
 The [compiler tour](https://github.com/tsnl/snail-scheme/blob/main/TOUR.md)
-record current compiler behavior; this specification's surface changes and
+records current compiler behavior; this specification's surface changes and
 library APIs require implementation work. They are not compatibility aliases
 silently accepted by the existing compiler.
 

@@ -1,4 +1,0 @@
-(import (snail strict))
-(define-overload result (lambda () 42))
-(define-overload result (lambda () #t))
-(result)

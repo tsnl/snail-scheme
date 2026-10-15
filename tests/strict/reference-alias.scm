@@ -1,5 +1,0 @@
-(import (snail strict))
-(define cell (ref 0))
-(define alias cell)
-(ref-set! alias 42)
-(if (ref-eq? cell alias) (ref-get cell) 0)

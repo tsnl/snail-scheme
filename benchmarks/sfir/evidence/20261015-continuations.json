@@ -1,0 +1,988 @@
+{
+  "kind": "canonical-correctness-checkpoint",
+  "performance_samples": false,
+  "directory": "/tmp/snail-sfir-continuation-validation-20261015",
+  "manifest_sha256": "8b5555304ba8515d6b4fbe6b10396c0a22a29128fcb0098c37e8bf2271ac8373",
+  "config": {
+    "compile_timeout": 1800.0,
+    "run_timeout": 1200.0
+  },
+  "tools": {
+    "CHIBI": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "dispatcher": false
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "dispatcher": false
+    },
+    "WASM_AS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "dispatcher": false
+    },
+    "WASM_DIS": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "dispatcher": false
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "dispatcher": false
+    },
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "dispatcher": false
+    },
+    "RUSTC": {
+      "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/rustc",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "dispatcher": true
+    },
+    "CARGO": {
+      "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "dispatcher": true
+    },
+    "CLANG": {
+      "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/clang",
+      "sha256": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+      "dispatcher": false
+    },
+    "LLD": {
+      "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/ld.lld",
+      "sha256": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+      "dispatcher": false
+    },
+    "WASM_MERGE": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+      "sha256": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+      "dispatcher": false
+    },
+    "PYTHON": {
+      "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/python3",
+      "sha256": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "dispatcher": false
+    }
+  },
+  "report": {
+    "kind": "sfir-target-validation",
+    "performance_samples": false,
+    "cases": [
+      {
+        "name": "ctak",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "c6c283353ad997683abfff03e1904076af66dbaeed482028ba6148d99f8eee4e",
+        "raw_sha256": "37f41ecc5b8b46cd6b9040d5cac6114c7fc6fdc501c902bdcaa96471a5d6d2eb",
+        "chez_adapted_validation": "passed",
+        "source_sha256": "131cc176b043f6273fe86c20c485eb4094e673e8fcb8363c05316f0559fccbb5",
+        "input_sha256": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395"
+      },
+      {
+        "name": "fibc",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "0194339bf4529ad0a2859b63ccd97930bbb35864a214f80ddbe5bd819e480791",
+        "raw_sha256": "158d015f09bc1ec448f730a3ce53cd9c902830838f7b40d5127ce185352fa38d",
+        "chez_adapted_validation": "passed",
+        "source_sha256": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
+        "input_sha256": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/chez-adapted/record.json",
+      "sha256": "073ecd86f2f8c8a256062ccdd34f97180cf9ab0014e7116b6bc4061dbe990f7f",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/chez-adapted.so"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/chez-adapted",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Running ctak:32:16:8:1\nElapsed time: 0.080198996 seconds (0.08) for ctak:32:16:8:1\n+!CSVLINE!+chez,ctak:32:16:8:1,0.080198996\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.11896932602394372
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/chez-adapted-build/record.json",
+      "sha256": "4b761819b196968b836b5398bd2a0b22b0dc0f122c7c91afbbe7c8e10a97eef3",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--script",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/compile-chez-adapted.scm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "compiling /tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/ctak/chez-adapted.scm with output to /tmp/snail-sfir-continuation-validation-20261015/validation/ctak/chez-adapted.so\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.04363123996881768
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/chez-original/record.json",
+      "sha256": "39ccb5413f374d18a16e5f100e8d4e9b8e400649dd817f101faa496b49e579fb",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/chez-original.so"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/chez-original",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Running ctak:32:16:8:1\nElapsed time: 0.248740671 seconds (0.249) for ctak:32:16:8:1\n+!CSVLINE!+chez,ctak:32:16:8:1,0.248740671\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.2896093100425787
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/chez-original-build/record.json",
+      "sha256": "f82c4ac1f71619d51914943e9ee7490f4a265a15d153a115268b0e4762863acc",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--script",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/compile-chez-original.scm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "compiling /tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/ctak/chez-original.scm with output to /tmp/snail-sfir-continuation-validation-20261015/validation/ctak/chez-original.so\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.04208763601491228
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/native-build/record.json",
+      "sha256": "73279e47c6def47420b63c8f1fc1ec795c794bff3d418a1a471c74c6e62370c6",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/python3",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/scripts/build-native",
+          "--wasm",
+          "--entry-c",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/scalar-entry.c",
+          "--c-provider",
+          "benchmark",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/scalar-provider.h",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/scalar-provider.c",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/program.wasm",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/program.native"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 7.3468461179872975
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/rust-native/record.json",
+      "sha256": "b79751a4a27b626edf942a43346117e94f8c3581fff2dc459f7c8efd62568d8a",
+      "record": {
+        "command": [
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target/release/ctak"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/rust-native",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Result: 9\n+!CSVLINE!+rust-wasm,ctak:1,0.274070000\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.275064161978662
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/rust-native-build/record.json",
+      "sha256": "bbbc29dd1e2b7ab0af3dfa6e0964f08b7dd839797ccc173e099058b0c8cf2ad7",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+          "build",
+          "--offline",
+          "--locked",
+          "--release",
+          "--manifest-path",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/Cargo.toml",
+          "--target-dir",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target",
+          "--bin",
+          "ctak"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "   Compiling num-traits v0.2.19\n   Compiling num-integer v0.1.47\n   Compiling num-bigint v0.4.8\n   Compiling r7rs-wasm-reference v0.1.0 (/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference)\n    Finished `release` profile [optimized] target(s) in 2.96s\n",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 2.9825030170031823
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/rust-wasm/record.json",
+      "sha256": "a10ba06b8946d7f4a3cebc8b99d1c0ccc0da1e29a8c4c5b1e0cf7822b5311137",
+      "record": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/run-wasi.mjs",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target/wasm32-wasip1/release/ctak.wasm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/rust-wasm",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Result: 9\n+!CSVLINE!+rust-wasm,ctak:1,0.386730929\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.4165312980185263
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/rust-wasm-build/record.json",
+      "sha256": "b7612de68f0c90e54364832a09c3be50b0f66857767634a13b000a64b2359ab6",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+          "build",
+          "--offline",
+          "--locked",
+          "--release",
+          "--manifest-path",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/Cargo.toml",
+          "--target-dir",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target",
+          "--bin",
+          "ctak",
+          "--target",
+          "wasm32-wasip1"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "   Compiling autocfg v1.5.1\n   Compiling num-traits v0.2.19\n   Compiling num-integer v0.1.47\n   Compiling num-bigint v0.4.8\n   Compiling r7rs-wasm-reference v0.1.0 (/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference)\n    Finished `release` profile [optimized] target(s) in 1.86s\n",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 1.894196572015062
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/sfir-build/record.json",
+      "sha256": "8d80a165879cd3ae1285f54951dbf09c27c700de49e034541e46c058b89d2e40",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/python3",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/scripts/build-sfir",
+          "--export",
+          "bench",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/ctak/main.sfir",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/program.wasm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 1.7333662240416743
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/sfir-native/record.json",
+      "sha256": "4948717bf2b1939edd734b8b39c1c5471edc06538a2463cef259467cab629055",
+      "record": {
+        "command": [
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/program.native"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/sfir-native",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "{\"result\":\"9\",\"barriers\":3,\"setup_closed\":0,\"worker_closed\":0,\"cleanup_closed\":0}\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.2394401400233619
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/commands/sfir-wasm/record.json",
+      "sha256": "c41393524c25e13570498ec28ce3250eda2438a09d698bb3049b2e60b0288fbf",
+      "record": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/support/scalar-host.mjs",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/program.wasm",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/spec.json",
+          "--validate"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/ctak/runs/sfir-wasm",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.149002896,\"result\":\"9\",\"barriers\":3,\"setup_barriers\":0}\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.17451090295799077
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/chez-adapted/record.json",
+      "sha256": "454f0af5193a4e72bcecf04d44f2a658fbcac0fee4e7edaf9c0f168ffc7a925e",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/chez-adapted.so"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/chez-adapted",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Running fibc:30:10\nElapsed time: 0.121116418 seconds (0.121) for fibc:30:10\n+!CSVLINE!+chez,fibc:30:10,0.121116418\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.15792440599761903
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/chez-adapted-build/record.json",
+      "sha256": "56f431d59d6612066f5c39ade08ee783d4871f9cc7bdcbef474ad5bd9650d996",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--script",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/compile-chez-adapted.scm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "compiling /tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/fibc/chez-adapted.scm with output to /tmp/snail-sfir-continuation-validation-20261015/validation/fibc/chez-adapted.so\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.041313683963380754
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/chez-original/record.json",
+      "sha256": "0965f9d7c3c8ea7a6393c45dd443039bde88d6b88fc12c3e59e03d2f3fc3bc16",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/chez-original.so"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/chez-original",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Running fibc:30:10\nElapsed time: 0.182660406 seconds (0.183) for fibc:30:10\n+!CSVLINE!+chez,fibc:30:10,0.182660406\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.22423882799921557
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/chez-original-build/record.json",
+      "sha256": "a1a41d15255fd1a0769db53478bd565701f232283bf1ce6e9444e920935a5bb1",
+      "record": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--script",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/compile-chez-original.scm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "compiling /tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/fibc/chez-original.scm with output to /tmp/snail-sfir-continuation-validation-20261015/validation/fibc/chez-original.so\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.04165177798131481
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/native-build/record.json",
+      "sha256": "0fd511c0d5bd5f46e96835946dd3b12138c0d4c07e81affda8a2863a1f2ff6f6",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/python3",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/scripts/build-native",
+          "--wasm",
+          "--entry-c",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/scalar-entry.c",
+          "--c-provider",
+          "benchmark",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/scalar-provider.h",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/scalar-provider.c",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/program.wasm",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/program.native"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 1.869614060036838
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/rust-native/record.json",
+      "sha256": "e5cf9e2548f026c4802f3e615e02aaea0a9cc8dec4fc1d9cb44858691224165b",
+      "record": {
+        "command": [
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target/release/fibc"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/rust-native",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Result: 832040\n+!CSVLINE!+rust-wasm,fibc:10,0.139784975\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.1411027309950441
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/rust-native-build/record.json",
+      "sha256": "99c7ff561648701b12ea41111c17d113fd0d25f79e9354f080f72f04105acfe1",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+          "build",
+          "--offline",
+          "--locked",
+          "--release",
+          "--manifest-path",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/Cargo.toml",
+          "--target-dir",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target",
+          "--bin",
+          "fibc"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "   Compiling r7rs-wasm-reference v0.1.0 (/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference)\n    Finished `release` profile [optimized] target(s) in 1.73s\n",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 1.7601091139949858
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/rust-wasm/record.json",
+      "sha256": "586fd998a605f522cf187d3f88a9067a6c4d40eb85bf12c5faa223adc2c44da6",
+      "record": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/run-wasi.mjs",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target/wasm32-wasip1/release/fibc.wasm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/rust-wasm",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "Result: 832040\n+!CSVLINE!+rust-wasm,fibc:10,0.312440841\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.34242515498772264
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/rust-wasm-build/record.json",
+      "sha256": "4193ad598edae1091c84afa3d3495cd27f1ec65cb9b9625ed70d82fe2eedbf2f",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+          "build",
+          "--offline",
+          "--locked",
+          "--release",
+          "--manifest-path",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference/Cargo.toml",
+          "--target-dir",
+          "/tmp/snail-sfir-continuation-validation-20261015/rust-target",
+          "--bin",
+          "fibc",
+          "--target",
+          "wasm32-wasip1"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "   Compiling r7rs-wasm-reference v0.1.0 (/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/wasm-reference)\n    Finished `release` profile [optimized] target(s) in 0.43s\n",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.45843790500657633
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/sfir-build/record.json",
+      "sha256": "9596dda06f4a380dbca96c2f8157e3078a427f37956fde6ef7237a41b5daf69c",
+      "record": {
+        "command": [
+          "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/python3",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/scripts/build-sfir",
+          "--export",
+          "bench",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/fibc/main.sfir",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/program.wasm"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/source",
+        "timeout_seconds": 1800.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 1.759398112015333
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/sfir-native/record.json",
+      "sha256": "6be2420d78c26b9c79025bf63c4b102e1783ee3cdce81f89f1cabcbe94e5db2f",
+      "record": {
+        "command": [
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/program.native"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/sfir-native",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "{\"result\":\"832040\",\"barriers\":20,\"setup_closed\":0,\"worker_closed\":0,\"cleanup_closed\":0}\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.218272159982007
+      }
+    },
+    {
+      "path": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/commands/sfir-wasm/record.json",
+      "sha256": "221c1fdf6b97cad242d64be26a3d12f626b7b1dc712e3756f194d3dea4bb12ac",
+      "record": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-sfir-continuation-validation-20261015/source/benchmarks/sfir/support/scalar-host.mjs",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/program.wasm",
+          "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/spec.json",
+          "--validate"
+        ],
+        "cwd": "/tmp/snail-sfir-continuation-validation-20261015/validation/fibc/runs/sfir-wasm",
+        "timeout_seconds": 1200.0,
+        "status": "finished",
+        "environment": {
+          "BINARYEN_CORES": null,
+          "RUSTUP_TOOLCHAIN": null,
+          "RUSTUP_HOME": null,
+          "CARGO_HOME": null,
+          "NODE_OPTIONS": null,
+          "NODE_V8_COVERAGE": null,
+          "LD_PRELOAD": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null
+        },
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.133070056,\"result\":\"832040\",\"barriers\":20,\"setup_barriers\":0}\n",
+        "stderr": "",
+        "timeout": false,
+        "unexpected_descendants": [],
+        "executing_descendants": [],
+        "wall_seconds": 0.1604628479690291
+      }
+    }
+  ]
+}

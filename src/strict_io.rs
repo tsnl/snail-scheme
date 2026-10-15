@@ -1,14 +1,15 @@
-//! Scalar text-file services for the strict Scheme library.
+//! Scalar text-file services for the SFIR library.
 //!
-//! Rust owns files, never Scheme values. IDs are issued once and never reused.
-//! Scheme closes explicitly; the invocation host calls close-all after a trap.
+//! Rust owns files, never managed values. IDs are issued once and never reused.
+//! SFIR closes explicitly; the invocation host calls close-all after a trap.
 //! A trapped instance is terminal. There is no GC finalization of these files.
-//! Stdout has a reserved borrowed ID; it never enters the owned-file registry.
+//! Standard streams have reserved borrowed IDs, outside the owned-file registry.
 
 use crate::{fail_message, host::Port};
 use std::{cell::RefCell, collections::BTreeMap, path::Path};
 
 const STANDARD_OUTPUT: u32 = (-2_i32) as u32;
+const STANDARD_INPUT: u32 = (-3_i32) as u32;
 
 // ---- Owned resources and synchronous pathname transfer ----
 
@@ -21,6 +22,8 @@ struct Files {
 thread_local! {
     static FILES: RefCell<Files> = RefCell::new(Files::default());
     static PATHNAME: RefCell<Option<String>> = const { RefCell::new(None) };
+    // One shared reader preserves lookahead across every borrowed stdin alias.
+    static INPUT: RefCell<Port> = RefCell::new(Port::stdin());
 }
 
 impl Files {
@@ -55,7 +58,7 @@ fn append_character(text: &mut String, code: u32) -> Result<(), String> {
 }
 
 // One instance runs one invocation at a time. These private transfer operations
-// never call Scheme, and the Scheme loop performs no user callbacks. Reentry or
+// never call guest code, and the SFIR loop performs no user callbacks. Reentry or
 // concurrent invocation during a transfer is outside this provider's contract.
 #[unsafe(export_name = "snail:io/path-begin")]
 pub extern "C" fn path_begin() {
@@ -123,6 +126,11 @@ pub extern "C" fn standard_output() -> i32 {
     STANDARD_OUTPUT as i32
 }
 
+#[unsafe(export_name = "snail:io/standard-input")]
+pub extern "C" fn standard_input() -> i32 {
+    STANDARD_INPUT as i32
+}
+
 fn check_output(id: u32) -> Result<(), String> {
     if id == STANDARD_OUTPUT {
         return Ok(());
@@ -146,13 +154,21 @@ pub extern "C" fn check_output_port(id: u32) {
 // malformed UTF-8 and read failures take the ordinary fatal cleanup path.
 #[unsafe(export_name = "snail:io/read-character")]
 pub extern "C" fn read_code(id: u32) -> i32 {
-    let result = FILES.with_borrow_mut(|files| files.get(id)?.read_char());
+    let result = if id == STANDARD_INPUT {
+        INPUT.with_borrow_mut(Port::read_char)
+    } else {
+        FILES.with_borrow_mut(|files| files.get(id)?.read_char())
+    };
     checked(result).map_or(-1, |character| character as i32)
 }
 
 #[unsafe(export_name = "snail:io/peek-character")]
 pub extern "C" fn peek_code(id: u32) -> i32 {
-    let result = FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.peek_char());
+    let result = if id == STANDARD_INPUT {
+        INPUT.with_borrow_mut(|port| port.text_input()?.peek_char())
+    } else {
+        FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.peek_char())
+    };
     checked(result).map_or(-1, |character| character as i32)
 }
 
@@ -186,9 +202,9 @@ fn release_file(mut port: Port) -> Result<(), String> {
 
 #[unsafe(export_name = "snail:io/close")]
 pub extern "C" fn close(id: u32) {
-    // Closing a borrowed stdout is deliberately a no-op, including raw calls.
+    // Closing a borrowed stream is deliberately a no-op, including raw calls.
     // It never detaches an owned resource or closes the process descriptor.
-    if id == STANDARD_OUTPUT {
+    if matches!(id, STANDARD_OUTPUT | STANDARD_INPUT) {
         return;
     }
     let result = FILES.with_borrow_mut(|files| files.take(id));
@@ -218,8 +234,8 @@ fn checked<T>(result: Result<T, String>) -> T {
     })
 }
 
-// The host uses this nontrapping cleanup after arbitrary Scheme traps. It must
-// preserve an earlier failure, and must not resume Scheme in that instance.
+// The host uses this nontrapping cleanup after arbitrary guest traps. It must
+// preserve an earlier failure, and must not resume guest code in that instance.
 // Returned close errors do not prevent later closes; a trapping host import can.
 #[unsafe(export_name = "snail:io/close-all")]
 pub extern "C" fn close_all() -> i32 {
@@ -231,6 +247,21 @@ pub extern "C" fn close_all() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn standard_input_is_borrowed_and_preserves_lookahead_on_close() {
+        let next = FILES.with_borrow(|files| files.next);
+        assert_eq!(standard_input(), -3);
+        INPUT.with_borrow_mut(|port| *port = Port::input_string("λ😀".into()));
+        assert_eq!(peek_code(STANDARD_INPUT), 'λ' as i32);
+        close(STANDARD_INPUT);
+        assert_eq!(read_code(STANDARD_INPUT), 'λ' as i32);
+        assert_eq!(peek_code(STANDARD_INPUT), '😀' as i32);
+        assert_eq!(close_all(), 0);
+        assert_eq!(read_code(STANDARD_INPUT), '😀' as i32);
+        assert_eq!(read_code(STANDARD_INPUT), -1);
+        assert_eq!(FILES.with_borrow(|files| files.next), next);
+    }
 
     #[test]
     fn standard_output_is_borrowed_and_never_consumes_a_file_id() {

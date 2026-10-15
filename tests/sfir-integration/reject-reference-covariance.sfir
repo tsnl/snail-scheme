@@ -1,0 +1,8 @@
+(import (sfir core))
+(define cell
+  (ref 0))
+
+(define broad (Ref Top)
+  cell)
+(ref-set! broad (ann #t Top))
+(ref-get cell)

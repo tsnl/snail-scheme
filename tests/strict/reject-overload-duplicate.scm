@@ -1,4 +1,0 @@
-(import (snail strict))
-(define-overload identity (-> I64 I64) (lambda (value) value))
-(define-overload identity (-> I64 I64) (lambda (value) value))
-0

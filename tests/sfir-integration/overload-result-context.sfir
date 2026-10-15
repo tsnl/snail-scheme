@@ -1,0 +1,14 @@
+(import (sfir core))
+(define-overload convert (-> I64 I64) (lambda (value) value))
+(define-overload convert (-> I64 F64) i64->f64)
+(define integer-view
+  (ann convert (-> I64 I64)))
+(define float-view
+  (ann convert (-> I64 F64)))
+(define value
+  (convert 42))
+(if (if (= (ann (integer-view 42) I64) 42)
+        (if (= (ann (float-view 42) F64) 42.0) (= (f64-add value 0.0) 42.0) #f)
+        #f)
+    42
+    (unreachable))
