@@ -247,7 +247,9 @@ allocation, indexing, identity, length, and bulk copying are native primitives.
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
 methods, selects local procedures used only as call operators, and computes
-their transitive capture dependencies. It makes concrete copies of the
+their transitive capture dependencies. A `let` or block used as an operator
+passes that invocation context only to its result; initializers and prefix
+expressions keep their ordinary value uses. It makes concrete copies of the
 shared IR, preserving checked templates and their external binding identities.
 Site, value and function records describe initialization, storage and code;
 they are not another expression representation. The same initializer policy serves
@@ -263,6 +265,9 @@ captures carry nullable payloads and readiness flags until the original read;
 surviving closures retain shared cells wherever later initialization must remain
 observable. A direct
 procedure's binding still publishes readiness at its original source event.
+Calls save operands before entering structured operators, then invoke the final
+procedure inside its lexical scope. This also keeps named-let recursion direct
+without changing the expanded or checked frontend forms.
 Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array
 instructions own bounds and overlapping-copy behavior. Nominal records use immutable native fields;
