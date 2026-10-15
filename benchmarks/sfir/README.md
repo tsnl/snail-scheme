@@ -3,7 +3,7 @@
 The corpus keeps all 57 workloads from R7RS benchmarks revision
 `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each directory contains the
 canonical input, an external original Chez program, source provenance, and a
-bare `main.sfir` when its complete port exists. Adapted Chez controls expose
+complete bare `main.sfir`. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
@@ -23,6 +23,17 @@ canonical workloads on both SFIR targets and all four external control routes;
 their workload-local verifiers preserve the source lifecycles. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
+
+The [completed full57 report](evidence/20261015-full57.md) freezes compiler
+`8e547bfb`, validates all 57 native routes and 56 Wasm routes, and measures 326
+eligible target/control routes with 1,956 successful scheduled attempts. Both
+Ack Wasm failures, 12 absent adapted controls and two Mperm Chez timer-name
+rejections remain in its primary matrix. A distinct corrected Mperm campaign
+passes six routes and 36 attempts. Every case has native optimized-guest parity.
+SFIR is slower on every reported geometric-mean control comparison; the report
+keeps matching counts, per-case ranges and representation differences visible.
+The later [packet-input measurements](evidence/20261015-input-packets.md) cover
+Cat/WC separately and do not replace this frozen baseline.
 
 `lambda` has one body expression, `let` is a sequential statement, `if` has both
 branches, and sequencing uses lexical `begin`. No target macro or derived Scheme form runs
@@ -44,10 +55,11 @@ initializers retain their original outer scope and left-to-right effects through
 fresh temporaries before aliases bind the original names. Numeric spellings,
 algorithms, canonical inputs, counts, predicates and external controls are unchanged.
 
-Historical evidence referenced below predates this surface migration. A case
-marked `current_surface_validation: passed` identifies newer execution evidence
-and its compiler snapshot. Older successful execution and timing records remain
-verbatim and do not establish results for the migrated sources. The standard formatter covers
+Historical executed checkpoints below retain their older surfaces and compilers.
+The manifest's current status comes from the full57 freeze; per-case
+`historical_evidence` preserves earlier links and measured routes. Current
+surface validation is complete with Ack's Wasm failure retained, rather than
+inferred from historical Ack success. Older records remain verbatim. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because
 the formatter also fails on the pre-migration Parsing source.
 
@@ -100,8 +112,8 @@ shared frozen build and artifact-parity protocol. Their explicit `execution_file
 lists copy only declared case fixtures into fresh target working directories;
 escaping paths are rejected. The [current-source checkpoint](evidence/20261015-dynamic-scheme.md)
 records all six canonical routes passing for each workload, all 26 supported
-interpreter probes, and the precise Wasm/native resource evidence. These runs
-add correctness coverage while both workloads remain unmeasured.
+interpreter probes, and the precise Wasm/native resource evidence. Those runs
+added correctness coverage while both workloads were unmeasured at that checkpoint.
 
 ## Clean timing protocol
 
@@ -144,8 +156,10 @@ all six routes must emit the exact canonical decimal bytes. Their original
 and adapted Chez controls have untimed drivers, so preparation retains derived
 timing artifacts that replace only that driver with a monotonic clock around
 the same worker loop and complete predicate. Frozen control sources remain
-unchanged. Array1 and Equal record the actual Chez and Rust timer names in
-`spec.json`: their canonical inner counts differ from SFIR's outer count of one.
+unchanged. Array1, Equal and Mperm record the actual Chez and Rust timer names in
+`spec.json`. Array1/Equal's canonical inner counts differ from SFIR's outer count
+of one; Mperm's Chez name places count before its three parameters. The primary
+full57 freeze predates that Mperm metadata fix and preserves its two rejections.
 
 Every route gets one fresh-process warmup and five fresh-process measured runs.
 Cases and route positions rotate deterministically, all processes inherit the
@@ -202,7 +216,7 @@ The [full-corpus harness checkpoint](evidence/20261015-full57-timing-harness.md)
 records all six canonical and clean-artifact routes passing for FFT, Pi, Tail
 and Equal, plus the exact frozen revision. It adds no measurements.
 
-## Executed checkpoint
+## Historical executed checkpoints
 
 Canonical Ack and Fibfp pass SFIR optimized V8, native64, and original Chez.
 Fibfp passes both Rust targets; Ack passes Rust native while its default Rust

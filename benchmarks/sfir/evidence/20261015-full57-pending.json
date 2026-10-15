@@ -1,0 +1,2873 @@
+{
+  "format": 1,
+  "kind": "sfir-full57-pending-evidence-draft",
+  "status": "preparation-in-progress",
+  "captured_at_utc": "2026-10-15T17:25:34.582099+00:00",
+  "campaign_directory": "/tmp/sfir-checked-full57-20261015-v1",
+  "report_base_revision": "2b6e45880b411e4b12f09b43621f76f7ecca5ac0",
+  "frozen_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+  "performance_samples": false,
+  "performance_claims": "withheld-until-parent-announces-measurement-completion",
+  "snapshot_atomic": false,
+  "captures": {
+    "manifest": {
+      "path": "/tmp/sfir-checked-full57-20261015-v1/manifest.json",
+      "sha256": "cbbd719f9727d99ff2bce74203d1d865f8d957a0a88f597d0e38e50a2b7c4b37",
+      "bytes": 8650296
+    },
+    "corpus": {
+      "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/corpus.json",
+      "sha256": "d711a51800c907ddf43d4b2c92d7f6a3f6d8ec348526aa36288ba05b29884c4f",
+      "bytes": 55588
+    },
+    "completed_validation_prefix": {
+      "path": "/tmp/sfir-checked-full57-20261015-v1/validation.json",
+      "sha256": "8b14e9da07d1c15bef2b9b7688b0a9bfad2f2218004e24a394a72563ab72b805",
+      "bytes": 26880
+    }
+  },
+  "manifest_hash_scope": "Capture during active preparation. Later timing_plan_sha256 augmentation changes manifest bytes legitimately; source, artifact and validation captures carry independent identities.",
+  "source_inventory": {
+    "expected_cases": 57,
+    "selected_cases": 57,
+    "present": 57
+  },
+  "progress": {
+    "status_files": 44,
+    "completed_prefix_cases": 44,
+    "route_status_counts": {
+      "sfir-wasm": {
+        "passed": 43,
+        "failed": 1,
+        "not-recorded": 13
+      },
+      "sfir-native": {
+        "passed": 44,
+        "not-recorded": 13
+      },
+      "chez-original": {
+        "passed": 44,
+        "not-recorded": 13
+      },
+      "chez-adapted": {
+        "passed": 32,
+        "unavailable": 12,
+        "not-recorded": 13
+      },
+      "rust-wasm": {
+        "passed": 43,
+        "failed": 1,
+        "not-recorded": 13
+      },
+      "rust-native": {
+        "passed": 44,
+        "not-recorded": 13
+      }
+    },
+    "observed_failures": {
+      "ack": {
+        "sfir-wasm": "failed",
+        "rust-wasm": "failed"
+      }
+    },
+    "without_status_record": [
+      "parsing",
+      "peval",
+      "primes",
+      "quicksort",
+      "scheme",
+      "slatex",
+      "chudnovsky",
+      "nboyer",
+      "sboyer",
+      "gcbench",
+      "mperm",
+      "equal",
+      "bv2string"
+    ]
+  },
+  "clean_measurement": {
+    "plan_present": false,
+    "measurement_present": false,
+    "recorded_sample_values_in_this_report": 0,
+    "publication_rule": "Use only complete timing/measurement.json rows backed by the frozen timing plan, one passed warmup and all five passed samples; never parse workload clocks from validation logs."
+  },
+  "compile_costs": {
+    "status": "pending-final-report",
+    "interpretation": "Separate contended one-attempt process costs, not clean execution samples or a quiet compilation benchmark.",
+    "record_labels": [
+      "sfir-build",
+      "native-build",
+      "chez-original-build",
+      "chez-adapted-build",
+      "rust-wasm-build",
+      "rust-native-build"
+    ],
+    "limitations": [
+      "SFIR build includes frontend and mandatory Binaryen optimization.",
+      "Native helper repeats mandatory optimization from retained raw Wasm before LLVM/linking; do not add it to SFIR build without labeling overlap.",
+      "Rust per-bin build records share a frozen Cargo target cache and are not clean independent from-scratch compilation costs.",
+      "Timeouts and failed builds retain status and command records; duration does not establish a successful compile."
+    ]
+  },
+  "rows": [
+    {
+      "name": "browse",
+      "canonical_count": 2000,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/browse/main.sfir",
+        "expected_sha256": "ce9a17fbddd2635064c6e55f2f91a714da5e646dd48a49cd3676662f64c9b770",
+        "present": true,
+        "observed_sha256": "ce9a17fbddd2635064c6e55f2f91a714da5e646dd48a49cd3676662f64c9b770"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/browse/status.json",
+        "sha256": "9722f61d534e288744d6c91358b0bacd603b35a081f248ecb96fbc5b551d9b6f",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "1725e75d16e0e917b44fbdf400fe9a84c2664fa27c7624813ff4f786c8e2fc64",
+      "optimized_sha256": "cc0cd92f259b48388d36684946b4efea7b10528b7605379b32a63bdef8fe55de",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "deriv",
+      "canonical_count": 10000000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/deriv/main.sfir",
+        "expected_sha256": "6786506cc0936514bb83d3fd576794cda06f675a0d3274cf9263f18cf4f06061",
+        "present": true,
+        "observed_sha256": "6786506cc0936514bb83d3fd576794cda06f675a0d3274cf9263f18cf4f06061"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/deriv/status.json",
+        "sha256": "9b9d70faae369f55ccffbed5f948313d9a68d895d1e778cd54b04d419399faf8",
+        "bytes": 542
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "a352ecc15408a962f14ee4c606946ccb82af203b70978bb6221068f691d79466",
+      "optimized_sha256": "77cdbfd4b2e1fdcc09810df49462770e56e51757852f0342d54de9f0f36a5b02",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "destruc",
+      "canonical_count": 4000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/destruc/main.sfir",
+        "expected_sha256": "dbcc3cd4851c4bc7740cc052f34f842619da9bdf965268669065546294ce2b8a",
+        "present": true,
+        "observed_sha256": "dbcc3cd4851c4bc7740cc052f34f842619da9bdf965268669065546294ce2b8a"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/destruc/status.json",
+        "sha256": "5217bf3f6d2fc88570b195ac47ff38a6f2599beed6e47228bf6bfb7ab376191c",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "6ae847f58fb6a6218d69bffe1ecfeef84e16e13609dc06ff724cd8497e377a98",
+      "optimized_sha256": "07d97a76a59f20f5c25c90f9a0372e7a27dc05889e53c86fb6a2aa4f3848e7ee",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "diviter",
+      "canonical_count": 1000000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/diviter/main.sfir",
+        "expected_sha256": "6ed086c489a453e5910be8a9c863631b616f8320209dbf759f821cfe743dcb0b",
+        "present": true,
+        "observed_sha256": "6ed086c489a453e5910be8a9c863631b616f8320209dbf759f821cfe743dcb0b"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/diviter/status.json",
+        "sha256": "a5c66b790b6a5941bd4d355ba9e2b521fa3363c89829c84dbccd31892c26ef42",
+        "bytes": 550
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "d3fc1a42b7fd2f97b7e0eb7d22bd93ea63e507147b11f0681615dcbbd8042371",
+      "optimized_sha256": "3252c99b083709eea5dcae3b60da3ee92a1eab2a48f708e9a5b31b68bbc61afb",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "divrec",
+      "canonical_count": 1000000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/divrec/main.sfir",
+        "expected_sha256": "d657cc156ede76bfab48e32fbe60bdb2309db743b869844c60e1fb1822ba0c58",
+        "present": true,
+        "observed_sha256": "d657cc156ede76bfab48e32fbe60bdb2309db743b869844c60e1fb1822ba0c58"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/divrec/status.json",
+        "sha256": "cc3286f31e4d403c5a6922900600dfe1b5269951bfcfffe70e3d9e6b48463f5b",
+        "bytes": 549
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "7d2c5db22d2e0d07a8fa029714fefe1930393e077fd5df3b70494b737f0014d1",
+      "optimized_sha256": "36e25124ff8316e6ac12f7374d390edebe57c91aebc0c55f244c3dbdd60afb8d",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "puzzle",
+      "canonical_count": 1000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/puzzle/main.sfir",
+        "expected_sha256": "ac6c8924cd0753691e88f167e2f7cc7cd2ca293d252b070918712e750773dede",
+        "present": true,
+        "observed_sha256": "ac6c8924cd0753691e88f167e2f7cc7cd2ca293d252b070918712e750773dede"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/puzzle/status.json",
+        "sha256": "028d5397749cb7da7f66b854282a278551b44d81a9b6b2df66610a8d7d94f30c",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "cdeae05e0c5688808cf0e1a5a45f42809c1764c5d5c59d91dfc84a2ce7dd8f04",
+      "optimized_sha256": "c74d664b97d9d61aeb02ca6780579490b7da9988ebea05e1f6582e89cb5f0dd5",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "triangl",
+      "canonical_count": 50,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/triangl/main.sfir",
+        "expected_sha256": "453ea006ad96e0520bb770e7f0f63cc2ff8293b5fb61dd9bc663c0364a94a9d6",
+        "present": true,
+        "observed_sha256": "453ea006ad96e0520bb770e7f0f63cc2ff8293b5fb61dd9bc663c0364a94a9d6"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/triangl/status.json",
+        "sha256": "9fe388377644b553f3b543e2cce2941e7392d52623e0bcd7bc1b532f73f09700",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "a7469191adb45864604a61635cfcb5c39f49688c284314c07d0715bd5ca49d22",
+      "optimized_sha256": "bd9e15c72ed5753f791ff4f5e5525d3d3b79f741f67448dc5bf60785a6c47125",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "tak",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/tak/main.sfir",
+        "expected_sha256": "57fc6f82f649937e2f02c01cef71940810c171d615e58a1ee90178091bb2c938",
+        "present": true,
+        "observed_sha256": "57fc6f82f649937e2f02c01cef71940810c171d615e58a1ee90178091bb2c938"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/tak/status.json",
+        "sha256": "060571f5dfed11abf7e89d2f37e1122ed72089558ac8f5af3dccbe6fe125a891",
+        "bytes": 546
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "01e91a5a3796f290b02ba1b73e9595bb1ecc8083b1a187e230016ba72c5d9aed",
+      "optimized_sha256": "d255b6052038bccfcb701e3e473806a107452244d2a2701f95ddd25273d971a4",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "takl",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/takl/main.sfir",
+        "expected_sha256": "8b4a1618d624e7381835f2e7a22b6d40aa0b3948e72b84306357865a89eeb579",
+        "present": true,
+        "observed_sha256": "8b4a1618d624e7381835f2e7a22b6d40aa0b3948e72b84306357865a89eeb579"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/takl/status.json",
+        "sha256": "a22ab9d1d54f0257c3e1c78f50dfcc9e78be27b3085d0c5ca862863774f53d57",
+        "bytes": 547
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "bb7b6b7292c9fbac6fed0c19dec41a0b9a4ce59058b3ccc3a44fa1dce675de5e",
+      "optimized_sha256": "307fb46d1289272a7d2eac73fd52c893943502ee2244903f1e67f87459718cba",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "ntakl",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/ntakl/main.sfir",
+        "expected_sha256": "c3625e7d9947bed346053dc256144478d541648eeb6ca790b4341a00bed6e5aa",
+        "present": true,
+        "observed_sha256": "c3625e7d9947bed346053dc256144478d541648eeb6ca790b4341a00bed6e5aa"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/ntakl/status.json",
+        "sha256": "e542739a72591672e2f2ab4c28baa4297c2825ae42dea63f5f3a28f65b8d8e59",
+        "bytes": 548
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "9f566d569a824a51397d2d24c608fa8fb1dff6c91d2a8946460f2950bd6bd87a",
+      "optimized_sha256": "371e3a65a1b4d050366ac561daf725076c271af7b5ff3e20bc00d2c5b2f39f95",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "cpstak",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/cpstak/main.sfir",
+        "expected_sha256": "4218053a59096a3a32617ac598157ef5562c2de1175f7bf9777100a0643d23b7",
+        "present": true,
+        "observed_sha256": "4218053a59096a3a32617ac598157ef5562c2de1175f7bf9777100a0643d23b7"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/cpstak/status.json",
+        "sha256": "6bfc584b3041e8897d7f012b1e988f0db645e444957de8056880229fc24de34f",
+        "bytes": 549
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "ffd3562ea0f1beb775e4cf44bad625ff108667775e16ac646c033f97708830b2",
+      "optimized_sha256": "606d6b91b45a274d5825f2ac6bebe57ae71cd3e0745d819ea2585fb68b0d50e0",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "ctak",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/ctak/main.sfir",
+        "expected_sha256": "ca26300551e254936b55e4c52319ea3b4d550ef5b487afdbb91728371b4b2624",
+        "present": true,
+        "observed_sha256": "ca26300551e254936b55e4c52319ea3b4d550ef5b487afdbb91728371b4b2624"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/ctak/status.json",
+        "sha256": "da81595318103448a4442c2041d2329420a2f597c724eeb62fb3f6152903491d",
+        "bytes": 541
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "71227ed19035999f9440b7c9045b89deb1e42d0b5cf6184f107eda9dafee08d8",
+      "optimized_sha256": "bcbcda6ebc2e20b320c4826212a6457ce0d01c3ce76fb765a798c92d9cdaf14a",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "fib",
+      "canonical_count": 5,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/fib/main.sfir",
+        "expected_sha256": "f84c27555606a00104f0dc3e3a8a5352305bb457a0e2193fa06f59244696c46c",
+        "present": true,
+        "observed_sha256": "f84c27555606a00104f0dc3e3a8a5352305bb457a0e2193fa06f59244696c46c"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/fib/status.json",
+        "sha256": "e8f1f1cea10caa4075657cc6b2fb345b55bbf94f8f075110f572d20bd40bf3a4",
+        "bytes": 546
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "0d7fe1a7f8826137c496010bf29c7476ab996547aeeef07f1b22b027f09873ff",
+      "optimized_sha256": "20507f58e9e76182293253d1e65f9b523c8aea449109d0a8938e8cc34213932f",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "fibc",
+      "canonical_count": 10,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/fibc/main.sfir",
+        "expected_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+        "present": true,
+        "observed_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/fibc/status.json",
+        "sha256": "bfd4b5023c85d53b050aa651b6893da97f65ab8889f50ecca4db599d01e0b404",
+        "bytes": 541
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "3ac1b902eb24f573848f579be6d167c78d0a7fb631a3e15ad32a424422c3f3a8",
+      "optimized_sha256": "7b2579867ba923dbbfef437151bd85939e0bfc3d46ddf0e2547ba423192eac3e",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "fibfp",
+      "canonical_count": 10,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/fibfp/main.sfir",
+        "expected_sha256": "2a5caadf4e6bbe9ba5df5c43ff2b249b018cb317b02c0b531328c4cea8cb0f95",
+        "present": true,
+        "observed_sha256": "2a5caadf4e6bbe9ba5df5c43ff2b249b018cb317b02c0b531328c4cea8cb0f95"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/fibfp/status.json",
+        "sha256": "13554c0d338ca8d0bcc7bb54f42c2e00668f8afc76fcb0d40e6809d6dfc778cb",
+        "bytes": 548
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "761a551bcf5b580b048e6cdd79bc47379042a33555e87c2b7f9983de5dbaf1db",
+      "optimized_sha256": "7addf1e96c6e96c194a09f249dbd6fc2501b01e1d5743b3caf629a1d20ac485d",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "sum",
+      "canonical_count": 200000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/sum/main.sfir",
+        "expected_sha256": "672dd453075c987e3f2a7e4dd84439c99b4420e3af8ac82d5ca046b1d6868ec7",
+        "present": true,
+        "observed_sha256": "672dd453075c987e3f2a7e4dd84439c99b4420e3af8ac82d5ca046b1d6868ec7"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/sum/status.json",
+        "sha256": "f9c017af5ce0a1a85cca901b92dfefe95f05157781deb53fa3037271428f88ee",
+        "bytes": 546
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "9f09b73772aa76ced0c5c3df467915aadd12c3fa2f28991ffd866e08f2b0ea47",
+      "optimized_sha256": "f3128f94b2a5032ce349222db3a08544e858ecb3be925eb8a5b40892ef9ec89f",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "sumfp",
+      "canonical_count": 500,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/sumfp/main.sfir",
+        "expected_sha256": "13b26ae5d19e8f99c54650140c8e08d36200d18da7a69e0b41fa61926a1ccb67",
+        "present": true,
+        "observed_sha256": "13b26ae5d19e8f99c54650140c8e08d36200d18da7a69e0b41fa61926a1ccb67"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/sumfp/status.json",
+        "sha256": "3d3ab4393b31d2c0641e47eff0484e4b2f668f64a88bb7f3dd0fa24436c7d452",
+        "bytes": 548
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "d6966ebd35bfa8c5ccefa9fa1ec4a2dd935dada2cce90d4ef56a433426929c05",
+      "optimized_sha256": "0ebed0daea134a216aa612166d9a74e78dce94af089cf2202fdd65059ca392ae",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "fft",
+      "canonical_count": 100,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/fft/main.sfir",
+        "expected_sha256": "7b2f02b86247b7e4c5062bcacc3f9094db268652ae57da9a6cf467b3d2c42ca9",
+        "present": true,
+        "observed_sha256": "7b2f02b86247b7e4c5062bcacc3f9094db268652ae57da9a6cf467b3d2c42ca9"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/fft/status.json",
+        "sha256": "5e50c6c016a6b10ddf9db3fc7eb5e21c5aa9292a0ceb4fb8e48a531ca925b2a5",
+        "bytes": 540
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "6dee2ff1d5d6db697c181390d297aef2f060da87d19a0eeb2a7d7a2a719c4f69",
+      "optimized_sha256": "d1c040f623ab6aae10e4f0eea4cb8b83fcc5aab26dfe0d58cf1e33a9e0c43977",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "mbrot",
+      "canonical_count": 1000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/mbrot/main.sfir",
+        "expected_sha256": "5a913e2a61d3c56e87c80e8de1e45618274a951648799408d5537ed7b9a8c15b",
+        "present": true,
+        "observed_sha256": "5a913e2a61d3c56e87c80e8de1e45618274a951648799408d5537ed7b9a8c15b"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/mbrot/status.json",
+        "sha256": "3ba5840e1407b9c4231b075538d439768c108725f8e4c50ca36c8aab39e3fb31",
+        "bytes": 542
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "e1e54f93b3203e13b138472ce7d191b4e285829d32f00ab5b9d6695dd5507bbc",
+      "optimized_sha256": "9474dc0e65a7f3d6a950e863a92f01171827535ae96b82ef81d98caa1f4fc040",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "mbrotZ",
+      "canonical_count": 1000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/mbrotZ/main.sfir",
+        "expected_sha256": "d7d31f5a57ddb14fd0d3f8b56b2d97d10e13c6ffa706e741b8e87d6e7faa4ae5",
+        "present": true,
+        "observed_sha256": "d7d31f5a57ddb14fd0d3f8b56b2d97d10e13c6ffa706e741b8e87d6e7faa4ae5"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/mbrotZ/status.json",
+        "sha256": "571c137d0ee3d19cba9c7e6f64ce0b3b70b2bc573a407b6e6efccef6748e6d79",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "76256f864e5f2630441448040299cd06f31c312ff55b397c79f6902df46b5dfd",
+      "optimized_sha256": "6ae8e1f43f1368803e2da2271ef76369f5bbbba7291cf29fa72877d4877bbe01",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "nucleic",
+      "canonical_count": 50,
+      "host": "nucleic",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/nucleic/main.sfir",
+        "expected_sha256": "804e2e2f69a5a0fdd0a16a76a025fb8a3e6219eb19c90b8ad4d21fc7bf3fde99",
+        "present": true,
+        "observed_sha256": "804e2e2f69a5a0fdd0a16a76a025fb8a3e6219eb19c90b8ad4d21fc7bf3fde99"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/nucleic/status.json",
+        "sha256": "6263e819aaf4acd0d96ef797ce5bf5b6841690269fa85ddb909b1c8ddf57e8eb",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "78760fffaee078d51ef6f193cabd1dd9279c1e9f796a2ba9343cedcc1f4edb38",
+      "optimized_sha256": "de38642fd437b65cdd9e6d98602da0af0937ac3ca18443f3e40f4d5afab58e7c",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "pi",
+      "canonical_count": 100,
+      "host": "integer",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/pi/main.sfir",
+        "expected_sha256": "adb2dcb80c404b4c5ff4e1ac46f540808af0d0684b6b660ed099ed80745bb8a4",
+        "present": true,
+        "observed_sha256": "adb2dcb80c404b4c5ff4e1ac46f540808af0d0684b6b660ed099ed80745bb8a4"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/pi/status.json",
+        "sha256": "2b04eb3552812414e6c42665e58519d732025bf9da496f50b2a9032b5e52accc",
+        "bytes": 539
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "259cf1a23a9198bfff2eb7fc17f1e69737b7050d0c92f1969bafa18e193c2951",
+      "optimized_sha256": "737f3526ffc92d638bba099e8adca88191c939bfe9b5530a7d97f94997ee27c7",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "pnpoly",
+      "canonical_count": 1000000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/pnpoly/main.sfir",
+        "expected_sha256": "82c7bd0b8bc2684719ef2e2fa7d022f9c90c24d1278f425a03438dc1c33f0510",
+        "present": true,
+        "observed_sha256": "82c7bd0b8bc2684719ef2e2fa7d022f9c90c24d1278f425a03438dc1c33f0510"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/pnpoly/status.json",
+        "sha256": "e31833d5d3d59d9a0d7b9d2dd780f5b69b6068200f683e41f8ba28aa4a7a16a3",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "3a690ca9cbb686140fe25bb4ef361f70ed4ab85b7687c9f897f336a027263189",
+      "optimized_sha256": "6e33dded45e98e32d413e1a5d43483d8a1be2f4d6a6c0948913daa5298d7445f",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "ray",
+      "canonical_count": 50,
+      "host": "ray",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/ray/main.sfir",
+        "expected_sha256": "340ea0fb534f26427ffdf85961376051d48f7a2f7b5a64e0526a22ab37afe46d",
+        "present": true,
+        "observed_sha256": "340ea0fb534f26427ffdf85961376051d48f7a2f7b5a64e0526a22ab37afe46d"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/ray/status.json",
+        "sha256": "e5a1eff61d3c5877ddec6a118df6b260c863314f02f8263a767642c23dbc7fac",
+        "bytes": 540
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "c110de6250aa80bdf2215ba636e6494e53a4dc2e460b2ba31f291a97acdebdb3",
+      "optimized_sha256": "851b9916772a90deaa10ca7a37b056bc2984625a615413402cd144d53c6c8872",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "simplex",
+      "canonical_count": 1000000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/simplex/main.sfir",
+        "expected_sha256": "a9fa9c6dce767fcadfe7bc0351a38b6bac632245c4eeb093594f4724e276fc64",
+        "present": true,
+        "observed_sha256": "a9fa9c6dce767fcadfe7bc0351a38b6bac632245c4eeb093594f4724e276fc64"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/simplex/status.json",
+        "sha256": "2f5ae284aedbd094e7fb63aed023c642b77a554cd42eba5d581ae24e29b665fe",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "8d104900852f00143ec59b086478aaf08fc052a376ce2aaf7f358a853d69fe69",
+      "optimized_sha256": "dd62ef7f418c7885d76f54b0b354ae48dde3e8128c2c3c0148ebe6da7a9c097e",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "ack",
+      "canonical_count": 2,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/ack/main.sfir",
+        "expected_sha256": "2a875e6250ac69724489f1279b85c0baba31225a63069bea30c1a2e68f39f41e",
+        "present": true,
+        "observed_sha256": "2a875e6250ac69724489f1279b85c0baba31225a63069bea30c1a2e68f39f41e"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/ack/status.json",
+        "sha256": "7494b7ceb46a86b4ae2cf6770b8c2523eb40f065d5f6e11ce59865c0089694de",
+        "bytes": 546
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "failed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "failed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "39ce274366df4c6f40df97e3f33e32a2e29c552e9b47daef456d5da89478e0cd",
+      "optimized_sha256": "2c149fbe600f1f4ad502981d01be55d02fb8eebd0371299f4c14cc5e7d07b7e8",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "array1",
+      "canonical_count": 500,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/array1/main.sfir",
+        "expected_sha256": "20f9053946a528602185e4082dd6db1d5320ffb674740c64dd10f1edd55224f8",
+        "present": true,
+        "observed_sha256": "20f9053946a528602185e4082dd6db1d5320ffb674740c64dd10f1edd55224f8"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/array1/status.json",
+        "sha256": "8d00e55e48238cab7c7b89231f691c2a3f7281b2932a489dd54312fb4dbc658b",
+        "bytes": 549
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "absent-control",
+          "status": "unavailable"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "d28f94e55667b088aab49aa932dcfc8c37648372a46e3705d27494945504a118",
+      "optimized_sha256": "86421df767a99f0c2b4aea57209bcb64a8d852a93d0e132efa3c85f790c35191",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "string",
+      "canonical_count": 100,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/string/main.sfir",
+        "expected_sha256": "e494373da2173971384d98c4ac029faeb6c37542ad552b4a25bb45805f8e76c8",
+        "present": true,
+        "observed_sha256": "e494373da2173971384d98c4ac029faeb6c37542ad552b4a25bb45805f8e76c8"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/string/status.json",
+        "sha256": "68a6b4c7bd5d406fa5b6910e632b93e1df57164457215d3a1c6250c2ff52a1f0",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "d4c26966de4312795ea1498756cc1a7bfd0a5d31b2759b179492773d0849994c",
+      "optimized_sha256": "aa19cc726cf4e1a50539f4472f9ae555238afeccb8607a38d992682d7487ea20",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "sum1",
+      "canonical_count": 25,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/sum1/main.sfir",
+        "expected_sha256": "c4796df2deacac2d2dd457bea6c81ab8a2beb3e637ef21c5f3819de462140d39",
+        "present": true,
+        "observed_sha256": "c4796df2deacac2d2dd457bea6c81ab8a2beb3e637ef21c5f3819de462140d39"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/sum1/status.json",
+        "sha256": "45dadb0e45214d056642a56b6ae5a1049c6ed43ecac7432c2172455f899d6f34",
+        "bytes": 541
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "c8de552972854b1642706c7f3a3ae3c1934e6f3e9d4e89cff453504dccf2cd5b",
+      "optimized_sha256": "bad125a52b35e09a16376d8ed0609430b8e03af8a41c7db056d9b8b9ae5b3e64",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "cat",
+      "canonical_count": 50,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/cat/main.sfir",
+        "expected_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
+        "present": true,
+        "observed_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/cat/status.json",
+        "sha256": "20b98f877807ddef7e6e5e5bf0a8f8bf94c898e4a3db7638a05db70b4d2e70bf",
+        "bytes": 540
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "ad7c291f0e31d4072039031d8fc459c737756049ce2c69aa4f39bd4a4976b5a6",
+      "optimized_sha256": "7b7ed2f8cf3abe819ce57cb4266a5718c41c9e78ee953b046fd26239586e6a60",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "tail",
+      "canonical_count": 50,
+      "host": "tail",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/tail/main.sfir",
+        "expected_sha256": "2dbdc7957145ef5dd8ebccd566beb76545a962f4896f263cd44e6dc5a988eea5",
+        "present": true,
+        "observed_sha256": "2dbdc7957145ef5dd8ebccd566beb76545a962f4896f263cd44e6dc5a988eea5"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/tail/status.json",
+        "sha256": "42c109584c24f90ffaa90b0984b54ef8bb97959d6978bfd69d1579ab358cb3d6",
+        "bytes": 541
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "2475f67d72d5312590d2abab6bc18a2fb12a571e928097f3006043fbe9199a8e",
+      "optimized_sha256": "51968094209d78cad52919ef59c9174afe2d4d5ba82802aa72d0a7cf16ec5d9d",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "wc",
+      "canonical_count": 50,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/wc/main.sfir",
+        "expected_sha256": "d2b46dec897d4ad51008011322726c498353246b5b3673c105e0f8d4fd2fbd75",
+        "present": true,
+        "observed_sha256": "d2b46dec897d4ad51008011322726c498353246b5b3673c105e0f8d4fd2fbd75"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/wc/status.json",
+        "sha256": "049203b864ead4d919c2815722d1ed4f6720bbb3ba3d54191ce77489cf116bf7",
+        "bytes": 539
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "e5963034cc429aae8585c1ba734dd78e69dd06fa20d487daead4e740d707ee48",
+      "optimized_sha256": "dec7f7690cae200f00ee9977e5f8ed0e69b7a4a7f63b2d5f42cf665cdb1231c2",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "read1",
+      "canonical_count": 2500,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/read1/main.sfir",
+        "expected_sha256": "b2ece2daab9dd3d550ec532d4ee56b4ec7377004f9ce28c77425c0db71f78f45",
+        "present": true,
+        "observed_sha256": "b2ece2daab9dd3d550ec532d4ee56b4ec7377004f9ce28c77425c0db71f78f45"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/read1/status.json",
+        "sha256": "8fb541ca72355e189db9b8da723845d8c488c48e3c404b6a34e06de55dfbf748",
+        "bytes": 542
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "df57d13250992cc54af1361c9bcfe1d9ad4f8e36bb0ec49797a1f21e1d4527fe",
+      "optimized_sha256": "bb44273a833b7979b8925fe01e21c512e2aac65009eb274ed41ce5cce62423da",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "compiler",
+      "canonical_count": 2000,
+      "host": "compiler",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/compiler/main.sfir",
+        "expected_sha256": "360c58d6d0995be182ce242ee22f64ad0867c75af53c97bcfe1533096006a7c0",
+        "present": true,
+        "observed_sha256": "360c58d6d0995be182ce242ee22f64ad0867c75af53c97bcfe1533096006a7c0"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/compiler/status.json",
+        "sha256": "e8667285cc15a553e75bc33f4d829ffae8b4d716f8272abadc1ef9ff8daa50ad",
+        "bytes": 545
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "297b86433baefde931b62baa6a05cf71b8eee39d493175ebab8578ae554f9b96",
+      "optimized_sha256": "c8fd53ce2dbffa419b91853e08dce7295185ee691427c0149b81a6c44de56205",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "conform",
+      "canonical_count": 500,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/conform/main.sfir",
+        "expected_sha256": "4652a026ba74115eeb82b41ccbed2fa585043d52ccee9bdb9b744a7c6c079d52",
+        "present": true,
+        "observed_sha256": "4652a026ba74115eeb82b41ccbed2fa585043d52ccee9bdb9b744a7c6c079d52"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/conform/status.json",
+        "sha256": "c6e0d5706a55b3e248ae6654a6f932e62b72d0b6187cc1e5a0f9390368fd22a2",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "0d6a4b5ee3dd876a4d1802d7d7518ccccdf16b806d8914a96b992df2043d69c6",
+      "optimized_sha256": "a3ac13090f6983a9fdd0eef181efa2a020c0d9ceacbbb4e082eb800ad2c4a161",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "dynamic",
+      "canonical_count": 500,
+      "host": "dynamic",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/dynamic/main.sfir",
+        "expected_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+        "present": true,
+        "observed_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/dynamic/status.json",
+        "sha256": "29a43c78758ba46ac581479f5675ccf5a1bad652c1c1ab46624b18a6978b7c6e",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "cbfce74f47916b13198b8a16ee98cbb60d89474550496d0e1d5ee9f15a65c3dd",
+      "optimized_sha256": "5fef36c796bbeb8221b57778eb9bc0b10969bf391ec49502101cf792f4e20266",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "earley",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/earley/main.sfir",
+        "expected_sha256": "0ba2c5f17e12f43db6848a087083fe34c719dd7ecbe4878196c15e284013b6e8",
+        "present": true,
+        "observed_sha256": "0ba2c5f17e12f43db6848a087083fe34c719dd7ecbe4878196c15e284013b6e8"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/earley/status.json",
+        "sha256": "4c927738f902a595486fd294da0978f9346670c4f2029cade5745b6f57318ca0",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "180c0cf2ce343d719a6e9baa7d715f35c1c47b8c85b9ed2bc6e8e41a8daff73e",
+      "optimized_sha256": "e4c6cef0c8f5647570aa7102e3fc5784531b185ca68b523d4aa11a1bdb380dfa",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "graphs",
+      "canonical_count": 3,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/graphs/main.sfir",
+        "expected_sha256": "62f4b82db5c022396d551ae2149f5ed782a34a7c950d0d48c2f38775b434ea21",
+        "present": true,
+        "observed_sha256": "62f4b82db5c022396d551ae2149f5ed782a34a7c950d0d48c2f38775b434ea21"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/graphs/status.json",
+        "sha256": "9ee1d2e8b44aa718afe687e2f2cac00a6f375a93badb7c65a7053b9f4698f980",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "75de47baafde043b88d277bf9031f34dc6e70c74bdaf563cab8a00a44f2e5e66",
+      "optimized_sha256": "9f10015bfd9721061f9d30341e0e78a06ae95e8c48e4c240365c4454116cf1b4",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "lattice",
+      "canonical_count": 10,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/lattice/main.sfir",
+        "expected_sha256": "46ad028b2e2e19a3382721b46ff1d584315d43501019ed4ffa5753bacf5f49d9",
+        "present": true,
+        "observed_sha256": "46ad028b2e2e19a3382721b46ff1d584315d43501019ed4ffa5753bacf5f49d9"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/lattice/status.json",
+        "sha256": "daa7e1e961b6058fb71d5df6b155f171b30df91c0656340fbca3cd67335da721",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "1c641d9c5afe9f6176b36e466ae11d1700187c0c119beb24a26768367beaacc1",
+      "optimized_sha256": "c4ad614be90b62c164554f87181110782f6151d01017fe7a96030f2dbc1ce26c",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "matrix",
+      "canonical_count": 2500,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/matrix/main.sfir",
+        "expected_sha256": "20e936209c588a98e66f90f827a0b95a720e14374fc357217419d3ded37f9481",
+        "present": true,
+        "observed_sha256": "20e936209c588a98e66f90f827a0b95a720e14374fc357217419d3ded37f9481"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/matrix/status.json",
+        "sha256": "5ba82c6618865d75d8e6fd6dfc75fb267eb51b41482642b368dbdccbea631207",
+        "bytes": 543
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "850d23927427c17ed060cc03b1a15430bf43787fefa86e44f751e7340934abf1",
+      "optimized_sha256": "bf9970156a800986b29436a4caec01d78c871e733469b596a2821a5d9d256cb8",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "maze",
+      "canonical_count": 10000,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/maze/main.sfir",
+        "expected_sha256": "ecd5f62b9d5728c127164535b674c5c297525a3d441206f6950a65d84691a887",
+        "present": true,
+        "observed_sha256": "ecd5f62b9d5728c127164535b674c5c297525a3d441206f6950a65d84691a887"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/maze/status.json",
+        "sha256": "6bcabba8dceb8d62d39e7aaaac0ce5591649c56cab0b90ba100475edcdd3e220",
+        "bytes": 541
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "6b0d03b1fc4722aa68889937b2431182952181c223c5a460eb849e55e8fd2786",
+      "optimized_sha256": "151847ec28e02984866854f7e9b6f824fc13a919ab3315f0e0ac3f74251d9654",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "mazefun",
+      "canonical_count": 10000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/mazefun/main.sfir",
+        "expected_sha256": "3524a327fd4282bbd03dead6a9753de87e63da2d27adb3b7e848de2717cb9e91",
+        "present": true,
+        "observed_sha256": "3524a327fd4282bbd03dead6a9753de87e63da2d27adb3b7e848de2717cb9e91"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/mazefun/status.json",
+        "sha256": "21b432086b56e4695b4dead9891fa745529eeafae4d2d5f3c73d201ef121f252",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "275677c464b8ba3d07ca4337cbe195c7b516e2b4c1b484ca721b4564cd6bde22",
+      "optimized_sha256": "5f0d59fcf4ced86eed63cf08105d26797d9c75a75f1cb0962ec3f8250a0d297b",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "nqueens",
+      "canonical_count": 10,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/nqueens/main.sfir",
+        "expected_sha256": "751d4d7c2b624a2ebb0e57eef9d6236c73b5734dc71b93a12fc8e922470fd9a4",
+        "present": true,
+        "observed_sha256": "751d4d7c2b624a2ebb0e57eef9d6236c73b5734dc71b93a12fc8e922470fd9a4"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/nqueens/status.json",
+        "sha256": "097b989f8dce0f8fc6a4a549abd45c3a1dab67cd2ed7b67af93c5e833b8bbd38",
+        "bytes": 544
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "7a23e252784ac29bcf75b02f85de0019689342e48c16f6275cdac02336a3af88",
+      "optimized_sha256": "717cd772a9f4f3deb490fbd5ad75df3f247034cb2fdb8070765bbfcff16ee45f",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "paraffins",
+      "canonical_count": 10,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/paraffins/main.sfir",
+        "expected_sha256": "1de746c59cca944fca99ee7a3a873c96f20e7f114022b216884cdeb97bc827b8",
+        "present": true,
+        "observed_sha256": "1de746c59cca944fca99ee7a3a873c96f20e7f114022b216884cdeb97bc827b8"
+      },
+      "completed_prefix": true,
+      "status_capture": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/validation/paraffins/status.json",
+        "sha256": "9958371d0d32a6a0e3311753c4490966064ddb68613df5475db2280959a29a09",
+        "bytes": 546
+      },
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "passed"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "passed"
+        }
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "raw_sha256": "40b14108661710ba984696ed8f494f000e90da9ec6ced0a14fc48525737d9cf1",
+      "optimized_sha256": "712825234cfc5e054f8060e245f5c86ce359d606e659c6927534fbd3850106a3",
+      "native_parity_record_present": true,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "parsing",
+      "canonical_count": 2500,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/parsing/main.sfir",
+        "expected_sha256": "18a88e3bb8c98f9af41bf28e776ddc22187747643f930383a26a647e2edc792a",
+        "present": true,
+        "observed_sha256": "18a88e3bb8c98f9af41bf28e776ddc22187747643f930383a26a647e2edc792a"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "peval",
+      "canonical_count": 2000,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/peval/main.sfir",
+        "expected_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
+        "present": true,
+        "observed_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "primes",
+      "canonical_count": 10000,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/primes/main.sfir",
+        "expected_sha256": "1696d98d4532d0eaa7f6e213d05d96595c25544e8e681473691bd7e978840372",
+        "present": true,
+        "observed_sha256": "1696d98d4532d0eaa7f6e213d05d96595c25544e8e681473691bd7e978840372"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "quicksort",
+      "canonical_count": 2500,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/quicksort/main.sfir",
+        "expected_sha256": "f511a5dc3c577dfe7816aeded863cafb5b189d4e7149d56a1cc69956ccee4ff1",
+        "present": true,
+        "observed_sha256": "f511a5dc3c577dfe7816aeded863cafb5b189d4e7149d56a1cc69956ccee4ff1"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "scheme",
+      "canonical_count": 100000,
+      "host": "scheme",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/scheme/main.sfir",
+        "expected_sha256": "f5e3fbed1e99b72649f78f4deb135480eac58d5e4262e82842b9c2d4a592a3ff",
+        "present": true,
+        "observed_sha256": "f5e3fbed1e99b72649f78f4deb135480eac58d5e4262e82842b9c2d4a592a3ff"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "slatex",
+      "canonical_count": 500,
+      "host": "slatex",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/slatex/main.sfir",
+        "expected_sha256": "929f04cf2b8c998b72d143b93f45d5a26ae5eb440233199cf5638b5259c87f26",
+        "present": true,
+        "observed_sha256": "929f04cf2b8c998b72d143b93f45d5a26ae5eb440233199cf5638b5259c87f26"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "chudnovsky",
+      "canonical_count": 1000,
+      "host": "integer",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/chudnovsky/main.sfir",
+        "expected_sha256": "6e8a564f904073475c27e84125f3856f8e27da08f1cbacec39b8cac8a199ab15",
+        "present": true,
+        "observed_sha256": "6e8a564f904073475c27e84125f3856f8e27da08f1cbacec39b8cac8a199ab15"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "nboyer",
+      "canonical_count": 1,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/nboyer/main.sfir",
+        "expected_sha256": "f912df1b7ef76a3dd9de9a7857cb75a361549de3230073dbf62e10d140b53e0b",
+        "present": true,
+        "observed_sha256": "f912df1b7ef76a3dd9de9a7857cb75a361549de3230073dbf62e10d140b53e0b"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "sboyer",
+      "canonical_count": 1,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/sboyer/main.sfir",
+        "expected_sha256": "bd1db5d7ab24e44acd61524f4fa2da6c37665d2a6cce52a67e96c14fd4039b61",
+        "present": true,
+        "observed_sha256": "bd1db5d7ab24e44acd61524f4fa2da6c37665d2a6cce52a67e96c14fd4039b61"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "gcbench",
+      "canonical_count": 1,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/gcbench/main.sfir",
+        "expected_sha256": "49407fd5201cbc90e21742086d79036dda3d9e27658318acb16f30bda6b129f4",
+        "present": true,
+        "observed_sha256": "49407fd5201cbc90e21742086d79036dda3d9e27658318acb16f30bda6b129f4"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "mperm",
+      "canonical_count": 20,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/mperm/main.sfir",
+        "expected_sha256": "4d3346addc5625d392d69943a027aa45743ed121654dcdbe3718a32ebc11254a",
+        "present": true,
+        "observed_sha256": "4d3346addc5625d392d69943a027aa45743ed121654dcdbe3718a32ebc11254a"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "equal",
+      "canonical_count": 100,
+      "host": "datum-io",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/equal/main.sfir",
+        "expected_sha256": "f75966d7f630f715881aff01b659439535781dfdc21b9a226bd4a2f1ea0101a0",
+        "present": true,
+        "observed_sha256": "f75966d7f630f715881aff01b659439535781dfdc21b9a226bd4a2f1ea0101a0"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    },
+    {
+      "name": "bv2string",
+      "canonical_count": 100,
+      "host": "scalar",
+      "source": {
+        "path": "/tmp/sfir-checked-full57-20261015-v1/source/benchmarks/sfir/bv2string/main.sfir",
+        "expected_sha256": "c197e1b0dcf461de24601cf8e27a434050cee55e32c174ab2287df0d7c5dac5f",
+        "present": true,
+        "observed_sha256": "c197e1b0dcf461de24601cf8e27a434050cee55e32c174ab2287df0d7c5dac5f"
+      },
+      "completed_prefix": false,
+      "status_capture": null,
+      "validation": {
+        "sfir-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "sfir-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-original": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "chez-adapted": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-wasm": {
+          "availability": "present",
+          "status": "not-recorded"
+        },
+        "rust-native": {
+          "availability": "present",
+          "status": "not-recorded"
+        }
+      },
+      "build": "not-recorded",
+      "optimized": "not-recorded",
+      "raw_sha256": null,
+      "optimized_sha256": null,
+      "native_parity_record_present": false,
+      "clean_measurement": "withheld-pending-parent-completion-announcement"
+    }
+  ],
+  "final_report_sections": [
+    "Frozen identity, source coverage and terminal campaign status",
+    "Complete 57-by-six validation and control-availability matrix",
+    "Clean artifact eligibility and native optimized-guest parity",
+    "Complete same-campaign clean medians and ratios",
+    "Separate build/process costs, artifact sizes and failures",
+    "Manifest, timing plan, measurements, commands and archive hashes"
+  ],
+  "exclusions": [
+    "Do not inherit validation or measurement status from manifest cases or corpus metadata.",
+    "Do not replace original Ack SFIR/Rust Wasm failures with worker or altered-tier diagnostics.",
+    "Do not combine these observations with historical six-case measurements or paired input-buffer experiments.",
+    "An absent adapted control is unavailable, not a passed route and not a missing execution result.",
+    "Per-case status captures and the completed-prefix report can advance between reads; this is explicitly a pending non-atomic snapshot.",
+    "A missing case-status file can coexist with a running initial SFIR build; it does not prove that work has not started."
+  ],
+  "route_availability_scope": "Presence of source/control descriptions, not built artifacts or successful target execution."
+}
