@@ -257,9 +257,11 @@ readiness tokens and payload copies therefore have one definition.
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
 and emits explicit universal-value conversions. Direct local procedures receive
-lexical state as native parameters. Their immutable local captures carry nullable
-payloads and readiness flags until the original read; surviving closures retain
-shared cells wherever later initialization must remain observable. A direct
+lexical state as native parameters. Parameters and nonrecursive let values are
+initialized before capture and travel as concrete values. Recursive local
+captures carry nullable payloads and readiness flags until the original read;
+surviving closures retain shared cells wherever later initialization must remain
+observable. A direct
 procedure's binding still publishes readiness at its original source event.
 Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array

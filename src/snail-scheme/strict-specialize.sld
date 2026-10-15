@@ -5,7 +5,7 @@
   (export monomorphize mono-program-body mono-program-functions mono-program-globals mono-program-exports
           site-instances site-global? site-source site-token site-check site-values
           value-binding? value-type value-site value-initializer value-index
-          value-parameter? value-source
+          value-parameter? value-source value-ready-at-capture?
           function-index function-type* function-parameters function-rest-binding
           function-body function-captures function-source function-direct? direct-value-function)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
@@ -79,6 +79,11 @@
       (let ((value (make-value source type site #f (state-next-value state) parameter?)))
         (set-state-next-value! state (+ (state-next-value state) 1))
         value))
+    ;; A let name is visible only in its body, after all initializers succeed.
+    ;; Match fields use the same rule. Recursive aliases retain their own source
+    ;; identity and initialization event even when their target is already ready.
+    (define (value-ready-at-capture? value)
+      (or (value-parameter? value) (eq? (binding-kind (value-source value)) 'let)))
     (define (new-sites bindings parent global?)
       (let* ((sites (map (lambda (binding) (cons binding (make-site binding #f global? '() #f #f))) bindings))
              (context (make-context sites parent (context-substitutions parent))))
