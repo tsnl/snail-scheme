@@ -1,6 +1,6 @@
 {
-  "upstream_forms": "231",
-  "retained_kernel_forms": "229",
+  "upstream_forms": 231,
+  "retained_kernel_forms": 229,
   "replaced_forms": [
     "import",
     "run-benchmark"

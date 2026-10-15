@@ -50,6 +50,11 @@ correctness evidence and is not the parity result. Original/adapted Chez passed
 as well. These concurrent correctness runs provide no clean timing claim. Rust
 comparison and frozen corpus registration remain the corpus runner's separate work.
 
+The [integration review](../evidence/20261015-two-ports-review.json) repeats the
+canonical worker and probes with the current scalar runtime and native lowering.
+It reuses the retained guest after checking source-form identity, rebuilds both
+providers, and again checks optimized guest byte equality.
+
 The focused simplify review used an independent explanation with no repository
 access, followed by a critique against the implementation. It retained the closed
 value cases and exhaustive dispatch because they expose the interpreter's dynamic

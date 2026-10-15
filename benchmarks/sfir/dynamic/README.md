@@ -34,6 +34,11 @@ confirmed setup, worker and cleanup ownership. These were concurrent correctness
 runs, without a clean timing claim. Frozen corpus registration and Rust controls
 are separate runner validation.
 
+The [integration review](../evidence/20261015-two-ports-review.json) repeats the
+complete worker with the current scalar runtime and native lowering. It verifies
+source-form identity and optimized guest byte equality, including all 41,936,000
+input bytes, 500 EOF reads, no worker closes, and 500 cleanup closes.
+
 The focused simplify review used an independent explanation without repository
 access and a follow-up critique of the shared Value/graph layer. Conversion keeps
 a local identity memo and records allocated shells before traversing children.

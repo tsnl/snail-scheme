@@ -12,7 +12,7 @@
   },
   "representation": "Closed benchmark-local Value with explicit mutable pair cells, fixed element types, concrete closure signatures, arbitrary Integer/Rational/Number arithmetic and typed scalar I/O. Original and adapted Chez remain separate controls.",
   "sfir_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
-  "source_coverage_sha256": "6a3b48bcee1ee6c26822748d40da5deaa266ce72f2437df5987dd32f4192ed5f",
+  "source_coverage_sha256": "44241b205ae28f168bd5a0d7a20b33fffdd4513ba3da5d29eb2e193a3937f8f8",
   "lifecycle_sha256": "74efc12fd008e2dd169d4b3086eaf01595c0096d2730be9cab73fca1ef13b2c6",
   "authoring_tools": {
     "translate.scm": "8bfd0bfe48dea98d88ed19dd5ed243249eb7e95cee3cd6b10f61f8d6aba3d6f8",
