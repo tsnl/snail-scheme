@@ -40,8 +40,13 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records measurements for 29 of 57 workloads at their respective compiler
-checkpoints, including 28 paired Chez comparisons. The latest
+records measurements for 30 of 57 workloads at their respective compiler
+checkpoints, including 29 paired Chez comparisons. The latest
+[Destruc comparison](benchmarks/results/2026-10-14-strict-destruc-comparison/README.md)
+takes 3.382× original Chez time, 1.344× adapted Chez time and 1.167× Rust/Wasm
+time on the original 4,000 × destructive(600,50) workload. Adapted Chez already
+takes 2.517× original Chez time; source/storage changes and code generation are
+jointly measured. The
 [Lattice comparison](benchmarks/results/2026-10-14-strict-lattice-comparison/README.md)
 takes 1.647× original Chez time and 1.815× Rust/Wasm time on all ten original
 `run(44)` invocations. Its mutable-list and Rust vector/Rc representations have

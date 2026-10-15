@@ -46,8 +46,13 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 29 measured workloads,
-28 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 30 measured workloads,
+29 with paired Chez controls. The latest
+[Destruc report](results/2026-10-14-strict-destruc-comparison/README.md) records
+3.382× original Chez time, 1.344× adapted Chez and 1.167× Rust/Wasm for all
+4,000 original invocations and the complete ten-row predicate. Adapted Chez
+itself takes 2.517× original Chez time; source/ownership changes remain explicit.
+The
 [Lattice report](results/2026-10-14-strict-lattice-comparison/README.md) records
 1.647× original Chez time and 1.815× Rust/Wasm time for the original count ten,
 problem 44 and result 120549, with source/storage differences documented. The
