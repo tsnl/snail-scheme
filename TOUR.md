@@ -218,11 +218,17 @@ supplies concrete primitive signatures and opcodes.
 lexical initializer site from its required concrete instances, resolves class
 methods, and computes capture dependencies. [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
-and emits explicit universal-value conversions.
+and emits explicit universal-value conversions. Native foreign declarations
+retain their resolved identity in IR. [`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
+validates the concrete scalar boundary shared by imports and selected worker
+exports; the emitter adapts Unit results without introducing an object carrier.
 [`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
 passes without process effects. The build wrapper reuses the shared Binaryen
 assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
 executes native exports and checks located source rejections.
+[`scripts/test-strict-extern`](scripts/test-strict-extern) links real Wasm
+providers, checks mismatched signatures and exercises reusable worker captures
+and one-shot initialization through raw and optimized modules.
 
 [`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
 syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record

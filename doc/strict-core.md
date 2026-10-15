@@ -8,13 +8,15 @@ comparison implementation.
 ```sh
 scripts/build-strict program.scm build/program.wasm
 scripts/test-strict
+scripts/test-strict-extern
 ```
 
 Source imports `(snail strict)`. Compilation retains `.wasm.wat` and
 `.wasm.raw.wasm`, then applies the shared Binaryen `-O3` optimization pipeline.
 The module exports zero-argument `main`, whose native result is the final source
-expression. It executes once per module instance; a second call traps, including
-after a failed first call. The guard is set before any source initializer.
+expression; Unit produces no Wasm result. It executes once per module instance;
+a second call traps, including after a failed first call. The guard is set before
+any source initializer.
 Pure programs have no runtime imports. The API is
 `strict-source-file->core`, `strict-source-file->wasm`, and
 `strict-source-file->wat-file` in `(snail-scheme strict-compiler)`; callers supply
@@ -73,7 +75,9 @@ Specialization keys retain concrete body, capture and class-obligation types,
 including phantom class parameters. Instances are reserved before their bodies
 are expanded, so ordinary recursion reuses one instance. Changing polymorphic
 recursion is bounded and rejected with a located diagnostic, never widened to
-a universal representation. Reachable expression types must be concrete.
+a universal representation. The current depth limit of 128 and per-binding
+limit of 64 concrete instances are implementation limits, not additional type
+rules. Reachable expression types must be concrete.
 
 `define-class`, `define-instance`, and qualified `All` retain the static class
 contract. Instance heads match exactly. Inferred functions can generalize their
@@ -92,6 +96,8 @@ bindings likewise check readiness, preserving failure before an early read.
 An unused polymorphic name initializer still performs its source read. A lazily
 created Unit readiness token preserves that check when no payload copy is needed;
 erasing a concrete payload never erases a required early-binding failure.
+Only Ref allocation identity is exposed by the language. Pure specialized
+closures may have separate wrappers while sharing their captured Ref values.
 
 ## Explicit universal values
 
@@ -111,16 +117,67 @@ original reference and a complete semantic type witness. Thus Bool and I32,
 Ref Bool and Ref I32, and function signatures differing only in those types
 remain distinct even when their physical Wasm layouts coincide. Projection
 returns the original referenced value and preserves identity. Mismatches trap.
+Compound witness IDs belong to the module's layout registry. They do not yet
+define a shared cross-module Top ABI.
 Projection to Never evaluates its operand and traps. Never-returning calls emit
 validator-visible unreachable control flow when used in a concrete context.
+
+## Native scalar imports and reusable workers
+
+An extern declaration names a Wasm module, export, and complete function type:
+
+```scheme
+(import (snail strict))
+(define-extern add-native "arithmetic" "add" (-> I32 I32 I32))
+(: increment (-> I32 I32))
+(define (increment x) (add-native x (ann 1 I32)))
+(unit)
+```
+
+It contributes a typed binding without a runtime initializer. Direct calls
+pass separate native arguments to the Wasm import. Used as a function value or
+static class implementation, the same binding receives an ordinary typed
+closure adapter. It does not acquire an argument vector or rooted-object ABI.
+Externs can occur in local scopes and hygienic macros as ordinary declarations.
+
+The external signature accepts fixed I32, I64, F32, F64, Bool, or Char parameters
+and one of those result types or Unit. Bool and Char use i32. Providers must
+return their valid source encodings: 0/1 for Bool and Unicode scalar values for
+Char. Callers of exported workers must supply those encodings as well. Wasm linking
+checks physical signatures, so it cannot distinguish Bool from I32. Source
+checking retains those distinct semantic types. Unit returns no Wasm result;
+the compiler supplies its internal Unit value when evaluating such a call as
+a Scheme expression. All, rest parameters, Unit parameters, Never, managed
+references, and Top are rejected at this boundary.
+
+```sh
+scripts/build-strict --export increment program.scm build/program.wasm
+```
+
+`--export` selects an unambiguous top-level value binding with an explicit
+monomorphic function declaration and the same scalar signature restrictions.
+It may be repeated for distinct names; `main` is reserved. The selected worker
+keeps the closure produced by its source initializer, including any managed
+captures. Calling it before main finishes successfully traps. Calls after
+initialization reuse those captures and never repeat the initializer. A worker
+failure does not reset initialization. A failed first main leaves the module
+unready, and subsequent main calls trap before executing source effects.
+Reentrant main calls likewise trap; a provider that catches that trap and
+returns normally can allow the original initialization to finish.
+
+The scalar restriction applies to declared imports and selected worker exports.
+The diagnostic main export can still return a concrete managed value; this is
+an opaque result, not a supported cross-module GC contract. Shared managed
+imports need an agreed type graph and ownership contract. Numeric resource IDs
+belong to their provider's resource interface and never represent GC addresses.
 
 ## Current boundary
 
 This slice supports scalar arithmetic, concrete higher-order closures, recursive
 functions, explicit cells, immutable lists, static classes and explicit Top.
-It does not yet provide strings, arbitrary integers, rationals, records, arrays,
-dynamic `apply`, universal-value operation dispatch, or native foreign
-declarations. The existing parser may recognize forms outside this surface;
-the strict checker rejects unsupported expressions. Native scalar externs are
-the next integration slice. No benchmark speedup is claimed from correctness
-tests alone.
+It also provides native scalar foreign declarations and reusable exported
+workers. It does not yet provide strings, arbitrary integers, rationals,
+records, arrays, dynamic `apply`, or universal-value operation dispatch. The
+existing parser may recognize forms outside this surface; the strict checker
+rejects unsupported expressions. No benchmark speedup is claimed from
+correctness tests alone.
