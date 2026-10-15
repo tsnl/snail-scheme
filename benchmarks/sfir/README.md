@@ -220,6 +220,12 @@ resolution. Resolution alone does not establish inference or target correctness.
 The first [clean timing report](evidence/20261015-clean-six.md) covers six
 workloads and 33 eligible routes; the remaining workloads are not measured.
 
+A later [Ack stack diagnostic](evidence/20261015-ack-stack.md) preserves the
+checked-arithmetic snapshot's default V8 failure. Its private-worker experiment
+keeps all arithmetic checks and passes one default-tier probe, while forced cold
+tiers still fail. This supplies no replacement route result or timing sample;
+the earlier checkpoint and measurements retain their frozen provenance.
+
 The focused review kept process launch, waiting, group termination and terminal
 recording together despite that function exceeding the ten-line guideline: one
 exception boundary owns the child group. Reversible export selection and staged
