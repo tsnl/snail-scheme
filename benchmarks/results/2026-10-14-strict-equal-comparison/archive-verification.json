@@ -1,0 +1,6 @@
+{
+  "complete": true,
+  "regular_files": 2007,
+  "archive_sha256": "b9b9d85d6f872fcbdd8815660967ae98899b499cc532491c82bca72cabafbeca",
+  "scope": "Archive and member byte integrity only; no semantic replay or guest execution."
+}

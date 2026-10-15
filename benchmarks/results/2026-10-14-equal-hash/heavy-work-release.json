@@ -1,0 +1,11 @@
+{
+  "root_quiet_window_released": true,
+  "raw_campaign_terminal": true,
+  "clean_run_exit_code": 0,
+  "clean_run_session_id": 25799,
+  "clean_run_tool_chunk": "d5a7d2",
+  "root_message": "Acknowledged actual 25799 terminal0 and independent audit bd7bd3 terminal0. Quiet window released now. Proceed with report and archive packaging, preserving all attempts and terminal evidence.",
+  "relevant_evidence_owners_quiescent": "All reported benchmark/build/archive handles drained before clean execution; root held builds/tests/workloads/compression through actual clean runner exit.",
+  "gc_basis": "27604d44652f74169104d25c3a3edc8a0bb653ca, unchanged precise native collector; no heap-growth changes in either revision.",
+  "no_fresh_chez_or_rust_comparison": true
+}

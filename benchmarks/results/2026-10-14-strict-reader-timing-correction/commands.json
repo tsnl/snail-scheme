@@ -1,0 +1,27 @@
+{
+  "cwd": "/tmp/snail-strict-reader-20261014",
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "benchmarks/results/2026-10-14-strict-reader-timing-correction/freeze-plan.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "python3",
+        "benchmarks/results/2026-10-14-strict-reader-timing-correction/measure-seven.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "python3",
+        "benchmarks/results/2026-10-14-strict-reader-timing-correction/verify-freeze.py"
+      ],
+      "returncode": 0
+    }
+  ],
+  "benchmark_processes_started": 0
+}

@@ -40,8 +40,31 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records measurements for 30 of 57 workloads at their respective compiler
-checkpoints, including 29 paired Chez comparisons. The latest
+records historical measurements for 49 of 57 workloads at their respective
+compiler checkpoints, including 48 paired Chez comparisons. These accumulated
+revisions do not constitute a whole-suite rerun. The
+[complete Boyer comparison](benchmarks/results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes at original count 1, size 5 and the successful
+theorem/numeric 51,507,739-rewrite predicates. NBoyer takes V8 11.950027 s,
+native64 10.299261 s and original Chez 0.887105 s; SBoyer takes 3.504130 s,
+4.685959 s and 0.372582 s respectively. Native uses the `a707974` default growing
+collector and takes 13.52% less time than identical-Wasm V8 for NBoyer, 33.26%
+more for SBoyer. All seven controls and independent raw replay pass; historical
+source/work/alias/reset and separate forced-GC observations do not isolate a
+collector or engine cause. The complete
+[Conform comparison](benchmarks/results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes at the original 500-invocation count and ordered
+31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and
+original Chez 0.891038 s. Native takes 13.73% more time than V8 on the exact
+native-final Scheme Wasm; representations, scalar linkage and reclamation differ.
+Separate work counters and forced-GC observations stay outside these timings.
+The [complete Parsing comparison](benchmarks/results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 fixed processes with the complete 28,300-byte timed file load,
+2,500 parses and original final-list predicate. Production V8 takes 2.361375 s,
+native64 1.481803 s and original Chez 1.195848 s. Native takes 38.07% less time
+than V8 on the exact native-final Wasm (2.392723 s). Its `8930aaa` growing-GC
+basis and seven implementation controls remain separate from earlier revisions.
+The preceding
 [Destruc comparison](benchmarks/results/2026-10-14-strict-destruc-comparison/README.md)
 takes 3.382× original Chez time, 1.344× adapted Chez time and 1.167× Rust/Wasm
 time on the original 4,000 × destructive(600,50) workload. Adapted Chez already

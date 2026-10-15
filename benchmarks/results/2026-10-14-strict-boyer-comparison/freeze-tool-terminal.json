@@ -1,0 +1,10 @@
+{
+  "session_id": 4928,
+  "terminal": true,
+  "exit_code": 0,
+  "initial_chunk": "91759c",
+  "terminal_chunk": "cc7676",
+  "plan_sha256": "b650443ae4e2069340561cda8937da9b7416c06090ea02f5b9f5adee751d6773",
+  "frozen_identities": 1014,
+  "scope": "Read-only provenance/schedule freezing; no benchmark guest execution."
+}

@@ -1,0 +1,18 @@
+{
+  "verified": true,
+  "destination": "/tmp/snail-strict-ack-offline-review-20261014",
+  "command": [
+    "python3",
+    "-I",
+    "-B",
+    "/tmp/snail-strict-ack-offline-review-20261014/comparison/review.py",
+    "/tmp/snail-strict-ack-offline-review-20261014/campaign",
+    "/tmp/snail-strict-ack-offline-review-20261014/preparation",
+    "--output",
+    "/tmp/snail-strict-ack-offline-review-20261014/recomputed.json"
+  ],
+  "comparison": "All recomputed fields agree; only live_identities_checked differs.",
+  "archive_sha256": "c33027abcb588362ffc7aa6e8b5c16afe3975ee8d6321c1cae4a6d17c95b9327",
+  "members": 85,
+  "guests_started": false
+}

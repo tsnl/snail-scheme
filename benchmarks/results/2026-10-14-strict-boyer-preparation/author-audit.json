@@ -1,0 +1,58 @@
+{
+  "compiler_commit": "6fd5ca453cc58903cdb64f13abc3cdc656b06226",
+  "driver_commit": "6f4a30e3f342bac06d01be3e5228abe783a0bfab",
+  "cases": {
+    "nboyer": {
+      "artifact_identities": 364,
+      "process_records": 95,
+      "required_correctness_invocations": 41,
+      "required_diagnostic_invocations": 25,
+      "work_counters": {
+        "rewrite": 51507739,
+        "rewrite-args": 101900430,
+        "rewrite-with-lemmas": 68699742,
+        "apply-subst": 6590695,
+        "apply-subst-lst": 7908889,
+        "one-way-unify": 18307050,
+        "one-way-unify1": 40911692,
+        "one-way-unify1-lst": 24059434,
+        "term-equal?": 204265,
+        "tautologyp": 186,
+        "translate-term": 1262,
+        "add-lemma": 106,
+        "source-cons": 118128901,
+        "sharing-cons": 0,
+        "sharing-reuse": 0
+      },
+      "native_heap_bytes": 2147483648,
+      "native_final_wasm_sha256": "8b1e3d29f3abaa976f126c867cd1561122db1eeea84b3400e09501129a7b26e3"
+    },
+    "sboyer": {
+      "artifact_identities": 364,
+      "process_records": 95,
+      "required_correctness_invocations": 41,
+      "required_diagnostic_invocations": 25,
+      "work_counters": {
+        "rewrite": 51507739,
+        "rewrite-args": 101900430,
+        "rewrite-with-lemmas": 68699742,
+        "apply-subst": 6590695,
+        "apply-subst-lst": 7908889,
+        "one-way-unify": 18307050,
+        "one-way-unify1": 40911692,
+        "one-way-unify1-lst": 24059434,
+        "term-equal?": 204265,
+        "tautologyp": 186,
+        "translate-term": 1262,
+        "add-lemma": 106,
+        "source-cons": 17982522,
+        "sharing-cons": 101900430,
+        "sharing-reuse": 100146379
+      },
+      "native_heap_bytes": 1073741824,
+      "native_final_wasm_sha256": "516f1a41d794e724828df9a985a93d00ef220abf2dcf526064a89480b7f7bb0a"
+    }
+  },
+  "verified_identities": 837,
+  "no_clean_timing": true
+}

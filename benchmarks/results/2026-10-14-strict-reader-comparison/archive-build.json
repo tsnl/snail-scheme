@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "benchmarks/results/2026-10-14-strict-reader-comparison/package.py"
+  ],
+  "cwd": "/tmp/snail-strict-reader-20261014",
+  "timeout_seconds": 300,
+  "pid": 3,
+  "pgid": 3,
+  "returncode": 0,
+  "executing_descendants_after_cleanup": []
+}

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "count": 1000,
+  "inputs": [
+    50,
+    500,
+    50
+  ],
+  "diagnostic_only": true,
+  "original_sha256": "8fbd6bab26b2a25b1650514736b3f5ecf62d883996e3d76cf4648f3436509767",
+  "input_sha256": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c",
+  "output_sha256": "2d40c1d560b43a96a7788c414d69c55ed13550040364adc1738c38ad9ee94ce9",
+  "corpus_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1"
+}

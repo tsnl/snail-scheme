@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "-C",
+    "/tmp/snail-strict-big-integer-20261014/benchmarks/r7rs-benchmarks",
+    "status",
+    "--porcelain",
+    "--untracked-files=no"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": "",
+  "timeout": false,
+  "process_group": 5,
+  "diagnostic_only": true,
+  "executing_descendants": []
+}

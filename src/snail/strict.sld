@@ -11,6 +11,8 @@
           + - * / sqrt truncate round quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
           i64-add i64-sub i64-mul i64-eq i64-lt i64-le i64-gt i64-ge i64-quotient i64-remainder
+          i32-bitwise-and i64-bitwise-and i32-shift-right/logical i64-shift-right/logical
+          i32-bitwise-xor i64-bitwise-xor
           f32-add f32-sub f32-mul f32-div f32-eq f32-lt f32-le f32-gt f32-ge f32-sqrt
           f64-add f64-sub f64-mul f64-div f64-eq f64-lt f64-le f64-gt f64-ge f64-sqrt
           f32-truncate f64-truncate f32-round f64-round

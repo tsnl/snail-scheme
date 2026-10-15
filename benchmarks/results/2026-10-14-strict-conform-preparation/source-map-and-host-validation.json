@@ -1,0 +1,18 @@
+{
+  "reproduced_wat_sha256": "87bd19ab2c078cad6802a392f2404478192a3e8c302ebb23a939444f09368386",
+  "source_map_sha256": "2b699d57f1072bb1320cc26ec072d9fdac286e0373d42ffe933aa14fae7590ae",
+  "checks": [
+    {
+      "system": "snail-production-v8",
+      "complete_count": 500,
+      "result": 1,
+      "clean_sample": false
+    },
+    {
+      "system": "snail-identical-wasm-v8",
+      "complete_count": 500,
+      "result": 1,
+      "clean_sample": false
+    }
+  ]
+}

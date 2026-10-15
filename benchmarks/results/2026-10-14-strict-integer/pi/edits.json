@@ -1,0 +1,34 @@
+[
+  {
+    "before": "(define (square-root x)\n  (call-with-values\n   (lambda ()\n     (exact-integer-sqrt x))\n   (lambda (q r)\n     q)))",
+    "after": "(define (square-root x) (integer-sqrt x))",
+    "count": 1,
+    "offsets": [
+      177
+    ]
+  },
+  {
+    "before": "(define (pi-brent-salamin nb-digits)\n  (let ((one (expt 10 nb-digits)))\n    (let loop ((a one)\n               (b (square-root (quotient (square one) 2)))\n               (t (quotient one 4))\n               (x 1))\n      (if (= a b)\n          (quotient (square (+ a b)) (* 4 t))\n          (let ((new-a (quotient (+ a b) 2)))\n            (loop new-a\n                  (square-root (* a b))\n                  (- t\n                     (quotient\n                      (* x (square (- new-a a)))\n                      one))\n                  (* 2 x)))))))",
+    "after": "(define (pi-brent-salamin nb-digits)\n  (let ((one (expt (integer-from-i64 10) nb-digits)))\n    (let loop ((a one)\n               (b (square-root (quotient (square one) (integer-from-i64 2))))\n               (t (quotient one (integer-from-i64 4)))\n               (x (integer-from-i64 1)))\n      (if (= a b)\n          (quotient (square (+ a b)) (* (integer-from-i64 4) t))\n          (let ((new-a (quotient (+ a b) (integer-from-i64 2))))\n            (loop new-a\n                  (square-root (* a b))\n                  (- t\n                     (quotient\n                      (* x (square (- new-a a)))\n                      one))\n                  (* (integer-from-i64 2) x)))))))",
+    "count": 1,
+    "offsets": [
+      330
+    ]
+  },
+  {
+    "before": "(define (pi-borwein2 nb-digits)\n  (let* ((one (expt 10 nb-digits))\n         (one^2 (square one))\n         (one^4 (square one^2))\n         (sqrt2 (square-root (* one^2 2)))\n         (qurt2 (quartic-root (* one^4 2))))\n    (let loop ((x (quotient\n                   (* one (+ sqrt2 one))\n                   (* 2 qurt2)))\n               (y qurt2)\n               (p (+ (* 2 one) sqrt2)))\n      (let ((new-p (quotient (* p (+ x one))\n                             (+ y one))))\n        (if (= x one)\n            new-p\n            (let ((sqrt-x (square-root (* one x))))\n              (loop (quotient\n                     (* one (+ x one))\n                     (* 2 sqrt-x))\n                    (quotient\n                     (* one (+ (* x y) one^2))\n                     (* (+ y one) sqrt-x))\n                    new-p)))))))",
+    "after": "(define (pi-borwein2 nb-digits)\n  (let* ((one (expt (integer-from-i64 10) nb-digits))\n         (one^2 (square one))\n         (one^4 (square one^2))\n         (sqrt2 (square-root (* one^2 (integer-from-i64 2))))\n         (qurt2 (quartic-root (* one^4 (integer-from-i64 2)))))\n    (let loop ((x (quotient\n                   (* one (+ sqrt2 one))\n                   (* (integer-from-i64 2) qurt2)))\n               (y qurt2)\n               (p (+ (* (integer-from-i64 2) one) sqrt2)))\n      (let ((new-p (quotient (* p (+ x one))\n                             (+ y one))))\n        (if (= x one)\n            new-p\n            (let ((sqrt-x (square-root (* one x))))\n              (loop (quotient\n                     (* one (+ x one))\n                     (* (integer-from-i64 2) sqrt-x))\n                    (quotient\n                     (* one (+ (* x y) one^2))\n                     (* (+ y one) sqrt-x))\n                    new-p)))))))",
+    "count": 1,
+    "offsets": [
+      1082
+    ]
+  },
+  {
+    "before": "(define (pi-borwein4 nb-digits)\n  (let* ((one (expt 10 nb-digits))\n         (one^2 (square one))\n         (one^4 (square one^2))\n         (sqrt2 (square-root (* one^2 2))))\n    (let loop ((y (- sqrt2 one))\n               (a (- (* 6 one) (* 4 sqrt2)))\n               (x 8))\n      (if (= y 0)\n          (quotient one^2 a)\n          (let* ((t1 (quartic-root (- one^4 (square (square y)))))\n                 (t2 (quotient\n                      (* one (- one t1))\n                      (+ one t1)))\n                 (t3 (quotient\n                      (square (quotient (square (+ one t2)) one))\n                      one))\n                 (t4 (+ one\n                        (+ t2\n                           (quotient (square t2) one)))))\n            (loop t2\n                  (quotient\n                   (- (* t3 a) (* x (* t2 t4)))\n                   one)\n                  (* 4 x)))))))",
+    "after": "(define (pi-borwein4 nb-digits)\n  (let* ((one (expt (integer-from-i64 10) nb-digits))\n         (one^2 (square one))\n         (one^4 (square one^2))\n         (sqrt2 (square-root (* one^2 (integer-from-i64 2)))))\n    (let loop ((y (- sqrt2 one))\n               (a (- (* (integer-from-i64 6) one) (* (integer-from-i64 4) sqrt2)))\n               (x (integer-from-i64 8)))\n      (if (= y (integer-from-i64 0))\n          (quotient one^2 a)\n          (let* ((t1 (quartic-root (- one^4 (square (square y)))))\n                 (t2 (quotient\n                      (* one (- one t1))\n                      (+ one t1)))\n                 (t3 (quotient\n                      (square (quotient (square (+ one t2)) one))\n                      one))\n                 (t4 (+ one\n                        (+ t2\n                           (quotient (square t2) one)))))\n            (loop t2\n                  (quotient\n                   (- (* t3 a) (* x (* t2 t4)))\n                   one)\n                  (* (integer-from-i64 4) x)))))))",
+    "count": 1,
+    "offsets": [
+      2084
+    ]
+  }
+]

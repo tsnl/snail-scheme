@@ -1,0 +1,31 @@
+{
+  "fixture": "timeout-descendant",
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+    "-I",
+    "-B",
+    "-c",
+    "import os,time\npid=os.fork()\nif pid==0:\n os.close(0);os.close(1);os.close(2);time.sleep(60)\nelse:\n print(pid,flush=True);time.sleep(60)\n"
+  ],
+  "diagnostic_only": true,
+  "status": "recorded",
+  "pid": 4,
+  "process_group": 4,
+  "returncode": -9,
+  "stdout": "5\n",
+  "stderr": "",
+  "timeout": true,
+  "executing_descendants": [],
+  "process_seconds": 0.22170482302317396,
+  "cleanup": {
+    "process_group": 4,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "stop_signal": null
+}

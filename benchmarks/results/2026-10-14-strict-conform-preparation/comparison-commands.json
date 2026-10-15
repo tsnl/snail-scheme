@@ -1,0 +1,71 @@
+[
+  {
+    "system": "snail-production-v8",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--disable-warning=ExperimentalWarning",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/timing-host.mjs",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/optimized.wasm",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/spec.json"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform"
+  },
+  {
+    "system": "snail-native64",
+    "command": [
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/native/native"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/native"
+  },
+  {
+    "system": "snail-identical-wasm-v8",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--disable-warning=ExperimentalWarning",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/timing-host.mjs",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/native/native-final.wasm",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/spec.json",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/native/provider.wasm"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform"
+  },
+  {
+    "system": "chez",
+    "command": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/chez/program.so"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform",
+    "stdin_file": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/input.txt"
+  },
+  {
+    "system": "chez-adapted",
+    "command": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/chez-adapted/program.so"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform",
+    "stdin_file": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/input.txt"
+  },
+  {
+    "system": "rust-native",
+    "command": [
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/rust/conform.native"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform",
+    "stdin_file": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/input.txt"
+  },
+  {
+    "system": "rust-optimized-wasm",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--disable-warning=ExperimentalWarning",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/rust/run-wasi.mjs",
+      "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/controls/rust/conform.wasm"
+    ],
+    "cwd": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform",
+    "stdin_file": "/tmp/snail-strict-conform-20261014/build/strict-conform-preparation-attempt1/conform/input.txt"
+  }
+]

@@ -1,0 +1,116 @@
+{
+  "binary": "/tmp/snail-reader-combined-ablation-20261014/build/reader-combined-prepared/read1/optimized.wasm",
+  "binary_sha256": "b10be422cd323188121d1f0aede79a2df9371a1f18df65b1f2267a1dd7abe3ca",
+  "disassembly": "/tmp/snail-reader-combined-ablation-20261014/build/reader-combined-prepared/read1/optimized.wasm.wat",
+  "disassembly_sha256": "4ac5d0f2b40ca2e522e223cecb00e896d3d0ee9e45f93a1cfe04ad558f11fc17",
+  "functions": {
+    "function104": {
+      "wasm_function_index": 23,
+      "calls": {
+        "_RNvNtCsdHhIpgkcIfN_4core9panicking9panic_fmt": 1,
+        "_ZN4core3ptr109drop_in_place$LT$alloc..collections..btree..map..BTreeMap$LT$u32$C$snail_runtime..strict_datum..Token$GT$$GT$17h82df8614fee55166E": 1,
+        "_ZN5alloc11collections5btree3map25BTreeMap$LT$K$C$V$C$A$GT$6insert17hcc9368b035174f59E": 1,
+        "dlfree": 4,
+        "dlmalloc": 1,
+        "_ZN13snail_runtime9strict_io11release_all17h60f1fb813a72b702E": 1,
+        "_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy": 1,
+        "_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint": 1,
+        "_RNvNtCset5xJoy1xWQ_3std7process4exit": 1,
+        "_RNvNtCsdHhIpgkcIfN_4core4cell22panic_already_borrowed": 1,
+        "_RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_5alloc8rust_oom0zEB6_": 1,
+        "snail:datum/token-character": 25,
+        "string-block": 1,
+        "function105": 1
+      },
+      "static_struct_new_sites": {}
+    },
+    "function154": {
+      "wasm_function_index": 33,
+      "calls": {
+        "snail:io/read-character": 5,
+        "snail:datum/whitespace": 1,
+        "function159": 1,
+        "snail:io/peek-character": 3,
+        "function163": 2,
+        "function154": 3,
+        "function196": 1,
+        "function182": 1,
+        "function155": 1,
+        "function184": 1,
+        "string-new": 5,
+        "function177": 3,
+        "function186": 3,
+        "function189": 2,
+        "string-copy": 2,
+        "function40": 14,
+        "function192": 1,
+        "function35": 1,
+        "snail:datum/token-parse": 2,
+        "function104": 2,
+        "function121": 2,
+        "snail:datum/token-close": 3,
+        "_RNvNtCsdHhIpgkcIfN_4core9panicking9panic_fmt": 2,
+        "_ZN4core3ptr109drop_in_place$LT$alloc..collections..btree..map..BTreeMap$LT$u32$C$snail_runtime..strict_datum..Token$GT$$GT$17h82df8614fee55166E": 1,
+        "dlmalloc": 1,
+        "_ZN13snail_runtime9strict_io11release_all17h60f1fb813a72b702E": 1,
+        "dlfree": 2,
+        "_RNvMNtCsi9YzqDQQz2q_5alloc6stringNtB2_6String15from_utf8_lossy": 1,
+        "_RNvNtNtCset5xJoy1xWQ_3std2io5stdio7__eprint": 1,
+        "_RNvNtCset5xJoy1xWQ_3std7process4exit": 1,
+        "_RNvNtNtNtCsdHhIpgkcIfN_4core7unicode12unicode_data10alphabetic11lookup_slow": 5,
+        "_RNvXs2_NtNtCsdHhIpgkcIfN_4core3str7patterncNtB5_7Pattern15is_contained_in": 6,
+        "_RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_5alloc8rust_oom0zEB6_": 1,
+        "snail:datum/token-intern": 1
+      },
+      "static_struct_new_sites": {
+        "type70": 8,
+        "type168": 3,
+        "type169": 3,
+        "type170": 13,
+        "type164": 7,
+        "type16": 3,
+        "type154": 3,
+        "type155": 3,
+        "type182": 8,
+        "type184": 1,
+        "type48": 2,
+        "type15": 2,
+        "type23": 2,
+        "type132": 2,
+        "type133": 2,
+        "type21": 1,
+        "type22": 1
+      }
+    },
+    "function184": {
+      "wasm_function_index": 43,
+      "calls": {
+        "snail:datum/whitespace": 1
+      },
+      "static_struct_new_sites": {}
+    }
+  },
+  "read_result_constructors": [
+    {
+      "type": "type132",
+      "tag": 1,
+      "excerpt_line": 2635
+    },
+    {
+      "type": "type133",
+      "tag": 2,
+      "excerpt_line": 2656
+    },
+    {
+      "type": "type132",
+      "tag": 1,
+      "excerpt_line": 4038
+    },
+    {
+      "type": "type133",
+      "tag": 2,
+      "excerpt_line": 4054
+    }
+  ],
+  "v8_dynamic_allocation_not_observed": true
+}

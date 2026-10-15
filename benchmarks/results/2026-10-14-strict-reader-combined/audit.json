@@ -1,0 +1,82 @@
+{
+  "actual_owned_session": 1398,
+  "terminal_exit": 0,
+  "complete_processes": 44,
+  "retained": 40,
+  "predetermined_discards": 4,
+  "frozen_identities_verified": 265,
+  "plan_sha256": "c9f573cacaf32c3af39d5c0f7e66cb86fe6ec207a80fab90882b8158ca2808bc",
+  "runner_sha256": "e2ddab6bec989227cf9b639fd98f16ad75dfced6e11b414395a2ca3d0645ccfd",
+  "exact_schedule": true,
+  "balanced_retained_positions": true,
+  "all_full_predicates": true,
+  "all_cleanup_live_members_empty": true,
+  "raw_records_equal_campaign": true,
+  "summary_recomputed": true,
+  "summary": {
+    "sum1": {
+      "strict-v8-baseline": {
+        "samples": 10,
+        "workload_median": 1.053710549,
+        "workload_range": [
+          1.033194012,
+          1.154992074
+        ],
+        "process_median": 1.0829608624917455,
+        "process_range": [
+          1.060659285984002,
+          1.1821702499873936
+        ],
+        "ratio_to_current_baseline": 1.0,
+        "reduction_percent": 0.0
+      },
+      "strict-v8-combined": {
+        "samples": 10,
+        "workload_median": 0.9569417410000001,
+        "workload_range": [
+          0.946696661,
+          0.969493243
+        ],
+        "process_median": 0.9851328865333926,
+        "process_range": [
+          0.974555628024973,
+          0.9981486889882945
+        ],
+        "ratio_to_current_baseline": 0.9081637665183895,
+        "reduction_percent": 9.183623348161053
+      }
+    },
+    "read1": {
+      "strict-v8-baseline": {
+        "samples": 10,
+        "workload_median": 2.7187218834999998,
+        "workload_range": [
+          2.682633675,
+          2.742349591
+        ],
+        "process_median": 2.750387400505133,
+        "process_range": [
+          2.712107600993477,
+          2.7780361410113983
+        ],
+        "ratio_to_current_baseline": 1.0,
+        "reduction_percent": 0.0
+      },
+      "strict-v8-combined": {
+        "samples": 10,
+        "workload_median": 2.1041738179999996,
+        "workload_range": [
+          2.093586219,
+          2.126961257
+        ],
+        "process_median": 2.1349353125260677,
+        "process_range": [
+          2.125688570959028,
+          2.157980214979034
+        ],
+        "ratio_to_current_baseline": 0.7739569945606758,
+        "reduction_percent": 22.60430054393242
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-c",
+    "import os,signal,sys,time; print(\"partial-out\",flush=True); print(\"partial-err\",file=sys.stderr,flush=True); os.kill(os.getppid(),signal.SIGTERM); time.sleep(30)"
+  ],
+  "status": "interrupted",
+  "runner_sha256": "c551410d4cecdd402b36709b67149fc07c3d290f548f45c1bb74dff8a9245867",
+  "pid": 4,
+  "process_group": 4,
+  "stdout": "partial-out\n",
+  "stderr": "partial-err\n",
+  "returncode": -9,
+  "cleanup": {
+    "process_group": 4,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "timeout": false,
+  "process_seconds": 0.07139455497963354,
+  "interrupted": true
+}

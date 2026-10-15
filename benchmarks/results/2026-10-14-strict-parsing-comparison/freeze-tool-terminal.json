@@ -1,0 +1,8 @@
+{
+  "actual_tool_terminal": true,
+  "chunk_id": "dbe783",
+  "wall_time_seconds": 0.427296788,
+  "exit_code": 0,
+  "original_token_count": 22,
+  "output": "PASS frozen complete Parsing plan; 919 identities;56 invocations planned,none launched\n"
+}

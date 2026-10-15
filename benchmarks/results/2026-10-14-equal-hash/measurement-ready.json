@@ -1,0 +1,32 @@
+{
+  "ready": true,
+  "clean_guest_started": false,
+  "owned_running_exec_handles": [],
+  "synthetic_groups_live_members": {
+    "4": [],
+    "5": [],
+    "3": [],
+    "7": []
+  },
+  "synthetic_terminal_statuses": {
+    "4": {
+      "exit_status": null,
+      "signal": 9
+    },
+    "5": {
+      "exit_status": 0,
+      "signal": null
+    },
+    "3": {
+      "exit_status": 7,
+      "signal": null
+    },
+    "7": {
+      "exit_status": null,
+      "signal": 9
+    }
+  },
+  "raw_synthetic_records": "/tmp/snail-equal-hash-measurement-20261014/build/equal-hash-capture-tests-20261014",
+  "independent_replay": "Six existing full frames and eight corruptions pass without importing runner code.",
+  "plan_sha256": "2928486cb9a2d3bd759095afa0ddef146f5fd6fca68b44da51b8ce300118c8d2"
+}

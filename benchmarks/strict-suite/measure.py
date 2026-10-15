@@ -35,6 +35,13 @@ import nucleic_port
 import bv2string_port
 import earley_port
 import matrix_port
+import reader_ports
+import browse_port
+import equal_port
+import boyer_port
+import conform_port
+import maze_port
+import parsing_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -44,7 +51,7 @@ NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-NAMES += ('earley',)
+NAMES += ('earley', 'browse', 'equal', 'conform', 'maze', 'parsing') + reader_ports.NAMES + boyer_port.NAMES
 MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string', 'earley', 'matrix') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
@@ -96,6 +103,18 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'maze':
+        return maze_port.specification(data)
+    if name in boyer_port.NAMES:
+        return boyer_port.specification(name, data)
+    if name == 'conform':
+        return conform_port.specification(data)
+    if name == 'equal':
+        return equal_port.specification(data)
+    if name == 'browse':
+        return browse_port.specification(data)
+    if name in reader_ports.NAMES:
+        return reader_ports.specification(name, data)
     if name == 'earley':
         return earley_port.specification(data)
     if name == 'matrix':
@@ -551,6 +570,14 @@ def worker_body(name, spec):
 
 
 def strict_program(name, spec, upstream):
+    if name == 'maze':
+        return maze_port.program(upstream, sys.modules[__name__])
+    if name == 'equal':
+        return equal_port.program(upstream, sys.modules[__name__])
+    if name == 'browse':
+        return browse_port.program(upstream, sys.modules[__name__])
+    if name in reader_ports.NAMES:
+        return reader_ports.program(name, upstream, sys.modules[__name__])
     result = 'F64' if name in FLOAT_RESULTS else 'I64'
     worker = f'(: bench (-> I64 {result}))\n(define (bench count) {worker_body(name, spec)})\n(unit)\n'
     hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft', 'quicksort', 'deriv') else f'(hide-{"f64" if name in FLOATS + ("simplex",) else "i64"} x)'
@@ -631,7 +658,7 @@ def tool_paths(benchmarks=()):
         names['RUSTC'] = 'rustc'
     if any(name in benchmarks for name in ('ray', 'tail', 'nucleic')):
         names.update(RUSTC='rustc', CARGO='cargo', WASM_MERGE='wasm-merge')
-    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix')):
+    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix', 'browse', 'equal', 'conform', 'maze', 'parsing') + reader_ports.NAMES + boyer_port.NAMES):
         names.update(RUSTC='rustc', CARGO='cargo', CLANG='clang', LLD='ld.lld', WASM_MERGE='wasm-merge')
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     paths['PYTHON'] = sys.executable
@@ -2077,6 +2104,20 @@ def validate_mazefun_outputs(directory, runner, tools, environment):
 
 
 def prepare_case(name, files, output, runner, tools, environment):
+    if name == 'maze':
+        return maze_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
+    if name == 'parsing':
+        return parsing_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
+    if name in boyer_port.NAMES:
+        return boyer_port.prepare_case(name, files, output, runner, tools, environment, sys.modules[__name__])
+    if name == 'conform':
+        return conform_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
+    if name == 'equal':
+        return equal_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
+    if name == 'browse':
+        return browse_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
+    if name in reader_ports.NAMES:
+        return reader_ports.prepare_case(name, files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'earley':
         return earley_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     directory = output / name
@@ -2180,19 +2221,35 @@ def prepare(options):
     shutil.copy2(HERE / 'tail_port.py', options.output / 'tail_port.py')
     shutil.copy2(HERE / 'bv2string_port.py', options.output / 'bv2string_port.py')
     shutil.copy2(HERE / 'matrix_port.py', options.output / 'matrix_port.py')
+    shutil.copy2(HERE / 'reader_ports.py', options.output / 'reader_ports.py')
+    shutil.copy2(HERE / 'browse_port.py', options.output / 'browse_port.py')
+    shutil.copy2(HERE / 'equal_port.py', options.output / 'equal_port.py')
+    shutil.copy2(HERE / 'conform_port.py', options.output / 'conform_port.py')
+    shutil.copy2(HERE / 'browse-observe.mjs', options.output / 'browse-observe.mjs')
+    shutil.copy2(HERE / 'reader-timing.mjs', options.output / 'reader-timing.mjs')
+    shutil.copy2(HERE / 'reader-host.mjs', options.output / 'reader-host.mjs')
     shutil.copy2(HERE / 'tail-host.mjs', options.output / 'tail-host.mjs')
     shutil.copy2(HERE / 'nucleic_port.py', options.output / 'nucleic_port.py')
     shutil.copy2(HERE / 'nucleic-host.mjs', options.output / 'nucleic-host.mjs')
     shutil.copy2(HERE / 'earley_port.py', options.output / 'earley_port.py')
+    shutil.copy2(HERE / 'boyer_port.py', options.output / 'boyer_port.py')
+    shutil.copy2(HERE / 'maze_port.py', options.output / 'maze_port.py')
+    shutil.copy2(HERE / 'parsing_port.py', options.output / 'parsing_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
-    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley')):
+    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal', 'conform', 'maze', 'parsing') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *(ROOT / name for name in
                     ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/link-strict-runtime'))]
-    if any(name in options.benchmarks for name in ('bv2string', 'matrix')):
+    if any(name in options.benchmarks for name in ('bv2string', 'matrix', 'browse', 'equal', 'conform', 'maze', 'parsing') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *ROOT.glob('src/*.c'), *ROOT.glob('src/*.h'),
                     *(ROOT / name for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
                                                'scripts/build-native', 'scripts/build-native.scm'))]
+    if any(name in options.benchmarks for name in ('browse', 'equal', 'maze', 'parsing') + boyer_port.NAMES):
+        sources += [*ROOT.glob('tests/strict-reader/*'), *ROOT.glob('tests/strict-browse/*')]
+    if 'conform' in options.benchmarks:
+        sources += [*ROOT.glob('tests/strict-reader/*'), *ROOT.glob('tests/strict-conform/*')]
+    if 'maze' in options.benchmarks:
+        sources += [*ROOT.glob('tests/strict-maze/*')]
     if 'earley' in options.benchmarks:
         sources += [ROOT / 'scripts/build-native', ROOT / 'scripts/build-native.scm',
                     *ROOT.glob('src/**/*.c'), *ROOT.glob('src/**/*.h')]
@@ -2201,6 +2258,13 @@ def prepare(options):
         target = options.output / 'compiler-source' / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    fixtures = [ROOT / 'tests/strict-parsing' / name for name in ('probe.scm', 'entry.c')] if 'parsing' in options.benchmarks else []
+    driver_fixtures = {}
+    for source in fixtures:
+        target = options.output / 'driver-source' / source.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        driver_fixtures[str(source.relative_to(ROOT))] = digest(target)
     basis = compiler_basis(sources, options.compiler_basis)
     report = dict(date=datetime.now(timezone.utc).isoformat(), cases=[],
                   tools={key: dict(path=value, sha256=digest(value)) for key, value in tools.items()},
@@ -2221,10 +2285,19 @@ def prepare(options):
                   tail_port_sha256=digest(HERE / 'tail_port.py'),
                   bv2string_port_sha256=digest(HERE / 'bv2string_port.py'),
                   matrix_port_sha256=digest(HERE / 'matrix_port.py'),
+                  reader_ports_sha256=digest(HERE / 'reader_ports.py'),
+                  browse_port_sha256=digest(HERE / 'browse_port.py'),
+                  equal_port_sha256=digest(HERE / 'equal_port.py'),
+                  boyer_port_sha256=digest(HERE / 'boyer_port.py'),
+                  conform_port_sha256=digest(HERE / 'conform_port.py'),
+                  maze_port_sha256=digest(HERE / 'maze_port.py'),
+                  parsing_port_sha256=digest(HERE / 'parsing_port.py'),
+                  reader_host_sha256=digest(HERE / 'reader-host.mjs'),
                   tail_host_sha256=digest(HERE / 'tail-host.mjs'),
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
                   nucleic_host_sha256=digest(HERE / 'nucleic-host.mjs'),
                   earley_port_sha256=digest(HERE / 'earley_port.py'),
+                  driver_fixtures=driver_fixtures,
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -2239,6 +2312,8 @@ def prepare(options):
         print(case['status'], name, flush=True)
     if report['compiler_files'] != {str(p.relative_to(ROOT)): digest(p) for p in sources}:
         raise ValueError('compiler changed during preparation')
+    if any(digest(ROOT / name) != expected for name, expected in driver_fixtures.items()):
+        raise ValueError('driver fixture changed during preparation')
 
 
 # ---- Clean fresh-process measurements ----
@@ -2290,6 +2365,21 @@ def checked_preparation(output):
     if os.environ.get('NODE_OPTIONS'):
         raise ValueError('NODE_OPTIONS must be unset')
     prepared = load(output / 'prepared.json')
+    for name, expected in prepared.get('driver_fixtures', {}).items():
+        if any(digest(path) != expected for path in (ROOT / name, output / 'driver-source' / name)):
+            raise ValueError('driver fixture changed: ' + name)
+    if prepared.get('maze_port_sha256', digest(HERE / 'maze_port.py')) != digest(HERE / 'maze_port.py'):
+        raise ValueError('Maze source adapter changed')
+    if prepared.get('parsing_port_sha256', digest(HERE / 'parsing_port.py')) != digest(HERE / 'parsing_port.py'):
+        raise ValueError('Parsing source adapter changed')
+    if prepared.get('boyer_port_sha256', digest(HERE / 'boyer_port.py')) != digest(HERE / 'boyer_port.py'):
+        raise ValueError('Boyer source adapter changed')
+    if prepared.get('conform_port_sha256', digest(HERE / 'conform_port.py')) != digest(HERE / 'conform_port.py'):
+        raise ValueError('Conform source adapter changed')
+    if prepared.get('equal_port_sha256', digest(HERE / 'equal_port.py')) != digest(HERE / 'equal_port.py'):
+        raise ValueError('Equal source adapter changed')
+    if prepared.get('browse_port_sha256', digest(HERE / 'browse_port.py')) != digest(HERE / 'browse_port.py'):
+        raise ValueError('Browse source adapter changed')
     if prepared.get('driver_sha256', digest(__file__)) != digest(__file__):
         raise ValueError('driver changed')
     if prepared.get('data_ports_sha256', digest(HERE / 'data_ports.py')) != digest(HERE / 'data_ports.py'):
@@ -2381,6 +2471,8 @@ def summarize(report):
 
 def measure(options):
     prepared = checked_preparation(options.output)
+    if any(case['name'] in reader_ports.NAMES + ('browse', 'equal', 'conform', 'maze', 'parsing') + boyer_port.NAMES for case in prepared['cases']):
+        raise ValueError('reader, browse, equal, conform, Maze, Parsing and Boyer workloads require separately frozen timing plans')
     if options.rounds != 3 and any(len(case.get('systems', [])) == 3 for case in prepared['cases']):
         raise ValueError('the three-system controls require exactly three retained rounds')
     report = dict(prepared=prepared, cpu=options.cpu, rounds=options.rounds, samples=[], complete=False)

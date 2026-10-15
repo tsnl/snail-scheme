@@ -1,0 +1,14 @@
+{
+  "archive": {
+    "path": "artifacts.tar.xz",
+    "bytes": 25713236,
+    "sha256": "97d7988f6e1119f45569cf4bc0bd116428b1a408697bf5cf7f1cf7a962ef11f5"
+  },
+  "members_verified": 2136,
+  "member_bytes": 151893801,
+  "all_member_hashes_match": true,
+  "frozen_identities_verified": 265,
+  "frozen_plan_sha256": "c9f573cacaf32c3af39d5c0f7e66cb86fe6ec207a80fab90882b8158ca2808bc",
+  "parent_campaign_review_included": true,
+  "independent_baseline_archive_verified": true
+}
