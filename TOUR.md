@@ -674,6 +674,14 @@ reader preserves complete expected mark lists before timing, and the timed
 predicate checks their full shape and contents. Separate output and cavity-trace
 probes cover both Chez forms and raw/optimized Wasm; persistent spine identity
 is additionally checked in Chez.
+[`nucleic_port.py`](benchmarks/strict-suite/nucleic_port.py) preserves the complete
+nucleotide database and ordered geometry search. Counted reversible edits map
+heterogeneous nucleotide vectors to concrete products and mutable assignment
+identity to Ref; all coordinate vectors, constants and source setters remain.
+Its original and adapted Chez controls share complete-value, ordered-solution
+and mutation probes with linked Wasm and native execution. The dedicated
+[`nucleic-host.mjs`](benchmarks/strict-suite/nucleic-host.mjs) supplies scalar
+inputs and observations, checks the worker, and closes resources on every exit.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
