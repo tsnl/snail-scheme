@@ -11,20 +11,22 @@ OUTPUT = ROOT / 'build/sfir-command'
 RECORDS = []
 
 
-def invoke(arguments, status=0, error=None, **environment):
+def invoke(arguments, status=0, error=None, input_text=None, expected_output=None, **environment):
     command = [str(value) for value in arguments]
-    process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE if input_text is not None else None,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                text=True, start_new_session=True, env={**os.environ, **environment})
     try:
-        stdout, stderr = process.communicate(timeout=240)
+        stdout, stderr = process.communicate(input=input_text, timeout=240)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
         process.communicate()
         raise
-    RECORDS.append(dict(command=command, status=process.returncode, stdout=stdout, stderr=stderr))
+    RECORDS.append(dict(command=command, status=process.returncode, stdin=input_text, stdout=stdout, stderr=stderr))
     (OUTPUT / 'commands.json').write_text(json.dumps(RECORDS, indent=2) + '\n')
     assert process.returncode == status, RECORDS[-1]
     assert error is None or error in stderr, RECORDS[-1]
+    assert expected_output is None or expected_output == stdout, RECORDS[-1]
 
 
 def source(name, text):
@@ -64,6 +66,15 @@ def cleanup(target):
     assert output.read_text() == 'buffered before trap'
 
 
+def standard_input(target):
+    artifact = OUTPUT / ('stdin.wasm' if target == 'wasm' else 'stdin')
+    invoke([ROOT / 'snail-sfir', 'compile', '--target', target, '-o', artifact,
+            ROOT / 'tests/sfir/standard-input.sfir'])
+    host = [os.environ.get('NODE', 'node'), ROOT / 'scripts/run-sfir.mjs', artifact] if target == 'wasm' else [artifact]
+    for text in ('λ😀\n\0é', ''):
+        invoke(host, input_text=text, expected_output=text)
+
+
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     invoke([ROOT / 'snail-sfir', '--help'], CHIBI='/missing/chibi', WASM_OPT='/missing/wasm-opt')
@@ -71,6 +82,7 @@ def main():
         statuses(target)
         publication(target)
         cleanup(target)
+        standard_input(target)
         print('PASS public SFIR command:', target, flush=True)
     path = source('protected', '42')
     invoke([ROOT / 'snail-sfir', 'compile', '-o', path, path], 1, 'must not replace')

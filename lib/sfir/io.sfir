@@ -1,10 +1,10 @@
 ;; Concrete text input and output. Rust owns file payloads; each wrapper's
 ;; shared Ref makes explicit close idempotent across aliases. No GC finalizer
-;; owns these files. Stdout is borrowed; invocation cleanup only closes files.
+;; owns these files. Standard streams are borrowed; cleanup only closes files.
 (library (sfir io)
   (export InputPort OutputPort LineResult end-of-file line line-text eof-object?
           CharacterResult character-end character-value character-text character-end?
-          read-char peek-char
+          read-char peek-char current-input-port
           file-exists? delete-file open-input-file close-input-port
           call-with-input-file read-line open-output-file close-output-port
           call-with-output-file current-output-port output-port=?
@@ -31,6 +31,7 @@
   (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
   (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
   (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
+  (define-extern standard-input-handle "snail.library" "snail:io/standard-input" (-> I32))
   (define-extern port-check-output "snail.library" "snail:io/check-output" (-> I32 Unit))
 
   ;; This singleton borrows stdout. Its reserved scalar ID never names an
@@ -41,6 +42,14 @@
 
   (define current-output-port (-> OutputPort)
     (lambda () standard-output))
+
+  ;; All aliases share the native reader and its peek buffer. Explicit close
+  ;; preserves the borrowed handle, just as it does for standard output.
+  (define standard-input
+    (input-port (ref (standard-input-handle))))
+
+  (define current-input-port (-> InputPort)
+    (lambda () standard-input))
 
   (define output-port=? (-> OutputPort OutputPort Bool)
     (lambda (left right) (ref-eq? (output-handle left) (output-handle right))))
@@ -99,7 +108,8 @@
   (define close-handle (-> (Ref I32) Unit)
     (lambda (cell)
       (let ((handle (ref-get cell)))
-        (if (if (i32-eq handle (ann -1 I32)) #t (i32-eq handle (ann -2 I32)))
+        (if (if (i32-eq handle (ann -1 I32)) #t
+                (if (i32-eq handle (ann -2 I32)) #t (i32-eq handle (ann -3 I32))))
             (unit)
             (begin
               (ref-set! cell (ann -1 I32))
