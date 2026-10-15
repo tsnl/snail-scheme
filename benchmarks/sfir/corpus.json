@@ -771,8 +771,8 @@
       "sfir": "conform/main.sfir",
       "host": "datum-io",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "conform/chez-original.scm",
       "chez_adapted": "conform/chez-adapted.scm",
@@ -784,7 +784,8 @@
       "rust_native_validation": "pending",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+      "target_evidence": "evidence/20261015-conform-host.json"
     },
     {
       "name": "dynamic",

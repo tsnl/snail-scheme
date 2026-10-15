@@ -164,3 +164,18 @@ successfully, followed by full integrity verification. Its report preserves
 original/adapted Chez separately and discloses Rust FIBC's additional opacity
 at each Peano step. A completed future schedule exits nonzero if any eligible
 route lacks its successful warmup or all five valid measurements.
+
+[Conform host evidence](evidence/20261015-conform-host.json) retains its first
+missing-character-import failures and validates the unchanged optimized program
+and provider on Wasm and native. Both established character-output spellings
+write through the existing UTF-8 operation. Canonical Conform disables progress
+printing, so a separate actual ABI probe checks the full ASCII/NUL/BMP/non-BMP
+byte stream on both Node hosts and native, followed by normal completion and
+exactly one explicit barrier. The empty canonical workload stream agrees with
+both Chez controls. No timing sample was collected.
+
+A fresh no-files explanation and informed critique kept this correction to the
+existing character writer and its import names. It rejected a generic import
+registry and a canonical-only check, which could not distinguish output from a
+no-op when progress printing is disabled. Two failed synthetic probe attempts
+remain visible alongside the final passing fixture.

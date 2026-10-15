@@ -11,6 +11,7 @@ assert(WebAssembly.Module.imports(module).every(item => ['benchmark', 'reader.te
 const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {'.': process.cwd()}, returnOnExit: true});
 const live = new Map(), phases = {setup: [], worker: [], cleanup: []};
 const cycles = {setup: [], worker: [], cleanup: []}, deleted = [];
+const writeCharacter = value => fs.writeSync(1, String.fromCodePoint(value));
 let memory, phase = 'setup', barriers = 0;
 const trace = [], floating = new DataView(new ArrayBuffer(8));
 const observer = {
@@ -74,7 +75,7 @@ if (providerPath) {
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
 const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => {barriers++; return 1;},
-                                                  write_character: value => fs.writeSync(1, String.fromCodePoint(value))},
+                                                  write_character: writeCharacter, write_char: writeCharacter},
                                                   'reader.test': observer, 'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: imports});
 memory = (provider ?? instance).exports.memory;
