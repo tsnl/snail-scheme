@@ -11,7 +11,18 @@
   "reviewed_port_sha256": "5d55bd07a20c35ad42b497d4e4610ed9e2fab8f54460c9261afc97a81ea75934",
   "sfir_sha256": "d9cb451df067634ed2ae58e22d19b646cd465234a4c847b83827c264e645e28a",
   "controls": {
-    "chez-adapted.scm": "a8cd42da7b8978af633f36817764fc11dcb4a21ffb8c8ef03507d6cbc0d8ac3e",
+    "chez-adapted.scm": "646ec34fdca9788d379bfa4cb644ac55783c58e054aa86039a49184a09ad4aed",
     "chez-original.scm": "4b347b1a9650ff75b335376b15b6a2df66b66a368aedcc4634e016534c68f7de"
-  }
+  },
+  "control_boundary_corrections": [
+    {
+      "before_sha256": "a8cd42da7b8978af633f36817764fc11dcb4a21ffb8c8ef03507d6cbc0d8ac3e",
+      "change": "Import Chez vector-copy for the unchanged Integer library decimal-chunks procedure; target, benchmark, library bodies and input are unchanged.",
+      "edit": {
+        "before": "(import\n",
+        "after": "(import\n  (only (chezscheme) vector-copy)\n"
+      },
+      "exact_reverse_verified": true
+    }
+  ]
 }

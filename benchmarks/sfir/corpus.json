@@ -23,7 +23,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "deriv",
@@ -632,7 +634,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "cat",
@@ -736,7 +740,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "compiler",
@@ -776,7 +782,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "dynamic",
@@ -976,7 +984,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "peval",
@@ -1118,7 +1128,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "sboyer",
@@ -1138,7 +1150,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "gcbench",
@@ -1198,7 +1212,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "bv2string",
