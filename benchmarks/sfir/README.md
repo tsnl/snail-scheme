@@ -200,3 +200,13 @@ basis declaration, preserving the existing complete file-cycle checks. It
 rejected a second benchmark count and independently configurable observation
 formulas. Canonical artifacts remain separate from the corrected metadata and
 host evidence; no performance samples were added.
+
+The [remaining-41 validation report](evidence/20261015-existing41.md) brings
+this checkpoint to 53 canonical SFIR Wasm passes and 52 native passes. The
+remaining native route, GCBench, retained its 1,800-second build timeout and
+partial artifacts. All 53 original Chez and Rust native routes pass, all 41
+present adapted controls pass, and Rust Wasm retains Ack's stack failure among
+52 successes. Four source ports remain pending. Full original process records,
+the frozen manifest and separately corrected outcomes are archived; these
+contended executions add no performance measurements and retain the disclosed
+second native optimization pass.
