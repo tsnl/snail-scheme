@@ -1,0 +1,6 @@
+(import (snail strict))
+(define-data (Cell T) (cell (value (Ref T) cell-ref)))
+(define original (cell (ref 5)))
+(define alias original)
+(ref-set! (cell-ref alias) 19)
+(if (ref-eq? (cell-ref original) (cell-ref alias)) (ref-get (cell-ref original)) 0)

@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-data Choice (empty) (full (value I64)))
+(define-instance (Default Choice) (default empty))
+(define choices (ann (make-vector 2) (Vector Choice)))
+(match (vector-ref choices 1) ((empty) 9) ((full value) value))

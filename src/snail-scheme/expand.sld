@@ -360,6 +360,7 @@
         ((define-extern) (prepare-extern-declaration form outer local reservations transformers))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
         ((define-class) (prepare-class-declaration form outer local reservations transformers))
+        ((define-data) (prepare-data-declaration form outer local reservations transformers))
         ((define-overload)
          (prepare-overload-declaration form outer local reservations transformers fuel))
         ((define-instance)
@@ -452,6 +453,7 @@
         ((define) (reserve-value-definition form remaining local reserved macros))
         ((define-extern) (reserve-extern-declaration form remaining local reserved macros))
         ((define-class) (reserve-class-declaration form remaining local reserved macros))
+        ((define-data) (reserve-data-declaration form remaining local reserved macros))
         ((define-overload)
          (reserve-overload-declaration form remaining outer local reserved macros))
         ((define-syntax) (reserve-syntax-definition form remaining local reserved macros))
@@ -518,8 +520,8 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax : %record-schema define-class define-instance define-overload
-             define-extern)
+          ((define define-syntax : %record-schema define-data define-class define-instance
+             define-overload define-extern)
            (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
@@ -533,6 +535,7 @@
         ((begin) expand-sequence)
         ((ann) expand-annotation)
         ((inst) expand-instantiation)
+        ((match) expand-match)
         ((let-syntax letrec-syntax) expand-local-macros)
         (else expand-application)))
 
@@ -570,6 +573,10 @@
                  (if (eq? tag 'U) (apply type-union types)
                      (if (null? types) (fail syntax "function type requires a result")
                          (cons '-> types)))))
+              ((and (pair? parts) (value-definition? (lookup (car parts) environment)))
+               (cons 'record
+                     (cons (lookup (car parts) environment)
+                           (map (lambda (part) (expand-type part environment)) (cdr parts)))))
               (else (fail syntax "unsupported type constructor")))))
 
     (define (expand-all-type syntax environment)
@@ -722,6 +729,74 @@
         (make-extern-declaration (name-definition (resolve-name (car parts) environment))
                                  module symbol (expand-type (cadddr parts) environment)
                                  (syntax-loc form))))
+
+    ;; ---- Closed nominal data declarations and shallow matching ----
+
+    (define (data-parts form)
+      (let* ((parts (fields form '(_ head case ...)))
+             (head (if (identifier-of (car parts)) (list (car parts))
+                       (syntax-list (car parts)))))
+        (when (or (null? head) (null? (cadr parts)))
+          (fail form "data declaration requires a name and at least one constructor"))
+        (list (car head) (cdr head) (cadr parts))))
+    (define (data-field-parts field)
+      (let ((parts (syntax-list field)))
+        (unless (or (= (length parts) 2) (= (length parts) 3))
+          (fail field "data field requires a name, type and optional accessor"))
+        (require-symbol (car parts)) parts))
+    (define (data-case-identifiers form)
+      (let ((parts (fields form '(constructor field ...))))
+        (cons (car parts)
+              (apply append
+                     (map (lambda (field) (cddr (data-field-parts field))) (cadr parts))))))
+    (define (data-bindings form)
+      (let ((parts (data-parts form)))
+        (reserve-identifiers
+         (cons (car parts) (apply append (map data-case-identifiers (caddr parts)))) form)))
+    (define (reserve-data-declaration form remaining local reserved macros)
+      (let ((bindings (data-bindings form)))
+        (values remaining (add-local-bindings local bindings form)
+                (cons (cons form bindings) reserved) macros)))
+    (define (prepare-data-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (bindings (if reserved (cdr reserved) (data-bindings form)))
+             (next (if reserved local (add-local-bindings local bindings form))))
+        (values (list (lambda (values transformers)
+                        (expand-data-declaration form (append values (macro-bindings next) outer))))
+                next transformers)))
+    (define (expand-data-declaration form environment)
+      (let* ((parts (data-parts form)) (variables (map reserve-type-variable (cadr parts)))
+             (scope (append variables environment)))
+        (check-distinct (map car variables) form)
+        (make-data-schema
+         (name-definition (resolve-name (car parts) environment)) (map cdr variables)
+         (map (lambda (row) (expand-data-case row scope environment)) (caddr parts))
+         (syntax-loc form))))
+    (define (expand-data-case form scope environment)
+      (let* ((parts (fields form '(constructor field ...)))
+             (fields (map (lambda (field) (expand-data-field field scope environment))
+                          (cadr parts))))
+        (check-distinct (map car fields) form)
+        (list (name-definition (resolve-name (car parts) environment)) fields)))
+    (define (expand-data-field form scope environment)
+      (let ((parts (data-field-parts form)))
+        (list (require-symbol (car parts)) (expand-type (cadr parts) scope)
+              (and (pair? (cddr parts))
+                   (name-definition (resolve-name (caddr parts) environment))))))
+    (define (expand-match form environment transformers fuel)
+      (let ((parts (fields form '(_ subject arm ...))))
+        (when (null? (cadr parts)) (fail form "match requires constructor arms"))
+        (make-match (expand-expression (car parts) environment transformers fuel)
+                    (map (lambda (arm) (expand-match-arm arm environment transformers fuel))
+                         (cadr parts)) (syntax-loc form))))
+    (define (expand-match-arm form environment transformers fuel)
+      (let* ((parts (fields form '(pattern body ...)))
+             (pattern (fields (car parts) '(constructor name ...)))
+             (bindings (reserve-identifiers (cadr pattern) (car parts))))
+        (list (name-definition (resolve-name (car pattern) environment))
+              (make-lambda (map cdr bindings) #f
+                           (expand-block (cadr parts) (append bindings environment) '()
+                                         transformers fuel form) (syntax-loc form)))))
 
     (define (expand-record-schema form environment)
       (let ((parts (fields form '(_ type constructor predicate arguments record-fields))))
@@ -1419,6 +1494,7 @@
 
     (define (runtime-expression? item)
       (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
+               (data-schema? item)
                (class-declaration? item) (instance-declaration? item) (extern-declaration? item)
                (overload-declaration? item)
                (eliminated-definition? item))))
@@ -1521,7 +1597,8 @@
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U => define-class define-instance define-overload define-extern
+                 : ann inst All -> U => define-data match
+                 define-class define-instance define-overload define-extern
                  %record-schema Ref List Rest)
               scalar-type-names strict-type-names))
 

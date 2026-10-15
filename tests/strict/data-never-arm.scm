@@ -1,0 +1,3 @@
+(import (snail strict))
+(define-data Choice (some (value I64)) (none))
+(match (some 6) ((none) (unreachable)) ((some value) value))

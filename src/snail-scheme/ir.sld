@@ -63,6 +63,8 @@
    record-schema-arguments
    record-schema-fields
    record-schema-loc
+   make-data-schema data-schema? data-schema-definition data-schema-variables data-schema-cases
+   make-match match? match-subject match-arms
    make-class-declaration class-declaration?
    class-declaration-definition
    class-declaration-variables
@@ -208,6 +210,20 @@
     (define (record-schema-fields node) (list-ref (node-data node) 4))
     (define record-schema-loc node-loc)
 
+    ;; A closed sum owns constructor identities and typed fields. One case is a
+    ;; nominal product. An arm stores its resolved constructor and an ordinary
+    ;; lambda whose parameters scope the arm body; checking lowers it to let/if.
+    (define (make-data-schema definition variables cases loc)
+      (source-node 'data-schema loc (list definition variables cases)))
+    (define (data-schema? node) (kind? node 'data-schema))
+    (define (data-schema-definition node) (car (node-data node)))
+    (define (data-schema-variables node) (cadr (node-data node)))
+    (define (data-schema-cases node) (caddr (node-data node)))
+    (define (make-match subject arms loc) (source-node 'match loc (list subject arms)))
+    (define (match? node) (kind? node 'match))
+    (define (match-subject node) (car (node-data node)))
+    (define (match-arms node) (cadr (node-data node)))
+
     (define (make-class-declaration definition variables methods loc)
       (source-node 'class-declaration loc (list definition variables methods)))
     (define (class-declaration? node) (kind? node 'class-declaration))
@@ -284,6 +300,8 @@
                         (conditional-opt-alternate node)))
             ((annotation) (list (annotation-expression node)))
             ((instantiation) (list (instantiation-expression node)))
+            ((match) (cons (match-subject node) (map cadr (match-arms node))))
+            ((data-field data-test) (list (car (node-data node))))
             ((assignment) (list (assignment-value node)))
             ((let) (append (cadr (node-data node)) (list (caddr (node-data node)))))
             ((convert) (node-data node)) (else '()))))

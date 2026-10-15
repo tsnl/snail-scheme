@@ -1,0 +1,6 @@
+(import (snail strict))
+(define-data (Box T) (box (value T unbox)))
+(define make box)
+(define read unbox)
+(define (apply1 f x) (f x))
+(+ (apply1 read (apply1 make 34)) (f64->i64 (read (make 3.5))))

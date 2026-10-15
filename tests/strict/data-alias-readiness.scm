@@ -1,0 +1,11 @@
+(import (snail strict))
+(define calls (ref 0))
+(: observed (-> I64))
+(define (observed) (ref-get calls))
+(define-data Box (box (value I64 unbox)))
+(: invoke (-> I64))
+(define (invoke)
+  (define first (alias (begin (ref-set! calls 1) 42)))
+  (define alias box)
+  (unbox first))
+42

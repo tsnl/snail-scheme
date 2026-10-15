@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-data Box (box (value I64 unbox)))
+(define value (box later))
+(define later 7)
+(unbox value)

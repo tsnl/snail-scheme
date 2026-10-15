@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-data (Box T) (box (value T unbox)))
+;; Both fields have Wasm i32 storage, but their semantic arguments differ.
+(define boxed (ann (box (ann 65 I32)) Top))
+(unbox (ann boxed (Box Char)))

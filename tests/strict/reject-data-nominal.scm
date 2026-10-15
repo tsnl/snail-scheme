@@ -1,0 +1,4 @@
+(import (snail strict))
+(define-data First (first (value I64 first-value)))
+(define-data Second (second (value I64 second-value)))
+(first-value (second 3))
