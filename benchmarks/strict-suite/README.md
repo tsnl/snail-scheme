@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-four original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-five original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, and `simplex`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, and `deriv`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -313,3 +313,61 @@ unmodified original kernel and preserved by the port. Source equivalence and
 mathematical correctness are recorded separately. The
 [preparation report](../results/2026-10-13-strict-simplex/README.md) contains the
 exact evidence and optimized-work inspection. No clean timing is recorded.
+
+Select `--benchmarks deriv --compiler-basis 7ff18c0` for the full derivative
+port. Its input remains `(+ (* 3 x x) (* a x x) (* b x) 5)` with ten million
+repetitions and the original complete-expression predicate. The upstream
+quotient rule is deliberately incorrect; the port preserves it, including
+ignoring extra quotient operands. This source port adds no compiler capability.
+
+`deriv_port.py` keeps the original derivative body through exact operation
+renaming. Its closed datum type has the seven finite symbols, I64 integers,
+booleans, empty and a two-edge pair. One source pair becomes one nominal pair
+node, preserving proper/improper list spines and shared input subtrees.
+Fixed three/four-argument list constructors avoid temporary variadic lists.
+Operator atoms and derivative zero/one are allocated once before timing.
+Arbitrary symbols, strings, vectors and non-I64 numbers are outside this port's
+declared domain; the canonical input and all documented probes are inside it.
+
+Input and expected datums are constructed from runtime scalar imports before
+timing. The repeat loop starts with the false datum, retains only its current
+result and compares every final atom and ordered pair edge once inside the
+timer. The unchanged original Chez program remains a control. The second Chez
+control uses identical adapted kernel text, tagged vectors for corresponding
+closed nodes, input/expected conversion before timing, and the same structural
+comparison. Its initial false marker is adapted as well. The restoration proof
+and complete-program patch account for all four wrapper changes. Native Chez
+pairs and WasmGC nominal objects still have different layouts and allocation
+costs; matching source does not make their physical allocations identical.
+
+Separate probe programs compare nineteen complete literal derivatives, reject
+seven changed expected trees, exercise ten failure cases and five repeat-loop
+boundaries. Chez probes check reused product/operand/denominator identity and
+fresh output spines. The latter checks establish identity in the two Chez
+controls; source and optimized-Wasm reference flow must also be inspected for
+strict. The canonical Wasm module exports only `bench` and `main`.
+
+The current extern contract rejects managed references. Strict therefore
+preserves the original number of hiding sites with a Boolean host call followed
+by returning the runtime-constructed datum. This does **not** hide the datum's
+identity from the compiler. A barrier count and a correct final expression do
+not establish that earlier derivative results were constructed. Inspect the
+canonical optimized repetition loop and derivative constructors before treating
+the preparation as suitable for measurement; eliminating unobserved earlier
+results would be a legal optimization, not a semantic bug. These source and
+probe additions alone make no timing or native-allocation claim.
+
+A later typed-reference extern design could import a nominal `Datum -> Datum`
+identity function and preserve the actual value-returning boundary. It would
+need concrete module-local WasmGC signature types, provider/consumer type
+compatibility, engine-owned reference lifetime across calls and explicit host
+encoding rules. This is a separate proposed capability, not part of this port.
+
+The [deriv preparation report](../results/2026-10-13-strict-deriv/README.md)
+records passing canonical runs at counts 1, 2 and 10,000,000 on all four systems,
+the separate probes, and exact compiler identity. Optimized Wasm and default-tier
+V8 machine code retain derivative calls within the repetition loop and pair
+construction. Separate instrumented runs complete 49 pair constructors per
+invocation, including 490,000,000 for the full workload; these are instruction
+completions, not native allocator events or timing samples. No clean deriv
+measurement has been collected.
