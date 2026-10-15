@@ -582,6 +582,11 @@ Boolean search control; mutable scalars use Ref and false-or-count results use a
 closed variant. Separate probes compare every board/mask cell, retained row
 identities, ordered effects and bounds-failure prefixes against original Chez
 and an independent board model. This does not add continuation support.
+[`lattice_port.py`](benchmarks/strict-suite/lattice_port.py) preserves lattice's
+polymorphic enumeration with typed lattice/binding products and mutable list
+tails. It keeps destructive reversal, branch-result lists and append sharing.
+Separate complete-poset oracles, comparison traces and node-identity probes
+check the source adaptation against both Chez forms.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
