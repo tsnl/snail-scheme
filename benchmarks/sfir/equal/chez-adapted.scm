@@ -1,4 +1,5 @@
 (import
+  (only (chezscheme) vector-copy)
   (only (chezscheme)
     current-time
     machine-type

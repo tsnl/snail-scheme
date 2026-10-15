@@ -15,6 +15,7 @@ int64_t hide_i64(int64_t value);
 double hide_f64(double value);
 int32_t barrier(void);
 void write_character(uint32_t value);
+void write_char(uint32_t value);
 void print_text(int64_t index);
 void print_size(int64_t index, int64_t value);
 void print_construction(int64_t iterations, int64_t depth);

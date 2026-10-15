@@ -51,6 +51,8 @@ void write_character(uint32_t value) {
         putchar((int)(128 | ((value >> (6 * (index - 1))) & 63)));
 }
 
+void write_char(uint32_t value) { write_character(value); }
+
 void print_text(int64_t index) { fputs(diagnostic_text[index], stdout); }
 void print_size(int64_t index, int64_t value) {
     printf("%s%" PRId64 "%s", diagnostic_prefix[index], value, diagnostic_suffix[index]);
