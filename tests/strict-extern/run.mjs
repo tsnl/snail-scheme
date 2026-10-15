@@ -59,6 +59,47 @@ if (contract === 'native') {
   trap(() => second.exports.main());
   trap(() => second.exports.main());
   trap(() => second.exports.worker(1));
+} else if (contract === 'vectors') {
+  callback = () => global.gc();
+  assert.equal(api.main(), 42n);
+  const contents = () => Array.from({length: 6}, (_, i) => api.read(BigInt(i)));
+  const original = [0n, 1n, 2n, 3n, 4n, 5n];
+  for (const index of [-1n, 6n, 2n ** 32n, 2n ** 32n + 1n, 2n ** 63n - 1n, -(2n ** 63n)]) {
+    api.reset();
+    trap(() => api.read(index));
+    trap(() => api.write(index));
+    assert.equal(api.marks(), 1234n, 'all operands precede the first-class operator and bounds check');
+    assert.deepEqual(contents(), original, 'rejected write must not change any element');
+  }
+  for (const count of [-1n, 2n ** 32n, 2n ** 32n + 1n, 2n ** 63n - 1n]) {
+    api.reset();
+    trap(() => api.allocate(count));
+    assert.equal(api.marks(), 12n, 'fill evaluates once even for a rejected allocation');
+  }
+  for (const count of [0n, 1n, 5n]) {
+    api.reset();
+    assert.equal(api.allocate(count), count);
+    assert.equal(api.marks(), 12n);
+  }
+  for (const [at, start, end] of [[1n, 0n, 5n], [0n, 1n, 6n], [0n, 0n, 6n], [6n, 6n, 6n]]) {
+    api.reset();
+    const expected = [...original];
+    expected.splice(Number(at), Number(end - start), ...original.slice(Number(start), Number(end)));
+    api.copy(at, start, end);
+    assert.equal(api.marks(), 123456n);
+    assert.deepEqual(contents(), expected);
+  }
+  for (const [at, start, end] of [
+    [-1n, 0n, 0n], [7n, 0n, 0n], [0n, 7n, 7n], [0n, -1n, 0n],
+    [0n, 3n, 2n], [0n, 0n, 7n], [5n, 0n, 2n], [0n, 1n, 2n ** 32n],
+    [2n ** 32n, 0n, 1n], [0n, 2n ** 32n, 2n ** 32n], [0n, 0n, 2n ** 63n - 1n],
+  ]) {
+    api.reset();
+    trap(() => api.copy(at, start, end));
+    assert.equal(api.marks(), 123456n, 'range validation follows every operand effect');
+    assert.deepEqual(contents(), original, 'rejected copy must not partially write');
+  }
+  assert.equal(api['gc-check'](), 43n, 'managed fill and vector survive collection');
 } else {
   throw new Error(`unknown native boundary contract: ${contract}`);
 }

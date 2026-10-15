@@ -554,7 +554,7 @@
              (tag (and (pair? parts) (type-keyword (car parts) environment))))
         (cond ((eq? tag 'All) (expand-all-type syntax environment))
               ((eq? tag '=>) (expand-qualified-type syntax environment))
-              ((memq tag '(Ref List Rest))
+              ((memq tag '(Ref List Vector Rest))
                (if (not (= (length parts) 2))
                    (fail syntax "type constructor requires one element type")
                    (list tag (expand-type (cadr parts) environment))))

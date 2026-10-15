@@ -65,6 +65,7 @@
                  `(type ,name (struct (field (ref ,(call-name type state))) (field eqref)))))
           ((Ref) (list `(type ,name (struct (field (mut ,(wasm-type (cadr type) state)))))))
           ((List) (list `(type ,name (struct (field ,(wasm-type (cadr type) state)) (field (ref null ,name))))))
+          ((Vector) (list `(type ,name (array (mut ,(wasm-type (cadr type) state))))))
           ((Binding) (list `(type ,name (struct (field (mut i32)) (field (mut ,(storage-type (cadr type) state)))))))
           (else (error "unknown concrete GC layout" type)))))
 
@@ -158,6 +159,42 @@
 
     ;; ---- Concrete primitives ----
 
+    ;; I64 source indices must fit unsigned i32 before conversion. The unsigned
+    ;; comparison also rejects negative I64 values. Array instructions then check
+    ;; the actual bounds. Arguments here are already evaluated parameter/local
+    ;; reads, so repeating an expression never repeats a source effect.
+    (define (array-index expression)
+      `(block (result i32)
+              (if (i64.gt_u ,expression (i64.const 4294967295)) (then (unreachable)))
+              (i32.wrap_i64 ,expression)))
+    (define (emit-array-copy name arguments)
+      ;; Checked start and end >= start make subtraction nonnegative and exact.
+      ;; Native bounds then check start + span, which is the original I64 end.
+      (let ((target (car arguments)) (at (cadr arguments)) (source (caddr arguments))
+            (start (cadddr arguments)) (end (car (cddddr arguments))))
+        `(block (result i32)
+                (if (i64.lt_s ,end ,start) (then (unreachable)))
+                (array.copy ,name ,name ,target ,(array-index at) ,source
+                            ,(array-index start) ,(array-index `(i64.sub ,end ,start)))
+                (i32.const 0))))
+    ;; A Vector T is one mutable GC array with native T elements. No per-element
+    ;; Scheme wrapper is introduced. array.copy checks both complete ranges
+    ;; before writing and preserves overlapping-copy semantics.
+    (define (emit-vector-primitive name signature arguments state)
+      (let* ((type (if (memq name '(empty-vector make-vector))
+                       (function-result signature) (car (function-domains signature))))
+             (layout (layout-name type state)))
+        (case name
+          ((empty-vector) `(array.new_fixed ,layout 0))
+          ((make-vector) `(array.new ,layout ,(cadr arguments) ,(array-index (car arguments))))
+          ((vector-length) `(i64.extend_i32_u (array.len ,(car arguments))))
+          ((vector-ref) `(array.get ,layout ,(car arguments) ,(array-index (cadr arguments))))
+          ((vector-set!) `(block (result i32)
+                                 (array.set ,layout ,(car arguments) ,(array-index (cadr arguments)) ,(caddr arguments))
+                                 (i32.const 0)))
+          ((vector-eq?) `(ref.eq ,@arguments))
+          ((vector-copy!) (emit-array-copy layout arguments)))))
+
     (define (emit-primitive name signature arguments state)
       (let ((expression (primitive-expression name signature arguments state)))
         (if (eq? (function-result signature) 'Never) `(block (drop ,expression) (unreachable)) expression)))
@@ -172,6 +209,8 @@
           ((cons) `(struct.new ,(layout-name (function-result signature) state) ,@arguments))
           ((car cdr) `(struct.get ,(layout-name (car domains) state) ,(if (eq? name 'car) 0 1) ,@arguments))
           ((null?) `(ref.is_null ,@arguments))
+          ((empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)
+           (emit-vector-primitive name signature arguments state))
           (else `(,opcode ,@arguments)))))
     (define (native-wrapper! name type state)
       (let* ((key (list name type)) (prior (find-type key (state-workers state))))

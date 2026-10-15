@@ -23,7 +23,9 @@
         (f64-mul F64 F64 f64.mul) (f64-div F64 F64 f64.div)
         (f64-eq F64 Bool f64.eq) (f64-lt F64 Bool f64.lt)))
     (define primitive-names
-      (append (map car numeric-primitives) '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable)))
+      (append (map car numeric-primitives)
+              '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable
+                    empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)))
     (define (primitive-opcode name)
       (let ((entry (assq name numeric-primitives))) (if entry (cadddr entry) name)))
     (define (primitive-scheme name)
@@ -34,10 +36,14 @@
               ((eq? name 'unreachable) (make-scheme '() (function-type '() #f 'Never) '()))
               (else (container-scheme name)))))
 
-    ;; ---- Invariant references and immutable lists ----
+    ;; ---- Concrete containers ----
+
+    ;; Allocation is an ordinary application, so the inference value restriction
+    ;; prevents a mutable container from acquiring independent element types.
 
     (define (container-scheme name)
       (let* ((a (fresh-variable)) (ref (list 'Ref a)) (list-type (list 'List a))
+             (vector-type (list 'Vector a))
              (signature
               (case name
                 ((ref) (function-type (list a) #f ref))
@@ -48,5 +54,12 @@
                 ((car) (function-type (list list-type) #f a))
                 ((cdr) (function-type (list list-type) #f list-type))
                 ((null?) (function-type (list list-type) #f 'Bool))
+                ((empty-vector) (function-type '() #f vector-type))
+                ((make-vector) (function-type (list 'I64 a) #f vector-type))
+                ((vector-length) (function-type (list vector-type) #f 'I64))
+                ((vector-ref) (function-type (list vector-type 'I64) #f a))
+                ((vector-set!) (function-type (list vector-type 'I64 a) #f 'Unit))
+                ((vector-eq?) (function-type (list vector-type vector-type) #f 'Bool))
+                ((vector-copy!) (function-type (list vector-type 'I64 vector-type 'I64 'I64) #f 'Unit))
                 (else (error "unknown strict primitive" name)))))
         (make-scheme (list a) signature '())))))

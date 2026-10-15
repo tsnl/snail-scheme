@@ -1,0 +1,4 @@
+(import (snail strict))
+(define values (make-vector 2 (ann 1.25 F32)))
+(vector-set! values 1 (ann 2.5 F32))
+(f32-add (vector-ref values 0) (vector-ref values 1))

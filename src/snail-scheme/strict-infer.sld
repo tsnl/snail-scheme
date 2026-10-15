@@ -34,7 +34,7 @@
     (define (source-type type variables loc)
       (cond ((lookup type variables) => (lambda (type) type))
             ((memq type scalar-types) type)
-            ((and (pair? type) (memq (car type) '(Ref List)) (= (length type) 2))
+            ((and (pair? type) (memq (car type) '(Ref List Vector)) (= (length type) 2))
              (list (car type) (source-type (cadr type) variables loc)))
             ((and (pair? type) (eq? (car type) '->)) (source-function type variables loc))
             (else (strict-error loc "unsupported strict type" type))))
@@ -379,7 +379,9 @@
                     (value (binding-initializer binding)))
                (cons (typed 'bind 'Unit (car items) (list binding value) value) (infer-items (cdr items) scope expected))))
             (else (cons (infer (car items) scope (and (null? (cdr items)) expected)) (infer-items (cdr items) scope expected)))))
-    (define (infer-program items primitive-bindings)
+    ;; Dependency initializers precede the entry program. Keep its own location
+    ;; for whole-program diagnostics instead of borrowing the first dependency.
+    (define (infer-program items primitive-bindings loc)
       (let* ((primitives (map (lambda (entry)
                                 (make-binding (car entry) (primitive-scheme (cdr entry)) #f 'primitive (cdr entry))) primitive-bindings))
              (classes (let collect ((items items))
@@ -387,7 +389,7 @@
                               (else (collect (cdr items)))))))
         (let-values (((items instances) (prepare-class-items items classes)))
           (let* ((scope (extend-scope (make-scope '() '() '() classes instances) (append primitives (apply append (map class-methods classes)))))
-                 (body (infer-block items scope #f (ir:make-block items (and (pair? items) (node-location (car items))))))
+                 (body (infer-block items scope #f (ir:make-block items loc)))
                  (globals (car (node-data body))))
             (make-program body globals classes (resolve-instance-members instances (append globals primitives) scope))))))
     (define (checked-member member instance definitions scope)
