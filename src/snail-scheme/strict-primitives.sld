@@ -9,6 +9,8 @@
 
     ;; Each row gives its complete domains, result and native lowering name.
     ;; Unary conversions and binary arithmetic use the same signature rule.
+    ;; Emission adds range checks to ordinary arithmetic and narrowing. Explicit
+    ;; wrapping/IEEE operations retain the bare opcode for documented callers.
     (define concrete-primitives
       '((i32-add (I32 I32) I32 i32.add)
         (i32-sub (I32 I32) I32 i32.sub)
@@ -26,6 +28,8 @@
         (i64-add (I64 I64) I64 i64.add)
         (i64-sub (I64 I64) I64 i64.sub)
         (i64-mul (I64 I64) I64 i64.mul)
+        (i64-wrapping-add (I64 I64) I64 i64.add)
+        (i64-wrapping-mul (I64 I64) I64 i64.mul)
         (i64-eq (I64 I64) Bool i64.eq)
         (i64-lt (I64 I64) Bool i64.lt_s)
         (i64-le (I64 I64) Bool i64.le_s)
@@ -59,6 +63,10 @@
         (f64-gt (F64 F64) Bool f64.gt)
         (f64-ge (F64 F64) Bool f64.ge)
         (f64-div (F64 F64) F64 f64.div)
+        (f64-ieee-add (F64 F64) F64 f64.add)
+        (f64-ieee-sub (F64 F64) F64 f64.sub)
+        (f64-ieee-mul (F64 F64) F64 f64.mul)
+        (f64-ieee-div (F64 F64) F64 f64.div)
         (f64-sqrt (F64) F64 f64.sqrt)
         (f64-truncate (F64) F64 f64.trunc)
         (f64-round (F64) F64 f64.nearest)

@@ -39,6 +39,10 @@ The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
 numeric exactness and binary64 signed-zero rules remain visible in the numeric
 modules. Datums retain distinct mutable storage identity and recursive view IDs.
+Fixed-width arithmetic is checked. Datum hashing explicitly imports wrapping
+word operations; nominal `Number` inexact arithmetic and the named exact-to-F64
+conversions explicitly retain IEEE overflow results. `(sfir math)` scalar
+services also retain IEEE overflow and domain behavior.
 Graph equality and output keep their existing work lists and cycle handling.
 No generic evaluator, boxed replacement algorithm or reduced numeric domain is
 introduced by the migration.

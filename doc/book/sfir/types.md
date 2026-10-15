@@ -135,10 +135,14 @@ signature `(-> Unit)`.
 An out-of-range literal is a compile-time error. Arithmetic and conversions must
 report representation overflow instead of silently wrapping or silently
 widening the type. Floating-point rounding within range is expected; an overflow
-of the finite range is an error. Integer division by zero and signed minimum
-divided by minus one are errors as well. Some runtime overflow checks may be
-absent in the compiler MVP; that implementation gap does not change the intended
-contract. Programs must not rely on wraparound while those checks are incomplete.
+of the finite range is an error. The check uses the rounded result: a value that
+rounds back into the finite range is allowed. Integer division by zero and signed
+minimum divided by minus one are errors as well. Integer remainder of signed
+minimum by minus one is zero. Floating division by zero and invalid domains
+retain IEEE results, as do operations with explicit infinity or NaN operands;
+they are distinct from overflow of a finite arithmetic result. Underflow may
+produce a subnormal or signed zero. Explicitly named operations with different
+contracts are described among the [implementation extensions](extensions.md).
 
 Floating literals round once from the source value to the selected IEEE format,
 using nearest rounding with ties to even. A finite value just above the largest

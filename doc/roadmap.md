@@ -29,7 +29,9 @@ or library APIs are implemented. Work proceeds through these contracts:
   width and reject representation overflow at literal construction.
 - [x] Check primitive numeric conversions, including integer narrowing and
   finite floating-point narrowing overflow, on Wasm and native.
-- [ ] Check representation overflow in runtime arithmetic.
+- [x] Check representation overflow in primitive runtime arithmetic. Preserve
+  intentional hashing and numeric-library semantics through explicit wrapping
+  and IEEE operations; ordinary fixed-width overloads remain checked.
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.
