@@ -836,6 +836,10 @@ scalar numeric-token boundary: owned handles retain one lexical classification,
 while the unchanged Integer, Rational, Number, Datum and reader library bodies
 run in private scopes. Exact arithmetic stays in those Scheme libraries;
 binary64 text compatibility is checked against the Rust target's exact bytes.
+The separate output-program scope adds
+[`chez-io.scm`](benchmarks/strict-suite/chez-io.scm): binary scalar reads, borrowed
+stdout, owned file IDs and invocation cleanup. It runs the unchanged typed I/O
+and Datum writer bodies, preserving the earlier reader controls' generated text.
 
 [`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
 Browse database and backtracking matcher through counted reversible source edits.
@@ -896,6 +900,12 @@ establishes mutable list, located syntax, lexical and parse-tree representations
 source's error-only escape explicit through typed results and scoped handler
 state. The [foundation checker](tests/strict-compiler/check.py) runs identity,
 mutation, ordering and abort probes on Chez, linked Wasm and actual native64.
+[`compiler-collections.scm`](benchmarks/strict-suite/compiler-collections.scm)
+supplies concrete signatures and storage operations for the original sort,
+ordered occurrence sets, dependency graphs and queues. The adapter retains each
+complete source algorithm in a reversible ledger, including its sharing and
+mutation order. Separate complete-source Chez controls isolate the chosen map
+order without treating those controls as typed compiler coverage.
 The [port contract](benchmarks/strict-suite/compiler-port.md) distinguishes these
 checked foundations from the still-pending complete compiler adaptation.
 

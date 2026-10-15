@@ -333,6 +333,19 @@ def library_scope(root, name, continuation):
         body += ('(define string->number (case-lambda\n'
                  '  ((text) (string->number/radix text 10))\n'
                  '  ((text radix) (string->number/radix text radix))))\n')
+    if name == 'io':
+        for public, fixed in [('write-char', 'write-char-to'), ('write-string', 'write-string-to')]:
+            body += (f'(define {public} (case-lambda\n'
+                     f'  ((value) ({fixed} value (current-output-port)))\n'
+                     f'  ((value port) ({fixed} value port))))\n')
+        body += ('(define newline (case-lambda\n'
+                 '  (() (newline-to (current-output-port)))\n'
+                 '  ((port) (newline-to port))))\n')
+    if name == 'write':
+        for public, fixed in [('write', 'write-datum'), ('display', 'display-datum')]:
+            body += (f'(define {public} (case-lambda\n'
+                     f'  ((value) ({fixed} value (current-output-port)))\n'
+                     f'  ((value port) ({fixed} value port))))\n')
     bindings = ' '.join(f'({item} (vector-ref library-interface {index}))' for index, item in enumerate(names))
     return (f'(let ((library-interface (let ()\n{body}\n(vector {" ".join(names)}))))\n'
             f'  (let ({bindings})\n{continuation}))\n')
@@ -360,6 +373,40 @@ def chez_reader(root, exports):
     for library in reversed(['integer', 'rational', 'number', 'datum', 'read']):
         body = library_scope(root, library, body)
     return CHEZ_TYPES + '(define reader-interface\n' + scalar_scope(body) + ')\n' + unpack
+
+
+# ---- A complete output control owns its scalar ports until invocation exit ----
+
+
+def output_scalar_scope(body):
+    numeric = Path(__file__).with_name('chez-number.scm').read_text()
+    ports = Path(__file__).with_name('chez-io.scm').read_text()
+    captures = 'read-char peek-char string->number number->string string->symbol symbol->string'.split()
+    bindings = ' '.join(f'(host-{name} {name})' for name in captures)
+    services = ('(define scalar-interface (let ()\n' + numeric + '\n' + CHEZ_SCALARS + ports
+                + '(define (service name)\n'
+                  '  (if (and (>= (string-length name) 9)\n'
+                  '           (string=? (substring name 0 9) "snail:io/"))\n'
+                  '      (io-scalar-service name) (scalar-service name)))\n'
+                  '(vector service io-finish)))\n'
+                  '(define scalar-service (vector-ref scalar-interface 0))\n'
+                  '(define finish-ports (vector-ref scalar-interface 1))\n'
+                  '(define-syntax define-extern\n'
+                  '  (syntax-rules () ((_ name module foreign signature) (define name (scalar-service foreign)))))\n')
+    # Cleanup surrounds the invocation, not the source compiler's error handler.
+    # An ordinary host failure keeps its identity while every owned port drains.
+    invoke = ('(let ((answer (guard (failure (else (raise (finish-ports failure))))\n'
+              + body + ')))\n'
+              '  (let ((failure (finish-ports #f)))\n'
+              '    (if failure (raise failure) answer)))\n')
+    return f'(let ({bindings})\n' + services + invoke + ')\n'
+
+
+def chez_output_program(root, body):
+    body = '(let ()\n(define i64-eq =)\n(define i64-lt <)\n' + body + ')\n'
+    for library in reversed(['io', 'integer', 'rational', 'number', 'datum', 'read', 'write']):
+        body = library_scope(root, library, body)
+    return CHEZ_TYPES + output_scalar_scope(body)
 
 
 def adapted_chez(name, original, root, driver):
