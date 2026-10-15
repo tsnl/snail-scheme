@@ -7,14 +7,15 @@ bare `main.sfir` when its complete port exists. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
-There are currently 55 static SFIR programs. Forty-nine were serialized once
+There are currently 56 committed static SFIR programs. Forty-nine were serialized once
 from the resolved IR of reviewed complete ports, including Peval, Pi and
 Chudnovsky. Cat and WC have complete direct SFIR character loops and file
 lifecycles and matching adapted Chez controls. CTak and Fibc preserve call/cc behavior with explicit immutable continuation
 variants and matching original call/cc traces. Dynamic and Scheme retain complete
 benchmark-local typed implementations with separate original/adapted Chez controls.
-Compiler and SLaTeX remain pending in preserved full-source drafts. The runner
-currently registers 53 sources; Dynamic and Scheme await its lifecycle integration. The
+SLaTeX now passes its complete 500-iteration workload, all 28,500 output files and
+resource checks on the current source; Compiler remains in a preserved draft.
+The runner registers 54 sources; Dynamic and Scheme await its lifecycle integration. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
 
@@ -38,8 +39,8 @@ initializers retain their original outer scope and left-to-right effects through
 fresh temporaries before aliases bind the original names. Numeric spellings,
 algorithms, canonical inputs, counts, predicates and external controls are unchanged.
 
-All evidence referenced below and by existing per-case validation fields predates
-this surface migration. The corpus records current-surface validation as pending;
+Historical evidence referenced below predates this surface migration. The corpus
+records current-surface validation as pending except the explicit SLaTeX result;
 the older successful execution and timing records are retained verbatim and do
 not establish results for the migrated sources. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because

@@ -426,6 +426,18 @@ def specialized_validation(directory, case, target, manifest, environment):
     return 'passed' if succeeded(result) and output_files_match(source, working, target, 'sfir-wasm') else 'failed'
 
 
+def slatex_validation(directory, target, manifest, environment):
+    runtime_provider(directory, target, manifest, environment)
+    source = directory / 'source/benchmarks/sfir/slatex'
+    working = execution_directory(directory, target, 'sfir-wasm')
+    for name in ('lifecycle.json', 'output-manifest.json'):
+        shutil.copy2(source / name, working / name)
+    command = [manifest['tools']['NODE']['path'], '--no-warnings', source / 'verify.mjs',
+               target / 'program.wasm', target / 'provider.wasm']
+    result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
+    return 'passed' if succeeded(result) else 'failed'
+
+
 # ---- Separate scalar sine and decimal-text interfaces preserve the workloads ----
 
 def fft_provider(directory, target, manifest, environment, wasm):
@@ -599,6 +611,8 @@ def native_sources(directory, source, target):
     for name in ('scalar-provider.c', 'scalar-provider.h', 'scalar-entry.c'):
         shutil.copy2(directory / 'source/benchmarks/sfir/support' / name, target / name)
     (target / 'case-config.h').write_text(native_configuration(load(source / 'spec.json')))
+    if source.name == 'slatex':
+        shutil.copy2(source / 'native-entry.c', target / 'scalar-entry.c')
 
 
 def native_validation(directory, source, target, manifest, environment):
@@ -631,6 +645,8 @@ def native_execution(directory, source, target, manifest, environment):
 
 
 def output_files_match(source, working, target, route):
+    if source.name == 'slatex':
+        return numbered_outputs_match(source, working, target, route)
     if source.name not in ('cat', 'tail', 'ray'):
         return True
     spec = load(source / 'spec.json')
@@ -639,6 +655,26 @@ def output_files_match(source, working, target, route):
     observed = dict(path=path, actual=digest(working / path) if (working / path).is_file() else None, expected=expected)
     save(target / (route + '-outputs.json'), observed)
     return observed['actual'] == expected
+
+
+def numbered_output_path(pattern, iteration):
+    if isinstance(pattern, str):
+        return relative_path(pattern)
+    index = pattern['index_offset'] + pattern['index_step'] * iteration
+    return relative_path(f'{pattern["prefix"]}{index}{pattern["suffix"]}')
+
+
+def numbered_outputs_match(source, working, target, route):
+    manifest = load(source / 'output-manifest.json')
+    expected = {numbered_output_path(row['path'], iteration): row
+                for iteration in range(manifest['iterations']) for row in manifest['files']}
+    actual = {path.relative_to(working) for path in (working / 'outputs').rglob('*') if path.is_file()}
+    bad = [str(path) for path, row in expected.items() if path not in actual
+           or (working / path).stat().st_size != row['bytes'] or digest(working / path) != row['sha256']]
+    passed = len(expected) == manifest['total_files'] and actual == set(expected) and not bad
+    save(target / (route + '-outputs.json'), dict(passed=passed, expected_files=len(expected),
+         actual_files=len(actual), mismatched=bad, extra=sorted(map(str, actual - set(expected)))))
+    return passed
 
 
 def expected_file_digest(name, working, spec):
@@ -739,6 +775,8 @@ def sfir_artifacts(directory, case, source, target, manifest, environment, statu
 
 def wasm_validation(directory, case, target, manifest, environment):
     try:
+        if case['host'] == 'slatex':
+            return slatex_validation(directory, target, manifest, environment)
         if case['host'] == 'datum-io':
             return datum_validation(directory, target, manifest, environment)
         if case['host'] in ('tail', 'ray', 'nucleic'):
@@ -758,7 +796,7 @@ def sfir_validation(directory, case, source, target, manifest, environment, stat
         return
     if not sfir_artifacts(directory, case, source, target, manifest, environment, status):
         return
-    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer'):
+    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer', 'slatex'):
         stage_result(target, status, 'unavailable', f'{case["host"]} execution route has not been integrated')
         return
     stage_result(target, status, 'wasm_validation', wasm_validation(directory, case, target, manifest, environment))
@@ -931,6 +969,37 @@ class FrozenInputTests(unittest.TestCase):
         self.assertTrue(edits['complete_reverse_verified'])
         with self.assertRaises(ValueError):
             select_runtime_exports(text, {'keep', 'drop'}, {'absent'})
+
+
+class NumberedOutputTests(unittest.TestCase):
+    def test_every_numbered_file_and_no_extra_path_is_required(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'outputs').mkdir()
+            payload = b'canonical output\n'
+            save(root / 'output-manifest.json', dict(iterations=2, total_files=2, files=[dict(
+                path=dict(prefix='outputs/z', index_offset=3, index_step=57, suffix='.tex'),
+                bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())]))
+            for name in ('z3.tex', 'z60.tex'):
+                (root / 'outputs' / name).write_bytes(payload)
+            self.assertTrue(numbered_outputs_match(root, root, root, 'complete'))
+            (root / 'outputs/z60.tex').write_bytes(b'incorrect output\n')
+            self.assertFalse(numbered_outputs_match(root, root, root, 'changed'))
+            (root / 'outputs/z60.tex').unlink()
+            self.assertFalse(numbered_outputs_match(root, root, root, 'missing'))
+            (root / 'outputs/z60.tex').write_bytes(payload)
+            (root / 'outputs/z117.tex').write_bytes(payload)
+            self.assertFalse(numbered_outputs_match(root, root, root, 'extra'))
+
+    def test_number_collisions_cannot_reduce_the_expected_file_count(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'outputs').mkdir()
+            (root / 'outputs/z0.tex').write_bytes(b'')
+            save(root / 'output-manifest.json', dict(iterations=2, total_files=2, files=[dict(
+                path=dict(prefix='outputs/z', index_offset=0, index_step=0, suffix='.tex'),
+                bytes=0, sha256=hashlib.sha256(b'').hexdigest())]))
+            self.assertFalse(numbered_outputs_match(root, root, root, 'collision'))
 
 
 class NativeParityTests(unittest.TestCase):
