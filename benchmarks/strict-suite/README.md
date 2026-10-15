@@ -3,9 +3,48 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, and `matrix`.
-It records failures alongside successful cases. It is
-an explicit subset, separate from the complete default R7RS benchmark command.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, `conform`, `maze`, and `parsing`.
+
+`--benchmarks maze` prepares the complete Olin Shivers hexagonal Maze workload:
+10,000 constructions of a 20 × 7 grid, with the supplied 668-character result.
+It preserves all recursive `bitwise-and`, `div`, and `mod` operations, 367 initial
+walls and 365 random shuffle draws per construction. Typed records and explicit
+Refs replace mutable source fields; unfinished array cells and absent parents
+and entrance choices are distinct variants. The only continuation is an
+immediate lexical escape after the final connecting union and wall write. Its
+adaptation returns a completion Boolean to the reverse traversal and skips the
+same remaining walls. This does not implement general continuations.
+
+The output buffer's unobserved initial false becomes an empty typed list; `run`
+still resets it before construction and prepends/reverses every character.
+The benchmark's separate initial false result remains observable for zero or
+negative counts. The exact final predicate covers all characters, list ending,
+and false versus list values. Original and adapted Chez execute their complete
+respective kernels and preserve wrong-result printing.
+
+Maze's separate observation program checks set/cell identity, both union-find
+walks, all signed integer helper results in a small range, RNG values, the full
+constructed and shuffled wall vectors, the visited reverse prefix and skipped
+suffix, complete cell/parent/link states, every output character, and operation
+counts for all 10,000 iterations. Its instrumentation is absent from the
+production source. Rust remains the independent indexed-cell implementation:
+native bit operations, a temporary child vector, and owned character-list
+destruction differ from Scheme. Preparation starts no clean timing and does
+not increase historical measured coverage.
+
+The [complete Maze comparison](../results/2026-10-14-strict-maze-comparison/README.md)
+now passes all 56 planned clean processes. Production V8 takes 0.419037 s,
+original Chez 0.332521 s and optimized Rust/Wasm 0.246174 s. Native64 takes
+0.461827 s versus 0.417998 s for its exact final Wasm on V8 (10.49% more time).
+This separate campaign uses current source/growing-GC basis `da8519f`.
+
+The preparation driver records failures alongside successful cases. This
+adapted subset is separate from the complete default R7RS benchmark command.
+
+Historical strict measurements cover **49 of 57 workloads**, **48 with paired
+Chez controls**, including the complete Equal, Conform, Maze, Parsing and both Boyer comparisons.
+The explicit name sets are in [`capabilities.json`](capabilities.json). These are separate
+compiler checkpoints, not a complete-suite rerun on the current revision.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
 express `cond` and `do` using the strict surface. The earlier floating ports use
@@ -18,6 +57,149 @@ Later ports record their library prerequisites separately. Tail adds scalar
 text-file input to the existing strict I/O library.
 Nucleic adds scalar binary64 sine, cosine and unary arctangent to `(snail math)`;
 both production targets call the same Rust implementations.
+
+`equal` uses the complete pinned source and inputs `100, 100, 8, 1000, 2000,
+5000, #t`, with one outer harness invocation. Its five enabled cases retain all
+100, 8, 1000, 2000 and 5000 equality calls. The defined circular-list case is
+still commented out in the clean aggregate. Separate probes execute that case,
+check the complete graph shapes and sharing, and count every equality call.
+The source predicate remains `(eq? result #t)`; the final input datum is read
+but unused, as upstream specifies. Preparation checks zero-repetition phase
+failures, then separately introduces a real unequal operand in each phase and
+checks its one-call prefix and false aggregate. Mutation, alias, cyclic-mismatch
+and depth tests execute on linked raw Wasm, optimized Wasm and native.
+
+Shape probes count every pair occurrence and check the intended shared spines.
+Unshared construction also relies on the preserved recursive algorithm and
+`datum-cons` allocating two fresh Ref cells per call; adjacent sibling checks
+alone are not a global identity census. A separate native collection probe
+compares the full workload's post-return live bytes/object count with the same
+module's setup-only footprint.
+
+The adapted Chez control executes the exact Scheme datum/equality bodies and
+adapted workload. Its record representation differs from strict WasmGC. The
+unchanged Rust control uses immutable `Rc` pairs/vectors and a pointer-pair
+`HashSet`, with different constructors and destruction. These controls compare
+implementations, without an equal-allocation or isolated-collector claim.
+Use `--benchmarks equal` for correctness/control preparation; clean timing
+requires a separately coordinated frozen plan, as for the reader and Browse.
+The [completed seven-system comparison](../results/2026-10-14-strict-equal-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 2.395007 s, 9.274 times
+original Chez time and 0.511 times adapted Chez time; Rust/Wasm takes 0.933199 s.
+Native takes 2.133533 s, 11.434% less than V8 on the identical final Scheme Wasm.
+The adapted control changes representation, helpers and equality together;
+these measurements do not identify one isolated source of overhead.
+
+`nboyer` and `sboyer` retain the complete prover definitions, including the
+definitions after the original harness. Both canonical inputs request one
+invocation at size 5 and require the numeric result **51,507,739**. A false
+theorem result fails the predicate even if a separate rewrite counter happens
+to match. Preparation retains the complete input bytes, including trailing
+unused alternative data. Quoted terms and rules are constructed once before
+worker entry. Lemma installation remains inside every worker, as in the actual
+upstream harness, despite an upstream comment describing it as untimed.
+
+The adapter uses the existing typed `Datum` representation for pairs, symbols,
+numbers and mutable constructor-record vectors, with typed `Ref` cells for
+mutated bindings. It preserves the source's association lists, directional
+unification, recursive substitution, recursive rewriting and tautology search.
+SBoyer's sharing constructor returns the old pair exactly when both resulting
+fields have their original identities. Every adaptation is recorded and
+reversed back to the exact kernel text. Three explicit `let*` expressions make
+lemma translation precede the previous-lemma lookup, translate a constructor
+before its arguments, and translate each argument before the remaining list.
+These match the observed original Chez setup order. General Scheme leaves
+operand evaluation order unspecified; this is a compatibility choice for these
+pinned programs.
+
+Preparation checks the original and exactly adapted complete Chez programs,
+linked raw and Binaryen-optimized Wasm on V8, and actual mechanical native64.
+It includes full canonical inputs, size 0, repeated reset, an incorrect expected
+rewrite count and zero repetitions. Separate programs observe the complete
+ordered lemma table, failed-unification state and subsequent reset, constructor
+cycles and identities, and SBoyer's reuse rules. Counter-instrumented programs
+retain a complete normalized size-0 result and full size-5 work counts.
+Structural-order probes use uninstrumented kernel bodies because adding
+procedure-entry counters can change Chez inlining and operand scheduling.
+The counter programs also retain the final rewritten term for observation;
+their allocation counts and live ranges do not describe clean execution.
+
+The historical `6fd5ca4` preparation selected fixed native reservations of
+2 GiB for NBoyer and 1 GiB for SBoyer after its default 256 MiB reservation
+exhausted. Those failed capacity diagnostics and statistics remain old controls,
+not successful correctness cases or clean timing samples. They were the smallest
+successful tested reservations, not proven minimum requirements. The fresh
+`a707974` comparison uses the current default growing precise collector with
+all policy knobs unset, a 256 MiB initial region and no configured hard cap. The same final module used by native lowering is
+also executed directly on V8. The unchanged Rust controls retain their own
+`Rc` calls and argument cells, integer constructor IDs, vector symbol table,
+tail loops and destruction schedule. The source constants match, while the
+implementations and allocation behavior differ.
+
+Use `--benchmarks nboyer sboyer` for the historical correctness/control
+preparation. The [complete seven-system comparison](../results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes with both original count 1/size 5/51,507,739-rewrite
+predicates. NBoyer medians are V8 11.950027 s, native64 10.299261 s and original
+Chez 0.887105 s. SBoyer takes V8 3.504130 s, native64 4.685959 s and original
+Chez 0.372582 s. Native takes 13.52% less time for NBoyer and 33.26% more for
+SBoyer than V8 on their exact native-final Wasm. All seven controls, actual
+terminal/cleanup records and independent raw replay pass. Historical ordered
+work/alias/reset observations and separate forced-GC totals remain diagnostic;
+reused Rust binaries and implementation differences are explicit.
+
+`conform` retains the original 500 invocations with names `(a b "c" "d")`
+and the complete ordered 31-string result predicate. Concrete Node, BlueEdge,
+Graph, Table and Row records expose the source's mutable vector and pair fields
+as Refs. Name, unfinished/NONE/ready blue edges, and optional lookup results are
+closed variants. The graph algorithm uses typed functional lists; Datum is
+confined to the input boundary. The original alternating split/merge sort,
+functional sets, copied node-list construction, shared memo tables, insertion
+before recursive construction, and temporary red-edge lifecycle remain.
+
+Preparation executes original Chez and the exact adapted Scheme kernel on Chez,
+raw and optimized Wasm, and mechanical native64. Separate probes compare ordered
+graph/table snapshots, 38 identity/alias/order assertions, and every iteration's
+complete result and 30 work-counter deltas across all 500 invocations. A native
+run lowers the collection threshold to exercise exact tracing during that work.
+The list-copy expression remains verbatim; strict List has no pair-identity
+predicate, so physical list-spine identity is not directly observed. Clean
+artifacts have no probe counters. The unchanged Rust control uses arena indices,
+Vec tables/sets, VecDeque sorting and Rc names, with different allocation and
+reclamation. Use `--benchmarks conform` for preparation; clean timing uses the
+separately frozen seven-system commands and needs a coordinated quiet window.
+The [complete Conform comparison](../results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 1.599663 s, original Chez
+0.891038 s and adapted Chez 2.571687 s; native64 takes 1.825969 s versus
+1.605583 s for V8 on the exact native-final Scheme Wasm (13.73% more time).
+Default engine/collector settings and all seven serial position rotations remain.
+Separate counted/GC observations are outside clean timings. This artifact basis
+is `43322a2`, with ledger-only correction `7bd327f` recorded independently.
+
+`parsing` retains all 936 source lines, the complete 28,300-byte input, all
+2,500 parses and the full `(should return this list)` predicate. Its actual
+timed worker loads the entire file once through the original character-list
+algorithm, despite a source comment describing that load as untimed. Generated
+scanner states, the LL(1) grammar, simultaneous `do` updates and original EOF,
+string and character quirks remain. Eight explicit `Ref` bindings and the
+existing Symbol/Datum libraries expose the supported representations.
+
+The [Parsing preparation](../results/2026-10-14-strict-parsing-preparation/README.md)
+passes original/adapted Chez, raw/optimized linked Wasm, actual native and
+unchanged Rust controls. Separate probes compare complete accepted-token and
+top-level-datum streams, entry counts for 79 named procedures, and prefix-copy,
+suffix-sharing, mutation and parser-reset behavior. The adapted kernel and
+complete Chez program reverse exactly to their original sources. Numeric
+support remains bounded by the existing Datum library; rational and oversized
+exact values are outside this port's supported domain. Use `--benchmarks parsing`
+for preparation. Preparation clocks remain separate from clean measurements.
+The [complete Parsing comparison](../results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 planned processes at the original count and final predicate.
+Production V8 takes 2.361375 s, native64 1.481803 s, original Chez 1.195848 s,
+adapted Chez 1.971951 s and Rust/Wasm 0.759769 s. Native takes 38.07% less time
+than V8 on the exact native-final Wasm (2.392723 s). The timed file load remains
+inside the worker; no per-parse assertion was added. This separately frozen
+campaign uses `8930aaa` with the growing native collector and counter-free
+provider, and does not remeasure the earlier compiler checkpoints.
 
 ## Run
 
@@ -80,8 +262,15 @@ repeat counts therefore have different results from upstream and are outside
 the promised equivalence. The complete original source remains the Chez input.
 
 The [checked report](../results/2026-10-13-strict-kernels/README.md) preserves the
-balanced batch and default-stack failure. `replay.py DESTINATION` verifies and
-restores its archive without executing workloads. `flonum.py` provides a separate
+balanced batch and historical default-stack failure. The
+[current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
+passes the unchanged full input on V8 and native64 without stack flags; clean
+timing now has a [seven-system comparison](../results/2026-10-14-strict-ack-comparison/README.md).
+All 56 processes pass: production V8 takes 1.109322 s, native64 0.757917 s and
+original Chez 0.821724 s. Native uses 32.04% less time than V8 on the exact
+native-final Scheme Wasm. Recursive and heap-frame Rust controls remain separate.
+`replay.py DESTINATION` verifies and restores the original
+archive without executing workloads. `flonum.py` provides a separate
 paired control using the unchanged strict artifacts and explicit Chez flonum
 operations; its `prepare` and `measure` commands take the same `--output` path.
 The supported controls are `fibfp`, `sumfp`, `mbrot`, and `pnpoly`; select cases
@@ -828,3 +1017,111 @@ build further optimizes its Wasm input, so a separate V8 row executes the exact
 native-final module: 0.700726 s versus native's 1.901276 s, a 2.713× ratio.
 Every ordered result and frozen identity passes; ownership, algorithm and
 allocation differences remain explicit.
+
+## Complete exact-integer workloads
+
+The complete pi and Chudnovsky preparation uses the reusable
+[`(snail integer)`](../../src/snail/integer.sld) library. Run
+`python3 benchmarks/strict-suite/integer_ports.py pi chudnovsky` after
+`scripts/test-strict-integer`. The adapter retains all three pi algorithms at
+100 repetitions and the original Chudnovsky binary split at 1,000 repetitions;
+both keep the full 50, 100, ..., 500 digit tables. Source edits are reversible,
+all mathematical integers use the private WasmGC limb representation, and the
+scalar count/digit controls remain I64. Preparation compares every output value
+across original Chez, adapted Chez using native big integers, the same limb
+Scheme body with checked scalar arithmetic on Chez, raw/optimized Wasm and
+native64. These are correctness preparations, with no clean timing claim.
+
+`python3 benchmarks/strict-suite/integer_controls.py --output build/integer-controls-FRESH`
+prepares production V8, the native-final Wasm on V8, native64, compiled original
+Chez, compiled adapted Chez using native big integers, compiled Chez executing
+the checked limb body, Rust native, and optimized Rust/Wasm. The output directory
+must be new. The script validates complete canonical outputs, count 0/1/2
+behavior, and wrong-result rejection; a separate Scheme probe emits every
+complete result at the full original repetition count. It retains raw Wasm too.
+
+The optional clocks include numerical computation and the final complete result
+predicate. Parsing expected values, module initialization, and decimal output
+are outside. The same-limb Chez control converts expected values to its Integer
+representation before computation and compares numerically; Chez's general
+vectors and scalar representation still differ from native WasmGC I32 arrays.
+Scheme scalar opacity providers count calls, including in timed mode; the Rust
+reference uses `black_box`. These provider costs and layout differences remain
+part of their respective controls. Every validation mode leaves clocks disabled.
+Measurements require a separately coordinated invocation of the frozen artifacts;
+preparation does not add measured workload coverage.
+
+The output includes `timing-plan.json` with the sixteen concrete workload/system
+commands, artifact hashes, input paths, and environment guards. It does not
+execute that plan. A clean-directory import check covers the frozen preparation
+modules, including their `data_ports.py` dependency. The native-final V8 module
+is checked byte-for-byte against the module consumed by native lowering.
+The [control evidence](../results/2026-10-14-strict-integer-controls/README.md)
+records actual default-V8 tiers and native code alongside the separate probes.
+
+The subsequent [eight-system comparison](../results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned processes. Snail/V8 takes 2.243027 s for pi and
+0.716851 s for Chudnovsky, 10.497× and 8.264× original Chez time. Native takes
+1.782729 s and 0.658789 s: 19.88% and 8.28% less time than V8 on the identical
+native-final Scheme modules. Original/adapted Chez native bigints, checked
+limb-body Chez and Rust num-bigint remain separate controls. Together with the
+reader measurements below, historical coverage reaches 41 workloads and 40
+paired Chez comparisons across different compiler checkpoints.
+
+The subsequent [bigint loop ablation](../results/2026-10-14-bigint-loop-ablation/README.md)
+replaces one hot long-division self-tail call with a local backedge, keeping
+arithmetic and guards. All 110 clean processes pass, but matching roundtrip
+controls show no useful workload gain: Pi takes 1.0125× raw-control time and
+1.0270× after equal extra optimization; Chudnovsky takes 1.0108× and 0.99558×.
+Separate whole-process profiles and actual V8 code captures are retained.
+This negative artifact experiment adds no compiler change or suite coverage.
+
+## Complete file readers
+
+Select `--benchmarks sum1 read1` to prepare the complete upstream programs with
+the reusable `(snail datum)` and `(snail read)` libraries. Sum1 retains 25 reads
+of its 100,000-number file and the original `1e-9` result tolerance. Read1 retains
+2,500 complete reads of `parsing.data`, its simultaneous `do` updates and the
+complete final list predicate. Configuration parsing happens during setup;
+every worker's actual file open/read-through-EOF/close stays inside its clock.
+
+The [preparation report](../results/2026-10-14-strict-reader-preparation/README.md)
+records original/adapted Chez, raw/optimized Wasm and native correctness,
+complete canonical streams/results, negative predicates and changed-file calls.
+The exact native-final Scheme module has a separate V8 scalar-provider control.
+Unchanged Rust programs pass canonical stream/result checks with their different
+numeric scanner, owned textual atoms and whole-file buffering disclosed.
+The [seven-system comparison](../results/2026-10-14-strict-reader-comparison/README.md)
+records all 112 planned fresh processes at the original counts. Production V8
+takes 2.621× original Chez time for Sum1 and 8.450× for Read1; the corresponding
+adapted-Chez ratios are 1.074× and 1.850×. The report keeps the earlier native
+allocator basis, scalar-provider differences and narrower Rust readers explicit.
+Subsequent [independent reader ablations](../results/2026-10-14-strict-reader-ablations/README.md)
+replace fixed delimiter scanning and repeated ordinary-atom staging. A separate
+[combined campaign](../results/2026-10-14-strict-reader-combined/README.md) measures
+22.6% less Read1 time and a 9.2% lower Sum1 median, whose baseline is variable.
+Those comparisons use the current Snail baseline, without fresh Chez timings.
+The generic `measure` command rejects these reader cases: their separately frozen
+plan preserves file I/O, setup and cleanup boundaries and requires a coordinated
+quiet window. The initial zero-sample dependency failure remains archived.
+
+## Complete Browse workload
+
+The [complete preparation](../results/2026-10-14-strict-browse-preparation/README.md)
+preserves the source property lists, interned symbols, cyclic pattern ring,
+destructive shuffle and all three matcher-result classes through the reusable
+Datum library and explicit Ref cells. Five Scheme paths pass the original
+2,000 invocations and complete 100-value predicate; ordered internal traces at
+counts 1/2 and separate clean-artifact matcher-retention checks support the
+work discarded by the final database predicate. Full-count internal traces
+were not recorded.
+
+The [seven-system comparison](../results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 4.037493 s, 7.673× original
+Chez time, 0.635× adapted Chez time and 2.055× Rust/Wasm time. Native takes
+7.409398 s versus 4.297396 s for the identical native-final Scheme Wasm on V8
+(1.724×). Adapted Chez itself takes 12.088× original Chez time; helpers and
+representation change jointly. Rust's Rc lists, Vec properties/database,
+string symbols, copied star-prefixes and Boolean matcher results differ.
+All retained variance remains. The frozen compiler/library basis is `15d2c64`,
+with separately recorded native/control source and tool provenance.

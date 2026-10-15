@@ -1,8 +1,8 @@
-# Strict text-file input and output
+# Strict text input and output
 
 Import `(snail io)` alongside `(snail strict)`. The Scheme library owns character
 iteration, line construction and integer formatting. The ordinary Rust runtime owns buffered UTF-8
-files. Its scalar interface carries characters and integer IDs, with no Scheme
+files and borrows process stdout. Its scalar interface carries characters and integer IDs, with no Scheme
 reference, value wrapper, root table, or dynamic dispatch.
 
 | Operation | Signature |
@@ -20,10 +20,12 @@ reference, value wrapper, root table, or dynamic dispatch.
 | `call-with-input-file` | `All (T). String, (InputPort -> T) -> T` |
 | `open-output-file` | `String -> OutputPort` |
 | `close-output-port` | `OutputPort -> Unit` |
-| `write-char` | `Char, OutputPort -> Unit` |
-| `write-string` | `String, OutputPort -> Unit` |
+| `current-output-port` | `() -> OutputPort` |
+| `output-port=?` | `OutputPort, OutputPort -> Bool` |
+| `write-char` | `Char, OutputPort -> Unit` or `Char -> Unit` |
+| `write-string` | `String, OutputPort -> Unit` or `String -> Unit` |
 | `write-i64` | `I64, OutputPort -> Unit` |
-| `newline` | `OutputPort -> Unit` |
+| `newline` | `OutputPort -> Unit` or `() -> Unit` |
 | `call-with-output-file` | `All (T). String, (OutputPort -> T) -> T` |
 
 ```scheme
@@ -57,6 +59,22 @@ closed its borrowed port. A callback's returned alias is closed before the
 result is returned. Reading or writing through a closed alias fails. Rust validates raw
 handles independently, issues each ID only once, and checks exhaustion before
 creating or truncating a file.
+
+`current-output-port` always returns one stable wrapper borrowing process stdout.
+`output-port=?` compares the private shared handle Ref, including after a file is
+closed. Distinct file opens have distinct identities. Stdout uses reserved scalar
+ID `-2`, outside the owned-file ID range; Scheme and raw scalar close are both
+no-ops for this borrowed stream. Close leaves the stdout wrapper usable, and
+invocation cleanup never closes its process descriptor. There is no current-port
+setter or dynamic rebinding. One-argument `write-char`/`write-string` and
+zero-argument `newline` call the same explicit-port implementation with this
+stdout wrapper. Even an empty string write validates its port's open output
+direction. Stdout writes use the existing flushed stream implementation.
+
+[`(snail write)`](strict-write.md) formats concrete recursive Datum values through
+these same explicit scalar operations. It supplies default and explicit-port
+`write`/`display`, retaining arbitrary exact Number formatting and finite cyclic
+diagnostic graphs.
 
 `LineResult` has the cases `(end-of-file)` and `(line text)`. `read-line` returns
 EOF only when it sees EOF before any character or terminator. LF, CR and CRLF
