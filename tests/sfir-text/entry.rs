@@ -56,9 +56,14 @@ fn records(name: &str) -> Vec<Vec<u32>> {
 }
 
 unsafe fn scalars() {
-    for row in records("scalars.txt") {
+    for line in std::fs::read_to_string("scalars.txt").unwrap().lines() {
+        // Unspecified scalar fields use -1 in the independent oracle.
+        let row: Vec<i64> = line
+            .split_whitespace()
+            .map(|word| word.parse().unwrap())
+            .collect();
         assert_eq!(row.len(), 5);
-        let code = row[0];
+        let code = u32::try_from(row[0]).unwrap();
         unsafe {
             println!(
                 "{code} {} {} {} {}",
