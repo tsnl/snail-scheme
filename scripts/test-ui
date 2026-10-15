@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""Exercise the real Chibi HTML host. Requires Python 3 and chibi-scheme."""
+
+import contextlib
+import http.client
+import os
+from pathlib import Path
+import socket
+import subprocess
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+from html.parser import HTMLParser
+
+ROOT = Path(__file__).resolve().parents[1]
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+
+
+class Page(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.actions, self.outputs, self.ids = {}, {}, set()
+        self.form, self.button, self.output = None, None, None
+        self.disabled = 0
+        self.feed(html)
+
+    def handle_starttag(self, tag, attributes):
+        attrs = dict(attributes)
+        if "id" in attrs:
+            self.ids.add(attrs["id"])
+        if tag == "form":
+            assert self.form is None, "nested form"
+            assert attrs["method"] == "post"
+            self.form = attrs["action"]
+        elif tag == "button":
+            self.button = ""
+            self.disabled += "disabled" in attrs
+        elif tag == "output":
+            self.output = attrs["id"]
+            self.outputs[self.output] = ""
+
+    def handle_data(self, data):
+        if self.button is not None:
+            self.button += data
+        if self.output is not None:
+            self.outputs[self.output] += data
+
+    def handle_endtag(self, tag):
+        if tag == "form":
+            self.form = None
+        elif tag == "button":
+            if self.form:
+                self.actions[self.button] = self.form
+            self.button = None
+        elif tag == "output":
+            self.output = None
+
+
+def request(port, method="GET", path="/"):
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    try:
+        connection.request(method, path, body=b"" if method == "POST" else None)
+        response = connection.getresponse()
+        return response.status, dict(response.getheaders()), response.read().decode()
+    finally:
+        connection.close()
+
+
+@contextlib.contextmanager
+def server(script):
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    with tempfile.TemporaryFile(mode="w+") as log:
+        process = subprocess.Popen([CHIBI, "-I", "src", script, str(port)],
+                                   cwd=ROOT, stdout=log, stderr=log)
+        try:
+            wait_for_server(process, port)
+            yield port
+        except BaseException:
+            log.seek(0)
+            print(log.read())
+            raise
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+
+def wait_for_server(process, port):
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        assert process.poll() is None, "Chibi server exited"
+        try:
+            assert request(port)[0] == 200
+            return
+        except (ConnectionRefusedError, ConnectionResetError):
+            time.sleep(0.05)
+    raise AssertionError("Chibi server did not start")
+
+
+def current_page(port):
+    status, headers, body = request(port)
+    assert status == 200
+    assert headers["Cache-Control"] == "no-store"
+    assert body.startswith("<!doctype html>")
+    return Page(body), body
+
+
+def submit(port, page, label):
+    status, headers, body = request(port, "POST", page.actions[label])
+    assert status == 303, (status, body)
+    assert headers["Location"] == "/"
+    return current_page(port)[0]
+
+
+def test_workbook():
+    snapshot = subprocess.check_output([CHIBI, "-I", "src", "examples/ui.scm", "--html"],
+                                       cwd=ROOT, text=True)
+    static = Page(snapshot)
+    assert static.outputs["count"] == "0" and not static.actions and static.disabled == 4
+    with server("examples/ui.scm") as port:
+        page, initial = current_page(port)
+        assert page.outputs["count"] == "0" and "notes" not in page.ids
+        assert current_page(port)[1] == initial
+        assert request(port, "GET", page.actions["Increase"])[0] == 404
+        assert request(port, "PUT")[0] == 405
+        old_action = page.actions["Increase"]
+        page = submit(port, page, "Increase")
+        assert page.outputs["count"] == "1"
+        assert request(port, "POST", old_action)[0] == 409
+        assert request(port, "POST", "/event/unknown")[0] == 409
+        page = submit(port, page, "Show explanation")
+        assert "notes" in page.ids and page.outputs["count"] == "1"
+        page = submit(port, page, "Hide explanation")
+        assert "notes" not in page.ids
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: request(port, "POST", page.actions["Increase"])[0], range(2)))
+        assert sorted(results) == [303, 409], results
+        page, _ = current_page(port)
+        assert page.outputs["count"] == "2"
+        page = submit(port, page, "Decrease")
+        assert page.outputs["count"] == "1"
+        page = submit(port, page, "Reset")
+        assert page.outputs["count"] == "0"
+
+
+def test_failed_transitions():
+    with server("tests/ui-server.scm") as port:
+        page, initial = current_page(port)
+        assert page.outputs == {"count": "0", "calls": "1"}
+        for label in ("Fail reducer", "Fail view", "Fail HTML"):
+            assert request(port, "POST", page.actions[label])[0] == 500
+            assert current_page(port)[1] == initial
+        page = submit(port, page, "False message")
+        assert page.outputs["count"] == "1"
+        old_actions = page.actions
+        page = submit(port, page, "No change")
+        assert page.outputs["count"] == "1" and page.actions != old_actions
+        assert request(port, "POST", old_actions["No change"])[0] == 409
+        stale_action = page.actions["False message"]
+    with server("tests/ui-server.scm") as port:
+        assert request(port, "POST", stale_action)[0] == 409
+        assert current_page(port)[0].outputs["count"] == "0"
+
+
+if __name__ == "__main__":
+    test_workbook()
+    test_failed_transitions()
+    print("UI HTTP checks passed (snapshot, reducers, stale/concurrent actions, failures, restart).")

@@ -1,14 +1,14 @@
 ;; Portable source compilation: library loading, expansion, and Wasm datums.
 ;; A build driver can supply a generator resolver without importing host effects.
 (define-library (snail-scheme compiler)
-  (export source-file->wasm source-file->wat-file syntax-list->wasm
+  (export source-file->wasm source-file->wat-file syntax-list->wasm source-library->wasm
           library-generator read-library-form)
-  (import (scheme base) (scheme cxr) (scheme file)
+  (import (scheme base) (scheme cxr) (scheme file) (scheme write)
           (snail-scheme chromium-trace) (snail-scheme bootstrap)
           (snail-scheme reader) (snail-scheme syntax-parser)
           (snail-scheme expand) (snail-scheme wasm) (snail-scheme syntax)
-          (only (snail-scheme ir) make-value-definition)
-          (only (snail-scheme library) make-library make-named-binding))
+          (only (snail-scheme ir) make-value-definition value-definition?)
+          (snail-scheme library))
   (begin
 
     ;; ---- Portable compilation ----
@@ -40,6 +40,50 @@
              (extensions (make-extension-library (map car foreign)))
              (program (syntax-list->ir-library forms (library-loader root directories) (list core extensions))))
         (ir-library->wasm program foreign entry)))
+
+    ;; ---- Actor library facade ----
+
+    ;; Load the user's library and the codec in one expansion cache. The facade
+    ;; has no executable body: its resolved exports retain the original bindings.
+    ;; Prefixes separate codec operations from user methods without reserving names
+    ;; inside the user's library. Macro exports never become runtime methods.
+    (define (actor-library forms loader initial)
+      (if (not (= (length forms) 1)) (error "actor compilation expects one define-library"))
+      (let* ((form (car forms)) (name (actor-library-name form))
+             (source (actor-imports name))
+             (facade (syntax-list->ir-library
+                      source (lambda (requested) (if (equal? requested name) form (loader requested)))
+                      initial)))
+        (make-library #f (library-imports facade) (actor-exports facade)
+                      (library-dependencies facade) '() (library-loc facade))))
+
+    (define (actor-library-name form)
+      (let ((datum (syntax->datum form)))
+        (if (not (and (pair? datum) (eq? (car datum) 'define-library)
+                      (pair? (cdr datum)) (list? (cadr datum)) (pair? (cadr datum))))
+            (error "actor compilation expects one define-library"))
+        (if (equal? (cadr datum) '(snail-scheme actor-wire))
+            (error "the actor codec cannot be its own entry library"))
+        (cadr datum)))
+
+    (define (actor-imports name)
+      (let ((port (open-output-string)))
+        (write `(import (prefix ,name method:)
+                        (prefix (snail-scheme actor-wire) wire:)) port)
+        (reader->syntax-list (string->reader "<actor imports>" (get-output-string port)))))
+
+    (define (actor-exports facade)
+      (let loop ((bindings (import-declaration-bindings (car (library-imports facade)))))
+        (cond ((null? bindings) '())
+              ((value-definition? (named-binding-definition (car bindings)))
+               (cons (car bindings) (loop (cdr bindings))))
+              (else (loop (cdr bindings))))))
+
+    (define (source-library->wasm root input)
+      (let* ((core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
+             (forms (source-file->syntax-list input))
+             (program (actor-library forms (library-loader root '()) (list core))))
+        (ir-library->wasm program '() #f #t)))
 
     ;; ---- Library loading and the build-stage boundary ----
 

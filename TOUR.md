@@ -916,3 +916,22 @@ coverage table retains failed and unported workloads.
 [`benchmarks/strict-wc/`](benchmarks/strict-wc/README.md)
 extends the scalar-I/O experiment to Unicode character/word/line counting inside
 the frozen legacy harness, with native counts and an owned input-port wrapper.
+
+## Actor and HTML prototypes
+
+`source-library->wasm` in `compiler.sld` loads an actor library and its
+`actor-wire.sld` codec into one expansion cache. The facade retains resolved
+value exports while excluding macros. `wasm.sld` emits same-instance ABI wrappers
+and a guarded initializer; `scripts/build-actor` links the current Rust runtime
+and platform through the existing Binaryen pipeline.
+
+`runtime/actor-instance.mjs` owns the instance-local roots. `runtime/actors.mjs`
+and `actor-worker.mjs` send only bounded S-expression text between separate Node
+subprocesses; connection-owned promises fail when a worker or connection closes.
+Traps discard the instance rather than reentering it for cleanup.
+
+`react.sld` resolves reusable tree components, `html.sld` renders those trees,
+and `ui.sld` pairs immutable application models with reducers and views.
+`ui-server.sld` is the local Chibi HTTP host: it prepares the next complete page
+before publication and rejects stale actions. These prototypes do not implement
+the planned browser GUI or general Node platform spawn/connect interfaces.

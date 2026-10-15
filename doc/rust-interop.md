@@ -127,3 +127,8 @@ watched wrapper, even transitively through mutable Scheme data. A registry
 holding only an integer stack ID does not avoid this cycle if a global table
 still retains the stack and its roots. Automatic cancellation of arbitrary
 cyclic suspended computations therefore needs more than this finalizer shim.
+
+The [actor prototype](../examples/actors/README.md) uses these same instance-local
+ABI roots around exported Scheme calls. Each Node subprocess owns its linked
+Wasm instance; only serialized S-expression data crosses connections. Traps
+retire the process rather than reentering a failed instance for root cleanup.
