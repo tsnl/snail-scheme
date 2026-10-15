@@ -1,0 +1,3248 @@
+{
+  "archive": "diagnostics.tar.gz",
+  "sha256": "f9789a452fe6dc94c4fd61329f5950a3e45d73f8872532b06c554cf3587d0f8d",
+  "bytes": 13646985,
+  "files": [
+    {
+      "path": "chez-numeric-bridge/format-check.json",
+      "sha256": "0c591e0b399f494655e372285c24cedeb72d04a8d1a34669630d38f989a5bc85",
+      "bytes": 384
+    },
+    {
+      "path": "chez-numeric-bridge/format-final-check.json",
+      "sha256": "4ea5bf2ff6b7a94de9c2cd9c82fdd6ae7ee8250205bf8adf54ca908a93bee74d",
+      "bytes": 562
+    },
+    {
+      "path": "chez-numeric-bridge/format-final-write.json",
+      "sha256": "6c3b95cd7409a38e6f50e4e14de625443647600f44a3a9ce3e2662dcf44514b3",
+      "bytes": 562
+    },
+    {
+      "path": "chez-numeric-bridge/format-followup-check.json",
+      "sha256": "56470917aedfd694d1f64c0702ac443086c2531fa43ce6a2670fae7b00720a23",
+      "bytes": 468
+    },
+    {
+      "path": "chez-numeric-bridge/format-followup-write.json",
+      "sha256": "591d6216b730d2d4a8a7d11853da6ed0f489db855d37b2fd89c2a5d703b293fe",
+      "bytes": 468
+    },
+    {
+      "path": "chez-numeric-bridge/format-write.json",
+      "sha256": "6b7cd327a547f75c03a225462ca1fbb7ec6ae6e6c22ba0e1a49425e97995a3f5",
+      "bytes": 384
+    },
+    {
+      "path": "chez-numeric-bridge/smoke-chez.json",
+      "sha256": "0fb58fc1990b40f9aeb847a7edba3127306c636f2a998a229e543d664e3c2f05",
+      "bytes": 794
+    },
+    {
+      "path": "chez-numeric-bridge/smoke.chez.scm",
+      "sha256": "4d2c974490c38bf52652d1a53b679756c5baefca6d45c830fe9c4269be8af5e3",
+      "bytes": 140038
+    },
+    {
+      "path": "chez-numeric-bridge/subnormal-writer.json",
+      "sha256": "d27f39cfb58802045a1b1118a97e50e522863acf6e73755ef62895aaccdab5ad",
+      "bytes": 518
+    },
+    {
+      "path": "chez-numeric-bridge/subnormal-writer.scm",
+      "sha256": "84f9e8e0c373a18c537843bae1ccfa94c1443bd1015a1b5b9636d39c59e2cffd",
+      "bytes": 308
+    },
+    {
+      "path": "chez-numeric-bridge-v1/domain-chez.json",
+      "sha256": "e6937417c467322f0c83e0d989d6a35cd4be4e9761e0520e7ffa6172e3d49153",
+      "bytes": 459
+    },
+    {
+      "path": "chez-numeric-bridge-v1/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v1/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v1/domain.chez.scm",
+      "sha256": "980714a624ff7d3b8f4eaf43b45039b3b9528ae0dea4000b24d48b8d9e599b83",
+      "bytes": 178497
+    },
+    {
+      "path": "chez-numeric-bridge-v2/domain-chez.json",
+      "sha256": "803f3d57e4df87e88160a8954cc1bcb6e00fb622d2ba9c391c148c46a06cd863",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v2/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v2/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v2/domain.chez.scm",
+      "sha256": "5b020fbca9f9e39a897d5b2562b3f8c704f4e46f4cf8e28d7e55de32b2d163d8",
+      "bytes": 178591
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-chez.json",
+      "sha256": "724c5a0360981655b68c41367f774a9b4cef5931f013adfd6d729f135f4a33bb",
+      "bytes": 490319
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-comparison.json",
+      "sha256": "d9d58d547072b1d2051f313cb1d481ea390d4edd16bf899acdb9ec6e25a9fda4",
+      "bytes": 2392
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-reference-build.json",
+      "sha256": "d28a3138ef8590e92e6beadbc2d47c9a32d7a04cb73907b72e386bc6e867e834",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-reference-run.json",
+      "sha256": "cbea975a91d8b0d3a151038a63714f912e6035b774b6c5250a9e01727a81fbc2",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v2/format.chez.scm",
+      "sha256": "56d9005e618c0b0cb9f85899cabc1c39fa57e884f9aac05e423c089897969df7",
+      "bytes": 19978
+    },
+    {
+      "path": "chez-numeric-bridge-v3/domain-chez.json",
+      "sha256": "e8444baa0fdc719fd4b4f0887581f01694ea06070f8c5ccbaa31796390f775c3",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v3/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v3/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v3/domain.chez.scm",
+      "sha256": "4275826ba460ec3dfc19a59be5dcd700f475d21ac3a5ebe04ed51a2f3b383825",
+      "bytes": 178913
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-chez.json",
+      "sha256": "07044464813001ca5685bd39c037c252f38c928202a879049fff9412390ba3cf",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-reference-build.json",
+      "sha256": "b062cbd9dd56dd5f675ec1b4f1587794023ff05934b704218e7b00c379b2d9de",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-reference-run.json",
+      "sha256": "b064adb18413985114c91a3b6004743503bc6e67f65cf4356c21523fe508cdf6",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v3/format.chez.scm",
+      "sha256": "8390441339a664c0044adf9cc22c945559494b987bda44797fab34dd29dad23b",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v4/domain-chez.json",
+      "sha256": "cee73b05b3254424eb43f2d144ffbbd69ff1454ae63d691b3818e2c27a06008e",
+      "bytes": 376
+    },
+    {
+      "path": "chez-numeric-bridge-v4/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v4/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v4/domain.chez.scm",
+      "sha256": "4275826ba460ec3dfc19a59be5dcd700f475d21ac3a5ebe04ed51a2f3b383825",
+      "bytes": 178913
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-chez.json",
+      "sha256": "fcd8c6209fa9546fc90c2cdc7f267a972721f9aba1dd36ef3142a51b272ad2d2",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-reference-build.json",
+      "sha256": "01d8f978bec5ba5ed86ef766be5eea3857e4bd379c6d0b1d27d554a2b63382ec",
+      "bytes": 436
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-reference-run.json",
+      "sha256": "8aa8320846a208b9aa7d305f8fc751bafa4737294e402e3e191d16b8098597c8",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v4/format.chez.scm",
+      "sha256": "edf0815cdd9d91ffcf4377029ce3ef94ef6fd5b5be06162cfa95fe1919238509",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v4/scalar-chez.json",
+      "sha256": "d774bae51d20cb6ff0f50f460cb1cfe5120181ade3a7492ed10fbbcb245fd310",
+      "bytes": 449
+    },
+    {
+      "path": "chez-numeric-bridge-v4/scalar-oracle.json",
+      "sha256": "897b59f30b925d3588845a6def86aeeb37fbba09fdf0d184afb25cd90faf4706",
+      "bytes": 4645543
+    },
+    {
+      "path": "chez-numeric-bridge-v4/scalar-replay.chez.scm",
+      "sha256": "16d13ffddc9119bebf0fbc38ca346cda82cc4dbe15d1846a00c9593130dbcee3",
+      "bytes": 146935
+    },
+    {
+      "path": "chez-numeric-bridge-v4/scalar-replay.json",
+      "sha256": "aa99ba3e9fa4dfe660d5c128445588864b3c4bdbeab3ff5aa37532fccb069373",
+      "bytes": 571
+    },
+    {
+      "path": "chez-numeric-bridge-v4/scalar.chez.scm",
+      "sha256": "4c894f21d08da209617c47c4a12aae5fe937e34c066e015481c149561c495277",
+      "bytes": 1993415
+    },
+    {
+      "path": "chez-numeric-bridge-v5/domain-chez.json",
+      "sha256": "9c1185bf8863e27c4e65eb5890cf71ed707c5343f343a30cd2162420c7e6a1d5",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v5/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v5/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v5/domain.chez.scm",
+      "sha256": "b3d921e368ce07da9fd3c1f485833771c2159e222660a4aa27eaf0a4906aff85",
+      "bytes": 178897
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-chez.json",
+      "sha256": "172b65d6515d808e86dea289b1cfef5e797c726bdd853f1c94ed9242ca0d7274",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-reference-build.json",
+      "sha256": "7db5aa69fb2cb5041e44b7a79d8d94c91941ebb3a80f6db2f7867ca51f434f5a",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-reference-run.json",
+      "sha256": "7941a2fbe95b81a6c705658489138b5fa9e840b03633e40448b6ab4c9884b181",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v5/format.chez.scm",
+      "sha256": "d658ce37425c32890c120448bc7299aa06f33f663bdf353bece340b03a4c1118",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v5/scalar-chez.json",
+      "sha256": "9be03cd8ced020ae294a72a5cd56ae2b1eb11fc94b2f44406d2022cb61754f10",
+      "bytes": 371
+    },
+    {
+      "path": "chez-numeric-bridge-v5/scalar-oracle.json",
+      "sha256": "a174baf8e5052cdf458637e965d46edcfb2a5e359b329c08e1c9556826f2d98b",
+      "bytes": 4645544
+    },
+    {
+      "path": "chez-numeric-bridge-v5/scalar.chez.scm",
+      "sha256": "9705f45461dc972132899073e76a76e6f79a92d98b662abb5dc8d6a9fee04e7f",
+      "bytes": 1993400
+    },
+    {
+      "path": "chez-numeric-bridge-v6/domain-chez.json",
+      "sha256": "71114e6142b6997ae018b01f8dcde99f1fcdce00f347395b374f257cba017b8d",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v6/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v6/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v6/domain.chez.scm",
+      "sha256": "b3d921e368ce07da9fd3c1f485833771c2159e222660a4aa27eaf0a4906aff85",
+      "bytes": 178897
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-chez.json",
+      "sha256": "4a97be876b42cf2c84b4d8bf3d7ef0449faecca838b37421f1cff082fff451e2",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-reference-build.json",
+      "sha256": "a70335b725b8e87381cbb82bacbdf7f46f76a35ebd598ce343da75b29d264f66",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-reference-run.json",
+      "sha256": "f4c4adb3bac4136e5fd8b58841dceaf61636043d80aef801724efe075c1f1a9e",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v6/format.chez.scm",
+      "sha256": "ff7c96d0fc723b82a3236b1bbd3363547fb163d8010b60456a1879c831519832",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-chez.json",
+      "sha256": "a60ff6a1183157d3591c29c31c7b32943cda971d799959b5005118876d5561ce",
+      "bytes": 371
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-compile.json",
+      "sha256": "e6d11d6741bbf9d2094bdb61eac9bff96be97214e705708b902bb47e83023894",
+      "bytes": 479
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-oracle.json",
+      "sha256": "a174baf8e5052cdf458637e965d46edcfb2a5e359b329c08e1c9556826f2d98b",
+      "bytes": 4645544
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-raw-link.json",
+      "sha256": "085645239d39e6a65b17fb226a682bdbfb06b88e9a01854107747b2384d343d7",
+      "bytes": 642
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-raw-linked.wasm.link.json",
+      "sha256": "ba7f2fcf4e45fe030f850915ce1a9d6ff9a0b2f36f6fc7b3ff86510e0355a99e",
+      "bytes": 2859
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar-raw-run.json",
+      "sha256": "03c35ff6e597d9611f2f43c6a31d79d455d53cadc3bacd25b4fc09104197a877",
+      "bytes": 775
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar.chez.scm",
+      "sha256": "9705f45461dc972132899073e76a76e6f79a92d98b662abb5dc8d6a9fee04e7f",
+      "bytes": 1993400
+    },
+    {
+      "path": "chez-numeric-bridge-v6/scalar.wasm.trace.json",
+      "sha256": "f772c2b0e11ada93efa71e764887f8e0ccd54008f23cbf106154badfacbfff36",
+      "bytes": 1047
+    },
+    {
+      "path": "chez-numeric-bridge-v7/domain-chez.json",
+      "sha256": "d8a254d0755411e7c17bb82ba6a5c70d11e59d9678772221bee8c3e89adb1a6a",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v7/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v7/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v7/domain.chez.scm",
+      "sha256": "b3d921e368ce07da9fd3c1f485833771c2159e222660a4aa27eaf0a4906aff85",
+      "bytes": 178897
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-chez.json",
+      "sha256": "9ae5e98f856f837aeb4973bbecdb3f7c9990ae0ae3cc926e6a3c5b34f262db7d",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-reference-build.json",
+      "sha256": "d156fd3c7157a8ec3ae18c058555f5dbf81b6526b3cec7de0a3a6e36b8f47cf6",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-reference-run.json",
+      "sha256": "00ac754acb6bed2df8bfa25332f0a14d8880182fea62211572642aa4bf160f3c",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v7/format.chez.scm",
+      "sha256": "c51afda006ad9c8497bb7af93bdc3cd6c80e0de883ada8060cf9e8f7893db66d",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v7/inputs.json",
+      "sha256": "69e42a11f23cfbe124eebabc8c48682116194c9104a4523af260126fbeacdcc1",
+      "bytes": 5169
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-chez.json",
+      "sha256": "32e398adb4237b3152f6a8ea5eff14390d50434ca43a902dd47d78abe2f58c0e",
+      "bytes": 371
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-compile.json",
+      "sha256": "0439c09e078eb27f47f5fba87f0a673f87c5f9d8063fbf3c8073039255495e06",
+      "bytes": 479
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-0-oracle.json",
+      "sha256": "290303df1d22bdef118e455a0e16781db75ccf4513df315f42e4b9dff7e8dbbb",
+      "bytes": 234
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-0.json",
+      "sha256": "bf41dd239e6ec48bca3c5d1155114aa4225fdb94d8bf3139a984b66291063f10",
+      "bytes": 460
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-0.tsv",
+      "sha256": "30cca0835943498b49c36a22832b317cda1a7c5d2d6e6289258e4881a2290aa7",
+      "bytes": 14
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-1-oracle.json",
+      "sha256": "31e2d7df57c1ee0d799800bebdd2bb09cceda954e8d89d154d80d42efe885a14",
+      "bytes": 220
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-1.json",
+      "sha256": "cc220d88fc38f40689997f89fbc348e9c285d7a4d7c36c1677ca06cd6a8f2aab",
+      "bytes": 450
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-1.tsv",
+      "sha256": "c5a4f846540854e7a020b9ba58eae8f62ce64c7802450dff8290d4433cb1727e",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-10-oracle.json",
+      "sha256": "2ddccf31308a149b198342eef7293e988e1a3d13b1bb5c0f6993bfe044079f64",
+      "bytes": 232
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-10.json",
+      "sha256": "68196ffad55a98573b71444adadd89e73d12db5e05aa31199a0e50a0b087e527",
+      "bytes": 455
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-10.tsv",
+      "sha256": "18b6ee97f6572a40679b7338c7d451a1bda351d91ae2ec72b73155f408c6b661",
+      "bytes": 16
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-2-oracle.json",
+      "sha256": "31c1fe94d8be620b5d5854d0709b509f0a24d421683d89ba7c04be379914fa61",
+      "bytes": 218
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-2.json",
+      "sha256": "704c127bf11b1100f31efa6c858e2c61da922d75b84ecee1205e5fce151ab124",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-2.tsv",
+      "sha256": "850be924b95b546bd139058217ef8d6060ec4a959f9b57b4d835fe9f159de8a6",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-3-oracle.json",
+      "sha256": "bd3ed3d7502d029d19d6e01a1420e9734ccd25c300d8ba0e50b5b260825ca871",
+      "bytes": 217
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-3.json",
+      "sha256": "022ee559e27757e6a4ac5848be42e5cc8bc287dc12e65a6bc7ee0b192277cf10",
+      "bytes": 447
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-3.tsv",
+      "sha256": "378770c9605dc305d687bf28c96430e6eefea57212417799a1bbb0d4ab5b03d2",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-4-oracle.json",
+      "sha256": "03675575a99427263889cf02d09833a8174e07651c722b9c8b526fc4a7f76ba6",
+      "bytes": 217
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-4.json",
+      "sha256": "5adb9158826b22f9ce725a354f7b84477d6747ccbba5a8089c7af92c9a3fe702",
+      "bytes": 447
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-4.tsv",
+      "sha256": "52db96a666f80e3133fa29d8365b9a9720cbd97efcf608ae41fefc09962ca2c9",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-5-oracle.json",
+      "sha256": "c9b6602e82835cc9894c7bbd23820eddf81d766f9a9f913b8af3ae92661c825f",
+      "bytes": 237
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-5.json",
+      "sha256": "1eda951219c5fb03d95ba34c44c92249ab37f0748ae3a7618366351ca6b3e6b2",
+      "bytes": 467
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-5.tsv",
+      "sha256": "886478d76a2417b2d8a56f59b4ecb293f76f6dc9359806219b28632ac965baba",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-6-oracle.json",
+      "sha256": "69135efdc958886ad7c055f1dda5e2345b6d71c1446ad5dac9146a2e297203db",
+      "bytes": 241
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-6.json",
+      "sha256": "a04b6f81102a9b24fc15e9781b8444687d03a478bc670caf78e9fa0528216a51",
+      "bytes": 467
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-6.tsv",
+      "sha256": "9eba3673679db3824765ba7e3c1ddf66dbbd2f6e302f3ff52c024c6da881f31e",
+      "bytes": 14
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-7-oracle.json",
+      "sha256": "f92d1a0164f0486684a27ad317bbcffbbca3fc8da2a1b3085238306ab8e66389",
+      "bytes": 228
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-7.json",
+      "sha256": "bd1021a4a810c41147967d8944ab57d3114ba263f62892e8459bd08e8313794c",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-7.tsv",
+      "sha256": "4deb30bc534d95136a9da2b14f08ee865098ac8dbdc8667124e37586546dac9a",
+      "bytes": 17
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-8-oracle.json",
+      "sha256": "ed50776a7069a0fbd42a2865c7d5f88fe9020a4d4240707eb7d96e3629f8e705",
+      "bytes": 218
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-8.json",
+      "sha256": "ef904dac06fb1decca374d6c8c360921dbbda625488153a2062c2ad599494240",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-8.tsv",
+      "sha256": "9ec2e66d89fe43e74d91f6630bb9d86e030a4b33c3c840c12341f39efebf5079",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-9-oracle.json",
+      "sha256": "6166c64338d0c7ea3b4b46492a0d24ddb38ae082106ede657d5a645079fb89a2",
+      "bytes": 231
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-9.json",
+      "sha256": "91673915a8fb794ec1664f369b0316f47d90542aa535f4469a920d6957152f8f",
+      "bytes": 461
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-failure-9.tsv",
+      "sha256": "45b8929b2dbba7aced618b68179fa9c7c052ca9689d28e85d6bf05440405c5d3",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-native-build.json",
+      "sha256": "4b9a4400f347b38efde06184b89de26caf875ebac1a2236898243646fcd257ef",
+      "bytes": 770
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-native-run.json",
+      "sha256": "64e5b5ffe83ee7eccd071d597f6c5d9dd869d1103c36fc410a1acffe2b653031",
+      "bytes": 418
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-native.native-k4p1rs92/build.json",
+      "sha256": "cd7e8fb2d6dd00abb0d4aac707f1b2b57b2ae2e3c6c001ace583a6e681a375aa",
+      "bytes": 179271
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-native.native-k4p1rs92/compile.trace.json",
+      "sha256": "0e49347ca3e2bd0cb360588e330c4c3361c1dc28546a7e06f0e76a1c80de550e",
+      "bytes": 259
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-0.json",
+      "sha256": "ad74c501668977f0d0227c670ff7bfde37b9b0b5a5790e929391adbefdeff8d8",
+      "bytes": 792
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-1.json",
+      "sha256": "d5de1aa785e93bb4c9a18d1c37cdb0bae1d055cf39886e6e43e3f2ebcd2633d1",
+      "bytes": 782
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-10.json",
+      "sha256": "8eb7978f99913f11aa7c888744912160ac7d9c9a231cf213d2f4944a3823e58a",
+      "bytes": 787
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-2.json",
+      "sha256": "0180cef51a1569ab0eb6b95789749529e75236e040249eda5aff29980dca9102",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-3.json",
+      "sha256": "dab29bef1d7bad3537cb8b0889b8c1dd43f9464f10f41d022772dbaefccbbaf9",
+      "bytes": 779
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-4.json",
+      "sha256": "1423e62a81de57b6bcd69754f50cfbfcb87aee3c0d87ef4ad2f9942efde38dbd",
+      "bytes": 779
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-5.json",
+      "sha256": "80c31adea2cb1a9bfa011c303d9b091789508ebda633bfd99a188fc2c180949f",
+      "bytes": 799
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-6.json",
+      "sha256": "b1788108f9ee5d4bf67b41f08260a03ee43a162017d1e528c9005c9d5a230fa3",
+      "bytes": 799
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-7.json",
+      "sha256": "24155c65a9df596a397af21d60370d40194a7828b0a3ab5f611d3bff9f80765d",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-8.json",
+      "sha256": "7537059f78579ef2fed5a9ce062996af5a890e250b4414741ff7b9cfa99f2847",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-failure-9.json",
+      "sha256": "3ef08671295b90d14a120510aa7f03730546279c3dc270ad103053af2a3fbb79",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-link.json",
+      "sha256": "329b3108c0733e3e4e6c62209343d110d344b6a41b9b92cc126b0d49bbbaa2c8",
+      "bytes": 595
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-linked.wasm.link.json",
+      "sha256": "9425a5ab8178ab763648d5882133cde4d00c9b7ba8532a83386324f836a766e0",
+      "bytes": 2943
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-optimized-run.json",
+      "sha256": "3fee1cf58efe22f80dcba723ff0cd5b3a869bb45ab39fb930fa15c9b269b6835",
+      "bytes": 586
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-oracle.json",
+      "sha256": "a174baf8e5052cdf458637e965d46edcfb2a5e359b329c08e1c9556826f2d98b",
+      "bytes": 4645544
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-0.json",
+      "sha256": "0c32bb8d0f32372a55a22ab937c4c9d609dbc36a6110b00ddf20effafafa1ffe",
+      "bytes": 785
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-1.json",
+      "sha256": "beb672ca411808a3423618819558eea432eb4736ca777f9c29d33fa212c70a52",
+      "bytes": 775
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-10.json",
+      "sha256": "3c8a1ba1d76870f72fb37c904d08235d0b2e9aa6307ae1077e924ba70b39489a",
+      "bytes": 781
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-2.json",
+      "sha256": "dfad46e307d11f4933f92694643c454d9574ca76f5a69307a05927c364332198",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-3.json",
+      "sha256": "5feb1483cc763c64ab2185a976ee7033b667fcb976c6af1a44b834f8621fa43b",
+      "bytes": 773
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-4.json",
+      "sha256": "396b9a8955b3c1b9e9e7fe0d8a68c26ed3f315b030ef2abed82b7dd7deef7e83",
+      "bytes": 773
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-5.json",
+      "sha256": "dc28f6221bd65c91d2461b613099147cb20a95733e45c910372858867baa734f",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-6.json",
+      "sha256": "aaf385527969c33a6be0be505b84ece322e01925cb5d06bda3363e8e5c0bd0e1",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-7.json",
+      "sha256": "d4306ffe643d1040703b73e62de5b05ffe4533a26315cad82d966f3c8b368c1a",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-8.json",
+      "sha256": "10e7abccd1c08f700274b2e2d64f69d5eb668f47f19241a054b50d63d4a7f3bb",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-failure-9.json",
+      "sha256": "bf3430dc2cb0dd90a05623269cebe80f122ef2772f1674b9caf0a62dfe8e5880",
+      "bytes": 787
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-link.json",
+      "sha256": "2a7035eb393310f61d493ca3eba98a3d9fdfa8a00e3bacd146ca809926e64c90",
+      "bytes": 628
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-linked.wasm.link.json",
+      "sha256": "a4e62d40f722e0e0e89e53742dc3605a5e20ff4437dbd61ca02df98ff637f2e3",
+      "bytes": 2845
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-raw-run.json",
+      "sha256": "0a52d1310177082455c6861a916324ef4c54416586a7c8a680591c0453d46a79",
+      "bytes": 579
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-valid.json",
+      "sha256": "31ecf26ad48bca28acf605ae5cdc6c9b63e71b4dd45a6fa07000524254fd4589",
+      "bytes": 4643095
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar-valid.tsv",
+      "sha256": "f8ce6e3171db686640a79c7c932695a1b1de573507a8391bfd15e921499367b0",
+      "bytes": 1041489
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar.chez.scm",
+      "sha256": "9705f45461dc972132899073e76a76e6f79a92d98b662abb5dc8d6a9fee04e7f",
+      "bytes": 1993400
+    },
+    {
+      "path": "chez-numeric-bridge-v7/scalar.wasm.trace.json",
+      "sha256": "0ab7f60efedf1a1f286f1e0861c533f35af2fac3926bef4e844cdd39efb98983",
+      "bytes": 1050
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/0-check-chez-bridge.py",
+      "sha256": "f970537da1c32bec23d0ea406a13d51b6f5bab1d57e3a0b5bccd2aa34f38a94b",
+      "bytes": 17658
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/1-reader_ports.py",
+      "sha256": "50d40999ea48effc5a8f447c49177f8119c07aee4bb7616ec5246c8c9760fd3c",
+      "bytes": 73305
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/10-domain.py",
+      "sha256": "74d1367df8e5bb1caa449da1907347fc147f896b956483e6945301a2be4d6167",
+      "bytes": 5822
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/11-lib.rs",
+      "sha256": "f5ac6d46b784f2efdf5e7dd3ed93904befb88db430363ff73e7f8cfd8bccebac",
+      "bytes": 33882
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/12-strict_number.rs",
+      "sha256": "c7de1362888ef021d24375841ec7fc32ee895fcbf02ea8a7be71c283d148d08a",
+      "bytes": 12815
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/13-strict_datum.rs",
+      "sha256": "fb75b69f5b23689402d66b28558d2b2418ebd63d26943d6b698b57779c65ee8c",
+      "bytes": 15535
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/2-chez-number.scm",
+      "sha256": "b38e747486546584178e841e0d92e92f5776fec18ad2be4b7c8625d2caf1ca42",
+      "bytes": 15128
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/3-bridge.scm",
+      "sha256": "0ce21fcdea9f2c8e8e649179b3bd468293b32d0f491c792c7b5f22092a0705e4",
+      "bytes": 5429
+    },
+    {
+      "path": "chez-numeric-bridge-v7/sources/9-domain.scm",
+      "sha256": "c27316a23069ac14286417c541d08e07fa1d9c3b05463dd0215c769d0d8bae92",
+      "bytes": 3574
+    },
+    {
+      "path": "chez-numeric-bridge-v8/domain-chez.json",
+      "sha256": "846024d26170715b4d31535ac1e936cef5c50a04dc95961f0e111a9451d3c576",
+      "bytes": 376
+    },
+    {
+      "path": "chez-numeric-bridge-v8/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v8/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v8/domain.chez.scm",
+      "sha256": "e3c0d68b62317cfc1001ca14f43fdb59f2e48e28ceee1d3f0923cf0a327f81f1",
+      "bytes": 178923
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-chez.json",
+      "sha256": "f3346c45db95b64a571913bf1f61a278585473428550cd90ee7486de21f84946",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-reference-build.json",
+      "sha256": "c9ce5471838e89636df4f891aed0e271478ad816d69ccfd95d462b0a0e951be6",
+      "bytes": 436
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-reference-run.json",
+      "sha256": "6738e897d81694278bd71ab6f7492d92e1a09f486c46746205cc1dd5db80e097",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v8/format.chez.scm",
+      "sha256": "2173d96473af650de8c7b4528d1ea938ce082045f72d57b9ae0c7170da787a2e",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v8/inputs.json",
+      "sha256": "84849a1e99d45b0a411f0053d3c31fa0ce6199f47dc86f13654b395fe932997b",
+      "bytes": 5482
+    },
+    {
+      "path": "chez-numeric-bridge-v8/scalar-oracle.json",
+      "sha256": "06c1e2290d36eaaedb916190fd4f47b518da22348adbc3c8d5958e0c438592a0",
+      "bytes": 4645980
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/0-check-chez-bridge.py",
+      "sha256": "ac74efddec5f6746cbe5c793d053a63f27689042a4cdc07c8a44f4d41c814a20",
+      "bytes": 18151
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/1-reader_ports.py",
+      "sha256": "4eeade45f9dd810a10af885843ebf1a94f903e3940c166fb3eb89d53e2759e6a",
+      "bytes": 73472
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/10-domain.scm",
+      "sha256": "c27316a23069ac14286417c541d08e07fa1d9c3b05463dd0215c769d0d8bae92",
+      "bytes": 3574
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/11-domain.py",
+      "sha256": "74d1367df8e5bb1caa449da1907347fc147f896b956483e6945301a2be4d6167",
+      "bytes": 5822
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/12-lib.rs",
+      "sha256": "f5ac6d46b784f2efdf5e7dd3ed93904befb88db430363ff73e7f8cfd8bccebac",
+      "bytes": 33882
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/13-strict_number.rs",
+      "sha256": "c7de1362888ef021d24375841ec7fc32ee895fcbf02ea8a7be71c283d148d08a",
+      "bytes": 12815
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/14-strict_datum.rs",
+      "sha256": "fb75b69f5b23689402d66b28558d2b2418ebd63d26943d6b698b57779c65ee8c",
+      "bytes": 15535
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/2-chez-number.scm",
+      "sha256": "b38e747486546584178e841e0d92e92f5776fec18ad2be4b7c8625d2caf1ca42",
+      "bytes": 15128
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/3-bridge.scm",
+      "sha256": "56fc4a35e63108122b40ad160d3524031212a9fe8328f7ddad918ea8bcbb6610",
+      "bytes": 5718
+    },
+    {
+      "path": "chez-numeric-bridge-v8/sources/4-bridge-ownership.scm",
+      "sha256": "0806e06f38214adf6838deb9c68d26c7cc12076722b751bcec15ab6c1893654e",
+      "bytes": 2656
+    },
+    {
+      "path": "chez-numeric-bridge-v9/domain-chez.json",
+      "sha256": "46b7a76fc84834791c4db39dccc315f2a8ecf42ca5762efba1736440036d0346",
+      "bytes": 375
+    },
+    {
+      "path": "chez-numeric-bridge-v9/domain-oracle.json",
+      "sha256": "83def0e969a01ba403f039f559df7d202a32cea3790e98e8517eb62698e9b459",
+      "bytes": 64808
+    },
+    {
+      "path": "chez-numeric-bridge-v9/domain-static-resolution.json",
+      "sha256": "21978b6727c0a150a6f516ea61f08bf2009fda0b3eb173fbb70dd78d38ea8069",
+      "bytes": 972
+    },
+    {
+      "path": "chez-numeric-bridge-v9/domain.chez.scm",
+      "sha256": "e3c0d68b62317cfc1001ca14f43fdb59f2e48e28ceee1d3f0923cf0a327f81f1",
+      "bytes": 178923
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-chez.json",
+      "sha256": "85408256e9d9e8e79a931d32d6f390d043d147d658b29902e36703a32b64a98e",
+      "bytes": 490281
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-comparison.json",
+      "sha256": "e5b4fd27e65632ad25af4f2161dbc5228dca66b3b856295e3f8c225b8104f72c",
+      "bytes": 184
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-input.txt",
+      "sha256": "31fef6c88e9567e17342ca8ec7bfa58dacd84d2d19d53836948afeee93bcf478",
+      "bytes": 341428
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-reference-build.json",
+      "sha256": "684f49d63dd491c4b5ec7476504ecb8ecb09a99835c2094a679f57e1f7b60d06",
+      "bytes": 435
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-reference-run.json",
+      "sha256": "8c2ba43c90f031bfaae1dd94a34a7a5aaa354517c6b0dd642ab0b665631f9077",
+      "bytes": 490350
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format-reference.rs",
+      "sha256": "89e957221b8fd3eabfa93d93a5da3b90673ab46147103cd7aaa7296062f5fd18",
+      "bytes": 902
+    },
+    {
+      "path": "chez-numeric-bridge-v9/format.chez.scm",
+      "sha256": "74d36d2f66b7edab4c728e0fe017d5e938b521b79e2471c5d0dfeacc136b16a4",
+      "bytes": 20300
+    },
+    {
+      "path": "chez-numeric-bridge-v9/inputs.json",
+      "sha256": "d6ba05223303aaf9322869736ad5906aa35ad11de09cc6e9056afaf534851af3",
+      "bytes": 5482
+    },
+    {
+      "path": "chez-numeric-bridge-v9/ownership-chez.json",
+      "sha256": "c09a28a003f2d579f784a14f81b3a2593e6440904d692b6856cc72a3e3b0a5bf",
+      "bytes": 373
+    },
+    {
+      "path": "chez-numeric-bridge-v9/ownership.chez.scm",
+      "sha256": "cccbfb4dbd2537d389f857f017a14547f950a88d974a8920b29de75e0a92360f",
+      "bytes": 142602
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-chez.json",
+      "sha256": "d84bab2db81ff514ac909cdc93413237453ac6cb713a726325144811f39a906d",
+      "bytes": 371
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-compile.json",
+      "sha256": "9306c09cb17e56a9b117ecd4fd32754a3bcd2f5fa047ad29e8b8d6988b0ff172",
+      "bytes": 479
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-0-oracle.json",
+      "sha256": "290303df1d22bdef118e455a0e16781db75ccf4513df315f42e4b9dff7e8dbbb",
+      "bytes": 234
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-0.json",
+      "sha256": "0d95b55e15f7b94670a6995d1bbac5649ac9c61f68366e65846cbfd08462a5d1",
+      "bytes": 460
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-0.tsv",
+      "sha256": "30cca0835943498b49c36a22832b317cda1a7c5d2d6e6289258e4881a2290aa7",
+      "bytes": 14
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-1-oracle.json",
+      "sha256": "31e2d7df57c1ee0d799800bebdd2bb09cceda954e8d89d154d80d42efe885a14",
+      "bytes": 220
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-1.json",
+      "sha256": "5ab203910f246f2668ccc0887756a73ffedbaccc7802eabf35fa0af1968767e9",
+      "bytes": 450
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-1.tsv",
+      "sha256": "c5a4f846540854e7a020b9ba58eae8f62ce64c7802450dff8290d4433cb1727e",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-10-oracle.json",
+      "sha256": "2ddccf31308a149b198342eef7293e988e1a3d13b1bb5c0f6993bfe044079f64",
+      "bytes": 232
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-10.json",
+      "sha256": "9d1b057fd6472090902130f3d3778e639640245c2b9455a618b095fd225cd515",
+      "bytes": 455
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-10.tsv",
+      "sha256": "18b6ee97f6572a40679b7338c7d451a1bda351d91ae2ec72b73155f408c6b661",
+      "bytes": 16
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-11-oracle.json",
+      "sha256": "2eab6b41d12bf097190ddfd0637d615e8d46eb2d4fe1f0c6c9dedd173835b4a9",
+      "bytes": 220
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-11.json",
+      "sha256": "6595d3e9177a5227ab4cc3b77b183ff579c3b2b839ee00f17b6c29588d2f1121",
+      "bytes": 449
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-11.tsv",
+      "sha256": "13281ad81c8e081bf01cf4a2b047ae57950327b46a4247e24d09215a4fcf39f6",
+      "bytes": 13
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-12-oracle.json",
+      "sha256": "5f3b0c80ae73cf0dceacbd75e997bf06772e4ce082ad609cee76077dfd9ac160",
+      "bytes": 224
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-12.json",
+      "sha256": "3a8f674128c568bfb5a0e2f670845c01a6c91aebc171cd919fce90504a22a5a9",
+      "bytes": 449
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-12.tsv",
+      "sha256": "948954a104829d2ed9cb2827405bb9b6a9e5ce88fe4f3c8fc46561b1901ea0d9",
+      "bytes": 15
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-2-oracle.json",
+      "sha256": "31c1fe94d8be620b5d5854d0709b509f0a24d421683d89ba7c04be379914fa61",
+      "bytes": 218
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-2.json",
+      "sha256": "42d8a3150a6ca443db91aaada0bb29b816631ac233a9ef8097bf0ef95b35b133",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-2.tsv",
+      "sha256": "850be924b95b546bd139058217ef8d6060ec4a959f9b57b4d835fe9f159de8a6",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-3-oracle.json",
+      "sha256": "bd3ed3d7502d029d19d6e01a1420e9734ccd25c300d8ba0e50b5b260825ca871",
+      "bytes": 217
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-3.json",
+      "sha256": "1c0cdc639eafef84e05db885202ccd0020f652c3eae3da6c5ccc5d0cb422af2a",
+      "bytes": 447
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-3.tsv",
+      "sha256": "378770c9605dc305d687bf28c96430e6eefea57212417799a1bbb0d4ab5b03d2",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-4-oracle.json",
+      "sha256": "03675575a99427263889cf02d09833a8174e07651c722b9c8b526fc4a7f76ba6",
+      "bytes": 217
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-4.json",
+      "sha256": "19d99fba97a835ebdadda02c00ff3236e38879614e68c148a615ea5fd45a676d",
+      "bytes": 447
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-4.tsv",
+      "sha256": "52db96a666f80e3133fa29d8365b9a9720cbd97efcf608ae41fefc09962ca2c9",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-5-oracle.json",
+      "sha256": "c9b6602e82835cc9894c7bbd23820eddf81d766f9a9f913b8af3ae92661c825f",
+      "bytes": 237
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-5.json",
+      "sha256": "3fb3f63c11b2b9557725e808e1212f9df7d3bf2fe9cd9f98ce50fe7655004ac3",
+      "bytes": 467
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-5.tsv",
+      "sha256": "886478d76a2417b2d8a56f59b4ecb293f76f6dc9359806219b28632ac965baba",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-6-oracle.json",
+      "sha256": "69135efdc958886ad7c055f1dda5e2345b6d71c1446ad5dac9146a2e297203db",
+      "bytes": 241
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-6.json",
+      "sha256": "676f07ea3ce83721038f608e424b8d045ff35c7918cea62daa9783717b5727eb",
+      "bytes": 467
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-6.tsv",
+      "sha256": "9eba3673679db3824765ba7e3c1ddf66dbbd2f6e302f3ff52c024c6da881f31e",
+      "bytes": 14
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-7-oracle.json",
+      "sha256": "f92d1a0164f0486684a27ad317bbcffbbca3fc8da2a1b3085238306ab8e66389",
+      "bytes": 228
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-7.json",
+      "sha256": "b1a4580fa805d9e20e19d9c7167cb5b15684ad3d09e4a5571bbf8a4aa2c5f7f8",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-7.tsv",
+      "sha256": "4deb30bc534d95136a9da2b14f08ee865098ac8dbdc8667124e37586546dac9a",
+      "bytes": 17
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-8-oracle.json",
+      "sha256": "ed50776a7069a0fbd42a2865c7d5f88fe9020a4d4240707eb7d96e3629f8e705",
+      "bytes": 218
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-8.json",
+      "sha256": "cf38d8d9e7f0f076ac1d16b54a80324f4d70ee5b6830dd9c58542f08395f5921",
+      "bytes": 448
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-8.tsv",
+      "sha256": "9ec2e66d89fe43e74d91f6630bb9d86e030a4b33c3c840c12341f39efebf5079",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-9-oracle.json",
+      "sha256": "6166c64338d0c7ea3b4b46492a0d24ddb38ae082106ede657d5a645079fb89a2",
+      "bytes": 231
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-9.json",
+      "sha256": "9bb98887a9eb02604e0d6750aa55fc4b0baa9419b1ad0a434ebfee112fca9362",
+      "bytes": 461
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-failure-9.tsv",
+      "sha256": "45b8929b2dbba7aced618b68179fa9c7c052ca9689d28e85d6bf05440405c5d3",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-native-build.json",
+      "sha256": "d67d9d50e66757f15507268e4e80e2c09eec50ec534fab4d37f60a01cbdbaeb2",
+      "bytes": 770
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-native-run.json",
+      "sha256": "6911328adeb34817c52fc3e5a0fae95cd46a5f97fe2cf609ff5637cc70a7b248",
+      "bytes": 418
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-native.native-ou8ygbgu/build.json",
+      "sha256": "4444bd39794322e9bdc0a10c5083fb7bd8824a8dfb1b0c2fded92ff176e5c9e8",
+      "bytes": 179271
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-native.native-ou8ygbgu/compile.trace.json",
+      "sha256": "505fee4b44aec33904fe1193fcd6564f8dd64e966b8222d3b36a20becb2bdeb8",
+      "bytes": 259
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-0.json",
+      "sha256": "571b2ffaeb02ff2faef6cf7582ff37bd1b0b08f5db1708258bf3b3990d0d582d",
+      "bytes": 792
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-1.json",
+      "sha256": "9c816f6b190c05d8129b6f2e2cb968adaf6929885bb9315ccf2560f72da81f51",
+      "bytes": 782
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-10.json",
+      "sha256": "01e32272d37125264f3ac5fc28ff41259efae2e5477304d4644446f56f786688",
+      "bytes": 787
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-11.json",
+      "sha256": "087e22f66526ef0655b0d878e4f5ecab7e54ba7a04931587fb9e6e262da7ff3a",
+      "bytes": 781
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-12.json",
+      "sha256": "9b8b707d1e58f84304fd23fad2daac9bfdeeba33a9c1f8210ad0e1d4d8b041ee",
+      "bytes": 781
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-2.json",
+      "sha256": "837646ec9437c775896ac5e4246765a2ad335c8b845c6b1d331d60ad8bda8867",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-3.json",
+      "sha256": "3afbbd47b083dfc7c741a80d91a9b82d8875d72f07e3cacf906bbf3f171010d4",
+      "bytes": 779
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-4.json",
+      "sha256": "1c70714a71b82ae79d9902563471a5978d4cafee34cc2e8665765d0dd90187b3",
+      "bytes": 779
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-5.json",
+      "sha256": "32c8880800fbf7ba0b5604f6570821e64176e0fb6311e4fbff98401b9aa5b60c",
+      "bytes": 799
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-6.json",
+      "sha256": "38ac8ec0aab5be42fc95a954305d4b0db53668d8b4a916c24ee1ac27f2c380a0",
+      "bytes": 799
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-7.json",
+      "sha256": "5006194ebda23abd7f84c33504af62e06521e5c1800c136186a4abdb60445347",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-8.json",
+      "sha256": "7ea69ce525d821dce2b378dbcd943e46208c5f17dd9ba7ad26f7cf222e77dbc0",
+      "bytes": 780
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-failure-9.json",
+      "sha256": "1d76aac555ddbb445d2bf08db3aa3b93b4bc3f45af7f59004e45aeb4a6464df6",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-link.json",
+      "sha256": "31e2c8de99a454a04af2fccb2b365fd0cb95e0c5bfc0c95779fb6eb786d3c376",
+      "bytes": 595
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-linked.wasm.link.json",
+      "sha256": "8ce9f7a5411abe5e637ba3e74dd58b42e0c20083a80d58190040de6c808179cd",
+      "bytes": 2943
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-optimized-run.json",
+      "sha256": "a6aaa896acbb13df690642c837c80957323938d6ce00a37aac6d9326258e9e9c",
+      "bytes": 586
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-oracle.json",
+      "sha256": "06c1e2290d36eaaedb916190fd4f47b518da22348adbc3c8d5958e0c438592a0",
+      "bytes": 4645980
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-0.json",
+      "sha256": "aa58e27606d0c2631948c379ed2ac1ad8db3cfeeee42c7d5a285a365283aa89a",
+      "bytes": 785
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-1.json",
+      "sha256": "0efefcd579a55ab2eb3dde4d1d626c8b78a2a93c5d63b19985ce566885fe1931",
+      "bytes": 775
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-10.json",
+      "sha256": "ecd1163da6667789161c816d81cb539ff804a4f4d11fe23eb858c705e9dff434",
+      "bytes": 781
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-11.json",
+      "sha256": "046a19eeed5283468c5ccb1fcb7adc8defef1407a8ea6f0b28c802b4ba9a973a",
+      "bytes": 775
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-12.json",
+      "sha256": "e92163e82d9ccddc3db9e0adf4332b42b86ad08670cab5693f757d7bdf776c74",
+      "bytes": 775
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-2.json",
+      "sha256": "cca3e575ce0e56102146a192340ab28b9f22b930d7ce5ddc24e67986f1f40904",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-3.json",
+      "sha256": "7cef13e2a2e9d003688006643bf33ce6ba2c4f1e45fbb1f2187e8794985d385f",
+      "bytes": 773
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-4.json",
+      "sha256": "f90bffbd675f3f649e0a127a385e363f35863b8203a26183065d95ec5e65ddc6",
+      "bytes": 773
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-5.json",
+      "sha256": "4ebe2662891d4a5e36a50d1d9a84682133225e41287634d66c9fe245e3dd5b5a",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-6.json",
+      "sha256": "1323af3ce73e564b58446dcef72b26b3710a5f3e43086f7f3517f2e2cbd2d756",
+      "bytes": 793
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-7.json",
+      "sha256": "1ffa2ddb543fc4e56439a384a5ceb93b834666ccc7f88291a14e64f5bbe8d4ba",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-8.json",
+      "sha256": "fd7e75e518d4cb1216f74689b62bdc8d42bf790c12d3207f0afb08ed7f6d624d",
+      "bytes": 774
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-failure-9.json",
+      "sha256": "d24322f9cab69c079e5d5101507932f44e53a567ae87631521040327db4690fe",
+      "bytes": 787
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-link.json",
+      "sha256": "8f7127c90fa00dd5e328eacc44a777cc132992760bef5ea441ccf6da24f4cc84",
+      "bytes": 628
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-linked.wasm.link.json",
+      "sha256": "5baa3db610179da1011d69cc244cd52be90d2dbd964705fa56bd376ee959e7c9",
+      "bytes": 2845
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-raw-run.json",
+      "sha256": "3369925f8f2bad2a4ad1d9ad47ae56ec9b24f5dbaee335d9a202f7258c39035d",
+      "bytes": 579
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-valid.json",
+      "sha256": "31ecf26ad48bca28acf605ae5cdc6c9b63e71b4dd45a6fa07000524254fd4589",
+      "bytes": 4643095
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar-valid.tsv",
+      "sha256": "f8ce6e3171db686640a79c7c932695a1b1de573507a8391bfd15e921499367b0",
+      "bytes": 1041489
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar.chez.scm",
+      "sha256": "6a17bdd5faa8367d6a303773a32ebed14569f697b467d40c3ba6eb701ee9129a",
+      "bytes": 1993651
+    },
+    {
+      "path": "chez-numeric-bridge-v9/scalar.wasm.trace.json",
+      "sha256": "7ee58d8463ec855c1f6d86a3737e3711945eae6c9c41aac43c4c851f8068f600",
+      "bytes": 784
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/0-check-chez-bridge.py",
+      "sha256": "ac74efddec5f6746cbe5c793d053a63f27689042a4cdc07c8a44f4d41c814a20",
+      "bytes": 18151
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/1-reader_ports.py",
+      "sha256": "4eeade45f9dd810a10af885843ebf1a94f903e3940c166fb3eb89d53e2759e6a",
+      "bytes": 73472
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/10-domain.scm",
+      "sha256": "c27316a23069ac14286417c541d08e07fa1d9c3b05463dd0215c769d0d8bae92",
+      "bytes": 3574
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/11-domain.py",
+      "sha256": "74d1367df8e5bb1caa449da1907347fc147f896b956483e6945301a2be4d6167",
+      "bytes": 5822
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/12-lib.rs",
+      "sha256": "f5ac6d46b784f2efdf5e7dd3ed93904befb88db430363ff73e7f8cfd8bccebac",
+      "bytes": 33882
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/13-strict_number.rs",
+      "sha256": "c7de1362888ef021d24375841ec7fc32ee895fcbf02ea8a7be71c283d148d08a",
+      "bytes": 12815
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/14-strict_datum.rs",
+      "sha256": "fb75b69f5b23689402d66b28558d2b2418ebd63d26943d6b698b57779c65ee8c",
+      "bytes": 15535
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/2-chez-number.scm",
+      "sha256": "b38e747486546584178e841e0d92e92f5776fec18ad2be4b7c8625d2caf1ca42",
+      "bytes": 15128
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/3-bridge.scm",
+      "sha256": "7a81432830381648b16bf6b2fa84a4131ba0f71c17ca0fcc62965b455594227e",
+      "bytes": 5552
+    },
+    {
+      "path": "chez-numeric-bridge-v9/sources/4-bridge-ownership.scm",
+      "sha256": "0806e06f38214adf6838deb9c68d26c7cc12076722b751bcec15ab6c1893654e",
+      "bytes": 2656
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/abbreviations/adapted/commands/run/record.json",
+      "sha256": "f6d392822d38d179ba82db11c7d86b04bade77ec6893a59c4d0bd650fbf6b52f",
+      "bytes": 1075
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/abbreviations/adapted/input.scm",
+      "sha256": "f0edf057dcf621f016044dfba5f995a7115b192ddb809a18dc2e4104279ed277",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/abbreviations/original/commands/run/record.json",
+      "sha256": "d0acb43dc893cad321baa40731b7520cb0d7b0819d870258c1e031356b385ff1",
+      "bytes": 1040
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/abbreviations/original/input.scm",
+      "sha256": "f0edf057dcf621f016044dfba5f995a7115b192ddb809a18dc2e4104279ed277",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/adapted-stream.scm",
+      "sha256": "56427ca837e23efeaf5ec7686abb74e37f98af1cf17deda933a10af5f0900e09",
+      "bytes": 144407
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/arbitrary-exact/adapted/commands/run/record.json",
+      "sha256": "02916c4e027608a503d1734d2d0d9212e499167daef7d853efaa70bd8087f104",
+      "bytes": 1148
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/arbitrary-exact/adapted/input.scm",
+      "sha256": "273c586a5c0c7023b3e00c5f422350fad34e7954e9e7fc525861c897de1ca2a3",
+      "bytes": 164
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/arbitrary-exact/original/commands/run/record.json",
+      "sha256": "16194c38b48fe3c375d28bfb880d6e950d213d1c7b340624f0736fd84fc545ee",
+      "bytes": 1113
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/arbitrary-exact/original/input.scm",
+      "sha256": "273c586a5c0c7023b3e00c5f422350fad34e7954e9e7fc525861c897de1ca2a3",
+      "bytes": 164
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/atoms/adapted/commands/run/record.json",
+      "sha256": "54caaaa7d29bee0e162fc853b745c28eac10f13046aa20da6c59d53a54b44fec",
+      "bytes": 687
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/atoms/adapted/input.scm",
+      "sha256": "1331bb4aefc9a8fb7f7aeec73739841d708e14022c649174664dd8d3ace05743",
+      "bytes": 33
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/atoms/original/commands/run/record.json",
+      "sha256": "350393b7d4a0d3b6c666b84c544d4d282eb7b95daeb83b493494a543bc1dfa23",
+      "bytes": 651
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/atoms/original/input.scm",
+      "sha256": "1331bb4aefc9a8fb7f7aeec73739841d708e14022c649174664dd8d3ace05743",
+      "bytes": 33
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/bytevectors/adapted/commands/run/record.json",
+      "sha256": "8ad31c0ffd1688a424a70d72fd7cafccc82168ec51611625a9dcf1cab7af151a",
+      "bytes": 547
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/bytevectors/adapted/input.scm",
+      "sha256": "f649b5d8f03712f5bf0363e864d295c40689b019341e3c725d46234024ddb258",
+      "bytes": 26
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/bytevectors/original/commands/run/record.json",
+      "sha256": "c5fd0af7048e7421898a793af93cf10e25788a592c2dce67173e09b5a16aa3ef",
+      "bytes": 512
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/bytevectors/original/input.scm",
+      "sha256": "3a32f26ad7a42ad864d676afbc43e4a68caefc1ebbec61e8be88348113197bf7",
+      "bytes": 28
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-read1/adapted/commands/run/record.json",
+      "sha256": "d944efc9c99e882692c26607acebc3ba48218048845d510ac31205204d574042",
+      "bytes": 98702
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-read1/adapted/input.scm",
+      "sha256": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "bytes": 28300
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-read1/original/commands/run/record.json",
+      "sha256": "c21ed867923b4bfc19e6c472d41afeae9414efe5b566c9a72643c6fa82e347fb",
+      "bytes": 98669
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-read1/original/input.scm",
+      "sha256": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "bytes": 28300
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-sum1/adapted/commands/run/record.json",
+      "sha256": "950518a99bac37b76f5dbcfa892f38c2376dcccab992e161054c41344c4f3151",
+      "bytes": 3350429
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-sum1/adapted/input.scm",
+      "sha256": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "bytes": 1100000
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-sum1/original/commands/run/record.json",
+      "sha256": "80f6c7ef9aff3122738b4d5dd7efb438bb0680e817dcd168be58b6f612799296",
+      "bytes": 3350394
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/canonical-sum1/original/input.scm",
+      "sha256": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "bytes": 1100000
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/characters/adapted/commands/run/record.json",
+      "sha256": "afc28a60351e7babb5492eea9322fa2872bf2036adca318717fa52cbd86d3655",
+      "bytes": 603
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/characters/adapted/input.scm",
+      "sha256": "fb3a63af4f5a0963c334c7cad26d2bc084d614144143eb5df080a94720fc8d7b",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/characters/original/commands/run/record.json",
+      "sha256": "678ea1708f8ad8216b05a8ad19ba4f4f760c6e60ccb541e19b62f8a4114b3b13",
+      "bytes": 568
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/characters/original/input.scm",
+      "sha256": "fb3a63af4f5a0963c334c7cad26d2bc084d614144143eb5df080a94720fc8d7b",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/comments/adapted/commands/run/record.json",
+      "sha256": "fdb6af74118fda1648596101c8b0595df3af4270dd7d33f33551319f9da43878",
+      "bytes": 558
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/comments/adapted/input.scm",
+      "sha256": "4b3a2e6e66cac3c10873daebe0a627f5258fec42b850ba4cce037a62703d1a47",
+      "bytes": 64
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/comments/original/commands/run/record.json",
+      "sha256": "0ed3af851e7995c8133a0fa6573002a3e8d275a23d51512f6007ca9e1ef06268",
+      "bytes": 523
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/comments/original/input.scm",
+      "sha256": "4b3a2e6e66cac3c10873daebe0a627f5258fec42b850ba4cce037a62703d1a47",
+      "bytes": 64
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/complex/adapted/commands/run/record.json",
+      "sha256": "848fb220c9d77595275eb1fffb76faf8a6af0e9c71137795af1b7862252ed1c0",
+      "bytes": 956
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/complex/adapted/input.scm",
+      "sha256": "1c14b9715cf10fb992b33736d86f68b43394dac1da493f6648a518a053a53283",
+      "bytes": 67
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/complex/original/commands/run/record.json",
+      "sha256": "1a3b90f2a02491c7f48fbf3923d35c41398d454b37044264582defe3eaa18d5a",
+      "bytes": 921
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/complex/original/input.scm",
+      "sha256": "1c14b9715cf10fb992b33736d86f68b43394dac1da493f6648a518a053a53283",
+      "bytes": 67
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/continuations/adapted/commands/run/record.json",
+      "sha256": "9a9e15aecccb27bcd5bbad64aa3b05bdaf3df154c1fc6aca24ca2926f85ce2ce",
+      "bytes": 542
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/continuations/adapted/input.scm",
+      "sha256": "cde6650a770bf4c4aa8ba9d74102a4eaa36a5f42e9bded8fa633fe70f9a54756",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/continuations/original/commands/run/record.json",
+      "sha256": "b2464542c94021773b9da5fb1876e34c5cdd69f8d09c78d541bf56fc4d139b06",
+      "bytes": 509
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/continuations/original/input.scm",
+      "sha256": "cde6650a770bf4c4aa8ba9d74102a4eaa36a5f42e9bded8fa633fe70f9a54756",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-adjacency/adapted/commands/run/record.json",
+      "sha256": "7d3e8fa95be79a0ba3547a7f65a7734cadbe8c0f0ca2dfc3499ff32bad4c5d0b",
+      "bytes": 1100
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-adjacency/adapted/input.scm",
+      "sha256": "91b7f8d46f1f23037d07e33bc27a45cd40b70406e3bcec0dd6a77a311f6e39c6",
+      "bytes": 56
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-adjacency/original/commands/run/record.json",
+      "sha256": "9b0da731dc08a527071c135b7520fb6fd9140a61b9cd715262c030857aa33eb3",
+      "bytes": 1066
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-adjacency/original/input.scm",
+      "sha256": "0066c5da56f7933ab10836a3d71d90db5d434f26caea3efe8fb1fdcdc64f7864",
+      "bytes": 57
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-characters/adapted/commands/run/record.json",
+      "sha256": "4d893d60f934343394656673da4824677129bcb8df7966ac9dab1f07ff429215",
+      "bytes": 641
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-characters/adapted/input.scm",
+      "sha256": "7ad67c8654a74c03eb4bd87ebc31b1bada3c08eb941a899c4616b8b0096ee3b4",
+      "bytes": 47
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-characters/original/commands/run/record.json",
+      "sha256": "99da7e24585555b8a7ec130925e60e85441ed47320a6cc134e3813f11437b2e3",
+      "bytes": 607
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/delimiter-characters/original/input.scm",
+      "sha256": "7ad67c8654a74c03eb4bd87ebc31b1bada3c08eb941a899c4616b8b0096ee3b4",
+      "bytes": 47
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/dotted/adapted/commands/run/record.json",
+      "sha256": "c9be34017a9618e4c65052c30e078d3acd52402de6ee2e330dd7f76f2cd2b188",
+      "bytes": 653
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/dotted/adapted/input.scm",
+      "sha256": "3d69490982d6644f61cdb69c778128f55bbbf82d4b0b56a8e0851e3494ed5cce",
+      "bytes": 38
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/dotted/original/commands/run/record.json",
+      "sha256": "791b9ba6b5babd1c68e50d58afbffe168600dc9bc3ef4ce4cc00b4f50f12bc7b",
+      "bytes": 619
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/dotted/original/input.scm",
+      "sha256": "3d69490982d6644f61cdb69c778128f55bbbf82d4b0b56a8e0851e3494ed5cce",
+      "bytes": 38
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/empty/adapted/commands/run/record.json",
+      "sha256": "a3d7163501811779cb6ac76641fb0a029cba26b538b6687f27e98ae2ca8a64a3",
+      "bytes": 489
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/empty/adapted/input.scm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/empty/original/commands/run/record.json",
+      "sha256": "bd9489fa423ee66f194b3af57cd52902eb4fbae1fa2fc392e902522f92fccdff",
+      "bytes": 454
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/empty/original/input.scm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/escaped-symbols/adapted/commands/run/record.json",
+      "sha256": "127b5396f82e88a00d5faa5253208f73a53ae3d4d54311db62f62427898caa19",
+      "bytes": 678
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/escaped-symbols/adapted/input.scm",
+      "sha256": "8301d14321d77a33b601e0569db43b19de470aadf38d507ddbe2b93c4f09a405",
+      "bytes": 46
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/escaped-symbols/original/commands/run/record.json",
+      "sha256": "d22404a50249ceeebdc7ba7b345e3e3fc69006f9408548b611f4c568ed30635f",
+      "bytes": 644
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/escaped-symbols/original/input.scm",
+      "sha256": "2cac03e1561acd7e1aa507d5e653c01dab4eb6473a153295382f1f3be66332e6",
+      "bytes": 43
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-complex/adapted/commands/run/record.json",
+      "sha256": "d795b6d3bc827c96ecdab3a113ca38672dafbb720eeeb0ed36047398ccb9d86a",
+      "bytes": 970
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-complex/adapted/input.scm",
+      "sha256": "cce8636e295a473d033d8632ae5922fa412bf6cb68b1843a28f8580933bea7f9",
+      "bytes": 82
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-complex/original/commands/run/record.json",
+      "sha256": "772b73f1014c63dd68f8493d0c0d551a2237721a7803501bee1dde916480c200",
+      "bytes": 935
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-complex/original/input.scm",
+      "sha256": "cce8636e295a473d033d8632ae5922fa412bf6cb68b1843a28f8580933bea7f9",
+      "bytes": 82
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-decimals/adapted/commands/run/record.json",
+      "sha256": "b3f3bac1403d299529134c93814afe003fe16a4ee8b10c785f60237bfb600ef5",
+      "bytes": 609
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-decimals/adapted/input.scm",
+      "sha256": "4e6ee02794f248206f2e6026b3aed728a79bc722b6809421bfb1d272ebb195d8",
+      "bytes": 70
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-decimals/original/commands/run/record.json",
+      "sha256": "0546d5e2ed037d3220a821b1a5cde0222bf66947a507a3d1e99b718739e58af6",
+      "bytes": 575
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-decimals/original/input.scm",
+      "sha256": "4e6ee02794f248206f2e6026b3aed728a79bc722b6809421bfb1d272ebb195d8",
+      "bytes": 70
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-rationals/adapted/commands/run/record.json",
+      "sha256": "2d88eabdad25385ca510100ef78697b4745c4b81e4135d44d44cd38a3581508e",
+      "bytes": 12869
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-rationals/adapted/input.scm",
+      "sha256": "c8f771d1ed5fb4458bde23998cbb8fb9a8037b1eed7be647546e522830a78e22",
+      "bytes": 68
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-rationals/original/commands/run/record.json",
+      "sha256": "f88fe4ab27de1b129f5cfd78010f6cdfae08651fa8b11a27234eefabbb537774",
+      "bytes": 12833
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/exact-rationals/original/input.scm",
+      "sha256": "c8f771d1ed5fb4458bde23998cbb8fb9a8037b1eed7be647546e522830a78e22",
+      "bytes": 68
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-31/adapted/commands/run/record.json",
+      "sha256": "66f13ffcb2ca750cc4f8a509002eeea3bb6f47c425cdaa85173b9a08fc9169d3",
+      "bytes": 1043
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-31/adapted/input.scm",
+      "sha256": "c372dcf9159dd9bd1b458c9986a2d3a487f0e4ef8353f77c297a1097ba18e730",
+      "bytes": 191
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-31/original/commands/run/record.json",
+      "sha256": "f769915b99f06d583f8b9ae4c37ed7a63756d18c75cfb742c279c0b2ed38296f",
+      "bytes": 1009
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-31/original/input.scm",
+      "sha256": "c372dcf9159dd9bd1b458c9986a2d3a487f0e4ef8353f77c297a1097ba18e730",
+      "bytes": 191
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-32/adapted/commands/run/record.json",
+      "sha256": "3573bcf5ad1f2b8bf006663206c629cc1e5d7a16fe66fb38a43f2b18ebbd5bd6",
+      "bytes": 1060
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-32/adapted/input.scm",
+      "sha256": "cac722e82ee7fd73b5c443ecb8e446a5daa3afc6d6c4fef6361cf216ec43f8be",
+      "bytes": 197
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-32/original/commands/run/record.json",
+      "sha256": "ddbab0e7d92f4eedc2aa3a73e1b59de966a086c0628a434c9506254a399c1772",
+      "bytes": 1025
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-32/original/input.scm",
+      "sha256": "cac722e82ee7fd73b5c443ecb8e446a5daa3afc6d6c4fef6361cf216ec43f8be",
+      "bytes": 197
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-33/adapted/commands/run/record.json",
+      "sha256": "de54e0faab39e409d237e1d8b78ffd11fa88ec851b6a152b0382e3d2a21a5a5e",
+      "bytes": 1076
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-33/adapted/input.scm",
+      "sha256": "e9e9ef87ce4c741229413995ff1171b99f90619e19069f1cf66361b3bcc3f619",
+      "bytes": 203
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-33/original/commands/run/record.json",
+      "sha256": "1a41db59340c7b6194587e0efc1e8e0857bea2261debc6d6d09af808bba63923",
+      "bytes": 1042
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-33/original/input.scm",
+      "sha256": "e9e9ef87ce4c741229413995ff1171b99f90619e19069f1cf66361b3bcc3f619",
+      "bytes": 203
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-63/adapted/commands/run/record.json",
+      "sha256": "1906e745f1c6fd66f38c611eacb0738071b3945983a06cbf213dcdc34781bac3",
+      "bytes": 1587
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-63/adapted/input.scm",
+      "sha256": "abce552239b641c804387a643b365cce884d4e979b13d32e2591889edab5fe46",
+      "bytes": 383
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-63/original/commands/run/record.json",
+      "sha256": "3f78e03fcba278b0527fc3db9c1a08ebe0c9d161e18ab7dc39574d0bd18e3773",
+      "bytes": 1552
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-63/original/input.scm",
+      "sha256": "abce552239b641c804387a643b365cce884d4e979b13d32e2591889edab5fe46",
+      "bytes": 383
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-64/adapted/commands/run/record.json",
+      "sha256": "b7cdae93aa1394926cd9c9bb97fa23e7913d02cf18618739711fe48286169fd8",
+      "bytes": 1604
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-64/adapted/input.scm",
+      "sha256": "75572544c4a3118263719149bb27e334ad44a6a5d2d7016edcecdc4663555ed4",
+      "bytes": 389
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-64/original/commands/run/record.json",
+      "sha256": "9064f0873a3d7655d789248d528a71d03427ca8f8dd34a389f71a28b6a1d123e",
+      "bytes": 1570
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-64/original/input.scm",
+      "sha256": "75572544c4a3118263719149bb27e334ad44a6a5d2d7016edcecdc4663555ed4",
+      "bytes": 389
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-65/adapted/commands/run/record.json",
+      "sha256": "1ec6d9b7f412e10d157e6b0cfa22a72f1fe3dd000f10daf58ef7faf006ab01b6",
+      "bytes": 1621
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-65/adapted/input.scm",
+      "sha256": "e256f6babbc1e6298a777ad3907ffb25684ea3f98cf6f3c129877184fbdc2ec4",
+      "bytes": 395
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-65/original/commands/run/record.json",
+      "sha256": "0b99aa2d328d8727125167b968f26868c882bcaf73d69ba7ed3b5d5a60b57fde",
+      "bytes": 1586
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-65/original/input.scm",
+      "sha256": "e256f6babbc1e6298a777ad3907ffb25684ea3f98cf6f3c129877184fbdc2ec4",
+      "bytes": 395
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8191/adapted/commands/run/record.json",
+      "sha256": "01ebf293f5401889d7a6caa281051c045dcd06bd9e68dbb105f74524eaff5940",
+      "bytes": 139768
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8191/adapted/input.scm",
+      "sha256": "0956f8ade0b5413c3c4e70dbd648e3026fa38e309516e0a8a245dcfed99fce7e",
+      "bytes": 49151
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8191/original/commands/run/record.json",
+      "sha256": "0fed874ea599dbf3dfe61f5619c42bdd9d59a8881142ae3e7006dfbc90c34408",
+      "bytes": 139734
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8191/original/input.scm",
+      "sha256": "0956f8ade0b5413c3c4e70dbd648e3026fa38e309516e0a8a245dcfed99fce7e",
+      "bytes": 49151
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8192/adapted/commands/run/record.json",
+      "sha256": "a1cbc3e9440b10bdfe49465f92990ff02031780dc5fdb0c1bab2b772137b9292",
+      "bytes": 139784
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8192/adapted/input.scm",
+      "sha256": "73e485dd910679475057684178f03c32ae10f31076ad02a6a5610f9a4bb15b94",
+      "bytes": 49157
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8192/original/commands/run/record.json",
+      "sha256": "d6fdef27b3b5936bb62f14ee6ffef3ab040d1b78f683b981488657aa7c17c80f",
+      "bytes": 139751
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8192/original/input.scm",
+      "sha256": "73e485dd910679475057684178f03c32ae10f31076ad02a6a5610f9a4bb15b94",
+      "bytes": 49157
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8193/adapted/commands/run/record.json",
+      "sha256": "80b868cec647208896718eb154fc36c3dc821d128dc05b5f342dad74bf1718bf",
+      "bytes": 139802
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8193/adapted/input.scm",
+      "sha256": "34a23b386e48056923c39648b25e792b64f574b77911f9cc10858b9fa8b6b557",
+      "bytes": 49163
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8193/original/commands/run/record.json",
+      "sha256": "8bcec5c1e35dc874f5706c13f9cc1c522f6ec8849054ec42ee03bf0ad87f1289",
+      "bytes": 139768
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/growth-8193/original/input.scm",
+      "sha256": "34a23b386e48056923c39648b25e792b64f574b77911f9cc10858b9fa8b6b557",
+      "bytes": 49163
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/inexact-rationals/adapted/commands/run/record.json",
+      "sha256": "d948d4b5928196779b592cce50a7176e108ce113b97786332f57451acf35bf10",
+      "bytes": 668
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/inexact-rationals/adapted/input.scm",
+      "sha256": "eedcb18eca86f20c279e70f6e9140342be43f243165f036bbbebaeb31d92334a",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/inexact-rationals/original/commands/run/record.json",
+      "sha256": "4cc8991dd06c193d951be9a76f655a8e97c69461857bd09a06af30f1d04fcbd0",
+      "bytes": 633
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/inexact-rationals/original/input.scm",
+      "sha256": "eedcb18eca86f20c279e70f6e9140342be43f243165f036bbbebaeb31d92334a",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/integers/adapted/commands/run/record.json",
+      "sha256": "c400be655eac316c27d7ec2067e205739b94437782e170394e7554e9c4071954",
+      "bytes": 674
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/integers/adapted/input.scm",
+      "sha256": "737489b6f289d3f9e336114fbc5444d431d828325d230bfaed265e099ebdd55c",
+      "bytes": 83
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/integers/original/commands/run/record.json",
+      "sha256": "1e2f2896930a54f1a747fbc770115c3f8273e04a03fa3f8d495b20158dd41a1b",
+      "bytes": 640
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/integers/original/input.scm",
+      "sha256": "737489b6f289d3f9e336114fbc5444d431d828325d230bfaed265e099ebdd55c",
+      "bytes": 83
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/line-comment-eof/adapted/commands/run/record.json",
+      "sha256": "d2bac1b8fd865b86e962824b5bc9aef3a375c23cb2d4163edca241c2910f513f",
+      "bytes": 500
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/line-comment-eof/adapted/input.scm",
+      "sha256": "26ad6b9b99ffdc15421402c3926521d4d41a3ca1ced01d3bc302cf2426a35425",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/line-comment-eof/original/commands/run/record.json",
+      "sha256": "5eba432fba947f0ceb96fc549980e98dcf58a5af6625532f01798a0d448f62f7",
+      "bytes": 465
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/line-comment-eof/original/input.scm",
+      "sha256": "26ad6b9b99ffdc15421402c3926521d4d41a3ca1ced01d3bc302cf2426a35425",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/long-booleans/adapted/commands/run/record.json",
+      "sha256": "c60ada25f39ce494edd4f1dca4c5a586f0e9da817ed45943d03e340d2f4f4c58",
+      "bytes": 538
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/long-booleans/adapted/input.scm",
+      "sha256": "73d98c8bf41ee4380f745ca2b1dced30cb81b124239b4c2ff70eb3fa921a868a",
+      "bytes": 25
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/long-booleans/original/commands/run/record.json",
+      "sha256": "43654973e81f6c09fa8ec21ed8ea62bfce7608babac24e2930103ce9a85002db",
+      "bytes": 503
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/long-booleans/original/input.scm",
+      "sha256": "3776b33a591a7ebebd588772e7357f963758b1eb58ee551657f27474efaa7148",
+      "bytes": 11
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/named-characters/adapted/commands/run/record.json",
+      "sha256": "5affa815cc3a004877ac5897885651477c8a3b8a93c1a5b8674be5437d510292",
+      "bytes": 575
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/named-characters/adapted/input.scm",
+      "sha256": "d4e0e414aa82cdd4f47ef4eeceb40a178e2d74672c6f9a48b328b2c671dcdda4",
+      "bytes": 59
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/named-characters/original/commands/run/record.json",
+      "sha256": "e7d491522bae4a0703b7273138a0eee0ecb0f601e5e2117350bcc99add1799bb",
+      "bytes": 541
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/named-characters/original/input.scm",
+      "sha256": "0dd9ca34e440367d01d965254e6f2b5acaa43b213fef58ff01ca6a3c10a0939e",
+      "bytes": 36
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/polar-axes/adapted/commands/run/record.json",
+      "sha256": "8c03dc011cf97cb5679dab4bf264429b225c5e67a70ca6df158ab5f23e187efd",
+      "bytes": 989
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/polar-axes/adapted/input.scm",
+      "sha256": "f17758e568c91b489f0ab3d3a714ec4a5b2fc133ad69d2bd44580b66f9b65c4c",
+      "bytes": 101
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/polar-axes/original/commands/run/record.json",
+      "sha256": "cb918e24108480ca90df919438944e7efb2f6f81d08bd0f3021642b629ad2365",
+      "bytes": 954
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/polar-axes/original/input.scm",
+      "sha256": "f17758e568c91b489f0ab3d3a714ec4a5b2fc133ad69d2bd44580b66f9b65c4c",
+      "bytes": 101
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/reals/adapted/commands/run/record.json",
+      "sha256": "d211bcba4505592f3a263166a946058ee326e30a06caeecfd9a65b0f62523a1f",
+      "bytes": 866
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/reals/adapted/input.scm",
+      "sha256": "1436ac560973d830887676efbef5e2ea9b42af8760117675f11ef43d4358c901",
+      "bytes": 90
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/reals/original/commands/run/record.json",
+      "sha256": "48473bbd9aff507774a87ae12b327149e8fdcb2da44f1c103ae8079ab5ba500a",
+      "bytes": 833
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/reals/original/input.scm",
+      "sha256": "1436ac560973d830887676efbef5e2ea9b42af8760117675f11ef43d4358c901",
+      "bytes": 90
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/streams.json",
+      "sha256": "d7b825e8bb3aa5d43265c7c170f8b77a0efc090d438c26e5d6896fb6560cfbd0",
+      "bytes": 4890
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/strings/adapted/commands/run/record.json",
+      "sha256": "6e1130d1961116d79712812d5157e338fcc4181afcd03948508b643d69558101",
+      "bytes": 661
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/strings/adapted/input.scm",
+      "sha256": "6e058bb13befa622936efffc41970c4b4503398b3015b8ac285363e791d86085",
+      "bytes": 52
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/strings/original/commands/run/record.json",
+      "sha256": "d26639a7767b380a6ac0e04559dbc1c31649edcaf0a06ca738d3cdaf1c7edad6",
+      "bytes": 627
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/strings/original/input.scm",
+      "sha256": "6e058bb13befa622936efffc41970c4b4503398b3015b8ac285363e791d86085",
+      "bytes": 52
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/adaptation-ledger.json",
+      "sha256": "7ee17fc832aad31a8a29555c51561094d77b504c68b9206fc6de7840d2cc561d",
+      "bytes": 288
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/adapted-kernel.scm",
+      "sha256": "7b136e514b0adfbb4f73fc08156a0d6a291cfab8833b73b48984545b51524227",
+      "bytes": 422
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/chez/commands/canonical/record.json",
+      "sha256": "ec8bb27f6ff8d8cec7f955549258f38bf16b1f206b50717307c2023050295691",
+      "bytes": 587
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/chez/program.scm",
+      "sha256": "4b347b1a9650ff75b335376b15b6a2df66b66a368aedcc4634e016534c68f7de",
+      "bytes": 4752
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/chez-adaptation.patch",
+      "sha256": "f181e0249ef8ec768e4e9a468df4ee73c5c7bdf99dcd185db5c1fcc2404f85fc",
+      "bytes": 143717
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/chez-adapted/program.scm",
+      "sha256": "a8cd42da7b8978af633f36817764fc11dcb4a21ffb8c8ef03507d6cbc0d8ac3e",
+      "bytes": 145454
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/complete-chez-edit-ledger.json",
+      "sha256": "758d7efad9b79c04c11f936ed264afac83388a8f9a75fe5112cc9412fd0771f1",
+      "bytes": 891
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/input.txt",
+      "sha256": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+      "bytes": 32
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/strict.scm",
+      "sha256": "5d55bd07a20c35ad42b497d4e4610ed9e2fab8f54460c9261afc97a81ea75934",
+      "bytes": 3293
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/upstream-kernel.scm",
+      "sha256": "3e357c2d211190ace701696c4dee4419a6d603d9c6119708b57e7605b3e754d8",
+      "bytes": 303
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/sum1/upstream.scm",
+      "sha256": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
+      "bytes": 733
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/vectors/adapted/commands/run/record.json",
+      "sha256": "ea66b8e652a397ff1fe5fadf98169ea2f15d069286b597cf417899bcee735c6d",
+      "bytes": 610
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/vectors/adapted/input.scm",
+      "sha256": "63b15b459ae94a7bd122fa42ec3b6db6fe52b5052cc5b45abbfc7538067a5c12",
+      "bytes": 30
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/vectors/original/commands/run/record.json",
+      "sha256": "d11ca3957ed83d8733996294e945032160a825838745326bc39fe6438132b2e6",
+      "bytes": 575
+    },
+    {
+      "path": "chez-numeric-readers-v1/reader-controls/vectors/original/input.scm",
+      "sha256": "63b15b459ae94a7bd122fa42ec3b6db6fe52b5052cc5b45abbfc7538067a5c12",
+      "bytes": 30
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/abbreviations/adapted/commands/run/record.json",
+      "sha256": "a3f4cbe95d32ebeb945158440edb515c9f5278cafa87a284337b0e046ae4453a",
+      "bytes": 1075
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/abbreviations/adapted/input.scm",
+      "sha256": "f0edf057dcf621f016044dfba5f995a7115b192ddb809a18dc2e4104279ed277",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/abbreviations/original/commands/run/record.json",
+      "sha256": "a2468b22efc1d239dd20bc11d13d02ea91ca057faf9080887a8e7c2d69aa0c1f",
+      "bytes": 1040
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/abbreviations/original/input.scm",
+      "sha256": "f0edf057dcf621f016044dfba5f995a7115b192ddb809a18dc2e4104279ed277",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/adapted-stream.scm",
+      "sha256": "56427ca837e23efeaf5ec7686abb74e37f98af1cf17deda933a10af5f0900e09",
+      "bytes": 144407
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/arbitrary-exact/adapted/commands/run/record.json",
+      "sha256": "ca0ad4f75b65e067123c5562a5ce167c1602208488afb08d74452ea40dd66d8b",
+      "bytes": 1148
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/arbitrary-exact/adapted/input.scm",
+      "sha256": "273c586a5c0c7023b3e00c5f422350fad34e7954e9e7fc525861c897de1ca2a3",
+      "bytes": 164
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/arbitrary-exact/original/commands/run/record.json",
+      "sha256": "af59d0397c9a9b83bccb90cf65f870321b270f60ac00c81843673e6497213838",
+      "bytes": 1113
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/arbitrary-exact/original/input.scm",
+      "sha256": "273c586a5c0c7023b3e00c5f422350fad34e7954e9e7fc525861c897de1ca2a3",
+      "bytes": 164
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/atoms/adapted/commands/run/record.json",
+      "sha256": "bab0b2468468e70498d134dbbdd2f9bd8593d4c45eaccab89cb90fd78e3ecd65",
+      "bytes": 686
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/atoms/adapted/input.scm",
+      "sha256": "1331bb4aefc9a8fb7f7aeec73739841d708e14022c649174664dd8d3ace05743",
+      "bytes": 33
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/atoms/original/commands/run/record.json",
+      "sha256": "57c192004739c0243eb5c408ccd35c64f3e7e24f469c1af0f7ea99e495728f8a",
+      "bytes": 652
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/atoms/original/input.scm",
+      "sha256": "1331bb4aefc9a8fb7f7aeec73739841d708e14022c649174664dd8d3ace05743",
+      "bytes": 33
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/bytevectors/adapted/commands/run/record.json",
+      "sha256": "97eecdb9feeb9a7ccdab297c361181298e1883a7af4cbe16808900d52ab8bd8d",
+      "bytes": 547
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/bytevectors/adapted/input.scm",
+      "sha256": "f649b5d8f03712f5bf0363e864d295c40689b019341e3c725d46234024ddb258",
+      "bytes": 26
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/bytevectors/original/commands/run/record.json",
+      "sha256": "3509f4c381da458ee5183d9ae1e0ec7491a0c6791a87b715f11782f19272a351",
+      "bytes": 512
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/bytevectors/original/input.scm",
+      "sha256": "3a32f26ad7a42ad864d676afbc43e4a68caefc1ebbec61e8be88348113197bf7",
+      "bytes": 28
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-read1/adapted/commands/run/record.json",
+      "sha256": "a4b38e6e919b6b0f55e12507268bb94a4a1c78708d857f059715290466afcb53",
+      "bytes": 98703
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-read1/adapted/input.scm",
+      "sha256": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "bytes": 28300
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-read1/original/commands/run/record.json",
+      "sha256": "4918b97e67349c7097a648e4e8dfc53f70876a5c9f0edf153cd5bdbd7ccbf66c",
+      "bytes": 98669
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-read1/original/input.scm",
+      "sha256": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "bytes": 28300
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-sum1/adapted/commands/run/record.json",
+      "sha256": "f1a0a0ec2c0bb22f077971ed27b636310f5c4de10a1596b311b6d68d1fbf8529",
+      "bytes": 3350429
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-sum1/adapted/input.scm",
+      "sha256": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "bytes": 1100000
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-sum1/original/commands/run/record.json",
+      "sha256": "3ebee9b74c094b0fe83140c2d0eb2627e318e5445b00c3fc095b864a59f01095",
+      "bytes": 3350394
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/canonical-sum1/original/input.scm",
+      "sha256": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "bytes": 1100000
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/characters/adapted/commands/run/record.json",
+      "sha256": "11b6063c4880a75c7b2fbb7e55d5d9715909e30eeb17bb18f89676829cd549c8",
+      "bytes": 603
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/characters/adapted/input.scm",
+      "sha256": "fb3a63af4f5a0963c334c7cad26d2bc084d614144143eb5df080a94720fc8d7b",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/characters/original/commands/run/record.json",
+      "sha256": "a833c4f55e99468385fa96eccbe004381d8a9deab82c138aa1243aa012895e0f",
+      "bytes": 568
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/characters/original/input.scm",
+      "sha256": "fb3a63af4f5a0963c334c7cad26d2bc084d614144143eb5df080a94720fc8d7b",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/checked-canonical.json",
+      "sha256": "8ac70a667560e1134d8d34feb778be6a28cadc9c4d116a4de39d5c68f50b82f1",
+      "bytes": 989
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/comments/adapted/commands/run/record.json",
+      "sha256": "3f0bfc11d98cedfe2b73dd94c8283bd805dbe2ab92daec41d29d75a17db9ef0a",
+      "bytes": 558
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/comments/adapted/input.scm",
+      "sha256": "4b3a2e6e66cac3c10873daebe0a627f5258fec42b850ba4cce037a62703d1a47",
+      "bytes": 64
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/comments/original/commands/run/record.json",
+      "sha256": "c36902cbb6b74f823282731045568e705f3dba35475b85e0ebedf1867b5eaa54",
+      "bytes": 524
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/comments/original/input.scm",
+      "sha256": "4b3a2e6e66cac3c10873daebe0a627f5258fec42b850ba4cce037a62703d1a47",
+      "bytes": 64
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/complex/adapted/commands/run/record.json",
+      "sha256": "3c7384286d248bceac57644dad588b84e1fd086424d1c8fb27bedb304e3e45ba",
+      "bytes": 956
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/complex/adapted/input.scm",
+      "sha256": "1c14b9715cf10fb992b33736d86f68b43394dac1da493f6648a518a053a53283",
+      "bytes": 67
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/complex/original/commands/run/record.json",
+      "sha256": "757b27de2d58ed4d778adcaaedc3dc32a680a66df8f0dbc3f4f182a74e820596",
+      "bytes": 922
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/complex/original/input.scm",
+      "sha256": "1c14b9715cf10fb992b33736d86f68b43394dac1da493f6648a518a053a53283",
+      "bytes": 67
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/continuations/adapted/commands/run/record.json",
+      "sha256": "5c1125102be71550dcc81b5ed88ec1c9245a306df46c5b9df20f89c996c24ff4",
+      "bytes": 543
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/continuations/adapted/input.scm",
+      "sha256": "cde6650a770bf4c4aa8ba9d74102a4eaa36a5f42e9bded8fa633fe70f9a54756",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/continuations/original/commands/run/record.json",
+      "sha256": "7790c841b6deaa65f9335020bc835762f11e718af0865b8c4c14d6e3a0594ad3",
+      "bytes": 509
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/continuations/original/input.scm",
+      "sha256": "cde6650a770bf4c4aa8ba9d74102a4eaa36a5f42e9bded8fa633fe70f9a54756",
+      "bytes": 19
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-adjacency/adapted/commands/run/record.json",
+      "sha256": "3069f6e0aad068a42123fda0eeb25bd274a2731aebd8c6f8a34f5f1b29d73e32",
+      "bytes": 1100
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-adjacency/adapted/input.scm",
+      "sha256": "91b7f8d46f1f23037d07e33bc27a45cd40b70406e3bcec0dd6a77a311f6e39c6",
+      "bytes": 56
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-adjacency/original/commands/run/record.json",
+      "sha256": "8928bdf40d668e9806965b008746b62535c503067e7d8be81b00e5eb48ab3f9e",
+      "bytes": 1066
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-adjacency/original/input.scm",
+      "sha256": "0066c5da56f7933ab10836a3d71d90db5d434f26caea3efe8fb1fdcdc64f7864",
+      "bytes": 57
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-characters/adapted/commands/run/record.json",
+      "sha256": "bb55c293bfc3bb71df6b236a1a98d95e7c8aca77c4d9bc3fb88ee781f19fcf5d",
+      "bytes": 641
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-characters/adapted/input.scm",
+      "sha256": "7ad67c8654a74c03eb4bd87ebc31b1bada3c08eb941a899c4616b8b0096ee3b4",
+      "bytes": 47
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-characters/original/commands/run/record.json",
+      "sha256": "681230d9706636157b7bf672c5c834ca49bbe089546d222aa89c9b2bd53f58a1",
+      "bytes": 606
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/delimiter-characters/original/input.scm",
+      "sha256": "7ad67c8654a74c03eb4bd87ebc31b1bada3c08eb941a899c4616b8b0096ee3b4",
+      "bytes": 47
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/dotted/adapted/commands/run/record.json",
+      "sha256": "aa240e58a300d6d7c8a6d09ab4f511c9eec886e3482097e67f56ebcdd8918f4c",
+      "bytes": 655
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/dotted/adapted/input.scm",
+      "sha256": "3d69490982d6644f61cdb69c778128f55bbbf82d4b0b56a8e0851e3494ed5cce",
+      "bytes": 38
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/dotted/original/commands/run/record.json",
+      "sha256": "1c4b71ee96e548f8113cef8d04f4dbe06a594f5b94600aea039e8b3303a1459a",
+      "bytes": 620
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/dotted/original/input.scm",
+      "sha256": "3d69490982d6644f61cdb69c778128f55bbbf82d4b0b56a8e0851e3494ed5cce",
+      "bytes": 38
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/empty/adapted/commands/run/record.json",
+      "sha256": "5726367b05aaacf4b6743eb81a5e9efb40180a431f9f5dc1687bbc72508b320d",
+      "bytes": 489
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/empty/adapted/input.scm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/empty/original/commands/run/record.json",
+      "sha256": "39c06dc46f8a0f48cfd6ccb5779e89d533d4163174e2a3ee1aab35db34aaf421",
+      "bytes": 454
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/empty/original/input.scm",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/escaped-symbols/adapted/commands/run/record.json",
+      "sha256": "f35ca219e2b760db947aa7a1476ac13650f2ffbec68acc0f67c25e0d43d42e83",
+      "bytes": 679
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/escaped-symbols/adapted/input.scm",
+      "sha256": "8301d14321d77a33b601e0569db43b19de470aadf38d507ddbe2b93c4f09a405",
+      "bytes": 46
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/escaped-symbols/original/commands/run/record.json",
+      "sha256": "0a6259e4164c56b706f0fa4f5f89794d347548adfc8b0f9d80bc29083907cca5",
+      "bytes": 643
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/escaped-symbols/original/input.scm",
+      "sha256": "2cac03e1561acd7e1aa507d5e653c01dab4eb6473a153295382f1f3be66332e6",
+      "bytes": 43
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-complex/adapted/commands/run/record.json",
+      "sha256": "2b1838b4f83df67f5aff28189f7916b201cb9568c48c1832ba038a8628d9afe5",
+      "bytes": 970
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-complex/adapted/input.scm",
+      "sha256": "cce8636e295a473d033d8632ae5922fa412bf6cb68b1843a28f8580933bea7f9",
+      "bytes": 82
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-complex/original/commands/run/record.json",
+      "sha256": "d984f98be86df5db5e87435b7c3707100bbfc5e5d4d8400aa373d26421f09cfb",
+      "bytes": 935
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-complex/original/input.scm",
+      "sha256": "cce8636e295a473d033d8632ae5922fa412bf6cb68b1843a28f8580933bea7f9",
+      "bytes": 82
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-decimals/adapted/commands/run/record.json",
+      "sha256": "0712150797e24ad4dbcbaea9663b348543bd3c707057f83ff5875e33d98be4b1",
+      "bytes": 609
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-decimals/adapted/input.scm",
+      "sha256": "4e6ee02794f248206f2e6026b3aed728a79bc722b6809421bfb1d272ebb195d8",
+      "bytes": 70
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-decimals/original/commands/run/record.json",
+      "sha256": "45b7a741152fdc5a0cad50e426650115bbd0deb31ac73a0d3fae91abcd6032be",
+      "bytes": 574
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-decimals/original/input.scm",
+      "sha256": "4e6ee02794f248206f2e6026b3aed728a79bc722b6809421bfb1d272ebb195d8",
+      "bytes": 70
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-rationals/adapted/commands/run/record.json",
+      "sha256": "7141f428a1facf33833dd714b3260ccabd16e0c3273a12f7b1e385783ce1110a",
+      "bytes": 12869
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-rationals/adapted/input.scm",
+      "sha256": "c8f771d1ed5fb4458bde23998cbb8fb9a8037b1eed7be647546e522830a78e22",
+      "bytes": 68
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-rationals/original/commands/run/record.json",
+      "sha256": "313bb71eb2757cb210977afd14e789f2ada020df9d306a32db3dd9412b161151",
+      "bytes": 12834
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/exact-rationals/original/input.scm",
+      "sha256": "c8f771d1ed5fb4458bde23998cbb8fb9a8037b1eed7be647546e522830a78e22",
+      "bytes": 68
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-31/adapted/commands/run/record.json",
+      "sha256": "f6a0517e5e10a9d45aa9eb9f6ad9ffc8ff013de185e6ff9dacf5ae0a2e6416c0",
+      "bytes": 1043
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-31/adapted/input.scm",
+      "sha256": "c372dcf9159dd9bd1b458c9986a2d3a487f0e4ef8353f77c297a1097ba18e730",
+      "bytes": 191
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-31/original/commands/run/record.json",
+      "sha256": "4f8d2c1cf823099d6d9f7a39265840286fa0d7f1348929fde7dd5ae79d026f99",
+      "bytes": 1009
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-31/original/input.scm",
+      "sha256": "c372dcf9159dd9bd1b458c9986a2d3a487f0e4ef8353f77c297a1097ba18e730",
+      "bytes": 191
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-32/adapted/commands/run/record.json",
+      "sha256": "2fa410419d305583c7427ce799923f1454d539d201f924cfffe43485e9496ef5",
+      "bytes": 1059
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-32/adapted/input.scm",
+      "sha256": "cac722e82ee7fd73b5c443ecb8e446a5daa3afc6d6c4fef6361cf216ec43f8be",
+      "bytes": 197
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-32/original/commands/run/record.json",
+      "sha256": "6a97c92597b4d155d8f6144a84f1a8d802dec44a279c67ee8cb30d4476e0678e",
+      "bytes": 1025
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-32/original/input.scm",
+      "sha256": "cac722e82ee7fd73b5c443ecb8e446a5daa3afc6d6c4fef6361cf216ec43f8be",
+      "bytes": 197
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-33/adapted/commands/run/record.json",
+      "sha256": "d5be33059bec56b7b22580f38dd7c0733e76c64fb0ec956c511aeabdd02b94a6",
+      "bytes": 1077
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-33/adapted/input.scm",
+      "sha256": "e9e9ef87ce4c741229413995ff1171b99f90619e19069f1cf66361b3bcc3f619",
+      "bytes": 203
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-33/original/commands/run/record.json",
+      "sha256": "1718572727da69f7eb2f68a1444d01e3e09330b983c3b0cbb71af281a4e2853d",
+      "bytes": 1043
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-33/original/input.scm",
+      "sha256": "e9e9ef87ce4c741229413995ff1171b99f90619e19069f1cf66361b3bcc3f619",
+      "bytes": 203
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-63/adapted/commands/run/record.json",
+      "sha256": "7527b834954e05941a2f1a1c823d574ee9db8dd46f8e96824a52db72beaae803",
+      "bytes": 1587
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-63/adapted/input.scm",
+      "sha256": "abce552239b641c804387a643b365cce884d4e979b13d32e2591889edab5fe46",
+      "bytes": 383
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-63/original/commands/run/record.json",
+      "sha256": "fdf5c0860e710f0d3c8225bc20faf7d33420c73d07e132e4db7707116bee266f",
+      "bytes": 1551
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-63/original/input.scm",
+      "sha256": "abce552239b641c804387a643b365cce884d4e979b13d32e2591889edab5fe46",
+      "bytes": 383
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-64/adapted/commands/run/record.json",
+      "sha256": "ae36ce7e3f7253a204e52648b991a1290a34647c1e4897062b6cafbfb4d5a1f2",
+      "bytes": 1604
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-64/adapted/input.scm",
+      "sha256": "75572544c4a3118263719149bb27e334ad44a6a5d2d7016edcecdc4663555ed4",
+      "bytes": 389
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-64/original/commands/run/record.json",
+      "sha256": "225972b9a4d99f049c0cc9d6eac668ca356aeff2d9e630c45ec326b804f8178f",
+      "bytes": 1569
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-64/original/input.scm",
+      "sha256": "75572544c4a3118263719149bb27e334ad44a6a5d2d7016edcecdc4663555ed4",
+      "bytes": 389
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-65/adapted/commands/run/record.json",
+      "sha256": "d1f6be435135ca9aef2eed062bb364ccfbb7cd078b84d8a1032da3409d174766",
+      "bytes": 1621
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-65/adapted/input.scm",
+      "sha256": "e256f6babbc1e6298a777ad3907ffb25684ea3f98cf6f3c129877184fbdc2ec4",
+      "bytes": 395
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-65/original/commands/run/record.json",
+      "sha256": "d268c81efa29265c852e0b1076f0ef1f4c9d0edbe6596105e27e1cface0b77e3",
+      "bytes": 1587
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-65/original/input.scm",
+      "sha256": "e256f6babbc1e6298a777ad3907ffb25684ea3f98cf6f3c129877184fbdc2ec4",
+      "bytes": 395
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8191/adapted/commands/run/record.json",
+      "sha256": "740dd1499e806cf8b2387c3fc6c00f4f8dd222af6ebb3602d86a438cfbc269a3",
+      "bytes": 139769
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8191/adapted/input.scm",
+      "sha256": "0956f8ade0b5413c3c4e70dbd648e3026fa38e309516e0a8a245dcfed99fce7e",
+      "bytes": 49151
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8191/original/commands/run/record.json",
+      "sha256": "1d5959afd3b5a6b48d9d854a01c34667e33ddbc4f2846bb8dc8512668a13eefc",
+      "bytes": 139735
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8191/original/input.scm",
+      "sha256": "0956f8ade0b5413c3c4e70dbd648e3026fa38e309516e0a8a245dcfed99fce7e",
+      "bytes": 49151
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8192/adapted/commands/run/record.json",
+      "sha256": "fd6ce1e4e5ace113ebe2d6337d37e6f9744554d5514e8676cc2d2d51a7625820",
+      "bytes": 139785
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8192/adapted/input.scm",
+      "sha256": "73e485dd910679475057684178f03c32ae10f31076ad02a6a5610f9a4bb15b94",
+      "bytes": 49157
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8192/original/commands/run/record.json",
+      "sha256": "726c09f774f8a5f324512e71dcae148f52fab2bbf67100b74d9dfaac7b268d34",
+      "bytes": 139751
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8192/original/input.scm",
+      "sha256": "73e485dd910679475057684178f03c32ae10f31076ad02a6a5610f9a4bb15b94",
+      "bytes": 49157
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8193/adapted/commands/run/record.json",
+      "sha256": "5dfaa06c45160f73a0ccafad77e509d78bb38a52d9192ad9f05ae5fa95a5427d",
+      "bytes": 139803
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8193/adapted/input.scm",
+      "sha256": "34a23b386e48056923c39648b25e792b64f574b77911f9cc10858b9fa8b6b557",
+      "bytes": 49163
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8193/original/commands/run/record.json",
+      "sha256": "81b5684b1d74a18be13c434aaf566ed82f8a2071ea90e59b8609b7608e9a9041",
+      "bytes": 139768
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/growth-8193/original/input.scm",
+      "sha256": "34a23b386e48056923c39648b25e792b64f574b77911f9cc10858b9fa8b6b557",
+      "bytes": 49163
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/inexact-rationals/adapted/commands/run/record.json",
+      "sha256": "6d2f2ab5e0170dd1a110573c1eb65e7c2113fd4efd29bc6814bb63f69f861fb7",
+      "bytes": 668
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/inexact-rationals/adapted/input.scm",
+      "sha256": "eedcb18eca86f20c279e70f6e9140342be43f243165f036bbbebaeb31d92334a",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/inexact-rationals/original/commands/run/record.json",
+      "sha256": "bc07eb5a517f8c00d40ece6ef39a20e2d6eb7e0c219a43682a0d1ab3c3344855",
+      "bytes": 633
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/inexact-rationals/original/input.scm",
+      "sha256": "eedcb18eca86f20c279e70f6e9140342be43f243165f036bbbebaeb31d92334a",
+      "bytes": 58
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/integers/adapted/commands/run/record.json",
+      "sha256": "37aa025e7589d9be3de9d3438b9d51a3b90f1b06708f69acd6dc7cd938afcb24",
+      "bytes": 673
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/integers/adapted/input.scm",
+      "sha256": "737489b6f289d3f9e336114fbc5444d431d828325d230bfaed265e099ebdd55c",
+      "bytes": 83
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/integers/original/commands/run/record.json",
+      "sha256": "26fce369e29400d9dfa4deb87bbc7c0bf9f583bd0cf367e6f0c861655293ddb9",
+      "bytes": 640
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/integers/original/input.scm",
+      "sha256": "737489b6f289d3f9e336114fbc5444d431d828325d230bfaed265e099ebdd55c",
+      "bytes": 83
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/line-comment-eof/adapted/commands/run/record.json",
+      "sha256": "d140ca1feca2883b79609cf518c453ba4bfebc702be8335a2bad808f4d8ef01c",
+      "bytes": 500
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/line-comment-eof/adapted/input.scm",
+      "sha256": "26ad6b9b99ffdc15421402c3926521d4d41a3ca1ced01d3bc302cf2426a35425",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/line-comment-eof/original/commands/run/record.json",
+      "sha256": "b832650268b07d5eac5a0a9b72a1e93c740d7f4ed1e0a5754ff2223f19c5b278",
+      "bytes": 465
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/line-comment-eof/original/input.scm",
+      "sha256": "26ad6b9b99ffdc15421402c3926521d4d41a3ca1ced01d3bc302cf2426a35425",
+      "bytes": 12
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/long-booleans/adapted/commands/run/record.json",
+      "sha256": "b89ec4b82ac2ee91759860280cbf906b62996f5c9fdfd1008ec7b9ff31deac36",
+      "bytes": 538
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/long-booleans/adapted/input.scm",
+      "sha256": "73d98c8bf41ee4380f745ca2b1dced30cb81b124239b4c2ff70eb3fa921a868a",
+      "bytes": 25
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/long-booleans/original/commands/run/record.json",
+      "sha256": "ee6a18d0bfc4d834ca2484b2b74bef331c346995b1b430e5b09c479a8c63c367",
+      "bytes": 504
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/long-booleans/original/input.scm",
+      "sha256": "3776b33a591a7ebebd588772e7357f963758b1eb58ee551657f27474efaa7148",
+      "bytes": 11
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/named-characters/adapted/commands/run/record.json",
+      "sha256": "581b0e2a9c58bc2cf881de492bb8cadf4a88042ddec3a8a276f8ab87dbc8b12f",
+      "bytes": 575
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/named-characters/adapted/input.scm",
+      "sha256": "d4e0e414aa82cdd4f47ef4eeceb40a178e2d74672c6f9a48b328b2c671dcdda4",
+      "bytes": 59
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/named-characters/original/commands/run/record.json",
+      "sha256": "934b4e8ec18b92538166053fe1da40f8140729d7f0c364d3aba2410f2b2d3072",
+      "bytes": 541
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/named-characters/original/input.scm",
+      "sha256": "0dd9ca34e440367d01d965254e6f2b5acaa43b213fef58ff01ca6a3c10a0939e",
+      "bytes": 36
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/adaptation-ledger.json",
+      "sha256": "81983e9c573d69cfac6689384b995bf037eb32f5288d98f1960f5ba9bd7d8b22",
+      "bytes": 1161366
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/adapted-kernel.scm",
+      "sha256": "a05020374ac222c774adb65d3ad0d0246e189d94bd784f878077ce3c8619729e",
+      "bytes": 38241
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez/commands/canonical/record.json",
+      "sha256": "b2d4b3dd01196f32dfe9c918c8b3b18d985bd6f458e1c476719aa7206799c619",
+      "bytes": 607
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez/program.scm",
+      "sha256": "4e362b13b987a19541199e54e93ae84c99293e2883ac6077d425729b2d85d58c",
+      "bytes": 30539
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez-adaptation.patch",
+      "sha256": "cd8b37df4d455167ab343c40e0434e4be64b21e16d9a5acbba4bd7622b520c16",
+      "bytes": 189095
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez-adapted/commands/canonical/record.json",
+      "sha256": "956c390f88c2cc5e75511207994081f17188c30edf314fef3fabe3b9e40b5a73",
+      "bytes": 623
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez-adapted/program.scm",
+      "sha256": "aafd39d923b02396c3e5a09078e5d9760e253b4ba970f2880886dcea74fbc1dc",
+      "bytes": 188368
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/chez-prelude.scm",
+      "sha256": "808eb2aaec93e84097c7bda2070916fc425afedae04146d84542df8dc1e2ed14",
+      "bytes": 1238
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/complete-chez-edit-ledger.json",
+      "sha256": "d54e91e78939ac2406c85bd2f74c7f5345c1f5f474b2ad2d704a0c015e7a6c05",
+      "bytes": 1527924
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/input.txt",
+      "sha256": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65",
+      "bytes": 53
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/strict.scm",
+      "sha256": "ec16ee2912b56643c28b9298114d36b458c3ffdfa61ee17cce7d731d831d284d",
+      "bytes": 42886
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/upstream-kernel.scm",
+      "sha256": "9bc6eb2958e9c06612d59294e4a3cf66a9b2595b041662e727754c59dc26ac62",
+      "bytes": 26068
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/parsing/upstream.scm",
+      "sha256": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
+      "bytes": 26534
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/polar-axes/adapted/commands/run/record.json",
+      "sha256": "d92545086d8ce27243972c0da241fa7e937fd066cca3b72be43d287683a84e49",
+      "bytes": 988
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/polar-axes/adapted/input.scm",
+      "sha256": "f17758e568c91b489f0ab3d3a714ec4a5b2fc133ad69d2bd44580b66f9b65c4c",
+      "bytes": 101
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/polar-axes/original/commands/run/record.json",
+      "sha256": "4eab3e1e330dbf25be2166943aefaf50196a6a64f89c88f9d71640e86720c6c9",
+      "bytes": 954
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/polar-axes/original/input.scm",
+      "sha256": "f17758e568c91b489f0ab3d3a714ec4a5b2fc133ad69d2bd44580b66f9b65c4c",
+      "bytes": 101
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/adaptation-ledger.json",
+      "sha256": "3d2411960f362fa01f2ce01a14f0c3d771fdb62702a7b378347ec7077ef4bb88",
+      "bytes": 275
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/adapted-kernel.scm",
+      "sha256": "67c783fad9e66da0137cdf2efb0079dde8f309d7601c5b912b1c230d24527f6c",
+      "bytes": 1133
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/chez/commands/canonical/record.json",
+      "sha256": "bbf73fd46baf6f861f0d1eb0aad8ba905ffd29d70a82e69532bcd4ac2deb6812",
+      "bytes": 599
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/chez/program.scm",
+      "sha256": "032093a277a60b03c2f8a48e0f84ecfebdd1082fbb51f6a13bf6a79d3c371039",
+      "bytes": 5501
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/chez-adaptation.patch",
+      "sha256": "8829db0faffb935e623edc69c30e59b7a072321178026451e7e6b622d8758ddc",
+      "bytes": 144253
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/chez-adapted/commands/canonical/record.json",
+      "sha256": "63ce893b56629dd0b20d7bfef87d09c822207806602db0efc8d83307f0a138d6",
+      "bytes": 614
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/chez-adapted/program.scm",
+      "sha256": "26bd713af0d6b1a2c3c731ae64dc6f165526dc54e9dca90b1a580862b0806b68",
+      "bytes": 146181
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/complete-chez-edit-ledger.json",
+      "sha256": "ec0e7516d00615ae6b51e6f389f6885c585c73c703c2d428b9dc9c6dd8fa2fc1",
+      "bytes": 1088
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/input.txt",
+      "sha256": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1",
+      "bytes": 55
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/strict.scm",
+      "sha256": "481c28bbc2bce710f93fec0b9ba0800057e7074dc19bd261cb4b02ba9a4f46e4",
+      "bytes": 3958
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/upstream-kernel.scm",
+      "sha256": "21b17812e0d0efa1a464c28b10c6e7414681caef06d3b55752c0e5202ba9cbe7",
+      "bytes": 1040
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/read1/upstream.scm",
+      "sha256": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
+      "bytes": 1482
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/reals/adapted/commands/run/record.json",
+      "sha256": "39b7f9655007928f194e5eae7715f88e3288d91311c97f7daee9e59b237e7035",
+      "bytes": 866
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/reals/adapted/input.scm",
+      "sha256": "1436ac560973d830887676efbef5e2ea9b42af8760117675f11ef43d4358c901",
+      "bytes": 90
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/reals/original/commands/run/record.json",
+      "sha256": "1fbacffc7a0c4d490b57c6d5e496715baef15932fac58a4fa7c4cfe281282662",
+      "bytes": 832
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/reals/original/input.scm",
+      "sha256": "1436ac560973d830887676efbef5e2ea9b42af8760117675f11ef43d4358c901",
+      "bytes": 90
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/streams.json",
+      "sha256": "d7b825e8bb3aa5d43265c7c170f8b77a0efc090d438c26e5d6896fb6560cfbd0",
+      "bytes": 4890
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/strings/adapted/commands/run/record.json",
+      "sha256": "29e614a475b18cf9ea2b47fb63502b1c7557f5abe3cab9802f9ed1af99af1d17",
+      "bytes": 661
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/strings/adapted/input.scm",
+      "sha256": "6e058bb13befa622936efffc41970c4b4503398b3015b8ac285363e791d86085",
+      "bytes": 52
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/strings/original/commands/run/record.json",
+      "sha256": "150bffaa5209f44066816103c47de75f3b1ec467643a6dad2a6c0900e26eea77",
+      "bytes": 627
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/strings/original/input.scm",
+      "sha256": "6e058bb13befa622936efffc41970c4b4503398b3015b8ac285363e791d86085",
+      "bytes": 52
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/adaptation-ledger.json",
+      "sha256": "7ee17fc832aad31a8a29555c51561094d77b504c68b9206fc6de7840d2cc561d",
+      "bytes": 288
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/adapted-kernel.scm",
+      "sha256": "7b136e514b0adfbb4f73fc08156a0d6a291cfab8833b73b48984545b51524227",
+      "bytes": 422
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/chez/commands/canonical/record.json",
+      "sha256": "9460ec4f49bdfe6ba932f832b3e95dce171c242876f22f5da0aeab32e5bba76a",
+      "bytes": 587
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/chez/program.scm",
+      "sha256": "4b347b1a9650ff75b335376b15b6a2df66b66a368aedcc4634e016534c68f7de",
+      "bytes": 4752
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/chez-adaptation.patch",
+      "sha256": "f181e0249ef8ec768e4e9a468df4ee73c5c7bdf99dcd185db5c1fcc2404f85fc",
+      "bytes": 143717
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/chez-adapted/commands/canonical/record.json",
+      "sha256": "896f168d66be0f5523ab475badc0c7d783a5ba1c33c63b76f2c4a9152331c3b7",
+      "bytes": 599
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/chez-adapted/program.scm",
+      "sha256": "a8cd42da7b8978af633f36817764fc11dcb4a21ffb8c8ef03507d6cbc0d8ac3e",
+      "bytes": 145454
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/complete-chez-edit-ledger.json",
+      "sha256": "758d7efad9b79c04c11f936ed264afac83388a8f9a75fe5112cc9412fd0771f1",
+      "bytes": 891
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/input.txt",
+      "sha256": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+      "bytes": 32
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/strict.scm",
+      "sha256": "5d55bd07a20c35ad42b497d4e4610ed9e2fab8f54460c9261afc97a81ea75934",
+      "bytes": 3293
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/upstream-kernel.scm",
+      "sha256": "3e357c2d211190ace701696c4dee4419a6d603d9c6119708b57e7605b3e754d8",
+      "bytes": 303
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/sum1/upstream.scm",
+      "sha256": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
+      "bytes": 733
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/vectors/adapted/commands/run/record.json",
+      "sha256": "68e6d80e50e7121e50dab129e661477e6a798ea09d9f15eddad46c01dcf14568",
+      "bytes": 610
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/vectors/adapted/input.scm",
+      "sha256": "63b15b459ae94a7bd122fa42ec3b6db6fe52b5052cc5b45abbfc7538067a5c12",
+      "bytes": 30
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/vectors/original/commands/run/record.json",
+      "sha256": "a733d0e728a9bd9474e19ffc1e23a81fb90f1467114a09e357a70cf82b2c95f3",
+      "bytes": 576
+    },
+    {
+      "path": "chez-numeric-readers-v2/reader-controls/vectors/original/input.scm",
+      "sha256": "63b15b459ae94a7bd122fa42ec3b6db6fe52b5052cc5b45abbfc7538067a5c12",
+      "bytes": 30
+    }
+  ],
+  "storage": "Identical file contents use tar hardlinks to an earlier archive member; all original paths are retained."
+}

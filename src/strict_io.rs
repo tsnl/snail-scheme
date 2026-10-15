@@ -3,9 +3,12 @@
 //! Rust owns files, never Scheme values. IDs are issued once and never reused.
 //! Scheme closes explicitly; the invocation host calls close-all after a trap.
 //! A trapped instance is terminal. There is no GC finalization of these files.
+//! Stdout has a reserved borrowed ID; it never enters the owned-file registry.
 
 use crate::{fail_message, host::Port};
 use std::{cell::RefCell, collections::BTreeMap, path::Path};
+
+const STANDARD_OUTPUT: u32 = (-2_i32) as u32;
 
 // ---- Owned resources and synchronous pathname transfer ----
 
@@ -115,6 +118,30 @@ pub extern "C" fn open_input_file() -> i32 {
 
 // ---- Scalar character reads and writes ----
 
+#[unsafe(export_name = "snail:io/standard-output")]
+pub extern "C" fn standard_output() -> i32 {
+    STANDARD_OUTPUT as i32
+}
+
+fn check_output(id: u32) -> Result<(), String> {
+    if id == STANDARD_OUTPUT {
+        return Ok(());
+    }
+    FILES.with_borrow_mut(|files| {
+        let port = files.get(id)?;
+        if port.is_output() && port.is_open() {
+            Ok(())
+        } else {
+            Err("expected an open output port".into())
+        }
+    })
+}
+
+#[unsafe(export_name = "snail:io/check-output")]
+pub extern "C" fn check_output_port(id: u32) {
+    checked(check_output(id));
+}
+
 // Unicode scalars are nonnegative and fit in I32. Only EOF becomes -1;
 // malformed UTF-8 and read failures take the ordinary fatal cleanup path.
 #[unsafe(export_name = "snail:io/read-character")]
@@ -137,7 +164,11 @@ fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
 
 #[unsafe(export_name = "snail:io/write-character")]
 pub extern "C" fn write_code(id: u32, code: u32) {
-    let result = FILES.with_borrow_mut(|files| write_character(files.get(id)?, code));
+    let result = if id == STANDARD_OUTPUT {
+        write_character(&mut Port::Stdout, code)
+    } else {
+        FILES.with_borrow_mut(|files| write_character(files.get(id)?, code))
+    };
     checked(result);
 }
 
@@ -155,6 +186,11 @@ fn release_file(mut port: Port) -> Result<(), String> {
 
 #[unsafe(export_name = "snail:io/close")]
 pub extern "C" fn close(id: u32) {
+    // Closing a borrowed stdout is deliberately a no-op, including raw calls.
+    // It never detaches an owned resource or closes the process descriptor.
+    if id == STANDARD_OUTPUT {
+        return;
+    }
     let result = FILES.with_borrow_mut(|files| files.take(id));
     checked(result.and_then(release_file));
 }
@@ -195,6 +231,20 @@ pub extern "C" fn close_all() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn standard_output_is_borrowed_and_never_consumes_a_file_id() {
+        assert_eq!(standard_output(), -2);
+        let next = FILES.with_borrow(|files| files.next);
+        assert!(check_output(STANDARD_OUTPUT).is_ok());
+        close(STANDARD_OUTPUT);
+        close(STANDARD_OUTPUT);
+        assert!(check_output(STANDARD_OUTPUT).is_ok());
+        assert_eq!(close_all(), 0);
+        assert!(check_output(STANDARD_OUTPUT).is_ok());
+        assert_eq!(FILES.with_borrow(|files| files.next), next);
+        assert!(FILES.with_borrow_mut(|files| files.get(STANDARD_OUTPUT).is_err()));
+    }
 
     #[test]
     fn unicode_characters_are_encoded_without_replacement() {

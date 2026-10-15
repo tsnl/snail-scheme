@@ -1,0 +1,199 @@
+{
+  "scope": [
+    "measure-seven.py",
+    "review-raw.py",
+    "prepare.py",
+    "freeze-plan.py"
+  ],
+  "count_convention": "Nonblank noncomment source lines, including complete literal/data records. Explicit cohesive-transaction/exhaustive-contract/test exceptions are justified in simplify-review.md.",
+  "over_target": {
+    "measure-seven.py": [
+      {
+        "name": "verify",
+        "lines": 11,
+        "start": 94
+      },
+      {
+        "name": "clean_group",
+        "lines": 11,
+        "start": 131
+      },
+      {
+        "name": "wait_for_leader",
+        "lines": 11,
+        "start": 144
+      },
+      {
+        "name": "run_owned",
+        "lines": 22,
+        "start": 175
+      },
+      {
+        "name": "sample",
+        "lines": 21,
+        "start": 273
+      },
+      {
+        "name": "host_snapshot",
+        "lines": 11,
+        "start": 318
+      },
+      {
+        "name": "execute",
+        "lines": 17,
+        "start": 342
+      },
+      {
+        "name": "main",
+        "lines": 20,
+        "start": 373
+      },
+      {
+        "name": "test_frames",
+        "lines": 15,
+        "start": 397
+      },
+      {
+        "name": "test_workload_frames",
+        "lines": 11,
+        "start": 414
+      },
+      {
+        "name": "test_processes",
+        "lines": 14,
+        "start": 445
+      },
+      {
+        "name": "test_interruption",
+        "lines": 11,
+        "start": 473
+      }
+    ],
+    "review-raw.py": [
+      {
+        "name": "chez_frame",
+        "lines": 11,
+        "start": 84
+      },
+      {
+        "name": "check_schedule",
+        "lines": 16,
+        "start": 111
+      },
+      {
+        "name": "check_captures",
+        "lines": 18,
+        "start": 164
+      },
+      {
+        "name": "read_samples",
+        "lines": 17,
+        "start": 184
+      },
+      {
+        "name": "recompute_workload",
+        "lines": 12,
+        "start": 209
+      },
+      {
+        "name": "audit",
+        "lines": 16,
+        "start": 223
+      },
+      {
+        "name": "reject_corruptions",
+        "lines": 16,
+        "start": 243
+      },
+      {
+        "name": "protocol_self_test",
+        "lines": 19,
+        "start": 261
+      },
+      {
+        "name": "main",
+        "lines": 16,
+        "start": 282
+      }
+    ],
+    "prepare.py": [
+      {
+        "name": "current_sources",
+        "lines": 24,
+        "start": 68
+      },
+      {
+        "name": "snapshot_source",
+        "lines": 13,
+        "start": 94
+      },
+      {
+        "name": "command",
+        "lines": 22,
+        "start": 111
+      },
+      {
+        "name": "build_native",
+        "lines": 14,
+        "start": 154
+      },
+      {
+        "name": "scalar_provider",
+        "lines": 15,
+        "start": 176
+      },
+      {
+        "name": "configurations",
+        "lines": 13,
+        "start": 202
+      },
+      {
+        "name": "validate_predicates",
+        "lines": 22,
+        "start": 227
+      },
+      {
+        "name": "retention_check",
+        "lines": 20,
+        "start": 253
+      },
+      {
+        "name": "main",
+        "lines": 22,
+        "start": 286
+      }
+    ],
+    "freeze-plan.py": [
+      {
+        "name": "check_preparation",
+        "lines": 11,
+        "start": 29
+      },
+      {
+        "name": "check_workload",
+        "lines": 19,
+        "start": 42
+      },
+      {
+        "name": "selected_rust_toolchain",
+        "lines": 11,
+        "start": 94
+      },
+      {
+        "name": "frozen_identities",
+        "lines": 17,
+        "start": 107
+      },
+      {
+        "name": "plan",
+        "lines": 20,
+        "start": 136
+      },
+      {
+        "name": "main",
+        "lines": 13,
+        "start": 158
+      }
+    ]
+  }
+}

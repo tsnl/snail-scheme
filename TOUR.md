@@ -265,6 +265,15 @@ and ordinary vector and Unicode string functions. Append, substring, copying,
 content comparison and list conversions use the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
 
+[`(snail text)`](src/snail/text.sld) adds Unicode character classification and
+simple lowercase through explicit scalar services, plus ordinary Scheme
+lexicographic String ordering. [`strict_text.rs`](src/strict_text.rs) validates
+raw scalars and reuses the existing casing/decimal data and Alphabetic property;
+whitespace calls the strict reader's existing provider directly. No String or
+Scheme root crosses this boundary. [`scripts/test-strict-text`](scripts/test-strict-text)
+checks exact scalar fields, mutable String ordering and terminal cleanup on
+linked raw/optimized Wasm and native64. See [the text contract](doc/strict-text.md).
+
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
 methods, selects local procedures used only as call operators, and computes
@@ -338,8 +347,10 @@ providers, checks mismatched signatures and exercises reusable worker captures
 and one-shot initialization through raw and optimized modules.
 
 [`(snail io)`](src/snail/io.sld) provides strict text files with concrete
-`InputPort` and `OutputPort` wrappers, explicit close, Scheme character loops and
-I64 decimal formatting. Its `LineResult` distinguishes EOF from empty lines;
+`InputPort` and `OutputPort` wrappers, explicit close, stable borrowed stdout,
+Scheme character loops and I64 decimal formatting. Default output overloads call
+the same explicit-port implementations; stdout never enters the owned-file
+registry. Its `LineResult` distinguishes EOF from empty lines;
 Scheme constructs lines using a geometrically growing String buffer while Rust's
 existing text reader owns UTF-8 decoding and one-character lookahead.
 [`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
@@ -351,6 +362,17 @@ rejects any remaining legacy value-ABI import. The host initializes WASI before
 Scheme and invokes the retained cleanup export after traps. See
 [strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
 [`scripts/test-strict-io`](scripts/test-strict-io).
+
+[`(snail write)`](src/snail/write.sld) formats every concrete Datum variant using
+those scalar output operations and the existing Number formatter. A query-local
+storage-identity scan separates sharing from cycles; explicit render continuations
+emit proper/dotted lists and vectors without consuming the machine stack.
+Acyclic sharing expands normally, while cyclic graphs use first-output-order
+`#n=`/`#n#` labels, including repeated strings and bytevectors. `display` recursively
+emits direct strings, characters and symbol names. This graph output extension
+does not add graph input to the strict reader. See [typed datum output](doc/strict-write.md)
+and [`scripts/test-strict-write`](scripts/test-strict-write) for exact linked
+Wasm/native output and observed port lifetime checks.
 
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
 datums, interned symbols, the shared Number domain, structural equality and
@@ -809,6 +831,15 @@ Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
 observe full per-worker file lifecycles and time the unchanged count loops;
 complete stream/result probes and the distinct Rust reader controls remain
 separate from clean measurement.
+[`chez-number.scm`](benchmarks/strict-suite/chez-number.scm) supplies that control's
+scalar numeric-token boundary: owned handles retain one lexical classification,
+while the unchanged Integer, Rational, Number, Datum and reader library bodies
+run in private scopes. Exact arithmetic stays in those Scheme libraries;
+binary64 text compatibility is checked against the Rust target's exact bytes.
+The separate output-program scope adds
+[`chez-io.scm`](benchmarks/strict-suite/chez-io.scm): binary scalar reads, borrowed
+stdout, owned file IDs and invocation cleanup. It runs the unchanged typed I/O
+and Datum writer bodies, preserving the earlier reader controls' generated text.
 
 [`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
 Browse database and backtracking matcher through counted reversible source edits.
@@ -869,6 +900,12 @@ establishes mutable list, located syntax, lexical and parse-tree representations
 source's error-only escape explicit through typed results and scoped handler
 state. The [foundation checker](tests/strict-compiler/check.py) runs identity,
 mutation, ordering and abort probes on Chez, linked Wasm and actual native64.
+[`compiler-collections.scm`](benchmarks/strict-suite/compiler-collections.scm)
+supplies concrete signatures and storage operations for the original sort,
+ordered occurrence sets, dependency graphs and queues. The adapter retains each
+complete source algorithm in a reversible ledger, including its sharing and
+mutation order. Separate complete-source Chez controls isolate the chosen map
+order without treating those controls as typed compiler coverage.
 The [port contract](benchmarks/strict-suite/compiler-port.md) distinguishes these
 checked foundations from the still-pending complete compiler adaptation.
 

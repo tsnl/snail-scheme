@@ -54,6 +54,110 @@ assembly records. For example, temporary-variable names include numeric position
 as well as symbols and the anonymous sentinel; optional fields and uninitialized
 source-vector elements have explicit cases instead of fabricated valid values.
 
+## Complete external-operation inventory
+
+A lexical audit of all 1,345 top-level forms finds 108 external names and 4,580
+references, including primitives passed as values. It accounts for function
+parameters, internal definitions, named loops, binding scopes and quoted data;
+quoted primitive descriptions are not calls made by the compiler. The retained
+`compiler-operator-audit/references.json` records each name, containing top-level
+definition, source line, byte offset and operator/value role. Its adjacent
+`audit.py` is a source-specific audit, not a new compiler or measurement layer.
+The following groups cover that complete name set. Paths and line numbers in
+this section refer to the unchanged pinned
+`benchmarks/r7rs-benchmarks/src/compiler.scm`.
+
+| Group | Complete external names | Existing boundary or required adaptation |
+| --- | --- | --- |
+| Arithmetic and comparison | `+`, `-`, `*`, `/`, `<`, `<=`, `=`, `>`, `>=`, `quotient`, `remainder`, `abs`, `min`, `max`, `even?`, `odd?`, `zero?`, `negative?` | `(snail strict)` supplies bounded scalar operators; `(snail integer)` and `(snail number)` supply exact and general numeric operations. Unary/n-ary calls and `apply min/max` require explicit typed operations/folds. Operand/position arithmetic is distinct from arbitrary exact literal arithmetic. |
+| Numeric domain and conversion | `number?`, `integer?`, `rational?`, `exact-integer?`, `exact?`, `inexact?`, `exact`, `inexact`, `truncate`, `real-part`, `imag-part`, `numerator`, `denominator`, `number->string`, `string->number` | Concrete Number/Datum tests and named operations. Numeric reader results distinguish invalid syntax, diagnostics and a number. Numeric constants require explicit construction when their storage is Number or Integer. |
+| Lists and association tables | `append`, `assoc`, `assq`, `assv`, `caar`, `cadddr`, `caddr`, `cadr`, `car`, `cdadr`, `cdar`, `cdddr`, `cddr`, `cdr`, `cons`, `for-each`, `length`, `list`, `list-ref`, `map`, `memq`, `memv`, `null?`, `pair?`, `reverse`, `set-car!`, `set-cdr!` | Mutable homogeneous list spines and separately typed dotted entries; fixed equality callbacks; direct fields for records. Lookup returns the matching entry/tail or explicit absence, preserving index zero and suffix identity. Fallible callbacks propagate CompilerResult before later traversal. |
+| Vectors | `make-vector`, `vector`, `vector-length`, `vector-ref`, `vector-set!`, `vector?` | Homogeneous native storage for actual arrays; typed records/closed cases for heterogeneous vectors. Explicit uninitialized cases retain construction state where no valid element exists yet. |
+| Characters, text and symbols | `char->integer`, `integer->char`, `char=?`, `char?`, `char-alphabetic?`, `char-downcase`, `char-numeric?`, `char-whitespace?`, `make-string`, `string`, `string->symbol`, `symbol->string`, `string-append`, `string-length`, `string-ref`, `string-set!`, `string<?`, `string=?`, `string?`, `symbol?` | Existing scalar characters, native Unicode strings and interned Symbol. Unicode classification/downcase and lexical string comparison need the narrow reusable layer listed below. Explicit Datum cases supply heterogeneous type tests. |
+| Truth and equality | `not`, `eq?`, `eqv?`, `equal?` | Bool control, explicit optional/value cases, designated mutable-field identity, symbol identity and Number equivalence. Structural metadata comparison at line 8575 remains distinct from identity. The final harness compares the whole output list at line 11198. |
+| Ports, reading and output | `open-input-file`, `close-input-port`, `open-output-file`, `close-output-port`, `current-output-port`, `read-char`, `peek-char`, `eof-object?`, `read`, `write`, `write-char`, `display`, `newline` | `(snail io)`, `(snail read)` and the separate `(snail write)` prerequisite. Character/end-of-file and optional ports use explicit cases. The five top-level `read` calls at lines 11185–11189 configure the original full workload; the located reader at lines 545–695 retains its own algorithm. |
+| Calling and failure | `apply`, `call-with-current-continuation`, `error` | Fixed positional calls and typed folds; the audited error-only escape becomes CompilerResult propagation. Ordinary host primitive failures remain outside that escape. `scheme-global-eval` at line 69 retains its existing fatal failure. |
+| Benchmark harness | `hide`, `run-r7rs-benchmark` | Existing suite barriers/driver, preserving the three hidden inputs and the complete result predicate. No language runtime feature is inferred from these harness names. |
+
+The reusable text-library boundary has concrete callers:
+
+| Operation | Exact compiler callers | Reusable implementation boundary |
+| --- | --- | --- |
+| `char-downcase` | `string->canonical-symbol`:353; `read-source`:598, 602, 633 | Expose Unicode simple lowercase, reusing `src/unicode.rs::lowercase` and its pinned Unicode case exceptions. Do not use full string lowercase or an ASCII-only table. |
+| `char-alphabetic?` | `read-source`:639; `build-c-procedure`:1697; `scheme-id->c-id`:1845 | A scalar character predicate. The older boxed runtime's implementation in `src/lib.rs` is not a strict scalar API. |
+| `char-numeric?` | `scheme-id->c-id`:1845 | Decimal-digit classification, reusing the Unicode digit semantics in `src/unicode.rs::digit_value`. |
+| `char-whitespace?` | `valid-module-name?`:4864 | Existing strict reader scalar service `snail:datum/whitespace` is private; expose the same classification through a cohesive character library. |
+| `string<?` | `sort-variables`:5430 | Ordinary lexicographic Unicode-scalar comparison in Scheme, including prefix ordering. No locale or byte-order substitution. |
+
+The separate prerequisite `2035bc2` implements these five operations in
+`(snail text)` and has its own target checks. The collection checks here use the
+writer prerequisite only. A future compiler build importing both libraries must
+build their combined runtime; neither standalone runtime supplies both sets of
+new scalar exports.
+
+The located reader indexes its own 256-entry `read-table` at lines 552, 561 and
+616. That source restriction must remain visible: providing Unicode character
+operations does not authorize changing this reader algorithm or silently making
+its table accept every scalar. Conversely, canonical symbol conversion and C
+name handling must not acquire an extra ASCII restriction. File opening retains
+the host primitive failure behavior of the original R7RS `open-input-file` alias
+at line 50; the source's subsequent false-port branch does not justify catching
+ordinary file errors as compiler aborts.
+
+The I/O prerequisite owns default/explicit output, stable current-output identity,
+and all Datum variants, including graph-aware diagnostic writing. The adapter
+must additionally project its concrete records into an explicit diagnostic view:
+parse-node graphs can cycle through parent/child links, and procedure records
+can contain fixed typed callbacks. Callback values must not be hidden in a
+universal evaluator box merely to print a diagnostic. Their opaque printed
+representation is an explicit target difference to settle with the complete
+record audit; dropping the diagnostic argument is not an accepted mapping.
+
+## Source-derived collections
+
+`compiler-collections.scm` declares the concrete storage and fixed callback
+contracts for 41 complete upstream utility, list-set, graph and queue functions.
+`collection_adaptation` changes those exact forms in the complete source and
+records every counted edit. Reversing the ledger restores every original byte;
+the remaining forms are still present and are not yet typed. Three complete
+diagnostic functions similarly retain their ordered newline, text, spaces and
+argument-writing work before returning the explicit compiler abort.
+
+List lookup returns the matching tail or entry, preserving index zero, duplicate
+keys and mutable association-value aliases. Pair-up stops when its left list
+ends and returns dotted rows; an exhausted right list remains an ordinary host
+failure. The alternating merge sort retains its split, recursive-call and
+equal-key choice order, including sharing a singleton tail. Removal copies the
+prefix and shares the suffix after a hit; a miss copies the whole list. Union
+keeps duplicates from its first input when absent in its second, and its n-ary
+fold retains the original operand orientation. It is not a mathematical set
+replacement.
+
+Graph closure computes each round from the previous graph and allocates fresh
+wrappers even on the converged round. Variable labels and graph wrappers have
+separate identities. Grouping retains the original no-edge/cycle selection and
+ordered occurrence-set operations. Queues retain their stored last link. Two
+wrappers sharing that link can overwrite each other's appended tail; later
+appends may mutate a detached tail. The port does not rescan or repair that
+source behavior. Dequeuing the final item clears that wrapper's head and tail.
+
+Fallible collection callbacks use explicit CompilerResult propagation before
+later callbacks, tail reads or payload rereads. Pure identity and sort callbacks
+stay pure. The chosen callback order is left to right under both typed targets
+and the exact adapted Chez control. A separate complete-source experiment
+renames all 72 executable `map` calls to that helper, then additionally sequences
+`set-map` and `set-keep` heads before recursion. All three original/chosen-order
+Chez controls pass the unchanged 2,000-compilation, 497-line canonical predicate.
+This isolates those ordering choices; it does not establish a complete typed
+compiler port. Actual set callbacks inspect graph/variable metadata and cached
+free variables, without mutating their traversed list spines.
+
+The list-to-vector adaptation allocates a concrete default from the first item
+for a nonempty vector, then retains the original complete fill loop. This adds
+one head read and initialized storage work. Empty vectors use the ordinary empty
+constructor. The same adaptation is executed by Chez, so these representation
+costs remain visible.
+
 ## Error escape contract
 
 The only executable `call-with-current-continuation` occurs in
@@ -110,17 +214,117 @@ not a claim that the original Chez order was preserved. Explicit `begin` and
 `let*` sequencing must remain unchanged.
 
 The current foundation probes use Boolean literal data and bounded position
-indices. They establish no numeric-domain coverage. Existing `(snail integer)`
-provides arbitrary exact integers, but the base Datum reader accepts only I64
-exact scalars, F64 inexact scalars and their rectangular combinations. Separate
-numeric-library work is supplying arbitrary integer/F64 conversion, normalized
-rationals and the expanded Number/Datum reader domain.
+indices. They establish no numeric-domain coverage. The separate numeric-library
+prerequisite `6925f1c` supplies arbitrary integer/F64 conversion, normalized
+rationals and the expanded Number/Datum reader domain. The checks below exercise
+its shared bodies under Chez; adapting every compiler numeric call is still
+part of the unfinished complete port.
 
 The full port must preserve `dump-bignum`'s base-16384 algorithm, rational
 numerator/denominator dumping, complex components, the original floating
 exponential-format algorithm and its exact mantissa conversion. In particular,
 `flonum-sign-bit` is the exact integer 9223372036854775808. Replacing these paths
 with bounded integers or precomputed bit output is not an accepted adaptation.
+
+## Adapted Chez numeric boundary
+
+The expanded reader control in `reader_ports.py` and `chez-number.scm` depends
+on numeric-library commit `6925f1c`. It places the
+unchanged Integer, Rational, Number, Datum and reader bodies in separate lexical
+scopes, exposing each library's concrete public operations. Static annotations
+and overload declarations are erased. The one- and two-argument string-to-number
+entry points call the same named radix parser. Other adapted kernel operations
+must call the named numeric functions when Chez cannot resolve a static overload.
+
+Only the scalar service boundary differs. Chez stages text in an owned handle,
+classifies it once, and exposes the corresponding machine integer, binary64,
+exact digit fields, rectangular components, polar components, or diagnostic.
+Invalid syntax is distinct from a numeric diagnostic. A left diagnostic stops
+component parsing; an invalid left component still allows the right component's
+diagnostic to win. The Scheme bodies retain exact normalization, promotion,
+complex shape rules and every arbitrary-precision arithmetic operation.
+
+Exact decimal syntax is checked completely before zero normalization or scale
+conversion. The effective decimal scale, exponent minus fractional places, must
+fit `[-I64_MAX, I64_MAX]`. An exponent just above I64_MAX can therefore succeed
+when fractional places bring the scale into range. Chez bounds the digit scan
+using that final range; its bounded index intermediates are not substituted for
+Scheme Integer or Rational values. The matching Rust parser uses an i128 index
+intermediate and checks the same final scale.
+
+Closing and interning consume their handles. Repeated parsing also consumes the
+handle before rejecting it, matching the scalar runtime. Accessors check the
+requested component kind. The source representation is explicit: Chez uses host
+vectors for temporary handles and the typed Scheme records, while Snail uses
+runtime IDs for scalar tokens and its own concrete storage for Scheme data.
+
+The fresh simplify explanation and subsequent critique were performed by a
+no-history, no-files Astra/max agent. They retained lexical descriptors, one
+cached classification, owned token state and private library scopes; rejected
+host arbitrary-precision arithmetic as a replacement for the shared Scheme
+bodies; and replaced exact-decimal float validation with a direct grammar check.
+The review also rejected a premature claim that Chez and Rust choose identical
+shortest binary64 digits. Formatting uses the target's decimal/exponent layout.
+An exact byte comparison of 20,084 binary64 patterns now passes, including signed
+zero, subnormal and normal boundaries, exponent-layout transitions, neighbors
+of selected powers of ten, infinities, NaNs and 20,000 seeded random bit patterns.
+That corpus supports compatibility on those cases; it is not an exhaustive
+proof for every binary64 value. Chez's subnormal precision suffix is removed
+before interpreting the decimal exponent.
+
+The [numeric bridge evidence](../results/2026-10-14-chez-numeric-bridge/README.md)
+retains 278 shared Number contracts and 20,135 scalar ABI cases under Chez,
+linked raw diagnostic Wasm, mandatory-Binaryen linked Wasm and actual native64.
+Thirteen invalid operations each run in a fresh guest process because Rust ABI
+failures terminate the process. Separate Chez-only checks observe handle
+consumption after locally caught errors; they make no guest recovery claim.
+All 36 complete reader streams match the independent Chez reader. Regenerated
+original/adapted Chez controls also pass complete canonical Sum1 (25), Read1
+(2,500) and Parsing (2,500) with their original result predicates. These are
+correctness diagnostics, with no clean timing or compiler-workload coverage.
+
+## Adapted Chez output boundary
+
+`chez_output_program` adds a separate invocation scope for the unchanged I/O and
+Datum writer bodies. The existing reader-control generator remains byte for
+byte unchanged for its previous inputs. Each typed library keeps its private
+definitions; erased default/explicit output overloads call the exact named
+Scheme bodies. Datum traversal, graph labelling and numeric formatting remain
+in those bodies, never Chez's native Datum printer.
+
+`chez-io.scm` implements only scalar file services. Issued IDs are never reused;
+failed opens consume an ID, and exhaustion precedes file creation/truncation.
+Each consuming operation takes its staged pathname even on failure. Binary
+input preserves BOM, NUL and separate CR/LF scalars and validates complete UTF-8
+sequences. One lookahead distinguishes absent, scalar zero and EOF. Reads consume
+that cache, including EOF. Invalid UTF-8 remains an ordinary terminal host
+failure; it does not enter the compiler's abort handler.
+
+Stdout is one borrowed binary stream at reserved ID -2. Every scalar write flushes
+it, and closing it does nothing. Owned files detach before close; invocation
+cleanup releases the remaining files in issue order and preserves the original
+failure. A concrete `/dev/full` probe established that Chez keeps its descriptor
+open after a failed buffered close. The bridge retries pending output once,
+then discards failed buffered bytes and closes before propagating the first
+error. This follows the Rust provider's explicit close followed by buffered-port
+drop, without swallowing the failure. Platform error wording and allocation/
+buffer implementation remain host properties; these are correctness controls,
+not claims of identical host costs.
+
+The bridge runs the existing complete writer fixture: 68 exact write/display
+rows and round trips, eight graph rows, depth 8,192, borrowed stdout/default
+overloads, and six independent terminal failures. A separate scalar diagnostic
+checks lookahead, ID/path transitions, cleanup ordering and actual descriptor
+release. Eighteen malformed UTF-8 cases each use a fresh process and verify
+preceding stdout plus pending-file cleanup. Locally caught provider conditions
+serve only to inspect ownership transitions; they do not imply guest recovery.
+
+The focused simplify pass obtained a fresh Astra/max model without files or
+history, then completed informed critique. It retained one owner per issued ID,
+an explicit lookahead and a synchronous pathname transfer, and rejected native
+text-port transcoding and host Datum printing. The descriptor probe settled the
+remaining close-failure question. The UTF-8 decoder, fixed ABI dispatch and
+integration checks are coherent exceptions to the ten-line function target.
 
 ## Checks and remaining work
 
@@ -129,6 +333,12 @@ with a compatible real runtime artifact. The checker reuses the reviewed
 process-group supervisor in `scripts/test-strict-integer`; it retains command
 outputs and kills/drains every executing descendant on failure or timeout.
 An existing output directory is rejected rather than overwritten.
+
+Add `--collections` for the source-derived collection checks. Use
+`--chez-output` instead of `--runtime` for the exact shared writer and scalar
+boundary controls, or `--map-order` for the complete original/chosen-order
+compiler experiment. All are correctness diagnostics with retained failures;
+none starts a clean measurement.
 
 The [retained checks](../results/2026-10-14-strict-compiler-foundation/checks.json)
 include all initial failed and successful preparation records, final four-target

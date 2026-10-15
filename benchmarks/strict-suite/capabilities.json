@@ -434,29 +434,33 @@
     },
     {
       "name": "nboyer",
-      "status": "correctness-prepared",
+      "status": "measured-canonical-source",
       "source_lines": 772,
       "files": {
         "src/nboyer.scm": "0597caf3d1434c2aedcc57c6bdbd6aec3bdb10c3d606cd240e4b949a334a71bf",
         "inputs/nboyer.input": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
-      "native_heap_bytes": 2147483648,
-      "note": "Complete original count 1, size 5, numeric 51507739 rewrite predicate and all 106 lemmas pass on raw/optimized V8, native64 and original/adapted Chez. Ordered structure, reset, full-work and independent Rust controls pass. Default native capacity failure remains recorded; clean timing is pending.",
-      "representation_note": "Existing closed Datum values and typed Ref mutation retain source association lists, recursive substitution/rewrite/unification and constructor-record cycles. Three explicit operand-order edits match the observed original Chez setup order. Rust uses independent Rc cells, vector constructor records, integer constructor IDs, tail loops and destruction."
+      "note": "All112 planned fresh processes pass both full original count1/size5 workloads and successful theorem/numeric51507739-rewrite predicates; seven retained samples per workload/system after fourteen discarded warmups. Current compiler/library/growing-GC basis a707974. nboyer production V8 median 11.950026532 s, native64 10.299260572 s, exact-native-final V8 11.909352554 s, original Chez 0.887105447 s, adapted Chez 8.047786483 s, Rust native 1.985136748 s and optimized Rust/Wasm 6.208150207 s. Production V8 takes 13.471 times original Chez; native/exact-V8 ratio 0.864804. All seven controls and independent raw replay pass. Historical source/work/alias/reset and fixed-reservation failures remain separate; Rust artifacts reused and freshly executed, not rebuilt. No isolated GC/engine claim.",
+      "representation_note": "Existing closed Datum values and typed Ref mutation retain source association lists, recursive substitution/rewrite/unification and constructor-record cycles. Three explicit operand-order edits match the observed original Chez setup order. Rust uses independent Rc cells, vector constructor records, integer constructor IDs, tail loops and destruction.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md",
+      "historical_preparation_native_heap_bytes": 2147483648,
+      "native_gc_policy": "Current a707974 default growing precise collector; all policy knobs unset, including initial bytes; source-default initial256MiB, no configured hard cap."
     },
     {
       "name": "sboyer",
-      "status": "correctness-prepared",
+      "status": "measured-canonical-source",
       "source_lines": 785,
       "files": {
         "src/sboyer.scm": "df46ebaa16879a5366b8b550dfbb2115bce378ffb854c4468c9c0af1df53d9e4",
         "inputs/sboyer.input": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-boyer-preparation/README.md",
-      "native_heap_bytes": 1073741824,
-      "note": "Complete original count 1, size 5 and numeric 51507739 rewrite predicate pass on raw/optimized V8, native64 and original/adapted Chez. All sharing, reset, constructor-cycle, full-work and independent Rust controls pass. Default native capacity failure remains recorded; clean timing is pending.",
-      "representation_note": "Source sharing-cons reuses an original pair exactly when both resulting fields keep their identities; equal but distinct children allocate. Closed Datum and Ref values preserve the complete recursive prover, with three explicit Chez-order adaptations. Rust retains its independent Rc/vector/ID representation and tail loops."
+      "note": "All112 planned fresh processes pass both full original count1/size5 workloads and successful theorem/numeric51507739-rewrite predicates; seven retained samples per workload/system after fourteen discarded warmups. Current compiler/library/growing-GC basis a707974. sboyer production V8 median 3.504129565 s, native64 4.685959290 s, exact-native-final V8 3.516282952 s, original Chez 0.372582306 s, adapted Chez 4.755613612 s, Rust native 0.725049711 s and optimized Rust/Wasm 2.517641779 s. Production V8 takes 9.405 times original Chez; native/exact-V8 ratio 1.332646. All seven controls and independent raw replay pass. Historical source/work/alias/reset and fixed-reservation failures remain separate; Rust artifacts reused and freshly executed, not rebuilt. No isolated GC/engine claim.",
+      "representation_note": "Source sharing-cons reuses an original pair exactly when both resulting fields keep their identities; equal but distinct children allocate. Closed Datum and Ref values preserve the complete recursive prover, with three explicit Chez-order adaptations. Rust retains its independent Rc/vector/ID representation and tail loops.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md",
+      "historical_preparation_native_heap_bytes": 1073741824,
+      "native_gc_policy": "Current a707974 default growing precise collector; all policy knobs unset, including initial bytes; source-default initial256MiB, no configured hard cap."
     },
     {
       "name": "gcbench",
@@ -510,9 +514,9 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 47,
-  "historical_paired_chez_count": 46,
-  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector. Parsing is measured separately at 8930aaa with the growing collector and a narrow UTF8 timing-host import; these accumulated revisions are not a fresh full-suite run.",
+  "historical_measured_strict_count": 49,
+  "historical_paired_chez_count": 48,
+  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector. Parsing is measured separately at 8930aaa with the growing collector and a narrow UTF8 timing-host import; these accumulated revisions are not a fresh full-suite run. Both complete Boyer workloads are measured separately at a707974 using the default growing collector and seven controls; coverage49/48 accumulates revisions, not a fresh full suite.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
@@ -568,6 +572,7 @@
     "mbrot",
     "mbrotZ",
     "mperm",
+    "nboyer",
     "nqueens",
     "ntakl",
     "nucleic",
@@ -580,6 +585,7 @@
     "quicksort",
     "ray",
     "read1",
+    "sboyer",
     "simplex",
     "string",
     "sum",
@@ -616,6 +622,7 @@
     "mbrot",
     "mbrotZ",
     "mperm",
+    "nboyer",
     "nqueens",
     "ntakl",
     "nucleic",
@@ -628,6 +635,7 @@
     "quicksort",
     "ray",
     "read1",
+    "sboyer",
     "simplex",
     "string",
     "sum",
@@ -655,5 +663,6 @@
   "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
   "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md",
   "maze_measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md",
-  "parsing_measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md"
+  "parsing_measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md",
+  "boyer_measurement_report": "benchmarks/results/2026-10-14-strict-boyer-comparison/README.md"
 }

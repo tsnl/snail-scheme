@@ -1,0 +1,15 @@
+{
+  "plan_sha256": "b650443ae4e2069340561cda8937da9b7416c06090ea02f5b9f5adee751d6773",
+  "recorded_utc": "2026-10-15T01:54:07.795164+00:00",
+  "quiet_window_active": false,
+  "clean_run_terminal": true,
+  "release_label": "root-boyer-quiet-after-parent-review-b650443",
+  "coordinator": "/root",
+  "preparation_session": 43414,
+  "preparation_terminal_chunk": "75c08d",
+  "preparation_exit_code": 0,
+  "parent_readiness_source": "/tmp/snail-general-specialization-20261012/build/boyer-parent-review/readiness.json",
+  "parent_readiness_sha256": "3a9591769c2ef5726dd5720202b677a5678c7f1142676191d1ae8ef07eb4cbed",
+  "authorization": "Parent review passed: all four focused modules read; exact plan checked against all1014 identities,85 terminal diagnostic records,112 scheduled rows and per-workload positional balance. QUIET WINDOW RELEASED now for this exact112-process campaign. Parent has no active CPU work; numeric agent confirmed no active handles and source-only hold. Proceed with frozen commands and expected-plan hash, preserve every row/failure, stop on invalid sample. No compression/builds until actual campaign terminal and explicit quiet release. Send actual session ID on launch.",
+  "window_end_authorization": "Parent: Quiet window is now explicitly ended following actual terminal57880 exit0 /2a9fa4. Proceed with audit packaging/compression; preserve raw terminal evidence and all attempts. No merge by child."
+}
