@@ -1,0 +1,24 @@
+{
+  "integration_base": "3dcce40",
+  "scope": "Source generation and compiler identity correspondence; no new compilation or timing run",
+  "cases": {
+    "earley": {
+      "generated_hashes": {
+        "strict.scm": "422a3d29f0085c79f76afe5ed13b53e9f2df438b5b1b42c9ad1eccdbcaf35371",
+        "adapted-kernel.scm": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+        "same-source-chez/program.scm": "f0e869054473f70f8f0ac75e8e26696fdf6ff97e3e62af47e1185987a2d6d89a"
+      },
+      "unchanged_compiler_file_count": 84
+    },
+    "bv2string": {
+      "generated_hashes": {
+        "strict.scm": "f67ffdc685fed6a7c33e1519376b0f5eb56590ce7c1d7f84552af1f755f9618c",
+        "adapted-kernel.scm": "895c67e30a210642268edc1af6fe3ca0085ef58f9afbc24ad1d092b57c3d7fac",
+        "same-source-chez/program.scm": "4b8abebaf6659718ddb1f46a80b0045d165a96acb34672c95f27f04386f65dc7"
+      },
+      "unchanged_compiler_file_count": 83
+    }
+  },
+  "registered_kernel_count": 36,
+  "status": "pass"
+}

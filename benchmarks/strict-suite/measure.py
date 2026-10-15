@@ -33,6 +33,7 @@ import mazefun_port
 import tail_port
 import nucleic_port
 import bv2string_port
+import earley_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -42,7 +43,8 @@ NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string') + DATA_PORTS + ENUMERATION_PORTS
+NAMES += ('earley',)
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string', 'earley') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -93,6 +95,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'earley':
+        return earley_port.specification(data)
     if name == 'nucleic':
         return nucleic_port.specification(data)
     if name == 'bv2string':
@@ -223,6 +227,8 @@ def kernel_source(name, source):
         source = nucleic_port.kernel(source)
     elif name == 'bv2string':
         source = bv2string_port.kernel(source)
+    elif name == 'earley':
+        source = earley_port.kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -439,6 +445,8 @@ def quicksort_input_bindings():
 
 
 def input_bindings(name, spec):
+    if name == 'earley':
+        return earley_port.INPUTS
     if name == 'nucleic':
         return nucleic_port.INPUTS
     if name == 'tail':
@@ -491,6 +499,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'earley':
+        return earley_port.WORKER
     if name == 'nucleic':
         return nucleic_port.WORKER
     if name == 'bv2string':
@@ -572,6 +582,8 @@ def strict_program(name, spec, upstream):
         prelude = replace_exact(prelude, '(import (snail strict))',
                                 '(import (snail strict) (snail bytes))')
         prelude += bv2string_port.COMMON + bv2string_port.DIAGNOSTICS
+    if name == 'earley':
+        prelude += earley_port.STRICT_TYPES + earley_port.COMMON
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -608,7 +620,7 @@ def tool_paths(benchmarks=()):
         names['RUSTC'] = 'rustc'
     if any(name in benchmarks for name in ('ray', 'tail', 'nucleic')):
         names.update(RUSTC='rustc', CARGO='cargo', WASM_MERGE='wasm-merge')
-    if 'bv2string' in benchmarks:
+    if any(name in benchmarks for name in ('bv2string', 'earley')):
         names.update(RUSTC='rustc', CARGO='cargo', CLANG='clang', LLD='ld.lld', WASM_MERGE='wasm-merge')
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     paths['PYTHON'] = sys.executable
@@ -837,6 +849,7 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
 CHEZ_HELPERS = dict(bv2string=bv2string_port.CHEZ_BOUNDARY + bv2string_port.COMMON,
+                   earley=earley_port.CHEZ_TYPES + earley_port.COMMON,
                    destruc=destruc_port.CHEZ_TYPES + destruc_port.COMMON + destruc_port.CHEZ_BOUNDARY,
                    nucleic=nucleic_port.CHEZ_TYPES + nucleic_port.COMMON,
                    tail=tail_port.chez_helpers(),
@@ -2048,6 +2061,8 @@ def validate_mazefun_outputs(directory, runner, tools, environment):
 
 
 def prepare_case(name, files, output, runner, tools, environment):
+    if name == 'earley':
+        return earley_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     directory = output / name
     directory.mkdir()
     spec = case_specification(name, files[f'inputs/{name}.input'])
@@ -2149,16 +2164,20 @@ def prepare(options):
     shutil.copy2(HERE / 'tail-host.mjs', options.output / 'tail-host.mjs')
     shutil.copy2(HERE / 'nucleic_port.py', options.output / 'nucleic_port.py')
     shutil.copy2(HERE / 'nucleic-host.mjs', options.output / 'nucleic-host.mjs')
+    shutil.copy2(HERE / 'earley_port.py', options.output / 'earley_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
-    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic')):
+    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley')):
         sources += [*ROOT.glob('src/**/*.rs'), *(ROOT / name for name in
                     ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/link-strict-runtime'))]
     if 'bv2string' in options.benchmarks:
         sources += [*ROOT.glob('src/**/*.rs'), *ROOT.glob('src/*.c'), *ROOT.glob('src/*.h'),
                     *(ROOT / name for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
                                                'scripts/build-native', 'scripts/build-native.scm'))]
-        sources = list(dict.fromkeys(sources))
+    if 'earley' in options.benchmarks:
+        sources += [ROOT / 'scripts/build-native', ROOT / 'scripts/build-native.scm',
+                    *ROOT.glob('src/**/*.c'), *ROOT.glob('src/**/*.h')]
+    sources = list(dict.fromkeys(sources))
     for source in sources:
         target = options.output / 'compiler-source' / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -2185,6 +2204,7 @@ def prepare(options):
                   tail_host_sha256=digest(HERE / 'tail-host.mjs'),
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
                   nucleic_host_sha256=digest(HERE / 'nucleic-host.mjs'),
+                  earley_port_sha256=digest(HERE / 'earley_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -2284,6 +2304,8 @@ def checked_preparation(output):
         raise ValueError('tail host changed')
     if prepared.get('nucleic_port_sha256', digest(HERE / 'nucleic_port.py')) != digest(HERE / 'nucleic_port.py'):
         raise ValueError('nucleic port source adapter changed')
+    if prepared.get('earley_port_sha256', digest(HERE / 'earley_port.py')) != digest(HERE / 'earley_port.py'):
+        raise ValueError('Earley port source adapter changed')
     if 'nucleic_host_sha256' in prepared and prepared['nucleic_host_sha256'] != digest(output / 'nucleic-host.mjs'):
         raise ValueError('nucleic host changed')
     for record in prepared['tools'].values():

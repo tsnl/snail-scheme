@@ -1,0 +1,4001 @@
+{
+  "archive": "artifacts.tar.xz",
+  "sha256": "41c29fadd9835d397be0e9730c7217a7c137020fe0ffdd737868be6377f4f0eb",
+  "bytes": 4849892,
+  "excluded": [
+    "__pycache__",
+    "*.pyc"
+  ],
+  "members": {
+    "build/earley-source-attempt01/strict.scm": {
+      "sha256": "0abfc5c45c592060dfe2ccea5423606b077fac65352dfb08a65881f483c4a182",
+      "bytes": 36978,
+      "mode": 420
+    },
+    "build/earley-source-attempt01/adapted.scm": {
+      "sha256": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+      "bytes": 30618,
+      "mode": 420
+    },
+    "build/earley-source-attempt01/result.json": {
+      "sha256": "9346b6c45134cc4585070bc563abfe0d0789e63b409a7c6209ee0c8b782c8f48",
+      "bytes": 257,
+      "mode": 420
+    },
+    "build/earley-source-attempt01/edits.json": {
+      "sha256": "d9972cdcb16ae5f17e716b6a7488fff14dbaf5cedc2dd8d45222a7968116a344",
+      "bytes": 11816,
+      "mode": 420
+    },
+    "build/earley-probe-02/complete-tree-observations.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-probe-02/validation.json": {
+      "sha256": "12b34da73b0c67a0319e6eddbd3582af66e3b558b4d44e4a6860e0cec20d726f",
+      "bytes": 17,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/wasm-1.json": {
+      "sha256": "fe4916b737aee21a14056d4e947bf46806b663bc86489d770ba191c8f7678b50",
+      "bytes": 699,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.wasm.raw.wasm": {
+      "sha256": "af77532003481dc939a97c6a69aa608f1fdd7d4541bb4840aa85d20aa9c74678",
+      "bytes": 93570,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native-1.json": {
+      "sha256": "becc983eaef1a4f2d90d89825a68360093c2c4ec0a93d681ff3aa4f30ddfec1b",
+      "bytes": 662,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native-build.json": {
+      "sha256": "867b00ffd57f372b8aaa244e0408b7b3d087602890bca759a89e8b43d9d15043",
+      "bytes": 701,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.optimized.wat": {
+      "sha256": "4b73977d4e6eba6df7a908b50592aeb3f4d5ac1d927eca37382d8d0dcf343f22",
+      "bytes": 512199,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/comparison-1.json": {
+      "sha256": "071a79432b510f5b91ef52298725737685c5dcd3693dd068385fa2a5c0ab43bb",
+      "bytes": 4466,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/wasm-0.json": {
+      "sha256": "f8951210a31c00bd46744dc097f9ea48195d4c7498a799db7881daed7f15bcbf",
+      "bytes": 4292,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/comparison-0.json": {
+      "sha256": "17fa392050a3e3c134d9c523076accf3c614bca3115e04ed05fb2a1228652649",
+      "bytes": 67656,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/host.mjs": {
+      "sha256": "8c73ec48754a2d89f5d40262f6643504e25a5b24ab90a605b27148b913d7c5b6",
+      "bytes": 391,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.scm": {
+      "sha256": "c2a02f60311bbe915b6680b9adc77387f7fc6d651960a4e3938201071451c744",
+      "bytes": 42866,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/disassemble.json": {
+      "sha256": "bc7c9c075b6f4912560b4975acee0aade937ea0108e56b1413284496a51c395f",
+      "bytes": 442,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native": {
+      "sha256": "01b3c9de84aded74576b3d58dff201515d02a60a474d597405df17d72d3e2025",
+      "bytes": 2407728,
+      "mode": 493
+    },
+    "build/earley-probe-02/probe/comparison-2.json": {
+      "sha256": "47e00882cab8fb69050de426963036f8d6aa4d4178c3aaf0d25c39bf9a036c23",
+      "bytes": 1986,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/raw-wasm-2.json": {
+      "sha256": "40394640dc40a05e73cefd841050aa5047422f4d58977c168a863389b3764d63",
+      "bytes": 545,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native-0.json": {
+      "sha256": "4b48c2233ad564c381576908fceedb1dc6e8c627e0d2cf7e07c0ddb5d4b0b589",
+      "bytes": 6064,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.wasm.wat": {
+      "sha256": "d3084243b20c3d441075e2c0fdb4b9325468ef46c4e70ece580732e3488a1b3b",
+      "bytes": 587598,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/raw-wasm-0.json": {
+      "sha256": "03e3c2a0d1176150673b2592b03586bf6ce38c4b596712c39405bedd7111332e",
+      "bytes": 4301,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict-build.json": {
+      "sha256": "26010bd83cf62512d806e9d4c5a7c92ba1942f0eb939b5db8fbcc41f748104a2",
+      "bytes": 433,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/entry.c": {
+      "sha256": "4355ad937c4c3e8a24cbda8c53f7393fe7b5370e2676cfce5d8add0425138780",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/wasm-2.json": {
+      "sha256": "8a13ca40808053e793dbeea8369220c5ca2c9e32f30736bb99dbd76a35288663",
+      "bytes": 538,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.wasm.trace.json": {
+      "sha256": "c3e5806ba582bb35a7a43f23bac3f28c2a387db873a2aecd524d6208356a99d6",
+      "bytes": 789,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/strict.wasm": {
+      "sha256": "3820ac01274f0c74d71ba23bb9643d42f2821a6615f2c301f1b531e11f82101b",
+      "bytes": 34423,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/raw-wasm-1.json": {
+      "sha256": "4c7bac0b1658996206dcb2a511302b14ec7b9383bbb6677e7d6c9c0f1aa5ff8f",
+      "bytes": 707,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native-2.json": {
+      "sha256": "38199cac7fbdadd9997abb7cfb6eda07e01427705c7c76b83fb0cf2575f2f196",
+      "bytes": 435,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/module.ll": {
+      "sha256": "aa21568e32110905ba90bafbde5568db1a9cc02344bb58bd306677e89e6e4093",
+      "bytes": 1996970,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/optimized.wat": {
+      "sha256": "be233b350ed33515a719090e777ca08a9981baad5ba03289453e4a47b76cc243",
+      "bytes": 824709,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/optimized.wasm": {
+      "sha256": "0e9fa6097d00ab8796f20550965268e0c1770c01afe5a203397e400464f58731",
+      "bytes": 40366,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/compile.trace.json": {
+      "sha256": "3bbc0609aa4a3cdab96de5267755011a5dca396cef805e21f51da1602c2d1d43",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/build.json": {
+      "sha256": "5b0b3f18e9d825806d94f5d00dbb0b4f7f365da005597cfcd81078f2c4802cda",
+      "bytes": 175917,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/build.scm": {
+      "sha256": "c9bcf0fb9f375f38dc802e57d92e07b9e1a44bb7182b9292d5414fe762baa6e8",
+      "bytes": 11538,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/native.native-w1pmq7ak/reader.scm": {
+      "sha256": "be233b350ed33515a719090e777ca08a9981baad5ba03289453e4a47b76cc243",
+      "bytes": 824709,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/compile.scm": {
+      "sha256": "c618376ee169b868cc191eabc6650d0c61060affc3cd2a85f3eb27b44dde9563",
+      "bytes": 247,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/case-1.json": {
+      "sha256": "4611a3e611e1ea98d56e8a3a36bc61665ef7461eef51890564d41e52f5e7366b",
+      "bytes": 760,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/case-0.json": {
+      "sha256": "e5160d79cb66de9ae3e7ee12dfe7d7230ad04f7754f3ca5ac257c791ba4308fb",
+      "bytes": 6163,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/case-2.json": {
+      "sha256": "ba36fed45df528f0d83eb2db262c0dd8e6e22b2d95cb9f3836c0bf310ac91042",
+      "bytes": 532,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/chez-build.json": {
+      "sha256": "5d38bc470f5bc45a3aa0c06b7f3af8a6bedd720cc4a114f5bf771780128faa74",
+      "bytes": 561,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/program.scm": {
+      "sha256": "f5d9004ae9fafdb9cb484ffc28a0fcf4102e5ed91a261cea50974f2db5999ad3",
+      "bytes": 35974,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/original/program.so": {
+      "sha256": "d54a1684158d72013061b4b7cd2c8b87e5bf4f14721e304ca45a9fc6b549426d",
+      "bytes": 44831,
+      "mode": 493
+    },
+    "build/earley-probe-02/probe/adapted/compile.scm": {
+      "sha256": "7d408c4b64c649e25d3784a1b968d324014ea04857622f7af7cee392b466eef6",
+      "bytes": 245,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/case-1.json": {
+      "sha256": "f392591ba5e35ce985a1f2fb0bdb0aac0b3bd50b9c81a5f2ab58ba582e4fe6f3",
+      "bytes": 759,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/case-0.json": {
+      "sha256": "6af4f0e02e869f51cd90ac675417fe4161a3d5b9b0af4647ebfd2641d86774a9",
+      "bytes": 6161,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/case-2.json": {
+      "sha256": "6a66b8c2a526356da030e57b45be40b8197e95f8163778eb13924c719e25b2a6",
+      "bytes": 531,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/chez-build.json": {
+      "sha256": "6c8725f834c344a0377a07d59f4768e29a1cc59f1426bdec519a9180a851b251",
+      "bytes": 558,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/program.scm": {
+      "sha256": "7706db279edbe8e16626dda3b727f8a3cc27aa3525a5149b8664a7de60a59a42",
+      "bytes": 42615,
+      "mode": 420
+    },
+    "build/earley-probe-02/probe/adapted/program.so": {
+      "sha256": "8c73affbed27a394bf289b5760319711b2373a0ecda490c0ee1a14317b489894",
+      "bytes": 46029,
+      "mode": 493
+    },
+    "build/earley-audit/timing-supervisor-inherited.json": {
+      "sha256": "cd0f6ca2a603d331fa369e207986208f3f377973f9fad68719840372fa3a60c8",
+      "bytes": 742,
+      "mode": 420
+    },
+    "build/earley-audit/function-map-02.tsv": {
+      "sha256": "b414485b5a67792ed1c93caebd01e87e85aecb0e79bf056cc1aa2babc18109dc",
+      "bytes": 12972,
+      "mode": 420
+    },
+    "build/earley-audit/function-map-02.trace.json": {
+      "sha256": "87b2c20fa86940067b0770fee6bb193c5631b455b5b693173c363ac3812ded32",
+      "bytes": 527,
+      "mode": 420
+    },
+    "build/earley-audit/function-map-build-02.json": {
+      "sha256": "116e46e9314b06334d43a98b8250e6e6252f63ef5bdf0951a9015dc353052ebd",
+      "bytes": 14195,
+      "mode": 420
+    },
+    "build/earley-audit/clock-v8-common.json": {
+      "sha256": "7b9a27d72565432fa25c7ff781e1f7b2ad1057e1f11602684508b785cd28230b",
+      "bytes": 609,
+      "mode": 420
+    },
+    "build/earley-audit/clock-v8-production.json": {
+      "sha256": "a140b5b85bc465a7696e235dc238eb5c49bdce2ccef205f59bc17ea76e08ee46",
+      "bytes": 580,
+      "mode": 420
+    },
+    "build/earley-audit/closed.pid": {
+      "sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "bytes": 1,
+      "mode": 420
+    },
+    "build/earley-audit/function-map-build.json": {
+      "sha256": "e681142878c5e182011ce5b6c565b33344158c5a454e3ca9a0ed611f4465f7a3",
+      "bytes": 933,
+      "mode": 420
+    },
+    "build/earley-audit/timing-inherited.pid": {
+      "sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+      "bytes": 1,
+      "mode": 420
+    },
+    "build/earley-audit/timing-supervisor-closed.json": {
+      "sha256": "9b46db63eb09ef529e287a9f2fdbcb6b8bbdcd70d2dcb16b319ec95bea2a010c",
+      "bytes": 485,
+      "mode": 420
+    },
+    "build/earley-audit/check-runner.py": {
+      "sha256": "59ac3e7171df30ec4dd09accbae390dacffa5ea987f69fd119146ff4cf107335",
+      "bytes": 3302,
+      "mode": 420
+    },
+    "build/earley-audit/function-map.scm": {
+      "sha256": "454ab8969c7edf1bde7291d43cb2bd662e9bf2d8af520e679535c018c2465bd8",
+      "bytes": 673,
+      "mode": 420
+    },
+    "build/earley-audit/descendant.py": {
+      "sha256": "b654bbed38fb25a695896312009cc5e930cf5b4c086d0e65f0cfe19db58a43af",
+      "bytes": 231,
+      "mode": 420
+    },
+    "build/earley-audit/inherited.pid": {
+      "sha256": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+      "bytes": 1,
+      "mode": 420
+    },
+    "build/earley-audit/timing-closed.pid": {
+      "sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "bytes": 1,
+      "mode": 420
+    },
+    "build/earley-audit/function-map-02.scm": {
+      "sha256": "ffa021e492464ca4d1863b74116558ad5765d89227c261bdbc2e276bc9fb603c",
+      "bytes": 818,
+      "mode": 420
+    },
+    "build/earley-audit/inspect-retention-attempt01.py": {
+      "sha256": "1e6284e3d46c82f88342eefe405746f383557a91d1d2279a2b488e1630f3d2c4",
+      "bytes": 4082,
+      "mode": 420
+    },
+    "build/earley-audit/checks.json": {
+      "sha256": "5385e9bbd006a672e992b470d8af776c4f9fb17d95c1bde496f223384d8ee17c",
+      "bytes": 172,
+      "mode": 420
+    },
+    "build/earley-audit/python-compile.json": {
+      "sha256": "0e0da63ed3f052e02ef88977e7be1294a6792c8dad653caa5a55603781e3606e",
+      "bytes": 655,
+      "mode": 420
+    },
+    "build/earley-audit/function-map.tsv": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mode": 420
+    },
+    "build/earley-audit/retention-attempt01.json": {
+      "sha256": "416c6fbb3c4e2138bbab470c845b9abb3ab5e5062c46c510e3bc87b62ea5b417",
+      "bytes": 1206,
+      "mode": 420
+    },
+    "build/earley-audit/diff-check.json": {
+      "sha256": "30adc755b4043cb0b1c861a288e6738b9752e0571faa6dc707a7bf1d0b066244",
+      "bytes": 194,
+      "mode": 420
+    },
+    "build/earley-audit/timing-runner-checks.json": {
+      "sha256": "064e94bf3cefc00ef91fbbd9b63ffe82de0af83f1f563e4418a65d7aa4c57988",
+      "bytes": 1069,
+      "mode": 420
+    },
+    "build/earley-audit/make-check.json": {
+      "sha256": "75f6c3b41fb2b412e88ef1982b6dde0dd601b48d9d71e09687c16eb42159d024",
+      "bytes": 435,
+      "mode": 420
+    },
+    "build/earley-audit/process-group-checks.json": {
+      "sha256": "b5e2da5d02af3d2786289c1ce47c64b83eda9fb27df52fba403c794a25b007f5",
+      "bytes": 1135,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/chez-adapted.json": {
+      "sha256": "15e8604110f9929225b740cb131627b8f9403cccb1c576da65f43aaac82a2842",
+      "bytes": 491,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/native-canonical.json": {
+      "sha256": "1ccb3b7c00870a31def6f8e975d5af4e9f62794250eef66261e1c4bd8bca581f",
+      "bytes": 443,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-twice.json": {
+      "sha256": "5e400fba31298babedb333503e602660d13599468b053f8a3febafe70aaab414",
+      "bytes": 626,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/module.ll": {
+      "sha256": "a88fbaefa2b4f3d6838909fbb078a65dc89d06dfaec21349fb0a9680f5801a6e",
+      "bytes": 1418962,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-zero-count-number.json": {
+      "sha256": "a6c032000ea5397550010161ec2843e2c250262621bda83891e33af5f1237cbd",
+      "bytes": 969,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/chez-original.json": {
+      "sha256": "171d22639a3b7104b05c2be46ae7dd2a3d06b96af26ecee70a41920d54c29abc",
+      "bytes": 475,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/derivation.json": {
+      "sha256": "562304a9dec28d058766afa8301fe6fc5825471608f8faab8893a0cbfc414bac",
+      "bytes": 4344,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/native.c": {
+      "sha256": "99c5a5ae33fe3a65131bea7720df6c516e2e3f1ea66a9e6a7cba0b146b55d98f",
+      "bytes": 12149,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-small.json": {
+      "sha256": "6b2cd0b41d6500fe296f5e574218d309c1b0c5a08e447c08c8e2f42b1a76a636",
+      "bytes": 629,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/libsnail_runtime.a": {
+      "sha256": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+      "bytes": 9023910,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-symbol.json": {
+      "sha256": "8a472fa1479381ed47d5fd21a54a89ead99279c5a40f788bdc5f38c03664a64f",
+      "bytes": 958,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/native-small.json": {
+      "sha256": "9580286407be321cdaa6391d155aa787ef8b9701f481fc0cd4da04f01979b862",
+      "bytes": 439,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/native": {
+      "sha256": "b3ea7dccca35a6ae729295469f6ce42fae1040d321a3cdf888e5613a9b960bea",
+      "bytes": 2345176,
+      "mode": 493
+    },
+    "build/earley-timing-prepare-01/final-common-v8-exact-ratio.json": {
+      "sha256": "c84986b2d20b1911327378a87b12ee96bd8c403b53b15e054bb55a8da84c0e88",
+      "bytes": 635,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-canonical.json": {
+      "sha256": "9872012a4ccb82356c25211d452ee3c14e31d24b4d98b42f8dcc8029a6b7192c",
+      "bytes": 629,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-vector.json": {
+      "sha256": "209557b995087e2e42d04496b66d5f5ec25386b6b160aaea5c286fd0783b3bd9",
+      "bytes": 958,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-inexact.json": {
+      "sha256": "4ca31f704b7c3b1559c5215ad21f51932cbee0ad5d1c8335f98abb92f08bfc88",
+      "bytes": 960,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/validation.json": {
+      "sha256": "068a36e3c02b5084854bf3630439813d4c0deaa4dd28bef11edbd05b1795cf3d",
+      "bytes": 290,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-wrong.json": {
+      "sha256": "4be9e1343607932c9926ab2e68d6329493130143927c70e8306d188c207c6658",
+      "bytes": 958,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/precise-gc.c": {
+      "sha256": "e438a67d641d7ad176bed0a72ad199d4c772b6074aef96443e61923a6edf5020",
+      "bytes": 13839,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-false.json": {
+      "sha256": "f0c2bbb945317a4b4c630b2045be3d702359d1ccbeaca249411a90998c5eec97",
+      "bytes": 957,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/entry.c": {
+      "sha256": "ffd2b0cd035a34050529a28d11687a3b3b69ba49b45d6674e8b1deaffd4e3ee5",
+      "bytes": 998,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/native-wrong.json": {
+      "sha256": "7ce854fe90911267b96bdcb1188eee0b6f337d4b20b663753fd189301f0017a0",
+      "bytes": 439,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-negative-count.json": {
+      "sha256": "b4974378e2747e3d4b6ee998bf512f2c0513c3cb9ee393ee4dd1915a487721fc",
+      "bytes": 638,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/prepare.py": {
+      "sha256": "55d3f6777845c7d5b81e27c38ef000ed27d99434cfd9a62a25496f833956b226",
+      "bytes": 4813,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/precise-gc.h": {
+      "sha256": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628",
+      "bytes": 879,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-empty-input.json": {
+      "sha256": "e4779af9a781acf75c8673251f6e1197c89e2302c91ae54392d3c02d44b41521",
+      "bytes": 634,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-zero-count.json": {
+      "sha256": "13082ba33a8a37b2bf0888081e9146263a4cb7204b3124302e3b8fefbfda2d17",
+      "bytes": 633,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/final-common-v8-list.json": {
+      "sha256": "aaf1e03b574745a2cc8b4fd25076f9cf1093fb1fdd609cc56f98cc0fc88efb41",
+      "bytes": 957,
+      "mode": 420
+    },
+    "build/earley-timing-prepare-01/link.json": {
+      "sha256": "8acb10b8017ec823c917da89b7472b08ddacab40999f1bca5fef9b184cd22ff7",
+      "bytes": 1086,
+      "mode": 420
+    },
+    "build/earley-prepare-01/enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "bytes": 14437,
+      "mode": 420
+    },
+    "build/earley-prepare-01/lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "bytes": 17789,
+      "mode": 420
+    },
+    "build/earley-prepare-01/nucleic-host.mjs": {
+      "sha256": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+      "bytes": 2093,
+      "mode": 420
+    },
+    "build/earley-prepare-01/destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "bytes": 19754,
+      "mode": 420
+    },
+    "build/earley-prepare-01/string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "bytes": 11449,
+      "mode": 420
+    },
+    "build/earley-prepare-01/measure.py": {
+      "sha256": "38f113ca7ed6afbf49d45061d131323d9aac103b76cb2cc763741cf288dc0b13",
+      "bytes": 127151,
+      "mode": 420
+    },
+    "build/earley-prepare-01/puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "bytes": 22978,
+      "mode": 420
+    },
+    "build/earley-prepare-01/deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "bytes": 15368,
+      "mode": 420
+    },
+    "build/earley-prepare-01/host.mjs": {
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9",
+      "bytes": 2847,
+      "mode": 420
+    },
+    "build/earley-prepare-01/mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "bytes": 9976,
+      "mode": 420
+    },
+    "build/earley-prepare-01/ray-host.mjs": {
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+      "bytes": 3248,
+      "mode": 420
+    },
+    "build/earley-prepare-01/data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "bytes": 13918,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley_port.py": {
+      "sha256": "bd44abf7e8b20983c99c275f16fb1f0b3e79c64fe57b0cb7129270f1902a8fc5",
+      "bytes": 39756,
+      "mode": 420
+    },
+    "build/earley-prepare-01/tail-host.mjs": {
+      "sha256": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+      "bytes": 3771,
+      "mode": 420
+    },
+    "build/earley-prepare-01/simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "bytes": 22619,
+      "mode": 420
+    },
+    "build/earley-prepare-01/prepared.json": {
+      "sha256": "24fd00104f5b397eaada3ca94a8d23af77d7cff3359de5077e0786d7cc31fd29",
+      "bytes": 14183,
+      "mode": 420
+    },
+    "build/earley-prepare-01/tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "bytes": 16208,
+      "mode": 420
+    },
+    "build/earley-prepare-01/ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "bytes": 30020,
+      "mode": 420
+    },
+    "build/earley-prepare-01/mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "bytes": 17492,
+      "mode": 420
+    },
+    "build/earley-prepare-01/r7rs.py": {
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "bytes": 31262,
+      "mode": 493
+    },
+    "build/earley-prepare-01/nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "bytes": 30103,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/upstream.scm": {
+      "sha256": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+      "bytes": 29007,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/adapted-kernel.scm": {
+      "sha256": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+      "bytes": 30618,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/strict.scm": {
+      "sha256": "0abfc5c45c592060dfe2ccea5423606b077fac65352dfb08a65881f483c4a182",
+      "bytes": 36978,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/original-kernel.scm": {
+      "sha256": "95d7d30991ebafabc40681daea4e816516b4919373a7c64d6dae6e0d19474ea3",
+      "bytes": 28549,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/spec.json": {
+      "sha256": "f510b925c95c5a616c75bd6b0104b919b916bdba4624e4264598be222eff9508",
+      "bytes": 190,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/build.json": {
+      "sha256": "ac6231ff5660a17dd50cfc6edb4fe231b526f772b45346ec302a113ea91f3e69",
+      "bytes": 1449,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/source-edits.json": {
+      "sha256": "1aa3132bcfa7762c9d2d95692310c94e489d7c411e492fe25c363dcba8ff9510",
+      "bytes": 11816,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/strict.wasm.trace.json": {
+      "sha256": "cb98efa2e6b0278554c82a7bb7cc65df0ff183786520ba4a7630c04c5ee811eb",
+      "bytes": 158,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/program.scm": {
+      "sha256": "04fc4a5eec31d2901b22467c1688624b39f0714c0c982735f12cd43dda1e6a7c",
+      "bytes": 33040,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/input.txt": {
+      "sha256": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+      "bytes": 13,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/Cargo.lock": {
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994",
+      "bytes": 838,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/Cargo.toml": {
+      "sha256": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04",
+      "bytes": 255,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/rust-toolchain.toml": {
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+      "bytes": 104,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/tests/build-strict-program.scm": {
+      "sha256": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+      "bytes": 815,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/hash.rs": {
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+      "bytes": 4459,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/symbols.rs": {
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+      "bytes": 7560,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/host.rs": {
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+      "bytes": 10806,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/text.rs": {
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+      "bytes": 8240,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/strict_io.rs": {
+      "sha256": "ef0a9ee7c70a44d9e3bf5c07d57517ea8499e83a00c756e910ee1d08b92eb823",
+      "bytes": 9617,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/platform.rs": {
+      "sha256": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764",
+      "bytes": 20276,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/abi.rs": {
+      "sha256": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031",
+      "bytes": 15628,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/artifacts.rs": {
+      "sha256": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e",
+      "bytes": 3383,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/lib.rs": {
+      "sha256": "51f8f077f513fbcb83b46f06b3be0508ab362c5a06b26601716504874a905d8c",
+      "bytes": 33845,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/interop_example.rs": {
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+      "bytes": 3410,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/unicode.rs": {
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+      "bytes": 31161,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/datum.rs": {
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+      "bytes": 31728,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/strict_math.rs": {
+      "sha256": "2d69ee75664340dd7cc0ac61a2ce164fa7f0ed4aa7bbaee7d467caf723bde6b9",
+      "bytes": 1182,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/iverson.rs": {
+      "sha256": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14",
+      "bytes": 31582,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/native.rs": {
+      "sha256": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c",
+      "bytes": 1351,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/scripts/build-native": {
+      "sha256": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+      "bytes": 13413,
+      "mode": 493
+    },
+    "build/earley-prepare-01/compiler-source/scripts/link-strict-runtime": {
+      "sha256": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb",
+      "bytes": 4840,
+      "mode": 493
+    },
+    "build/earley-prepare-01/compiler-source/scripts/build-native.scm": {
+      "sha256": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+      "bytes": 2151,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/scripts/build-strict": {
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+      "bytes": 1345,
+      "mode": 493
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/hash-table.sld": {
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+      "bytes": 19077,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/expand.sld": {
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+      "bytes": 96062,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/type-inference.sld": {
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+      "bytes": 8263,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/source.sld": {
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "bytes": 419,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-read.sld": {
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+      "bytes": 7944,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-compiler.sld": {
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+      "bytes": 3019,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/typeclasses.sld": {
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+      "bytes": 49989,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-specialize.sld": {
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6",
+      "bytes": 27055,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm.sld": {
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+      "bytes": 66561,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-types.sld": {
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+      "bytes": 9223,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-overloads.sld": {
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+      "bytes": 9693,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/compiler.sld": {
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+      "bytes": 4730,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-primitives.sld": {
+      "sha256": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+      "bytes": 6187,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/effects.sld": {
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+      "bytes": 16880,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/llvm.sld": {
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653",
+      "bytes": 59149,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/build-host.sld": {
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+      "bytes": 7527,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-core.sld": {
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+      "bytes": 1753,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-link.sld": {
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+      "bytes": 10777,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/build.sld": {
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+      "bytes": 3043,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/library.sld": {
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "bytes": 3643,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/iverson-ghost.sld": {
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+      "bytes": 32644,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-wasm.sld": {
+      "sha256": "8bf9530e70ade9071261de139c2f7138e59adc5a24c2a9672b89f79b8702893d",
+      "bytes": 60967,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/syntax.sld": {
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "bytes": 2252,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/compile-build.sld": {
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+      "bytes": 5611,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/iverson-typed.sld": {
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+      "bytes": 4764,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/generation.sld": {
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+      "bytes": 11731,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-infer.sld": {
+      "sha256": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+      "bytes": 68224,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/runtime-artifact.sld": {
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+      "bytes": 1608,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/syntax-parser.sld": {
+      "sha256": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+      "bytes": 37413,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/native.sld": {
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+      "bytes": 2666,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-resolve.sld": {
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+      "bytes": 27687,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/pattern.sld": {
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "bytes": 39660,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-optimize.sld": {
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+      "bytes": 2557,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/ir.sld": {
+      "sha256": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+      "bytes": 24992,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/artifacts.sld": {
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+      "bytes": 5568,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/chromium-trace.sld": {
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+      "bytes": 9969,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/parser.sld": {
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "bytes": 20651,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/runtime.sld": {
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+      "bytes": 156,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/types.sld": {
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+      "bytes": 17135,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/type-analysis.sld": {
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+      "bytes": 37809,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-runtime.sld": {
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+      "bytes": 91545,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/options.sld": {
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+      "bytes": 21443,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-literals.sld": {
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+      "bytes": 9523,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/common.sld": {
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "bytes": 4201,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/bootstrap.sld": {
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+      "bytes": 3324,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-abi.sld": {
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+      "bytes": 14555,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/llvmlite.sld": {
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+      "bytes": 4026,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-extern.sld": {
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+      "bytes": 5382,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/wasm-i32.sld": {
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+      "bytes": 16257,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/partial-eval.sld": {
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+      "bytes": 17225,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/reader.sld": {
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+      "bytes": 4908,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail-scheme/strict-data.sld": {
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+      "bytes": 2395,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/io.sld": {
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4",
+      "bytes": 7096,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/math.sld": {
+      "sha256": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+      "bytes": 573,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/typing.sld": {
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+      "bytes": 687,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/strict.sld": {
+      "sha256": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+      "bytes": 14042,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/artifacts.sld": {
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+      "bytes": 1204,
+      "mode": 420
+    },
+    "build/earley-prepare-01/compiler-source/src/snail/bytes.sld": {
+      "sha256": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+      "bytes": 8076,
+      "mode": 420
+    },
+    "build/earley-prepare-01/earley/same-source-chez/program.scm": {
+      "sha256": "6c8d0d7fc58f0c018b4e06f28540e83f031cd5f08e815e1864f915d74f0fd2fe",
+      "bytes": 40547,
+      "mode": 420
+    },
+    "build/earley-prepare-02/enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "bytes": 14437,
+      "mode": 420
+    },
+    "build/earley-prepare-02/lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "bytes": 17789,
+      "mode": 420
+    },
+    "build/earley-prepare-02/nucleic-host.mjs": {
+      "sha256": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+      "bytes": 2093,
+      "mode": 420
+    },
+    "build/earley-prepare-02/destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "bytes": 19754,
+      "mode": 420
+    },
+    "build/earley-prepare-02/string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "bytes": 11449,
+      "mode": 420
+    },
+    "build/earley-prepare-02/measure.py": {
+      "sha256": "38f113ca7ed6afbf49d45061d131323d9aac103b76cb2cc763741cf288dc0b13",
+      "bytes": 127151,
+      "mode": 420
+    },
+    "build/earley-prepare-02/puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "bytes": 22978,
+      "mode": 420
+    },
+    "build/earley-prepare-02/deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "bytes": 15368,
+      "mode": 420
+    },
+    "build/earley-prepare-02/host.mjs": {
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9",
+      "bytes": 2847,
+      "mode": 420
+    },
+    "build/earley-prepare-02/mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "bytes": 9976,
+      "mode": 420
+    },
+    "build/earley-prepare-02/ray-host.mjs": {
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+      "bytes": 3248,
+      "mode": 420
+    },
+    "build/earley-prepare-02/data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "bytes": 13918,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley_port.py": {
+      "sha256": "462678951c065839131c2b7d5b2e66d52e1a710adedf1e57cd38533d8fcf7fe3",
+      "bytes": 39757,
+      "mode": 420
+    },
+    "build/earley-prepare-02/tail-host.mjs": {
+      "sha256": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+      "bytes": 3771,
+      "mode": 420
+    },
+    "build/earley-prepare-02/simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "bytes": 22619,
+      "mode": 420
+    },
+    "build/earley-prepare-02/prepared.json": {
+      "sha256": "82fa8a963dbc6f24d062925755b3c23502a174b9e1a00398bb3fa1e82d85bcc0",
+      "bytes": 12804,
+      "mode": 420
+    },
+    "build/earley-prepare-02/tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "bytes": 16208,
+      "mode": 420
+    },
+    "build/earley-prepare-02/ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "bytes": 30020,
+      "mode": 420
+    },
+    "build/earley-prepare-02/mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "bytes": 17492,
+      "mode": 420
+    },
+    "build/earley-prepare-02/r7rs.py": {
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "bytes": 31262,
+      "mode": 493
+    },
+    "build/earley-prepare-02/nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "bytes": 30103,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/compile.scm": {
+      "sha256": "1012d7dddc43a885b4f640b9f835ae99eba5dd7eeafa352dbd53827f75c71f63",
+      "bytes": 235,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/upstream.scm": {
+      "sha256": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+      "bytes": 29007,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.wasm.raw.wasm": {
+      "sha256": "ca87b1c13be0361d1e09f752c5205f647e4bf71d14b2aea36caab2b086ac181d",
+      "bytes": 76165,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/adapted-kernel.scm": {
+      "sha256": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+      "bytes": 30618,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native-build.json": {
+      "sha256": "1a9e74f14b6cd6ae8dd9fadd8b3c47de126b9d51c868997f40de54b1015dc215",
+      "bytes": 671,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.optimized.wat": {
+      "sha256": "18208d87066f16d17c90ea4ab52d805bb2211a8f7cec0c556faf063ec27d6658",
+      "bytes": 375661,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/spec-canonical.json": {
+      "sha256": "f510b925c95c5a616c75bd6b0104b919b916bdba4624e4264598be222eff9508",
+      "bytes": 190,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.scm": {
+      "sha256": "83d6628b6cc228ebf631e734f7d4353f06e79a126453da579c4fe866040ccc4e",
+      "bytes": 36979,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/disassemble.json": {
+      "sha256": "344f95d3035f87f78cbc8179920772909ab716bd67883ee9c27a99a1cc1abf6e",
+      "bytes": 398,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native": {
+      "sha256": "cb95621e16938320c65ffdda1dafdc1205d7f218e497ed6d65f55f0eac9a418a",
+      "bytes": 2347096,
+      "mode": 493
+    },
+    "build/earley-prepare-02/earley/original-kernel.scm": {
+      "sha256": "95d7d30991ebafabc40681daea4e816516b4919373a7c64d6dae6e0d19474ea3",
+      "bytes": 28549,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/spec.json": {
+      "sha256": "f510b925c95c5a616c75bd6b0104b919b916bdba4624e4264598be222eff9508",
+      "bytes": 190,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/build.json": {
+      "sha256": "5ce385098fe1643585025f6d67e73810d3e71366cbec2b3e399dec9c61904fd4",
+      "bytes": 493,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.wasm.wat": {
+      "sha256": "6358b80ab02819d72547b0f85e6e161d60f242e7fdf9adbcb8a99603ca7e355c",
+      "bytes": 460656,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/source-edits.json": {
+      "sha256": "1aa3132bcfa7762c9d2d95692310c94e489d7c411e492fe25c363dcba8ff9510",
+      "bytes": 11816,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/entry.c": {
+      "sha256": "1e6f4b25b3d1e1c3950bd301a4a56b716021b21df2e8559d9147d4ba65e3a65c",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.wasm.trace.json": {
+      "sha256": "c669699e3b644f5fc01ecd8db10c80ed196671ed95a2e54808decd5b4e85aea5",
+      "bytes": 788,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/program.scm": {
+      "sha256": "04fc4a5eec31d2901b22467c1688624b39f0714c0c982735f12cd43dda1e6a7c",
+      "bytes": 33040,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/input.txt": {
+      "sha256": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+      "bytes": 13,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/strict.wasm": {
+      "sha256": "8bba099a2b4e64ee97292757a75f6df8bfd0472a5a0abb8ad905ca05e58a6c4b",
+      "bytes": 23437,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/program.so": {
+      "sha256": "35007de7b8b44cde93fe95865dad99dce6328172b9d5e5bfe3baf7b43eb25b13",
+      "bytes": 34264,
+      "mode": 493
+    },
+    "build/earley-prepare-02/earley/harness-validation.json": {
+      "sha256": "5ce79f7e1fc00e90b317d88233962696b1ef5e6e95d804f74d259f7863afa8c4",
+      "bytes": 1373,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/Cargo.lock": {
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994",
+      "bytes": 838,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/Cargo.toml": {
+      "sha256": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04",
+      "bytes": 255,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/rust-toolchain.toml": {
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+      "bytes": 104,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/tests/build-strict-program.scm": {
+      "sha256": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+      "bytes": 815,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/hash.rs": {
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+      "bytes": 4459,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/symbols.rs": {
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+      "bytes": 7560,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/host.rs": {
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+      "bytes": 10806,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/text.rs": {
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+      "bytes": 8240,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/strict_io.rs": {
+      "sha256": "ef0a9ee7c70a44d9e3bf5c07d57517ea8499e83a00c756e910ee1d08b92eb823",
+      "bytes": 9617,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/platform.rs": {
+      "sha256": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764",
+      "bytes": 20276,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/abi.rs": {
+      "sha256": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031",
+      "bytes": 15628,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/artifacts.rs": {
+      "sha256": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e",
+      "bytes": 3383,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/lib.rs": {
+      "sha256": "51f8f077f513fbcb83b46f06b3be0508ab362c5a06b26601716504874a905d8c",
+      "bytes": 33845,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/interop_example.rs": {
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+      "bytes": 3410,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/unicode.rs": {
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+      "bytes": 31161,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/datum.rs": {
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+      "bytes": 31728,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/strict_math.rs": {
+      "sha256": "2d69ee75664340dd7cc0ac61a2ce164fa7f0ed4aa7bbaee7d467caf723bde6b9",
+      "bytes": 1182,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/iverson.rs": {
+      "sha256": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14",
+      "bytes": 31582,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/native.rs": {
+      "sha256": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c",
+      "bytes": 1351,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/scripts/build-native": {
+      "sha256": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+      "bytes": 13413,
+      "mode": 493
+    },
+    "build/earley-prepare-02/compiler-source/scripts/link-strict-runtime": {
+      "sha256": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb",
+      "bytes": 4840,
+      "mode": 493
+    },
+    "build/earley-prepare-02/compiler-source/scripts/build-native.scm": {
+      "sha256": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+      "bytes": 2151,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/scripts/build-strict": {
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+      "bytes": 1345,
+      "mode": 493
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/hash-table.sld": {
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+      "bytes": 19077,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/expand.sld": {
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+      "bytes": 96062,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/type-inference.sld": {
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+      "bytes": 8263,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/source.sld": {
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "bytes": 419,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-read.sld": {
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+      "bytes": 7944,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-compiler.sld": {
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+      "bytes": 3019,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/typeclasses.sld": {
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+      "bytes": 49989,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-specialize.sld": {
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6",
+      "bytes": 27055,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm.sld": {
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+      "bytes": 66561,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-types.sld": {
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+      "bytes": 9223,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-overloads.sld": {
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+      "bytes": 9693,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/compiler.sld": {
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+      "bytes": 4730,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-primitives.sld": {
+      "sha256": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+      "bytes": 6187,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/effects.sld": {
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+      "bytes": 16880,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/llvm.sld": {
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653",
+      "bytes": 59149,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/build-host.sld": {
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+      "bytes": 7527,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-core.sld": {
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+      "bytes": 1753,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-link.sld": {
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+      "bytes": 10777,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/build.sld": {
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+      "bytes": 3043,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/library.sld": {
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "bytes": 3643,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/iverson-ghost.sld": {
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+      "bytes": 32644,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-wasm.sld": {
+      "sha256": "8bf9530e70ade9071261de139c2f7138e59adc5a24c2a9672b89f79b8702893d",
+      "bytes": 60967,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/syntax.sld": {
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "bytes": 2252,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/compile-build.sld": {
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+      "bytes": 5611,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/iverson-typed.sld": {
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+      "bytes": 4764,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/generation.sld": {
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+      "bytes": 11731,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-infer.sld": {
+      "sha256": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+      "bytes": 68224,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/runtime-artifact.sld": {
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+      "bytes": 1608,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/syntax-parser.sld": {
+      "sha256": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+      "bytes": 37413,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/native.sld": {
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+      "bytes": 2666,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-resolve.sld": {
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+      "bytes": 27687,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/pattern.sld": {
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "bytes": 39660,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-optimize.sld": {
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+      "bytes": 2557,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/ir.sld": {
+      "sha256": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+      "bytes": 24992,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/artifacts.sld": {
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+      "bytes": 5568,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/chromium-trace.sld": {
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+      "bytes": 9969,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/parser.sld": {
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "bytes": 20651,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/runtime.sld": {
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+      "bytes": 156,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/types.sld": {
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+      "bytes": 17135,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/type-analysis.sld": {
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+      "bytes": 37809,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-runtime.sld": {
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+      "bytes": 91545,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/options.sld": {
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+      "bytes": 21443,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-literals.sld": {
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+      "bytes": 9523,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/common.sld": {
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "bytes": 4201,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/bootstrap.sld": {
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+      "bytes": 3324,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-abi.sld": {
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+      "bytes": 14555,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/llvmlite.sld": {
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+      "bytes": 4026,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-extern.sld": {
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+      "bytes": 5382,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/wasm-i32.sld": {
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+      "bytes": 16257,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/partial-eval.sld": {
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+      "bytes": 17225,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/reader.sld": {
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+      "bytes": 4908,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail-scheme/strict-data.sld": {
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+      "bytes": 2395,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/io.sld": {
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4",
+      "bytes": 7096,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/math.sld": {
+      "sha256": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+      "bytes": 573,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/typing.sld": {
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+      "bytes": 687,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/strict.sld": {
+      "sha256": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+      "bytes": 14042,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/artifacts.sld": {
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+      "bytes": 1204,
+      "mode": 420
+    },
+    "build/earley-prepare-02/compiler-source/src/snail/bytes.sld": {
+      "sha256": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+      "bytes": 8076,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/same-source-chez/compile.scm": {
+      "sha256": "faca0d9db61dd27dbbe281acfa38d007085e7cd73a101378e6d4f9168ef9711c",
+      "bytes": 269,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/same-source-chez/build.json": {
+      "sha256": "839969bf763124c0dfa0899ada57836b892305e01dfb1e883e97985d7f54c761",
+      "bytes": 544,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/same-source-chez/program.scm": {
+      "sha256": "6c8d0d7fc58f0c018b4e06f28540e83f031cd5f08e815e1864f915d74f0fd2fe",
+      "bytes": 40547,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/same-source-chez/program.so": {
+      "sha256": "4502e8ec7621e2da1ab1eeb05f80606aa56d5be2b213979659a5ca36629c75b2",
+      "bytes": 36359,
+      "mode": 493
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/module.ll": {
+      "sha256": "d7d51b8e30ec858051294d4f290acd5a1c8c86d99f85ca417dfd681874c149e6",
+      "bytes": 1387433,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/optimized.wat": {
+      "sha256": "e298028fb8316088c04e9f9f9d797dbd5d57133249e2efb841eb3dcf053c9b25",
+      "bytes": 625012,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/optimized.wasm": {
+      "sha256": "9d7e8d9a46575294579e02ff60b02ee21623112d312cbb60057798b4e45154ed",
+      "bytes": 27721,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/compile.trace.json": {
+      "sha256": "ee6fc2d86829050f662f017777469ea60b69c8a49a4c8f3fe50fe64786a447dc",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/build.json": {
+      "sha256": "20bd17cfffc2d119636fc2fb9b3af9d84ab740f08c024b58c3658e01e15c47b1",
+      "bytes": 175968,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/build.scm": {
+      "sha256": "e273abeb1a2eb5b3b4ee9ab0390b6c749cf874d48b2bf002a98b3f803cb64960",
+      "bytes": 11559,
+      "mode": 420
+    },
+    "build/earley-prepare-02/earley/native.native-c_f7xh4_/reader.scm": {
+      "sha256": "e298028fb8316088c04e9f9f9d797dbd5d57133249e2efb841eb3dcf053c9b25",
+      "bytes": 625012,
+      "mode": 420
+    },
+    "build/earley-prepare-03/enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "bytes": 14437,
+      "mode": 420
+    },
+    "build/earley-prepare-03/lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "bytes": 17789,
+      "mode": 420
+    },
+    "build/earley-prepare-03/nucleic-host.mjs": {
+      "sha256": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+      "bytes": 2093,
+      "mode": 420
+    },
+    "build/earley-prepare-03/destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "bytes": 19754,
+      "mode": 420
+    },
+    "build/earley-prepare-03/string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "bytes": 11449,
+      "mode": 420
+    },
+    "build/earley-prepare-03/measure.py": {
+      "sha256": "38f113ca7ed6afbf49d45061d131323d9aac103b76cb2cc763741cf288dc0b13",
+      "bytes": 127151,
+      "mode": 420
+    },
+    "build/earley-prepare-03/puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "bytes": 22978,
+      "mode": 420
+    },
+    "build/earley-prepare-03/deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "bytes": 15368,
+      "mode": 420
+    },
+    "build/earley-prepare-03/host.mjs": {
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9",
+      "bytes": 2847,
+      "mode": 420
+    },
+    "build/earley-prepare-03/mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "bytes": 9976,
+      "mode": 420
+    },
+    "build/earley-prepare-03/ray-host.mjs": {
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+      "bytes": 3248,
+      "mode": 420
+    },
+    "build/earley-prepare-03/data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "bytes": 13918,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley_port.py": {
+      "sha256": "7222e1fe1b7a358409d618ecd05865deb45c02a0cb799516133fab5552fc4984",
+      "bytes": 40722,
+      "mode": 420
+    },
+    "build/earley-prepare-03/tail-host.mjs": {
+      "sha256": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+      "bytes": 3771,
+      "mode": 420
+    },
+    "build/earley-prepare-03/simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "bytes": 22619,
+      "mode": 420
+    },
+    "build/earley-prepare-03/prepared.json": {
+      "sha256": "b48feaf178d9805e2f5c0d6411928d68bee6ffc57593235730e03b580fea813c",
+      "bytes": 13006,
+      "mode": 420
+    },
+    "build/earley-prepare-03/tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "bytes": 16208,
+      "mode": 420
+    },
+    "build/earley-prepare-03/ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "bytes": 30020,
+      "mode": 420
+    },
+    "build/earley-prepare-03/mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "bytes": 17492,
+      "mode": 420
+    },
+    "build/earley-prepare-03/r7rs.py": {
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "bytes": 31262,
+      "mode": 493
+    },
+    "build/earley-prepare-03/nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "bytes": 30103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/compile.scm": {
+      "sha256": "3b07120b41385175740a6cce41b3236c030eb431140fa8e4fb1caee411e95638",
+      "bytes": 235,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/upstream.scm": {
+      "sha256": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+      "bytes": 29007,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.wasm.raw.wasm": {
+      "sha256": "4683cc34c303ab3cc8788b99783ab3a123e95e3e95329246ca4bb2982e53a4eb",
+      "bytes": 77472,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/adapted-kernel.scm": {
+      "sha256": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+      "bytes": 30618,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native-canonical.json": {
+      "sha256": "a37d1175de3c194433d691edf86210efc94944a140d5eeda61cb7d5091c563ac",
+      "bytes": 269,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native-canonical-1g.json": {
+      "sha256": "5bb91e93f91aefc0cc20466906a6a0785b4f1279afa06f8320a04aa4fcd24ecc",
+      "bytes": 530,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native-build.json": {
+      "sha256": "9a0b4b272acb24b8f203f7b4424f5ad308c9ab3827e16f04062f96d58292c08f",
+      "bytes": 671,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.optimized.wat": {
+      "sha256": "3e7250f7b04ceb955475d2763730d36cfae84c8ea451b2c4619237d8b9bcd86c",
+      "bytes": 369513,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/spec-canonical.json": {
+      "sha256": "f510b925c95c5a616c75bd6b0104b919b916bdba4624e4264598be222eff9508",
+      "bytes": 190,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.scm": {
+      "sha256": "422a3d29f0085c79f76afe5ed13b53e9f2df438b5b1b42c9ad1eccdbcaf35371",
+      "bytes": 37208,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/supplemental-probes.json": {
+      "sha256": "fd0d20b15bc5cf98be330eead52e589911db13a75db9f84a0b7d8489e1d2fb0e",
+      "bytes": 367,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/disassemble.json": {
+      "sha256": "9c7a7cca445629ce2687c4ed75404d5a85518874264d61a8d9ffdb93e5f99010",
+      "bytes": 398,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native": {
+      "sha256": "92c6b44a97b08a325bd113f54d031d8da81a461cf1c424555e0bf7705f2dcbf6",
+      "bytes": 2345112,
+      "mode": 493
+    },
+    "build/earley-prepare-03/earley/strict-build-before-chez.json": {
+      "sha256": "08048976f2000485185b3297997b29d13c7ec786ceea3a52dc8ddaea48c99d58",
+      "bytes": 493,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/original-kernel.scm": {
+      "sha256": "95d7d30991ebafabc40681daea4e816516b4919373a7c64d6dae6e0d19474ea3",
+      "bytes": 28549,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/spec.json": {
+      "sha256": "f510b925c95c5a616c75bd6b0104b919b916bdba4624e4264598be222eff9508",
+      "bytes": 190,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native-canonical-rss-gc.json": {
+      "sha256": "f9ff7e07ae07d611e4b912b8cc7338a379dddedc519702a31ffd4953a3902185",
+      "bytes": 1600,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/build.json": {
+      "sha256": "08048976f2000485185b3297997b29d13c7ec786ceea3a52dc8ddaea48c99d58",
+      "bytes": 493,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.wasm.wat": {
+      "sha256": "b2e0079b96e7c1669a97bfa72aaf8bcb788b5e1a02341644d1d5f4da8fe347a6",
+      "bytes": 468469,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/source-edits.json": {
+      "sha256": "d9972cdcb16ae5f17e716b6a7488fff14dbaf5cedc2dd8d45222a7968116a344",
+      "bytes": 11816,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/entry.c": {
+      "sha256": "1e6f4b25b3d1e1c3950bd301a4a56b716021b21df2e8559d9147d4ba65e3a65c",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/original-canonical.json": {
+      "sha256": "841974036fd4c760b5a7e6822c96a09fd534240ea7b254094fc2ac96b4a781b8",
+      "bytes": 356,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.wasm.trace.json": {
+      "sha256": "e6a17644aecd9c8abc79d7006804bf0389590ce269e080e557fda12b0e058a15",
+      "bytes": 788,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/program.scm": {
+      "sha256": "04fc4a5eec31d2901b22467c1688624b39f0714c0c982735f12cd43dda1e6a7c",
+      "bytes": 33040,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/input.txt": {
+      "sha256": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+      "bytes": 13,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/strict.wasm": {
+      "sha256": "923ee2e96a8d4ee9c252af935d138b1faf07625e14428568ed17b1d06ea01956",
+      "bytes": 24240,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/program.so": {
+      "sha256": "e975c574506c887757d3caa29ad7a16094bb5605f4c2b5646941d217cac8ca0c",
+      "bytes": 34266,
+      "mode": 493
+    },
+    "build/earley-prepare-03/earley/harness-validation.json": {
+      "sha256": "f968f0301ef8b853a5e64ae1e051cd91e0dd98426bae93bd89bee2602483e53b",
+      "bytes": 1323,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/Cargo.lock": {
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994",
+      "bytes": 838,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/Cargo.toml": {
+      "sha256": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04",
+      "bytes": 255,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/rust-toolchain.toml": {
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+      "bytes": 104,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/tests/build-strict-program.scm": {
+      "sha256": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+      "bytes": 815,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/hash.rs": {
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+      "bytes": 4459,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/symbols.rs": {
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+      "bytes": 7560,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/host.rs": {
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+      "bytes": 10806,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/text.rs": {
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+      "bytes": 8240,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/strict_io.rs": {
+      "sha256": "ef0a9ee7c70a44d9e3bf5c07d57517ea8499e83a00c756e910ee1d08b92eb823",
+      "bytes": 9617,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/platform.rs": {
+      "sha256": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764",
+      "bytes": 20276,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/abi.rs": {
+      "sha256": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031",
+      "bytes": 15628,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/artifacts.rs": {
+      "sha256": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e",
+      "bytes": 3383,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/lib.rs": {
+      "sha256": "51f8f077f513fbcb83b46f06b3be0508ab362c5a06b26601716504874a905d8c",
+      "bytes": 33845,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/interop_example.rs": {
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+      "bytes": 3410,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/unicode.rs": {
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+      "bytes": 31161,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/datum.rs": {
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+      "bytes": 31728,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/strict_math.rs": {
+      "sha256": "2d69ee75664340dd7cc0ac61a2ce164fa7f0ed4aa7bbaee7d467caf723bde6b9",
+      "bytes": 1182,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/iverson.rs": {
+      "sha256": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14",
+      "bytes": 31582,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/native.rs": {
+      "sha256": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c",
+      "bytes": 1351,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/scripts/build-native": {
+      "sha256": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+      "bytes": 13413,
+      "mode": 493
+    },
+    "build/earley-prepare-03/compiler-source/scripts/link-strict-runtime": {
+      "sha256": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb",
+      "bytes": 4840,
+      "mode": 493
+    },
+    "build/earley-prepare-03/compiler-source/scripts/build-native.scm": {
+      "sha256": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+      "bytes": 2151,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/scripts/build-strict": {
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+      "bytes": 1345,
+      "mode": 493
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/hash-table.sld": {
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+      "bytes": 19077,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/expand.sld": {
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+      "bytes": 96062,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/type-inference.sld": {
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+      "bytes": 8263,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/source.sld": {
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "bytes": 419,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-read.sld": {
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+      "bytes": 7944,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-compiler.sld": {
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+      "bytes": 3019,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/typeclasses.sld": {
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+      "bytes": 49989,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-specialize.sld": {
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6",
+      "bytes": 27055,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm.sld": {
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+      "bytes": 66561,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-types.sld": {
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+      "bytes": 9223,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-overloads.sld": {
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+      "bytes": 9693,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/compiler.sld": {
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+      "bytes": 4730,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-primitives.sld": {
+      "sha256": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+      "bytes": 6187,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/effects.sld": {
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+      "bytes": 16880,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/llvm.sld": {
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653",
+      "bytes": 59149,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/build-host.sld": {
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+      "bytes": 7527,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-core.sld": {
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+      "bytes": 1753,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-link.sld": {
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+      "bytes": 10777,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/build.sld": {
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+      "bytes": 3043,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/library.sld": {
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "bytes": 3643,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/iverson-ghost.sld": {
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+      "bytes": 32644,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-wasm.sld": {
+      "sha256": "8bf9530e70ade9071261de139c2f7138e59adc5a24c2a9672b89f79b8702893d",
+      "bytes": 60967,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/syntax.sld": {
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "bytes": 2252,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/compile-build.sld": {
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+      "bytes": 5611,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/iverson-typed.sld": {
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+      "bytes": 4764,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/generation.sld": {
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+      "bytes": 11731,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-infer.sld": {
+      "sha256": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+      "bytes": 68224,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/runtime-artifact.sld": {
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+      "bytes": 1608,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/syntax-parser.sld": {
+      "sha256": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+      "bytes": 37413,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/native.sld": {
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+      "bytes": 2666,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-resolve.sld": {
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+      "bytes": 27687,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/pattern.sld": {
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "bytes": 39660,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-optimize.sld": {
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+      "bytes": 2557,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/ir.sld": {
+      "sha256": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+      "bytes": 24992,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/artifacts.sld": {
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+      "bytes": 5568,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/chromium-trace.sld": {
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+      "bytes": 9969,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/parser.sld": {
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "bytes": 20651,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/runtime.sld": {
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+      "bytes": 156,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/types.sld": {
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+      "bytes": 17135,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/type-analysis.sld": {
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+      "bytes": 37809,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-runtime.sld": {
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+      "bytes": 91545,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/options.sld": {
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+      "bytes": 21443,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-literals.sld": {
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+      "bytes": 9523,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/common.sld": {
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "bytes": 4201,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/bootstrap.sld": {
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+      "bytes": 3324,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-abi.sld": {
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+      "bytes": 14555,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/llvmlite.sld": {
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+      "bytes": 4026,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-extern.sld": {
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+      "bytes": 5382,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/wasm-i32.sld": {
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+      "bytes": 16257,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/partial-eval.sld": {
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+      "bytes": 17225,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/reader.sld": {
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+      "bytes": 4908,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail-scheme/strict-data.sld": {
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+      "bytes": 2395,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/io.sld": {
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4",
+      "bytes": 7096,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/math.sld": {
+      "sha256": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+      "bytes": 573,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/typing.sld": {
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+      "bytes": 687,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/strict.sld": {
+      "sha256": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+      "bytes": 14042,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/artifacts.sld": {
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+      "bytes": 1204,
+      "mode": 420
+    },
+    "build/earley-prepare-03/compiler-source/src/snail/bytes.sld": {
+      "sha256": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+      "bytes": 8076,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/module.ll": {
+      "sha256": "a88fbaefa2b4f3d6838909fbb078a65dc89d06dfaec21349fb0a9680f5801a6e",
+      "bytes": 1418962,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/optimized.wat": {
+      "sha256": "538d52c1c3c0f1543b8c9faf4175d73e04f468822686e81b367210fe726b98ff",
+      "bytes": 611983,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/optimized.wasm": {
+      "sha256": "2f2d788d5851dd964550b26054d5cf034dc598015a163b79378aa7a214029ea5",
+      "bytes": 28961,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/compile.trace.json": {
+      "sha256": "737d2edea751140262ca74497f2eb157add0fd62cf72e371d5438478ac629924",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/build.json": {
+      "sha256": "ee46d6f135f0bad0c1bd0ba08b90bdc66f7171ea4604426a946c90cef8dd3fbb",
+      "bytes": 175968,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/build.scm": {
+      "sha256": "60c41a33bd5031cc6eca710f91fbb365d3f6cb5a7054dc91e76d3c417710b66f",
+      "bytes": 11559,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/native.native-l0dv0ga4/reader.scm": {
+      "sha256": "538d52c1c3c0f1543b8c9faf4175d73e04f468822686e81b367210fe726b98ff",
+      "bytes": 611983,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.wasm.raw.wasm": {
+      "sha256": "8b85cdf0b551bd084bde2f1dab20901431ebbb6d7187ada755b9ab133b886e67",
+      "bytes": 93931,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/wasm.trees.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.trees.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native-build.json": {
+      "sha256": "9ab7d47fc3862cbdf3a1167ceebf99df5b09dc9e9c1ea103a6ce60473b875b2e",
+      "bytes": 746,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.optimized.wat": {
+      "sha256": "28f05f57159a16376ff5df5d3a924fc21fd817599d2f2603a29c7a760cf8644a",
+      "bytes": 531877,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/wasm-0.json": {
+      "sha256": "57719e7cef7d7ebf3cf36f0fa96801a4d57f87fe792164d5d90ed8e15c88735b",
+      "bytes": 4310,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/comparison-0.json": {
+      "sha256": "fa5cbbbab27b062bd8150f41c3e93e4ab1b5d4a50d828efb8af48e8f2f370f62",
+      "bytes": 67656,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/host.mjs": {
+      "sha256": "8c73ec48754a2d89f5d40262f6643504e25a5b24ab90a605b27148b913d7c5b6",
+      "bytes": 391,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.scm": {
+      "sha256": "a2806d8b80b045436a5062430b8ba3365e6451f859f1fba939edc2d07776e752",
+      "bytes": 42813,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/disassemble.json": {
+      "sha256": "bda4727382f5bdac12a1447e320117732f3c7e4275ea020983f8ee4432bcaf1a",
+      "bytes": 460,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native": {
+      "sha256": "3afee3109de492ecf18a36a78dbe5a1358e7a54049d5915cc03ce9dc9d88d035",
+      "bytes": 2411952,
+      "mode": 493
+    },
+    "build/earley-prepare-03/earley/probe/native-0.json": {
+      "sha256": "b82d8ced9dfb0442f33f68297a2fb86c0cab938d645d2f20bd09754efc065032",
+      "bytes": 6074,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted.trees.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.wasm.wat": {
+      "sha256": "42063b2595eca5dababa4950fa2f46adf12130345ddd6e82fe2926d81fc5e322",
+      "bytes": 589460,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/raw-wasm-0.json": {
+      "sha256": "7c586e65f4e6d757a8798453eafcdd30b95e236d7bca071e32383ed4bee4c94b",
+      "bytes": 4319,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict-build.json": {
+      "sha256": "399703caf995b196af0cecde188ea92d6170edaf5756a4c548be1960e018bdc4",
+      "bytes": 451,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/entry.c": {
+      "sha256": "4355ad937c4c3e8a24cbda8c53f7393fe7b5370e2676cfce5d8add0425138780",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.wasm.trace.json": {
+      "sha256": "9d9eb04addc7b2c8ab3720b5e9f6ec6eeb23d7c2d3c3efeb04420398e71b617e",
+      "bytes": 788,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/original.trees.json": {
+      "sha256": "bce42a929eef4e0c9eba17fb87037236a9bf2708b2a1133ece64db2f9857f5a4",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/strict.wasm": {
+      "sha256": "8dbe08c6baa15e12ed0480e2b230e4110338e4cbc063b8eca28aeab3083f95ba",
+      "bytes": 35118,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/raw-wasm.trees.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/same-source-chez/compile.scm": {
+      "sha256": "0f60b5f1fd5b95a1a900fe0f4ac7180a60e5745f9c210bfea2bc15bb8d760de4",
+      "bytes": 269,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/same-source-chez/adapted-canonical.json": {
+      "sha256": "0cd0b70a25469be03bc314154c7854406ae4ee4bc77409719618af95fff6aada",
+      "bytes": 374,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/same-source-chez/build.json": {
+      "sha256": "eb6b104fa45a735ab1ef37e1d8d48c7737bbac5a22a34ab68895d757cf635d83",
+      "bytes": 544,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/same-source-chez/program.scm": {
+      "sha256": "f0e869054473f70f8f0ac75e8e26696fdf6ff97e3e62af47e1185987a2d6d89a",
+      "bytes": 40776,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/same-source-chez/program.so": {
+      "sha256": "5868b43cb0a7a32fe31df888ce6ccafde1b83bc34ff71d0ca80316748136bd59",
+      "bytes": 36413,
+      "mode": 493
+    },
+    "build/earley-prepare-03/earley/probe/original/compile.scm": {
+      "sha256": "1e5c55ee330431bf059dd3a220ab03a0b7e6c0c1161a06eac2a6006357dd0296",
+      "bytes": 265,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/original/case-0.json": {
+      "sha256": "b3730e5db74757ffbec7c9abf7d725128c9787b5696ed23ce63f67e92abcb149",
+      "bytes": 6171,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/original/chez-build.json": {
+      "sha256": "0d90290de2fca4651c1569a35e9bc21ee21f0d5b76bca65e30e49a40a26d1666",
+      "bytes": 589,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/original/program.scm": {
+      "sha256": "411e75ee40e90b576e0b9087f97f70cded72ebf809e5f9d3ed8c5908566f44bd",
+      "bytes": 35921,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/original/program.so": {
+      "sha256": "30b346310901ab36c6bd135edaef3c5ba1d663df3738cccf61dbd92a070ac66f",
+      "bytes": 44958,
+      "mode": 493
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/module.ll": {
+      "sha256": "350f1d765d437d4dfba5bd985fc3a22108395e231ba4d42cc80422305aa1102c",
+      "bytes": 2055698,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/optimized.wat": {
+      "sha256": "c703c6aead173a6eec83297d54ec9ef2b2fedb65a8166b227741c2720f4ce121",
+      "bytes": 871870,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/optimized.wasm": {
+      "sha256": "dfecbff8411c1815d9d2031d171eb252f8e9a5455dd9587058f319fcc45303fd",
+      "bytes": 41417,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/compile.trace.json": {
+      "sha256": "c1c1266b6a7871b8c278f4efe1a15b6a3b1f87fa705d2e901a931887647bc2f3",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/build.json": {
+      "sha256": "e8395f1510b2c546763bc1804f8e9028ae4ae395ef5c55bbdb77806e190ea8c5",
+      "bytes": 176070,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/build.scm": {
+      "sha256": "a28727f5a10f67a6eae8b2eecf4b158678cfefc8fa54f4a13c698376ac2b5b58",
+      "bytes": 11565,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/native.native-lk4hs93m/reader.scm": {
+      "sha256": "c703c6aead173a6eec83297d54ec9ef2b2fedb65a8166b227741c2720f4ce121",
+      "bytes": 871870,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted/compile.scm": {
+      "sha256": "4fbc39978ac3aaf508f22a6f86de7ed2181ee7be600bc804fd5f22c523432429",
+      "bytes": 263,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted/case-0.json": {
+      "sha256": "2a5ffe54f0083aadfea08d5d8fe765b2742b9e3de36704007ff39758c123b99e",
+      "bytes": 6171,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted/chez-build.json": {
+      "sha256": "62f6c671d6252c5d285c498cbdf2e4a8b2cce3054f3328e6c2a643b83268a01a",
+      "bytes": 585,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted/program.scm": {
+      "sha256": "5a29561ca60dc0d43d42b96cd9600bb8cd6d045492ca1746c20a38ec49c83fa2",
+      "bytes": 42562,
+      "mode": 420
+    },
+    "build/earley-prepare-03/earley/probe/adapted/program.so": {
+      "sha256": "f7b069248413dccac1c0b41ba2e4e468c269c3b47cc9e335a591491752131358",
+      "bytes": 46116,
+      "mode": 493
+    },
+    "build/earley-prepare-04/enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "bytes": 14437,
+      "mode": 420
+    },
+    "build/earley-prepare-04/lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "bytes": 17789,
+      "mode": 420
+    },
+    "build/earley-prepare-04/nucleic-host.mjs": {
+      "sha256": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+      "bytes": 2093,
+      "mode": 420
+    },
+    "build/earley-prepare-04/destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "bytes": 19754,
+      "mode": 420
+    },
+    "build/earley-prepare-04/string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "bytes": 11449,
+      "mode": 420
+    },
+    "build/earley-prepare-04/measure.py": {
+      "sha256": "632b772a121a509702c88d6ef341298f13309495d11f1db04d3bc1bdea6855bc",
+      "bytes": 127223,
+      "mode": 420
+    },
+    "build/earley-prepare-04/puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "bytes": 22978,
+      "mode": 420
+    },
+    "build/earley-prepare-04/deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "bytes": 15368,
+      "mode": 420
+    },
+    "build/earley-prepare-04/host.mjs": {
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9",
+      "bytes": 2847,
+      "mode": 420
+    },
+    "build/earley-prepare-04/mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "bytes": 9976,
+      "mode": 420
+    },
+    "build/earley-prepare-04/ray-host.mjs": {
+      "sha256": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+      "bytes": 3248,
+      "mode": 420
+    },
+    "build/earley-prepare-04/data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "bytes": 13918,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley_port.py": {
+      "sha256": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+      "bytes": 41753,
+      "mode": 420
+    },
+    "build/earley-prepare-04/tail-host.mjs": {
+      "sha256": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+      "bytes": 3771,
+      "mode": 420
+    },
+    "build/earley-prepare-04/simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "bytes": 22619,
+      "mode": 420
+    },
+    "build/earley-prepare-04/prepared.json": {
+      "sha256": "fe1365c63d768604364e78963a7d0d0b9a30cd63d42d3e47d237fc2d714fc168",
+      "bytes": 28225,
+      "mode": 420
+    },
+    "build/earley-prepare-04/tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "bytes": 16208,
+      "mode": 420
+    },
+    "build/earley-prepare-04/ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "bytes": 30020,
+      "mode": 420
+    },
+    "build/earley-prepare-04/mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "bytes": 17492,
+      "mode": 420
+    },
+    "build/earley-prepare-04/r7rs.py": {
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "bytes": 31262,
+      "mode": 493
+    },
+    "build/earley-prepare-04/nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "bytes": 30103,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-false.json": {
+      "sha256": "dea0f795cb2c599c65a644e75659a87a3bdf2ee4f8505ed51b3b48001f32da23",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-exact-ratio.json": {
+      "sha256": "1a95ffa1da19954eab934d213fcd00a6b52da54ff665889518aead095590870b",
+      "bytes": 471,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/compile.scm": {
+      "sha256": "faf5a6c4ef19d86d2cce683c2228ba3372698daabd96beedf69fba621cfb8eed",
+      "bytes": 235,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-empty-input.json": {
+      "sha256": "27721522fa46517cf0335dc3e45c60323fcc37bfe43b67ffd1fbb6f37cfdfcc5",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/upstream.scm": {
+      "sha256": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
+      "bytes": 29007,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-vector.json": {
+      "sha256": "45fd495f0702fa549aa18bd450c1fb3a904b1e8cdedbfce22c272b0bac28bf93",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-vector.json": {
+      "sha256": "1d0cd407ae902d43fd3ba11ec492f486c64fceb7a82d729604c7a4f3a4f9c08b",
+      "bytes": 456,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-inexact.json": {
+      "sha256": "b0306f2a95181cb2fa2568568368d0847bc1ea9e2d1fae8aa68a54b1b4ba28dc",
+      "bytes": 455,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-inexact.json": {
+      "sha256": "3be1179c2cbf2225f06b76eba1d3d3820cb066eec9a9bc634a99a44e96072688",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-inexact.json": {
+      "sha256": "7558d8c5bc26041c3efad494766458765f9cc13fbdeafbd0318d2334cc1210a6",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-empty-input.json": {
+      "sha256": "85dce4cd9b7b0fbb87f39ab1cac9e88460eeb72e690911101374461e8af56745",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.wasm.raw.wasm": {
+      "sha256": "4683cc34c303ab3cc8788b99783ab3a123e95e3e95329246ca4bb2982e53a4eb",
+      "bytes": 77472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/adapted-kernel.scm": {
+      "sha256": "51a1fd88e69ca95dcb230b1e3db71ad558f1fefee8bb934cd1c0d28ef8387836",
+      "bytes": 30618,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-canonical.json": {
+      "sha256": "55c2e03fee36988fcf35504e65bed5730ddc8080c1c3a347ec8e74942ecddabc",
+      "bytes": 406,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-zero-count.json": {
+      "sha256": "53cac4b0b88a2bcbb49534fc1012cdf7a6ca1e6f9d5c16b96deb65502be65b33",
+      "bytes": 463,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-build.json": {
+      "sha256": "dece2d94f46614446e58a40869294e12daaee9ec3c6213c5fa8b745068f7f1a8",
+      "bytes": 720,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.optimized.wat": {
+      "sha256": "3e7250f7b04ceb955475d2763730d36cfae84c8ea451b2c4619237d8b9bcd86c",
+      "bytes": 369513,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-empty-input.json": {
+      "sha256": "ed030c462dd5b83e366cb7a6f2dd5bd10e62e3bbd44f030f3c8b0363a2988cb1",
+      "bytes": 469,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-exact-ratio.json": {
+      "sha256": "90a188c40434b5e10b58689b608c58e4fbd95ecc1fd1ab153635e4e0d0439534",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-canonical.json": {
+      "sha256": "89a6a61dc88d195bf1f8c06611ce8f380a810f777869076e78c3abb82f73dc31",
+      "bytes": 225,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/complete-tree-observations.json": {
+      "sha256": "1042d2932996a30bf011ef92979c02027b11f0a1a8bfa058bd9c3c09246a8943",
+      "bytes": 34103,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-list.json": {
+      "sha256": "3d7b3da760adcd988a720785a852d620a4b9b8803d361e7214ae2b326a1defef",
+      "bytes": 455,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-false.json": {
+      "sha256": "604b019ea96d20d3bbc90653ebd9b80d5a6319320719a4072bacce08e47e2949",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-zero-count.json": {
+      "sha256": "42ff2bd16bf22efd978413aedb0d5e0fb398bec435220efd22ab7ca751459a92",
+      "bytes": 403,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.scm": {
+      "sha256": "422a3d29f0085c79f76afe5ed13b53e9f2df438b5b1b42c9ad1eccdbcaf35371",
+      "bytes": 37208,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-small.json": {
+      "sha256": "b7c43e0f9da970d4968ed3cea67b8c0dd715f96326c983185440f8a504b6a072",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/disassemble.json": {
+      "sha256": "3b3e2e46995fd2c6c69dc0f5558724714c27e15f79dc2be47fd9aecd93922188",
+      "bytes": 448,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native": {
+      "sha256": "92c6b44a97b08a325bd113f54d031d8da81a461cf1c424555e0bf7705f2dcbf6",
+      "bytes": 2345112,
+      "mode": 493
+    },
+    "build/earley-prepare-04/earley/native-zero-count-number.json": {
+      "sha256": "0846b81737c57a99282cbfacb3d86d9685cf8f9e5cf2051d5757f8e3f00c1cce",
+      "bytes": 403,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-list.json": {
+      "sha256": "7558d8c5bc26041c3efad494766458765f9cc13fbdeafbd0318d2334cc1210a6",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-vector.json": {
+      "sha256": "7558d8c5bc26041c3efad494766458765f9cc13fbdeafbd0318d2334cc1210a6",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-symbol.json": {
+      "sha256": "0f815c436fa9082167b66e45beee64f5dea621c4176345879e763901da07f165",
+      "bytes": 455,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/original-kernel.scm": {
+      "sha256": "95d7d30991ebafabc40681daea4e816516b4919373a7c64d6dae6e0d19474ea3",
+      "bytes": 28549,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-wrong.json": {
+      "sha256": "2f495c3028b7d99ac36b230174f01c02fe35a43acf4126d9cafe7cd7f3dadac8",
+      "bytes": 455,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec.json": {
+      "sha256": "89a6a61dc88d195bf1f8c06611ce8f380a810f777869076e78c3abb82f73dc31",
+      "bytes": 225,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/chez-build.json": {
+      "sha256": "31d67cdf32048e07a6b0af8885dce36966e7fd8ea3a2cd97e9185b49f6de315d",
+      "bytes": 544,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-symbol.json": {
+      "sha256": "7558d8c5bc26041c3efad494766458765f9cc13fbdeafbd0318d2334cc1210a6",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.wasm.wat": {
+      "sha256": "b2e0079b96e7c1669a97bfa72aaf8bcb788b5e1a02341644d1d5f4da8fe347a6",
+      "bytes": 468469,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-negative-count.json": {
+      "sha256": "5c8ad7a24bd446e6dcb94008e8672d892052b47baa007619311e17ad6ece3692",
+      "bytes": 404,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-canonical.json": {
+      "sha256": "cabf8d4baa6775f0a7a02fab6b7adb6ff6eb6e1a786a4d28502a8b506cf23798",
+      "bytes": 474,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-symbol.json": {
+      "sha256": "1d86fe243f4ff5da35d0d3a0123453a183b6f6f37f34877ab4da0a5384c29239",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-negative-count.json": {
+      "sha256": "200f269aaef9374a8bcd91ea2a9140949d46d6662ecdaf23564a1f287a7a8bd4",
+      "bytes": 469,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-twice.json": {
+      "sha256": "b71e6cc68fa05deccb85dc00a528085fd87f50306b08bc3fd41516978c9dc0cd",
+      "bytes": 474,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-list.json": {
+      "sha256": "17758d8799d46c12407b275806ab6d8d250ea32dd336bc36a2a385b2bbb11d24",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-small.json": {
+      "sha256": "1d3739302b7f62cfd72cae70e53b0f710811baecef575415b7279d6dc127510c",
+      "bytes": 471,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-exact-ratio.json": {
+      "sha256": "3b3b0df2310d5b99e9de02d909af80d80e46ce6509ddae40e621841a87408e85",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/source-edits.json": {
+      "sha256": "1aa3132bcfa7762c9d2d95692310c94e489d7c411e492fe25c363dcba8ff9510",
+      "bytes": 11816,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict-build.json": {
+      "sha256": "21b51fdd01254db1a6746f2ba88e427330890c1f8b162d8f93366426f8194600",
+      "bytes": 440,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-twice.json": {
+      "sha256": "b328172c38d62df85124733ad4606827f045bd30249eb096ae5c9929926b09df",
+      "bytes": 225,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/entry.c": {
+      "sha256": "1e6f4b25b3d1e1c3950bd301a4a56b716021b21df2e8559d9147d4ba65e3a65c",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-negative-count.json": {
+      "sha256": "5f533e014ff1c7ccd16b462d8b08b1ae3329ba8df3f43dff5f9595d2e7faa073",
+      "bytes": 220,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-small.json": {
+      "sha256": "90a188c40434b5e10b58689b608c58e4fbd95ecc1fd1ab153635e4e0d0439534",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.wasm.trace.json": {
+      "sha256": "a77f15f4d54ce87b5d888ea291afbdf29a2182d6494602a78994011cbccaf54f",
+      "bytes": 788,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-twice.json": {
+      "sha256": "07dce1fd7725d147529283ae5c10023ec9da8de1d1b676513c24e060db0900b0",
+      "bytes": 405,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native-wrong.json": {
+      "sha256": "5509a3a6b14de63c5241f1091e902e6cbeac1fe508ed2767c1991c0f0d0acfc2",
+      "bytes": 402,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/program.scm": {
+      "sha256": "04fc4a5eec31d2901b22467c1688624b39f0714c0c982735f12cd43dda1e6a7c",
+      "bytes": 33040,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/source-proof.json": {
+      "sha256": "3c28e8b4cc03cd89a4accbd4505b7bd82f21016ad72eb4ed52f92f6f7c345475",
+      "bytes": 736,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/input.txt": {
+      "sha256": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+      "bytes": 13,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/strict.wasm": {
+      "sha256": "923ee2e96a8d4ee9c252af935d138b1faf07625e14428568ed17b1d06ea01956",
+      "bytes": 24240,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/program.so": {
+      "sha256": "5459ae8b9bf73c9c3556807301f42f43395edff6156754cb1d1bf438e4a50104",
+      "bytes": 34264,
+      "mode": 493
+    },
+    "build/earley-prepare-04/earley/validation-zero-count-number.json": {
+      "sha256": "0fde1f5a723a95087917e2ca8b70c26cff368f6e49a16468760a7b46c4a93775",
+      "bytes": 456,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-zero-count-number.json": {
+      "sha256": "0635f94da6817bcd0730f667b2315d7b721197c5ae01ec0114d0ba77fed0ae5b",
+      "bytes": 219,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/harness-validation.json": {
+      "sha256": "4c9a7b7ec79492d5afe48baad1c0844a545571979c11a59e22220541bea046d8",
+      "bytes": 24679,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-wrong.json": {
+      "sha256": "88bb35b6abd3da9a0c6ef77f5f4b369d12f4ca952d773a93aa5ee0cce250e439",
+      "bytes": 218,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/validation-false.json": {
+      "sha256": "d11e2b52979a503eb60eb0e6e88a15efc55d4c905d8c612201fcabbef0c5fb87",
+      "bytes": 455,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/spec-zero-count.json": {
+      "sha256": "b164473ce536a4ca1a5a0c5614f40390062257ffbfc99f0d5c8aaf56b9469102",
+      "bytes": 219,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/Cargo.lock": {
+      "sha256": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994",
+      "bytes": 838,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/Cargo.toml": {
+      "sha256": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04",
+      "bytes": 255,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/rust-toolchain.toml": {
+      "sha256": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+      "bytes": 104,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/tests/build-strict-program.scm": {
+      "sha256": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+      "bytes": 815,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/hash.rs": {
+      "sha256": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+      "bytes": 4459,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/symbols.rs": {
+      "sha256": "66efb0f782d8b2d038968e1a18df22e2b66bf47c4a37614b8b33f70207a4ad84",
+      "bytes": 7560,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/native.c": {
+      "sha256": "99c5a5ae33fe3a65131bea7720df6c516e2e3f1ea66a9e6a7cba0b146b55d98f",
+      "bytes": 12149,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/host.rs": {
+      "sha256": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+      "bytes": 10806,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/text.rs": {
+      "sha256": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+      "bytes": 8240,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/strict_io.rs": {
+      "sha256": "ef0a9ee7c70a44d9e3bf5c07d57517ea8499e83a00c756e910ee1d08b92eb823",
+      "bytes": 9617,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/platform.rs": {
+      "sha256": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764",
+      "bytes": 20276,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/abi.rs": {
+      "sha256": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031",
+      "bytes": 15628,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/artifacts.rs": {
+      "sha256": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e",
+      "bytes": 3383,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/lib.rs": {
+      "sha256": "51f8f077f513fbcb83b46f06b3be0508ab362c5a06b26601716504874a905d8c",
+      "bytes": 33845,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/interop_example.rs": {
+      "sha256": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+      "bytes": 3410,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/unicode.rs": {
+      "sha256": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+      "bytes": 31161,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/datum.rs": {
+      "sha256": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+      "bytes": 31728,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/precise-gc.c": {
+      "sha256": "e438a67d641d7ad176bed0a72ad199d4c772b6074aef96443e61923a6edf5020",
+      "bytes": 13839,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/strict_math.rs": {
+      "sha256": "2d69ee75664340dd7cc0ac61a2ce164fa7f0ed4aa7bbaee7d467caf723bde6b9",
+      "bytes": 1182,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/precise-gc.h": {
+      "sha256": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628",
+      "bytes": 879,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/iverson.rs": {
+      "sha256": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14",
+      "bytes": 31582,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/native.rs": {
+      "sha256": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c",
+      "bytes": 1351,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/scripts/build-native": {
+      "sha256": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+      "bytes": 13413,
+      "mode": 493
+    },
+    "build/earley-prepare-04/compiler-source/scripts/link-strict-runtime": {
+      "sha256": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb",
+      "bytes": 4840,
+      "mode": 493
+    },
+    "build/earley-prepare-04/compiler-source/scripts/build-native.scm": {
+      "sha256": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+      "bytes": 2151,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/scripts/build-strict": {
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+      "bytes": 1345,
+      "mode": 493
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/hash-table.sld": {
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+      "bytes": 19077,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/expand.sld": {
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+      "bytes": 96062,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/type-inference.sld": {
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+      "bytes": 8263,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/source.sld": {
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "bytes": 419,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-read.sld": {
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+      "bytes": 7944,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-compiler.sld": {
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+      "bytes": 3019,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/typeclasses.sld": {
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+      "bytes": 49989,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-specialize.sld": {
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6",
+      "bytes": 27055,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm.sld": {
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+      "bytes": 66561,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-types.sld": {
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+      "bytes": 9223,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-overloads.sld": {
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+      "bytes": 9693,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/compiler.sld": {
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+      "bytes": 4730,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-primitives.sld": {
+      "sha256": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+      "bytes": 6187,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/effects.sld": {
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+      "bytes": 16880,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/llvm.sld": {
+      "sha256": "fb154e7707c903e1783c56fbb481c5d18def9e45eecb3905740a46269abae653",
+      "bytes": 59149,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/build-host.sld": {
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+      "bytes": 7527,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-core.sld": {
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+      "bytes": 1753,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-link.sld": {
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+      "bytes": 10777,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/build.sld": {
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+      "bytes": 3043,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/library.sld": {
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "bytes": 3643,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/iverson-ghost.sld": {
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+      "bytes": 32644,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-wasm.sld": {
+      "sha256": "8bf9530e70ade9071261de139c2f7138e59adc5a24c2a9672b89f79b8702893d",
+      "bytes": 60967,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/syntax.sld": {
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "bytes": 2252,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/compile-build.sld": {
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+      "bytes": 5611,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/iverson-typed.sld": {
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+      "bytes": 4764,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/generation.sld": {
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+      "bytes": 11731,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-infer.sld": {
+      "sha256": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+      "bytes": 68224,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/runtime-artifact.sld": {
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+      "bytes": 1608,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/syntax-parser.sld": {
+      "sha256": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+      "bytes": 37413,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/native.sld": {
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+      "bytes": 2666,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-resolve.sld": {
+      "sha256": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+      "bytes": 27687,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/pattern.sld": {
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "bytes": 39660,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-optimize.sld": {
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+      "bytes": 2557,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/ir.sld": {
+      "sha256": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+      "bytes": 24992,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/artifacts.sld": {
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+      "bytes": 5568,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/chromium-trace.sld": {
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+      "bytes": 9969,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/parser.sld": {
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "bytes": 20651,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/runtime.sld": {
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+      "bytes": 156,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/types.sld": {
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+      "bytes": 17135,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/type-analysis.sld": {
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+      "bytes": 37809,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-runtime.sld": {
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+      "bytes": 91545,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/options.sld": {
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+      "bytes": 21443,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-literals.sld": {
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+      "bytes": 9523,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/common.sld": {
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "bytes": 4201,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/bootstrap.sld": {
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+      "bytes": 3324,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-abi.sld": {
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+      "bytes": 14555,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/llvmlite.sld": {
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+      "bytes": 4026,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-extern.sld": {
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+      "bytes": 5382,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/wasm-i32.sld": {
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+      "bytes": 16257,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/partial-eval.sld": {
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+      "bytes": 17225,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/reader.sld": {
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+      "bytes": 4908,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail-scheme/strict-data.sld": {
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+      "bytes": 2395,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/io.sld": {
+      "sha256": "5ba6728a9458f459b85d1c13967c6f1fa10583ce4c66222337b97043586b95d4",
+      "bytes": 7096,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/math.sld": {
+      "sha256": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+      "bytes": 573,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/typing.sld": {
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+      "bytes": 687,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/strict.sld": {
+      "sha256": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+      "bytes": 14042,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/artifacts.sld": {
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+      "bytes": 1204,
+      "mode": 420
+    },
+    "build/earley-prepare-04/compiler-source/src/snail/bytes.sld": {
+      "sha256": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+      "bytes": 8076,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/wasm-1.json": {
+      "sha256": "27764a5d31bf6b34dc9df7557aa36a08400c2b631e9633e1eeda56a70bb0046b",
+      "bytes": 717,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.wasm.raw.wasm": {
+      "sha256": "af77532003481dc939a97c6a69aa608f1fdd7d4541bb4840aa85d20aa9c74678",
+      "bytes": 93570,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/provider.c": {
+      "sha256": "3d74ab122e6472a07c5266acde4090d186cf3c7683143f088eaeef2d2c40f4a9",
+      "bytes": 376,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native-1.json": {
+      "sha256": "0162c77c3e4a538d8fe8235ec980b926270706b7b7cca61357ebeb1c01f96ae6",
+      "bytes": 672,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native-build.json": {
+      "sha256": "4de8887e1abf4cfb644ee38a46dbe8e2afeadbf82f5bc84459fc9f722ee8bb74",
+      "bytes": 746,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.optimized.wat": {
+      "sha256": "4b73977d4e6eba6df7a908b50592aeb3f4d5ac1d927eca37382d8d0dcf343f22",
+      "bytes": 512199,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/comparison-1.json": {
+      "sha256": "071a79432b510f5b91ef52298725737685c5dcd3693dd068385fa2a5c0ab43bb",
+      "bytes": 4466,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/wasm-0.json": {
+      "sha256": "38858539cb2cae979c84476cf30504973f8a677ff807808fa4687b835dfed87b",
+      "bytes": 4309,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/comparison-0.json": {
+      "sha256": "17fa392050a3e3c134d9c523076accf3c614bca3115e04ed05fb2a1228652649",
+      "bytes": 67656,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/host.mjs": {
+      "sha256": "8c73ec48754a2d89f5d40262f6643504e25a5b24ab90a605b27148b913d7c5b6",
+      "bytes": 391,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.scm": {
+      "sha256": "c2a02f60311bbe915b6680b9adc77387f7fc6d651960a4e3938201071451c744",
+      "bytes": 42866,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/disassemble.json": {
+      "sha256": "84b0e8c94367e5dcf1dba6e0e7789f4e5fafe1b8d186d225262b2e474c214471",
+      "bytes": 459,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native": {
+      "sha256": "01b3c9de84aded74576b3d58dff201515d02a60a474d597405df17d72d3e2025",
+      "bytes": 2407728,
+      "mode": 493
+    },
+    "build/earley-prepare-04/earley/probe/comparison-2.json": {
+      "sha256": "47e00882cab8fb69050de426963036f8d6aa4d4178c3aaf0d25c39bf9a036c23",
+      "bytes": 1986,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/raw-wasm-2.json": {
+      "sha256": "45c89c24ff9cd7d19dfe5d0817e78479e822d5aecdb4e520cc1ce7b142149518",
+      "bytes": 564,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native-0.json": {
+      "sha256": "1180775785caa4178cb29d5d33c6a069088c5e8612bc740277afa11e8c23f46e",
+      "bytes": 6074,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/provider.h": {
+      "sha256": "04ccdca6d12b4b92f09404c0babbe47a4b90e8b9754e2a00ed557a05796fef66",
+      "bytes": 103,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.wasm.wat": {
+      "sha256": "d3084243b20c3d441075e2c0fdb4b9325468ef46c4e70ece580732e3488a1b3b",
+      "bytes": 587598,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/raw-wasm-0.json": {
+      "sha256": "280217d826ddd376a5dc2196c4c3397368be70f0c941db971a9d4156e1b80a4a",
+      "bytes": 4319,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict-build.json": {
+      "sha256": "046930d82e0932bd90fba9591af7b1a4ad180bb567a9419b9a5c3820b7054ae3",
+      "bytes": 451,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/entry.c": {
+      "sha256": "4355ad937c4c3e8a24cbda8c53f7393fe7b5370e2676cfce5d8add0425138780",
+      "bytes": 518,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/wasm-2.json": {
+      "sha256": "5f17308c399dfd1a124823d3845524d3d4af8a31ece26b8c3c912c4cd99b857c",
+      "bytes": 555,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.wasm.trace.json": {
+      "sha256": "d6d93069689b8a24911575a9a006d30658c75389e68d058b63df53507af08bdb",
+      "bytes": 789,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/strict.wasm": {
+      "sha256": "3820ac01274f0c74d71ba23bb9643d42f2821a6615f2c301f1b531e11f82101b",
+      "bytes": 34423,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/raw-wasm-1.json": {
+      "sha256": "f882c35b05d34d07ab2fc0792a2d0e74273fdf5ad303f2e4d616f0767e630127",
+      "bytes": 725,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native-2.json": {
+      "sha256": "9548a26e8318254df9caa240bfc56d24203f6ff5da2787c679f66ebd48e90a60",
+      "bytes": 443,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-exact-ratio.json": {
+      "sha256": "dbd2f1d7c28dbee9f13e60f62fad7e477d8f96b48461d65026e2dda07cc596f1",
+      "bytes": 487,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/compile.scm": {
+      "sha256": "e74689be0e08f768dad0186009c3963341a58feea939936cda720531d3e97b64",
+      "bytes": 269,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-vector.json": {
+      "sha256": "9f4b15af19ab0b0457f094a2b262f7152a1cf04642fc392c0cf44b11df94ea90",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-inexact.json": {
+      "sha256": "170c30142cdd0e18beae6627d001715fd10f30f7542963c42f15f6fdc8446cda",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-zero-count.json": {
+      "sha256": "b3d9dcc98f9102cd8b7b00094a5114859580a47cf6886041681e0cf24faf2001",
+      "bytes": 483,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-empty-input.json": {
+      "sha256": "83e5ee7272a6a74539d2cd2b50fc76e7e6674c1960008be931ebf4c1e33ec964",
+      "bytes": 485,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-list.json": {
+      "sha256": "73ad2847941d3a03b30862935c6661087b05de8338e74ebeb9c86929d171bdb0",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-symbol.json": {
+      "sha256": "ca14e55466baf01ebffb187ebc1c6bf6ddcd4a75eacffe8cc11fda0df468c939",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-wrong.json": {
+      "sha256": "d78f0aa6130ea64f0bfa302941999eaa012fe21f91c811122216734cc4c2755f",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/chez-build.json": {
+      "sha256": "7c190579d626a487f3f474ce1447a833553198d13fc406174e0181169f506a63",
+      "bytes": 593,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-canonical.json": {
+      "sha256": "83174130b309550ac15ec6253e865a6e1f514aba4ce901b224683cb8be4013cd",
+      "bytes": 490,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-negative-count.json": {
+      "sha256": "3c9e20b9c0188118264d99f937dc1bc93f94271822454a60afa987869eaf8c62",
+      "bytes": 487,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-twice.json": {
+      "sha256": "1674a09f125deed659520545df06a94f16d5a48e995413d58882fd2c191c7338",
+      "bytes": 491,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-small.json": {
+      "sha256": "13fed6e27b907bd87c4cd7b7d3d0db2a6fa196fa399b71e43b8d69d3a699d525",
+      "bytes": 488,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/program.scm": {
+      "sha256": "f0e869054473f70f8f0ac75e8e26696fdf6ff97e3e62af47e1185987a2d6d89a",
+      "bytes": 40776,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/program.so": {
+      "sha256": "930adbbe0fb18849202d2db90eabf4dd655fc89168a033e22cb247a4016ef1b6",
+      "bytes": 36411,
+      "mode": 493
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-zero-count-number.json": {
+      "sha256": "fda7706bbfa10da26f0e26ebf7fdb26f44d9a3a7100f5a8aa79f7f08e77237f7",
+      "bytes": 473,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/same-source-chez/validation-false.json": {
+      "sha256": "98f7182223f93806b53189b5a3035b50cfd031c1de645a2468c5c6c65bebbeb8",
+      "bytes": 472,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/module.ll": {
+      "sha256": "a88fbaefa2b4f3d6838909fbb078a65dc89d06dfaec21349fb0a9680f5801a6e",
+      "bytes": 1418962,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/optimized.wat": {
+      "sha256": "538d52c1c3c0f1543b8c9faf4175d73e04f468822686e81b367210fe726b98ff",
+      "bytes": 611983,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/optimized.wasm": {
+      "sha256": "2f2d788d5851dd964550b26054d5cf034dc598015a163b79378aa7a214029ea5",
+      "bytes": 28961,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/compile.trace.json": {
+      "sha256": "46422c90947e6b646a4684fd3406876957e40dae4e74f25adf870afbe3dd582a",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/build.json": {
+      "sha256": "dc10af8447bcd868b0587f3dd7714275acd1d4a2213d694d0024082a8d90bf08",
+      "bytes": 175968,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/build.scm": {
+      "sha256": "a231c307232aa90d3dafff7ff20772efc0b3c43513830a3b9bfd50cce1dfa01d",
+      "bytes": 11559,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/native.native-ssphxaow/reader.scm": {
+      "sha256": "538d52c1c3c0f1543b8c9faf4175d73e04f468822686e81b367210fe726b98ff",
+      "bytes": 611983,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/module.ll": {
+      "sha256": "aa21568e32110905ba90bafbde5568db1a9cc02344bb58bd306677e89e6e4093",
+      "bytes": 1996970,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/provider-0.o": {
+      "sha256": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+      "bytes": 2448,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/optimized.wat": {
+      "sha256": "be233b350ed33515a719090e777ca08a9981baad5ba03289453e4a47b76cc243",
+      "bytes": 824709,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/optimized.wasm": {
+      "sha256": "0e9fa6097d00ab8796f20550965268e0c1770c01afe5a203397e400464f58731",
+      "bytes": 40366,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/compile.trace.json": {
+      "sha256": "bff60c0474ba740706b0d540abb0139fd271908c3270c7a70d5a3968aa45044d",
+      "bytes": 260,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/build.json": {
+      "sha256": "1536a5be3a9499a2ff8659b2e369349dfc464431867882c610221a2b6508522c",
+      "bytes": 176070,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/build.scm": {
+      "sha256": "5b88bc2aa4630ecde2978e02474f0ab9f8ab86884c5d8728fcb07687a8820edb",
+      "bytes": 11565,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/native.native-q9umoy7f/reader.scm": {
+      "sha256": "be233b350ed33515a719090e777ca08a9981baad5ba03289453e4a47b76cc243",
+      "bytes": 824709,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/compile.scm": {
+      "sha256": "9c507268368c6344851b53403ee45b47925bf8461ef025edc0243ca9f15958df",
+      "bytes": 265,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/case-1.json": {
+      "sha256": "a9824e413f0662391b8c97a5b05ea64591261763877881b7d928601dc9b3a0ad",
+      "bytes": 769,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/case-0.json": {
+      "sha256": "2676d7ee08b32c2256000d892adbeef5c0cdcb687b16e8518b05e08db978a33a",
+      "bytes": 6172,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/case-2.json": {
+      "sha256": "2a1377a81143f2b8358dba2a61dd1c5e2b898de6a72e8e47741fe32c7997c817",
+      "bytes": 542,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/chez-build.json": {
+      "sha256": "a86e31945dc921e7b01b82c4c69181511ea33b08764b5cf58bc1d6389d525986",
+      "bytes": 588,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/program.scm": {
+      "sha256": "f5d9004ae9fafdb9cb484ffc28a0fcf4102e5ed91a261cea50974f2db5999ad3",
+      "bytes": 35974,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/original/program.so": {
+      "sha256": "56c442daee3b57404277c312d51f3d5866999dd8f4d61a46da9d6775a0cb9863",
+      "bytes": 44839,
+      "mode": 493
+    },
+    "build/earley-prepare-04/earley/probe/adapted/compile.scm": {
+      "sha256": "394a306390dd5f1299e526115439cabd4d561d2ea3397cfed61b56cede8bbc9e",
+      "bytes": 263,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/case-1.json": {
+      "sha256": "bcad8dfd88e48f1804c1c059315bc695b81d25cc703e6614a05e42d42dc4e86d",
+      "bytes": 768,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/case-0.json": {
+      "sha256": "37e59f1f6d9e88bccb746afe988b5d94a8c3b7b59fccbd0ffe324c24ee687fd6",
+      "bytes": 6170,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/case-2.json": {
+      "sha256": "22766537f42282526b1b19ecdf2502fdcc2f4df823c2a0135c3eb49cf9ce408a",
+      "bytes": 541,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/chez-build.json": {
+      "sha256": "82437aabbc3f99013fbd3ad6cf0834c4adcdd20bc36bf5b6abc3d62fc3ef7ff4",
+      "bytes": 585,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/program.scm": {
+      "sha256": "7706db279edbe8e16626dda3b727f8a3cc27aa3525a5149b8664a7de60a59a42",
+      "bytes": 42615,
+      "mode": 420
+    },
+    "build/earley-prepare-04/earley/probe/adapted/program.so": {
+      "sha256": "299c124166654cb7147e78584fa6184d66623dcb57bb6ee7bd5a0fcedb57c061",
+      "bytes": 46037,
+      "mode": 493
+    },
+    "build/earley-prepare-01-command.json": {
+      "sha256": "efb441288e8768702cae41a1a936063368c8e21ef4ca24b1f6fbfd6303346b0a",
+      "bytes": 408,
+      "mode": 420
+    },
+    "build/earley-prepare-02-command.json": {
+      "sha256": "dd5675d1e9f74388bb7fa180da0779250bb22b4c92c75e7a196ce1f3536d4d8c",
+      "bytes": 408,
+      "mode": 420
+    },
+    "build/earley-prepare-03-command.json": {
+      "sha256": "ba0fde9cdbb986ee5322b850d430a2c150d1bd8bf22550f04af5a5611bc2a1b6",
+      "bytes": 408,
+      "mode": 420
+    },
+    "build/earley-prepare-04-command.json": {
+      "sha256": "aeea9ccc00b8d3c92c1b21d69ee816e5b40b1763208d3e971873e896b0556f0b",
+      "bytes": 421,
+      "mode": 420
+    }
+  }
+}
