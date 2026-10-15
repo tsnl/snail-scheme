@@ -38,6 +38,7 @@ import matrix_port
 import reader_ports
 import browse_port
 import equal_port
+import boyer_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -47,7 +48,7 @@ NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-NAMES += ('earley', 'browse', 'equal') + reader_ports.NAMES
+NAMES += ('earley', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES
 MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string', 'earley', 'matrix') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
@@ -99,6 +100,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name in boyer_port.NAMES:
+        return boyer_port.specification(name, data)
     if name == 'equal':
         return equal_port.specification(data)
     if name == 'browse':
@@ -646,7 +649,7 @@ def tool_paths(benchmarks=()):
         names['RUSTC'] = 'rustc'
     if any(name in benchmarks for name in ('ray', 'tail', 'nucleic')):
         names.update(RUSTC='rustc', CARGO='cargo', WASM_MERGE='wasm-merge')
-    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix', 'browse', 'equal') + reader_ports.NAMES):
+    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
         names.update(RUSTC='rustc', CARGO='cargo', CLANG='clang', LLD='ld.lld', WASM_MERGE='wasm-merge')
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     paths['PYTHON'] = sys.executable
@@ -2092,6 +2095,8 @@ def validate_mazefun_outputs(directory, runner, tools, environment):
 
 
 def prepare_case(name, files, output, runner, tools, environment):
+    if name in boyer_port.NAMES:
+        return boyer_port.prepare_case(name, files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'equal':
         return equal_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'browse':
@@ -2211,16 +2216,17 @@ def prepare(options):
     shutil.copy2(HERE / 'nucleic_port.py', options.output / 'nucleic_port.py')
     shutil.copy2(HERE / 'nucleic-host.mjs', options.output / 'nucleic-host.mjs')
     shutil.copy2(HERE / 'earley_port.py', options.output / 'earley_port.py')
+    shutil.copy2(HERE / 'boyer_port.py', options.output / 'boyer_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
-    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal') + reader_ports.NAMES):
+    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *(ROOT / name for name in
                     ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/link-strict-runtime'))]
-    if any(name in options.benchmarks for name in ('bv2string', 'matrix', 'browse', 'equal') + reader_ports.NAMES):
+    if any(name in options.benchmarks for name in ('bv2string', 'matrix', 'browse', 'equal') + reader_ports.NAMES + boyer_port.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *ROOT.glob('src/*.c'), *ROOT.glob('src/*.h'),
                     *(ROOT / name for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
                                                'scripts/build-native', 'scripts/build-native.scm'))]
-    if any(name in options.benchmarks for name in ('browse', 'equal')):
+    if any(name in options.benchmarks for name in ('browse', 'equal') + boyer_port.NAMES):
         sources += [*ROOT.glob('tests/strict-reader/*'), *ROOT.glob('tests/strict-browse/*')]
     if 'earley' in options.benchmarks:
         sources += [ROOT / 'scripts/build-native', ROOT / 'scripts/build-native.scm',
@@ -2253,6 +2259,7 @@ def prepare(options):
                   reader_ports_sha256=digest(HERE / 'reader_ports.py'),
                   browse_port_sha256=digest(HERE / 'browse_port.py'),
                   equal_port_sha256=digest(HERE / 'equal_port.py'),
+                  boyer_port_sha256=digest(HERE / 'boyer_port.py'),
                   reader_host_sha256=digest(HERE / 'reader-host.mjs'),
                   tail_host_sha256=digest(HERE / 'tail-host.mjs'),
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
@@ -2323,6 +2330,8 @@ def checked_preparation(output):
     if os.environ.get('NODE_OPTIONS'):
         raise ValueError('NODE_OPTIONS must be unset')
     prepared = load(output / 'prepared.json')
+    if prepared.get('boyer_port_sha256', digest(HERE / 'boyer_port.py')) != digest(HERE / 'boyer_port.py'):
+        raise ValueError('Boyer source adapter changed')
     if prepared.get('equal_port_sha256', digest(HERE / 'equal_port.py')) != digest(HERE / 'equal_port.py'):
         raise ValueError('Equal source adapter changed')
     if prepared.get('browse_port_sha256', digest(HERE / 'browse_port.py')) != digest(HERE / 'browse_port.py'):
@@ -2418,8 +2427,8 @@ def summarize(report):
 
 def measure(options):
     prepared = checked_preparation(options.output)
-    if any(case['name'] in reader_ports.NAMES + ('browse', 'equal') for case in prepared['cases']):
-        raise ValueError('reader, browse and equal workloads require separately frozen timing plans')
+    if any(case['name'] in reader_ports.NAMES + ('browse', 'equal') + boyer_port.NAMES for case in prepared['cases']):
+        raise ValueError('reader, browse, equal and Boyer workloads require separately frozen timing plans')
     if options.rounds != 3 and any(len(case.get('systems', [])) == 3 for case in prepared['cases']):
         raise ValueError('the three-system controls require exactly three retained rounds')
     report = dict(prepared=prepared, cpu=options.cpu, rounds=options.rounds, samples=[], complete=False)

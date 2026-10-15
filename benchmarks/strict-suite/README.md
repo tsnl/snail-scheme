@@ -3,7 +3,7 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, and `equal`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, and `sboyer`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -49,6 +49,54 @@ unchanged Rust control uses immutable `Rc` pairs/vectors and a pointer-pair
 implementations, without an equal-allocation or isolated-collector claim.
 Use `--benchmarks equal` for correctness/control preparation; clean timing
 requires a separately coordinated frozen plan, as for the reader and Browse.
+
+`nboyer` and `sboyer` retain the complete prover definitions, including the
+definitions after the original harness. Both canonical inputs request one
+invocation at size 5 and require the numeric result **51,507,739**. A false
+theorem result fails the predicate even if a separate rewrite counter happens
+to match. Preparation retains the complete input bytes, including trailing
+unused alternative data. Quoted terms and rules are constructed once before
+worker entry. Lemma installation remains inside every worker, as in the actual
+upstream harness, despite an upstream comment describing it as untimed.
+
+The adapter uses the existing typed `Datum` representation for pairs, symbols,
+numbers and mutable constructor-record vectors, with typed `Ref` cells for
+mutated bindings. It preserves the source's association lists, directional
+unification, recursive substitution, recursive rewriting and tautology search.
+SBoyer's sharing constructor returns the old pair exactly when both resulting
+fields have their original identities. Every adaptation is recorded and
+reversed back to the exact kernel text. Three explicit `let*` expressions make
+lemma translation precede the previous-lemma lookup, translate a constructor
+before its arguments, and translate each argument before the remaining list.
+These match the observed original Chez setup order. General Scheme leaves
+operand evaluation order unspecified; this is a compatibility choice for these
+pinned programs.
+
+Preparation checks the original and exactly adapted complete Chez programs,
+linked raw and Binaryen-optimized Wasm on V8, and actual mechanical native64.
+It includes full canonical inputs, size 0, repeated reset, an incorrect expected
+rewrite count and zero repetitions. Separate programs observe the complete
+ordered lemma table, failed-unification state and subsequent reset, constructor
+cycles and identities, and SBoyer's reuse rules. Counter-instrumented programs
+retain a complete normalized size-0 result and full size-5 work counts.
+Structural-order probes use uninstrumented kernel bodies because adding
+procedure-entry counters can change Chez inlining and operand scheduling.
+The counter programs also retain the final rewritten term for observation;
+their allocation counts and live ranges do not describe clean execution.
+
+The selected native reservations are 2 GiB for NBoyer and 1 GiB for SBoyer.
+The default 256 MiB reservation exhausted during development for both original
+workloads. Separate capacity diagnostics retain the failed runs and collector
+statistics; they are not successful correctness cases or clean timing samples.
+These are the smallest successful reservations among the tested choices, not
+proven minimum requirements. The same final module used by native lowering is
+also executed directly on V8. The unchanged Rust controls retain their own
+`Rc` calls and argument cells, integer constructor IDs, vector symbol table,
+tail loops and destruction schedule. The source constants match, while the
+implementations and allocation behavior differ.
+
+Use `--benchmarks nboyer sboyer` for correctness/control preparation. Clean
+timing requires a separately coordinated frozen plan.
 
 ## Run
 

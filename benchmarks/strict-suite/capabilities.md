@@ -17,6 +17,15 @@ exact numbers remain bounded to I64; rational numbers and first-class
 continuations remain outside this strict subset. Representation support alone
 does not establish a completed port.
 
+The [complete Boyer preparation](../results/2026-10-14-strict-boyer-preparation/README.md)
+passes both original size-5 workloads and their numeric 51,507,739-rewrite
+predicates on raw/optimized Wasm, native64 and original/adapted Chez. Separate
+full-count work streams, complete ordered lemma tables, small result trees and
+sharing/reset probes pass. Native uses explicit 2 GiB/1 GiB reservations for
+NBoyer/SBoyer; the default capacity failures remain recorded. Rust controls
+retain their independent algorithms and layouts. Clean timing remains pending,
+so these preparations do not increase historical measured coverage.
+
 The five selected ports and FFT have preceding measured reports. Quicksort,
 graphs, mperm and simplex have reviewed canonical measurements against both
 Chez controls and Rust/Wasm in the
@@ -105,13 +114,6 @@ V8 on the identical native-final Scheme modules. Same-limb Chez retains checked
 scalar operations and general vectors, and Rust uses num-bigint with bounded
 scalar controls; these do not isolate the cost of code generation alone.
 
-The later [bigint loop ablation](../results/2026-10-14-bigint-loop-ablation/README.md)
-tests one local backedge in the hot long-division loop against matched assembly
-and optimizer controls. All 110 processes pass; Pi regresses 1.25% raw and
-2.70% reoptimized, while optimized Chudnovsky differs by -0.44% with overlapping
-ranges. Whole-process profiles and V8 code captures remain separate diagnostics.
-The result supports no generic compiler loop change and adds no suite coverage.
-
 The [current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
 passes both original repetitions of `ack(3,12)` on raw/optimized Wasm, native64
 and the exact native-final Scheme Wasm on V8, without larger-stack flags.
@@ -175,8 +177,8 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
 | slatex | String/character processing, symbolic token state, destructive list edits and actual TeX file IO. |
 | chudnovsky | Measured all 1,000 repetitions and ten exact results through 500 digits: V8 0.716851 s, native 0.658789 s, original Chez 0.086746 s, Rust/Wasm 0.177955 s. V8 takes 8.264× original Chez time; native takes 0.917× V8 on identical native-final Scheme Wasm. Complete binary splitting, exact products and the original F64 term-count expression remain. Arithmetic/library, scalar controls and ownership differ across controls. |
-| nboyer | Symbolic term/lemma trees, heterogeneous associations and mutable pairs; preserve rewrite-count check, not only the boolean theorem result. Kernel definitions follow its harness definition. |
-| sboyer | Symbolic terms and sharing-cons structures with heterogeneous data; preserve rewrite-count check and sharing behavior. Kernel definitions follow its harness definition. |
+| nboyer | Full correctness preparation: original count 1, size 5 and numeric 51,507,739 rewrites pass on raw/optimized Wasm, native64 with an explicit 2 GiB reservation, and original/adapted Chez. Complete kernel definitions after the harness, association lists and all 106 lemmas remain. Separate full-count work streams and ordered structure/reset checks pass; default capacity failure and independent Rust differences are retained. Clean timing pending. |
+| sboyer | Full correctness preparation: original count 1, size 5 and numeric 51,507,739 rewrites pass on raw/optimized Wasm, native64 with an explicit 1 GiB reservation, and original/adapted Chez. Separate probes validate reuse only when both pair fields retain identity, plus full work counts and constructor cycles/reset. Default capacity failure and independent Rust differences are retained. Clean timing pending. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
 | equal | Full pinned source port with reusable cycle-aware datum equality. Retains shared DAG parameter 100, unshared tree height 8, vectors 1000, shallow lists 2000, and deep car-chain 5000 with all original repetitions. Original cyclic case stays disabled in the clean workload and runs in separate probes. Private recursive-view IDs support query-local pair memoization without changing Ref or vector storage; coprime-cycle product and deterministic hash-collision worst cases are disclosed. Clean timing pending. |
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
