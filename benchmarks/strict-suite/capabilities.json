@@ -193,7 +193,7 @@
     },
     {
       "name": "tail",
-      "status": "prepared-canonical-source",
+      "status": "measured-canonical-source",
       "source_lines": 46,
       "files": {
         "src/tail.scm": "016f368f6cbd29b2ebe0f1ddc522c46c7726d6655185bcbb9086518dd67ee6ae",
@@ -201,7 +201,9 @@
         "inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-tail/README.md",
-      "note": "Full 50 repeats retain all 31,102 lines before reversed output. Raw/optimized linked Wasm, both Chez controls and native pass complete canonical bytes; 95 supplemental executions retain line/EOF/Unicode/lifecycle behavior. Original Chez get-line is LF-only on noncanonical CR fixtures. No clean measurements."
+      "note": "Strict median 4.899608 seconds: 5.173 times original Chez, 2.712 times adapted Chez and 22.658 times Rust/Wasm. Adapted Chez itself takes 1.908 times original Chez. All 20 trials and complete output bytes pass; 236 identities unchanged. Four retained observations per system, no isolated GC/representation/line-I/O mechanism, inference or whole-suite claim.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md",
+      "representation_note": "Original 50 complete 4,460,056-byte LF bibliography reversals, 31,102 lines and every output byte retained. Strict persistent List<String>, Unicode-scalar owned buffers and scalar I/O; adapted Chez shares line/growth/write helpers, original Chez retains native get-line. Rust UTF8 Vec<String>/buffered byte I/O, nonnegative Wasm32 count domain, CRLF handling and input-before-output close order differ. Separate unchanged-guest observations establish 50 file lifecycles and 223,002,800 bytes read/written."
     },
     {
       "name": "read1",
@@ -450,8 +452,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 32,
-  "historical_paired_chez_count": 31,
+  "historical_measured_strict_count": 33,
+  "historical_paired_chez_count": 32,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -478,5 +480,6 @@
   "string_native_comparison_report": "benchmarks/results/2026-10-14-string-block-native-comparison/README.md",
   "destruc_measurement_report": "benchmarks/results/2026-10-14-strict-destruc-comparison/README.md",
   "ray_measurement_report": "benchmarks/results/2026-10-14-strict-ray-comparison/README.md",
-  "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md"
+  "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md",
+  "tail_measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md"
 }
