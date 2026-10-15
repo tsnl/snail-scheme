@@ -86,12 +86,16 @@ def check_semantics():
         run([executable, 'saturate', sample['input']], ' '.join(sample['results']) + '\n')
     for kind in [*range(13), 'subtype-trap']:
         run([executable, kind], status=1, error='WebAssembly trap')
+    for kind in range(5):
+        run([executable, 'storage-trap', kind], status=1, error='WebAssembly trap')
     stress = compile_fixture(BUILD / 'semantics-stress.ll', 'semantics-stress')
     run([stress], SNAIL_NATIVE_TAIL_STRESS='1')
     optimized = build('build/native-tests/semantics.wasm', 'optimized-semantics',
                       '--wasm', '--entry-c', ROOT / 'tests/native-runner.c')
     run([optimized], SNAIL_NATIVE_GC_INTERVAL='1')
-    print('PASS native scalar/control semantics, subtype identity, 14 traps and tail/root bounds', flush=True)
+    for kind in range(5):
+        run([optimized, 'storage-trap', kind], status=1, error='WebAssembly trap')
+    print('PASS native scalar/control semantics, array storage, subtype identity, 19 traps and tail/root bounds', flush=True)
 
 
 def check_element_segments():
