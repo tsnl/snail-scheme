@@ -1,0 +1,1658 @@
+{
+  "benchmark": "graphs",
+  "started_utc": "2026-10-14T05:06:28.734746+00:00",
+  "cpu": 5,
+  "node_options": null,
+  "compiler_commits": {
+    "baseline": "efbb1517a28003a8908677038a5bad4ef16bd289",
+    "capture": "192d810",
+    "structured": "1d745e68c6abf34d153a8c5d9ef1c75d57cad89a",
+    "combined": "7ff18c0"
+  },
+  "scope": "Full original counts, fresh processes, default V8 tiering; setup excluded and final predicate included.",
+  "rust_contract": {
+    "name": "graphs",
+    "artifact": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm",
+    "wasm_sha256": "e33d0e9c94b092c916c33c0fda4be6ce3951913b565f80632c14faba35973044",
+    "artifact_bytes": 119946,
+    "module_source_commit": "9985779136ace05edc0405fa4b5da6e97042065c",
+    "module_source": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/graphs.rs",
+    "module_source_sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+    "validation_git_base_revision": "684ae6c85dbe175f6adcbf828b14524ba1366272",
+    "exact_source_bundle": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source",
+    "source_bundle_hashes": {
+      "Cargo.lock": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef",
+      "Cargo.toml": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee",
+      "measure.py": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1",
+      "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+      "src/bin/deriv.rs": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c",
+      "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+      "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+      "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+      "src/lib.rs": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f",
+      "validate.py": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+    },
+    "host": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+    "host_sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+      "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+    ],
+    "stdin": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/input.txt",
+    "input_sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+    "input_text": "3\n7\n213829\n",
+    "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+    "correctness": {
+      "report": "/tmp/snail-rust-full-reference-20261013/benchmarks/results/2026-10-13-wasm-five-reference/results.json",
+      "complete_graph_audit": "/tmp/snail-rust-full-reference-20261013/benchmarks/results/2026-10-13-wasm-five-reference/validation.json",
+      "full_canonical_pass": true,
+      "expected_stdout_result": "Result: 213829",
+      "csv_case": "graphs:3"
+    },
+    "runtime_target": "wasm32-wasip1 / Node WASI preview1",
+    "timeout_seconds_from_validation_runner": 900,
+    "count": 3,
+    "parameters": {
+      "vertices": 7,
+      "max_out_degree": 2
+    },
+    "setup_excluded": "stdin read/parse only",
+    "timed": "three full graph enumerations, materialization, explicit outer-list length traversal, per-iteration Rust graph destruction and final scalar equality; clock before stdout formatting",
+    "representation": "Vec graph snapshots; immutable Rc singly linked edge lists shared across snapshots; standard LinkedList doubly linked outer graphs; temporary permutation vectors and Vec<bool> rows; reference counting/immediate reclamation versus Scheme tracing GC",
+    "opacity": "black_box size, graph references during explicit list traversal and scalar result; no extra full-output validation inside timing",
+    "audit": "all 213829 graph vectors and ordered edge lists matched original Chez in a separate untimed complete dump"
+  },
+  "identities_before": [
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/measure-call-captures.py",
+      "sha256": "5ad940ca8e743865a98b38736b2ca8030f3f767916f486750fc17ee4066da011"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-four-timing-handoff/handoff.json",
+      "sha256": "ad693ea0811027500c2121801dc8703cab4e210835a020c6baa09f1e7cc46a87"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json",
+      "sha256": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/input.txt",
+      "sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/strict.scm",
+      "sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.scm",
+      "sha256": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.scm",
+      "sha256": "e5b33df93d7b6dccce8bcb9d8483e631a5c4934b656806f2fe94a39e1f1311d8"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+      "sha256": "e7f29f90b1098a2e788ac293c9dc22aaf2a3ba979f994f8b05e7e7e93b9e0cac"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+      "sha256": "03a55239de100754d550f8345e6a9651a425f17f39f9244f89386bff57378114"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+      "sha256": "2c7840e59e26320de8727497ce742796ef56b45e037735d13e52c6f05a12fd75"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+      "sha256": "59b82bed680c003b92cf543be8d8658a7ab611fdb0e6dbb6de814698062a3196"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so",
+      "sha256": "83aa40ee2e21a2e717dff47aa5a184a2622ca6eed8b511586cacac9754bb5775"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so",
+      "sha256": "436d4ddc2b74242a3f01915977712ecc83e9853a0a9f36453e0d4373adc2be10"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm",
+      "sha256": "e33d0e9c94b092c916c33c0fda4be6ce3951913b565f80632c14faba35973044"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/input.txt",
+      "sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/Cargo.lock",
+      "sha256": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/Cargo.toml",
+      "sha256": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/measure.py",
+      "sha256": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/deriv.rs",
+      "sha256": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/lib.rs",
+      "sha256": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/validate.py",
+      "sha256": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "385c6eda0c2cdad55390198d4df5db7a6234ae124a53cc53aae698434fe3b1db"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "048712994e6fd7e01118b83e46ac67465cd43c002b0c861d42c980705519fcb4"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "771759772624c065747b0083109407df030d620199881f83a8287d4d31b23fd3"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "8a5e1bc34223f8f84ad459d1f0a816bb51208c2f003ad1253af3e3af61902d4e"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "d09161cdc75bea2686468fe555a28b3ad08c1975cd89281455344a5160c24347"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "7579fc572be370911bc6c157d93ee1be55924ea6f758785c1c4aaa48822fb6ab"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "9176e4f7da49f051d6efece4136a61e6822bed26b06cf8423d9b510aa40a61c9"
+    }
+  ],
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.850544877,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.8815617990330793,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 3.850544877
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.841827206,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.872034033993259,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 2.841827206
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.462774412,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.4935939920251258,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 2.462774412
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.808482001,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8382402829593047,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.808482001
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.768232931 seconds (0.768) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.768232931\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.7999180770129897,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.768232931
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.791187198 seconds (0.791) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.791187198\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.822993136011064,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.791187198
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.582739872\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6059852499747649,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.582739872
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.83100638,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.8609486619825475,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 3.83100638
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.822443565,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.8527132340241224,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 2.822443565
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.466241564,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.495289637998212,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 2.466241564
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.814893393,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8458037380478345,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.814893393
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.768011362 seconds (0.768) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.768011362\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8015149130369537,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.768011362
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.785499726 seconds (0.785) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.785499726\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8185262139886618,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.785499726
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.600694288\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6250068770023063,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.600694288
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.827843762,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.8597953310236335,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 2.827843762
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.476088546,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.5068301490391605,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 2.476088546
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.816800532,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8459390350035392,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.816800532
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.766776113 seconds (0.767) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.766776113\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.800350671983324,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.766776113
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.785504137 seconds (0.786) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.785504137\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8183689949801192,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.785504137
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.582883083\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6087661639903672,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.582883083
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.82268757,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.852188859018497,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 3.82268757
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.473228936,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.502178411989007,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 2.473228936
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.814468297,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.843917259015143,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.814468297
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.76499957 seconds (0.765) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.76499957\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.7987687010318041,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.76499957
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.787382661 seconds (0.787) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.787382661\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8195440329727717,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.787382661
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.585073064\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.61038823495619,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.585073064
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.830328456,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.86036694602808,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 3.830328456
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.802707551,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.8320397890056483,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 2.802707551
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.829082636,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8601866929675452,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.829082636
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.765543758 seconds (0.766) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.765543758\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.7988761769956909,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.765543758
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.785112591 seconds (0.785) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.785112591\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8174404579913244,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.785112591
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.595832891\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6196095430059358,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.595832891
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.841949639,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.8721204590401612,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 3.841949639
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.832789067,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.863883066980634,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 2.832789067
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.479265662,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.5100587269989774,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 2.479265662
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.768608938 seconds (0.769) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.768608938\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8020826670108363,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 0.768608938
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.787936709 seconds (0.788) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.787936709\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8206934349727817,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 0.787936709
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.595522855\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6198689739685506,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 0.595522855
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.848439774,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.8789443889982067,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 3.848439774
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.855723317,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.8881635059951805,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 2.855723317
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.488053963,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.517719285970088,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 2.488053963
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.824846156,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8542548189871013,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 1.824846156
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.789092037 seconds (0.789) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.789092037\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8218039500061423,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 0.789092037
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.580820734\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6062635619891807,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 0.580820734
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.892920636,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.923210002016276,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 3.892920636
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.812691205,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.843519316986203,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 2.812691205
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.46566744,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.4964925040258095,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 2.46566744
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.832120693,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8620996790123172,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 1.832120693
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.765227188 seconds (0.765) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.765227188\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.798747158027254,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 0.765227188
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 213829\n+!CSVLINE!+rust-wasm,graphs:3,0.588628820\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.6138525729766116,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 0.58862882
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":3.843687983,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 3.872406298003625,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 3.843687983
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.836797031,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "capture",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.868435709970072,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 2.836797031
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.48282344,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "structured",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 2.5183576129493304,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 2.48282344
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.830336059,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "combined",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": null,
+      "process_seconds": 1.8619149409933016,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 1.830336059
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.766352361 seconds (0.766) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.766352361\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8000585190020502,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 0.766352361
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running graphs:7:3\nElapsed time: 0.783519168 seconds (0.784) for graphs:7:3\n+!CSVLINE!+chez,graphs:7:3,0.783519168\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-enumeration-preparation-20261013/graphs",
+      "stdin": "3\n7\n213829\n",
+      "process_seconds": 0.8164282320067286,
+      "round": 6,
+      "retained": true,
+      "workload_seconds": 0.783519168
+    }
+  ],
+  "complete": true,
+  "order": [
+    "baseline",
+    "capture",
+    "structured",
+    "combined",
+    "original-chez",
+    "adapted-chez",
+    "rust-wasm"
+  ],
+  "identities_after": [
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/measure-call-captures.py",
+      "sha256": "5ad940ca8e743865a98b38736b2ca8030f3f767916f486750fc17ee4066da011"
+    },
+    {
+      "path": "/tmp/snail-rust-full-reference-20261013/build/rust-four-timing-handoff/handoff.json",
+      "sha256": "ad693ea0811027500c2121801dc8703cab4e210835a020c6baa09f1e7cc46a87"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/spec.json",
+      "sha256": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/input.txt",
+      "sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/strict.scm",
+      "sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.scm",
+      "sha256": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.scm",
+      "sha256": "e5b33df93d7b6dccce8bcb9d8483e631a5c4934b656806f2fe94a39e1f1311d8"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/base/graphs/strict.wasm",
+      "sha256": "e7f29f90b1098a2e788ac293c9dc22aaf2a3ba979f994f8b05e7e7e93b9e0cac"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+      "sha256": "03a55239de100754d550f8345e6a9651a425f17f39f9244f89386bff57378114"
+    },
+    {
+      "path": "/tmp/snail-structured-call-evidence-20261013/structured/graphs/strict.wasm",
+      "sha256": "2c7840e59e26320de8727497ce742796ef56b45e037735d13e52c6f05a12fd75"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/graphs/graphs/strict.wasm",
+      "sha256": "59b82bed680c003b92cf543be8d8658a7ab611fdb0e6dbb6de814698062a3196"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/program.so",
+      "sha256": "83aa40ee2e21a2e717dff47aa5a184a2622ca6eed8b511586cacac9754bb5775"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/graphs/same-source-chez/program.so",
+      "sha256": "436d4ddc2b74242a3f01915977712ecc83e9853a0a9f36453e0d4373adc2be10"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/program.wasm",
+      "sha256": "e33d0e9c94b092c916c33c0fda4be6ce3951913b565f80632c14faba35973044"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/graphs/rust-wasm/input.txt",
+      "sha256": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/Cargo.lock",
+      "sha256": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/Cargo.toml",
+      "sha256": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/measure.py",
+      "sha256": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/deriv.rs",
+      "sha256": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/src/lib.rs",
+      "sha256": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f"
+    },
+    {
+      "path": "/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/validate.py",
+      "sha256": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "385c6eda0c2cdad55390198d4df5db7a6234ae124a53cc53aae698434fe3b1db"
+    },
+    {
+      "path": "/tmp/snail-strict-simplex-review-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "048712994e6fd7e01118b83e46ac67465cd43c002b0c861d42c980705519fcb4"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "771759772624c065747b0083109407df030d620199881f83a8287d4d31b23fd3"
+    },
+    {
+      "path": "/tmp/snail-strict-initialized-captures-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "8a5e1bc34223f8f84ad459d1f0a816bb51208c2f003ad1253af3e3af61902d4e"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "d09161cdc75bea2686468fe555a28b3ad08c1975cd89281455344a5160c24347"
+    },
+    {
+      "path": "/tmp/snail-strict-structured-calls-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "7579fc572be370911bc6c157d93ee1be55924ea6f758785c1c4aaa48822fb6ab"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/src/snail-scheme/strict-wasm.sld",
+      "sha256": "9176e4f7da49f051d6efece4136a61e6822bed26b06cf8423d9b510aa40a61c9"
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "samples": [
+        3.83100638,
+        3.82268757,
+        3.830328456,
+        3.841949639,
+        3.848439774,
+        3.892920636,
+        3.843687983
+      ],
+      "median": 3.841949639,
+      "min": 3.82268757,
+      "max": 3.892920636
+    },
+    "capture": {
+      "samples": [
+        2.822443565,
+        2.827843762,
+        2.802707551,
+        2.832789067,
+        2.855723317,
+        2.812691205,
+        2.836797031
+      ],
+      "median": 2.827843762,
+      "min": 2.802707551,
+      "max": 2.855723317
+    },
+    "structured": {
+      "samples": [
+        2.466241564,
+        2.476088546,
+        2.473228936,
+        2.479265662,
+        2.488053963,
+        2.46566744,
+        2.48282344
+      ],
+      "median": 2.476088546,
+      "min": 2.46566744,
+      "max": 2.488053963
+    },
+    "combined": {
+      "samples": [
+        1.814893393,
+        1.816800532,
+        1.814468297,
+        1.829082636,
+        1.824846156,
+        1.832120693,
+        1.830336059
+      ],
+      "median": 1.824846156,
+      "min": 1.814468297,
+      "max": 1.832120693
+    },
+    "original-chez": {
+      "samples": [
+        0.768011362,
+        0.766776113,
+        0.76499957,
+        0.765543758,
+        0.768608938,
+        0.765227188,
+        0.766352361
+      ],
+      "median": 0.766352361,
+      "min": 0.76499957,
+      "max": 0.768608938
+    },
+    "adapted-chez": {
+      "samples": [
+        0.785499726,
+        0.785504137,
+        0.787382661,
+        0.785112591,
+        0.787936709,
+        0.789092037,
+        0.783519168
+      ],
+      "median": 0.785504137,
+      "min": 0.783519168,
+      "max": 0.789092037
+    },
+    "rust-wasm": {
+      "samples": [
+        0.600694288,
+        0.582883083,
+        0.585073064,
+        0.595832891,
+        0.595522855,
+        0.580820734,
+        0.58862882
+      ],
+      "median": 0.58862882,
+      "min": 0.580820734,
+      "max": 0.600694288
+    }
+  },
+  "combined_ratios": {
+    "baseline": 0.4749791974043104,
+    "capture": 0.645313641624024,
+    "structured": 0.7369874388975102,
+    "combined": 1.0,
+    "original-chez": 2.3812103268251037,
+    "adapted-chez": 2.323152826373975,
+    "rust-wasm": 3.100164473768036
+  },
+  "finished_utc": "2026-10-14T05:08:15.599058+00:00"
+}

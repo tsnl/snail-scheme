@@ -2,7 +2,7 @@
   "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "experiment_numeric_commit": "320987e",
   "experiment_numeric_cherry_pick": "a23fbdc",
-  "compiler_status": "Unmerged 35d5baa: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants and direct calls to nonescaping local procedures implemented; explicit Ref mutation.",
+  "compiler_status": "Unmerged 0cf2240: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants, direct calls through nonescaping local procedures and structured operators, and initialized let captures implemented; explicit Ref mutation.",
   "prior_passing_measured": 13,
   "prior_default_stack_failure": [
     "ack"
@@ -142,13 +142,15 @@
     },
     {
       "name": "simplex",
-      "status": "prepared-unmeasured",
+      "status": "measured-canonical-source",
       "source_lines": 202,
       "files": {
         "src/simplex.scm": "f309787ad2da1f943abf83031dedfb4f81447b11306dcd9e4d2bd836df5bfec1",
         "inputs/simplex.input": "73260b28bb02454f35673cf4ece62eb11f2fd25df016bbb837332426e657de0c"
       },
-      "representation_note": "Concrete F64 matrix, I64/Bool work vectors, explicit Ref scalar mutation and closed infeasible/unbounded/solved result. Full canonical input and complete-output/store-order probes preserved; one upstream equality-case discrepancy is documented separately from source equivalence. No clean timing."
+      "representation_note": "Concrete F64 matrix, I64/Bool work vectors, explicit Ref scalar mutation and closed infeasible/unbounded/solved result. Full canonical input and complete-output/store-order probes preserved; one upstream equality-case discrepancy is documented separately from source equivalence.",
+      "note": "Canonical million-invocation workload measured at 0.494 times adapted Chez time and 1.589 times Rust/Wasm time. Full tableau and original final predicate retained; complete-output/store-order probes and the documented upstream equality-case discrepancy are in its separate preparation report.",
+      "measurement_report": "benchmarks/results/2026-10-13-strict-call-captures/README.md"
     },
     {
       "name": "string",
@@ -231,8 +233,8 @@
         "src/graphs.scm": "9abde79ddc1b28dd69c5e9eb3486003149a60610df1ec0c3c7c29933b24ff968",
         "inputs/graphs.input": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
       },
-      "note": "Complete CPS/matrix enumeration with finite I64 comparison codes; canonical 3 by 7 input measured at 4.880 times adapted Chez time. Complete small graph oracles retained. Unused result-list payload elimination is disclosed; not an equal-allocation comparison.",
-      "measurement_report": "benchmarks/results/2026-10-13-strict-direct-calls/README.md"
+      "note": "Complete CPS/matrix enumeration with finite I64 comparison codes; canonical 3 by 7 input measured at 2.323 times adapted Chez time and 3.100 times Rust/Wasm time. Complete small graph oracles retained. Unused result-list payload elimination is disclosed; not an equal-allocation comparison.",
+      "measurement_report": "benchmarks/results/2026-10-13-strict-call-captures/README.md"
     },
     {
       "name": "lattice",
@@ -325,8 +327,8 @@
         "src/quicksort.scm": "3034cc893760b19563752cca0f722ffd31ae8ffacc9413e8c94fc0de69384bcc",
         "inputs/quicksort.input": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f"
       },
-      "note": "Canonical 2,500 by 10,000 workload measured at 0.793 times adapted Chez time after direct local calls; source, RNG and counts unchanged. Complete sorted-value and RNG checks run separately.",
-      "measurement_report": "benchmarks/results/2026-10-13-strict-direct-calls/README.md"
+      "note": "Canonical 2,500 by 10,000 workload measured at 0.681 times adapted Chez time and 1.251 times Rust/Wasm time after initialized captures and structured calls; source, RNG and counts unchanged. Complete sorted-value and RNG checks run separately.",
+      "measurement_report": "benchmarks/results/2026-10-13-strict-call-captures/README.md"
     },
     {
       "name": "scheme",
@@ -391,8 +393,8 @@
         "src/mperm.scm": "651a233315d94ce36b8e07a1edb61b5b5eee4483fc14acc44a55046acaacd9f3",
         "inputs/mperm.input": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
       },
-      "note": "Complete 20:10:2:1 permutation/queue workload measured at 3.847 times adapted Chez time. Two explicit Ref bindings per generation, pre-timer queue fill, original final predicate, shared tails and separate full-value/alias probes retained.",
-      "measurement_report": "benchmarks/results/2026-10-13-strict-direct-calls/README.md"
+      "note": "Complete 20:10:2:1 permutation/queue workload measured at 3.569 times adapted Chez time and 3.624 times Rust/Wasm time. Two explicit Ref bindings per generation, pre-timer queue fill, original final predicate, shared tails and separate full-value/alias probes retained. Separate combined-code CPU and GC traces identify collection as the dominant remaining cost.",
+      "measurement_report": "benchmarks/results/2026-10-13-strict-call-captures/README.md"
     },
     {
       "name": "equal",
@@ -413,17 +415,23 @@
       }
     }
   ],
-  "compiler_basis": "35d5baa52c2a0e25d0c86c02adefd661a6457a3b",
+  "compiler_basis": "0cf2240f081088b68de15ec6648d594f72093351",
   "counts_scope": "Original 43-workload inspection after array1; prior_passing_measured and selection counts are historical, not current coverage.",
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 23,
-  "historical_paired_chez_count": 22,
+  "historical_measured_strict_count": 24,
+  "historical_paired_chez_count": 23,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
     "mperm"
+  ],
+  "call_capture_measurements": [
+    "quicksort",
+    "graphs",
+    "mperm",
+    "simplex"
   ]
 }
