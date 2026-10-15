@@ -2,7 +2,7 @@
   "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "experiment_numeric_commit": "320987e",
   "experiment_numeric_cherry_pick": "a23fbdc",
-  "compiler_status": "Unmerged interim experiment baseline; result-context overload and Default T work is pending.",
+  "compiler_status": "Unmerged af02dac: result-context overloads, Default T, rank-one specialization, concrete nominal products and closed recursive variants implemented; explicit Ref mutation.",
   "prior_passing_measured": 13,
   "prior_default_stack_failure": [
     "ack"
@@ -27,7 +27,8 @@
       "files": {
         "src/deriv.scm": "0fecc79684014008dc78d520f3dd3b7093d3e4a8e3ab56ec9a88827f812823ba",
         "inputs/deriv.input": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "destruc",
@@ -49,7 +50,7 @@
     },
     {
       "name": "triangl",
-      "status": "selected-unvalidated",
+      "status": "measured-prior-report",
       "source_lines": 68,
       "files": {
         "src/triangl.scm": "b3ccd12f6d5cc83552fe897e42daf9d9ea86cfb043a2d88003a4eedd04b91353",
@@ -76,7 +77,7 @@
     },
     {
       "name": "fft",
-      "status": "additional-capabilities",
+      "status": "measured-prior-report",
       "source_lines": 84,
       "files": {
         "src/fft.scm": "bfe366562310242fe8b37bf6e5b7952a7452ae0e847400fa6f9da671375425b6",
@@ -85,7 +86,7 @@
     },
     {
       "name": "mbrot",
-      "status": "selected-unvalidated",
+      "status": "measured-prior-report",
       "source_lines": 56,
       "files": {
         "src/mbrot.scm": "6736d8a814e0dd71be489ae2102cef3fc21ed0942605cb10c71f5c8b191f7ef4",
@@ -108,7 +109,8 @@
       "files": {
         "src/nucleic.scm": "1bf8e055ddf51d5560f7217ff95bc4c50967514d036362bff77045ab73b61fa4",
         "inputs/nucleic.input": "95b327158e27a5a9f564a7ede0300361c05d50a455bca721043b7531b4b7003a"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "pi",
@@ -121,7 +123,7 @@
     },
     {
       "name": "pnpoly",
-      "status": "selected-unvalidated",
+      "status": "measured-prior-report",
       "source_lines": 54,
       "files": {
         "src/pnpoly.scm": "9c4cd59d2bd888214fdd81308ebbc582bc41b8f84df46ce9535bfdcdd7489c9e",
@@ -135,7 +137,8 @@
       "files": {
         "src/ray.scm": "6da7de5c3e7c91a403efac242acecb04989dd09525df039d26cb3568ba9f949e",
         "inputs/ray.input": "a066c6495eab3eeac40fd3996f485be5ec9c28111ca98a66e5acae2ce17d409c"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "simplex",
@@ -144,7 +147,8 @@
       "files": {
         "src/simplex.scm": "f309787ad2da1f943abf83031dedfb4f81447b11306dcd9e4d2bd836df5bfec1",
         "inputs/simplex.input": "73260b28bb02454f35673cf4ece62eb11f2fd25df016bbb837332426e657de0c"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "string",
@@ -216,7 +220,8 @@
       "files": {
         "src/earley.scm": "dd57d8e66abbcfd8a25e9da29a1b213b7f43aa72b504b3ff9be6eeb05d07b0e4",
         "inputs/earley.input": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "graphs",
@@ -261,11 +266,12 @@
       "files": {
         "src/mazefun.scm": "465f258a7968062f3142f72f0819994e685ca558aa74c0b1f66aff7fc7b8e2a4",
         "inputs/mazefun.input": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644"
-      }
+      },
+      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
     },
     {
       "name": "nqueens",
-      "status": "selected-unvalidated",
+      "status": "measured-prior-report",
       "source_lines": 45,
       "files": {
         "src/nqueens.scm": "d2a22ada337d3e4a2425fd5088f43f0928081139bbe5e8451b78ce57b083a9b5",
@@ -274,12 +280,13 @@
     },
     {
       "name": "paraffins",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 183,
       "files": {
         "src/paraffins.scm": "461e3cc6a025d87c0576d3758b20318474657c799a29b06393c90c3085fcf14f",
         "inputs/paraffins.input": "0bf0a5242d10ae18d7ec196029710db19f92333a7520448c03fc068d0af7d74a"
-      }
+      },
+      "note": "Canonical payload elimination is legal and disclosed; complete structural checks run in separate modules. Not an equal-allocation GC comparison."
     },
     {
       "name": "parsing",
@@ -301,7 +308,7 @@
     },
     {
       "name": "primes",
-      "status": "selected-unvalidated",
+      "status": "measured-prior-report",
       "source_lines": 38,
       "files": {
         "src/primes.scm": "3c6662de37ea94808b8de6f2881d8f898ced56bc842b8e7f1a1dc7469c0d37e3",
@@ -310,12 +317,13 @@
     },
     {
       "name": "quicksort",
-      "status": "additional-capabilities",
+      "status": "prepared-prior-checkpoint",
       "source_lines": 153,
       "files": {
         "src/quicksort.scm": "3034cc893760b19563752cca0f722ffd31ae8ffacc9413e8c94fc0de69384bcc",
         "inputs/quicksort.input": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f"
-      }
+      },
+      "note": "Parent-coordinated later measurement is separate from this checkpoint."
     },
     {
       "name": "scheme",
@@ -364,12 +372,13 @@
     },
     {
       "name": "gcbench",
-      "status": "additional-capabilities",
+      "status": "correctness-validated-retention-blocked",
       "source_lines": 195,
       "files": {
         "src/gcbench.scm": "0735b3a5450eafd256cd65387ce25068d1aef924022df09e2d71795ff788e55e",
         "inputs/gcbench.input": "d3c713afeed5d19923fdd124b4a4fd3c15de725e41da6e352ab59b18e4063f19"
-      }
+      },
+      "note": "Ref-based recursive records are supported; optimized canonical code loses intended long-lived tree overlap."
     },
     {
       "name": "mperm",
@@ -398,5 +407,10 @@
         "inputs/bv2string.input": "d024a11a192c89d8353c52144a35a292077f4a702f9ab262fbaaf52c015ae2a9"
       }
     }
+  ],
+  "compiler_basis": "af02dac81890a00dad92a0a564664ff59aaca102",
+  "counts_scope": "Original 43-workload inspection after array1; prior_passing_measured and selection counts are historical, not current coverage.",
+  "data_port_measurements": [
+    "paraffins"
   ]
 }

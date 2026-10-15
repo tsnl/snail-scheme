@@ -198,3 +198,56 @@ arguments by their small decreasing counters, and Ackermann by A(3,12)=32,765.
 Both floating kernels preserve the original double operations and ordering;
 their nonnegative intermediate sums remain below 2^53. This equivalence claim
 applies to these inputs, not arbitrary Scheme arithmetic.
+
+Select `--benchmarks paraffins gcbench --compiler-basis af02dac` for the nominal
+data ports. Preparation verifies every frozen compiler file against that commit;
+`driver_commit` records the harness checkout separately. Full upstream inputs
+are preserved, including paraffins' unread alternative workload and gcbench's
+unused output datum. Paraffins has canonical timing results, while gcbench remains
+unmeasured, in the [data-port report](../results/2026-10-13-strict-data-ports/README.md).
+
+Paraffins retains 10 repetitions at n = 23 and the result 5,731,580. Its `H`/`C`
+radicals and `BCP`/`CCP` products become closed immutable variants; partition
+vectors, loops and accumulation order remain intact. The adapted Chez kernel is
+byte-identical to the strict kernel and uses tagged-vector constructors, including
+one allocated `H` per invocation in place of the original symbol. Separate Wasm
+and Chez probes encode every product and recursive child in order for n = 1, 2,
+4, 6, 8 and 10. They check lengths, variant arities and carbon counts and reject
+changed, short and long expected outputs. No probe export is present in the
+canonical module. Its optimized code legally discards product payloads and
+radical child edges while retaining enumeration and list work. The recorded timing
+compares the count-producing source program, not equal allocation volume.
+
+Gcbench retains one repetition at stretch depth 20, its top-down updates,
+bottom-up construction, half-filled F64 array, and the original always-true
+outer result predicate. A node becomes an immutable record with two mutable
+child `Ref` cells and two I64 padding fields. This adds two cells per source node;
+one `Nil` sentinel is allocated per invocation instead of the original integer
+zero sentinel. The adapted Chez control makes the same representation change.
+These are source-level allocation costs; compiler closure storage and optimization
+may change the actual allocation count and layout.
+
+The fixed diagnostic strings and integer formatting use scalar host imports at
+the original print sites. Node writes synchronously; Chez uses its normal string
+formatting and display. Thus the printed text and placement match, while host
+crossing, formatting and I/O costs differ. Separate structural probes traverse
+every node and every array element at small depths, check the order and
+multiplicity of completed-tree observations, reject malformed nodes and changed arrays, and check independent child mutation.
+They do not strengthen the timed predicate.
+
+Gcbench is explicitly `retention-blocked`, so the measurement action excludes
+it. Binaryen legally removes unused padding fields, but also proves the original
+final tree check false and releases the intended long-lived tree before later
+allocations. The array survives through its final numeric check. A future opaque
+reference-lifetime boundary is proposed in the report; it is not implemented.
+Passing output checks alone cannot establish this benchmark's live-heap overlap.
+The original tree check compares a constructed record with the empty list and is
+also necessarily false. Neither Chez control has a verified lifetime guarantee
+in this preparation; canonical correctness alone is insufficient on every system.
+
+The canonical outer predicates run once after all repetitions and check only the
+final result. Supplemental gcbench events observe completed trees plus array and
+edge-case checks; they are not traces of individual allocations or every internal
+construction step. Independent review accepted the unchanged runtime code and
+added a passing raw/optimized witness for fresh child Ref cells across distinct
+nodes. The coordinated paraffins batch is complete; gcbench remains excluded.

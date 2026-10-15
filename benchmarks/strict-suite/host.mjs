@@ -8,6 +8,12 @@ const config = JSON.parse(fs.readFileSync(specification, 'utf8'));
 let barriers = 0;
 const opacity = mode === '--validate' ? value => { barriers++; return value; } : value => value;
 const imports = {benchmark: {
+  print_text: code => fs.writeSync(1, config.diagnostic_text[Number(code)]),
+  print_size: (code, value) => {
+    const [prefix, suffix] = config.diagnostic_sizes[Number(code)];
+    fs.writeSync(1, prefix + value.toString() + suffix);
+  },
+  print_construction: (iters, depth) => fs.writeSync(1, `Creating ${iters} trees of depth ${depth}`),
   count: () => BigInt(config.count),
   input_i64: index => BigInt(config.inputs[index]),
   input_f64: index => Number(config.inputs[index]),
