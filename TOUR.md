@@ -139,3 +139,11 @@ runs explain work; they are not substituted for clean timing runs.
 route. `benchmarks/sfir/timing.py` prepares clean artifacts, fixes the comparison
 schedule, supervises fresh execution processes and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
+
+## Language specification
+
+The [SFIR book](doc/book/sfir/index.md) develops the proposed language, library
+values and staged builds. [Its entry page](doc/sfir.md) links the chapters and
+preview commands. `scripts/book` builds or serves the book; shared rule snippets
+keep the explanations and formal summary synchronized. The book specifies design
+contracts, while this tour describes the installed implementation.
