@@ -11,14 +11,17 @@ surface sketch with the [SFIR book](book/sfir/index.md). The earlier migration
 below established the measured backend; it does not imply that the new surface
 or library APIs are implemented. Work proceeds through these contracts:
 
-- [ ] Resolve `def` and sequential `let` with the specified block scope,
+- [x] Resolve `def` and sequential `let` with the specified block scope,
   shadowing and source-order initialization. Scope an attached `All` over its
   initializer, including nested annotations.
-- [ ] Parse library-level `datatype`, `typeclass` and named `instance` bodies
+- [x] Parse library-level `datatype`, `typeclass` and named `instance` bodies
   of `def`, check their kinds, and use `Any` at dynamic boundaries.
-- [ ] Adopt `define-library`, concatenated body clauses and `(sfir base)`.
+- [x] Adopt `define-library`, concatenated body clauses and `(sfir base)`.
   Migrate shipped libraries, examples, tests and benchmark sources while
   preserving their algorithms, inputs and existing numeric representations.
+- [x] Evaluate every instance method initializer in source order, including
+  unused aliases. Type immediate lambda calls by the ordinary rank-one call
+  rule; sequential bindings retain their own generalization rules.
 - [ ] Default numeric literals to I32/F64. Only a direct literal annotation or
   binding annotation selects another width; computed values require explicit
   conversion. Check representation overflow at literals and runtime operations.
