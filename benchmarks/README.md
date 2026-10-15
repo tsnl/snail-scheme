@@ -38,6 +38,13 @@ copy loop and compares it with the old generated loop and a hand-written Wasm
 control using the same runtime. Its [checked report](results/2026-10-13-strict-source-cat/README.md)
 retains complete source/artifact identities and separate functional validation.
 
+The [strict kernel subset](strict-suite/README.md) measures eleven attempted
+ports against original Chez programs and adds explicit Chez flonum controls.
+Its [report](results/2026-10-13-strict-kernels/README.md) records ten passing
+workloads, the default-stack Ackermann failure, and the remaining suite coverage.
+The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
+separately measures character counting inside the original benchmark harness.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
