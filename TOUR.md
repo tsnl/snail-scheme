@@ -528,6 +528,12 @@ Complete linked diagnostics accompany the unchanged 2,000-repeat, 497-line
 predicate. These reference modules are separate from Snail's Chibi-hosted
 WasmGC compiler.
 
+[`benchmarks/string-reference-controls/`](benchmarks/string-reference-controls/README.md)
+holds separate byte/u32 String diagnostics with four fresh buffers per growth
+and explicit allocation-initialization controls. Complete untimed payload
+oracles and a separate allocation/zero-fill probe check their work; these
+controls do not change the canonical 57 references or claim measured speedups.
+
 [`benchmarks/strict-cat/`](benchmarks/strict-cat/README.md) compiles a scalar copy
 worker from strict Scheme and links it into the frozen cat harness. Preparation,
 linked Unicode/error/ownership checks, and clean timing are separate operations.
