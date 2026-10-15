@@ -6,6 +6,7 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
           (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
           (only (chibi process) current-process-id execute)
+          (only (chibi crypto sha2) sha-256)
           (chibi string) (chibi regexp) (chibi json) (srfi 1) (srfi 95) (srfi 151)
           (snail-tools process))
   (begin
@@ -203,8 +204,12 @@
 
     ;; ---- Rust providers and a single shared runtime ----
 
+    (define (link-package-name directory)
+      ;; Cargo shares dependency compilation, but each build must own its root
+      ;; package and output filename until publication has consumed that file.
+      (string-append "sfir_native_" (sha-256 directory)))
     (define (provider-crate provider index directory)
-      (let* ((name (string-append "sfir_provider_" (number->string index)))
+      (let* ((name (string-append (link-package-name directory) "_provider_" (number->string index)))
              (crate (path-join directory name)))
         (create-directory* crate)
         (write-text (path-join crate "Cargo.toml")
@@ -227,8 +232,8 @@
                   (else (error "cannot stage Rust crate root beside entry" entry)))))))
     (define (write-link-package root object entry providers directory)
       (write-text (path-join directory "Cargo.toml")
-                  (string-append "[package]\nname = \"sfir-native-program\"\nversion = \"0.0.0\"\nedition = \"2024\"\n"
-                                 "[[bin]]\nname = \"program\"\npath = " (json->string entry)
+                  (string-append "[package]\nname = " (json->string (link-package-name directory)) "\nversion = \"0.0.0\"\nedition = \"2024\"\n"
+                                 "[[bin]]\nname = " (json->string (link-package-name directory)) "\npath = " (json->string entry)
                                  "\n[dependencies]\nsnail-runtime = { path = " (json->string root)
                                  ", features = [\"native-runtime\"] }\n"
                                  (apply string-append (map (lambda (provider)
@@ -245,19 +250,16 @@
                           providers (iota (length providers))))
              (target (path-join root "build" "native-programs")) (staged #f))
         (create-directory* target)
-        (let ((lock (open (path-join target "publish.lock") (bitwise-ior open/write open/create) #o600)))
-          (unless lock (error "cannot lock the native Cargo output"))
-          (dynamic-wind
-              (lambda () #f)
-              (lambda ()
-                (set! staged (stage-entry-source entry crates directory))
-                (write-link-package root object staged crates directory)
-                (file-lock lock lock/exclusive)
-                (cargo-build (path-join directory "Cargo.toml") target (path-join root "build/native-runtime"))
-                (let ((program (path-join directory "program")))
-                  (write-bytes program (read-bytes (path-join target "release/program")))
-                  (chmod program #o755) program))
-              (lambda () (close-owned-descriptor lock) (when staged (delete-file staged)))))))
+        (dynamic-wind
+            (lambda () #f)
+            (lambda ()
+              (set! staged (stage-entry-source entry crates directory))
+              (write-link-package root object staged crates directory)
+              (cargo-build (path-join directory "Cargo.toml") target (path-join root "build/native-runtime"))
+              (let ((program (path-join directory "program")))
+                (write-bytes program (read-bytes (path-join target "release" (link-package-name directory))))
+                (chmod program #o755) program))
+            (lambda () (when staged (delete-file staged))))))
     (define (ensure-native-supervisor root)
       (let ((target (path-join root "build" "native-runtime")))
         (create-directory* target)

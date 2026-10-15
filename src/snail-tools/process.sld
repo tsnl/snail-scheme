@@ -7,7 +7,7 @@
           option-ref command-line-main directory-files-recursive)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (chibi filesystem) (chibi pathname)
-          (chibi temp-file) (chibi json)
+          (chibi json)
           (only (chibi bytevector) bytevector->hex-string)
           (only (chibi io) port->string port->bytevector)
           (only (chibi process) fork execute waitpid current-process-id)
@@ -52,6 +52,7 @@
           (let ((path (string-append base (number->string index))))
             (cond ((file-exists? path) (loop (+ index 1)))
                   ((create-directory path #o700) path)
+                  ((file-exists? path) (loop (+ index 1)))
                   (else (error "cannot create build directory" path)))))))
 
     (define (directory-files-recursive directory)
@@ -140,8 +141,9 @@
       (unless (and (pair? argv) (list? argv)) (error "expected a nonempty command" argv))
       (let* ((options (if (null? options) '() (car options))) (logs (option-ref options 'log-directory #f)))
         (if logs (capture-process argv options (make-build-directory logs "process-"))
-            (call-with-temp-dir "snail-process"
-                                (lambda (directory preserve) (capture-process argv options directory))))))
+            (let ((directory (make-build-directory (tool-name "TMPDIR" "/tmp") "snail-process-")))
+              (dynamic-wind (lambda () #f) (lambda () (capture-process argv options directory))
+                            (lambda () (delete-file-hierarchy directory)))))))
 
     (define current-command-records (make-parameter '()))
     (define current-command-log (make-parameter #f))
