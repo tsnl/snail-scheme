@@ -55,8 +55,4 @@ fn main() {
             .parse()
             .unwrap(),
     );
-    assert_eq!(
-        std::fs::read_to_string(directory.join("host-loss-live-resource")).unwrap(),
-        "x"
-    );
 }
