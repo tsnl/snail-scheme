@@ -39,7 +39,7 @@ COMMON = '''(: workload-read (-> InputPort ReadResult))
 (define (exact-datum value)
   (match (datum-number-value value)
     ((exact-number value) value)
-    ((rational-number value) (datum-fail "benchmark count must be exact"))
+    ((rational-number value) (datum-fail "benchmark count must fit an exact I64"))
     ((inexact-number value) (datum-fail "benchmark count must be exact"))
     ((complex-number real imaginary) (datum-fail "benchmark count must be exact"))))
 '''
@@ -112,6 +112,7 @@ def program(name, source, driver):
 
 CHEZ_TYPES = r'''(define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define-syntax ann (syntax-rules () ((_ value type) value)))
+(define-syntax define-overload (syntax-rules () ((_ . declaration) (begin))))
 (define-syntax define-data
   (lambda (form)
     (syntax-case form ()
@@ -163,6 +164,11 @@ CHEZ_TYPES = r'''(define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define i32->i64 values)
 (define i64->i32 values)
 (define i64->f64 inexact)
+(define (f64->i64 value)
+  (unless (and (finite? value) (<= -9223372036854775808.0 value) (< value 9223372036854775808.0))
+    (error 'f64->i64 "out of range" value))
+  (exact (truncate value)))
+(define (empty-vector) (vector))
 ;; The identical Datum body hashes complete wrapping I64 words. Chez's generic
 ;; integers do not wrap, so these scalar adapters make that boundary explicit.
 (define (i64-word value)
@@ -178,6 +184,13 @@ CHEZ_TYPES = r'''(define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define (string-copy! target at source start end)
   (do ((index start (+ index 1))) ((= index end))
     (string-set! target (+ at (- index start)) (string-ref source index))))
+(define (vector-copy! target at source start end)
+  (let ((count (- end start)))
+    (if (and (eq? target source) (> at start))
+        (do ((index (- count 1) (- index 1))) ((< index 0))
+          (vector-set! target (+ at index) (vector-ref source (+ start index))))
+        (do ((index 0 (+ index 1))) ((= index count))
+          (vector-set! target (+ at index) (vector-ref source (+ start index)))))))
 '''
 CHEZ_SCALARS = r'''(define-data CharacterResult (character-end) (character-value (value Char)))
 (define (read-char port)
@@ -211,66 +224,72 @@ CHEZ_SCALARS = r'''(define-data CharacterResult (character-end) (character-value
                  ((char=? first #\.) (and (at 1 dot-next?) (tail 2)))
                  (else (and (initial? first) (tail 1))))))))
 (define (temporary-open) (vector 'text '() #f))
+(define (temporary-state handle)
+  (let ((state (vector-ref handle 0)))
+    (when (eq? state 'closed) (error 'token "invalid or closed token handle"))
+    state))
 (define (temporary-text handle)
-  (case (vector-ref handle 0)
+  (case (temporary-state handle)
     ((text) (list->string (reverse (vector-ref handle 1))))
     ((parsed error) (vector-ref handle 2))
-    (else (error 'token "not owned text"))))
+    (else (error 'token "invalid or closed token handle"))))
 (define (temporary-character handle character)
-  (unless (eq? (vector-ref handle 0) 'text) (error 'token "not owned text"))
+  (unless (eq? (temporary-state handle) 'text) (error 'token "token has already been parsed"))
   (vector-set! handle 1 (cons character (vector-ref handle 1))))
 (define (temporary-close handle)
-  (when (eq? (vector-ref handle 0) 'closed) (error 'token "already consumed"))
+  (temporary-state handle)
   (vector-set! handle 0 'closed) (vector-set! handle 1 #f) (vector-set! handle 2 #f))
-(define (supported-scalar? value)
-  (or (and (exact? value) (integer? value) (<= -9223372036854775808 value 9223372036854775807))
-      (flonum? value)))
-(define (numeric-kind value)
-  (if (not (real? value)) 3
-      (if (exact? value) 1 2)))
-(define (temporary-parse handle)
-  (let* ((text (temporary-text handle)) (value (host-string->number text))
-         (kind (if value (numeric-kind value) 0)))
+(define (temporary-parse-radix handle radix)
+  (unless (eq? (temporary-state handle) 'text)
+    (temporary-close handle) (error 'token "token has already been parsed"))
+  (let* ((text (temporary-text handle)) (value (number-token text radix)))
     (vector-set! handle 2 text)
-    (if (and value
-             (or (has-character? text #\/) (not (supported-scalar? (real-part value)))
-                 (not (supported-scalar? (imag-part value)))))
-        (begin (vector-set! handle 0 'error)
-               (vector-set! handle 1 "unsupported rational or out-of-range number") 4)
-        (begin (vector-set! handle 0 'parsed) (vector-set! handle 1 value) kind))))
+    (vector-set! handle 0 (if (token-failure? value) 'error 'parsed))
+    (vector-set! handle 1 value)
+    (cond ((token-failure? value) 4) (value (token-number-kind value)) (else 0))))
+(define (temporary-parse handle) (temporary-parse-radix handle 10))
 (define (numeric-component handle index)
-  (unless (and (eq? (vector-ref handle 0) 'parsed) (number? (vector-ref handle 1)))
-    (error 'token "no successful numeric result"))
-  (let ((value (vector-ref handle 1)))
-    (if (= index 0) (real-part value)
-        (if (and (= index 1) (= (numeric-kind value) 3)) (imag-part value)
-            (error 'token "component out of range")))))
+  (unless (and (eq? (temporary-state handle) 'parsed) (vector-ref handle 1))
+    (error 'token "token has no successful numeric result"))
+  (token-component (vector-ref handle 1) index))
 (define (temporary-error handle)
-  (unless (eq? (vector-ref handle 0) 'error) (error 'token "no numeric error"))
-  (vector-ref handle 1))
+  (unless (eq? (temporary-state handle) 'error) (error 'token "token has no numeric error"))
+  (token-failure-message (vector-ref handle 1)))
 (define (temporary-intern handle)
-  (let ((allowed (or (eq? (vector-ref handle 0) 'text)
-                     (and (eq? (vector-ref handle 0) 'parsed) (not (vector-ref handle 1)))))
+  (let ((allowed (or (eq? (temporary-state handle) 'text)
+                     (and (eq? (temporary-state handle) 'parsed) (not (vector-ref handle 1)))))
         (text (temporary-text handle)))
     (temporary-close handle)
     (unless allowed (error 'token "symbol interning requires an unparsed text handle"))
     (host-string->symbol text)))
 (define (temporary-fail handle)
   (let ((text (temporary-text handle))) (temporary-close handle) (error 'reader text)))
-(define-syntax define-extern
-  (syntax-rules () ((_ name module foreign signature) (define name (scalar-service foreign)))))
 (define (scalar-service name)
   (cond
     ((string=? name "snail:datum/token-open") temporary-open)
     ((string=? name "snail:datum/token-character") temporary-character)
     ((string=? name "snail:datum/token-close") temporary-close)
     ((string=? name "snail:datum/token-parse") temporary-parse)
+    ((string=? name "snail:datum/token-parse-radix") temporary-parse-radix)
+    ((string=? name "snail:datum/token-text-length") (lambda (handle) (string-length (temporary-text handle))))
+    ((string=? name "snail:datum/token-text-character") (lambda (handle index) (string-ref (temporary-text handle) index)))
     ((string=? name "snail:datum/token-identifier")
      (lambda (handle) (if (identifier-text? (temporary-text handle)) 1 0)))
     ((string=? name "snail:datum/token-intern") temporary-intern)
     ((string=? name "snail:datum/number-kind")
-     (lambda (handle index) (if (exact? (numeric-component handle index)) 0 1)))
-    ((or (string=? name "snail:datum/number-integer") (string=? name "snail:datum/number-real")) numeric-component)
+     (lambda (handle index) (token-scalar-kind (numeric-component handle index))))
+    ((string=? name "snail:datum/number-integer")
+     (lambda (handle index) (token-scalar-integer (numeric-component handle index))))
+    ((string=? name "snail:datum/number-real")
+     (lambda (handle index) (token-scalar-real (numeric-component handle index))))
+    ((string=? name "snail:datum/number-radix")
+     (lambda (handle index) (token-scalar-radix (numeric-component handle index))))
+    ((string=? name "snail:datum/number-scale")
+     (lambda (handle index) (token-scalar-scale (numeric-component handle index))))
+    ((string=? name "snail:datum/number-text-length")
+     (lambda (handle index term) (string-length (token-scalar-text (numeric-component handle index) term))))
+    ((string=? name "snail:datum/number-text-character")
+     (lambda (handle index term at) (string-ref (token-scalar-text (numeric-component handle index) term) at)))
     ((string=? name "snail:datum/error-length") (lambda (handle) (string-length (temporary-error handle))))
     ((string=? name "snail:datum/error-character") (lambda (handle index) (string-ref (temporary-error handle) index)))
     ((string=? name "snail:datum/fail") temporary-fail)
@@ -278,6 +297,8 @@ CHEZ_SCALARS = r'''(define-data CharacterResult (character-end) (character-value
     ((string=? name "snail:datum/symbol-character") (lambda (name index) (string-ref (host-symbol->string name) index)))
     ((string=? name "snail:datum/real-equivalent")
      (lambda (left right) (if (or (eqv? left right) (and (nan? left) (nan? right))) 1 0)))
+    ((string=? name "snail:datum/real-text")
+     (lambda (value) (vector 'text (reverse (string->list (binary64-text value))) #f)))
     ((string=? name "snail:datum/whitespace") (lambda (character) (if (char-whitespace? character) 1 0)))
     (else (error 'scalar-service "unknown scalar export" name))))
 '''
@@ -296,15 +317,49 @@ def library_body(root, name):
     raise ValueError('unclosed concrete library body: ' + name)
 
 
-def chez_reader(root, exports):
-    captures = 'read-char peek-char string->number string->symbol symbol->string'.split()
+def library_exports(root, name):
+    source = (root / f'src/snail/{name}.sld').read_text()
+    header = re.search(r'\(export\s+([^()]*)\)', source)
+    if not header:
+        raise ValueError('expected concrete export names: ' + name)
+    operators = {'quotient', 'remainder', 'truncate'}
+    return [item for item in header[1].split() if item[0].islower() and item not in operators]
+
+
+def library_scope(root, name, continuation):
+    names = library_exports(root, name)
+    body = library_body(root, name)
+    if name == 'datum':
+        body += ('(define string->number (case-lambda\n'
+                 '  ((text) (string->number/radix text 10))\n'
+                 '  ((text radix) (string->number/radix text radix))))\n')
+    bindings = ' '.join(f'({item} (vector-ref library-interface {index}))' for index, item in enumerate(names))
+    return (f'(let ((library-interface (let ()\n{body}\n(vector {" ".join(names)}))))\n'
+            f'  (let ({bindings})\n{continuation}))\n')
+
+
+def scalar_scope(body):
+    numeric = (Path(__file__).with_name('chez-number.scm')).read_text()
+    captures = 'read-char peek-char string->number number->string string->symbol symbol->string'.split()
     bindings = ' '.join(f'(host-{name} {name})' for name in captures)
+    services = ('(define scalar-interface (let ()\n' + numeric + '\n' + CHEZ_SCALARS
+                + '(vector scalar-service read-char peek-char)))\n'
+                '(define scalar-service (vector-ref scalar-interface 0))\n'
+                '(define read-char (vector-ref scalar-interface 1))\n'
+                '(define peek-char (vector-ref scalar-interface 2))\n'
+                '(define-syntax define-extern\n'
+                '  (syntax-rules () ((_ name module foreign signature) (define name (scalar-service foreign)))))\n')
+    return f'(let ({bindings})\n' + services + body + ')\n'
+
+
+def chez_reader(root, exports):
     names = [(name, name) if isinstance(name, str) else name for name in exports]
     unpack = ''.join(f'(define {public} (vector-ref reader-interface {index}))\n'
                      for index, (public, private) in enumerate(names))
-    return (CHEZ_TYPES + f'(define reader-interface\n  (let ({bindings})\n'
-            + CHEZ_SCALARS + library_body(root, 'datum') + library_body(root, 'read')
-            + COMMON + f'    (vector {" ".join(private for public, private in names)})))\n' + unpack)
+    body = '(let ()\n' + COMMON + f'(vector {" ".join(private for public, private in names)}))\n'
+    for library in reversed(['integer', 'rational', 'number', 'datum', 'read']):
+        body = library_scope(root, library, body)
+    return CHEZ_TYPES + '(define reader-interface\n' + scalar_scope(body) + ')\n' + unpack
 
 
 def adapted_chez(name, original, root, driver):
@@ -677,7 +732,8 @@ def chez_probe(name, original, adapted, root, driver):
         exports = ['workload-read', 'read-end?', 'read-value!', 'real-datum', 'exact-datum', 'datum-boolean',
                    'datum-string-value', 'datum-number', 'inexact-number', ('typed-symbol->string', 'symbol->string')]
         exports += ['datum-kind', 'datum-boolean-value', 'datum-character-value', 'datum-symbol-value',
-                    'datum-number-value', 'datum-car', 'datum-cdr', 'datum-vector-values', 'datum-bytevector-values']
+                    'datum-number-value', 'datum-car', 'datum-cdr', 'datum-vector-values', 'datum-bytevector-values',
+                    'integer->string', 'rational-numerator', 'rational-denominator']
         source += chez_reader(root, exports) + kernel(name, driver.upstream_kernel(original))
         observer = strict_observer(root)
         observer = observer[observer.index('(: observe-string'):]
@@ -832,7 +888,8 @@ def bridge_stream_program(root):
     exports = ['workload-read', 'read-end?', 'read-value!', ('typed-symbol->string', 'symbol->string')]
     exports += ['datum-kind', 'datum-boolean-value', 'datum-character-value', 'datum-string-value',
                 'datum-symbol-value', 'datum-number-value', 'datum-car', 'datum-cdr',
-                'datum-vector-values', 'datum-bytevector-values']
+                'datum-vector-values', 'datum-bytevector-values',
+                'integer->string', 'rational-numerator', 'rational-denominator']
     observer = strict_observer(root).split('(: observe-string', 1)[1]
     observer = '(: observe-string' + observer
     observer = replace(observer, '(symbol->string value)', '(typed-symbol->string value)')

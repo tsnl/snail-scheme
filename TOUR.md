@@ -809,6 +809,11 @@ Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
 observe full per-worker file lifecycles and time the unchanged count loops;
 complete stream/result probes and the distinct Rust reader controls remain
 separate from clean measurement.
+[`chez-number.scm`](benchmarks/strict-suite/chez-number.scm) supplies that control's
+scalar numeric-token boundary: owned handles retain one lexical classification,
+while the unchanged Integer, Rational, Number, Datum and reader library bodies
+run in private scopes. Exact arithmetic stays in those Scheme libraries;
+binary64 text compatibility is checked against the Rust target's exact bytes.
 
 [`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
 Browse database and backtracking matcher through counted reversible source edits.
