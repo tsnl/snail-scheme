@@ -2,7 +2,7 @@
 ;; Local lexical references are bound now; imported names retain their scope.
 ;; The final source adapters collect dependencies and call the explicit resolver.
 (define-library (snail-sfir frontend)
-  (export parse-library syntax-list->sfir-library collect-library-map
+  (export parse-library syntax-list->sfir-library collect-library-map sfir-binding-name?
           syntax-list->ir-library syntax->ir-library make-primitive-library)
   (import (scheme base) (scheme cxr)
           (snail-scheme syntax) (snail-scheme source) (snail-scheme library)
@@ -41,9 +41,11 @@
         (cdr items)))
     (define (binder-name form)
       (let ((name (identifier form)))
-        (when (or (memq name keywords) (memq name unsupported-keywords))
+        (unless (sfir-binding-name? name)
           (fail form "reserved SFIR keyword cannot be a binding" name))
         name))
+    (define (sfir-binding-name? name)
+      (and (symbol? name) (not (memq name keywords)) (not (memq name unsupported-keywords))))
     (define (unique-names names source)
       (unless (null? names)
         (when (memq (car names) (cdr names)) (fail source "duplicate binding" (car names)))
