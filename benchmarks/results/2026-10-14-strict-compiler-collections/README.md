@@ -126,6 +126,23 @@ importing both writer and Unicode helpers must build their combined runtime.
 `make check`, explicit formatting of benchmark support and Scheme fixtures,
 Python compilation, and whitespace checks passed.
 
+## Parent review and integration
+
+The parent inspected the collection storage and source substitutions, scalar
+I/O ownership, UTF-8 decoder, output boundary and actual-target checker. No
+implementation change was justified. Independent archive replay verified all
+485 members, 120 raw command records, 38 source identities and 17 omitted
+artifacts. The 85 nonzero records include expected terminal controls and the
+retained unsuccessful attempts above; none timed out or retained executing
+descendants.
+
+Integration as source commit `28d3d09` preserved all 11 feature files exactly;
+only the module tour needed an automatic merge with the Unicode layer. This
+review reran no guests and makes no new timing claim.
+[parent-review.json](parent-review.json) records the verification. The preceding
+[combined writer/Unicode checks](../2026-10-14-strict-output-integration/README.md)
+cover the shared runtime that future full-compiler builds will need.
+
 ## Focused review and reproduction
 
 The pinned simplify pass used fresh Astra/max explainers with no files or
