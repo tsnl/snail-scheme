@@ -294,6 +294,18 @@ executes native exports and checks located source rejections.
 providers, checks mismatched signatures and exercises reusable worker captures
 and one-shot initialization through raw and optimized modules.
 
+[`(snail io)`](src/snail/io.sld) provides strict text-file output with a concrete
+`OutputPort`, explicit close, Scheme character loops and I64 decimal formatting.
+[`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
+owns a temporary UTF-8 pathname and live files, and releases resources before
+reporting fatal I/O errors. It reuses [`host.rs`](src/host.rs) buffered ports and
+holds no Scheme roots. [`scripts/link-strict-runtime`](scripts/link-strict-runtime)
+links these services from the ordinary Rust runtime, prunes private exports, and
+rejects any remaining legacy value-ABI import. The host initializes WASI before
+Scheme and invokes the retained cleanup export after traps. See
+[strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
+[`scripts/test-strict-io`](scripts/test-strict-io).
+
 [`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
 syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record
 schemas in IR, with resolved binding identities and source locations. The
