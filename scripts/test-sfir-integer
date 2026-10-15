@@ -167,7 +167,7 @@ def verify_small_radix(output):
     reduced = FIXTURES / 'small-radix/sfir/integer.sfir'
     expected, actual = production.read_text(), reduced.read_text()
     for name, before, after in [('radix', 1073741824, 4), ('limb-bits', 30, 2)]:
-        declaration = rf'(\(def\s+{name}\s+){before}(\))'
+        declaration = rf'(\(def\s+{name}\s+\(ann\s+){before}(\s+I64\)\))'
         expected, count = re.subn(declaration, lambda match: f'{match[1]}{after}{match[2]}', expected)
         assert count == 1, name
     assert actual == expected, 'small-radix library differs beyond its declared constants'

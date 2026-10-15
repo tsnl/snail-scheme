@@ -28,6 +28,10 @@ Numeric tokens retain their original spelling through syntax and resolved IR.
 values and rounds directly to the selected IEEE width, including subnormals and
 overflow boundaries. The reader also uses its exact decoding for bytevector
 elements; host floating-point approximations cannot turn a fraction into a byte.
+Inference fixes ordinary numeric literals at I32 or F64. Only an immediately
+enclosing `ann` or a direct binding annotation selects another scalar width;
+call, branch and result expectations check the fixed representation. `Any`
+therefore stores the default width unless the literal explicitly selects one.
 
 [`frontend.sld`](src/snail-sfir/frontend.sld) parses the small SFIR grammar into
 `SfirLibrary` values without loading dependencies. `parse-library` accepts one

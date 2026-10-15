@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.10 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.10 (cdr xs.1) (+ n.2 1))))) loop.10)))
+    (((lambda () (begin (def loop.10 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.10 (cdr xs.1) (+ n.2 (ann 1 I64)))))) loop.10)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -48,13 +48,13 @@
 
 (def item-empty? (lambda (value.2) (match value.2 ((empty-item) #t) ((integer-item number) #f))))
 
-(def zero? (lambda (value.1) (= value.1 0)))
+(def zero? (lambda (value.1) (= value.1 (ann 0 I64))))
 
 (def ml-length (All (T) (-> (MutableList T) I64))
   (lambda (values)
-    (((lambda () (begin (def loop.9 (lambda (values.1 size.2) (if (ml-null? values.1) size.2 (loop.9 (ml-cdr values.1) (+ size.2 1))))) loop.9)))
+    (((lambda () (begin (def loop.9 (lambda (values.1 size.2) (if (ml-null? values.1) size.2 (loop.9 (ml-cdr values.1) (+ size.2 (ann 1 I64)))))) loop.9)))
       values
-      0)))
+      (ann 0 I64))))
 
 (def same-item?
   (lambda (left right)
@@ -94,50 +94,50 @@
 
 (def destructive (-> I64 I64 (MutableList (MutableList Item)))
   (lambda (n m)
-    ((lambda (l) (((lambda () (begin (def loop.2 (lambda (i.2) (if (= i.2 0) l (begin (if (ml-null? (ml-car l)) (((lambda () (begin (def loop.6 (lambda (l.1) (if (ml-null? l.1) (unit) (begin (if (ml-null? (ml-car l.1)) (begin (ml-set-car! l.1 (ml-cons empty-value (ml-empty))) (unit)) (unit)) (append-to-tail! (ml-car l.1) (((lambda () (begin (def loop.7 (lambda (j.2 a.3) (if (= j.2 0) a.3 (loop.7 (- j.2 1) (ml-cons empty-value a.3))))) loop.7))) m (ml-empty))) (loop.6 (ml-cdr l.1)))))) loop.6))) l) (((lambda () (begin (def loop.3 (lambda (l1 l2) (if (ml-null? l2) (unit) (begin ((lambda (destruc-suffix) ((lambda (destruc-target) ((lambda () (ml-set-cdr! destruc-target destruc-suffix)))) (((lambda () (begin (def loop.5 (lambda (j.1 a.2) (if (zero? j.1) a.2 (begin (ml-set-car! a.2 (integer-item i.2)) (loop.5 (- j.1 1) (ml-cdr a.2)))))) loop.5))) (quotient (ml-length (ml-car l2)) 2) (ml-car l2)))) ((lambda (n.1) (if (= n.1 0) (begin (ml-set-car! l1 (ml-empty)) (ml-car l1)) (((lambda () (begin (def loop.4 (lambda (j a.1) (if (= j 1) ((lambda (x) (begin (ml-set-cdr! a.1 (ml-empty)) x)) (ml-cdr a.1)) (begin (ml-set-car! a.1 (integer-item i.2)) (loop.4 (- j 1) (ml-cdr a.1)))))) loop.4))) n.1 (ml-car l1)))) (quotient (ml-length (ml-car l1)) 2))) (loop.3 (ml-cdr l1) (ml-cdr l2)))))) loop.3))) l (ml-cdr l))) (loop.2 (- i.2 1)))))) loop.2))) n))
-      (((lambda () (begin (def loop.1 (lambda (i.1 a) (if (= i.1 0) a (loop.1 (- i.1 1) (ml-cons (ml-empty) a))))) loop.1)))
-        10
+    ((lambda (l) (((lambda () (begin (def loop.2 (lambda (i.2) (if (= i.2 (ann 0 I64)) l (begin (if (ml-null? (ml-car l)) (((lambda () (begin (def loop.6 (lambda (l.1) (if (ml-null? l.1) (unit) (begin (if (ml-null? (ml-car l.1)) (begin (ml-set-car! l.1 (ml-cons empty-value (ml-empty))) (unit)) (unit)) (append-to-tail! (ml-car l.1) (((lambda () (begin (def loop.7 (lambda (j.2 a.3) (if (= j.2 (ann 0 I64)) a.3 (loop.7 (- j.2 (ann 1 I64)) (ml-cons empty-value a.3))))) loop.7))) m (ml-empty))) (loop.6 (ml-cdr l.1)))))) loop.6))) l) (((lambda () (begin (def loop.3 (lambda (l1 l2) (if (ml-null? l2) (unit) (begin ((lambda (destruc-suffix) ((lambda (destruc-target) ((lambda () (ml-set-cdr! destruc-target destruc-suffix)))) (((lambda () (begin (def loop.5 (lambda (j.1 a.2) (if (zero? j.1) a.2 (begin (ml-set-car! a.2 (integer-item i.2)) (loop.5 (- j.1 (ann 1 I64)) (ml-cdr a.2)))))) loop.5))) (quotient (ml-length (ml-car l2)) (ann 2 I64)) (ml-car l2)))) ((lambda (n.1) (if (= n.1 (ann 0 I64)) (begin (ml-set-car! l1 (ml-empty)) (ml-car l1)) (((lambda () (begin (def loop.4 (lambda (j a.1) (if (= j (ann 1 I64)) ((lambda (x) (begin (ml-set-cdr! a.1 (ml-empty)) x)) (ml-cdr a.1)) (begin (ml-set-car! a.1 (integer-item i.2)) (loop.4 (- j (ann 1 I64)) (ml-cdr a.1)))))) loop.4))) n.1 (ml-car l1)))) (quotient (ml-length (ml-car l1)) (ann 2 I64)))) (loop.3 (ml-cdr l1) (ml-cdr l2)))))) loop.3))) l (ml-cdr l))) (loop.2 (- i.2 (ann 1 I64))))))) loop.2))) n))
+      (((lambda () (begin (def loop.1 (lambda (i.1 a) (if (= i.1 (ann 0 I64)) a (loop.1 (- i.1 (ann 1 I64)) (ml-cons (ml-empty) a))))) loop.1)))
+        (ann 10 I64)
         (ml-empty)))))
 
 (define-extern native-expected-i64 "benchmark" "expected_i64" (-> I64 I64))
 
-(def expected-cursor (ref 0))
+(def expected-cursor (ref (ann 0 I64)))
 
 (def read-expected-i64
   (lambda ()
-    ((lambda (value) (begin (ref-set! expected-cursor (+ (ref-get expected-cursor) 1)) value))
+    ((lambda (value) (begin (ref-set! expected-cursor (+ (ref-get expected-cursor) (ann 1 I64))) value))
       (native-expected-i64 (ref-get expected-cursor)))))
 
 (def read-expected-item
-  (lambda () (if (= (read-expected-i64) 0) empty-value (integer-item (read-expected-i64)))))
+  (lambda () (if (= (read-expected-i64) (ann 0 I64)) empty-value (integer-item (read-expected-i64)))))
 
 (def read-expected-row
   (lambda (size.1)
-    (if (= size.1 0)
+    (if (= size.1 (ann 0 I64))
       (empty-list )
-      ((lambda (head.1) (cons head.1 (read-expected-row (- size.1 1)))) (read-expected-item)))))
+      ((lambda (head.1) (cons head.1 (read-expected-row (- size.1 (ann 1 I64))))) (read-expected-item)))))
 
 (def read-expected-rows
   (lambda (size)
-    (if (= size 0)
+    (if (= size (ann 0 I64))
       (empty-list )
-      ((lambda (head) (cons head (read-expected-rows (- size 1))))
+      ((lambda (head) (cons head (read-expected-rows (- size (ann 1 I64)))))
         (read-expected-row (read-expected-i64))))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
 (def input1 (native-input-i64 (ann 1 I32)))
 
-(def expected-false? (= (native-input-i64 (ann 2 I32)) 1))
+(def expected-false? (= (native-input-i64 (ann 2 I32)) (ann 1 I64)))
 
 (def expected-rows (read-expected-rows (read-expected-i64)))
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (if (<= count 0)
-      (if expected-false? 1 0)
-      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (destructive (hide count input0) (hide count input1))) (if (if (not expected-false?) (same-rows? result expected-rows) #f) 1 0)))) loop)))
-        1
+    (if (<= count (ann 0 I64))
+      (if expected-false? (ann 1 I64) (ann 0 I64))
+      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (destructive (hide count input0) (hide count input1))) (if (if (not expected-false?) (same-rows? result expected-rows) #f) (ann 1 I64) (ann 0 I64))))) loop)))
+        (ann 1 I64)
         (destructive (hide count input0) (hide count input1))))))
 
 (unit)

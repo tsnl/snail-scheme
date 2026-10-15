@@ -1,2 +1,2 @@
 (import (sfir base))
-(f64-round 42)
+(f64-round (ann 42 I64))

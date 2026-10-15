@@ -120,9 +120,9 @@
 
 (def conform-length (All (T) (-> (List T) I64))
   (lambda (values.1)
-    (((lambda () (begin (def loop.9 (lambda (values.2 count.4) (if (null? values.2) count.4 (loop.9 (cdr values.2) (+ count.4 1))))) loop.9)))
+    (((lambda () (begin (def loop.9 (lambda (values.2 count.4) (if (null? values.2) count.4 (loop.9 (cdr values.2) (+ count.4 (ann 1 I64)))))) loop.9)))
       values.1
-      0)))
+      (ann 0 I64))))
 
 (def conform-pair? (All (T) (-> (List T) Bool)) (lambda (value.16) (not (null? value.16))))
 
@@ -138,8 +138,8 @@
 
 (def display-text
   (lambda (text)
-    (((lambda () (begin (def loop.8 (lambda (index.1) (if (= index.1 (string-length text)) (unit) (begin (print-character (string-ref text index.1)) (loop.8 (+ index.1 1)) (unit))))) loop.8)))
-      0)))
+    (((lambda () (begin (def loop.8 (lambda (index.1) (if (= index.1 (string-length text)) (unit) (begin (print-character (string-ref text index.1)) (loop.8 (+ index.1 (ann 1 I64))) (unit))))) loop.8)))
+      (ann 0 I64))))
 
 (def display-number (lambda (number.2) (display-text (i64->string number.2))))
 
@@ -596,7 +596,7 @@
 
 (def input-name
   (lambda (value.3)
-    (if (= (datum-kind value.3) 3)
+    (if (= (datum-kind value.3) (ann 3 I64))
       (text-name (datum-string-value value.3))
       (symbol-name (datum-symbol-value value.3)))))
 
@@ -622,7 +622,7 @@
 
 (def read-specification
   (lambda (port)
-    ((lambda (count.1) ((lambda (names.1) ((lambda (expected.1) ((lambda () (if (= (conform-length names.1) 4) (specification count.1 names.1 expected.1) (datum-fail "Conform requires exactly four names"))))) (input-strings (read-value! (read port))))) (input-names (read-value! (read port)))))
+    ((lambda (count.1) ((lambda (names.1) ((lambda (expected.1) ((lambda () (if (= (conform-length names.1) (ann 4 I64)) (specification count.1 names.1 expected.1) (datum-fail "Conform requires exactly four names"))))) (input-strings (read-value! (read port))))) (input-names (read-value! (read port)))))
       (input-count (read-value! (read port))))))
 
 (def configured (call-with-input-file "input.txt" read-specification))
@@ -643,10 +643,10 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (if (<= count 0)
-      0
-      (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index 1) (run-test (specification-names configured))) (if (same-strings? result (specification-expected configured)) 1 0)))) loop)))
-        1
+    (if (<= count (ann 0 I64))
+      (ann 0 I64)
+      (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index (ann 1 I64)) (run-test (specification-names configured))) (if (same-strings? result (specification-expected configured)) (ann 1 I64) (ann 0 I64))))) loop)))
+        (ann 1 I64)
         (run-test (specification-names configured))))))
 
 (unit)

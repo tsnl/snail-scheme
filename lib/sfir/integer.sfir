@@ -24,9 +24,9 @@
   ;; safe because every published array is readonly to all library operations.
   (begin
     (def radix
-         1073741824)
+         (ann 1073741824 I64))
     (def limb-bits
-         30)
+         (ann 30 I64))
     (def Integer (datatype ()
                            (integer (negative Bool integer-negative?) (limbs (Vector I32) integer-limbs))))
     (def IntegerDivision (datatype ()
@@ -50,7 +50,7 @@
            (begin
              (def loop
                   (lambda (count)
-                    (if (if (= count 0) #t (not (= (limb digits (- count 1)) 0))) count (loop (- count 1)))))
+                    (if (if (= count (ann 0 I64)) #t (not (= (limb digits (- count (ann 1 I64))) (ann 0 I64)))) count (loop (- count (ann 1 I64))))))
              (loop (vector-length digits)))))
 
     (def trimmed-limbs (-> (Vector I32) (Vector I32))
@@ -60,15 +60,15 @@
                       digits
                       (begin (let result (fresh-limbs count))
                              (begin
-                               (vector-copy! result 0 digits 0 count) result))))))
+                               (vector-copy! result (ann 0 I64) digits (ann 0 I64) count) result))))))
 
     (def publish (-> Bool (Vector I32) Integer)
          (lambda (negative digits)
            (begin (let digits (trimmed-limbs digits))
-                  (if (= (vector-length digits) 0) zero (integer negative digits)))))
+                  (if (= (vector-length digits) (ann 0 I64)) zero (integer negative digits)))))
 
     (def integer-zero? (-> Integer Bool)
-         (lambda (value) (= (vector-length (integer-limbs value)) 0)))
+         (lambda (value) (= (vector-length (integer-limbs value)) (ann 0 I64))))
 
     (def integer-abs (-> Integer Integer)
          (lambda (value)
@@ -90,39 +90,39 @@
            (begin
              (def loop
                   (lambda (value count)
-                    (if (= value 0) count (loop (quotient value radix) (+ count 1)))))
-             (loop value 0))))
+                    (if (= value (ann 0 I64)) count (loop (quotient value radix) (+ count (ann 1 I64))))))
+             (loop value (ann 0 I64)))))
 
     (def integer-from-i64 (-> I64 Integer)
          (lambda (value)
-           (begin (let negative (< value 0))
-                  (begin (let value (if (> value 0) (- 0 value) value))
+           (begin (let negative (< value (ann 0 I64)))
+                  (begin (let value (if (> value (ann 0 I64)) (- (ann 0 I64) value) value))
                          (begin (let digits (fresh-limbs (machine-limb-count value)))
                                 (begin
                                   (def loop
                                        (lambda (value index)
-                                         (if (= value 0)
+                                         (if (= value (ann 0 I64))
                                              (publish negative digits)
-                                             (begin (put-limb! digits index (- 0 (remainder value radix)))
-                                                    (loop (quotient value radix) (+ index 1))))))
-                                  (loop value 0)))))))
+                                             (begin (put-limb! digits index (- (ann 0 I64) (remainder value radix)))
+                                                    (loop (quotient value radix) (+ index (ann 1 I64)))))))
+                                  (loop value (ann 0 I64))))))))
 
     (def integer->i64 (-> Integer I64)
          (lambda (value)
            (begin (let digits (integer-limbs value))
                   (begin (let negative (integer-negative? value))
-                         (begin (let limit (if negative -9223372036854775808 -9223372036854775807))
+                         (begin (let limit (if negative (ann -9223372036854775808 I64) (ann -9223372036854775807 I64)))
                                 (begin
                                   (def loop
                                        (lambda (count result)
-                                         (if (= count 0)
-                                             (if negative result (- 0 result))
-                                             (begin (let digit (limb digits (- count 1)))
+                                         (if (= count (ann 0 I64))
+                                             (if negative result (- (ann 0 I64) result))
+                                             (begin (let digit (limb digits (- count (ann 1 I64))))
                                                     ;; quotient on this negative numerator is its mathematical ceiling.
                                                     (if (< result (quotient (+ limit digit) radix))
                                                         (unreachable)
-                                                        (loop (- count 1) (- (* result radix) digit)))))))
-                                  (loop (vector-length digits) 0)))))))
+                                                        (loop (- count (ann 1 I64)) (- (* result radix) digit)))))))
+                                  (loop (vector-length digits) (ann 0 I64))))))))
 
     ;; ---- Magnitude order and signed comparison ----
 
@@ -132,54 +132,54 @@
                   (let a sfir-migration-let-1)
                   (let b sfir-migration-let-2)
                   (if (< a b)
-                      -1
+                      (ann -1 I64)
                       (if (> a b)
-                          1
+                          (ann 1 I64)
                           (begin
                             (def loop
                                  (lambda (count)
-                                   (if (= count 0)
-                                       0
-                                       (begin (let sfir-migration-let-3 (limb left (- count 1))) (let sfir-migration-let-4 (limb right (- count 1)))
+                                   (if (= count (ann 0 I64))
+                                       (ann 0 I64)
+                                       (begin (let sfir-migration-let-3 (limb left (- count (ann 1 I64)))) (let sfir-migration-let-4 (limb right (- count (ann 1 I64))))
                                               (let a sfir-migration-let-3)
                                               (let b sfir-migration-let-4)
-                                              (if (< a b) -1 (if (> a b) 1 (loop (- count 1))))))))
+                                              (if (< a b) (ann -1 I64) (if (> a b) (ann 1 I64) (loop (- count (ann 1 I64)))))))))
                             (loop a)))))))
 
     (def integer-compare (-> Integer Integer I64)
          (lambda (left right)
-           (if (not (= (if (integer-negative? left) 1 0) (if (integer-negative? right) 1 0)))
-               (if (integer-negative? left) -1 1)
+           (if (not (= (if (integer-negative? left) (ann 1 I64) (ann 0 I64)) (if (integer-negative? right) (ann 1 I64) (ann 0 I64))))
+               (if (integer-negative? left) (ann -1 I64) (ann 1 I64))
                (begin (let order (magnitude-compare (integer-limbs left) (integer-limbs right)))
-                      (if (integer-negative? left) (- 0 order) order)))))
+                      (if (integer-negative? left) (- (ann 0 I64) order) order)))))
 
     (def integer=? (-> Integer Integer Bool)
-         (lambda (left right) (= (integer-compare left right) 0)))
+         (lambda (left right) (= (integer-compare left right) (ann 0 I64))))
 
     (def integer<? (-> Integer Integer Bool)
-         (lambda (left right) (< (integer-compare left right) 0)))
+         (lambda (left right) (< (integer-compare left right) (ann 0 I64))))
 
     (def integer<=? (-> Integer Integer Bool)
-         (lambda (left right) (<= (integer-compare left right) 0)))
+         (lambda (left right) (<= (integer-compare left right) (ann 0 I64))))
 
     (def integer>? (-> Integer Integer Bool)
-         (lambda (left right) (> (integer-compare left right) 0)))
+         (lambda (left right) (> (integer-compare left right) (ann 0 I64))))
 
     (def integer>=? (-> Integer Integer Bool)
-         (lambda (left right) (>= (integer-compare left right) 0)))
+         (lambda (left right) (>= (integer-compare left right) (ann 0 I64))))
 
     ;; ---- Addition and subtraction expose carry and borrow ----
 
     (def limb-or-zero (-> (Vector I32) I64 I64)
          (lambda (digits index)
-           (if (< index (vector-length digits)) (limb digits index) 0)))
+           (if (< index (vector-length digits)) (limb digits index) (ann 0 I64))))
 
     (def magnitude-add (-> (Vector I32) (Vector I32) (Vector I32))
          (lambda (left right)
            (begin (let count (if (> (vector-length left) (vector-length right))
                                  (vector-length left)
                                  (vector-length right)))
-                  (begin (let result (fresh-limbs (+ count 1)))
+                  (begin (let result (fresh-limbs (+ count (ann 1 I64))))
                          (begin
                            (def loop
                                 (lambda (index carry)
@@ -188,8 +188,8 @@
                                       (begin (let sum (+ (+ (limb-or-zero left index) (limb-or-zero right index)) carry))
                                              (begin
                                                (put-limb! result index (remainder sum radix))
-                                               (loop (+ index 1) (quotient sum radix)))))))
-                           (loop 0 0))))))
+                                               (loop (+ index (ann 1 I64)) (quotient sum radix)))))))
+                           (loop (ann 0 I64) (ann 0 I64)))))))
     ;; left >= right is established by the signed operation before entry.
 
     (def magnitude-subtract (-> (Vector I32) (Vector I32) (Vector I32))
@@ -203,13 +203,13 @@
                                       result
                                       (begin (let difference (- (- (limb left index) (limb-or-zero right index)) borrow))
                                              (begin
-                                               (put-limb! result index (if (< difference 0) (+ difference radix) difference))
-                                               (loop (+ index 1) (if (< difference 0) 1 0)))))))
-                           (loop 0 0))))))
+                                               (put-limb! result index (if (< difference (ann 0 I64)) (+ difference radix) difference))
+                                               (loop (+ index (ann 1 I64)) (if (< difference (ann 0 I64)) (ann 1 I64) (ann 0 I64))))))))
+                           (loop (ann 0 I64) (ann 0 I64)))))))
 
     (def signed-difference (-> Bool (Vector I32) (Vector I32) Integer)
          (lambda (negative left right)
-           (if (< (magnitude-compare left right) 0)
+           (if (< (magnitude-compare left right) (ann 0 I64))
                (publish (not negative) (magnitude-subtract right left))
                (publish negative (magnitude-subtract left right)))))
 
@@ -243,8 +243,8 @@
                                       (begin (let product (+ (+ (* factor (limb right index)) (limb result at)) carry))
                                              (begin
                                                (put-limb! result at (remainder product radix))
-                                               (loop (+ index 1) (quotient product radix))))))))
-                    (loop 0 0)))))
+                                               (loop (+ index (ann 1 I64)) (quotient product radix))))))))
+                    (loop (ann 0 I64) (ann 0 I64))))))
 
     (def magnitude-multiply (-> (Vector I32) (Vector I32) (Vector I32))
          (lambda (left right)
@@ -255,8 +255,8 @@
                            (if (= index (vector-length left))
                                result
                                (begin (multiply-row! result right index (limb left index))
-                                      (loop (+ index 1))))))
-                    (loop 0)))))
+                                      (loop (+ index (ann 1 I64)))))))
+                    (loop (ann 0 I64))))))
 
     (def integer-multiply (-> Integer Integer Integer)
          (lambda (left right)
@@ -269,7 +269,7 @@
     (def magnitude-scale (-> (Vector I32) I64 (Vector I32))
          (lambda (digits factor)
            (begin (let count (vector-length digits))
-                  (begin (let result (fresh-limbs (+ count 1)))
+                  (begin (let result (fresh-limbs (+ count (ann 1 I64))))
                          (begin
                            (def loop
                                 (lambda (index carry)
@@ -278,8 +278,8 @@
                                       (begin (let product (+ (* (limb digits index) factor) carry))
                                              (begin
                                                (put-limb! result index (remainder product radix))
-                                               (loop (+ index 1) (quotient product radix)))))))
-                           (loop 0 0))))))
+                                               (loop (+ index (ann 1 I64)) (quotient product radix)))))))
+                           (loop (ann 0 I64) (ann 0 I64)))))))
 
     ;; ---- Single-limb division ----
 
@@ -292,13 +292,13 @@
            (begin
              (def loop
                   (lambda (count carry)
-                    (if (= count 0)
+                    (if (= count (ann 0 I64))
                         carry
-                        (begin (let value (+ (* carry radix) (limb source (- count 1))))
+                        (begin (let value (+ (* carry radix) (limb source (- count (ann 1 I64)))))
                                (begin
-                                 (put-limb! target (- count 1) (quotient value divisor))
-                                 (loop (- count 1) (remainder value divisor)))))))
-             (loop (vector-length source) 0))))
+                                 (put-limb! target (- count (ann 1 I64)) (quotient value divisor))
+                                 (loop (- count (ann 1 I64)) (remainder value divisor)))))))
+             (loop (vector-length source) (ann 0 I64)))))
 
     ;; ---- Normalized long division ----
 
@@ -310,19 +310,19 @@
     (def estimate-digit (-> (Vector I32) (Vector I32) I64 I64)
          (lambda (dividend divisor offset)
            (begin (let count (vector-length divisor))
-                  (begin (let high (limb divisor (- count 1)))
+                  (begin (let high (limb divisor (- count (ann 1 I64))))
                          (begin (let numerator (+ (* (limb dividend (+ offset count)) radix)
-                                                  (limb dividend (- (+ offset count) 1))))
+                                                  (limb dividend (- (+ offset count) (ann 1 I64)))))
                                 (begin (let trial (quotient numerator high))
-                                       (begin (let trial (if (>= trial radix) (- radix 1) trial))
+                                       (begin (let trial (if (>= trial radix) (- radix (ann 1 I64)) trial))
                                               (begin
                                                 (def correct
                                                      (lambda (trial residue)
                                                        (if (if (< residue radix)
-                                                               (> (* trial (limb divisor (- count 2)))
-                                                                  (+ (* residue radix) (limb dividend (- (+ offset count) 2))))
+                                                               (> (* trial (limb divisor (- count (ann 2 I64))))
+                                                                  (+ (* residue radix) (limb dividend (- (+ offset count) (ann 2 I64)))))
                                                                #f)
-                                                           (correct (- trial 1) (+ residue high))
+                                                           (correct (- trial (ann 1 I64)) (+ residue high))
                                                            trial)))
                                                 (correct trial (- numerator (* trial high)))))))))))
     ;; Trial, divisor digit and incoming carry are in [0, B-1]. Thus
@@ -340,20 +340,20 @@
                            (if (= index count)
                                (begin (let high (- (limb dividend (+ offset count)) carry))
                                       (begin
-                                        (if (if (< high -1) #t (> high 0))
+                                        (if (if (< high (ann -1 I64)) #t (> high (ann 0 I64)))
                                             (begin (unreachable)
                                                    (unit))
                                             (unit))
-                                        (put-limb! dividend (+ offset count) (if (< high 0) (+ high radix) high))
-                                        (< high 0)))
+                                        (put-limb! dividend (+ offset count) (if (< high (ann 0 I64)) (+ high radix) high))
+                                        (< high (ann 0 I64))))
                                (begin (let product (+ (* trial (limb divisor index)) carry))
                                       (begin (let difference (- (limb dividend (+ offset index))
-                                                                (i64-bitwise-and product (- radix 1))))
+                                                                (i64-bitwise-and product (- radix (ann 1 I64)))))
                                              (begin
-                                               (put-limb! dividend (+ offset index) (if (< difference 0) (+ difference radix) difference))
-                                               (loop (+ index 1) (+ (i64-shift-right/logical product limb-bits)
-                                                                    (if (< difference 0) 1 0)))))))))
-                    (loop 0 0)))))
+                                               (put-limb! dividend (+ offset index) (if (< difference (ann 0 I64)) (+ difference radix) difference))
+                                               (loop (+ index (ann 1 I64)) (+ (i64-shift-right/logical product limb-bits)
+                                                                              (if (< difference (ann 0 I64)) (ann 1 I64) (ann 0 I64))))))))))
+                    (loop (ann 0 I64) (ann 0 I64))))))
 
     (def add-back! (-> (Vector I32) (Vector I32) I64 Unit)
          (lambda (dividend divisor offset)
@@ -367,14 +367,14 @@
                                (begin (let sum (+ (+ (limb dividend (+ offset index)) (limb divisor index)) carry))
                                       (begin
                                         (put-limb! dividend (+ offset index) (remainder sum radix))
-                                        (loop (+ index 1) (quotient sum radix)))))))
-                    (loop 0 0)))))
+                                        (loop (+ index (ann 1 I64)) (quotient sum radix)))))))
+                    (loop (ann 0 I64) (ann 0 I64))))))
 
     (def divide-position! (-> (Vector I32) (Vector I32) I64 I64)
          (lambda (dividend divisor offset)
            (begin (let trial (estimate-digit dividend divisor offset))
                   (if (subtract-product! dividend divisor offset trial)
-                      (begin (add-back! dividend divisor offset) (- trial 1))
+                      (begin (add-back! dividend divisor offset) (- trial (ann 1 I64)))
                       trial))))
 
     (def divide-normalized! (-> (Vector I32) (Vector I32) (Vector I32) Unit)
@@ -382,26 +382,26 @@
            (begin
              (def loop
                   (lambda (count)
-                    (if (= count 0)
+                    (if (= count (ann 0 I64))
                         (unit)
                         (begin
-                          (put-limb! quotient-digits (- count 1) (divide-position! dividend divisor (- count 1)))
-                          (loop (- count 1))
+                          (put-limb! quotient-digits (- count (ann 1 I64)) (divide-position! dividend divisor (- count (ann 1 I64))))
+                          (loop (- count (ann 1 I64)))
                           (unit)))))
              (loop (vector-length quotient-digits)))))
 
     (def long-division (-> (Vector I32) (Vector I32) IntegerDivision)
          (lambda (left right)
            (begin (let count (vector-length right))
-                  (begin (let scale (quotient radix (+ (limb right (- count 1)) 1)))
+                  (begin (let scale (quotient radix (+ (limb right (- count (ann 1 I64))) (ann 1 I64))))
                          (begin (let dividend (magnitude-scale left scale))
                                 (begin (let divisor (trimmed-limbs (magnitude-scale right scale)))
-                                       (begin (let answer (fresh-limbs (+ (- (vector-length left) count) 1)))
+                                       (begin (let answer (fresh-limbs (+ (- (vector-length left) count) (ann 1 I64))))
                                               (begin (let residue (fresh-limbs count))
                                                      (begin
                                                        (divide-normalized! answer dividend divisor)
-                                                       (vector-copy! residue 0 dividend 0 count)
-                                                       (if (= (divide-small! residue residue scale) 0)
+                                                       (vector-copy! residue (ann 0 I64) dividend (ann 0 I64) count)
+                                                       (if (= (divide-small! residue residue scale) (ann 0 I64))
                                                            (unit)
                                                            (begin (unreachable)
                                                                   (unit)))
@@ -412,11 +412,11 @@
            (begin (let sfir-migration-let-7 (integer-limbs left)) (let sfir-migration-let-8 (integer-limbs right))
                   (let a sfir-migration-let-7)
                   (let b sfir-migration-let-8)
-                  (if (< (magnitude-compare a b) 0)
+                  (if (< (magnitude-compare a b) (ann 0 I64))
                       (division zero (integer-abs left))
-                      (if (= (vector-length b) 1)
+                      (if (= (vector-length b) (ann 1 I64))
                           (begin (let answer (fresh-limbs (vector-length a)))
-                                 (begin (let residue (divide-small! answer a (limb b 0)))
+                                 (begin (let residue (divide-small! answer a (limb b (ann 0 I64))))
                                         (division (publish #f answer) (integer-from-i64 residue))))
                           (long-division a b))))))
 
@@ -451,19 +451,19 @@
                   (lambda (index value)
                     (if (= index end)
                         value
-                        (begin (let digit (- (char->integer (string-ref text index)) 48))
-                               (if (if (< digit 0) #t (> digit 9))
+                        (begin (let digit (- (char->integer (string-ref text index)) (ann 48 I64)))
+                               (if (if (< digit (ann 0 I64)) #t (> digit (ann 9 I64)))
                                    (unreachable)
-                                   (loop (+ index 1) (+ (* value 10) digit)))))))
-             (loop start 0))))
+                                   (loop (+ index (ann 1 I64)) (+ (* value (ann 10 I64)) digit)))))))
+             (loop start (ann 0 I64)))))
 
     (def machine-power (-> I64 I64 I64)
          (lambda (base exponent)
            (begin
              (def loop
                   (lambda (left value)
-                    (if (= left 0) value (loop (- left 1) (* value base)))))
-             (loop exponent 1))))
+                    (if (= left (ann 0 I64)) value (loop (- left (ann 1 I64)) (* value base)))))
+             (loop exponent (ann 1 I64)))))
 
     (def parse-decimal (-> String I64 Bool Integer)
          (lambda (text start negative)
@@ -475,30 +475,30 @@
                              (lambda (at value)
                                (if (= at count)
                                    (if negative (integer-negate value) value)
-                                   (begin (let width (if (> (- count at) 9) 9 (- count at)))
-                                          (begin (let scaled (publish #f (magnitude-scale (integer-limbs value) (machine-power 10 width))))
+                                   (begin (let width (if (> (- count at) (ann 9 I64)) (ann 9 I64) (- count at)))
+                                          (begin (let scaled (publish #f (magnitude-scale (integer-limbs value) (machine-power (ann 10 I64) width))))
                                                  (begin (let chunk (integer-from-i64 (decimal-chunk text at (+ at width))))
                                                         (loop (+ at width) (integer-add scaled chunk))))))))
                         (loop start zero))))))
 
     (def integer-from-string (-> String Integer)
          (lambda (text)
-           (if (= (string-length text) 0)
+           (if (= (string-length text) (ann 0 I64))
                (unreachable)
-               (begin (let first (string-ref text 0))
+               (begin (let first (string-ref text (ann 0 I64)))
                       (begin (let negative (char=? first #\-))
                              (begin (let signed (if negative #t (char=? first #\+)))
-                                    (parse-decimal text (if signed 1 0) negative)))))))
+                                    (parse-decimal text (if signed (ann 1 I64) (ann 0 I64)) negative)))))))
 
     (def radix-digit (-> Char I64 I64)
          (lambda (character base)
            (begin (let code (char->integer character))
-                  (begin (let digit (if (if (>= code 48) (<= code 57) #f)
-                                        (- code 48)
-                                        (if (if (>= code 65) (<= code 90) #f)
-                                            (- code 55)
-                                            (if (if (>= code 97) (<= code 122) #f) (- code 87) -1))))
-                         (if (if (< digit 0) #t (>= digit base)) (unreachable) digit)))))
+                  (begin (let digit (if (if (>= code (ann 48 I64)) (<= code (ann 57 I64)) #f)
+                                        (- code (ann 48 I64))
+                                        (if (if (>= code (ann 65 I64)) (<= code (ann 90 I64)) #f)
+                                            (- code (ann 55 I64))
+                                            (if (if (>= code (ann 97 I64)) (<= code (ann 122 I64)) #f) (- code (ann 87 I64)) (ann -1 I64)))))
+                         (if (if (< digit (ann 0 I64)) #t (>= digit base)) (unreachable) digit)))))
 
     (def parse-radix-digits (-> String I64 Bool I64 Integer)
          (lambda (text start negative base)
@@ -509,19 +509,19 @@
                       (lambda (at value)
                         (if (= at (string-length text))
                             (if negative (integer-negate value) value)
-                            (loop (+ at 1) (integer-add (publish #f (magnitude-scale (integer-limbs value) base))
-                                                        (integer-from-i64 (radix-digit (string-ref text at) base)))))))
+                            (loop (+ at (ann 1 I64)) (integer-add (publish #f (magnitude-scale (integer-limbs value) base))
+                                                                  (integer-from-i64 (radix-digit (string-ref text at) base)))))))
                  (loop start zero)))))
 
     (def integer-from-string/radix (-> String I64 Integer)
          (lambda (text base)
-           (if (if (< base 2) #t (if (> base 36) #t (= (string-length text) 0)))
+           (if (if (< base (ann 2 I64)) #t (if (> base (ann 36 I64)) #t (= (string-length text) (ann 0 I64))))
                (unreachable)
-               (if (= base 10)
+               (if (= base (ann 10 I64))
                    (integer-from-string text)
-                   (begin (let first (string-ref text 0))
+                   (begin (let first (string-ref text (ann 0 I64)))
                           (begin (let negative (char=? first #\-))
-                                 (begin (let start (if (if negative #t (char=? first #\+)) 1 0))
+                                 (begin (let start (if (if negative #t (char=? first #\+)) (ann 1 I64) (ann 0 I64)))
                                         (parse-radix-digits text start negative base))))))))
 
     (def decimal-chunks (-> (Vector I32) (List I64))
@@ -529,9 +529,9 @@
            (begin
              (def loop
                   (lambda (digits chunks)
-                    (if (= (vector-length digits) 0)
+                    (if (= (vector-length digits) (ann 0 I64))
                         chunks
-                        (begin (let chunk (divide-small! digits digits 1000000000))
+                        (begin (let chunk (divide-small! digits digits (ann 1000000000 I64)))
                                (loop (trimmed-limbs digits) (cons chunk chunks))))))
              (loop (vector-copy digits) (empty-list )))))
 
@@ -540,27 +540,27 @@
            (begin
              (def loop
                   (lambda (value count)
-                    (if (< value 10) count (loop (quotient value 10) (+ count 1)))))
-             (loop value 1))))
+                    (if (< value (ann 10 I64)) count (loop (quotient value (ann 10 I64)) (+ count (ann 1 I64))))))
+             (loop value (ann 1 I64)))))
 
     (def chunk-count (-> (List I64) I64)
          (lambda (chunks)
            (begin
              (def loop
                   (lambda (tail count)
-                    (if (null? tail) count (loop (cdr tail) (+ count 1)))))
-             (loop chunks 0))))
+                    (if (null? tail) count (loop (cdr tail) (+ count (ann 1 I64))))))
+             (loop chunks (ann 0 I64)))))
 
     (def write-chunk! (-> String I64 I64 I64 Unit)
          (lambda (text end value width)
            (begin
              (def loop
                   (lambda (at left value)
-                    (if (= left 0)
+                    (if (= left (ann 0 I64))
                         (unit)
                         (begin
-                          (string-set! text (- at 1) (integer->char (+ 48 (remainder value 10))))
-                          (loop (- at 1) (- left 1) (quotient value 10))
+                          (string-set! text (- at (ann 1 I64)) (integer->char (+ (ann 48 I64) (remainder value (ann 10 I64)))))
+                          (loop (- at (ann 1 I64)) (- left (ann 1 I64)) (quotient value (ann 10 I64)))
                           (unit)))))
              (loop end width value))))
 
@@ -570,7 +570,7 @@
                (unit)
                (begin
                  (write-chunk! text (+ at width) (car chunks) width)
-                 (write-chunks! text (+ at width) (cdr chunks) 9)
+                 (write-chunks! text (+ at width) (cdr chunks) (ann 9 I64))
                  (unit)))))
 
     (def integer->string (-> Integer String)
@@ -579,11 +579,11 @@
                (string #\0)
                (begin (let chunks (decimal-chunks (integer-limbs value)))
                       (begin (let width (decimal-width (car chunks)))
-                             (begin (let sign (if (integer-negative? value) 1 0))
-                                    (begin (let text (make-string (+ (+ sign width) (* 9 (- (chunk-count chunks) 1)))))
+                             (begin (let sign (if (integer-negative? value) (ann 1 I64) (ann 0 I64)))
+                                    (begin (let text (make-string (+ (+ sign width) (* (ann 9 I64) (- (chunk-count chunks) (ann 1 I64))))))
                                            (begin
                                              (if (integer-negative? value)
-                                                 (begin (string-set! text 0 #\-)
+                                                 (begin (string-set! text (ann 0 I64) #\-)
                                                         (unit))
                                                  (unit))
                                              (write-chunks! text sign chunks width) text))))))))
@@ -595,7 +595,7 @@
            (begin (let digits (integer-limbs value))
                   (begin (let result (fresh-limbs (vector-length digits)))
                          (begin
-                           (divide-small! result digits 2) (publish #f result))))))
+                           (divide-small! result digits (ann 2 I64)) (publish #f result))))))
 
     (def integer-expt (-> Integer Integer Integer)
          (lambda (base exponent)
@@ -606,14 +606,14 @@
                       (lambda (power left result)
                         (if (integer-zero? left)
                             result
-                            (begin (let sfir-migration-let-9 (if (= (remainder (limb (integer-limbs left) 0) 2) 0)
+                            (begin (let sfir-migration-let-9 (if (= (remainder (limb (integer-limbs left) (ann 0 I64)) (ann 2 I64)) (ann 0 I64))
                                                                  result
                                                                  (integer-multiply result power)))
                                    (let sfir-migration-let-10 (half left))
                                    (let result sfir-migration-let-9)
                                    (let left sfir-migration-let-10)
                                    (if (integer-zero? left) result (loop (integer-multiply power power) left result))))))
-                 (loop base exponent (integer-from-i64 1))))))
+                 (loop base exponent (integer-from-i64 (ann 1 I64)))))))
 
     (def integer-power (-> Integer I64 Integer)
          (lambda (base exponent) (integer-expt base (integer-from-i64 exponent))))
@@ -623,19 +623,19 @@
            (begin
              (def loop
                   (lambda (value count)
-                    (if (= value 0) count (loop (quotient value 2) (+ count 1)))))
-             (loop value 0))))
+                    (if (= value (ann 0 I64)) count (loop (quotient value (ann 2 I64)) (+ count (ann 1 I64))))))
+             (loop value (ann 0 I64)))))
 
     (def sqrt-upper-bound (-> Integer Integer)
          (lambda (value)
            (begin (let digits (integer-limbs value))
                   (begin (let count (vector-length digits))
-                         (begin (let bits (+ (* (- count 1) limb-bits) (leading-bits (limb digits (- count 1)))))
-                                (begin (let exponent (quotient (+ bits 1) 2))
+                         (begin (let bits (+ (* (- count (ann 1 I64)) limb-bits) (leading-bits (limb digits (- count (ann 1 I64))))))
+                                (begin (let exponent (quotient (+ bits (ann 1 I64)) (ann 2 I64)))
                                        (begin (let at (quotient exponent limb-bits))
-                                              (begin (let result (fresh-limbs (+ at 1)))
+                                              (begin (let result (fresh-limbs (+ at (ann 1 I64))))
                                                      (begin
-                                                       (put-limb! result at (machine-power 2 (remainder exponent limb-bits)))
+                                                       (put-limb! result at (machine-power (ann 2 I64) (remainder exponent limb-bits)))
                                                        (publish #f result))))))))))
 
     (def integer-sqrt (-> Integer Integer)
@@ -674,8 +674,8 @@
            (begin
              (def loop
                   (lambda (value count)
-                    (if (= value 0.0) count (loop (truncate (/ value (i64->f64 radix))) (+ count 1)))))
-             (loop value 0))))
+                    (if (= value 0.0) count (loop (truncate (/ value (i64->f64 radix))) (+ count (ann 1 I64))))))
+             (loop value (ann 0 I64)))))
 
     (def integer-from-f64 (-> F64 Integer)
          (lambda (value)
@@ -693,8 +693,8 @@
                                                         (begin (let next (truncate (/ value base)))
                                                                (begin
                                                                  (put-limb! digits at (f64->i64 (- value (* next base))))
-                                                                 (loop next (+ at 1)))))))
-                                             (loop value 0)))))))))
+                                                                 (loop next (+ at (ann 1 I64))))))))
+                                             (loop value (ann 0 I64))))))))))
 
     (def integer-truncate-f64 (-> F64 Integer)
          (lambda (value) (integer-from-f64 (truncate value))))
@@ -709,27 +709,27 @@
          (lambda (value)
            (begin (let digits (integer-limbs value))
                   (begin (let count (vector-length digits))
-                         (if (= count 0) 0 (+ (* (- count 1) limb-bits) (leading-bits (limb digits (- count 1)))))))))
+                         (if (= count (ann 0 I64)) (ann 0 I64) (+ (* (- count (ann 1 I64)) limb-bits) (leading-bits (limb digits (- count (ann 1 I64))))))))))
 
     (def binary-power (-> I64 Integer)
-         (lambda (exponent) (integer-power (integer-from-i64 2) exponent)))
+         (lambda (exponent) (integer-power (integer-from-i64 (ann 2 I64)) exponent)))
 
     (def binary64-power (-> I64 F64)
          (lambda (exponent)
-           (begin (let sfir-migration-let-11 (if (< exponent 0) 0.5 2.0))
-                  (let sfir-migration-let-12 (if (< exponent 0) (- 0 exponent) exponent))
+           (begin (let sfir-migration-let-11 (if (< exponent (ann 0 I64)) 0.5 2.0))
+                  (let sfir-migration-let-12 (if (< exponent (ann 0 I64)) (- (ann 0 I64) exponent) exponent))
                   (let factor sfir-migration-let-11)
                   (let count sfir-migration-let-12)
                   (begin
                     (def loop
                          (lambda (left value)
-                           (if (= left 0) value (loop (- left 1) (* value factor)))))
+                           (if (= left (ann 0 I64)) value (loop (- left (ann 1 I64)) (* value factor)))))
                     (loop count 1.0)))))
 
     (def ratio-below-power? (-> Integer Integer I64 Bool)
          (lambda (numerator denominator exponent)
-           (if (< exponent 0)
-               (integer<? (integer-multiply numerator (binary-power (- 0 exponent))) denominator)
+           (if (< exponent (ann 0 I64))
+               (integer<? (integer-multiply numerator (binary-power (- (ann 0 I64) exponent))) denominator)
                (integer<? numerator (integer-multiply denominator (binary-power exponent))))))
 
     (def rounded-ratio (-> Integer Integer I64)
@@ -738,27 +738,27 @@
                   (begin (let whole (integer->i64 (division-quotient answer)))
                          (begin (let twice (integer-add (division-remainder answer) (division-remainder answer)))
                                 (begin (let order (integer-compare twice denominator))
-                                       (if (if (> order 0) #t (if (= order 0) (= (remainder whole 2) 1) #f)) (+ whole 1) whole)))))))
+                                       (if (if (> order (ann 0 I64)) #t (if (= order (ann 0 I64)) (= (remainder whole (ann 2 I64)) (ann 1 I64)) #f)) (+ whole (ann 1 I64)) whole)))))))
 
     (def scaled-ratio (-> Integer Integer I64 F64)
          (lambda (numerator denominator spacing)
-           (begin (let whole (if (< spacing 0)
-                                 (rounded-ratio (integer-multiply numerator (binary-power (- 0 spacing))) denominator)
+           (begin (let whole (if (< spacing (ann 0 I64))
+                                 (rounded-ratio (integer-multiply numerator (binary-power (- (ann 0 I64) spacing))) denominator)
                                  (rounded-ratio numerator (integer-multiply denominator (binary-power spacing)))))
                   (* (i64->f64 whole) (binary64-power spacing)))))
 
     (def positive-ratio->f64 (-> Integer Integer F64)
          (lambda (numerator denominator)
            (begin (let estimate (- (integer-bit-length numerator) (integer-bit-length denominator)))
-                  (if (> estimate 1024)
+                  (if (> estimate (ann 1024 I64))
                       (/ 1.0 0.0)
-                      (if (< estimate -1075)
+                      (if (< estimate (ann -1075 I64))
                           0.0
-                          (begin (let exponent (if (ratio-below-power? numerator denominator estimate) (- estimate 1) estimate))
-                                 (if (> exponent 1023)
+                          (begin (let exponent (if (ratio-below-power? numerator denominator estimate) (- estimate (ann 1 I64)) estimate))
+                                 (if (> exponent (ann 1023 I64))
                                      (/ 1.0 0.0)
                                      (scaled-ratio numerator denominator
-                                                   (if (< exponent -1022) -1074 (- exponent 52))))))))))
+                                                   (if (< exponent (ann -1022 I64)) (ann -1074 I64) (- exponent (ann 52 I64)))))))))))
 
     (def integer-ratio->f64 (-> Integer Integer F64)
          (lambda (numerator denominator)
@@ -774,12 +774,12 @@
                               value))))))
 
     (def integer->f64 (-> Integer F64)
-         (lambda (value) (integer-ratio->f64 value (integer-from-i64 1))))
+         (lambda (value) (integer-ratio->f64 value (integer-from-i64 (ann 1 I64)))))
 
     (def integer-fits-i64? (-> Integer Bool)
          (lambda (value)
-           (if (integer>=? value (integer-from-i64 -9223372036854775808))
-               (integer<=? value (integer-from-i64 9223372036854775807))
+           (if (integer>=? value (integer-from-i64 (ann -9223372036854775808 I64)))
+               (integer<=? value (integer-from-i64 (ann 9223372036854775807 I64)))
                #f)))
 
     ;; ---- Euclidean reduction and floor division ----
@@ -798,7 +798,7 @@
                   (if (if (not (integer-zero? (division-remainder answer)))
                           (if (integer-negative? left) (not (integer-negative? right)) (integer-negative? right))
                           #f)
-                      (integer-subtract (division-quotient answer) (integer-from-i64 1))
+                      (integer-subtract (division-quotient answer) (integer-from-i64 (ann 1 I64)))
                       (division-quotient answer)))))
 
     (def integer-modulo (-> Integer Integer Integer)
@@ -830,16 +830,16 @@
          (lambda ()
            ;; (B-1)*B^2 - (B-1)*(B^2-1) = B-1. The first digit borrows;
            ;; the next product reaches B*(B-1), where another borrow is impossible.
-           (begin (let sfir-migration-let-13 (fresh-limbs 3)) (let sfir-migration-let-14 (fresh-limbs 2))
+           (begin (let sfir-migration-let-13 (fresh-limbs (ann 3 I64))) (let sfir-migration-let-14 (fresh-limbs (ann 2 I64)))
                   (let dividend sfir-migration-let-13)
                   (let divisor sfir-migration-let-14)
                   (begin
-                    (put-limb! dividend 2 (- radix 1))
-                    (put-limb! divisor 0 (- radix 1))
-                    (put-limb! divisor 1 (- radix 1))
-                    (if (if (not (subtract-product! dividend divisor 0 (- radix 1)))
-                            (if (= (limb dividend 0) (- radix 1))
-                                (if (= (limb dividend 1) 0) (= (limb dividend 2) 0) #f)
+                    (put-limb! dividend (ann 2 I64) (- radix (ann 1 I64)))
+                    (put-limb! divisor (ann 0 I64) (- radix (ann 1 I64)))
+                    (put-limb! divisor (ann 1 I64) (- radix (ann 1 I64)))
+                    (if (if (not (subtract-product! dividend divisor (ann 0 I64) (- radix (ann 1 I64))))
+                            (if (= (limb dividend (ann 0 I64)) (- radix (ann 1 I64)))
+                                (if (= (limb dividend (ann 1 I64)) (ann 0 I64)) (= (limb dividend (ann 2 I64)) (ann 0 I64)) #f)
                                 #f)
                             #f)
                         (unit)
@@ -853,13 +853,13 @@
              (begin
                (def numerator
                     (lambda (a)
-                      (if (= a 1024)
-                          42
+                      (if (= a (ann 1024 I64))
+                          (ann 42 I64)
                           (begin
                             (begin
                               (def denominator
                                    (lambda (b)
-                                     (if (= b 64)
+                                     (if (= b (ann 64 I64))
                                          (unit)
                                          (begin
                                            (begin (let left (integer-from-i64 a))
@@ -878,8 +878,8 @@
                                                                     (begin
                                                                       (unreachable)
                                                                       (unit))))))
-                                           (denominator (+ b 1))
+                                           (denominator (+ b (ann 1 I64)))
                                            (unit)))))
-                              (denominator 1))
-                            (numerator (+ a 1))))))
-               (numerator 0)))))))
+                              (denominator (ann 1 I64)))
+                            (numerator (+ a (ann 1 I64)))))))
+               (numerator (ann 0 I64))))))))

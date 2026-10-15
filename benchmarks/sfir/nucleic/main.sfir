@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.3 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.3 (cdr xs.1) (+ n.4 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.3 (cdr xs.1) (+ n.4 (ann 1 I64)))))) loop.3)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -32,7 +32,7 @@
     (nuc Nucleotide assignment-nuc))))
 
 (def base-code
-  (lambda (base) (match base ((adenine) 0) ((cytosine) 1) ((guanine) 2) ((uracil) 3))))
+  (lambda (base) (match base ((adenine) (ann 0 I64)) ((cytosine) (ann 1 I64)) ((guanine) (ann 2 I64)) ((uracil) (ann 3 I64)))))
 
 (def nucleic-list (lambda elements elements))
 
@@ -65,17 +65,17 @@
 
 (def make-pt (-> F64 F64 F64 (Vector F64)) (lambda (x.6 y.4 z.4) (vector x.6 y.4 z.4)))
 
-(def pt-x (lambda (pt.5) (vector-ref pt.5 0)))
+(def pt-x (lambda (pt.5) (vector-ref pt.5 (ann 0 I64))))
 
-(def pt-x-set! (lambda (pt.4 val.74) (vector-set! pt.4 0 val.74)))
+(def pt-x-set! (lambda (pt.4 val.74) (vector-set! pt.4 (ann 0 I64) val.74)))
 
-(def pt-y (lambda (pt.3) (vector-ref pt.3 1)))
+(def pt-y (lambda (pt.3) (vector-ref pt.3 (ann 1 I64))))
 
-(def pt-y-set! (lambda (pt.2 val.73) (vector-set! pt.2 1 val.73)))
+(def pt-y-set! (lambda (pt.2 val.73) (vector-set! pt.2 (ann 1 I64) val.73)))
 
-(def pt-z (lambda (pt.1) (vector-ref pt.1 2)))
+(def pt-z (lambda (pt.1) (vector-ref pt.1 (ann 2 I64))))
 
-(def pt-z-set! (lambda (pt val.72) (vector-set! pt 2 val.72)))
+(def pt-z-set! (lambda (pt val.72) (vector-set! pt (ann 2 I64) val.72)))
 
 (def pt-sub
   (lambda (p1.2 p2.2)
@@ -98,53 +98,53 @@
 (def make-tfo (-> F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 (Vector F64))
   (lambda (a b c d e f g h i.11 tx.1 ty.1 tz.1) (vector a b c d e f g h i.11 tx.1 ty.1 tz.1)))
 
-(def tfo-a (lambda (tfo.34) (vector-ref tfo.34 0)))
+(def tfo-a (lambda (tfo.34) (vector-ref tfo.34 (ann 0 I64))))
 
-(def tfo-a-set! (lambda (tfo.33 val.71) (vector-set! tfo.33 0 val.71)))
+(def tfo-a-set! (lambda (tfo.33 val.71) (vector-set! tfo.33 (ann 0 I64) val.71)))
 
-(def tfo-b (lambda (tfo.32) (vector-ref tfo.32 1)))
+(def tfo-b (lambda (tfo.32) (vector-ref tfo.32 (ann 1 I64))))
 
-(def tfo-b-set! (lambda (tfo.31 val.70) (vector-set! tfo.31 1 val.70)))
+(def tfo-b-set! (lambda (tfo.31 val.70) (vector-set! tfo.31 (ann 1 I64) val.70)))
 
-(def tfo-c (lambda (tfo.30) (vector-ref tfo.30 2)))
+(def tfo-c (lambda (tfo.30) (vector-ref tfo.30 (ann 2 I64))))
 
-(def tfo-c-set! (lambda (tfo.29 val.69) (vector-set! tfo.29 2 val.69)))
+(def tfo-c-set! (lambda (tfo.29 val.69) (vector-set! tfo.29 (ann 2 I64) val.69)))
 
-(def tfo-d (lambda (tfo.28) (vector-ref tfo.28 3)))
+(def tfo-d (lambda (tfo.28) (vector-ref tfo.28 (ann 3 I64))))
 
-(def tfo-d-set! (lambda (tfo.27 val.68) (vector-set! tfo.27 3 val.68)))
+(def tfo-d-set! (lambda (tfo.27 val.68) (vector-set! tfo.27 (ann 3 I64) val.68)))
 
-(def tfo-e (lambda (tfo.26) (vector-ref tfo.26 4)))
+(def tfo-e (lambda (tfo.26) (vector-ref tfo.26 (ann 4 I64))))
 
-(def tfo-e-set! (lambda (tfo.25 val.67) (vector-set! tfo.25 4 val.67)))
+(def tfo-e-set! (lambda (tfo.25 val.67) (vector-set! tfo.25 (ann 4 I64) val.67)))
 
-(def tfo-f (lambda (tfo.24) (vector-ref tfo.24 5)))
+(def tfo-f (lambda (tfo.24) (vector-ref tfo.24 (ann 5 I64))))
 
-(def tfo-f-set! (lambda (tfo.23 val.66) (vector-set! tfo.23 5 val.66)))
+(def tfo-f-set! (lambda (tfo.23 val.66) (vector-set! tfo.23 (ann 5 I64) val.66)))
 
-(def tfo-g (lambda (tfo.22) (vector-ref tfo.22 6)))
+(def tfo-g (lambda (tfo.22) (vector-ref tfo.22 (ann 6 I64))))
 
-(def tfo-g-set! (lambda (tfo.21 val.65) (vector-set! tfo.21 6 val.65)))
+(def tfo-g-set! (lambda (tfo.21 val.65) (vector-set! tfo.21 (ann 6 I64) val.65)))
 
-(def tfo-h (lambda (tfo.20) (vector-ref tfo.20 7)))
+(def tfo-h (lambda (tfo.20) (vector-ref tfo.20 (ann 7 I64))))
 
-(def tfo-h-set! (lambda (tfo.19 val.64) (vector-set! tfo.19 7 val.64)))
+(def tfo-h-set! (lambda (tfo.19 val.64) (vector-set! tfo.19 (ann 7 I64) val.64)))
 
-(def tfo-i (lambda (tfo.18) (vector-ref tfo.18 8)))
+(def tfo-i (lambda (tfo.18) (vector-ref tfo.18 (ann 8 I64))))
 
-(def tfo-i-set! (lambda (tfo.17 val.63) (vector-set! tfo.17 8 val.63)))
+(def tfo-i-set! (lambda (tfo.17 val.63) (vector-set! tfo.17 (ann 8 I64) val.63)))
 
-(def tfo-tx (lambda (tfo.16) (vector-ref tfo.16 9)))
+(def tfo-tx (lambda (tfo.16) (vector-ref tfo.16 (ann 9 I64))))
 
-(def tfo-tx-set! (lambda (tfo.15 val.62) (vector-set! tfo.15 9 val.62)))
+(def tfo-tx-set! (lambda (tfo.15 val.62) (vector-set! tfo.15 (ann 9 I64) val.62)))
 
-(def tfo-ty (lambda (tfo.14) (vector-ref tfo.14 10)))
+(def tfo-ty (lambda (tfo.14) (vector-ref tfo.14 (ann 10 I64))))
 
-(def tfo-ty-set! (lambda (tfo.13 val.61) (vector-set! tfo.13 10 val.61)))
+(def tfo-ty-set! (lambda (tfo.13 val.61) (vector-set! tfo.13 (ann 10 I64) val.61)))
 
-(def tfo-tz (lambda (tfo.12) (vector-ref tfo.12 11)))
+(def tfo-tz (lambda (tfo.12) (vector-ref tfo.12 (ann 11 I64))))
 
-(def tfo-tz-set! (lambda (tfo.11 val.60) (vector-set! tfo.11 11 val.60)))
+(def tfo-tz-set! (lambda (tfo.11 val.60) (vector-set! tfo.11 (ann 11 I64) val.60)))
 
 (def tfo-id (vector 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0))
 
@@ -187,125 +187,125 @@
     ((lambda (x1) ((lambda (y1) ((lambda (z1) ((lambda (x3) ((lambda (y3) ((lambda (z3) ((lambda (x31) ((lambda (y31) ((lambda (z31) ((lambda (rotpY) ((lambda (Phi) ((lambda (Theta) ((lambda (sinP) ((lambda (sinT) ((lambda (cosP) ((lambda (cosT) ((lambda (sinPsinT) ((lambda (sinPcosT) ((lambda (cosPsinT) ((lambda (cosPcosT) ((lambda (rotpZ) ((lambda (Rho) ((lambda (cosR) ((lambda (sinR) ((lambda (x.3) ((lambda (y.1) ((lambda (z.1) ((lambda () (make-tfo (- (* cosT cosR) (* cosPsinT sinR)) sinPsinT (+ (* cosT sinR) (* cosPsinT cosR)) (* sinP sinR) cosP (* -1.0 (* sinP cosR)) (- (* -1.0 (* sinT cosR)) (* cosPcosT sinR)) sinPcosT (+ (* -1.0 (* sinT sinR)) (* cosPcosT cosR)) (- (* x.3 cosR) (* z.1 sinR)) y.1 (+ (* x.3 sinR) (* z.1 cosR)))))) (- (+ (* -1.0 (* x1 cosPsinT)) (* y1 sinP)) (* z1 cosPcosT)))) (- (- (* -1.0 (* x1 sinPsinT)) (* y1 cosP)) (* z1 sinPcosT)))) (+ (* -1.0 (* x1 cosT)) (* z1 sinT)))) (sin Rho))) (cos Rho))) (pt-theta rotpZ))) (make-pt (- (* cosT x31) (* sinT z31)) (+ (+ (* sinPsinT x31) (* cosP y31)) (* sinPcosT z31)) (+ (+ (* cosPsinT x31) (* -1.0 (* sinP y31))) (* cosPcosT z31))))) (* cosP cosT))) (* cosP sinT))) (* sinP cosT))) (* sinP sinT))) (cos Theta))) (cos Phi))) (sin Theta))) (sin Phi))) (pt-theta rotpY))) (pt-phi rotpY))) (pt-sub p2 p1))) (- z3 z1))) (- y3 y1))) (- x3 x1))) (pt-z p3))) (pt-y p3))) (pt-x p3))) (pt-z p1))) (pt-y p1)))
       (pt-x p1))))
 
-(def nuc-dgf-base-tfo (lambda (nuc.129) (vector-ref (nucleotide-fields nuc.129) 0)))
+(def nuc-dgf-base-tfo (lambda (nuc.129) (vector-ref (nucleotide-fields nuc.129) (ann 0 I64))))
 
 (def nuc-dgf-base-tfo-set!
-  (lambda (nuc.128 val.59) (vector-set! (nucleotide-fields nuc.128) 0 val.59)))
+  (lambda (nuc.128 val.59) (vector-set! (nucleotide-fields nuc.128) (ann 0 I64) val.59)))
 
-(def nuc-P-O3*-275-tfo (lambda (nuc.127) (vector-ref (nucleotide-fields nuc.127) 1)))
+(def nuc-P-O3*-275-tfo (lambda (nuc.127) (vector-ref (nucleotide-fields nuc.127) (ann 1 I64))))
 
 (def nuc-P-O3*-275-tfo-set!
-  (lambda (nuc.126 val.58) (vector-set! (nucleotide-fields nuc.126) 1 val.58)))
+  (lambda (nuc.126 val.58) (vector-set! (nucleotide-fields nuc.126) (ann 1 I64) val.58)))
 
-(def nuc-P-O3*-180-tfo (lambda (nuc.125) (vector-ref (nucleotide-fields nuc.125) 2)))
+(def nuc-P-O3*-180-tfo (lambda (nuc.125) (vector-ref (nucleotide-fields nuc.125) (ann 2 I64))))
 
 (def nuc-P-O3*-180-tfo-set!
-  (lambda (nuc.124 val.57) (vector-set! (nucleotide-fields nuc.124) 2 val.57)))
+  (lambda (nuc.124 val.57) (vector-set! (nucleotide-fields nuc.124) (ann 2 I64) val.57)))
 
-(def nuc-P-O3*-60-tfo (lambda (nuc.123) (vector-ref (nucleotide-fields nuc.123) 3)))
+(def nuc-P-O3*-60-tfo (lambda (nuc.123) (vector-ref (nucleotide-fields nuc.123) (ann 3 I64))))
 
 (def nuc-P-O3*-60-tfo-set!
-  (lambda (nuc.122 val.56) (vector-set! (nucleotide-fields nuc.122) 3 val.56)))
+  (lambda (nuc.122 val.56) (vector-set! (nucleotide-fields nuc.122) (ann 3 I64) val.56)))
 
-(def nuc-P (lambda (nuc.121) (vector-ref (nucleotide-fields nuc.121) 4)))
+(def nuc-P (lambda (nuc.121) (vector-ref (nucleotide-fields nuc.121) (ann 4 I64))))
 
-(def nuc-P-set! (lambda (nuc.120 val.55) (vector-set! (nucleotide-fields nuc.120) 4 val.55)))
+(def nuc-P-set! (lambda (nuc.120 val.55) (vector-set! (nucleotide-fields nuc.120) (ann 4 I64) val.55)))
 
-(def nuc-O1P (lambda (nuc.119) (vector-ref (nucleotide-fields nuc.119) 5)))
+(def nuc-O1P (lambda (nuc.119) (vector-ref (nucleotide-fields nuc.119) (ann 5 I64))))
 
-(def nuc-O1P-set! (lambda (nuc.118 val.54) (vector-set! (nucleotide-fields nuc.118) 5 val.54)))
+(def nuc-O1P-set! (lambda (nuc.118 val.54) (vector-set! (nucleotide-fields nuc.118) (ann 5 I64) val.54)))
 
-(def nuc-O2P (lambda (nuc.117) (vector-ref (nucleotide-fields nuc.117) 6)))
+(def nuc-O2P (lambda (nuc.117) (vector-ref (nucleotide-fields nuc.117) (ann 6 I64))))
 
-(def nuc-O2P-set! (lambda (nuc.116 val.53) (vector-set! (nucleotide-fields nuc.116) 6 val.53)))
+(def nuc-O2P-set! (lambda (nuc.116 val.53) (vector-set! (nucleotide-fields nuc.116) (ann 6 I64) val.53)))
 
-(def nuc-O5* (lambda (nuc.115) (vector-ref (nucleotide-fields nuc.115) 7)))
+(def nuc-O5* (lambda (nuc.115) (vector-ref (nucleotide-fields nuc.115) (ann 7 I64))))
 
-(def nuc-O5*-set! (lambda (nuc.114 val.52) (vector-set! (nucleotide-fields nuc.114) 7 val.52)))
+(def nuc-O5*-set! (lambda (nuc.114 val.52) (vector-set! (nucleotide-fields nuc.114) (ann 7 I64) val.52)))
 
-(def nuc-C5* (lambda (nuc.113) (vector-ref (nucleotide-fields nuc.113) 8)))
+(def nuc-C5* (lambda (nuc.113) (vector-ref (nucleotide-fields nuc.113) (ann 8 I64))))
 
-(def nuc-C5*-set! (lambda (nuc.112 val.51) (vector-set! (nucleotide-fields nuc.112) 8 val.51)))
+(def nuc-C5*-set! (lambda (nuc.112 val.51) (vector-set! (nucleotide-fields nuc.112) (ann 8 I64) val.51)))
 
-(def nuc-H5* (lambda (nuc.111) (vector-ref (nucleotide-fields nuc.111) 9)))
+(def nuc-H5* (lambda (nuc.111) (vector-ref (nucleotide-fields nuc.111) (ann 9 I64))))
 
-(def nuc-H5*-set! (lambda (nuc.110 val.50) (vector-set! (nucleotide-fields nuc.110) 9 val.50)))
+(def nuc-H5*-set! (lambda (nuc.110 val.50) (vector-set! (nucleotide-fields nuc.110) (ann 9 I64) val.50)))
 
-(def nuc-H5** (lambda (nuc.109) (vector-ref (nucleotide-fields nuc.109) 10)))
+(def nuc-H5** (lambda (nuc.109) (vector-ref (nucleotide-fields nuc.109) (ann 10 I64))))
 
-(def nuc-H5**-set! (lambda (nuc.108 val.49) (vector-set! (nucleotide-fields nuc.108) 10 val.49)))
+(def nuc-H5**-set! (lambda (nuc.108 val.49) (vector-set! (nucleotide-fields nuc.108) (ann 10 I64) val.49)))
 
-(def nuc-C4* (lambda (nuc.107) (vector-ref (nucleotide-fields nuc.107) 11)))
+(def nuc-C4* (lambda (nuc.107) (vector-ref (nucleotide-fields nuc.107) (ann 11 I64))))
 
-(def nuc-C4*-set! (lambda (nuc.106 val.48) (vector-set! (nucleotide-fields nuc.106) 11 val.48)))
+(def nuc-C4*-set! (lambda (nuc.106 val.48) (vector-set! (nucleotide-fields nuc.106) (ann 11 I64) val.48)))
 
-(def nuc-H4* (lambda (nuc.105) (vector-ref (nucleotide-fields nuc.105) 12)))
+(def nuc-H4* (lambda (nuc.105) (vector-ref (nucleotide-fields nuc.105) (ann 12 I64))))
 
-(def nuc-H4*-set! (lambda (nuc.104 val.47) (vector-set! (nucleotide-fields nuc.104) 12 val.47)))
+(def nuc-H4*-set! (lambda (nuc.104 val.47) (vector-set! (nucleotide-fields nuc.104) (ann 12 I64) val.47)))
 
-(def nuc-O4* (lambda (nuc.103) (vector-ref (nucleotide-fields nuc.103) 13)))
+(def nuc-O4* (lambda (nuc.103) (vector-ref (nucleotide-fields nuc.103) (ann 13 I64))))
 
-(def nuc-O4*-set! (lambda (nuc.102 val.46) (vector-set! (nucleotide-fields nuc.102) 13 val.46)))
+(def nuc-O4*-set! (lambda (nuc.102 val.46) (vector-set! (nucleotide-fields nuc.102) (ann 13 I64) val.46)))
 
-(def nuc-C1* (lambda (nuc.101) (vector-ref (nucleotide-fields nuc.101) 14)))
+(def nuc-C1* (lambda (nuc.101) (vector-ref (nucleotide-fields nuc.101) (ann 14 I64))))
 
-(def nuc-C1*-set! (lambda (nuc.100 val.45) (vector-set! (nucleotide-fields nuc.100) 14 val.45)))
+(def nuc-C1*-set! (lambda (nuc.100 val.45) (vector-set! (nucleotide-fields nuc.100) (ann 14 I64) val.45)))
 
-(def nuc-H1* (lambda (nuc.99) (vector-ref (nucleotide-fields nuc.99) 15)))
+(def nuc-H1* (lambda (nuc.99) (vector-ref (nucleotide-fields nuc.99) (ann 15 I64))))
 
-(def nuc-H1*-set! (lambda (nuc.98 val.44) (vector-set! (nucleotide-fields nuc.98) 15 val.44)))
+(def nuc-H1*-set! (lambda (nuc.98 val.44) (vector-set! (nucleotide-fields nuc.98) (ann 15 I64) val.44)))
 
-(def nuc-C2* (lambda (nuc.97) (vector-ref (nucleotide-fields nuc.97) 16)))
+(def nuc-C2* (lambda (nuc.97) (vector-ref (nucleotide-fields nuc.97) (ann 16 I64))))
 
-(def nuc-C2*-set! (lambda (nuc.96 val.43) (vector-set! (nucleotide-fields nuc.96) 16 val.43)))
+(def nuc-C2*-set! (lambda (nuc.96 val.43) (vector-set! (nucleotide-fields nuc.96) (ann 16 I64) val.43)))
 
-(def nuc-H2** (lambda (nuc.95) (vector-ref (nucleotide-fields nuc.95) 17)))
+(def nuc-H2** (lambda (nuc.95) (vector-ref (nucleotide-fields nuc.95) (ann 17 I64))))
 
-(def nuc-H2**-set! (lambda (nuc.94 val.42) (vector-set! (nucleotide-fields nuc.94) 17 val.42)))
+(def nuc-H2**-set! (lambda (nuc.94 val.42) (vector-set! (nucleotide-fields nuc.94) (ann 17 I64) val.42)))
 
-(def nuc-O2* (lambda (nuc.93) (vector-ref (nucleotide-fields nuc.93) 18)))
+(def nuc-O2* (lambda (nuc.93) (vector-ref (nucleotide-fields nuc.93) (ann 18 I64))))
 
-(def nuc-O2*-set! (lambda (nuc.92 val.41) (vector-set! (nucleotide-fields nuc.92) 18 val.41)))
+(def nuc-O2*-set! (lambda (nuc.92 val.41) (vector-set! (nucleotide-fields nuc.92) (ann 18 I64) val.41)))
 
-(def nuc-H2* (lambda (nuc.91) (vector-ref (nucleotide-fields nuc.91) 19)))
+(def nuc-H2* (lambda (nuc.91) (vector-ref (nucleotide-fields nuc.91) (ann 19 I64))))
 
-(def nuc-H2*-set! (lambda (nuc.90 val.40) (vector-set! (nucleotide-fields nuc.90) 19 val.40)))
+(def nuc-H2*-set! (lambda (nuc.90 val.40) (vector-set! (nucleotide-fields nuc.90) (ann 19 I64) val.40)))
 
-(def nuc-C3* (lambda (nuc.89) (vector-ref (nucleotide-fields nuc.89) 20)))
+(def nuc-C3* (lambda (nuc.89) (vector-ref (nucleotide-fields nuc.89) (ann 20 I64))))
 
-(def nuc-C3*-set! (lambda (nuc.88 val.39) (vector-set! (nucleotide-fields nuc.88) 20 val.39)))
+(def nuc-C3*-set! (lambda (nuc.88 val.39) (vector-set! (nucleotide-fields nuc.88) (ann 20 I64) val.39)))
 
-(def nuc-H3* (lambda (nuc.87) (vector-ref (nucleotide-fields nuc.87) 21)))
+(def nuc-H3* (lambda (nuc.87) (vector-ref (nucleotide-fields nuc.87) (ann 21 I64))))
 
-(def nuc-H3*-set! (lambda (nuc.86 val.38) (vector-set! (nucleotide-fields nuc.86) 21 val.38)))
+(def nuc-H3*-set! (lambda (nuc.86 val.38) (vector-set! (nucleotide-fields nuc.86) (ann 21 I64) val.38)))
 
-(def nuc-O3* (lambda (nuc.85) (vector-ref (nucleotide-fields nuc.85) 22)))
+(def nuc-O3* (lambda (nuc.85) (vector-ref (nucleotide-fields nuc.85) (ann 22 I64))))
 
-(def nuc-O3*-set! (lambda (nuc.84 val.37) (vector-set! (nucleotide-fields nuc.84) 22 val.37)))
+(def nuc-O3*-set! (lambda (nuc.84 val.37) (vector-set! (nucleotide-fields nuc.84) (ann 22 I64) val.37)))
 
-(def nuc-N1 (lambda (nuc.83) (vector-ref (nucleotide-fields nuc.83) 23)))
+(def nuc-N1 (lambda (nuc.83) (vector-ref (nucleotide-fields nuc.83) (ann 23 I64))))
 
-(def nuc-N1-set! (lambda (nuc.82 val.36) (vector-set! (nucleotide-fields nuc.82) 23 val.36)))
+(def nuc-N1-set! (lambda (nuc.82 val.36) (vector-set! (nucleotide-fields nuc.82) (ann 23 I64) val.36)))
 
-(def nuc-N3 (lambda (nuc.81) (vector-ref (nucleotide-fields nuc.81) 24)))
+(def nuc-N3 (lambda (nuc.81) (vector-ref (nucleotide-fields nuc.81) (ann 24 I64))))
 
-(def nuc-N3-set! (lambda (nuc.80 val.35) (vector-set! (nucleotide-fields nuc.80) 24 val.35)))
+(def nuc-N3-set! (lambda (nuc.80 val.35) (vector-set! (nucleotide-fields nuc.80) (ann 24 I64) val.35)))
 
-(def nuc-C2 (lambda (nuc.79) (vector-ref (nucleotide-fields nuc.79) 25)))
+(def nuc-C2 (lambda (nuc.79) (vector-ref (nucleotide-fields nuc.79) (ann 25 I64))))
 
-(def nuc-C2-set! (lambda (nuc.78 val.34) (vector-set! (nucleotide-fields nuc.78) 25 val.34)))
+(def nuc-C2-set! (lambda (nuc.78 val.34) (vector-set! (nucleotide-fields nuc.78) (ann 25 I64) val.34)))
 
-(def nuc-C4 (lambda (nuc.77) (vector-ref (nucleotide-fields nuc.77) 26)))
+(def nuc-C4 (lambda (nuc.77) (vector-ref (nucleotide-fields nuc.77) (ann 26 I64))))
 
-(def nuc-C4-set! (lambda (nuc.76 val.33) (vector-set! (nucleotide-fields nuc.76) 26 val.33)))
+(def nuc-C4-set! (lambda (nuc.76 val.33) (vector-set! (nucleotide-fields nuc.76) (ann 26 I64) val.33)))
 
-(def nuc-C5 (lambda (nuc.75) (vector-ref (nucleotide-fields nuc.75) 27)))
+(def nuc-C5 (lambda (nuc.75) (vector-ref (nucleotide-fields nuc.75) (ann 27 I64))))
 
-(def nuc-C5-set! (lambda (nuc.74 val.32) (vector-set! (nucleotide-fields nuc.74) 27 val.32)))
+(def nuc-C5-set! (lambda (nuc.74 val.32) (vector-set! (nucleotide-fields nuc.74) (ann 27 I64) val.32)))
 
-(def nuc-C6 (lambda (nuc.73) (vector-ref (nucleotide-fields nuc.73) 28)))
+(def nuc-C6 (lambda (nuc.73) (vector-ref (nucleotide-fields nuc.73) (ann 28 I64))))
 
-(def nuc-C6-set! (lambda (nuc.72 val.31) (vector-set! (nucleotide-fields nuc.72) 28 val.31)))
+(def nuc-C6-set! (lambda (nuc.72 val.31) (vector-set! (nucleotide-fields nuc.72) (ann 28 I64) val.31)))
 
 (def make-rA
   (lambda (dgf-base-tfo.3 P-O3*-275-tfo.3 P-O3*-180-tfo.3 P-O3*-60-tfo.3 P.3 O1P.3 O2P.3 O5*.3 C5*.3 H5*.3 H5**.3 C4*.3 H4*.3 O4*.3 C1*.3 H1*.3 C2*.3 H2**.3 O2*.3 H2*.3 C3*.3 H3*.3 O3*.3 N1.3 N3.3 C2.3 C4.3 C5.3 C6.3 N6 N7.1 N9.1 C8.1 H2 H61 H62 H8.1)
@@ -350,39 +350,39 @@
         H62
         H8.1))))
 
-(def rA? (lambda (nuc.71) (= (base-code (nucleotide-base nuc.71)) 0)))
+(def rA? (lambda (nuc.71) (= (base-code (nucleotide-base nuc.71)) (ann 0 I64))))
 
-(def rA-N6 (lambda (nuc.70) (vector-ref (nucleotide-fields nuc.70) 29)))
+(def rA-N6 (lambda (nuc.70) (vector-ref (nucleotide-fields nuc.70) (ann 29 I64))))
 
-(def rA-N6-set! (lambda (nuc.69 val.30) (vector-set! (nucleotide-fields nuc.69) 29 val.30)))
+(def rA-N6-set! (lambda (nuc.69 val.30) (vector-set! (nucleotide-fields nuc.69) (ann 29 I64) val.30)))
 
-(def rA-N7 (lambda (nuc.68) (vector-ref (nucleotide-fields nuc.68) 30)))
+(def rA-N7 (lambda (nuc.68) (vector-ref (nucleotide-fields nuc.68) (ann 30 I64))))
 
-(def rA-N7-set! (lambda (nuc.67 val.29) (vector-set! (nucleotide-fields nuc.67) 30 val.29)))
+(def rA-N7-set! (lambda (nuc.67 val.29) (vector-set! (nucleotide-fields nuc.67) (ann 30 I64) val.29)))
 
-(def rA-N9 (lambda (nuc.66) (vector-ref (nucleotide-fields nuc.66) 31)))
+(def rA-N9 (lambda (nuc.66) (vector-ref (nucleotide-fields nuc.66) (ann 31 I64))))
 
-(def rA-N9-set! (lambda (nuc.65 val.28) (vector-set! (nucleotide-fields nuc.65) 31 val.28)))
+(def rA-N9-set! (lambda (nuc.65 val.28) (vector-set! (nucleotide-fields nuc.65) (ann 31 I64) val.28)))
 
-(def rA-C8 (lambda (nuc.64) (vector-ref (nucleotide-fields nuc.64) 32)))
+(def rA-C8 (lambda (nuc.64) (vector-ref (nucleotide-fields nuc.64) (ann 32 I64))))
 
-(def rA-C8-set! (lambda (nuc.63 val.27) (vector-set! (nucleotide-fields nuc.63) 32 val.27)))
+(def rA-C8-set! (lambda (nuc.63 val.27) (vector-set! (nucleotide-fields nuc.63) (ann 32 I64) val.27)))
 
-(def rA-H2 (lambda (nuc.62) (vector-ref (nucleotide-fields nuc.62) 33)))
+(def rA-H2 (lambda (nuc.62) (vector-ref (nucleotide-fields nuc.62) (ann 33 I64))))
 
-(def rA-H2-set! (lambda (nuc.61 val.26) (vector-set! (nucleotide-fields nuc.61) 33 val.26)))
+(def rA-H2-set! (lambda (nuc.61 val.26) (vector-set! (nucleotide-fields nuc.61) (ann 33 I64) val.26)))
 
-(def rA-H61 (lambda (nuc.60) (vector-ref (nucleotide-fields nuc.60) 34)))
+(def rA-H61 (lambda (nuc.60) (vector-ref (nucleotide-fields nuc.60) (ann 34 I64))))
 
-(def rA-H61-set! (lambda (nuc.59 val.25) (vector-set! (nucleotide-fields nuc.59) 34 val.25)))
+(def rA-H61-set! (lambda (nuc.59 val.25) (vector-set! (nucleotide-fields nuc.59) (ann 34 I64) val.25)))
 
-(def rA-H62 (lambda (nuc.58) (vector-ref (nucleotide-fields nuc.58) 35)))
+(def rA-H62 (lambda (nuc.58) (vector-ref (nucleotide-fields nuc.58) (ann 35 I64))))
 
-(def rA-H62-set! (lambda (nuc.57 val.24) (vector-set! (nucleotide-fields nuc.57) 35 val.24)))
+(def rA-H62-set! (lambda (nuc.57 val.24) (vector-set! (nucleotide-fields nuc.57) (ann 35 I64) val.24)))
 
-(def rA-H8 (lambda (nuc.56) (vector-ref (nucleotide-fields nuc.56) 36)))
+(def rA-H8 (lambda (nuc.56) (vector-ref (nucleotide-fields nuc.56) (ann 36 I64))))
 
-(def rA-H8-set! (lambda (nuc.55 val.23) (vector-set! (nucleotide-fields nuc.55) 36 val.23)))
+(def rA-H8-set! (lambda (nuc.55 val.23) (vector-set! (nucleotide-fields nuc.55) (ann 36 I64) val.23)))
 
 (def make-rC
   (lambda (dgf-base-tfo.2 P-O3*-275-tfo.2 P-O3*-180-tfo.2 P-O3*-60-tfo.2 P.2 O1P.2 O2P.2 O5*.2 C5*.2 H5*.2 H5**.2 C4*.2 H4*.2 O4*.2 C1*.2 H1*.2 C2*.2 H2**.2 O2*.2 H2*.2 C3*.2 H3*.2 O3*.2 N1.2 N3.2 C2.2 C4.2 C5.2 C6.2 N4 O2.1 H41 H42 H5.1 H6.1)
@@ -425,31 +425,31 @@
         H5.1
         H6.1))))
 
-(def rC? (lambda (nuc.54) (= (base-code (nucleotide-base nuc.54)) 1)))
+(def rC? (lambda (nuc.54) (= (base-code (nucleotide-base nuc.54)) (ann 1 I64))))
 
-(def rC-N4 (lambda (nuc.53) (vector-ref (nucleotide-fields nuc.53) 29)))
+(def rC-N4 (lambda (nuc.53) (vector-ref (nucleotide-fields nuc.53) (ann 29 I64))))
 
-(def rC-N4-set! (lambda (nuc.52 val.22) (vector-set! (nucleotide-fields nuc.52) 29 val.22)))
+(def rC-N4-set! (lambda (nuc.52 val.22) (vector-set! (nucleotide-fields nuc.52) (ann 29 I64) val.22)))
 
-(def rC-O2 (lambda (nuc.51) (vector-ref (nucleotide-fields nuc.51) 30)))
+(def rC-O2 (lambda (nuc.51) (vector-ref (nucleotide-fields nuc.51) (ann 30 I64))))
 
-(def rC-O2-set! (lambda (nuc.50 val.21) (vector-set! (nucleotide-fields nuc.50) 30 val.21)))
+(def rC-O2-set! (lambda (nuc.50 val.21) (vector-set! (nucleotide-fields nuc.50) (ann 30 I64) val.21)))
 
-(def rC-H41 (lambda (nuc.49) (vector-ref (nucleotide-fields nuc.49) 31)))
+(def rC-H41 (lambda (nuc.49) (vector-ref (nucleotide-fields nuc.49) (ann 31 I64))))
 
-(def rC-H41-set! (lambda (nuc.48 val.20) (vector-set! (nucleotide-fields nuc.48) 31 val.20)))
+(def rC-H41-set! (lambda (nuc.48 val.20) (vector-set! (nucleotide-fields nuc.48) (ann 31 I64) val.20)))
 
-(def rC-H42 (lambda (nuc.47) (vector-ref (nucleotide-fields nuc.47) 32)))
+(def rC-H42 (lambda (nuc.47) (vector-ref (nucleotide-fields nuc.47) (ann 32 I64))))
 
-(def rC-H42-set! (lambda (nuc.46 val.19) (vector-set! (nucleotide-fields nuc.46) 32 val.19)))
+(def rC-H42-set! (lambda (nuc.46 val.19) (vector-set! (nucleotide-fields nuc.46) (ann 32 I64) val.19)))
 
-(def rC-H5 (lambda (nuc.45) (vector-ref (nucleotide-fields nuc.45) 33)))
+(def rC-H5 (lambda (nuc.45) (vector-ref (nucleotide-fields nuc.45) (ann 33 I64))))
 
-(def rC-H5-set! (lambda (nuc.44 val.18) (vector-set! (nucleotide-fields nuc.44) 33 val.18)))
+(def rC-H5-set! (lambda (nuc.44 val.18) (vector-set! (nucleotide-fields nuc.44) (ann 33 I64) val.18)))
 
-(def rC-H6 (lambda (nuc.43) (vector-ref (nucleotide-fields nuc.43) 34)))
+(def rC-H6 (lambda (nuc.43) (vector-ref (nucleotide-fields nuc.43) (ann 34 I64))))
 
-(def rC-H6-set! (lambda (nuc.42 val.17) (vector-set! (nucleotide-fields nuc.42) 34 val.17)))
+(def rC-H6-set! (lambda (nuc.42 val.17) (vector-set! (nucleotide-fields nuc.42) (ann 34 I64) val.17)))
 
 (def make-rG
   (lambda (dgf-base-tfo.1 P-O3*-275-tfo.1 P-O3*-180-tfo.1 P-O3*-60-tfo.1 P.1 O1P.1 O2P.1 O5*.1 C5*.1 H5*.1 H5**.1 C4*.1 H4*.1 O4*.1 C1*.1 H1*.1 C2*.1 H2**.1 O2*.1 H2*.1 C3*.1 H3*.1 O3*.1 N1.1 N3.1 C2.1 C4.1 C5.1 C6.1 N2 N7 N9 C8 O6 H1 H21 H22 H8)
@@ -495,43 +495,43 @@
         H22
         H8))))
 
-(def rG? (lambda (nuc.41) (= (base-code (nucleotide-base nuc.41)) 2)))
+(def rG? (lambda (nuc.41) (= (base-code (nucleotide-base nuc.41)) (ann 2 I64))))
 
-(def rG-N2 (lambda (nuc.40) (vector-ref (nucleotide-fields nuc.40) 29)))
+(def rG-N2 (lambda (nuc.40) (vector-ref (nucleotide-fields nuc.40) (ann 29 I64))))
 
-(def rG-N2-set! (lambda (nuc.39 val.16) (vector-set! (nucleotide-fields nuc.39) 29 val.16)))
+(def rG-N2-set! (lambda (nuc.39 val.16) (vector-set! (nucleotide-fields nuc.39) (ann 29 I64) val.16)))
 
-(def rG-N7 (lambda (nuc.38) (vector-ref (nucleotide-fields nuc.38) 30)))
+(def rG-N7 (lambda (nuc.38) (vector-ref (nucleotide-fields nuc.38) (ann 30 I64))))
 
-(def rG-N7-set! (lambda (nuc.37 val.15) (vector-set! (nucleotide-fields nuc.37) 30 val.15)))
+(def rG-N7-set! (lambda (nuc.37 val.15) (vector-set! (nucleotide-fields nuc.37) (ann 30 I64) val.15)))
 
-(def rG-N9 (lambda (nuc.36) (vector-ref (nucleotide-fields nuc.36) 31)))
+(def rG-N9 (lambda (nuc.36) (vector-ref (nucleotide-fields nuc.36) (ann 31 I64))))
 
-(def rG-N9-set! (lambda (nuc.35 val.14) (vector-set! (nucleotide-fields nuc.35) 31 val.14)))
+(def rG-N9-set! (lambda (nuc.35 val.14) (vector-set! (nucleotide-fields nuc.35) (ann 31 I64) val.14)))
 
-(def rG-C8 (lambda (nuc.34) (vector-ref (nucleotide-fields nuc.34) 32)))
+(def rG-C8 (lambda (nuc.34) (vector-ref (nucleotide-fields nuc.34) (ann 32 I64))))
 
-(def rG-C8-set! (lambda (nuc.33 val.13) (vector-set! (nucleotide-fields nuc.33) 32 val.13)))
+(def rG-C8-set! (lambda (nuc.33 val.13) (vector-set! (nucleotide-fields nuc.33) (ann 32 I64) val.13)))
 
-(def rG-O6 (lambda (nuc.32) (vector-ref (nucleotide-fields nuc.32) 33)))
+(def rG-O6 (lambda (nuc.32) (vector-ref (nucleotide-fields nuc.32) (ann 33 I64))))
 
-(def rG-O6-set! (lambda (nuc.31 val.12) (vector-set! (nucleotide-fields nuc.31) 33 val.12)))
+(def rG-O6-set! (lambda (nuc.31 val.12) (vector-set! (nucleotide-fields nuc.31) (ann 33 I64) val.12)))
 
-(def rG-H1 (lambda (nuc.30) (vector-ref (nucleotide-fields nuc.30) 34)))
+(def rG-H1 (lambda (nuc.30) (vector-ref (nucleotide-fields nuc.30) (ann 34 I64))))
 
-(def rG-H1-set! (lambda (nuc.29 val.11) (vector-set! (nucleotide-fields nuc.29) 34 val.11)))
+(def rG-H1-set! (lambda (nuc.29 val.11) (vector-set! (nucleotide-fields nuc.29) (ann 34 I64) val.11)))
 
-(def rG-H21 (lambda (nuc.28) (vector-ref (nucleotide-fields nuc.28) 35)))
+(def rG-H21 (lambda (nuc.28) (vector-ref (nucleotide-fields nuc.28) (ann 35 I64))))
 
-(def rG-H21-set! (lambda (nuc.27 val.10) (vector-set! (nucleotide-fields nuc.27) 35 val.10)))
+(def rG-H21-set! (lambda (nuc.27 val.10) (vector-set! (nucleotide-fields nuc.27) (ann 35 I64) val.10)))
 
-(def rG-H22 (lambda (nuc.26) (vector-ref (nucleotide-fields nuc.26) 36)))
+(def rG-H22 (lambda (nuc.26) (vector-ref (nucleotide-fields nuc.26) (ann 36 I64))))
 
-(def rG-H22-set! (lambda (nuc.25 val.9) (vector-set! (nucleotide-fields nuc.25) 36 val.9)))
+(def rG-H22-set! (lambda (nuc.25 val.9) (vector-set! (nucleotide-fields nuc.25) (ann 36 I64) val.9)))
 
-(def rG-H8 (lambda (nuc.24) (vector-ref (nucleotide-fields nuc.24) 37)))
+(def rG-H8 (lambda (nuc.24) (vector-ref (nucleotide-fields nuc.24) (ann 37 I64))))
 
-(def rG-H8-set! (lambda (nuc.23 val.8) (vector-set! (nucleotide-fields nuc.23) 37 val.8)))
+(def rG-H8-set! (lambda (nuc.23 val.8) (vector-set! (nucleotide-fields nuc.23) (ann 37 I64) val.8)))
 
 (def make-rU
   (lambda (dgf-base-tfo P-O3*-275-tfo P-O3*-180-tfo P-O3*-60-tfo P O1P O2P O5* C5* H5* H5** C4* H4* O4* C1* H1* C2* H2** O2* H2* C3* H3* O3* N1 N3 C2 C4 C5 C6 O2 O4 H3 H5 H6)
@@ -573,27 +573,27 @@
         H5
         H6))))
 
-(def rU? (lambda (nuc.22) (= (base-code (nucleotide-base nuc.22)) 3)))
+(def rU? (lambda (nuc.22) (= (base-code (nucleotide-base nuc.22)) (ann 3 I64))))
 
-(def rU-O2 (lambda (nuc.21) (vector-ref (nucleotide-fields nuc.21) 29)))
+(def rU-O2 (lambda (nuc.21) (vector-ref (nucleotide-fields nuc.21) (ann 29 I64))))
 
-(def rU-O2-set! (lambda (nuc.20 val.7) (vector-set! (nucleotide-fields nuc.20) 29 val.7)))
+(def rU-O2-set! (lambda (nuc.20 val.7) (vector-set! (nucleotide-fields nuc.20) (ann 29 I64) val.7)))
 
-(def rU-O4 (lambda (nuc.19) (vector-ref (nucleotide-fields nuc.19) 30)))
+(def rU-O4 (lambda (nuc.19) (vector-ref (nucleotide-fields nuc.19) (ann 30 I64))))
 
-(def rU-O4-set! (lambda (nuc.18 val.6) (vector-set! (nucleotide-fields nuc.18) 30 val.6)))
+(def rU-O4-set! (lambda (nuc.18 val.6) (vector-set! (nucleotide-fields nuc.18) (ann 30 I64) val.6)))
 
-(def rU-H3 (lambda (nuc.17) (vector-ref (nucleotide-fields nuc.17) 31)))
+(def rU-H3 (lambda (nuc.17) (vector-ref (nucleotide-fields nuc.17) (ann 31 I64))))
 
-(def rU-H3-set! (lambda (nuc.16 val.5) (vector-set! (nucleotide-fields nuc.16) 31 val.5)))
+(def rU-H3-set! (lambda (nuc.16 val.5) (vector-set! (nucleotide-fields nuc.16) (ann 31 I64) val.5)))
 
-(def rU-H5 (lambda (nuc.15) (vector-ref (nucleotide-fields nuc.15) 32)))
+(def rU-H5 (lambda (nuc.15) (vector-ref (nucleotide-fields nuc.15) (ann 32 I64))))
 
-(def rU-H5-set! (lambda (nuc.14 val.4) (vector-set! (nucleotide-fields nuc.14) 32 val.4)))
+(def rU-H5-set! (lambda (nuc.14 val.4) (vector-set! (nucleotide-fields nuc.14) (ann 32 I64) val.4)))
 
-(def rU-H6 (lambda (nuc.13) (vector-ref (nucleotide-fields nuc.13) 33)))
+(def rU-H6 (lambda (nuc.13) (vector-ref (nucleotide-fields nuc.13) (ann 33 I64))))
 
-(def rU-H6-set! (lambda (nuc.12 val.3) (vector-set! (nucleotide-fields nuc.12) 33 val.3)))
+(def rU-H6-set! (lambda (nuc.12 val.3) (vector-set! (nucleotide-fields nuc.12) (ann 33 I64) val.3)))
 
 (def rA
   (make-rA
@@ -4444,29 +4444,29 @@
 
 (def anticodon-domains
   (nucleic-list
-    (reference rC 27)
-    (helix5* rC 28 27)
-    (helix5* rA 29 28)
-    (helix5* rG 30 29)
-    (helix5* rA 31 30)
-    (wc rU 39 31)
-    (helix5* rC 40 39)
-    (helix5* rU 41 40)
-    (helix5* rG 42 41)
-    (helix5* rG 43 42)
-    (stacked3* rA 38 39)
-    (stacked3* rG 37 38)
-    (stacked3* rA 36 37)
-    (stacked3* rA 35 36)
-    (stacked3* rG 34 35)
-    (P-O3* rCs 32 31)
-    (P-O3* rUs 33 32)))
+    (reference rC (ann 27 I64))
+    (helix5* rC (ann 28 I64) (ann 27 I64))
+    (helix5* rA (ann 29 I64) (ann 28 I64))
+    (helix5* rG (ann 30 I64) (ann 29 I64))
+    (helix5* rA (ann 31 I64) (ann 30 I64))
+    (wc rU (ann 39 I64) (ann 31 I64))
+    (helix5* rC (ann 40 I64) (ann 39 I64))
+    (helix5* rU (ann 41 I64) (ann 40 I64))
+    (helix5* rG (ann 42 I64) (ann 41 I64))
+    (helix5* rG (ann 43 I64) (ann 42 I64))
+    (stacked3* rA (ann 38 I64) (ann 39 I64))
+    (stacked3* rG (ann 37 I64) (ann 38 I64))
+    (stacked3* rA (ann 36 I64) (ann 37 I64))
+    (stacked3* rA (ann 35 I64) (ann 36 I64))
+    (stacked3* rG (ann 34 I64) (ann 35 I64))
+    (P-O3* rCs (ann 32 I64) (ann 31 I64))
+    (P-O3* rUs (ann 33 I64) (ann 32 I64))))
 
 (def anticodon-constraint?
   (lambda (v.2 partial-inst.1)
-    (if (= (var-id v.2) 33)
+    (if (= (var-id v.2) (ann 33 I64))
       ((lambda (p.2 o3*.2) (<= (pt-dist p.2 o3*.2) 3.0))
-        (atom-pos nuc-P (get-var 34 partial-inst.1))
+        (atom-pos nuc-P (get-var (ann 34 I64) partial-inst.1))
         (atom-pos nuc-O3* v.2))
       #t)))
 
@@ -4474,33 +4474,33 @@
 
 (def pseudoknot-domains
   (nucleic-list
-    (reference rA 23)
-    (wc-Dumas rU 8 23)
-    (helix3* rG 22 23)
-    (wc-Dumas rC 9 22)
-    (helix3* rG 21 22)
-    (wc-Dumas rC 10 21)
-    (helix3* rC 20 21)
-    (wc-Dumas rG 11 20)
-    (helix3* rU* 19 20)
-    (wc-Dumas rA 12 19)
-    (helix3* rC 3 19)
-    (wc-Dumas rG 13 3)
-    (helix3* rC 2 3)
-    (wc-Dumas rG 14 2)
-    (helix3* rC 1 2)
-    (wc-Dumas rG* 15 1)
-    (P-O3* rUs 16 15)
-    (P-O3* rCs 17 16)
-    (P-O3* rAs 18 17)
-    (helix3* rU 7 8)
-    (P-O3* rCs 4 3)
-    (stacked5* rU 5 4)
-    (stacked5* rC 6 5)))
+    (reference rA (ann 23 I64))
+    (wc-Dumas rU (ann 8 I64) (ann 23 I64))
+    (helix3* rG (ann 22 I64) (ann 23 I64))
+    (wc-Dumas rC (ann 9 I64) (ann 22 I64))
+    (helix3* rG (ann 21 I64) (ann 22 I64))
+    (wc-Dumas rC (ann 10 I64) (ann 21 I64))
+    (helix3* rC (ann 20 I64) (ann 21 I64))
+    (wc-Dumas rG (ann 11 I64) (ann 20 I64))
+    (helix3* rU* (ann 19 I64) (ann 20 I64))
+    (wc-Dumas rA (ann 12 I64) (ann 19 I64))
+    (helix3* rC (ann 3 I64) (ann 19 I64))
+    (wc-Dumas rG (ann 13 I64) (ann 3 I64))
+    (helix3* rC (ann 2 I64) (ann 3 I64))
+    (wc-Dumas rG (ann 14 I64) (ann 2 I64))
+    (helix3* rC (ann 1 I64) (ann 2 I64))
+    (wc-Dumas rG* (ann 15 I64) (ann 1 I64))
+    (P-O3* rUs (ann 16 I64) (ann 15 I64))
+    (P-O3* rCs (ann 17 I64) (ann 16 I64))
+    (P-O3* rAs (ann 18 I64) (ann 17 I64))
+    (helix3* rU (ann 7 I64) (ann 8 I64))
+    (P-O3* rCs (ann 4 I64) (ann 3 I64))
+    (stacked5* rU (ann 5 I64) (ann 4 I64))
+    (stacked5* rC (ann 6 I64) (ann 5 I64))))
 
 (def pseudoknot-constraint?
   (lambda (v.1 partial-inst)
-    ((lambda (id) (if (= id 18) ((lambda (p.1 o3*.1) (<= (pt-dist p.1 o3*.1) 4.0)) (atom-pos nuc-P (get-var 19 partial-inst)) (atom-pos nuc-O3* v.1)) (if (= id 6) ((lambda (p o3*) (<= (pt-dist p o3*) 4.5)) (atom-pos nuc-P (get-var 7 partial-inst)) (atom-pos nuc-O3* v.1)) #t)))
+    ((lambda (id) (if (= id (ann 18 I64)) ((lambda (p.1 o3*.1) (<= (pt-dist p.1 o3*.1) 4.0)) (atom-pos nuc-P (get-var (ann 19 I64) partial-inst)) (atom-pos nuc-O3* v.1)) (if (= id (ann 6 I64)) ((lambda (p o3*) (<= (pt-dist p o3*) 4.5)) (atom-pos nuc-P (get-var (ann 7 I64) partial-inst)) (atom-pos nuc-O3* v.1)) #t)))
       (var-id v.1))))
 
 (def pseudoknot (lambda (input.1) (search input.1 pseudoknot-domains pseudoknot-constraint?)))
@@ -4587,7 +4587,7 @@
   (lambda (input) (most-distant-atom (pseudoknot input))))
 
 (def input0
-  (ann (if (= (native-input-i64 (ann 0 I32)) 0) (empty-list ) (unreachable)) (List (Ref Assignment))))
+  (ann (if (= (native-input-i64 (ann 0 I32)) (ann 0 I64)) (empty-list ) (unreachable)) (List (Ref Assignment))))
 
 (def expected-result (native-input-f64 (ann 1 I32)))
 
@@ -4596,8 +4596,8 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (run (hide-input count input0))) (if (if (> count 0) ((lambda (x) (if (> x 0.999999) (< x 1.000001) #f)) (/ result expected-result)) #f) 1 0)))) loop)))
-      0
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (run (hide-input count input0))) (if (if (> count (ann 0 I64)) ((lambda (x) (if (> x 0.999999) (< x 1.000001) #f)) (/ result expected-result)) #f) (ann 1 I64) (ann 0 I64))))) loop)))
+      (ann 0 I64)
       0.0)))
 
 (unit)

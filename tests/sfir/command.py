@@ -36,8 +36,10 @@ def source(name, text):
 
 
 def statuses(target):
-    for name, text, status in [('answer with space', '42', 42), ('too-large', '256', 1),
-                               ('negative', '-1', 1), ('unit', '(ref-set! (ref 0) 1)', 0)]:
+    for name, text, status in [('default-integer', '42', 42),
+                               ('answer with space', '(ann 42 I64)', 42), ('too-large', '(ann 256 I64)', 1),
+                               ('negative', '(ann -1 I64)', 1),
+                               ('unit', '(ref-set! (ref (ann 0 I64)) (ann 1 I64))', 0)]:
         path = source(name, '(import (sfir primitive))\n' + text)
         invoke([ROOT / 'snail-sfir', 'run', '--target', target, path, '--help', '-I', '', 'a b'], status)
 
@@ -45,7 +47,7 @@ def statuses(target):
 def publication(target):
     output = OUTPUT / ('published.wasm' if target == 'wasm' else 'published')
     command = [ROOT / 'snail-sfir', 'compile', '--target', target, '-o', output]
-    valid = source('valid', '42')
+    valid = source('valid', '(ann 42 I64)')
     invoke([*command, valid])
     before = output.read_bytes()
     invoke([*command, source('float', '1.5')], 1, 'command result must be')
@@ -61,7 +63,7 @@ def cleanup(target):
     path = source('cleanup-' + target, f'''(import (sfir base) (sfir io))
 (def port (open-output-file {json.dumps(str(output))}))
 (write-string "buffered before trap" port)
-(vector-ref (vector 1) 2)''')
+(vector-ref (vector (ann 1 I64)) (ann 2 I64))''')
     invoke([ROOT / 'snail-sfir', 'run', '--target', target, path], 1)
     assert output.read_text() == 'buffered before trap'
 
@@ -84,9 +86,9 @@ def main():
         cleanup(target)
         standard_input(target)
         print('PASS public SFIR command:', target, flush=True)
-    path = source('protected', '42')
+    path = source('protected', '(ann 42 I64)')
     invoke([ROOT / 'snail-sfir', 'compile', '-o', path, path], 1, 'must not replace')
-    assert path.read_text() == '42\n'
+    assert path.read_text() == '(ann 42 I64)\n'
 
 
 if __name__ == '__main__':

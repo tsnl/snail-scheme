@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def state
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def checked (-> I64)
      (lambda ()
@@ -9,15 +9,15 @@
          (def read-later
               (lambda ()
                 (begin
-                  (ref-set! state 7)
-                  (vector-ref later 0))))
+                  (ref-set! state (ann 7 I64))
+                  (vector-ref later (ann 0 I64)))))
          (def early
               (read-later))
          (def later
-              (make-vector 1 42))
+              (make-vector (ann 1 I64) (ann 42 I64)))
          early)))
 
 (def observed (-> I64)
      (lambda () (ref-get state)))
 
-42
+(ann 42 I64)

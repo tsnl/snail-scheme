@@ -3,4 +3,4 @@
 (def ignore (All (A R S) (=> ((+ (-> A A R)) (+ (-> A A S))) (-> A Unit)))
      (lambda (value)
        (begin (+ value value) (unit))))
-42
+(ann 42 I64)

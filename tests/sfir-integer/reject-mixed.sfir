@@ -1,2 +1,2 @@
 (import (sfir base) (sfir integer))
-(+ (integer-from-i64 1) 1)
+(+ (integer-from-i64 (ann 1 I64)) (ann 1 I64))

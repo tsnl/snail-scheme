@@ -13,22 +13,22 @@
 (def capture (-> Continuation Continuation)
   (lambda (current) current))
 
-(def succ (-> I64 I64) (lambda (n) (+ n 1)))
-(def pred (-> I64 I64) (lambda (n) (- n 1)))
+(def succ (-> I64 I64) (lambda (n) (+ n (ann 1 I64))))
+(def pred (-> I64 I64) (lambda (n) (- n (ann 1 I64))))
 
 ;; Each successor/predecessor pair is part of the benchmark's algorithm.
 (def addc (-> I64 I64 Continuation I64)
   (lambda (x y next)
-    (if (= y 0)
+    (if (= y (ann 0 I64))
       (resume next x)
       (addc (succ x) (pred y) next))))
 
 (def fibc (-> I64 Continuation I64)
   (lambda (x next)
-    (if (= x 0)
-      (resume next 0)
-      (if (= (pred x) 0)
-        (resume next 1)
+    (if (= x (ann 0 I64))
+      (resume next (ann 0 I64))
+      (if (= (pred x) (ann 0 I64))
+        (resume next (ann 1 I64))
         (fibc (pred x) (capture (first-operand x next)))))))
 
 (def resume (-> Continuation I64 I64)
@@ -56,8 +56,8 @@
       (def repeat (-> I64 I64 I64)
         (lambda (iteration result)
           (if (< iteration count)
-            (repeat (+ iteration 1) (fibc (hide-i64 input) (hidden-identity)))
+            (repeat (+ iteration (ann 1 I64)) (fibc (hide-i64 input) (hidden-identity)))
             result)))
-      (repeat 0 0))))
+      (repeat (ann 0 I64) (ann 0 I64)))))
 
 (unit)

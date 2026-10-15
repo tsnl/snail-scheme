@@ -1,2 +1,2 @@
 (import (sfir base))
-(if 1 40 42)
+(if (ann 1 I64) 40 42)

@@ -9,7 +9,7 @@
 (ref-set! (node-children root) (cons link (empty-list )))
 (def other
      (node (ref (empty-list )) (vector link)))
-(if (ref-eq? (node-children (edge-target (vector-ref (node-cache other) 0)))
+(if (ref-eq? (node-children (edge-target (vector-ref (node-cache other) (ann 0 I64))))
              (node-children (edge-target (car (ref-get (node-children root))))))
-    23
-    0)
+    (ann 23 I64)
+    (ann 0 I64))

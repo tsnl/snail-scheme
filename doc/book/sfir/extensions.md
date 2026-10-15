@@ -58,6 +58,6 @@ the examples. `(sfir primitive)` exposes the compiler's concrete primitives.
 `quote` form in SFIR. List construction otherwise uses ordinary `cons` calls.
 
 The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
-remaining differences, including numeric literal defaults, overflow checks and
+remaining differences, including runtime overflow checks and
 first-class library compilation APIs. These gaps do not weaken the language
 contract.

@@ -9,13 +9,13 @@
   "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
   "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
   "reviewed_port_sha256": "eb11d439f1e62f11120eb67ad58033e02e5b625f5bc0ad2dde4e8cab4d60b5fc",
-  "sfir_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+  "sfir_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
   "controls": {
     "chez-adapted.scm": "da0b6fe87c1fca25ef8ff30e76be149743eae7acb5bc4e005ff784b187357c11",
     "chez-original.scm": "0f0af24d3980b2dfb69476f8be750abea84f7f0f568a8740d36ab59c2dcfd920"
   },
   "observer": {
-    "sfir_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+    "sfir_sha256": "d2bc10c293ef256cc9beae21def5abb7b5722e7b91628fd77960840f636e75b9",
     "reviewed_port_sha256": "35df83e632d7da849b55cc313e68426a9c252c569ecd77c30408f4a9902b82f8",
     "status": "SFIR execution pending; earlier strict observation inference timed out at 1800 seconds."
   },
@@ -35,6 +35,20 @@
       "before_sha256": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
       "migrated_unformatted_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
       "after_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c"
+    }
+  },
+  "literal_width_migration": {
+    "before_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "after_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
+    "annotations_added": 67,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources.",
+    "observer": {
+      "before_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+      "after_sha256": "d2bc10c293ef256cc9beae21def5abb7b5722e7b91628fd77960840f636e75b9",
+      "annotations_added": 197
     }
   }
 }

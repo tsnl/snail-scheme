@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n (ann 1 I64)))))) loop.1)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -67,11 +67,11 @@
         (= value.16 (ml-car codes)))
       #f)))
 
-(def lattice-base-elements (ml-cons 0 (ml-cons 1 (ml-empty))))
+(def lattice-base-elements (ml-cons (ann 0 I64) (ml-cons (ann 1 I64) (ml-empty))))
 
-(def lattice-less-equal (ml-cons 0 (ml-cons 1 (ml-empty))))
+(def lattice-less-equal (ml-cons (ann 0 I64) (ml-cons (ann 1 I64) (ml-empty))))
 
-(def lattice-more-equal (ml-cons 2 (ml-cons 1 (ml-empty))))
+(def lattice-more-equal (ml-cons (ann 2 I64) (ml-cons (ann 1 I64) (ml-empty))))
 
 (def hide (lambda (count.1 x.4) (hide-i64 x.4)))
 
@@ -85,14 +85,14 @@
               (lambda (lhs.3 rhs.3)
                 (if (ml-null? lhs.3)
                   fixed
-                  ((lambda (probe.1) (if ((lambda (value.15) (if value.15 value.15 (= probe.1 fixed))) (= probe.1 1)) (check (ml-cdr lhs.3) (ml-cdr rhs.3)) 3))
+                  ((lambda (probe.1) (if ((lambda (value.15) (if value.15 value.15 (= probe.1 fixed))) (= probe.1 (ann 1 I64))) (check (ml-cdr lhs.3) (ml-cdr rhs.3)) (ann 3 I64)))
                     (base (ml-car lhs.3) (ml-car rhs.3))))))
             (check lhs.2 rhs.2))))
       (def lex-first
         (lambda (lhs.1 rhs.1)
           (if (ml-null? lhs.1)
-            1
-            ((lambda (probe) ((lambda (value.11) (if ((lambda (value.14) (if value.14 value.14 (= value.11 2))) (= value.11 0)) (lex-fixed probe (ml-cdr lhs.1) (ml-cdr rhs.1)) ((lambda (value.12) (if (= value.12 1) (lex-first (ml-cdr lhs.1) (ml-cdr rhs.1)) ((lambda (value.13) (if (= value.13 3) 3 (unreachable))) value.12))) value.11))) probe))
+            (ann 1 I64)
+            ((lambda (probe) ((lambda (value.11) (if ((lambda (value.14) (if value.14 value.14 (= value.11 (ann 2 I64)))) (= value.11 (ann 0 I64))) (lex-fixed probe (ml-cdr lhs.1) (ml-cdr rhs.1)) ((lambda (value.12) (if (= value.12 (ann 1 I64)) (lex-first (ml-cdr lhs.1) (ml-cdr rhs.1)) ((lambda (value.13) (if (= value.13 (ann 3 I64)) (ann 3 I64) (unreachable))) value.12))) value.11))) probe))
               (base (ml-car lhs.1) (ml-car rhs.1))))))
       lex-first)))
 
@@ -134,7 +134,7 @@
 
 (def maps-1 (All (S T) (-> (Lattice S) (Lattice T) (MutableList (Binding S T)) S (MutableList T)))
   (lambda (source.3 target.3 pas.1 new)
-    ((lambda (scmp tcmp) ((lambda (less more) (zulu-select (lambda (t) (if (map-and (lambda (t2.1) (code-member? (tcmp t2.1 t) lattice-less-equal)) less) (map-and (lambda (t2) (code-member? (tcmp t2 t) lattice-more-equal)) more) #f)) (lattice->elements target.3))) (select-map (lambda (p) (= 0 (scmp (binding-source p) new))) binding-target pas.1) (select-map (lambda (p.1) (= 2 (scmp (binding-source p.1) new))) binding-target pas.1)))
+    ((lambda (scmp tcmp) ((lambda (less more) (zulu-select (lambda (t) (if (map-and (lambda (t2.1) (code-member? (tcmp t2.1 t) lattice-less-equal)) less) (map-and (lambda (t2) (code-member? (tcmp t2 t) lattice-more-equal)) more) #f)) (lattice->elements target.3))) (select-map (lambda (p) (= (ann 0 I64) (scmp (binding-source p) new))) binding-target pas.1) (select-map (lambda (p.1) (= (ann 2 I64) (scmp (binding-source p.1) new))) binding-target pas.1)))
       (lattice->cmp source.3)
       (lattice->cmp target.3))))
 
@@ -160,28 +160,28 @@
 
 (def count-maps (All (S T) (-> (Lattice S) (Lattice T) I64))
   (lambda (source target)
-    (maps-rest source target (ml-empty) (lattice->elements source) (lambda (x) 1) sum)))
+    (maps-rest source target (ml-empty) (lattice->elements source) (lambda (x) (ann 1 I64)) sum)))
 
 (def sum (-> (MutableList I64) I64)
-  (lambda (lst) (if (ml-null? lst) 0 (+ (ml-car lst) (sum (ml-cdr lst))))))
+  (lambda (lst) (if (ml-null? lst) (ann 0 I64) (+ (ml-car lst) (sum (ml-cdr lst))))))
 
 (def run (-> I64 I64)
   (lambda (k)
-    ((lambda (l2) ((lambda (l3) ((lambda (l4) ((lambda () (begin (count-maps l2 l2) (count-maps l3 l3) (count-maps l2 l3) (count-maps l3 l2) ((lambda (value.6) (if (= value.6 33) (count-maps l3 l3) ((lambda (value.7) (if (= value.7 44) (count-maps l4 l4) ((lambda (value.8) (if (= value.8 45) ((lambda (l5.2) (count-maps l4 l5.2)) (maps l4 l4)) ((lambda (value.9) (if (= value.9 54) ((lambda (l5.1) (count-maps l5.1 l4)) (maps l4 l4)) ((lambda (value.10) (if (= value.10 55) ((lambda (l5) (count-maps l5 l5)) (maps l4 l4)) (unreachable))) value.9))) value.8))) value.7))) value.6))) k))))) (maps l3 l3))) (maps l2 l2)))
+    ((lambda (l2) ((lambda (l3) ((lambda (l4) ((lambda () (begin (count-maps l2 l2) (count-maps l3 l3) (count-maps l2 l3) (count-maps l3 l2) ((lambda (value.6) (if (= value.6 (ann 33 I64)) (count-maps l3 l3) ((lambda (value.7) (if (= value.7 (ann 44 I64)) (count-maps l4 l4) ((lambda (value.8) (if (= value.8 (ann 45 I64)) ((lambda (l5.2) (count-maps l4 l5.2)) (maps l4 l4)) ((lambda (value.9) (if (= value.9 (ann 54 I64)) ((lambda (l5.1) (count-maps l5.1 l4)) (maps l4 l4)) ((lambda (value.10) (if (= value.10 (ann 55 I64)) ((lambda (l5) (count-maps l5 l5)) (maps l4 l4)) (unreachable))) value.9))) value.8))) value.7))) value.6))) k))))) (maps l3 l3))) (maps l2 l2)))
       (make-lattice
         lattice-base-elements
         (lambda (lhs rhs)
-          ((lambda (value) (if (= value 0) ((lambda (value.4) (if (= value.4 0) 1 ((lambda (value.5) (if (= value.5 1) 0 (unreachable))) value.4))) rhs) ((lambda (value.3) (if (= value.3 1) ((lambda (value.1) (if (= value.1 0) 2 ((lambda (value.2) (if (= value.2 1) 1 (unreachable))) value.1))) rhs) (unreachable))) value)))
+          ((lambda (value) (if (= value (ann 0 I64)) ((lambda (value.4) (if (= value.4 (ann 0 I64)) (ann 1 I64) ((lambda (value.5) (if (= value.5 (ann 1 I64)) (ann 0 I64) (unreachable))) value.4))) rhs) ((lambda (value.3) (if (= value.3 (ann 1 I64)) ((lambda (value.1) (if (= value.1 (ann 0 I64)) (ann 2 I64) ((lambda (value.2) (if (= value.2 (ann 1 I64)) (ann 1 I64) (unreachable))) value.1))) rhs) (unreachable))) value)))
             lhs))))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (if (<= count 0)
+    (if (<= count (ann 0 I64))
       (unreachable)
-      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (run (hide count input0))) result))) loop)))
-        1
+      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (run (hide count input0))) result))) loop)))
+        (ann 1 I64)
         (run (hide count input0))))))
 
 (unit)

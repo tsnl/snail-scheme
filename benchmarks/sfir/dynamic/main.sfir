@@ -48,21 +48,21 @@
 (def value-kind (-> Value I64)
   (lambda (value)
     (match value
-      ((value-null) 0)
-      ((value-boolean boolean) 1)
-      ((value-character character) 2)
-      ((value-string string) 3)
-      ((value-symbol symbol) 4)
-      ((value-number number) 5)
-      ((value-pair first rest) 6)
-      ((value-vector vector) 7)
-      ((value-bytevector bytes) 8)
-      ((value-input identity port) 9)
-      ((value-output port) 10)
-      ((value-procedure identity procedure) 11)
-      ((value-eof) 12)
-      ((value-unspecified) 13)
-      ((value-uninitialized) 14))))
+      ((value-null) (ann 0 I64))
+      ((value-boolean boolean) (ann 1 I64))
+      ((value-character character) (ann 2 I64))
+      ((value-string string) (ann 3 I64))
+      ((value-symbol symbol) (ann 4 I64))
+      ((value-number number) (ann 5 I64))
+      ((value-pair first rest) (ann 6 I64))
+      ((value-vector vector) (ann 7 I64))
+      ((value-bytevector bytes) (ann 8 I64))
+      ((value-input identity port) (ann 9 I64))
+      ((value-output port) (ann 10 I64))
+      ((value-procedure identity procedure) (ann 11 I64))
+      ((value-eof) (ann 12 I64))
+      ((value-unspecified) (ann 13 I64))
+      ((value-uninitialized) (ann 14 I64)))))
 
 ;; ---- Source binding cells detect reads before initialization ----
 
@@ -90,35 +90,35 @@
       ((value-unspecified) #t)
       ((value-uninitialized) #t))))
 
-(def value-null? (-> Value Bool) (lambda (value) (= (value-kind value) 0)))
+(def value-null? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 0 I64))))
 
-(def value-boolean? (-> Value Bool) (lambda (value) (= (value-kind value) 1)))
+(def value-boolean? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 1 I64))))
 
-(def value-character? (-> Value Bool) (lambda (value) (= (value-kind value) 2)))
+(def value-character? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 2 I64))))
 
-(def value-string? (-> Value Bool) (lambda (value) (= (value-kind value) 3)))
+(def value-string? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 3 I64))))
 
-(def value-symbol? (-> Value Bool) (lambda (value) (= (value-kind value) 4)))
+(def value-symbol? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 4 I64))))
 
-(def value-number? (-> Value Bool) (lambda (value) (= (value-kind value) 5)))
+(def value-number? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 5 I64))))
 
-(def value-pair? (-> Value Bool) (lambda (value) (= (value-kind value) 6)))
+(def value-pair? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 6 I64))))
 
-(def value-vector? (-> Value Bool) (lambda (value) (= (value-kind value) 7)))
+(def value-vector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 7 I64))))
 
-(def value-bytevector? (-> Value Bool) (lambda (value) (= (value-kind value) 8)))
+(def value-bytevector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 8 I64))))
 
-(def value-input? (-> Value Bool) (lambda (value) (= (value-kind value) 9)))
+(def value-input? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 9 I64))))
 
-(def value-output? (-> Value Bool) (lambda (value) (= (value-kind value) 10)))
+(def value-output? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 10 I64))))
 
-(def value-procedure? (-> Value Bool) (lambda (value) (= (value-kind value) 11)))
+(def value-procedure? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 11 I64))))
 
-(def value-eof? (-> Value Bool) (lambda (value) (= (value-kind value) 12)))
+(def value-eof? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 12 I64))))
 
-(def value-unspecified? (-> Value Bool) (lambda (value) (= (value-kind value) 13)))
+(def value-unspecified? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 13 I64))))
 
-(def value-uninitialized? (-> Value Bool) (lambda (value) (= (value-kind value) 14)))
+(def value-uninitialized? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 14 I64))))
 
 ;; ---- Mutable pairs keep identity in their field cells ----
 
@@ -151,7 +151,7 @@
       #f)))
 
 (def value-length (-> Value I64)
-  (lambda (values) (if (value-null? values) 0 (+ 1 (value-length (value-cdr values))))))
+  (lambda (values) (if (value-null? values) (ann 0 I64) (+ (ann 1 I64) (value-length (value-cdr values))))))
 
 (def value-append (-> Value Value Value)
   (lambda (left right)
@@ -166,7 +166,7 @@
       (value-reverse (value-cdr values) (value-cons (value-car values) result)))))
 
 (def value-tail (-> Value I64 Value)
-  (lambda (values index) (if (= index 0) values (value-tail (value-cdr values) (- index 1)))))
+  (lambda (values index) (if (= index (ann 0 I64)) values (value-tail (value-cdr values) (- index (ann 1 I64))))))
 
 (def value-member (-> Value Value (-> Value Value Bool) Value)
   (lambda (value values same?)
@@ -265,7 +265,7 @@
 
 (def integer-radix-string (-> Integer I64 String)
   (lambda (number radix)
-    (if (if (= radix 2) #t (if (= radix 8) #t (if (= radix 10) #t (= radix 16))))
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
       (if (integer-zero? number)
         "0"
         (string-append
@@ -549,13 +549,13 @@
       (begin (let lo (number->integer (numeric-floor x)))
         (begin (let fraction (number-subtract x (number-from-integer lo)))
           (number-from-integer
-            (if (number<? fraction (rational-number (make-rational (integer-from-i64 1) (integer-from-i64 2))))
+            (if (number<? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
               lo
-              (if (number>? fraction (rational-number (make-rational (integer-from-i64 1) (integer-from-i64 2))))
-                (integer-add lo (integer-from-i64 1))
-                (if (integer-zero? (integer-remainder lo (integer-from-i64 2)))
+              (if (number>? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
+                (integer-add lo (integer-from-i64 (ann 1 I64)))
+                (if (integer-zero? (integer-remainder lo (integer-from-i64 (ann 2 I64))))
                   lo
-                  (integer-add lo (integer-from-i64 1))))))))
+                  (integer-add lo (integer-from-i64 (ann 1 I64)))))))))
       (inexact-number (round (number->f64 x))))))
 
 (def numeric-fold (-> (-> Number Number Number) Number Value Number)
@@ -587,7 +587,7 @@
 (def numeric-lcm (-> Integer Integer Integer)
   (lambda (a b)
     (if (if (integer-zero? a) #t (integer-zero? b))
-      (integer-from-i64 0)
+      (integer-from-i64 (ann 0 I64))
       (integer-abs (integer-multiply (integer-quotient a (integer-gcd a b)) b)))))
 
 (def numeric-gcd-fold (-> Bool Integer Value Bool Number)
@@ -605,7 +605,7 @@
 
 ;; ---- Complex promotion precedes real scalar services ----
 
-(def numeric-i Number (complex-number (exact-scalar 0) (exact-scalar 1)))
+(def numeric-i Number (complex-number (exact-scalar (ann 0 I64)) (exact-scalar (ann 1 I64))))
 
 (def numeric-complex? (-> Number Bool)
   (lambda (x)
@@ -641,7 +641,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 1)
+        (exact-number (ann 1 I64))
         (inexact-number (exp (number->f64 x))))
       (begin (let sfir-migration-let-5 (exp (numeric-real x))) (let sfir-migration-let-6 (numeric-imag x))
         (let m sfir-migration-let-5)
@@ -651,8 +651,8 @@
 (def numeric-log (-> Number Number)
   (lambda (x)
     (if (if (not (numeric-complex? x)) (not (number-negative? x)) #f)
-      (if (if (number-exact? x) (number=? x (exact-number 1)) #f)
-        (exact-number 0)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
         (inexact-number (log (number->f64 x))))
       (numeric-rectangular
         (log (numeric-hypot (numeric-real x) (numeric-imag x)))
@@ -692,7 +692,7 @@
 (if (if (integer-zero? (root-remainder n)) (integer-zero? (root-remainder d)) #f)
             (begin (let root (scalar-from-rational (make-rational (root-value n) (root-value d))))
               (if (number-negative? x)
-                (number-rectangular (exact-scalar 0) root)
+                (number-rectangular (exact-scalar (ann 0 I64)) root)
                 (number-from-scalar root)))
             (numeric-inexact-root x))))
       (numeric-inexact-root x))))
@@ -705,7 +705,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (sin (number->f64 x))))
       (begin (let sfir-migration-let-9 (numeric-real x)) (let sfir-migration-let-10 (numeric-imag x))
         (let a sfir-migration-let-9)
@@ -716,7 +716,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 1)
+        (exact-number (ann 1 I64))
         (inexact-number (cos (number->f64 x))))
       (begin (let sfir-migration-let-11 (numeric-real x)) (let sfir-migration-let-12 (numeric-imag x))
         (let a sfir-migration-let-11)
@@ -727,28 +727,28 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (tan (number->f64 x))))
       (number-divide (numeric-sin x) (numeric-cos x)))))
 
 (def numeric-asin (-> Number Number)
   (lambda (x)
-    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number -1)) (number<=? x (exact-number 1)) #f) #f)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (asin (number->f64 x))))
       (number-multiply
         (number-negate numeric-i)
         (numeric-log
           (number-add
             (number-multiply numeric-i x)
-            (numeric-sqrt (number-subtract (exact-number 1) (number-multiply x x)))))))))
+            (numeric-sqrt (number-subtract (exact-number (ann 1 I64)) (number-multiply x x)))))))))
 
 (def numeric-acos (-> Number Number)
   (lambda (x)
-    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number -1)) (number<=? x (exact-number 1)) #f) #f)
-      (if (if (number-exact? x) (number=? x (exact-number 1)) #f)
-        (exact-number 0)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
         (inexact-number (acos (number->f64 x))))
       (number-subtract (inexact-number (acos 0.0)) (numeric-asin x)))))
 
@@ -756,19 +756,19 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (atan (number->f64 x))))
       (number-multiply
-        (number-divide numeric-i (exact-number 2))
+        (number-divide numeric-i (exact-number (ann 2 I64)))
         (number-subtract
-          (numeric-log (number-subtract (exact-number 1) (number-multiply numeric-i x)))
-          (numeric-log (number-add (exact-number 1) (number-multiply numeric-i x))))))))
+          (numeric-log (number-subtract (exact-number (ann 1 I64)) (number-multiply numeric-i x)))
+          (numeric-log (number-add (exact-number (ann 1 I64)) (number-multiply numeric-i x))))))))
 
 (def numeric-integer-power (-> Number Integer Number Number)
   (lambda (base exponent result)
     (if (integer-zero? exponent)
       result
-      (begin (let division (integer-divide exponent (integer-from-i64 2)))
+      (begin (let division (integer-divide exponent (integer-from-i64 (ann 2 I64))))
         (numeric-integer-power
           (number-multiply base base)
           (division-quotient division)
@@ -778,8 +778,8 @@
   (lambda (base exponent)
     (if (number-exact-integer? exponent)
       (begin (let n (number->integer exponent))
-        (begin (let result (numeric-integer-power base (integer-abs n) (exact-number 1)))
-          (if (integer-negative? n) (number-divide (exact-number 1) result) result)))
+        (begin (let result (numeric-integer-power base (integer-abs n) (exact-number (ann 1 I64))))
+          (if (integer-negative? n) (number-divide (exact-number (ann 1 I64)) result) result)))
       (if (if (not (numeric-complex? base)) (if (not (numeric-complex? exponent)) (not (number-negative? base)) #f) #f)
         (inexact-number (pow (number->f64 base) (number->f64 exponent)))
         (numeric-exp (number-multiply exponent (numeric-log base)))))))
@@ -832,8 +832,8 @@
 
 (def numeric-radix-string (-> Number I64 String)
   (lambda (x radix)
-    (if (if (= radix 2) #t (if (= radix 8) #t (if (= radix 10) #t (= radix 16))))
-      (if (= radix 10)
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
+      (if (= radix (ann 10 I64))
         (number->string x)
         (if (numeric-complex? x)
           (begin (let sfir-migration-let-13 (numeric-radix-real (number-real-part x) radix)) (let sfir-migration-let-14 (numeric-radix-real (number-imag-part x) radix))
@@ -841,7 +841,7 @@
 (let imag sfir-migration-let-14)
 (string-append
               real
-              (if (if (char=? (string-ref imag 0) #\+) #t (char=? (string-ref imag 0) #\-)) "" "+")
+              (if (if (char=? (string-ref imag (ann 0 I64)) #\+) #t (char=? (string-ref imag (ann 0 I64)) #\-)) "" "+")
               imag
               "i"))
           (numeric-radix-real x radix)))
@@ -907,17 +907,17 @@
 (def value-compare-strings (-> String String I64 I64)
   (lambda (left right index)
     (if (= index (string-length left))
-      (if (= index (string-length right)) 0 -1)
+      (if (= index (string-length right)) (ann 0 I64) (ann -1 I64))
       (if (= index (string-length right))
-        1
+        (ann 1 I64)
         (begin (let sfir-migration-let-15 (string-ref left index)) (let sfir-migration-let-16 (string-ref right index))
           (let a sfir-migration-let-15)
 (let b sfir-migration-let-16)
-(if (char=? a b) (value-compare-strings left right (+ index 1)) (if (char<? a b) -1 1)))))))
+(if (char=? a b) (value-compare-strings left right (+ index (ann 1 I64))) (if (char<? a b) (ann -1 I64) (ann 1 I64))))))))
 
 (def value-strings-length (-> Value I64 I64)
   (lambda (values count)
-    (if (> count 4294967294)
+    (if (> count (ann 4294967294 I64))
       (datum-fail "string exceeds representation bound")
       (if (value-null? values)
         count
@@ -931,12 +931,12 @@
       result
       (begin (let text (value-string-string (value-car values)))
         (begin
-          (string-copy! result offset text 0 (string-length text))
+          (string-copy! result offset text (ann 0 I64) (string-length text))
           (value-copy-strings (value-cdr values) result (+ offset (string-length text))))))))
 
 (def value-join-strings (-> Value Value)
   (lambda (values)
-    (value-string (value-copy-strings values (make-string (value-strings-length values 0)) 0))))
+    (value-string (value-copy-strings values (make-string (value-strings-length values (ann 0 I64))) (ann 0 I64)))))
 
 (def value-append-many (-> Value Value)
   (lambda (lists)
@@ -987,7 +987,7 @@
       (if (= index (bytevector-length left))
         #t
         (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
-          (equal-bytes? left right (+ index 1))
+          (equal-bytes? left right (+ index (ann 1 I64)))
           #f))
       #f)))
 
@@ -1013,7 +1013,7 @@
         (if (value-string? left)
           (string=? (value-string-string left) (value-string-string right))
           (if (value-bytevector? left)
-            (equal-bytes? (value-bytevector-bytes left) (value-bytevector-bytes right) 0)
+            (equal-bytes? (value-bytevector-bytes left) (value-bytevector-bytes right) (ann 0 I64))
             (if (if (value-pair? left) #t (value-vector? left))
               (if (equal-seen? left right seen)
                 #t
@@ -1022,7 +1022,7 @@
                     (if (equal-graph? (value-car left) (value-car right) seen)
                       (equal-graph? (value-cdr left) (value-cdr right) seen)
                       #f)
-                    (equal-vectors? (value-vector-vector left) (value-vector-vector right) 0 seen))))
+                    (equal-vectors? (value-vector-vector left) (value-vector-vector right) (ann 0 I64) seen))))
               #f)))))))
 
 (def equal-vectors? (-> (Vector Value) (Vector Value) I64 (List EqualPair) Bool)
@@ -1031,7 +1031,7 @@
       (if (= index (vector-length left))
         #t
         (if (equal-graph? (vector-ref left index) (vector-ref right index) seen)
-          (equal-vectors? left right (+ index 1) seen)
+          (equal-vectors? left right (+ index (ann 1 I64)) seen)
           #f))
       #f)))
 
@@ -1082,33 +1082,33 @@
 (def inward-graph (-> Datum (Ref (List InwardMemo)) Value)
   (lambda (source seen)
     (begin (let kind (datum-kind source))
-      (if (= kind 0)
+      (if (= kind (ann 0 I64))
         (value-null)
-        (if (= kind 1)
+        (if (= kind (ann 1 I64))
           (value-boolean (datum-boolean-value source))
-          (if (= kind 2)
+          (if (= kind (ann 2 I64))
             (value-character (datum-character-value source))
-            (if (= kind 3)
+            (if (= kind (ann 3 I64))
               (value-string (datum-string-value source))
-              (if (= kind 4)
+              (if (= kind (ann 4 I64))
                 (value-symbol (datum-symbol-value source))
-                (if (= kind 5)
+                (if (= kind (ann 5 I64))
                   (value-number (datum-number-value source))
-                  (if (= kind 8)
+                  (if (= kind (ann 8 I64))
                     (value-bytevector (datum-bytevector-values source))
                     (begin (let prior (inward-find source (ref-get seen)))
                       (if (value-uninitialized? prior) (inward-node source kind seen) prior))))))))))))
 
 (def inward-node (-> Datum I64 (Ref (List InwardMemo)) Value)
   (lambda (source kind seen)
-    (begin (let result (if (= kind 6) (value-cons (value-unspecified) (value-unspecified)) (value-vector (make-vector (vector-length (datum-vector-values source)) (value-unspecified)))))
+    (begin (let result (if (= kind (ann 6 I64)) (value-cons (value-unspecified) (value-unspecified)) (value-vector (make-vector (vector-length (datum-vector-values source)) (value-unspecified)))))
       (begin
         (ref-set! seen (cons (inward source result) (ref-get seen)))
-        (if (= kind 6)
+        (if (= kind (ann 6 I64))
           (begin
             (ref-set! (value-pair-first result) (inward-graph (datum-car source) seen))
             (ref-set! (value-pair-rest result) (inward-graph (datum-cdr source) seen)))
-          (inward-vector (datum-vector-values source) (value-vector-vector result) 0 seen))
+          (inward-vector (datum-vector-values source) (value-vector-vector result) (ann 0 I64) seen))
         result))))
 
 (def inward-vector (-> (Vector Datum) (Vector Value) I64 (Ref (List InwardMemo)) Unit)
@@ -1117,7 +1117,7 @@
       (unit)
       (begin
         (vector-set! result index (inward-graph (vector-ref source index) seen))
-        (inward-vector source result (+ index 1) seen)))))
+        (inward-vector source result (+ index (ann 1 I64)) seen)))))
 
 (def value->datum (-> Value Datum)
   (lambda (source) (outward-graph source (ref (ann (empty-list ) (List OutwardMemo))))))
@@ -1156,7 +1156,7 @@
           (begin
             (datum-set-car! result (outward-graph (value-car source) seen))
             (datum-set-cdr! result (outward-graph (value-cdr source) seen)))
-          (outward-vector (value-vector-vector source) (datum-vector-values result) 0 seen))
+          (outward-vector (value-vector-vector source) (datum-vector-values result) (ann 0 I64) seen))
         result))))
 
 (def outward-vector (-> (Vector Value) (Vector Datum) I64 (Ref (List OutwardMemo)) Unit)
@@ -1165,7 +1165,7 @@
       (unit)
       (begin
         (vector-set! result index (outward-graph (vector-ref source index) seen))
-        (outward-vector source result (+ index 1) seen)))))
+        (outward-vector source result (+ index (ann 1 I64)) seen)))))
 
 ;; ---- Source constants retain their complete numeric and datum domain ----
 
@@ -1430,217 +1430,217 @@
 
 (def literal.111 Value (value-symbol (string->symbol "begin")))
 
-(def literal.112 Value (value-cons (value-number (exact-number 28)) (value-null)))
+(def literal.112 Value (value-cons (value-number (exact-number (ann 28 I64))) (value-null)))
 
 (def literal.113 Value (value-symbol (string->symbol "define")))
 
-(def literal.114 Value (value-cons (value-number (exact-number 27)) (value-null)))
+(def literal.114 Value (value-cons (value-number (exact-number (ann 27 I64))) (value-null)))
 
 (def literal.115 Value (value-symbol (string->symbol "define")))
 
-(def literal.116 Value (value-cons (value-number (exact-number 26)) (value-null)))
+(def literal.116 Value (value-cons (value-number (exact-number (ann 26 I64))) (value-null)))
 
 (def literal.117 Value (value-symbol (string->symbol "ast-show")))
 
 (def literal.118 Value (value-string "This can't happen: empty encountered!"))
 
-(def literal.119 Value (value-cons (value-number (exact-number 25)) (value-null)))
+(def literal.119 Value (value-cons (value-number (exact-number (ann 25 I64))) (value-null)))
 
 (def literal.120 Value (value-symbol (string->symbol "ast-show")))
 
 (def literal.121 Value (value-string "Do expressions not handled! (~s)"))
 
-(def literal.122 Value (value-cons (value-number (exact-number 24)) (value-null)))
+(def literal.122 Value (value-cons (value-number (exact-number (ann 24 I64))) (value-null)))
 
 (def literal.123 Value (value-symbol (string->symbol "begin")))
 
-(def literal.124 Value (value-cons (value-number (exact-number 23)) (value-null)))
+(def literal.124 Value (value-cons (value-number (exact-number (ann 23 I64))) (value-null)))
 
 (def literal.125 Value (value-symbol (string->symbol "letrec")))
 
-(def literal.126 Value (value-cons (value-number (exact-number 22)) (value-null)))
+(def literal.126 Value (value-cons (value-number (exact-number (ann 22 I64))) (value-null)))
 
 (def literal.127 Value (value-symbol (string->symbol "let*")))
 
-(def literal.128 Value (value-cons (value-number (exact-number 21)) (value-null)))
+(def literal.128 Value (value-cons (value-number (exact-number (ann 21 I64))) (value-null)))
 
 (def literal.129 Value (value-symbol (string->symbol "let")))
 
-(def literal.130 Value (value-cons (value-number (exact-number 20)) (value-null)))
+(def literal.130 Value (value-cons (value-number (exact-number (ann 20 I64))) (value-null)))
 
 (def literal.131 Value (value-symbol (string->symbol "let")))
 
-(def literal.132 Value (value-cons (value-number (exact-number 19)) (value-null)))
+(def literal.132 Value (value-cons (value-number (exact-number (ann 19 I64))) (value-null)))
 
 (def literal.133 Value (value-symbol (string->symbol "or")))
 
-(def literal.134 Value (value-cons (value-number (exact-number 18)) (value-null)))
+(def literal.134 Value (value-cons (value-number (exact-number (ann 18 I64))) (value-null)))
 
 (def literal.135 Value (value-symbol (string->symbol "and")))
 
-(def literal.136 Value (value-cons (value-number (exact-number 17)) (value-null)))
+(def literal.136 Value (value-cons (value-number (exact-number (ann 17 I64))) (value-null)))
 
 (def literal.137 Value (value-symbol (string->symbol "case")))
 
 (def literal.138 Value (value-symbol (string->symbol "else")))
 
-(def literal.139 Value (value-cons (value-number (exact-number 16)) (value-null)))
+(def literal.139 Value (value-cons (value-number (exact-number (ann 16 I64))) (value-null)))
 
 (def literal.140 Value (value-symbol (string->symbol "cond")))
 
 (def literal.141 Value (value-symbol (string->symbol "else")))
 
-(def literal.142 Value (value-cons (value-number (exact-number 15)) (value-null)))
+(def literal.142 Value (value-cons (value-number (exact-number (ann 15 I64))) (value-null)))
 
 (def literal.143 Value (value-symbol (string->symbol "set!")))
 
-(def literal.144 Value (value-cons (value-number (exact-number 14)) (value-null)))
+(def literal.144 Value (value-cons (value-number (exact-number (ann 14 I64))) (value-null)))
 
 (def literal.145 Value (value-symbol (string->symbol "if")))
 
-(def literal.146 Value (value-cons (value-number (exact-number 13)) (value-null)))
+(def literal.146 Value (value-cons (value-number (exact-number (ann 13 I64))) (value-null)))
 
 (def literal.147 Value (value-symbol (string->symbol "lambda")))
 
-(def literal.148 Value (value-cons (value-number (exact-number 12)) (value-null)))
+(def literal.148 Value (value-cons (value-number (exact-number (ann 12 I64))) (value-null)))
 
-(def literal.149 Value (value-cons (value-number (exact-number 11)) (value-null)))
+(def literal.149 Value (value-cons (value-number (exact-number (ann 11 I64))) (value-null)))
 
-(def literal.150 Value (value-cons (value-number (exact-number 9)) (value-null)))
+(def literal.150 Value (value-cons (value-number (exact-number (ann 9 I64))) (value-null)))
 
 (def literal.151 Value (value-symbol (string->symbol "cons")))
 
-(def literal.152 Value (value-cons (value-number (exact-number 7)) (value-null)))
+(def literal.152 Value (value-cons (value-number (exact-number (ann 7 I64))) (value-null)))
 
-(def literal.153 Value (value-cons (value-number (exact-number 6)) (value-null)))
+(def literal.153 Value (value-cons (value-number (exact-number (ann 6 I64))) (value-null)))
 
 (def literal.154 Value (value-symbol (string->symbol "quote")))
 
-(def literal.155 Value (value-cons (value-number (exact-number 5)) (value-null)))
+(def literal.155 Value (value-cons (value-number (exact-number (ann 5 I64))) (value-null)))
 
 (def literal.156 Value
   (value-cons
-    (value-number (exact-number 30))
-    (value-cons (value-number (exact-number 32)) (value-null))))
+    (value-number (exact-number (ann 30 I64)))
+    (value-cons (value-number (exact-number (ann 32 I64))) (value-null))))
 
 (def literal.157 Value
   (value-cons
-    (value-number (exact-number 29))
-    (value-cons (value-number (exact-number 31)) (value-null))))
+    (value-number (exact-number (ann 29 I64)))
+    (value-cons (value-number (exact-number (ann 31 I64))) (value-null))))
 
 (def literal.158 Value
   (value-cons
-    (value-number (exact-number 0))
+    (value-number (exact-number (ann 0 I64)))
     (value-cons
-      (value-number (exact-number 1))
+      (value-number (exact-number (ann 1 I64)))
       (value-cons
-        (value-number (exact-number 2))
+        (value-number (exact-number (ann 2 I64)))
         (value-cons
-          (value-number (exact-number 3))
+          (value-number (exact-number (ann 3 I64)))
           (value-cons
-            (value-number (exact-number 4))
+            (value-number (exact-number (ann 4 I64)))
             (value-cons
-              (value-number (exact-number 8))
-              (value-cons (value-number (exact-number 10)) (value-null)))))))))
+              (value-number (exact-number (ann 8 I64)))
+              (value-cons (value-number (exact-number (ann 10 I64))) (value-null)))))))))
 
 (def literal.159 Value (value-symbol (string->symbol "datum-show")))
 
 (def literal.160 Value (value-string "This should not happen!"))
 
-(def literal.161 Value (value-cons (value-number (exact-number 7)) (value-null)))
+(def literal.161 Value (value-cons (value-number (exact-number (ann 7 I64))) (value-null)))
 
-(def literal.162 Value (value-cons (value-number (exact-number 6)) (value-null)))
+(def literal.162 Value (value-cons (value-number (exact-number (ann 6 I64))) (value-null)))
 
 (def literal.163 Value
   (value-cons
-    (value-number (exact-number 0))
+    (value-number (exact-number (ann 0 I64)))
     (value-cons
-      (value-number (exact-number 1))
+      (value-number (exact-number (ann 1 I64)))
       (value-cons
-        (value-number (exact-number 2))
+        (value-number (exact-number (ann 2 I64)))
         (value-cons
-          (value-number (exact-number 3))
+          (value-number (exact-number (ann 3 I64)))
           (value-cons
-            (value-number (exact-number 4))
-            (value-cons (value-number (exact-number 5)) (value-null))))))))
+            (value-number (exact-number (ann 4 I64)))
+            (value-cons (value-number (exact-number (ann 5 I64))) (value-null))))))))
 
 (def literal.164 Value (value-symbol (string->symbol "ast-gen")))
 
 (def literal.165 Value (value-string "Can't handle syntax operator: ~s"))
 
-(def literal.166 Value (value-cons (value-number (exact-number 28)) (value-null)))
+(def literal.166 Value (value-cons (value-number (exact-number (ann 28 I64))) (value-null)))
 
-(def literal.167 Value (value-cons (value-number (exact-number 27)) (value-null)))
+(def literal.167 Value (value-cons (value-number (exact-number (ann 27 I64))) (value-null)))
 
-(def literal.168 Value (value-cons (value-number (exact-number 26)) (value-null)))
+(def literal.168 Value (value-cons (value-number (exact-number (ann 26 I64))) (value-null)))
 
-(def literal.169 Value (value-cons (value-number (exact-number 25)) (value-null)))
+(def literal.169 Value (value-cons (value-number (exact-number (ann 25 I64))) (value-null)))
 
 (def literal.170 Value (value-symbol (string->symbol "ast-gen")))
 
 (def literal.171 Value (value-string "Do-expressions not handled! (Argument: ~s) arg"))
 
-(def literal.172 Value (value-cons (value-number (exact-number 24)) (value-null)))
+(def literal.172 Value (value-cons (value-number (exact-number (ann 24 I64))) (value-null)))
 
-(def literal.173 Value (value-cons (value-number (exact-number 23)) (value-null)))
+(def literal.173 Value (value-cons (value-number (exact-number (ann 23 I64))) (value-null)))
 
-(def literal.174 Value (value-cons (value-number (exact-number 20)) (value-null)))
+(def literal.174 Value (value-cons (value-number (exact-number (ann 20 I64))) (value-null)))
 
 (def literal.175 Value
   (value-cons
-    (value-number (exact-number 19))
+    (value-number (exact-number (ann 19 I64)))
     (value-cons
-      (value-number (exact-number 21))
-      (value-cons (value-number (exact-number 22)) (value-null)))))
+      (value-number (exact-number (ann 21 I64)))
+      (value-cons (value-number (exact-number (ann 22 I64))) (value-null)))))
 
 (def literal.176 Value
   (value-cons
-    (value-number (exact-number 17))
-    (value-cons (value-number (exact-number 18)) (value-null))))
+    (value-number (exact-number (ann 17 I64)))
+    (value-cons (value-number (exact-number (ann 18 I64))) (value-null))))
 
-(def literal.177 Value (value-cons (value-number (exact-number 16)) (value-null)))
+(def literal.177 Value (value-cons (value-number (exact-number (ann 16 I64))) (value-null)))
 
-(def literal.178 Value (value-cons (value-number (exact-number 15)) (value-null)))
+(def literal.178 Value (value-cons (value-number (exact-number (ann 15 I64))) (value-null)))
 
-(def literal.179 Value (value-cons (value-number (exact-number 14)) (value-null)))
+(def literal.179 Value (value-cons (value-number (exact-number (ann 14 I64))) (value-null)))
 
-(def literal.180 Value (value-cons (value-number (exact-number 13)) (value-null)))
+(def literal.180 Value (value-cons (value-number (exact-number (ann 13 I64))) (value-null)))
 
-(def literal.181 Value (value-cons (value-number (exact-number 12)) (value-null)))
+(def literal.181 Value (value-cons (value-number (exact-number (ann 12 I64))) (value-null)))
 
-(def literal.182 Value (value-cons (value-number (exact-number 11)) (value-null)))
+(def literal.182 Value (value-cons (value-number (exact-number (ann 11 I64))) (value-null)))
 
-(def literal.183 Value (value-cons (value-number (exact-number 10)) (value-null)))
+(def literal.183 Value (value-cons (value-number (exact-number (ann 10 I64))) (value-null)))
 
-(def literal.184 Value (value-cons (value-number (exact-number 9)) (value-null)))
+(def literal.184 Value (value-cons (value-number (exact-number (ann 9 I64))) (value-null)))
 
-(def literal.185 Value (value-cons (value-number (exact-number 8)) (value-null)))
+(def literal.185 Value (value-cons (value-number (exact-number (ann 8 I64))) (value-null)))
 
 (def literal.186 Value
   (value-cons
-    (value-number (exact-number 7))
+    (value-number (exact-number (ann 7 I64)))
     (value-cons
-      (value-number (exact-number 30))
-      (value-cons (value-number (exact-number 32)) (value-null)))))
+      (value-number (exact-number (ann 30 I64)))
+      (value-cons (value-number (exact-number (ann 32 I64))) (value-null)))))
 
-(def literal.187 Value (value-cons (value-number (exact-number 6)) (value-null)))
+(def literal.187 Value (value-cons (value-number (exact-number (ann 6 I64))) (value-null)))
 
-(def literal.188 Value (value-cons (value-number (exact-number 5)) (value-null)))
+(def literal.188 Value (value-cons (value-number (exact-number (ann 5 I64))) (value-null)))
 
-(def literal.189 Value (value-cons (value-number (exact-number 4)) (value-null)))
+(def literal.189 Value (value-cons (value-number (exact-number (ann 4 I64))) (value-null)))
 
-(def literal.190 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.190 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.191 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.191 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.192 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.192 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
 (def literal.193 Value
   (value-cons
-    (value-number (exact-number 0))
+    (value-number (exact-number (ann 0 I64)))
     (value-cons
-      (value-number (exact-number 29))
-      (value-cons (value-number (exact-number 31)) (value-null)))))
+      (value-number (exact-number (ann 29 I64)))
+      (value-cons (value-number (exact-number (ann 31 I64))) (value-null)))))
 
 (def literal.194 Value (value-symbol (string->symbol "convert-tvars")))
 
@@ -1652,118 +1652,118 @@
 
 (def literal.198 Value (value-symbol (string->symbol "begin")))
 
-(def literal.199 Value (value-cons (value-number (exact-number 28)) (value-null)))
+(def literal.199 Value (value-cons (value-number (exact-number (ann 28 I64))) (value-null)))
 
 (def literal.200 Value (value-symbol (string->symbol "define")))
 
-(def literal.201 Value (value-cons (value-number (exact-number 27)) (value-null)))
+(def literal.201 Value (value-cons (value-number (exact-number (ann 27 I64))) (value-null)))
 
 (def literal.202 Value (value-symbol (string->symbol "define")))
 
-(def literal.203 Value (value-cons (value-number (exact-number 26)) (value-null)))
+(def literal.203 Value (value-cons (value-number (exact-number (ann 26 I64))) (value-null)))
 
 (def literal.204 Value (value-symbol (string->symbol "tast-show")))
 
 (def literal.205 Value (value-string "This can't happen: empty encountered!"))
 
-(def literal.206 Value (value-cons (value-number (exact-number 25)) (value-null)))
+(def literal.206 Value (value-cons (value-number (exact-number (ann 25 I64))) (value-null)))
 
 (def literal.207 Value (value-symbol (string->symbol "tast-show")))
 
 (def literal.208 Value (value-string "Do expressions not handled! (~s)"))
 
-(def literal.209 Value (value-cons (value-number (exact-number 24)) (value-null)))
+(def literal.209 Value (value-cons (value-number (exact-number (ann 24 I64))) (value-null)))
 
 (def literal.210 Value (value-symbol (string->symbol "begin")))
 
-(def literal.211 Value (value-cons (value-number (exact-number 23)) (value-null)))
+(def literal.211 Value (value-cons (value-number (exact-number (ann 23 I64))) (value-null)))
 
 (def literal.212 Value (value-symbol (string->symbol "letrec")))
 
-(def literal.213 Value (value-cons (value-number (exact-number 22)) (value-null)))
+(def literal.213 Value (value-cons (value-number (exact-number (ann 22 I64))) (value-null)))
 
 (def literal.214 Value (value-symbol (string->symbol "let*")))
 
-(def literal.215 Value (value-cons (value-number (exact-number 21)) (value-null)))
+(def literal.215 Value (value-cons (value-number (exact-number (ann 21 I64))) (value-null)))
 
 (def literal.216 Value (value-symbol (string->symbol "let")))
 
-(def literal.217 Value (value-cons (value-number (exact-number 20)) (value-null)))
+(def literal.217 Value (value-cons (value-number (exact-number (ann 20 I64))) (value-null)))
 
 (def literal.218 Value (value-symbol (string->symbol "let")))
 
-(def literal.219 Value (value-cons (value-number (exact-number 19)) (value-null)))
+(def literal.219 Value (value-cons (value-number (exact-number (ann 19 I64))) (value-null)))
 
 (def literal.220 Value (value-symbol (string->symbol "or")))
 
-(def literal.221 Value (value-cons (value-number (exact-number 18)) (value-null)))
+(def literal.221 Value (value-cons (value-number (exact-number (ann 18 I64))) (value-null)))
 
 (def literal.222 Value (value-symbol (string->symbol "and")))
 
-(def literal.223 Value (value-cons (value-number (exact-number 17)) (value-null)))
+(def literal.223 Value (value-cons (value-number (exact-number (ann 17 I64))) (value-null)))
 
 (def literal.224 Value (value-symbol (string->symbol "case")))
 
 (def literal.225 Value (value-symbol (string->symbol "else")))
 
-(def literal.226 Value (value-cons (value-number (exact-number 16)) (value-null)))
+(def literal.226 Value (value-cons (value-number (exact-number (ann 16 I64))) (value-null)))
 
 (def literal.227 Value (value-symbol (string->symbol "cond")))
 
 (def literal.228 Value (value-symbol (string->symbol "else")))
 
-(def literal.229 Value (value-cons (value-number (exact-number 15)) (value-null)))
+(def literal.229 Value (value-cons (value-number (exact-number (ann 15 I64))) (value-null)))
 
 (def literal.230 Value (value-symbol (string->symbol "set!")))
 
-(def literal.231 Value (value-cons (value-number (exact-number 14)) (value-null)))
+(def literal.231 Value (value-cons (value-number (exact-number (ann 14 I64))) (value-null)))
 
 (def literal.232 Value (value-symbol (string->symbol "if")))
 
-(def literal.233 Value (value-cons (value-number (exact-number 13)) (value-null)))
+(def literal.233 Value (value-cons (value-number (exact-number (ann 13 I64))) (value-null)))
 
 (def literal.234 Value (value-symbol (string->symbol "lambda")))
 
-(def literal.235 Value (value-cons (value-number (exact-number 12)) (value-null)))
+(def literal.235 Value (value-cons (value-number (exact-number (ann 12 I64))) (value-null)))
 
-(def literal.236 Value (value-cons (value-number (exact-number 11)) (value-null)))
+(def literal.236 Value (value-cons (value-number (exact-number (ann 11 I64))) (value-null)))
 
-(def literal.237 Value (value-cons (value-number (exact-number 9)) (value-null)))
+(def literal.237 Value (value-cons (value-number (exact-number (ann 9 I64))) (value-null)))
 
 (def literal.238 Value (value-symbol (string->symbol "cons")))
 
-(def literal.239 Value (value-cons (value-number (exact-number 7)) (value-null)))
+(def literal.239 Value (value-cons (value-number (exact-number (ann 7 I64))) (value-null)))
 
-(def literal.240 Value (value-cons (value-number (exact-number 6)) (value-null)))
+(def literal.240 Value (value-cons (value-number (exact-number (ann 6 I64))) (value-null)))
 
 (def literal.241 Value (value-symbol (string->symbol "quote")))
 
-(def literal.242 Value (value-cons (value-number (exact-number 5)) (value-null)))
+(def literal.242 Value (value-cons (value-number (exact-number (ann 5 I64))) (value-null)))
 
 (def literal.243 Value
   (value-cons
-    (value-number (exact-number 30))
-    (value-cons (value-number (exact-number 32)) (value-null))))
+    (value-number (exact-number (ann 30 I64)))
+    (value-cons (value-number (exact-number (ann 32 I64))) (value-null))))
 
 (def literal.244 Value
   (value-cons
-    (value-number (exact-number 29))
-    (value-cons (value-number (exact-number 31)) (value-null))))
+    (value-number (exact-number (ann 29 I64)))
+    (value-cons (value-number (exact-number (ann 31 I64))) (value-null))))
 
 (def literal.245 Value
   (value-cons
-    (value-number (exact-number 0))
+    (value-number (exact-number (ann 0 I64)))
     (value-cons
-      (value-number (exact-number 1))
+      (value-number (exact-number (ann 1 I64)))
       (value-cons
-        (value-number (exact-number 2))
+        (value-number (exact-number (ann 2 I64)))
         (value-cons
-          (value-number (exact-number 3))
+          (value-number (exact-number (ann 3 I64)))
           (value-cons
-            (value-number (exact-number 4))
+            (value-number (exact-number (ann 4 I64)))
             (value-cons
-              (value-number (exact-number 8))
-              (value-cons (value-number (exact-number 10)) (value-null)))))))))
+              (value-number (exact-number (ann 8 I64)))
+              (value-cons (value-number (exact-number (ann 10 I64))) (value-null)))))))))
 
 (def literal.246 Value (value-symbol (string->symbol "no-tag")))
 
@@ -1783,120 +1783,120 @@
 
 (def literal.254 Value (value-symbol (string->symbol "begin")))
 
-(def literal.255 Value (value-cons (value-number (exact-number 28)) (value-null)))
+(def literal.255 Value (value-cons (value-number (exact-number (ann 28 I64))) (value-null)))
 
 (def literal.256 Value (value-symbol (string->symbol "define")))
 
 (def literal.257 Value (value-symbol (string->symbol "lambda")))
 
-(def literal.258 Value (value-cons (value-number (exact-number 27)) (value-null)))
+(def literal.258 Value (value-cons (value-number (exact-number (ann 27 I64))) (value-null)))
 
 (def literal.259 Value (value-symbol (string->symbol "define")))
 
-(def literal.260 Value (value-cons (value-number (exact-number 26)) (value-null)))
+(def literal.260 Value (value-cons (value-number (exact-number (ann 26 I64))) (value-null)))
 
 (def literal.261 Value (value-symbol (string->symbol "tag-ast-show")))
 
 (def literal.262 Value (value-string "This can't happen: empty encountered!"))
 
-(def literal.263 Value (value-cons (value-number (exact-number 25)) (value-null)))
+(def literal.263 Value (value-cons (value-number (exact-number (ann 25 I64))) (value-null)))
 
 (def literal.264 Value (value-symbol (string->symbol "tag-ast-show")))
 
 (def literal.265 Value (value-string "Do expressions not handled! (~s)"))
 
-(def literal.266 Value (value-cons (value-number (exact-number 24)) (value-null)))
+(def literal.266 Value (value-cons (value-number (exact-number (ann 24 I64))) (value-null)))
 
 (def literal.267 Value (value-symbol (string->symbol "begin")))
 
-(def literal.268 Value (value-cons (value-number (exact-number 23)) (value-null)))
+(def literal.268 Value (value-cons (value-number (exact-number (ann 23 I64))) (value-null)))
 
 (def literal.269 Value (value-symbol (string->symbol "letrec")))
 
-(def literal.270 Value (value-cons (value-number (exact-number 22)) (value-null)))
+(def literal.270 Value (value-cons (value-number (exact-number (ann 22 I64))) (value-null)))
 
 (def literal.271 Value (value-symbol (string->symbol "let*")))
 
-(def literal.272 Value (value-cons (value-number (exact-number 21)) (value-null)))
+(def literal.272 Value (value-cons (value-number (exact-number (ann 21 I64))) (value-null)))
 
 (def literal.273 Value (value-symbol (string->symbol "let")))
 
-(def literal.274 Value (value-cons (value-number (exact-number 20)) (value-null)))
+(def literal.274 Value (value-cons (value-number (exact-number (ann 20 I64))) (value-null)))
 
 (def literal.275 Value (value-symbol (string->symbol "let")))
 
-(def literal.276 Value (value-cons (value-number (exact-number 19)) (value-null)))
+(def literal.276 Value (value-cons (value-number (exact-number (ann 19 I64))) (value-null)))
 
 (def literal.277 Value (value-symbol (string->symbol "or")))
 
-(def literal.278 Value (value-cons (value-number (exact-number 18)) (value-null)))
+(def literal.278 Value (value-cons (value-number (exact-number (ann 18 I64))) (value-null)))
 
 (def literal.279 Value (value-symbol (string->symbol "and")))
 
-(def literal.280 Value (value-cons (value-number (exact-number 17)) (value-null)))
+(def literal.280 Value (value-cons (value-number (exact-number (ann 17 I64))) (value-null)))
 
 (def literal.281 Value (value-symbol (string->symbol "case")))
 
 (def literal.282 Value (value-symbol (string->symbol "else")))
 
-(def literal.283 Value (value-cons (value-number (exact-number 16)) (value-null)))
+(def literal.283 Value (value-cons (value-number (exact-number (ann 16 I64))) (value-null)))
 
 (def literal.284 Value (value-symbol (string->symbol "cond")))
 
 (def literal.285 Value (value-symbol (string->symbol "else")))
 
-(def literal.286 Value (value-cons (value-number (exact-number 15)) (value-null)))
+(def literal.286 Value (value-cons (value-number (exact-number (ann 15 I64))) (value-null)))
 
 (def literal.287 Value (value-symbol (string->symbol "set!")))
 
-(def literal.288 Value (value-cons (value-number (exact-number 14)) (value-null)))
+(def literal.288 Value (value-cons (value-number (exact-number (ann 14 I64))) (value-null)))
 
 (def literal.289 Value (value-symbol (string->symbol "if")))
 
-(def literal.290 Value (value-cons (value-number (exact-number 13)) (value-null)))
+(def literal.290 Value (value-cons (value-number (exact-number (ann 13 I64))) (value-null)))
 
 (def literal.291 Value (value-symbol (string->symbol "lambda")))
 
-(def literal.292 Value (value-cons (value-number (exact-number 12)) (value-null)))
+(def literal.292 Value (value-cons (value-number (exact-number (ann 12 I64))) (value-null)))
 
-(def literal.293 Value (value-cons (value-number (exact-number 11)) (value-null)))
+(def literal.293 Value (value-cons (value-number (exact-number (ann 11 I64))) (value-null)))
 
-(def literal.294 Value (value-cons (value-number (exact-number 9)) (value-null)))
+(def literal.294 Value (value-cons (value-number (exact-number (ann 9 I64))) (value-null)))
 
 (def literal.295 Value (value-symbol (string->symbol "cons")))
 
-(def literal.296 Value (value-cons (value-number (exact-number 7)) (value-null)))
+(def literal.296 Value (value-cons (value-number (exact-number (ann 7 I64))) (value-null)))
 
-(def literal.297 Value (value-cons (value-number (exact-number 6)) (value-null)))
+(def literal.297 Value (value-cons (value-number (exact-number (ann 6 I64))) (value-null)))
 
 (def literal.298 Value (value-symbol (string->symbol "quote")))
 
-(def literal.299 Value (value-cons (value-number (exact-number 5)) (value-null)))
+(def literal.299 Value (value-cons (value-number (exact-number (ann 5 I64))) (value-null)))
 
-(def literal.300 Value (value-cons (value-number (exact-number 32)) (value-null)))
+(def literal.300 Value (value-cons (value-number (exact-number (ann 32 I64))) (value-null)))
 
-(def literal.301 Value (value-cons (value-number (exact-number 30)) (value-null)))
+(def literal.301 Value (value-cons (value-number (exact-number (ann 30 I64))) (value-null)))
 
 (def literal.302 Value
   (value-cons
-    (value-number (exact-number 29))
-    (value-cons (value-number (exact-number 31)) (value-null))))
+    (value-number (exact-number (ann 29 I64)))
+    (value-cons (value-number (exact-number (ann 31 I64))) (value-null))))
 
 (def literal.303 Value
   (value-cons
-    (value-number (exact-number 8))
-    (value-cons (value-number (exact-number 10)) (value-null))))
+    (value-number (exact-number (ann 8 I64)))
+    (value-cons (value-number (exact-number (ann 10 I64))) (value-null))))
 
 (def literal.304 Value
   (value-cons
-    (value-number (exact-number 0))
+    (value-number (exact-number (ann 0 I64)))
     (value-cons
-      (value-number (exact-number 1))
+      (value-number (exact-number (ann 1 I64)))
       (value-cons
-        (value-number (exact-number 2))
+        (value-number (exact-number (ann 2 I64)))
         (value-cons
-          (value-number (exact-number 3))
-          (value-cons (value-number (exact-number 4)) (value-null)))))))
+          (value-number (exact-number (ann 3 I64)))
+          (value-cons (value-number (exact-number (ann 4 I64))) (value-null)))))))
 
 (def literal.305 Value (value-symbol (string->symbol "quote")))
 
@@ -2484,7 +2484,7 @@
 
 (def body/source/dynamic-parse-case (-> Value Value Value)
   (lambda (source/env.18 source/args.10)
-    (if (value-truth? (if (value-truth? (primitive/list?/1 source/args.10)) (primitive/>/2 (primitive/length/1 source/args.10) (value-number (exact-number 1))) (value-boolean #f)))
+    (if (value-truth? (if (value-truth? (primitive/list?/1 source/args.10)) (primitive/>/2 (primitive/length/1 source/args.10) (value-number (exact-number (ann 1 I64)))) (value-boolean #f)))
       (body/source/dynamic-parse-action-case-expression
         (body/source/dynamic-parse-expression source/env.18 (primitive/car/1 source/args.10))
         (primitive/map/2
@@ -2818,7 +2818,7 @@
 
 (def body/source/gen-element (-> Value Value)
   (lambda (source/info.1)
-    (primitive/cons/2 (value-null) (primitive/cons/2 (value-number (exact-number 0)) source/info.1))))
+    (primitive/cons/2 (value-null) (primitive/cons/2 (value-number (exact-number (ann 0 I64))) source/info.1))))
 
 (ref-set! source/gen-element (value-procedure (ref (unit)) (function-1 body/source/gen-element)))
 
@@ -2857,7 +2857,7 @@
 
 (def body/source/link! (-> Value Value Value)
   (lambda (source/elem-1 source/elem-2)
-    ((lambda (source/rank-1 source/rank-2) (if (value-truth? (primitive/=/2 source/rank-1 source/rank-2)) (begin (primitive/set-car!/2 (primitive/cdr/1 source/elem-2) (primitive/+/2 source/rank-2 (value-number (exact-number 1)))) (primitive/set-car!/2 source/elem-1 source/elem-2) source/elem-2) (if (value-truth? (primitive/>/2 source/rank-1 source/rank-2)) (begin (primitive/set-car!/2 source/elem-2 source/elem-1) source/elem-1) (begin (primitive/set-car!/2 source/elem-1 source/elem-2) source/elem-2))))
+    ((lambda (source/rank-1 source/rank-2) (if (value-truth? (primitive/=/2 source/rank-1 source/rank-2)) (begin (primitive/set-car!/2 (primitive/cdr/1 source/elem-2) (primitive/+/2 source/rank-2 (value-number (exact-number (ann 1 I64))))) (primitive/set-car!/2 source/elem-1 source/elem-2) source/elem-2) (if (value-truth? (primitive/>/2 source/rank-1 source/rank-2)) (begin (primitive/set-car!/2 source/elem-2 source/elem-1) source/elem-1) (begin (primitive/set-car!/2 source/elem-1 source/elem-2) source/elem-2))))
       (primitive/cadr/1 source/elem-1)
       (primitive/cadr/1 source/elem-2))))
 
@@ -2874,7 +2874,7 @@
 
 (def source/counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/counter (value-number (exact-number 0)))
+(ref-set! source/counter (value-number (exact-number (ann 0 I64))))
 
 (def source/gen-id (Ref Value) (ref (value-uninitialized)))
 
@@ -2886,7 +2886,7 @@
       (begin
         (ref-set!
           source/counter
-          (primitive/+/2 (binding-value source/counter) (value-number (exact-number 1))))
+          (primitive/+/2 (binding-value source/counter) (value-number (exact-number (ann 1 I64)))))
         (value-unspecified))
       (binding-value source/counter))))
 
@@ -2916,7 +2916,7 @@
 
 (ref-set!
   source/dynamic
-  (body/source/gen-element (primitive/cons/2 (value-number (exact-number 0)) (value-null))))
+  (body/source/gen-element (primitive/cons/2 (value-number (exact-number (ann 0 I64))) (value-null))))
 
 (def source/tvar-id (Ref Value) (ref (value-uninitialized)))
 
@@ -2981,13 +2981,13 @@
 
 (def body/source/tvar->string (-> Value Value)
   (lambda (source/tvar.4)
-    (if (value-truth? (primitive/eqv?/2 (body/source/tvar-id source/tvar.4) (value-number (exact-number 0))))
+    (if (value-truth? (primitive/eqv?/2 (body/source/tvar-id source/tvar.4) (value-number (exact-number (ann 0 I64)))))
       literal.93
       (primitive/string-append/2
         literal.92
         (primitive/number->string/2
           (body/source/tvar-id source/tvar.4)
-          (value-number (exact-number 10)))))))
+          (value-number (exact-number (ann 10 I64))))))))
 
 (ref-set! source/tvar->string (value-procedure (ref (unit)) (function-1 body/source/tvar->string)))
 
@@ -3414,135 +3414,135 @@
 
 (def source/null-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/null-const (value-number (exact-number 0)))
+(ref-set! source/null-const (value-number (exact-number (ann 0 I64))))
 
 (def source/boolean-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/boolean-const (value-number (exact-number 1)))
+(ref-set! source/boolean-const (value-number (exact-number (ann 1 I64))))
 
 (def source/char-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/char-const (value-number (exact-number 2)))
+(ref-set! source/char-const (value-number (exact-number (ann 2 I64))))
 
 (def source/number-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/number-const (value-number (exact-number 3)))
+(ref-set! source/number-const (value-number (exact-number (ann 3 I64))))
 
 (def source/string-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/string-const (value-number (exact-number 4)))
+(ref-set! source/string-const (value-number (exact-number (ann 4 I64))))
 
 (def source/symbol-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/symbol-const (value-number (exact-number 5)))
+(ref-set! source/symbol-const (value-number (exact-number (ann 5 I64))))
 
 (def source/vector-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/vector-const (value-number (exact-number 6)))
+(ref-set! source/vector-const (value-number (exact-number (ann 6 I64))))
 
 (def source/pair-const (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/pair-const (value-number (exact-number 7)))
+(ref-set! source/pair-const (value-number (exact-number (ann 7 I64))))
 
 (def source/var-def (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/var-def (value-number (exact-number 8)))
+(ref-set! source/var-def (value-number (exact-number (ann 8 I64))))
 
 (def source/null-def (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/null-def (value-number (exact-number 29)))
+(ref-set! source/null-def (value-number (exact-number (ann 29 I64))))
 
 (def source/pair-def (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/pair-def (value-number (exact-number 30)))
+(ref-set! source/pair-def (value-number (exact-number (ann 30 I64))))
 
 (def source/variable (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/variable (value-number (exact-number 9)))
+(ref-set! source/variable (value-number (exact-number (ann 9 I64))))
 
 (def source/identifier (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/identifier (value-number (exact-number 10)))
+(ref-set! source/identifier (value-number (exact-number (ann 10 I64))))
 
 (def source/procedure-call (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/procedure-call (value-number (exact-number 11)))
+(ref-set! source/procedure-call (value-number (exact-number (ann 11 I64))))
 
 (def source/lambda-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/lambda-expression (value-number (exact-number 12)))
+(ref-set! source/lambda-expression (value-number (exact-number (ann 12 I64))))
 
 (def source/conditional (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/conditional (value-number (exact-number 13)))
+(ref-set! source/conditional (value-number (exact-number (ann 13 I64))))
 
 (def source/assignment (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/assignment (value-number (exact-number 14)))
+(ref-set! source/assignment (value-number (exact-number (ann 14 I64))))
 
 (def source/cond-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/cond-expression (value-number (exact-number 15)))
+(ref-set! source/cond-expression (value-number (exact-number (ann 15 I64))))
 
 (def source/case-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/case-expression (value-number (exact-number 16)))
+(ref-set! source/case-expression (value-number (exact-number (ann 16 I64))))
 
 (def source/and-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/and-expression (value-number (exact-number 17)))
+(ref-set! source/and-expression (value-number (exact-number (ann 17 I64))))
 
 (def source/or-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/or-expression (value-number (exact-number 18)))
+(ref-set! source/or-expression (value-number (exact-number (ann 18 I64))))
 
 (def source/let-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/let-expression (value-number (exact-number 19)))
+(ref-set! source/let-expression (value-number (exact-number (ann 19 I64))))
 
 (def source/named-let-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/named-let-expression (value-number (exact-number 20)))
+(ref-set! source/named-let-expression (value-number (exact-number (ann 20 I64))))
 
 (def source/let*-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/let*-expression (value-number (exact-number 21)))
+(ref-set! source/let*-expression (value-number (exact-number (ann 21 I64))))
 
 (def source/letrec-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/letrec-expression (value-number (exact-number 22)))
+(ref-set! source/letrec-expression (value-number (exact-number (ann 22 I64))))
 
 (def source/begin-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/begin-expression (value-number (exact-number 23)))
+(ref-set! source/begin-expression (value-number (exact-number (ann 23 I64))))
 
 (def source/do-expression (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/do-expression (value-number (exact-number 24)))
+(ref-set! source/do-expression (value-number (exact-number (ann 24 I64))))
 
 (def source/empty (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/empty (value-number (exact-number 25)))
+(ref-set! source/empty (value-number (exact-number (ann 25 I64))))
 
 (def source/null-arg (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/null-arg (value-number (exact-number 31)))
+(ref-set! source/null-arg (value-number (exact-number (ann 31 I64))))
 
 (def source/pair-arg (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/pair-arg (value-number (exact-number 32)))
+(ref-set! source/pair-arg (value-number (exact-number (ann 32 I64))))
 
 (def source/definition (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/definition (value-number (exact-number 26)))
+(ref-set! source/definition (value-number (exact-number (ann 26 I64))))
 
 (def source/function-definition (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/function-definition (value-number (exact-number 27)))
+(ref-set! source/function-definition (value-number (exact-number (ann 27 I64))))
 
 (def source/begin-command (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/begin-command (value-number (exact-number 28)))
+(ref-set! source/begin-command (value-number (exact-number (ann 28 I64))))
 
 (def source/dynamic-parse-action-null-const (Ref Value) (ref (value-uninitialized)))
 
@@ -4081,27 +4081,27 @@
 
 (def source/untag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/untag-counter (value-number (exact-number 0)))
+(ref-set! source/untag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/no-untag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/no-untag-counter (value-number (exact-number 0)))
+(ref-set! source/no-untag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/tag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/tag-counter (value-number (exact-number 0)))
+(ref-set! source/tag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/no-tag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/no-tag-counter (value-number (exact-number 0)))
+(ref-set! source/no-tag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/may-untag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/may-untag-counter (value-number (exact-number 0)))
+(ref-set! source/may-untag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/no-may-untag-counter (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/no-may-untag-counter (value-number (exact-number 0)))
+(ref-set! source/no-may-untag-counter (value-number (exact-number (ann 0 I64))))
 
 (def source/reset-counters! (Ref Value) (ref (value-uninitialized)))
 
@@ -4110,15 +4110,15 @@
 (def body/source/reset-counters! (-> Value)
   (lambda ()
     (begin
-      (begin (ref-set! source/untag-counter (value-number (exact-number 0))) (value-unspecified))
-      (begin (ref-set! source/no-untag-counter (value-number (exact-number 0))) (value-unspecified))
-      (begin (ref-set! source/tag-counter (value-number (exact-number 0))) (value-unspecified))
-      (begin (ref-set! source/no-tag-counter (value-number (exact-number 0))) (value-unspecified))
+      (begin (ref-set! source/untag-counter (value-number (exact-number (ann 0 I64)))) (value-unspecified))
+      (begin (ref-set! source/no-untag-counter (value-number (exact-number (ann 0 I64)))) (value-unspecified))
+      (begin (ref-set! source/tag-counter (value-number (exact-number (ann 0 I64)))) (value-unspecified))
+      (begin (ref-set! source/no-tag-counter (value-number (exact-number (ann 0 I64)))) (value-unspecified))
       (begin
-        (ref-set! source/may-untag-counter (value-number (exact-number 0)))
+        (ref-set! source/may-untag-counter (value-number (exact-number (ann 0 I64))))
         (value-unspecified))
       (begin
-        (ref-set! source/no-may-untag-counter (value-number (exact-number 0)))
+        (ref-set! source/no-may-untag-counter (value-number (exact-number (ann 0 I64))))
         (value-unspecified)))))
 
 (ref-set!
@@ -4155,14 +4155,14 @@
         (begin
           (ref-set!
             source/tag-counter
-            (primitive/+/2 (binding-value source/tag-counter) (value-number (exact-number 1))))
+            (primitive/+/2 (binding-value source/tag-counter) (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.247 source/prog.2))
       (begin
         (begin
           (ref-set!
             source/no-tag-counter
-            (primitive/+/2 (binding-value source/no-tag-counter) (value-number (exact-number 1))))
+            (primitive/+/2 (binding-value source/no-tag-counter) (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.246 source/prog.2)))))
 
@@ -4179,14 +4179,14 @@
         (begin
           (ref-set!
             source/untag-counter
-            (primitive/+/2 (binding-value source/untag-counter) (value-number (exact-number 1))))
+            (primitive/+/2 (binding-value source/untag-counter) (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.249 source/prog.3))
       (begin
         (begin
           (ref-set!
             source/no-untag-counter
-            (primitive/+/2 (binding-value source/no-untag-counter) (value-number (exact-number 1))))
+            (primitive/+/2 (binding-value source/no-untag-counter) (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.248 source/prog.3)))))
 
@@ -4203,7 +4203,7 @@
         (begin
           (ref-set!
             source/may-untag-counter
-            (primitive/+/2 (binding-value source/may-untag-counter) (value-number (exact-number 1))))
+            (primitive/+/2 (binding-value source/may-untag-counter) (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.251 source/prog.4))
       (begin
@@ -4212,7 +4212,7 @@
             source/no-may-untag-counter
             (primitive/+/2
               (binding-value source/no-may-untag-counter)
-              (value-number (exact-number 1))))
+              (value-number (exact-number (ann 1 I64)))))
           (value-unspecified))
         (primitive/list/2 literal.250 source/prog.4)))))
 
@@ -5147,8 +5147,8 @@
 (def body/source/io! (-> Value)
   (lambda ()
     (begin
-      (begin (ref-set! source/tag-ops (value-number (exact-number 0))) (value-unspecified))
-      (begin (ref-set! source/no-ops (value-number (exact-number 0))) (value-unspecified)))))
+      (begin (ref-set! source/tag-ops (value-number (exact-number (ann 0 I64)))) (value-unspecified))
+      (begin (ref-set! source/no-ops (value-number (exact-number (ann 0 I64)))) (value-unspecified)))))
 
 (ref-set! source/io! (value-procedure (ref (unit)) (function-0 body/source/io!)))
 
@@ -5163,11 +5163,11 @@
 
 (def source/tag-ops (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/tag-ops (value-number (exact-number 0)))
+(ref-set! source/tag-ops (value-number (exact-number (ann 0 I64))))
 
 (def source/no-ops (Ref Value) (ref (value-uninitialized)))
 
-(ref-set! source/no-ops (value-number (exact-number 0)))
+(ref-set! source/no-ops (value-number (exact-number (ann 0 I64))))
 
 (def source/doit (Ref Value) (ref (value-uninitialized)))
 
@@ -5209,9 +5209,9 @@
         (lambda (index result)
           (if (< index count)
             (repeat
-              (+ index 1)
+              (+ index (ann 1 I64))
               (body/source/doit (if (barrier) (specification-input configured) (unreachable))))
-            (if (value-equal? result (specification-expected configured)) 1 0))))
-      (repeat 0 (value-boolean #f)))))
+            (if (value-equal? result (specification-expected configured)) (ann 1 I64) (ann 0 I64)))))
+      (repeat (ann 0 I64) (value-boolean #f)))))
 
 (unit)

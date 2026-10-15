@@ -15,7 +15,7 @@
   (third-operand (first I64) (second I64) (next Continuation))))
 
 (def capture (-> Continuation Continuation)
-  (lambda (current) (begin (trace (ann 1 I32) 0 0 0) current)))
+  (lambda (current) (begin (trace (ann 1 I32) (ann 0 I64) (ann 0 I64) (ann 0 I64)) current)))
 
 (def ctak-aux (-> Continuation I64 I64 I64 I64)
   (lambda (next x y z)
@@ -23,19 +23,19 @@
     (if (not (< y x))
       (resume next z)
       (begin (let result (capture next))
-        (ctak-aux (capture (first-operand x y z result)) (- x 1) y z))))))
+        (ctak-aux (capture (first-operand x y z result)) (- x (ann 1 I64)) y z))))))
 
 ;; One invocation is an atomic control transition. The exhaustive dispatch
 ;; keeps each saved environment beside the operand that consumes it.
 (def resume (-> Continuation I64 I64)
   (lambda (continuation value)
-    (begin (trace (ann 2 I32) value 0 0)
+    (begin (trace (ann 2 I32) value (ann 0 I64) (ann 0 I64))
     (match continuation
       ((done) value)
       ((first-operand x y z next)
-        (ctak-aux (capture (second-operand value x y z next)) (- y 1) z x))
+        (ctak-aux (capture (second-operand value x y z next)) (- y (ann 1 I64)) z x))
       ((second-operand first x y z next)
-        (ctak-aux (capture (third-operand first value next)) (- z 1) x y))
+        (ctak-aux (capture (third-operand first value next)) (- z (ann 1 I64)) x y))
       ((third-operand first second next)
         (ctak-aux next first second value))))))
 
@@ -56,8 +56,8 @@
       (def repeat (-> I64 I64 I64)
         (lambda (iteration result)
           (if (< iteration count)
-            (repeat (+ iteration 1) (ctak (hide-i64 x) (hide-i64 y) (hide-i64 z)))
+            (repeat (+ iteration (ann 1 I64)) (ctak (hide-i64 x) (hide-i64 y) (hide-i64 z)))
             result)))
-      (repeat 0 0))))
+      (repeat (ann 0 I64) (ann 0 I64)))))
 
 (unit)

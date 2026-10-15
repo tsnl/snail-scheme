@@ -596,8 +596,7 @@
     (define (check-initializer! binding scope)
       (let* ((annotation (binding-annotation binding)) (scheme (binding-scheme binding))
              (checking (initializer-scope binding scope))
-             (value (infer (source-initializer binding) checking
-                           (and (or annotation (lookup binding (scope-recursive scope))) (scheme-type scheme)))))
+             (value (infer-initializer binding checking)))
         (unify! (scheme-type scheme) (node-type value) (node-loc value))
         (when (and annotation (pair? (scheme-variables scheme)) (not (nonexpansive? value)))
           (strict-error (node-loc value) "polymorphic annotation requires a nonexpansive value"))
@@ -610,6 +609,12 @@
         (when annotation
           (pending-declarations (cons (make-declaration-check binding scope) (pending-declarations))))
         (set-binding-initializer! binding value)))
+    (define (infer-initializer binding scope)
+      (let* ((source (source-initializer binding)) (type (scheme-type (binding-scheme binding)))
+             (annotation (binding-annotation binding)))
+        (if (and annotation (ir:literal? source))
+            (conform (infer-literal source type) type #f)
+            (infer source scope (and (or annotation (lookup binding (scope-recursive scope))) type)))))
     (define (finish-declaration-check! check)
       (let* ((binding (declaration-binding check)) (scope (declaration-scope check))
              (value (binding-initializer binding)))
@@ -805,7 +810,7 @@
                (make-node 'convert expected (node-loc node) (list node) (node-constraints node)))
               (else (unify! actual expected (node-loc node)) node))))
     (define (infer-rule node scope expected)
-      (cond ((ir:literal? node) (infer-literal node expected))
+      (cond ((ir:literal? node) (infer-literal node #f))
             ((ir:name? node) (infer-name node scope))
             ((ir:lambda? node) (infer-lambda node scope expected))
             ((ir:application? node) (infer-call node scope))
@@ -817,19 +822,21 @@
             ((ir:overload-declaration? node) (strict-error (node-loc node) "overloads require module scope"))
             ((ir:assignment? node) (strict-error (node-loc node) "immutable binding: use explicit ref-set! instead of set!"))
             (else (strict-error (node-loc node) "unsupported strict expression")) ))
-    (define (literal-type value expected loc)
+    ;; Ordinary expectations check a literal's fixed representation. Only the
+    ;; immediately enclosing annotation or binding can select another width.
+    (define (literal-type value selected loc)
       (cond ((boolean? value) 'Bool) ((char? value) 'Char) ((string? value) 'String)
             ((bytevector? value) 'Bytevector)
             ((null? value) (list 'List (fresh-variable)))
             ((exact-integer? value)
-             (let ((type (if (memq expected '(I32 I64)) expected 'I64)))
+             (let ((type (if (memq selected '(I32 I64)) selected 'I32)))
                (checked-integer-literal value type loc) type))
-            ((and (real? value) (inexact? value)) (if (eq? expected 'F32) 'F32 'F64))
+            ((and (real? value) (inexact? value)) (if (eq? selected 'F32) 'F32 'F64))
             (else (strict-error loc "unsupported strict literal" value))))
-    (define (infer-literal node expected)
+    (define (infer-literal node selected)
       (let* ((spelling (ir:literal-number-spelling node))
              (value (literal-number-value (ir:literal-value node) spelling (node-loc node)))
-             (type (literal-type value (and expected (resolve expected)) (node-loc node))))
+             (type (literal-type value (and selected (resolve selected)) (node-loc node))))
         (typed 'literal type node
                (list (if (memq type '(F32 F64)) (rounded-float-literal value spelling type (node-loc node)) value)))))
     (define (infer-name node scope)
@@ -842,8 +849,9 @@
     (define (recursive-name node binding view)
       (refine-node! node 'name (view-type view) (list binding (view-substitutions view)) (view-constraints view)))
     (define (infer-annotation node scope)
-      (let ((type (source-type (ir:annotation-type node) (scope-types scope) (node-loc node))))
-        (conform (infer-rule (ir:annotation-expression node) scope type) type #t)))
+      (let ((type (source-type (ir:annotation-type node) (scope-types scope) (node-loc node)))
+            (source (ir:annotation-expression node)))
+        (conform (if (ir:literal? source) (infer-literal source type) (infer-rule source scope type)) type #t)))
     (define (infer-instantiation node scope)
       (let ((source (ir:instantiation-expression node)))
         (unless (ir:name? source) (strict-error (node-loc node) "explicit instantiation requires a named scheme"))
@@ -899,8 +907,8 @@
                       (constraints (cons operator arguments)))))
 
     (define (infer-operands operands domains scope)
-      ;; Earlier operands constrain shared variables before later literals choose
-      ;; their contextual widths. Scheme map does not promise callback order.
+      ;; Earlier operands constrain shared variables before later operands check
+      ;; against them. Literal widths are fixed; callback order still matters.
       (if (null? operands) '()
           (let ((operand (infer (car operands) scope (car domains))))
             (cons operand (infer-operands (cdr operands) (cdr domains) scope)))))
@@ -1133,7 +1141,7 @@
                (definition (ir:value-binding-definition source))
                (hole (scheme-type (binding-scheme definition)))
                (integer (test-infer-library
-                         (test-cached-program cache "(import (cache)) (identity 42)")))
+                         (test-cached-program cache "(import (cache)) (identity (ann 42 I64))")))
                (boolean (test-infer-library
                          (test-cached-program cache "(import (cache)) (identity #t)"))))
           (expect (resolve (node-type (program-body integer))) 'I64)
@@ -1147,7 +1155,7 @@
                          (test-cached-library)
                          "(import (rename (cache) (identity left))
                                   (rename (cache) (identity right)))
-                          (left 42) (right #t)"))
+                          (left (ann 42 I64)) (right #t)"))
                (program (test-infer-library library))
                (binding (car (program-globals program))) (scheme (binding-scheme binding))
                (variable (car (scheme-variables scheme)))
@@ -1175,7 +1183,7 @@
                          (begin (define-overload choose (lambda (value) value))))")) test-no-load '()))
                (row (car (library:library-body cache))) (member (ir:overload-declaration-member row))
                (hole (scheme-type (binding-scheme member)))
-               (integer (test-infer-library (test-cached-program cache "(import (cache)) (choose 42)")))
+               (integer (test-infer-library (test-cached-program cache "(import (cache)) (choose (ann 42 I64))")))
                (boolean (test-infer-library (test-cached-program cache "(import (cache)) (choose #t)")))
                (first (car (program-instances integer))) (second (car (program-instances boolean))))
           (expect (resolve (node-type (program-body integer))) 'I64)
@@ -1194,7 +1202,7 @@
                          (test-cached-program cache
                                               "(import (rename (cache) (Box Crate) (box pack) (unbox unpack))
                                                 (rename (cache) (Box Same) (box also-pack) (unbox also-unpack)))
-                                               (also-unpack (ann (pack 42) (Same I64)))")))
+                                               (also-unpack (ann (pack (ann 42 I64)) (Same I64)))")))
                (boolean (test-infer-library
                          (test-cached-program cache "(import (cache)) (unbox (box #t))"))))
           (expect (resolve (node-type (program-body integer))) 'I64)
