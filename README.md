@@ -41,3 +41,8 @@ instances of a shared interface.
 
 [Tour](TOUR.md) · [Effect interfaces](doc/book/effects.md) ·
 [Build and tests](doc/backend.md) · [Apache-2.0](LICENSE)
+
+The [actor prototype](examples/actors/README.md) builds independent library instances
+with S-expression calls over Node subprocess connections. The
+[HTML prototype](doc/ui.md) provides a Chibi-hosted local UI; it is separate from
+the planned browser adapters.
