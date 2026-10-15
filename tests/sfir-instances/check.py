@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute instance initialization contracts on Wasm and the same native guest."""
+"""Execute instance initialization and rank-one call contracts on both targets."""
 
 import argparse
 import hashlib
@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent
 CASES = [('initialization', '42', '12345'),
          ('unused-forward-alias', 'trap', '1'),
-         ('trapping-expression', 'trap', '12')]
+         ('trapping-expression', 'trap', '12'),
+         ('ordinary-calls', '42', '12345678')]
+REJECTIONS = ['wrong-result', 'immediate-parameter', 'named-parameter', 'aliased-parameter']
 
 
 # ---- Bounded commands and retained outcomes ----
@@ -83,12 +85,12 @@ def check_native(compiler, directory, wasm, raw, expected, observed):
                 executable=digest(executable))
 
 
-def check_wrong_result(compiler, output):
-    source = FIXTURES / 'wrong-result.sfir'
-    record = run([compiler / 'scripts/build-sfir', source, output / 'wrong-result.wasm'],
-                 output / 'wrong-result.json')
+def check_type_rejection(compiler, output, name):
+    source = FIXTURES / (name + '.sfir')
+    record = run([compiler / 'scripts/build-sfir', source, output / (name + '.wasm')],
+                 output / (name + '.json'))
     assert record['status'] > 0, record
-    assert re.search(r'wrong-result\.sfir:\d+:\d+: type mismatch; cannot unify',
+    assert re.search(re.escape(name) + r'\.sfir:\d+:\d+: type mismatch; cannot unify',
                      record['stdout'] + record['stderr']), record
 
 
@@ -122,8 +124,9 @@ def main():
         results.append(dict(name=name, expected=expected, observed=observed, sha256=hashes))
         (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
         print(f'PASS {name}: raw/optimized Wasm, identical native guest, forced GC', flush=True)
-    check_wrong_result(options.compiler.resolve(), output)
-    print('PASS unused wrong method result is rejected', flush=True)
+    for name in REJECTIONS:
+        check_type_rejection(options.compiler.resolve(), output, name)
+        print(f'PASS located type rejection: {name}', flush=True)
     directory = output / 'former-forward-alias'
     directory.mkdir()
     hashes = check_former_alias(options.compiler.resolve(), directory)

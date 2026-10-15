@@ -1,4 +1,4 @@
-# Instance initialization contracts
+# Instance initialization and ordinary-call contracts
 
 Run `python3 tests/sfir-instances/check.py`. Each attempt retains its commands,
 outcomes, raw and optimized Wasm, native lowering, and artifact hashes under
@@ -16,6 +16,11 @@ at allocation boundaries.
   effects and prevents subsequent rows from running.
 - `wrong-result.sfir` rejects a wrong method result even when its general
   expression and instance are unused.
+- `ordinary-calls.sfir` checks argument effects before operator effects, unused
+  eager arguments, immediate and rest calls, and sequential-let polymorphism.
+- `immediate-parameter.sfir` and `named-parameter.sfir` reject the same attempt
+  to use a function parameter at incompatible types. `aliased-parameter.sfir`
+  checks that a sequential alias cannot generalize that parameter's type.
 
 An explicit scalar provider records each effect as it occurs. V8 compares the
 complete callback sequence; native execution compares the complete output
@@ -28,7 +33,14 @@ The existing `typeclass-member-initializer` integration fixture deliberately
 changes from success to a trap: its instance reads `member` before the later
 initializer. Its source remains the regression for that former behavior.
 
-The focused simplify pass used a local behavioral explanation and the parent's
-contract critique. Both a fresh explainer and a reused reviewer were unavailable
+The instance-initialization simplify pass used a local behavioral explanation
+and the parent's contract critique. Both a fresh explainer and a reused reviewer were unavailable
 because the collaboration tool reported `agent thread limit reached`; this is
 not an independent-review claim.
+
+The ordinary-call simplify pass used a fresh independent no-files explanation
+and a focused debate. Calls instantiate existing schemes but never generalize
+arguments; source bindings retain their value restriction. Deleting the old
+direct-lambda-to-polymorphic-let path needs no replacement representation.
+Static inference may inspect the operator first to discover argument domains;
+runtime evaluation still performs all arguments before the operator.

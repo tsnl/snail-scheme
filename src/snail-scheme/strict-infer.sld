@@ -609,7 +609,7 @@
       (cond ((ir:literal? node) (infer-literal node expected))
             ((ir:name? node) (infer-name node scope))
             ((ir:lambda? node) (infer-lambda node scope expected))
-            ((ir:application? node) (infer-application node scope expected))
+            ((ir:application? node) (infer-call node scope))
             ((ir:block? node) (infer-block (ir:block-items node) scope expected node))
             ((ir:conditional? node) (infer-conditional node scope expected))
             ((ir:annotation? node) (infer-annotation node scope))
@@ -672,12 +672,6 @@
              (rest-binding (and rest (parameter-binding (ir:lambda-opt-rest-parameter node) (list 'List rest))))
              (body (infer (ir:lambda-body node) (extend-scope scope (append fixed (if rest-binding (list rest-binding) '()))) expected)))
         (typed 'lambda (function-type types rest (node-type body)) node (list fixed rest-binding body) body)))
-    (define (infer-application node scope expected)
-      (let ((operator (ir:application-operator node)) (arguments (ir:application-operands node)))
-        (if (and (ir:lambda? operator) (not (ir:lambda-opt-rest-parameter operator))
-                 (= (length arguments) (length (ir:lambda-parameters operator))))
-            (infer-direct-let node scope expected)
-            (infer-call node scope))))
     (define (call-signature operator count loc)
       (let ((type (resolve (node-type operator))))
         (when (variable? type)
@@ -702,22 +696,6 @@
       (if (null? operands) '()
           (let ((operand (infer (car operands) scope (car domains))))
             (cons operand (infer-operands (cdr operands) (cdr domains) scope)))))
-
-    ;; Expansion represents let as a direct lambda application. Elaborate that
-    ;; exact form to typed bindings, not polymorphic native function parameters.
-    ;; All actuals see the caller scope and execute once in their original order.
-    (define (infer-direct-let node scope expected)
-      (let* ((operator (ir:application-operator node))
-             (actuals (map (lambda (node) (infer node scope #f)) (ir:application-operands node)))
-             (bindings (map (lambda (definition value source)
-                              (prepare-binding! definition
-                                                (generalize (node-type value) (proof-set (node-constraints value))
-                                                            (environment-schemes scope '()) (nonexpansive? source))
-                                                value 'let #f))
-                            (ir:lambda-parameters operator) actuals (ir:application-operands node)))
-             (body (infer (ir:lambda-body operator) (extend-scope scope bindings) expected)))
-        (refine-node! node 'let (node-type body) (list bindings actuals body)
-                      (append (apply append (map initialization-constraints bindings)) (node-constraints body)))))
 
     ;; ---- Exhaustive matching lowers to ordinary binding and control flow ----
 
@@ -929,8 +907,8 @@
       (define (test-no-load name) (error "unexpected library load" name))
       (define (test-cached-library)
         (syntax->ir-library
-         (car (test-forms "(library (cache) (export identity)
-                           (define identity (lambda (x) x)))")) test-no-load '()))
+         (car (test-forms "(define-library (cache) (export identity)
+                           (begin (def identity (lambda (x) x))))")) test-no-load '()))
       (define (test-cached-program cache text)
         (syntax-list->ir-library (test-forms text) test-no-load (library:library-dependency-order cache)))
       (define (test-infer-library library)
@@ -972,8 +950,8 @@
           (expect (eq? (resolve (function-result (node-type (binding-initializer binding)))) variable) #t)))
       (define (test-imported-declaration-owner)
         (let ((cache (syntax->ir-library
-                      (car (test-forms "(library (cache) (export identity)
-                       (define identity (All (A) (-> A A)) (lambda (x) x)))")) test-no-load '())))
+                      (car (test-forms "(define-library (cache) (export identity)
+                       (begin (def identity (All (A) (-> A A)) (lambda (x) x))))")) test-no-load '())))
           (expect (guard (failure (else (error-object-message failure)))
                     (test-cached-program cache "(import (cache)) (: identity (-> I64 I64)) (identity #t)"))
                   "declaration is not an expression")
@@ -981,8 +959,8 @@
                                        (test-infer-library (test-cached-program cache "(import (cache)) (identity #t)"))))) 'Bool)))
       (define (test-cached-inferred-overloads)
         (let* ((cache (syntax->ir-library
-                       (car (test-forms "(library (cache) (export choose)
-                                         (define-overload choose (lambda (value) value)))")) test-no-load '()))
+                       (car (test-forms "(define-library (cache) (export choose)
+                         (begin (define-overload choose (lambda (value) value))))")) test-no-load '()))
                (row (car (library:library-body cache))) (member (ir:overload-declaration-member row))
                (hole (scheme-type (binding-scheme member)))
                (integer (test-infer-library (test-cached-program cache "(import (cache)) (choose 42)")))
@@ -996,8 +974,8 @@
           (expect (hole-link hole) #f)))
       (define (test-cached-data-identities)
         (let* ((cache (syntax->ir-library
-                       (car (test-forms "(library (cache) (export Box box unbox)
-                                         (define-data (Box T) (box (value T unbox))))")) test-no-load '()))
+                       (car (test-forms "(define-library (cache) (export Box box unbox)
+                         (begin (def Box (datatype (T) (box (value T unbox))))))")) test-no-load '()))
                (schema (car (library:library-body cache)))
                (source (ir:data-schema-definition schema))
                (integer (test-infer-library
@@ -1009,7 +987,7 @@
                          (test-cached-program cache "(import (cache)) (unbox (box #t))"))))
           (expect (resolve (node-type (program-body integer))) 'I64)
           (expect (resolve (node-type (program-body boolean))) 'Bool)
-          (expect (binding-kind source) 'source)
+          (expect (binding-kind source) 'datatype)
           (expect (hole? (node-type schema)) #t)))
       (define (test-strict-infer)
         (run-test test-dependency-cycles)
