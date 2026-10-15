@@ -1,7 +1,7 @@
 ;; Concrete filesystem and subprocess operations for Chibi-hosted tools.
 (define-library (snail-tools process)
   (export run-command/capture run-command! current-command-records current-command-log
-          current-process-supervisor
+          current-process-supervisor close-owned-descriptor
           read-text write-text read-bytes write-bytes read-json write-json
           absolute-path paths-alias? path-directory path-join make-build-directory file-sha256 tool-name
           option-ref command-line-main directory-files-recursive)
@@ -65,11 +65,16 @@
 
     ;; ---- Captured child processes ----
 
+    (define (close-owned-descriptor descriptor)
+      ;; Chibi 0.12's raw close-file-descriptor leaves its GC owner marked open.
+      ;; Closing through a port consumes that ownership, so a later finalizer
+      ;; cannot close an unrelated descriptor that reused the same number.
+      (close-input-port (open-input-file-descriptor descriptor)))
     (define (redirect descriptor path flags)
       (let ((source (open path flags #o600)))
         (unless source (error "cannot open process redirect" descriptor path))
         (duplicate-file-descriptor-to source descriptor)
-        (close-file-descriptor source)))
+        (close-owned-descriptor source)))
 
     (define (child-command argv directory input output errors)
       (guard (failure (else (write failure (current-error-port)) (newline (current-error-port)) (emergency-exit 127)))

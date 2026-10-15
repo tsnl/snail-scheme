@@ -239,7 +239,7 @@
                 (let ((program (path-join directory "program")))
                   (write-bytes program (read-bytes (path-join target "release/program")))
                   (chmod program #o755) program))
-              (lambda () (close-file-descriptor lock) (when staged (delete-file staged)))))))
+              (lambda () (close-owned-descriptor lock) (when staged (delete-file staged)))))))
     (define (ensure-native-supervisor root)
       (let ((target (path-join root "build" "native-runtime")))
         (create-directory* target)
