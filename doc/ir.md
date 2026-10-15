@@ -115,6 +115,10 @@ Static-Decl    ::= (: Name Type)
                  | (define-instance (Name Type+) (Name Expr)+)
                  | (define-overload Name Type? Expr)
                  | (define-extern Name String String Type)
+                 | (define-data Data-Head Data-Case+)
+Data-Head      ::= Name | (Name Name*)
+Data-Case      ::= (Name Data-Field*)
+Data-Field     ::= (Name Type) | (Name Type Name)
 Definition     ::= (define Name Expr)
                  | (define (Name . Formals) Body)
                  | (define-syntax Name Rules-Spec)
@@ -130,6 +134,7 @@ Expr           ::= Name
                  | (set! Name Expr)
                  | (ann Expr Type)
                  | (inst Name Type+)
+                 | (match Expr ((Name Name*) Body)+)
                  | (begin Expr+)
                  | (Expr Expr*)
                  | (let-syntax (Syntax-Binding*) Body)
@@ -207,6 +212,8 @@ do not establish lexical identity.
 | `annotation` | Expression, expected type, location |
 | `instantiation` | Expression, explicit shallow type arguments, location |
 | `record-schema` | Descriptor, constructor and predicate identities, field metadata, location |
+| `data-schema` | Nominal descriptor, type parameters and closed constructor/field rows; implemented by the strict compiler |
+| `match` | Subject and constructor-identity/arm-lambda pairs; strict checking lowers these to typed lets and conditionals |
 | `class-declaration` | Class identity, type-variable identities and method declarations |
 | `instance-declaration` | Class identity, instance types and method implementations |
 | `overload-declaration` | Shared family identity, distinct member definition and implementation |

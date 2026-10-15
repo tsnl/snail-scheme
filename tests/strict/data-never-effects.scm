@@ -1,0 +1,10 @@
+(import (snail strict))
+(define calls (ref 0))
+(: observed (-> I64))
+(define (observed) (ref-get calls))
+(define-data Impossible (impossible (first Unit) (stop Never) (last Unit)))
+(: construct (-> I64))
+(define (construct)
+  (impossible (ref-set! calls 1) (unreachable) (ref-set! calls 2))
+  0)
+42

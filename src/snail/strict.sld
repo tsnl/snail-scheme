@@ -4,7 +4,8 @@
 (define-library (snail strict)
   (export define define-syntax syntax-rules lambda quote if begin set!
           let let* letrec letrec* and or when unless
-          : ann inst All -> Rest => define-class define-instance define-overload define-extern
+          : ann inst All -> Rest => define-data match
+          define-class define-instance define-overload define-extern
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List Vector
           Default default
           + - * / sqrt truncate quotient remainder = < <= > >= not unit unreachable

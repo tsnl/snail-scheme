@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-data (Record T)
+  (record (small I32 read-small) (float F32 read-float)
+          (flag Bool read-flag) (character Char read-character)
+          (function (-> T T) read-function) (value T read-value)))
+(define x (record (ann 5 I32) (ann 2.5 F32) #t #\a (lambda (x) x) 7))
+(if (read-flag x) (+ (i32->i64 (read-small x)) ((read-function x) (read-value x))) 0)

@@ -7,6 +7,8 @@
           (only (snail-scheme ir)
                 make-node node-kind node-type node-loc node-data binding-scheme)
           (snail-scheme strict-types)
+          (snail-scheme strict-data)
+          (only (snail-scheme ir) data-schema-cases)
           (snail-scheme strict-specialize) (snail-scheme strict-primitives)
           (snail-scheme wasm-extern))
   (begin
@@ -30,10 +32,35 @@
     (define (layout! type state)
       (or (find-type type (state-layouts state))
           (let ((entry (cons type (length (state-layouts state)))))
+            (check-layout-budget type state)
             (set-state-layouts! state (append (state-layouts state) (list entry)))
-            (for-each (lambda (type) (wasm-type type state))
-                      (if (function-type? type) (append (function-arguments type) (list (function-result type))) (cdr type)))
+            (for-each (lambda (type) (wasm-type type state)) (layout-dependencies type))
             entry)))
+    ;; Reserve first, then visit fields. Exact recursive applications reuse their
+    ;; pending entry. The per-declaration application budget bounds compiler
+    ;; resources, as the value-specialization budget does. Exceeding it is not
+    ;; proof of an infinite graph; a sufficiently large finite graph also fails.
+    (define (check-layout-budget type state)
+      (when (and (data-type? type)
+                 (>= (data-layout-count (cadr type) (state-layouts state)) 64))
+        (strict-error (node-loc (data-type-schema type))
+                      "data layout specialization limit exceeded (64 applications per declaration)")))
+    (define (data-layout-count definition entries)
+      (if (null? entries) 0
+          (+ (if (and (data-type? (caar entries)) (eq? definition (cadr (caar entries)))) 1 0)
+             (data-layout-count definition (cdr entries)))))
+    (define (data-case-layout type index)
+      (if (data-tagged? type) (list 'Data-case type index) type))
+    (define (layout-dependencies type)
+      (case (car type)
+        ((Function) (append (function-arguments type) (list (function-result type))))
+        ((Data) (if (data-tagged? type)
+                    (let visit ((cases (data-schema-cases (data-type-schema type))) (index 0))
+                      (if (null? cases) '()
+                          (cons (data-case-layout type index) (visit (cdr cases) (+ index 1)))))
+                    (data-case-fields type 0)))
+        ((Data-case) (cons (cadr type) (data-case-fields (cadr type) (caddr type))))
+        (else (cdr type))))
     (define (layout-name type state) (identifier "type" (cdr (layout! type state))))
     (define (call-name type state) (identifier "call" (cdr (layout! type state))))
     (define (function-arguments type)
@@ -69,7 +96,50 @@
           ((List) (list `(type ,name (struct (field ,(wasm-type (cadr type) state)) (field (ref null ,name))))))
           ((Vector) (list `(type ,name (array (mut ,(wasm-type (cadr type) state))))))
           ((Binding) (list `(type ,name (struct (field (mut i32)) (field (mut ,(storage-type (cadr type) state)))))))
+          ((Data) (list `(type ,name ,(if (data-tagged? type)
+                                          '(sub (struct (field i32)))
+                                          `(struct ,@(data-field-layouts type 0 state))))))
+          ((Data-case)
+           (list `(type ,name (sub ,(layout-name (cadr type) state)
+                                   (struct (field i32) ,@(data-field-layouts (cadr type) (caddr type) state))))))
           (else (error "unknown concrete GC layout" type)))))
+    (define (data-field-layouts type index state)
+      (map (lambda (field) `(field ,(wasm-type field state))) (data-case-fields type index)))
+
+    ;; ---- Immutable products and closed sum payloads ----
+
+    ;; Sum cases extend one tagged base; every payload field has its concrete
+    ;; native type. Accessors check the tag before reading: Wasm can canonicalize
+    ;; two cases with equal field shapes, so a cast alone cannot distinguish them.
+    ;; Match checks the same tag when selecting an arm, then reads its fields.
+    ;; Fields are immutable: mutation and its separate allocation remain Ref's
+    ;; responsibility. Engine-owned reference fields trace recursive cycles.
+    (define (emit-data-operation operation signature arguments state)
+      (let ((index (caddr operation)))
+        (if (eq? (car operation) 'construct)
+            (let ((type (function-result signature)))
+              `(struct.new ,(layout-name (data-case-layout type index) state)
+                           ,@(if (data-tagged? type) `((i32.const ,index)) '()) ,@arguments))
+            (emit-data-access signature index (cadddr operation) (car arguments) state))))
+    (define (emit-data-access signature index field value state)
+      (let* ((type (car (function-domains signature)))
+             (payload (emit-data-field type index field value state))
+             (read (if (eq? (function-result signature) 'Never)
+                       `(block (drop ,payload) (unreachable)) payload)))
+        (if (not (data-tagged? type)) read
+            `(block ,@(result-declaration (function-result signature) state)
+                    (if (i32.ne (struct.get ,(layout-name type state) 0 ,value) (i32.const ,index))
+                        (then (unreachable))) ,read))))
+    (define (emit-data-field type index field value state)
+      (let ((name (layout-name (data-case-layout type index) state)))
+        `(struct.get ,name ,(+ field (if (data-tagged? type) 1 0))
+                     ,(if (data-tagged? type) `(ref.cast (ref ,name) ,value) value))))
+    (define (emit-data-read node context)
+      (let* ((data (node-data node)) (subject (car data)) (type (node-type subject))
+             (state (context-state context)) (value (emit subject context #f)))
+        (if (eq? (node-kind node) 'data-field)
+            (emit-data-field type (cadr data) (caddr data) value state)
+            `(i32.eq (struct.get ,(layout-name type state) 0 ,value) (i32.const ,(cadr data))))))
 
     ;; ---- Native slots and initialization readiness ----
 
@@ -232,8 +302,9 @@
              (arguments (map (lambda (parameter) `(local.get ,(cadr parameter))) parameters)))
         `(func ,(cdr entry) (type ,(call-name type state)) (param $environment eqref)
                ,@parameters ,@(result-declaration (function-result type) state)
-               ,(if (extern? name) (emit-extern-call name arguments state)
-                    (emit-primitive name type arguments state)))))
+               ,(cond ((extern? name) (emit-extern-call name arguments state))
+                      ((pair? name) (emit-data-operation name type arguments state))
+                      (else (emit-primitive name type arguments state))))))
 
     ;; ---- Native scalar imports ----
 
@@ -333,11 +404,12 @@
              (state (context-state context)) (type (node-type operator))
              (held (map (lambda (argument) (hold-node argument context)) arguments))
              (values (call-arguments (map cdr held) type state)))
-        (if (memq (node-kind operator) '(primitive extern))
+        (if (memq (node-kind operator) '(primitive extern data))
             `(block ,@(result-declaration (node-type node) state) ,@(map car held)
-                    ,(if (eq? (node-kind operator) 'extern)
-                         (emit-extern-call (car (node-data operator)) values state)
-                         (emit-primitive (car (node-data operator)) type values state)))
+                    ,(case (node-kind operator)
+                       ((extern) (emit-extern-call (car (node-data operator)) values state))
+                       ((data) (emit-data-operation (car (node-data operator)) type values state))
+                       (else (emit-primitive (car (node-data operator)) type values state))))
             (let ((closure (hold-node operator context)))
               `(block ,@(result-declaration (node-type node) state) ,@(map car held) ,(car closure)
                       ,(emit-invocation operator (cdr closure) values context tail?)
@@ -398,7 +470,8 @@
           ((get) (if (eq? (node-type node) 'Never) `(block (drop ,(read-value (car data) context)) (unreachable))
                      (read-value (car data) context)))
           ((closure) (emit-closure (car data) context))
-          ((primitive extern) (emit-primitive-closure node context)) ((call) (emit-call node context tail?))
+          ((primitive extern data) (emit-primitive-closure node context)) ((call) (emit-call node context tail?))
+          ((data-field data-test) (emit-data-read node context))
           ((convert) (emit-conversion node context tail?))
           ((if) `(if ,@(result-declaration (node-type node) state) ,(emit (car data) context #f)
                      (then ,(emit (cadr data) context tail?)) (else ,(emit (caddr data) context tail?))))

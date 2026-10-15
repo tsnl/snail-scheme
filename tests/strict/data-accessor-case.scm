@@ -1,0 +1,3 @@
+(import (snail strict))
+(define-data Choice (left (value I64 left-value)) (right (value I64 right-value)))
+(+ (left-value (left 20)) (right-value (right 22)))
