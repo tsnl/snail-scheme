@@ -1,2 +1,2 @@
 (import (sfir base))
-(sqrt 4)
+(sqrt (ann 4 I64))

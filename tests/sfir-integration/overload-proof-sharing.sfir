@@ -1,5 +1,5 @@
 (import (sfir base))
-(begin (let x0 1)
+(begin (let x0 (ann 1 I64))
        (begin (let x1 (+ x0 x0))
               (begin (let x2 (+ x1 x1))
                      (begin (let x3 (+ x2 x2))
@@ -14,4 +14,4 @@
                                                                                     (begin (let x12 (+ x11 x11))
                                                                                            (begin (let x13 (+ x12 x12))
                                                                                                   (begin (let x14 (+ x13 x13))
-                                                                                                         (if (= x14 16384) 42 (unreachable)))))))))))))))))
+                                                                                                         (if (= x14 (ann 16384 I64)) (ann 42 I64) (unreachable)))))))))))))))))

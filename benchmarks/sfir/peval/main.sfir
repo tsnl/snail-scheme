@@ -16,7 +16,7 @@
     number<?
     number>?))
 
-(def peval-symbol? (lambda (value.99) (= (datum-kind value.99) 4)))
+(def peval-symbol? (lambda (value.99) (= (datum-kind value.99) (ann 4 I64))))
 
 (def peval-symbol (lambda (text) (datum-symbol (typed-string->symbol text))))
 
@@ -24,7 +24,7 @@
 
 (def peval-list-ref
   (lambda (values.4 index.1)
-    (if (= index.1 0) (datum-car values.4) (peval-list-ref (datum-cdr values.4) (- index.1 1)))))
+    (if (= index.1 (ann 0 I64)) (datum-car values.4) (peval-list-ref (datum-cdr values.4) (- index.1 (ann 1 I64))))))
 
 (def peval-member?
   (lambda (value.96 values.3)
@@ -302,12 +302,12 @@
             (datum-list (peval-symbol "a") (peval-symbol "b"))
             (datum-list
               (peval-symbol "if")
-              (datum-list (peval-symbol "<") (peval-symbol "a") (peval-integer 0))
+              (datum-list (peval-symbol "<") (peval-symbol "a") (peval-integer (ann 0 I64)))
               (peval-symbol "b")
-              (datum-list (peval-symbol "-") (peval-integer 10) (peval-symbol "b"))))))
+              (datum-list (peval-symbol "-") (peval-integer (ann 10 I64)) (peval-symbol "b"))))))
       (datum-list
         (peval-symbol "if")
-        (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer 0))
+        (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer (ann 0 I64)))
         (datum-list
           (peval-symbol "q")
           (datum-list (peval-symbol "-") (peval-symbol "y"))
@@ -425,11 +425,11 @@
               (peval-symbol "b")
               (datum-list
                 (peval-symbol "if")
-                (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer 1))
-                (peval-integer 0)
+                (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer (ann 1 I64)))
+                (peval-integer (ann 0 I64))
                 (datum-list
                   (peval-symbol "funct")
-                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer 1))))))))
+                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer (ann 1 I64)))))))))
       (datum-list (peval-symbol "funct") (peval-symbol "a")))))
 
 (def peval-literal-87
@@ -446,17 +446,17 @@
             (datum-list (peval-symbol "x"))
             (datum-list
               (peval-symbol "if")
-              (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer 2))
+              (datum-list (peval-symbol "<") (peval-symbol "x") (peval-integer (ann 2 I64)))
               (peval-symbol "x")
               (datum-list
                 (peval-symbol "+")
                 (datum-list
                   (peval-symbol "fib")
-                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer 1)))
+                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer (ann 1 I64))))
                 (datum-list
                   (peval-symbol "fib")
-                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer 2))))))))
-      (datum-list (peval-symbol "fib") (peval-integer 10)))))
+                  (datum-list (peval-symbol "-") (peval-symbol "x") (peval-integer (ann 2 I64)))))))))
+      (datum-list (peval-symbol "fib") (peval-integer (ann 10 I64))))))
 
 (def peval-literal-88
   (datum-list
@@ -512,22 +512,22 @@
         (peval-symbol "input")
         (datum-list (peval-symbol "quote") (datum-list))))))
 
-(def peval-literal-90 (datum-list (peval-integer 10) (peval-integer 11)))
+(def peval-literal-90 (datum-list (peval-integer (ann 10 I64)) (peval-integer (ann 11 I64))))
 
-(def peval-literal-91 (peval-integer 1))
+(def peval-literal-91 (peval-integer (ann 1 I64)))
 
-(def peval-literal-92 (peval-integer 1))
+(def peval-literal-92 (peval-integer (ann 1 I64)))
 
-(def peval-literal-93 (peval-integer 1))
+(def peval-literal-93 (peval-integer (ann 1 I64)))
 
-(def peval-literal-94 (datum-list (peval-integer 1) (peval-integer 2) (peval-integer 3)))
+(def peval-literal-94 (datum-list (peval-integer (ann 1 I64)) (peval-integer (ann 2 I64)) (peval-integer (ann 3 I64))))
 
 (def peval-literal-95 (peval-symbol "x"))
 
 (def peval-literal-96
-  (datum-list (peval-symbol "f") (peval-integer 1) (peval-integer 2) (peval-integer 3)))
+  (datum-list (peval-symbol "f") (peval-integer (ann 1 I64)) (peval-integer (ann 2 I64)) (peval-integer (ann 3 I64))))
 
-(def peval-literal-97 (peval-integer 5))
+(def peval-literal-97 (peval-integer (ann 5 I64)))
 
 (def peval-literal-98 (datum-list))
 
@@ -630,12 +630,12 @@
         parms.1)
       env.4)))
 
-(def *current-num* (ref 0))
+(def *current-num* (ref (ann 0 I64)))
 
 (def new-variable (-> Datum Datum)
   (lambda (name.3)
     (begin
-      (ref-set! *current-num* (+ (ref-get *current-num*) 1))
+      (ref-set! *current-num* (+ (ref-get *current-num*) (ann 1 I64)))
       (peval-symbol
         (string-append (peval-symbol-text name.3) "_" (i64->string (ref-get *current-num*)))))))
 
@@ -698,7 +698,7 @@
           (begin
             (def s!
               (lambda (where.3)
-                ((lambda (exp.4) (if (const-expr? exp.4) (unit) (if (peval-symbol? exp.4) (unit) (if (datum-eq? (datum-car exp.4) peval-literal-22) (begin (s! (datum-cdr exp.4)) (if (const-expr? (datum-cadr exp.4)) (begin (datum-set-car! where.3 (if (peval-member? (const-value (datum-cadr exp.4)) peval-literal-23) (if (= (datum-length exp.4) 3) peval-literal-24 (datum-cadddr exp.4)) (datum-caddr exp.4))) (s! where.3)) (for-each! s! (datum-cddr exp.4)))) (if (datum-eq? (datum-car exp.4) peval-literal-25) (begin (for-each! s! (datum-cdr exp.4)) (((lambda () (begin (def loop.2 (lambda (exps.1) (if (not (datum-null? (datum-cddr exps.1))) ((lambda (x.10) (loop.2 (if ((lambda (value.54) (if value.54 value.54 ((lambda (value.53) (if value.53 value.53 (if (datum-pair? x.10) (datum-eq? (datum-car x.10) peval-literal-26) #f))) (peval-symbol? x.10)))) (const-expr? x.10)) (begin (datum-set-cdr! exps.1 (datum-cddr exps.1)) exps.1) (datum-cdr exps.1)))) (datum-cadr exps.1)) (unit)))) loop.2))) exp.4) (if (datum-null? (datum-cddr exp.4)) (datum-set-car! where.3 (datum-cadr exp.4)) (unit))) (if ((lambda (value.52) (if value.52 value.52 (datum-eq? (datum-car exp.4) peval-literal-28))) (datum-eq? (datum-car exp.4) peval-literal-27)) ((lambda (new-env.1) (begin (def keep (lambda (i) (if (>= i (datum-length (datum-cadar where.3))) peval-literal-29 ((lambda (var.4) ((lambda (val.2) ((lambda (refs) ((lambda (self-refs) ((lambda (total-refs) ((lambda (oper-refs) ((lambda () (if (= total-refs 0) (keep (+ i 1)) (if ((lambda (value.51) (if value.51 value.51 ((lambda (value.50) (if value.50 value.50 ((lambda (value.49) (if value.49 value.49 (if (reference-always refs) (= total-refs 1) #f))) (if (datum-pair? val.2) (if (datum-eq? (datum-car val.2) peval-literal-30) (if (= total-refs 1) (if (= oper-refs 1) (= (reference-total self-refs) 0) #f) #f) #f) #f)))) (peval-symbol? val.2)))) (const-expr? val.2)) (begin (datum-set-car! where.3 (beta-subst (datum-car where.3) ((lambda (value.48) (datum-list value.48)) ((lambda (head.17) ((lambda (tail.17) ((lambda () (datum-cons head.17 tail.17)))) val.2)) var.4)))) (keep (+ i 1))) ((lambda (head.16) ((lambda (tail.16) ((lambda () (datum-cons head.16 tail.16)))) (keep (+ i 1)))) var.4)))))) (- (reference-operator refs) (reference-operator self-refs)))) (- (reference-total refs) (reference-total self-refs)))) (ref-count val.2 var.4))) (ref-count (datum-car where.3) var.4))) (datum-cadr (datum-assq var.4 (datum-cadar where.3))))) (datum-car (peval-list-ref (datum-cadar where.3) i)))))) (simp! (datum-cddr exp.4) new-env.1) (for-each! (lambda (x.9) (simp! (datum-cdar x.9) new-env.1)) (datum-cadr exp.4)) ((lambda (to-keep) (if (< (datum-length to-keep) (datum-length (datum-cadar where.3))) (begin (if (datum-null? to-keep) (datum-set-car! where.3 (datum-caddar where.3)) (datum-set-car! (datum-cdar where.3) (datum-map (lambda (v) (datum-assq v (datum-cadar where.3))) to-keep))) (s! where.3)) (if (datum-null? to-keep) (datum-set-car! where.3 (datum-caddar where.3)) (unit)))) (keep 0)))) ((lambda (head.15) ((lambda (tail.15) ((lambda () (datum-cons head.15 tail.15)))) env.2)) exp.4)) (if (datum-eq? (datum-car exp.4) peval-literal-31) (simp! (datum-cddr exp.4) ((lambda (head.14) ((lambda (tail.14) ((lambda () (datum-cons head.14 tail.14)))) env.2)) exp.4)) (begin (for-each! s! exp.4) (if (peval-symbol? (datum-car exp.4)) ((lambda (frame.3) (if (datum-truth? frame.3) ((lambda (proc.2) (if (if (datum-pair? proc.2) (if (datum-eq? (datum-car proc.2) peval-literal-32) (some? const-expr? (datum-cdr exp.4)) #f) #f) ((lambda (args.18) ((lambda (new-proc) ((lambda (new-args) ((lambda () (datum-set-car! where.3 ((lambda (head.13) ((lambda (tail.13) ((lambda () (datum-cons head.13 tail.13)))) new-args)) (add-binding new-proc frame.3 (datum-car exp.4))))))) (remove-constant (datum-cdr exp.4) args.18))) (peval proc.2 args.18))) (arg-pattern (datum-cdr exp.4))) (unit))) (bound-expr (datum-car exp.4) frame.3)) (datum-set-car! where.3 (constant-fold-global (datum-car exp.4) (datum-cdr exp.4))))) (binding-frame (datum-car exp.4) env.2)) (if (not (datum-pair? (datum-car exp.4))) (unit) (if (datum-eq? (datum-caar exp.4) peval-literal-33) (begin (datum-set-car! where.3 ((lambda (value.45) ((lambda (value.46) ((lambda (value.47) (datum-list value.45 value.46 value.47)) (datum-caddar exp.4))) (map2 (lambda (x.8 y.2) ((lambda (value.43) ((lambda (value.44) (datum-list value.43 value.44)) y.2)) x.8)) (datum-cadar exp.4) (datum-cdr exp.4)))) peval-literal-34)) (s! where.3)) (unit))))))))))))
+                ((lambda (exp.4) (if (const-expr? exp.4) (unit) (if (peval-symbol? exp.4) (unit) (if (datum-eq? (datum-car exp.4) peval-literal-22) (begin (s! (datum-cdr exp.4)) (if (const-expr? (datum-cadr exp.4)) (begin (datum-set-car! where.3 (if (peval-member? (const-value (datum-cadr exp.4)) peval-literal-23) (if (= (datum-length exp.4) (ann 3 I64)) peval-literal-24 (datum-cadddr exp.4)) (datum-caddr exp.4))) (s! where.3)) (for-each! s! (datum-cddr exp.4)))) (if (datum-eq? (datum-car exp.4) peval-literal-25) (begin (for-each! s! (datum-cdr exp.4)) (((lambda () (begin (def loop.2 (lambda (exps.1) (if (not (datum-null? (datum-cddr exps.1))) ((lambda (x.10) (loop.2 (if ((lambda (value.54) (if value.54 value.54 ((lambda (value.53) (if value.53 value.53 (if (datum-pair? x.10) (datum-eq? (datum-car x.10) peval-literal-26) #f))) (peval-symbol? x.10)))) (const-expr? x.10)) (begin (datum-set-cdr! exps.1 (datum-cddr exps.1)) exps.1) (datum-cdr exps.1)))) (datum-cadr exps.1)) (unit)))) loop.2))) exp.4) (if (datum-null? (datum-cddr exp.4)) (datum-set-car! where.3 (datum-cadr exp.4)) (unit))) (if ((lambda (value.52) (if value.52 value.52 (datum-eq? (datum-car exp.4) peval-literal-28))) (datum-eq? (datum-car exp.4) peval-literal-27)) ((lambda (new-env.1) (begin (def keep (lambda (i) (if (>= i (datum-length (datum-cadar where.3))) peval-literal-29 ((lambda (var.4) ((lambda (val.2) ((lambda (refs) ((lambda (self-refs) ((lambda (total-refs) ((lambda (oper-refs) ((lambda () (if (= total-refs (ann 0 I64)) (keep (+ i (ann 1 I64))) (if ((lambda (value.51) (if value.51 value.51 ((lambda (value.50) (if value.50 value.50 ((lambda (value.49) (if value.49 value.49 (if (reference-always refs) (= total-refs (ann 1 I64)) #f))) (if (datum-pair? val.2) (if (datum-eq? (datum-car val.2) peval-literal-30) (if (= total-refs (ann 1 I64)) (if (= oper-refs (ann 1 I64)) (= (reference-total self-refs) (ann 0 I64)) #f) #f) #f) #f)))) (peval-symbol? val.2)))) (const-expr? val.2)) (begin (datum-set-car! where.3 (beta-subst (datum-car where.3) ((lambda (value.48) (datum-list value.48)) ((lambda (head.17) ((lambda (tail.17) ((lambda () (datum-cons head.17 tail.17)))) val.2)) var.4)))) (keep (+ i (ann 1 I64)))) ((lambda (head.16) ((lambda (tail.16) ((lambda () (datum-cons head.16 tail.16)))) (keep (+ i (ann 1 I64))))) var.4)))))) (- (reference-operator refs) (reference-operator self-refs)))) (- (reference-total refs) (reference-total self-refs)))) (ref-count val.2 var.4))) (ref-count (datum-car where.3) var.4))) (datum-cadr (datum-assq var.4 (datum-cadar where.3))))) (datum-car (peval-list-ref (datum-cadar where.3) i)))))) (simp! (datum-cddr exp.4) new-env.1) (for-each! (lambda (x.9) (simp! (datum-cdar x.9) new-env.1)) (datum-cadr exp.4)) ((lambda (to-keep) (if (< (datum-length to-keep) (datum-length (datum-cadar where.3))) (begin (if (datum-null? to-keep) (datum-set-car! where.3 (datum-caddar where.3)) (datum-set-car! (datum-cdar where.3) (datum-map (lambda (v) (datum-assq v (datum-cadar where.3))) to-keep))) (s! where.3)) (if (datum-null? to-keep) (datum-set-car! where.3 (datum-caddar where.3)) (unit)))) (keep (ann 0 I64))))) ((lambda (head.15) ((lambda (tail.15) ((lambda () (datum-cons head.15 tail.15)))) env.2)) exp.4)) (if (datum-eq? (datum-car exp.4) peval-literal-31) (simp! (datum-cddr exp.4) ((lambda (head.14) ((lambda (tail.14) ((lambda () (datum-cons head.14 tail.14)))) env.2)) exp.4)) (begin (for-each! s! exp.4) (if (peval-symbol? (datum-car exp.4)) ((lambda (frame.3) (if (datum-truth? frame.3) ((lambda (proc.2) (if (if (datum-pair? proc.2) (if (datum-eq? (datum-car proc.2) peval-literal-32) (some? const-expr? (datum-cdr exp.4)) #f) #f) ((lambda (args.18) ((lambda (new-proc) ((lambda (new-args) ((lambda () (datum-set-car! where.3 ((lambda (head.13) ((lambda (tail.13) ((lambda () (datum-cons head.13 tail.13)))) new-args)) (add-binding new-proc frame.3 (datum-car exp.4))))))) (remove-constant (datum-cdr exp.4) args.18))) (peval proc.2 args.18))) (arg-pattern (datum-cdr exp.4))) (unit))) (bound-expr (datum-car exp.4) frame.3)) (datum-set-car! where.3 (constant-fold-global (datum-car exp.4) (datum-cdr exp.4))))) (binding-frame (datum-car exp.4) env.2)) (if (not (datum-pair? (datum-car exp.4))) (unit) (if (datum-eq? (datum-caar exp.4) peval-literal-33) (begin (datum-set-car! where.3 ((lambda (value.45) ((lambda (value.46) ((lambda (value.47) (datum-list value.45 value.46 value.47)) (datum-caddar exp.4))) (map2 (lambda (x.8 y.2) ((lambda (value.43) ((lambda (value.44) (datum-list value.43 value.44)) y.2)) x.8)) (datum-cadar exp.4) (datum-cdr exp.4)))) peval-literal-34)) (s! where.3)) (unit))))))))))))
                   (datum-car where.3))))
             (s! where.2))))
       (def remove-empty-calls!
@@ -715,9 +715,9 @@
 
 (def ref-count (-> Datum Datum ReferenceCounts)
   (lambda (exp var.3)
-    ((lambda (total oper always-evaled) (begin (def rc (lambda (exp.1 ae) (if (const-expr? exp.1) (unit) (if (peval-symbol? exp.1) (if (datum-eq? exp.1 var.3) (begin (ref-set! total (+ (ref-get total) 1)) (ref-set! always-evaled (if ae (ref-get always-evaled) #f))) (unit)) (if (datum-eq? (datum-car exp.1) peval-literal-43) (begin (rc (datum-cadr exp.1) ae) (peval-for-each (lambda (x.5) (rc x.5 #f)) (datum-cddr exp.1))) (if (datum-eq? (datum-car exp.1) peval-literal-44) (peval-for-each (lambda (x.4) (rc x.4 ae)) (datum-cdr exp.1)) (if ((lambda (value.40) (if value.40 value.40 (datum-eq? (datum-car exp.1) peval-literal-46))) (datum-eq? (datum-car exp.1) peval-literal-45)) (begin (peval-for-each (lambda (x.3) (rc (datum-cadr x.3) ae)) (datum-cadr exp.1)) (rc (datum-caddr exp.1) ae)) (if (datum-eq? (datum-car exp.1) peval-literal-47) (rc (datum-caddr exp.1) #f) (begin (peval-for-each (lambda (x.2) (rc x.2 ae)) exp.1) (if (peval-symbol? (datum-car exp.1)) (if (datum-eq? (datum-car exp.1) var.3) (ref-set! oper (+ (ref-get oper) 1)) (unit)) (unit))))))))))) (rc exp #t) (reference-counts (ref-get total) (ref-get oper) (ref-get always-evaled))))
-      (ref 0)
-      (ref 0)
+    ((lambda (total oper always-evaled) (begin (def rc (lambda (exp.1 ae) (if (const-expr? exp.1) (unit) (if (peval-symbol? exp.1) (if (datum-eq? exp.1 var.3) (begin (ref-set! total (+ (ref-get total) (ann 1 I64))) (ref-set! always-evaled (if ae (ref-get always-evaled) #f))) (unit)) (if (datum-eq? (datum-car exp.1) peval-literal-43) (begin (rc (datum-cadr exp.1) ae) (peval-for-each (lambda (x.5) (rc x.5 #f)) (datum-cddr exp.1))) (if (datum-eq? (datum-car exp.1) peval-literal-44) (peval-for-each (lambda (x.4) (rc x.4 ae)) (datum-cdr exp.1)) (if ((lambda (value.40) (if value.40 value.40 (datum-eq? (datum-car exp.1) peval-literal-46))) (datum-eq? (datum-car exp.1) peval-literal-45)) (begin (peval-for-each (lambda (x.3) (rc (datum-cadr x.3) ae)) (datum-cadr exp.1)) (rc (datum-caddr exp.1) ae)) (if (datum-eq? (datum-car exp.1) peval-literal-47) (rc (datum-caddr exp.1) #f) (begin (peval-for-each (lambda (x.2) (rc x.2 ae)) exp.1) (if (peval-symbol? (datum-car exp.1)) (if (datum-eq? (datum-car exp.1) var.3) (ref-set! oper (+ (ref-get oper) (ann 1 I64))) (unit)) (unit))))))))))) (rc exp #t) (reference-counts (ref-get total) (ref-get oper) (ref-get always-evaled))))
+      (ref (ann 0 I64))
+      (ref (ann 0 I64))
       (ref #t))))
 
 (def binding-frame (-> Datum Datum Datum)
@@ -771,7 +771,7 @@
     (primitive
       peval-literal-55
       (lambda (args.4)
-        (if (= (datum-length args.4) 1)
+        (if (= (datum-length args.4) (ann 1 I64))
           (if (datum-pair? (datum-car args.4))
             (quot (datum-car (datum-car args.4)))
             (datum-boolean #f))
@@ -779,7 +779,7 @@
     (primitive
       peval-literal-56
       (lambda (args.5)
-        (if (= (datum-length args.5) 1)
+        (if (= (datum-length args.5) (ann 1 I64))
           (if (datum-pair? (datum-car args.5))
             (quot (datum-cdr (datum-car args.5)))
             (datum-boolean #f))
@@ -787,39 +787,39 @@
     (primitive
       peval-literal-57
       (lambda (args.6)
-        (if (xevery? datum-number? args.6) (quot (sum args.6 (peval-integer 0))) (datum-boolean #f))))
+        (if (xevery? datum-number? args.6) (quot (sum args.6 (peval-integer (ann 0 I64)))) (datum-boolean #f))))
     (primitive
       peval-literal-58
       (lambda (args.7)
         (if (xevery? datum-number? args.7)
-          (quot (product args.7 (peval-integer 1)))
+          (quot (product args.7 (peval-integer (ann 1 I64))))
           (datum-boolean #f))))
     (primitive
       peval-literal-59
       (lambda (args.8)
-        (if (> (datum-length args.8) 0)
+        (if (> (datum-length args.8) (ann 0 I64))
           (if (xevery? datum-number? args.8)
             (quot
               (if (datum-null? (datum-cdr args.8))
                 (peval-negate (datum-car args.8))
-                (peval-subtract (datum-car args.8) (sum (datum-cdr args.8) (peval-integer 0)))))
+                (peval-subtract (datum-car args.8) (sum (datum-cdr args.8) (peval-integer (ann 0 I64))))))
             (datum-boolean #f))
           (datum-boolean #f))))
     (primitive
       peval-literal-60
       (lambda (args.9)
-        (if (> (datum-length args.9) 1)
+        (if (> (datum-length args.9) (ann 1 I64))
           (if (xevery? datum-number? args.9)
             (quot
               (if (datum-null? (datum-cdr args.9))
-                (peval-divide (peval-integer 1) (datum-car args.9))
-                (peval-divide (datum-car args.9) (product (datum-cdr args.9) (peval-integer 1)))))
+                (peval-divide (peval-integer (ann 1 I64)) (datum-car args.9))
+                (peval-divide (datum-car args.9) (product (datum-cdr args.9) (peval-integer (ann 1 I64))))))
             (datum-boolean #f))
           (datum-boolean #f))))
     (primitive
       peval-literal-61
       (lambda (args.10)
-        (if (= (datum-length args.10) 2)
+        (if (= (datum-length args.10) (ann 2 I64))
           (if (xevery? datum-number? args.10)
             (quot (datum-boolean (peval-less? (datum-car args.10) (datum-cadr args.10))))
             (datum-boolean #f))
@@ -827,7 +827,7 @@
     (primitive
       peval-literal-62
       (lambda (args.11)
-        (if (= (datum-length args.11) 2)
+        (if (= (datum-length args.11) (ann 2 I64))
           (if (xevery? datum-number? args.11)
             (quot (datum-boolean (peval-number=? (datum-car args.11) (datum-cadr args.11))))
             (datum-boolean #f))
@@ -835,7 +835,7 @@
     (primitive
       peval-literal-63
       (lambda (args.12)
-        (if (= (datum-length args.12) 2)
+        (if (= (datum-length args.12) (ann 2 I64))
           (if (xevery? datum-number? args.12)
             (quot (datum-boolean (peval-greater? (datum-car args.12) (datum-cadr args.12))))
             (datum-boolean #f))
@@ -843,31 +843,31 @@
     (primitive
       peval-literal-64
       (lambda (args.13)
-        (if (= (datum-length args.13) 2)
+        (if (= (datum-length args.13) (ann 2 I64))
           (quot (datum-boolean (datum-eq? (datum-car args.13) (datum-cadr args.13))))
           (datum-boolean #f))))
     (primitive
       peval-literal-65
       (lambda (args.14)
-        (if (= (datum-length args.14) 1)
+        (if (= (datum-length args.14) (ann 1 I64))
           (quot (datum-boolean (not (datum-truth? (datum-car args.14)))))
           (datum-boolean #f))))
     (primitive
       peval-literal-66
       (lambda (args.15)
-        (if (= (datum-length args.15) 1)
+        (if (= (datum-length args.15) (ann 1 I64))
           (quot (datum-boolean (datum-null? (datum-car args.15))))
           (datum-boolean #f))))
     (primitive
       peval-literal-67
       (lambda (args.16)
-        (if (= (datum-length args.16) 1)
+        (if (= (datum-length args.16) (ann 1 I64))
           (quot (datum-boolean (datum-pair? (datum-car args.16))))
           (datum-boolean #f))))
     (primitive
       peval-literal-68
       (lambda (args.17)
-        (if (= (datum-length args.17) 1)
+        (if (= (datum-length args.17) (ann 1 I64))
           (quot (datum-boolean (peval-symbol? (datum-car args.17))))
           (datum-boolean #f))))))
 
@@ -893,7 +893,7 @@
               (datum-append (flatten (datum-cdar args.2) op) (flatten (datum-cdr args.2) op))
               ((lambda (head.10) ((lambda (tail.10) ((lambda () (datum-cons head.10 tail.10)))) (flatten (datum-cdr args.2) op)))
                 (datum-car args.2))))))
-      ((lambda (args.1) ((lambda (value.33) (if (datum-truth? value.33) value.33 ((lambda (pattern) ((lambda (non-const const) (if (datum-eq? name peval-literal-72) ((lambda (x.1) (if (datum-truth? x.1) ((lambda (y.1) ((lambda (head.9) ((lambda (tail.9) ((lambda () (datum-cons head.9 tail.9)))) (if (peval-number=? y.1 (peval-integer 0)) non-const ((lambda (head.8) ((lambda (tail.8) ((lambda () (datum-cons head.8 tail.8)))) non-const)) x.1)))) peval-literal-74)) (const-value x.1)) ((lambda (head.7) ((lambda (tail.7) ((lambda () (datum-cons head.7 tail.7)))) args.1)) name))) (reduce-global peval-literal-73 const)) (if (datum-eq? name peval-literal-75) ((lambda (x) (if (datum-truth? x) ((lambda (y) ((lambda (head.6) ((lambda (tail.6) ((lambda () (datum-cons head.6 tail.6)))) (if (peval-number=? y (peval-integer 1)) non-const ((lambda (head.5) ((lambda (tail.5) ((lambda () (datum-cons head.5 tail.5)))) non-const)) x)))) peval-literal-77)) (const-value x)) ((lambda (head.4) ((lambda (tail.4) ((lambda () (datum-cons head.4 tail.4)))) args.1)) name))) (reduce-global peval-literal-76 const)) (if (datum-eq? name peval-literal-78) (if (if (const-expr? (datum-cadr args.1)) (datum-null? (const-value (datum-cadr args.1))) #f) ((lambda (value.31) ((lambda (value.32) (datum-list value.31 value.32)) (datum-car args.1))) peval-literal-79) (if (if (datum-pair? (datum-cadr args.1)) (datum-eq? (datum-car (datum-cadr args.1)) peval-literal-80) #f) ((lambda (head.3) ((lambda (tail.3) ((lambda () (datum-cons head.3 tail.3)))) ((lambda (head.2) ((lambda (tail.2) ((lambda () (datum-cons head.2 tail.2)))) (datum-cdr (datum-cadr args.1)))) (datum-car args.1)))) peval-literal-81) ((lambda (head.1) ((lambda (tail.1) ((lambda () (datum-cons head.1 tail.1)))) args.1)) name))) ((lambda (head) ((lambda (tail) ((lambda () (datum-cons head tail)))) args.1)) name))))) (remove-constant args.1 pattern) (datum-map const-value (extract-constant args.1 pattern)))) (arg-pattern args.1)))) (if (xevery? const-expr? args.1) (reduce-global name (datum-map const-value args.1)) (datum-boolean #f))))
+      ((lambda (args.1) ((lambda (value.33) (if (datum-truth? value.33) value.33 ((lambda (pattern) ((lambda (non-const const) (if (datum-eq? name peval-literal-72) ((lambda (x.1) (if (datum-truth? x.1) ((lambda (y.1) ((lambda (head.9) ((lambda (tail.9) ((lambda () (datum-cons head.9 tail.9)))) (if (peval-number=? y.1 (peval-integer (ann 0 I64))) non-const ((lambda (head.8) ((lambda (tail.8) ((lambda () (datum-cons head.8 tail.8)))) non-const)) x.1)))) peval-literal-74)) (const-value x.1)) ((lambda (head.7) ((lambda (tail.7) ((lambda () (datum-cons head.7 tail.7)))) args.1)) name))) (reduce-global peval-literal-73 const)) (if (datum-eq? name peval-literal-75) ((lambda (x) (if (datum-truth? x) ((lambda (y) ((lambda (head.6) ((lambda (tail.6) ((lambda () (datum-cons head.6 tail.6)))) (if (peval-number=? y (peval-integer (ann 1 I64))) non-const ((lambda (head.5) ((lambda (tail.5) ((lambda () (datum-cons head.5 tail.5)))) non-const)) x)))) peval-literal-77)) (const-value x)) ((lambda (head.4) ((lambda (tail.4) ((lambda () (datum-cons head.4 tail.4)))) args.1)) name))) (reduce-global peval-literal-76 const)) (if (datum-eq? name peval-literal-78) (if (if (const-expr? (datum-cadr args.1)) (datum-null? (const-value (datum-cadr args.1))) #f) ((lambda (value.31) ((lambda (value.32) (datum-list value.31 value.32)) (datum-car args.1))) peval-literal-79) (if (if (datum-pair? (datum-cadr args.1)) (datum-eq? (datum-car (datum-cadr args.1)) peval-literal-80) #f) ((lambda (head.3) ((lambda (tail.3) ((lambda () (datum-cons head.3 tail.3)))) ((lambda (head.2) ((lambda (tail.2) ((lambda () (datum-cons head.2 tail.2)))) (datum-cdr (datum-cadr args.1)))) (datum-car args.1)))) peval-literal-81) ((lambda (head.1) ((lambda (tail.1) ((lambda () (datum-cons head.1 tail.1)))) args.1)) name))) ((lambda (head) ((lambda (tail) ((lambda () (datum-cons head tail)))) args.1)) name))))) (remove-constant args.1 pattern) (datum-map const-value (extract-constant args.1 pattern)))) (arg-pattern args.1)))) (if (xevery? const-expr? args.1) (reduce-global name (datum-map const-value args.1)) (datum-boolean #f))))
         (if ((lambda (value.30) (if value.30 value.30 (datum-eq? name peval-literal-71))) (datum-eq? name peval-literal-70))
           (flatten exprs name)
           exprs)))))
@@ -919,7 +919,7 @@
 (def test (-> Datum Datum Datum)
   (lambda (input1.1 input2)
     (begin
-      (ref-set! *current-num* 0)
+      (ref-set! *current-num* (ann 0 I64))
       ((lambda (value.20) ((lambda (value.21) ((lambda (value.22) ((lambda (value.23) ((lambda (value.24) ((lambda (value.25) ((lambda (value.26) ((lambda (value.27) ((lambda (value.28) ((lambda (value.29) (datum-list value.20 value.21 value.22 value.23 value.24 value.25 value.26 value.27 value.28 value.29)) (try-peval input1.1 input2))) (try-peval example7 ((lambda (value.19) (datum-list value.19)) peval-literal-99)))) (try-peval example6 peval-literal-98))) (try-peval example5 ((lambda (value.17) ((lambda (value.18) (datum-list value.17 value.18)) not-constant)) peval-literal-97)))) (try-peval example4 ((lambda (value.15) ((lambda (value.16) (datum-list value.15 value.16)) not-constant)) peval-literal-96)))) (try-peval example4 ((lambda (value.13) ((lambda (value.14) (datum-list value.13 value.14)) not-constant)) peval-literal-95)))) (try-peval example3 ((lambda (value.11) ((lambda (value.12) (datum-list value.11 value.12)) not-constant)) peval-literal-94)))) (try-peval example3 ((lambda (value.9) ((lambda (value.10) (datum-list value.9 value.10)) peval-literal-93)) not-constant)))) (try-peval example2 ((lambda (value.7) ((lambda (value.8) (datum-list value.7 value.8)) peval-literal-92)) not-constant))))
         (try-peval
           example1
@@ -963,13 +963,13 @@
 (def correct-result?
   (lambda (result.1 output)
     (if (peval-list? result.1)
-      (if (= (datum-length result.1) 10) (datum=? (peval-list-ref result.1 9) output) #f)
+      (if (= (datum-length result.1) (ann 10 I64)) (datum=? (peval-list-ref result.1 (ann 9 I64)) output) #f)
       #f)))
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index 1) (test (hide count input0) (hide count input1))) (if (correct-result? result expected) 1 0)))) loop)))
-      0
+    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index (ann 1 I64)) (test (hide count input0) (hide count input1))) (if (correct-result? result expected) (ann 1 I64) (ann 0 I64))))) loop)))
+      (ann 0 I64)
       (datum-boolean #f))))
 
 (unit)

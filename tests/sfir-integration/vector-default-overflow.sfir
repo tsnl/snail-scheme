@@ -1,16 +1,16 @@
 (import (sfir base))
 (def count
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def calls (-> I64)
      (lambda () (ref-get count)))
 (def sfir-migration-instance-1 (instance (Default (Ref I64))
                                          (default (lambda ()
-                                                    (begin (ref-set! count (+ (ref-get count) 1)) (ref 0))))))
+                                                    (begin (ref-set! count (+ (ref-get count) (ann 1 I64))) (ref (ann 0 I64)))))))
 
 (def allocate (-> I64)
      (lambda ()
        (begin
-         (ann (make-vector 4294967296) (Vector (Ref I64)))
-         0)))
-42
+         (ann (make-vector (ann 4294967296 I64)) (Vector (Ref I64)))
+         (ann 0 I64))))
+(ann 42 I64)

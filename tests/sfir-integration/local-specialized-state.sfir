@@ -3,9 +3,9 @@
      (lambda (seed)
        (begin (let cell (ref seed))
               (begin (let counted (lambda (x)
-                                    (begin (ref-set! cell (+ (ref-get cell) 1)) x)))
+                                    (begin (ref-set! cell (+ (ref-get cell) (ann 1 I64))) x)))
                      (begin
-                       (counted 42)
+                       (counted (ann 42 I64))
                        (counted #t)
                        (ref-get cell))))))
-(exercise 40)
+(exercise (ann 40 I64))

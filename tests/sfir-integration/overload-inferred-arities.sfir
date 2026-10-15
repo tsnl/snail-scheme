@@ -6,6 +6,6 @@
            (let sfir-migration-let-2 (inst add (-> I64 I64 I64)))
            (let first sfir-migration-let-1)
            (let second sfir-migration-let-2)
-           (second (first value 1) 1))))
+           (second (first value (ann 1 I64)) (ann 1 I64)))))
 (define-overload add (-> I64 I64 I64) i64-add)
-(add 40)
+(add (ann 40 I64))

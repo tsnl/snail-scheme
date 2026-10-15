@@ -1,8 +1,8 @@
 (import (sfir base))
 (def values
-     (ann (make-vector 100000) (Vector I64)))
-(if (if (= (vector-length values) 100000)
-        (if (= (vector-ref values 0) 0) (= (vector-ref values 99999) 0) #f)
+     (ann (make-vector (ann 100000 I64)) (Vector I64)))
+(if (if (= (vector-length values) (ann 100000 I64))
+        (if (= (vector-ref values (ann 0 I64)) (ann 0 I64)) (= (vector-ref values (ann 99999 I64)) (ann 0 I64)) #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

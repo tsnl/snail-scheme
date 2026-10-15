@@ -11,11 +11,11 @@
                   (def step
                        (lambda ()
                          (begin
-                           (ref-set! cell (+ (ref-get cell) 1))
+                           (ref-set! cell (+ (ref-get cell) (ann 1 I64)))
                            (right n))))
                   (step))))
          (def right
               (lambda (n) (+ n (ref-get cell))))
-         (begin (let cell (ref 0)) (+ (left 1) (ref-get cell))))))
+         (begin (let cell (ref (ann 0 I64))) (+ (left (ann 1 I64)) (ref-get cell))))))
 
-(exercise 40)
+(exercise (ann 40 I64))

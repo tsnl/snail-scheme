@@ -9,7 +9,7 @@
   "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
   "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
   "reviewed_port_sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473",
-  "sfir_sha256": "a9742b923a2d4be6c19074f775a0b6d0585e4abe288246d46287ca60022d6f43",
+  "sfir_sha256": "62f4b82db5c022396d551ae2149f5ed782a34a7c950d0d48c2f38775b434ea21",
   "controls": {
     "chez-adapted.scm": "e5b33df93d7b6dccce8bcb9d8483e631a5c4934b656806f2fe94a39e1f1311d8",
     "chez-original.scm": "f79d4fc44456aff43ecbe485c5994d8ce2ca97b9c7180cafd4eb822c3ad92e8a"
@@ -26,5 +26,14 @@
     "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
     "numeric_policy": "unchanged",
     "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  },
+  "literal_width_migration": {
+    "before_sha256": "a9742b923a2d4be6c19074f775a0b6d0585e4abe288246d46287ca60022d6f43",
+    "after_sha256": "62f4b82db5c022396d551ae2149f5ed782a34a7c950d0d48c2f38775b434ea21",
+    "annotations_added": 56,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
   }
 }

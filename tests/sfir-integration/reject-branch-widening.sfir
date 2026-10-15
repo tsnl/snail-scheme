@@ -1,4 +1,4 @@
 (import (sfir base))
 (def choose
-     (lambda (flag) (if flag 42 #t)))
+     (lambda (flag) (if flag (ann 42 I64) #t)))
 (choose #t)

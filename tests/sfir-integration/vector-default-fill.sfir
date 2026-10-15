@@ -1,10 +1,10 @@
 (import (sfir base))
 (def cell
-     (ref 42))
+     (ref (ann 42 I64)))
 (def filled
-     (make-vector 2 cell))
-(if (if (ref-eq? (vector-ref filled 0) (vector-ref filled 1))
-        (= (ref-get (vector-ref filled 1)) 42)
+     (make-vector (ann 2 I64) cell))
+(if (if (ref-eq? (vector-ref filled (ann 0 I64)) (vector-ref filled (ann 1 I64)))
+        (= (ref-get (vector-ref filled (ann 1 I64))) (ann 42 I64))
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

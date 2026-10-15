@@ -5,63 +5,63 @@
      "XY")
 
 (def negative-length (-> I64)
-     (lambda () (string-length (make-string -1))))
+     (lambda () (string-length (make-string (ann -1 I64)))))
 
 (def overflow-length (-> I64)
-     (lambda () (string-length (make-string 4294967295))))
+     (lambda () (string-length (make-string (ann 4294967295 I64)))))
 
 (def huge-length (-> I64)
-     (lambda () (string-length (make-string 9223372036854775807))))
+     (lambda () (string-length (make-string (ann 9223372036854775807 I64)))))
 
 (def negative-index (-> Char)
-     (lambda () (string-ref target -1)))
+     (lambda () (string-ref target (ann -1 I64))))
 
 (def endpoint-index (-> Char)
-     (lambda () (string-ref target 3)))
+     (lambda () (string-ref target (ann 3 I64))))
 
 (def wrapped-index (-> Unit)
-     (lambda () (string-set! target 4294967295 #\null)))
+     (lambda () (string-set! target (ann 4294967295 I64) #\null)))
 
 (def empty-index (-> Char)
-     (lambda () (string-ref (string) 0)))
+     (lambda () (string-ref (string) (ann 0 I64))))
 
 (def reversed-range (-> Unit)
-     (lambda () (string-copy! target 0 source 2 1)))
+     (lambda () (string-copy! target (ann 0 I64) source (ann 2 I64) (ann 1 I64))))
 
 (def negative-range (-> Unit)
-     (lambda () (string-copy! target 0 source -1 0)))
+     (lambda () (string-copy! target (ann 0 I64) source (ann -1 I64) (ann 0 I64))))
 
 (def long-source (-> Unit)
-     (lambda () (string-copy! target 0 source 0 3)))
+     (lambda () (string-copy! target (ann 0 I64) source (ann 0 I64) (ann 3 I64))))
 
 (def short-target (-> Unit)
-     (lambda () (string-copy! target 2 source 0 2)))
+     (lambda () (string-copy! target (ann 2 I64) source (ann 0 I64) (ann 2 I64))))
 
 (def empty-target-overflow (-> Unit)
-     (lambda () (string-copy! target 4294967295 source 0 0)))
+     (lambda () (string-copy! target (ann 4294967295 I64) source (ann 0 I64) (ann 0 I64))))
 
 (def empty-source-overflow (-> Unit)
-     (lambda () (string-copy! target 0 source 4294967295 4294967295)))
+     (lambda () (string-copy! target (ann 0 I64) source (ann 4294967295 I64) (ann 4294967295 I64))))
 
 (def empty-source-bounds (-> Unit)
-     (lambda () (string-copy! target 0 source 3 3)))
+     (lambda () (string-copy! target (ann 0 I64) source (ann 3 I64) (ann 3 I64))))
 
 (def empty-target-bounds (-> Unit)
-     (lambda () (string-copy! target 4 source 0 0)))
+     (lambda () (string-copy! target (ann 4 I64) source (ann 0 I64) (ann 0 I64))))
 
 (def negative-substring (-> I64)
-     (lambda () (string-length (substring source -1 0))))
+     (lambda () (string-length (substring source (ann -1 I64) (ann 0 I64)))))
 
 (def reversed-substring (-> I64)
-     (lambda () (string-length (substring source 2 1))))
+     (lambda () (string-length (substring source (ann 2 I64) (ann 1 I64)))))
 
 (def long-substring (-> I64)
-     (lambda () (string-length (substring source 0 3))))
+     (lambda () (string-length (substring source (ann 0 I64) (ann 3 I64)))))
 
 (def unchanged (-> Bool)
      (lambda ()
        (begin (let before (string=? target "abc"))
               (begin
-                (string-set! target 0 #\Z)
+                (string-set! target (ann 0 I64) #\Z)
                 (if before (string=? target "Zbc") #f)))))
-42
+(ann 42 I64)

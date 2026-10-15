@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n (ann 1 I64)))))) loop.1)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -37,18 +37,18 @@
 (def datum-tag
   (lambda (value.12)
     (match value.12
-      ((make-datum-false) 0)
-      ((make-datum-true) 1)
-      ((make-datum-empty) 2)
-      ((make-datum-x) 5)
-      ((make-datum-a) 6)
-      ((make-datum-b) 7)
-      ((make-datum-plus) 8)
-      ((make-datum-minus) 9)
-      ((make-datum-times) 10)
-      ((make-datum-divide) 11)
-      ((make-datum-number number.9) 3)
-      ((datum-cons first.10 rest.10) 4))))
+      ((make-datum-false) (ann 0 I64))
+      ((make-datum-true) (ann 1 I64))
+      ((make-datum-empty) (ann 2 I64))
+      ((make-datum-x) (ann 5 I64))
+      ((make-datum-a) (ann 6 I64))
+      ((make-datum-b) (ann 7 I64))
+      ((make-datum-plus) (ann 8 I64))
+      ((make-datum-minus) (ann 9 I64))
+      ((make-datum-times) (ann 10 I64))
+      ((make-datum-divide) (ann 11 I64))
+      ((make-datum-number number.9) (ann 3 I64))
+      ((datum-cons first.10 rest.10) (ann 4 I64)))))
 
 (def datum-false (make-datum-false))
 
@@ -70,9 +70,9 @@
 
 (def datum-divide (make-datum-divide))
 
-(def datum-zero (make-datum-number 0))
+(def datum-zero (make-datum-number (ann 0 I64)))
 
-(def datum-one (make-datum-number 1))
+(def datum-one (make-datum-number (ann 1 I64)))
 
 (def datum-pair?
   (lambda (value.11)
@@ -236,7 +236,7 @@
 
 (def datum-equal?
   (lambda (left right)
-    ((lambda (tag.1) (if (= tag.1 (datum-tag right)) (if (= tag.1 3) (= (datum-number-value left) (datum-number-value right)) (if (= tag.1 4) (if (datum-equal? (datum-car left) (datum-car right)) (datum-equal? (datum-cdr left) (datum-cdr right)) #f) #t)) #f))
+    ((lambda (tag.1) (if (= tag.1 (datum-tag right)) (if (= tag.1 (ann 3 I64)) (= (datum-number-value left) (datum-number-value right)) (if (= tag.1 (ann 4 I64)) (if (datum-equal? (datum-car left) (datum-car right)) (datum-equal? (datum-cdr left) (datum-cdr right)) #f) #t)) #f))
       (datum-tag left))))
 
 (define-extern datum-input-length "benchmark" "vector_length" (-> I32 I64))
@@ -245,17 +245,17 @@
 
 (def next-datum-token
   (lambda (source.2 position.2)
-    ((lambda (i.1) (if (< i.1 (datum-input-length source.2)) (begin (ref-set! position.2 (+ i.1 1)) (datum-input-token source.2 i.1)) (unreachable)))
+    ((lambda (i.1) (if (< i.1 (datum-input-length source.2)) (begin (ref-set! position.2 (+ i.1 (ann 1 I64))) (datum-input-token source.2 i.1)) (unreachable)))
       (ref-get position.2))))
 
 (def read-input-datum
   (lambda (source.1)
     ((lambda (position.1) ((lambda (value) ((lambda () (if (= (ref-get position.1) (datum-input-length source.1)) value (unreachable))))) (read-datum source.1 position.1)))
-      (ref 0))))
+      (ref (ann 0 I64)))))
 
 (def read-datum
   (lambda (source position)
-    ((lambda (tag) (if (= tag 3) (make-datum-number (next-datum-token source position)) (if (= tag 4) ((lambda (first) ((lambda (rest) ((lambda () (datum-cons first rest)))) (read-datum source position))) (read-datum source position)) (if (= tag 0) datum-false (if (= tag 1) datum-true (if (= tag 2) datum-empty (if (= tag 5) datum-x (if (= tag 6) datum-a (if (= tag 7) datum-b (if (= tag 8) datum-plus (if (= tag 9) datum-minus (if (= tag 10) datum-times (if (= tag 11) datum-divide (unreachable))))))))))))))
+    ((lambda (tag) (if (= tag (ann 3 I64)) (make-datum-number (next-datum-token source position)) (if (= tag (ann 4 I64)) ((lambda (first) ((lambda (rest) ((lambda () (datum-cons first rest)))) (read-datum source position))) (read-datum source position)) (if (= tag (ann 0 I64)) datum-false (if (= tag (ann 1 I64)) datum-true (if (= tag (ann 2 I64)) datum-empty (if (= tag (ann 5 I64)) datum-x (if (= tag (ann 6 I64)) datum-a (if (= tag (ann 7 I64)) datum-b (if (= tag (ann 8 I64)) datum-plus (if (= tag (ann 9 I64)) datum-minus (if (= tag (ann 10 I64)) datum-times (if (= tag (ann 11 I64)) datum-divide (unreachable))))))))))))))
       (next-datum-token source position))))
 
 (def hide (lambda (count.1 x) (if (barrier) x (unreachable))))
@@ -291,8 +291,8 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (if (datum-equal? (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (deriv (hide count input0))) result))) loop))) 0 datum-false) expected)
-      1
-      0)))
+    (if (datum-equal? (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (deriv (hide count input0))) result))) loop))) (ann 0 I64) datum-false) expected)
+      (ann 1 I64)
+      (ann 0 I64))))
 
 (unit)

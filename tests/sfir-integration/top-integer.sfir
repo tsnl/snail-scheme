@@ -1,4 +1,4 @@
 (import (sfir base))
 (def forget
      (lambda (x) (ann x Any)))
-(ann (forget 4294967296) I64)
+(ann (forget (ann 4294967296 I64)) I64)

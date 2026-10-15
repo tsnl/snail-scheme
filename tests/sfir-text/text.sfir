@@ -17,9 +17,9 @@
 ;; ---- Hosts populate ordinary mutable SFIR strings through scalar workers ----
 
 (def left
-     (ref (make-string 0)))
+     (ref (make-string (ann 0 I64))))
 (def right
-     (ref (make-string 0)))
+     (ref (make-string (ann 0 I64))))
 
 (def fresh-strings (-> I64 I64 Unit)
      (lambda (a b)
@@ -56,7 +56,7 @@
      (lambda ()
        (begin (let folded (string-foldcase "Straße"))
               (begin
-                (string-set! folded 0 #\S)
+                (string-set! folded (ann 0 I64) #\S)
                 (string=? folded "Strasse")))))
 
 ;; ---- Malformed raw callers must release files before the fatal diagnostic ----
@@ -78,18 +78,18 @@
      (lambda (operation code)
        (begin
          (begin (let port (open-output-file "pending.txt")) (write-string "buffered" port))
-         (if (= operation 0)
+         (if (= operation (ann 0 I64))
              (raw-downcase code)
-             (if (= operation 1)
+             (if (= operation (ann 1 I64))
                  (raw-alphabetic code)
-                 (if (= operation 2)
+                 (if (= operation (ann 2 I64))
                      (raw-numeric code)
-                     (if (= operation 3)
+                     (if (= operation (ann 3 I64))
                          (raw-whitespace code)
-                         (if (= operation 4)
+                         (if (= operation (ann 4 I64))
                              (raw-full-fold-length code)
-                             (if (= operation 5)
+                             (if (= operation (ann 5 I64))
                                  (raw-full-fold-scalar code (ann 0 I32))
-                                 (raw-full-fold-scalar (if (= operation 6) (ann 223 I32) (ann 912 I32)) code)))))))
+                                 (raw-full-fold-scalar (if (= operation (ann 6 I64)) (ann 223 I32) (ann 912 I32)) code)))))))
          (unreachable))))
 (unit)

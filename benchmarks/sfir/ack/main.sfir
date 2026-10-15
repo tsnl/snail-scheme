@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 (ann 1 I64)))))) loop.1)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -23,7 +23,7 @@
 (def hide (lambda (count.1 x) (hide-i64 x)))
 
 (def ack
-  (lambda (m n) (if (= m 0) (+ n 1) (if (= n 0) (ack (- m 1) 1) (ack (- m 1) (ack m (- n 1)))))))
+  (lambda (m n) (if (= m (ann 0 I64)) (+ n (ann 1 I64)) (if (= n (ann 0 I64)) (ack (- m (ann 1 I64)) (ann 1 I64)) (ack (- m (ann 1 I64)) (ack m (- n (ann 1 I64))))))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
@@ -31,8 +31,8 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (ack (hide count input0) (hide count input1))) result))) loop)))
-      0
-      0)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (ack (hide count input0) (hide count input1))) result))) loop)))
+      (ann 0 I64)
+      (ann 0 I64))))
 
 (unit)

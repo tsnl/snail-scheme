@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.2 (lambda (xs.1 n) (if (null? xs.1) n (loop.2 (cdr xs.1) (+ n 1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (xs.1 n) (if (null? xs.1) n (loop.2 (cdr xs.1) (+ n (ann 1 I64)))))) loop.2)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -54,7 +54,7 @@
 
 (def input-path (-> I32 String)
   (lambda (which)
-    ((lambda (size) ((lambda (text) ((lambda () (((lambda () (begin (def loop.1 (lambda (index) (if (= index size) text (begin (string-set! text index (path-character which index)) (loop.1 (+ index 1)))))) loop.1))) 0)))) (make-string size)))
+    ((lambda (size) ((lambda (text) ((lambda () (((lambda () (begin (def loop.1 (lambda (index) (if (= index size) text (begin (string-set! text index (path-character which index)) (loop.1 (+ index (ann 1 I64))))))) loop.1))) (ann 0 I64))))) (make-string size)))
       (path-length which))))
 
 (def input0 (input-path (ann 0 I32)))
@@ -66,7 +66,7 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (i) (if (< i count) (begin (go (hide-path count input0) (hide-path count input1)) (loop (+ i 1))) 1))) loop)))
-      0)))
+    (((lambda () (begin (def loop (lambda (i) (if (< i count) (begin (go (hide-path count input0) (hide-path count input1)) (loop (+ i (ann 1 I64)))) (ann 1 I64)))) loop)))
+      (ann 0 I64))))
 
 (unit)

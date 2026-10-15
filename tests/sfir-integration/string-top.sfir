@@ -5,12 +5,12 @@
 (def values
      (vector (ann (text (ann (ref-get saved) String)) Any)))
 (def text-value
-     (ann (vector-ref values 0) Text))
+     (ann (vector-ref values (ann 0 I64)) Text))
 (def reader
      (lambda ()
        (begin (let value (text-content text-value))
-              (lambda () (string-ref value 1)))))
+              (lambda () (string-ref value (ann 1 I64))))))
 (def read-character
      (reader))
-(string-set! (ann (ref-get saved) String) 1 #\é)
-(if (char=? (read-character) #\é) 42 (unreachable))
+(string-set! (ann (ref-get saved) String) (ann 1 I64) #\é)
+(if (char=? (read-character) #\é) (ann 42 I64) (unreachable))

@@ -2,5 +2,5 @@
 (def x
      (ann 40 I32))
 (def y
-     2)
+     (ann 2 I64))
 (+ x y)

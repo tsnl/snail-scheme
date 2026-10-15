@@ -24,7 +24,7 @@
                              (import (rename (entry provider) (public-worker selected))
                                (only (entry alias)) (only (entry decoy)))
                              (export (rename selected main) (rename selected another))
-                             (begin (def worker (-> I32 I32) (lambda (x) 1000)) (def entry 666)))"))
+                             (begin (def worker (-> I32 I32) (lambda (x) 1000)) (def entry (ann 666 I64))))"))
            (decoy (parsed "(define-library (entry decoy)
                             (begin (def worker (-> I32 I32) (lambda (x) 999))))")))
        (list (cons '(sfir primitive) (make-primitive-library primitive-names))

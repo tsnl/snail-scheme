@@ -3,7 +3,7 @@
 ;; ---- Shared dependency paths are visited once per reachability query ----
 
 (def a0
-     1)
+     (ann 1 I64))
 (def a1
      (+ a0 a0))
 (def a2
