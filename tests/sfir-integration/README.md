@@ -35,6 +35,38 @@ custom hosts. Their runner commands are `scripts/test-sfir-extern` and
 `scripts/test-sfir-io`. The extern fixture's former macro-produced local foreign
 binding is now explicit and distinct from its surrounding parameter.
 
+## Library integration fixtures
+
+The adjacent `sfir-bytes`, `sfir-extern`, `sfir-integer`, `sfir-io`,
+`sfir-numbers`, `sfir-reader`, `sfir-text`, and `sfir-write` directories retain the
+custom Node and C hosts and independent data oracles. Scalar trigonometry remains
+in `../sfir-math.sfir` with its existing Node/C hosts. Their corresponding commands
+are `scripts/test-sfir-<name>`.
+
+These runners compile static target sources. They may generate input values,
+malformed byte streams and independent expected answers. Scheme datum streams
+remain Scheme data, and external Chez oracle programs remain `.scm` files.
+Neither is a target-language elaborator.
+
+The Integer runner imports the ordinary `test-integer` entry point at production
+radix and at radix 4. The latter build uses the authored
+`../sfir-integer/small-radix/sfir/integer.sfir` override. A read-only comparison
+requires the complete override to equal the production library except for the
+two exact `radix` and `limb-bits` declarations. Separate build outputs and a check
+of the emitted production-radix constant verify that the library selection
+actually differs. No source file is rewritten during execution.
+
+The bytevector literal boundary uses two authored fixtures, containing exactly
+10,000 and 10,001 bytes. The first still checks every stored value on both Wasm
+forms and native64; the second must fail at the literal's source location.
+
+The Number boundary checker uses frozen external Chez controls under
+`../sfir-numbers/chez`; it writes test data without creating Scheme program
+syntax. It checks their source identities, exact scalar-formatting bytes,
+token ownership failures and complete reader streams. Optional canonical
+Sum1, Read1 and Parsing controls come from static benchmark files. These
+correctness runs do not provide clean performance measurements.
+
 ## Focused clarity review
 
 The pinned [simplify workflow](../../.agents/skills/simplify/SKILL.md) used a fresh
