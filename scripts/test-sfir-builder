@@ -35,15 +35,18 @@ def main():
     run([*chibi, FIXTURES / 'receive.scm', OUTPUT])
     run([*node, FIXTURES / 'run.mjs', OUTPUT])
     complete_library_data(chibi, node)
+    run([*chibi, FIXTURES / 'parsed-check.scm', OUTPUT])
+    run([*node, FIXTURES / 'parsed-run.mjs', OUTPUT])
 
 
 def complete_library_data(chibi, node):
     run([*chibi, FIXTURES / 'complete-build.scm', OUTPUT])
     run([*node, FIXTURES / 'complete-produce.mjs', OUTPUT])
+    run([*node, FIXTURES / 'parsed-produce.mjs', OUTPUT])
     run([*chibi, FIXTURES / 'complete-receive.scm', OUTPUT])
     provider = OUTPUT / 'complete-provider.wasm'
     run([os.environ.get('WASM_AS', 'wasm-as'), FIXTURES / 'complete-provider.wat', '-o', provider])
-    for name in ('generated', 'source'):
+    for name in ('generated', 'source', 'parsed'):
         stem = 'complete-' + name
         run([os.environ.get('WASM_MERGE', 'wasm-merge'), *FEATURES, OUTPUT / (stem + '.wasm'), 'program',
              provider, 'tests.builder', '-o', OUTPUT / (stem + '.linked.wasm')])
@@ -53,7 +56,7 @@ def complete_library_data(chibi, node):
              ROOT / 'src/native.c', ROOT / 'src/precise-gc.c', FIXTURES / 'complete-native.c', '-lm', '-o', native])
         run([native], SNAIL_NATIVE_GC_INTERVAL='1')
     run([*node, FIXTURES / 'complete-run.mjs', OUTPUT])
-    print('PASS complete generated/source native execution with collection at every allocation', flush=True)
+    print('PASS complete generated/source/parsed native execution with collection at every allocation', flush=True)
 
 
 if __name__ == '__main__':

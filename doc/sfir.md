@@ -43,8 +43,8 @@ The [SFIR builder](sfir-builder.md) constructs and inspects the full
 library syntax and transfers owned data into Chibi; the source driver executes
 explicit [generation recipes](sfir-generation.md). Ordinary SFIR programs can
 also call the [compiler and Wasm execution service](sfir-compiler-service.md),
-with explicit library maps and recoverable error values. Native target support
-in that SFIR service and first-class parsing that returns inspectable
-`SfirLibrary` data to SFIR remain pending; service source insertion currently
-parses directly into its owned map. See [the compiler tour](../TOUR.md) for
+with explicit library maps and recoverable error values. Its `parse-library`
+returns inspectable, transformable `SfirLibrary` data through the same builder
+views and constructors. Native target support in that SFIR service remains
+pending. See [the compiler tour](../TOUR.md) for
 module responsibilities.

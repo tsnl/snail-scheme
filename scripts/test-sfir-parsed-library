@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Execute first-class parsing and syntax transformations in a compiled SFIR build."""
+
+import os
+from pathlib import Path
+import runpy
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / 'tests/sfir-parsed-library'
+OUTPUT = ROOT / 'build/sfir-parsed-library'
+SUPPORT = runpy.run_path(str(ROOT / 'benchmarks/sfir/runner.py'))
+
+
+# ---- Retain correctness diagnostics for the explicit build and execution ----
+
+
+def run(directory, label, command):
+    result = SUPPORT['record'](directory, label, command,
+                               {**os.environ, 'BINARYEN_CORES': '1'}, ROOT, 300)
+    assert SUPPORT['succeeded'](result), result
+    print(result['stdout'], end='', flush=True)
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    directory = Path(tempfile.mkdtemp(prefix='attempt-', dir=OUTPUT))
+    for name, source in [('provider', ROOT / 'tests/sfir-execution'),
+                         ('observer', ROOT / 'tests/sfir-compiler-service')]:
+        run(directory, name, [os.environ.get('WASM_AS', 'wasm-as'), '--enable-mutable-globals',
+                              source / (name + '.wat'), '-o', directory / (name + '.wasm')])
+    run(directory, 'build', [os.environ.get('CHIBI', 'chibi-scheme'), '-I', ROOT / 'src',
+                             FIXTURES / 'build.scm', ROOT, directory])
+    run(directory, 'execute', [os.environ.get('NODE', 'node'), '--expose-gc', FIXTURES / 'run.mjs', directory])
+    print(f'PASS parsed-library commands and artifacts: {directory}')
+
+
+if __name__ == '__main__':
+    main()

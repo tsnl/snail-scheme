@@ -318,7 +318,7 @@
         (when signature
           (set-binding-declaration! definition
                                     (make-type-declaration definition signature (syntax-loc (cadr items)))))
-        (make-value-binding definition initializer (syntax-loc form))))
+        (make-value-binding definition initializer (syntax-loc form) (head form))))
     (define (parse-definition form scope)
       (let ((former (definition-former form)))
         (let ((declaration
@@ -349,7 +349,7 @@
       (cond ((syntax-identifier? form) (make-name (resolve-value form environment) (syntax-loc form)))
             ((atom-syntax? form)
              (make-literal (atom-syntax-value form) (syntax-loc form) (atom-syntax-number-spelling form)))
-            ((vector-syntax? form) (make-literal (syntax->datum form) (syntax-loc form)))
+            ((vector-syntax? form) (fail form "vector data is not an SFIR literal"))
             ((list-syntax? form) (parse-list-expression form environment))
             (else (fail form "expected an SFIR expression"))))
     ;; Each dispatch arm is a complete grammar production. Unsupported Scheme
@@ -404,7 +404,7 @@
     ;; ---- Declared type syntax ----
 
     (define (type-variables forms source)
-      (let ((variables (map (lambda (form) (cons (binder-name form) (make-type-variable (identifier form)))) forms)))
+      (let ((variables (map (lambda (form) (cons (binder-name form) (make-type-variable (identifier form) (syntax-loc form)))) forms)))
         (unique-names (map car variables) source) variables))
     (define (parse-type form environment)
       (if (syntax-identifier? form)
@@ -537,7 +537,8 @@
              (signature (and annotated? (parse-signature (cadr items) environment))))
         (when (and signature (not (arrow-type? (all-body signature)))) (fail form "overload requires a function signature"))
         (make-overload-declaration (resolve (car items) environment) signature
-                                   (parse-expression (binding-body items) (signature-scope signature environment)) (syntax-loc form))))
+                                   (parse-expression (binding-body items) (signature-scope signature environment)) (syntax-loc form)
+                                   (and annotated? (syntax-loc (cadr items))))))
     (define (parse-extern form environment)
       (let* ((items (arguments form 4)) (module (syntax->datum (cadr items)))
              (symbol (syntax->datum (caddr items))))
@@ -770,7 +771,7 @@
                     "(begin (def Flag (datatype () (flag))) 0)"
                     "(def Flag Constraint (datatype () (flag)))"
                     "(let Flag (datatype () (flag)))" "(def Flag (datatype () (flag))) Flag"
-                    "(define x 1)" "(library (test old))" "(quote ())"
+                    "(define x 1)" "(library (test old))" "(quote ())" "#()" "#(1 2)"
                     "(define-library (test bad) (def x 1))"
                     "(define-library (test bad) (begin (import (sfir base))))"
                     "(import (prefix (sfir base) p:))" "(inst missing)"

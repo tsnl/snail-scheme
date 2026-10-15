@@ -103,11 +103,11 @@ class Arena {
 // ---- A fixed scalar constructor protocol ----
 
 const typeKinds = ['scalar-type', 'function-type', 'rest-function-type', 'reference-type', 'list-type',
-  'vector-type', 'nominal-type', 'variable-type'];
+  'vector-type', 'nominal-type', 'variable-type', 'rest-type'];
 const signatureKinds = [...typeKinds, 'all-signature'];
 const referenceKinds = ['local-reference', 'import-reference'];
 const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'conditional', 'string-literal',
-  'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match'];
+  'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match', 'number-literal'];
 const staticKinds = ['datatype', 'typeclass', 'instance'];
 const declarationKinds = ['definition', 'inferred-definition', 'local-binding', 'inferred-local-binding',
   'expression-statement', 'extern', 'overload', 'inferred-overload', ...staticKinds, 'kind-annotation'];
@@ -150,6 +150,7 @@ const syntaxForms = [
   ['extern', ['binding', 'name', 'name', 'type', 'span']],
   ['overload', ['binding', 'signature', 'expression', 'span']],
   ['inferred-overload', ['binding', 'expression', 'span']],
+  ['number-literal', ['name', 'span']], ['rest-type', ['type']],
 ];
 const categories = {
   'scope-id': ['scope', 'child-scope'], type: typeKinds, signature: signatureKinds,
@@ -250,9 +251,115 @@ function constructors(arena) {
     if (value < 0n || value > 255n) throw new RangeError('byte literal must be in 0..255');
     return arena.put('byte', [Number(value)]);
   });
+  add('signature-location', ['i64'], handle => {
+    const node = arena.get(handle, ['definition', 'local-binding', 'overload']);
+    return node[5] ?? node[4];
+  });
+  add('with-signature-location', ['i64', 'i64'], (handle, span) => {
+    const node = arena.get(handle, ['definition', 'local-binding', 'overload']);
+    arena.get(span, ['span']);
+    return arena.put(node[0], [...node.slice(1, 5), span], [1, 2, 3, 4, 5]);
+  });
+  add('checked-library', ['i64'], handle => { arena.get(handle, ['library']); return handle; });
   addSyntaxConstructors(arena, add);
   addInspection(arena, add);
   return functions;
+}
+
+// ---- Received packets are copied into the same arena as constructed syntax ----
+
+// These are the scalar-bearing rows; other rows share the constructor schema.
+// Packet IDs have no authority outside this packet. Only copied arena handles
+// are exposed, after the entire closed graph has passed structural checks.
+const packetForms = new Map([
+  ['name', ['text']], ['span', ['name', 'positive', 'positive']], ['scope', []],
+  ['child-scope', ['scope-id']], ['binding', ['scope-id', 'name', 'span']],
+  ['nil', []], ['cons', ['any', 'sequence']], ['scalar-type', ['scalar']],
+  ['function-type', ['types', 'type']], ['local-reference', ['binding', 'span']],
+  ['import-reference', ['scope', 'name', 'span']], ['reference', ['binding-reference']],
+  ['literal', ['scalar', 'text', 'span']], ['lambda', ['child-scope', 'bindings', 'expression', 'span']],
+  ['application', ['expression', 'expressions', 'span']],
+  ['conditional', ['expression', 'expression', 'expression', 'span']],
+  ['definition', ['binding', 'signature', 'expression', 'span']], ['all', []],
+  ['only', ['selection', 'names']], ['rename-pair', ['name', 'name']],
+  ['rename', ['selection', 'renames']], ['import', ['names', 'selection', 'scope', 'span']],
+  ['export', ['name', 'binding-reference']], ['library', ['names', 'scope', 'imports', 'exports', 'declarations', 'span']],
+  ['byte', ['byte-value']], ...syntaxForms,
+]);
+const packetSequences = {...sequences, expressions: 'expression', names: 'name',
+  renames: 'rename-pair', imports: 'import', exports: 'export'};
+const packetCategories = {...categories, sequence: sequenceKinds, selection: selectionKinds};
+const scalarFields = ['text', 'positive', 'scalar', 'byte-value'];
+
+function packetScalar(value, descriptor) {
+  if (descriptor === 'text') {
+    if (typeof value !== 'string') throw new TypeError('expected transfer text');
+    for (const character of value) scalar(character.codePointAt(0));
+  } else if (descriptor === 'scalar') {
+    if (!scalarNames.includes(value)) throw new TypeError('unsupported transfer scalar type');
+  } else if (!Number.isInteger(value) || value < (descriptor === 'positive' ? 1 : 0) ||
+    value > (descriptor === 'positive' ? 0x7fffffff : 255)) throw new TypeError('invalid transfer scalar field');
+  return value;
+}
+
+function packetNode(nodes, id, descriptor) {
+  if (!Number.isInteger(id) || id < 0 || id >= nodes.length) throw new TypeError('dangling transfer node ID');
+  const node = nodes[id], kinds = packetSequences[descriptor] ? sequenceKinds : packetCategories[descriptor] ?? [descriptor];
+  if (!Array.isArray(node) || (descriptor !== 'any' && !kinds.includes(node[0])))
+    throw new TypeError('transfer node has wrong kind');
+  return node;
+}
+
+function checkPacketSequence(nodes, id, descriptor) {
+  const element = packetSequences[descriptor];
+  if (!element) return;
+  for (let node = nodes[id]; node[0] === 'cons'; node = nodes[node[2]]) packetNode(nodes, node[1], element);
+}
+
+function packetSchema(node) {
+  const fields = packetForms.get(node[0]);
+  if (fields && node.length === fields.length + 1) return fields;
+  if (['definition', 'local-binding', 'overload'].includes(node[0]) && node.length === fields.length + 2)
+    return [...fields, 'span'];
+  throw new TypeError('unsupported transfer node');
+}
+
+function packetOrder(nodes) {
+  const marks = new Map(), order = [];
+  const visit = id => {
+    if (marks.get(id) === 'pending') throw new TypeError('cyclic transfer structure');
+    if (marks.has(id)) return;
+    const node = packetNode(nodes, id, 'any'), fields = packetSchema(node);
+    marks.set(id, 'pending');
+    fields.forEach((descriptor, index) => {
+      const value = node[index + 1];
+      if (scalarFields.includes(descriptor)) packetScalar(value, descriptor);
+      else { packetNode(nodes, value, descriptor); visit(value); checkPacketSequence(nodes, value, descriptor); }
+    });
+    marks.set(id, 'complete'); order.push([id, fields]);
+  };
+  nodes.forEach((_, id) => visit(id));
+  return order;
+}
+
+function copyPacketNode(arena, node, fields, handles) {
+  const references = [];
+  const copied = node.slice(1).map((value, index) => {
+    if (scalarFields.includes(fields[index])) return value;
+    references.push(index + 1); return handles.get(value);
+  });
+  return arena.put(node[0], copied, references);
+}
+
+function receivePacket(arena, text) {
+  arena.checkOpen();
+  const packet = JSON.parse(text);
+  if (!packet || Object.keys(packet).sort().join(',') !== 'nodes,root,version' || packet.version !== 1 || !Array.isArray(packet.nodes))
+    throw new TypeError('unsupported library transfer packet');
+  const order = packetOrder(packet.nodes), handles = new Map();
+  packetNode(packet.nodes, packet.root, 'library');
+  for (const [id, fields] of order) handles.set(id, copyPacketNode(arena, packet.nodes[id], fields, handles));
+  return handles.get(packet.root);
 }
 
 // ---- Inspection copies values and preserves child identities ----
@@ -321,7 +428,8 @@ function typedProvider(functions) {
 
 export function openLibraryBuilder() {
   const arena = new Arena(), provider = typedProvider(constructors(arena));
-  return Object.freeze({provider, finish: handle => arena.finish(handle), close: () => arena.close()});
+  return Object.freeze({provider, receive: packet => receivePacket(arena, packet),
+    finish: handle => arena.finish(handle), close: () => arena.close()});
 }
 
 export function libraryTransferJSON(transfer) {

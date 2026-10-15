@@ -26,7 +26,7 @@
    (write-result (cdr pair) (string-append "complete-" (car pair)) 'run wasm-target ".wasm")
    (write-result (cdr pair) (string-append "complete-" (car pair)) 'run native-target ".o")
    (write-result (cdr pair) (string-append "complete-" (car pair) "-literals") 'literals wasm-target ".wasm"))
- (list (cons "generated" generated) (cons "source" source)))
+ (list (cons "generated" generated) (cons "source" source) (cons "parsed" (receive "parsed"))))
 (for-each
  (lambda (case)
    (expect (guard (failure (else (and (error-object? failure)

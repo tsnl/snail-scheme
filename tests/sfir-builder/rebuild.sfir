@@ -33,6 +33,7 @@
              ((view-type-never) (type-never))
              ((view-type-any) (type-any))
              ((view-function-type parameters result) (function-type (rebuild-types parameters) (rebuild-type result)))
+             ((view-rest-type element) (rest-type (rebuild-type element)))
              ((view-variable-type variable) (variable-type (rebuild-type-variable variable)))
              ((view-reference-type element) (reference-type (rebuild-type element)))
              ((view-list-type element) (list-type (rebuild-type element)))
@@ -48,6 +49,7 @@
     (def rebuild-expression (-> Expression Expression)
          (lambda (original)
            (match (inspect-expression original)
+             ((view-number-literal spelling span) (literal-number spelling (rebuild-span span)))
              ((view-literal-i32 value span) (literal-i32 value (rebuild-span span)))
              ((view-literal-i64 value span) (literal-i64 value (rebuild-span span)))
              ((view-literal-f32 value span) (literal-f32 value (rebuild-span span)))
@@ -96,19 +98,21 @@
          (lambda (original)
            (match (inspect-declaration original)
              ((view-definition binding signature value span)
-              (signature-definition
-               (rebuild-binding binding)
-               (rebuild-signature signature)
-               (rebuild-expression value)
-               (rebuild-span span)))
+              (with-signature-location
+               (signature-definition
+                (rebuild-binding binding)
+                (rebuild-signature signature)
+                (rebuild-expression value)
+                (rebuild-span span)) (rebuild-span (signature-location original))))
              ((view-inferred-definition binding value span)
               (inferred-definition (rebuild-binding binding) (rebuild-expression value) (rebuild-span span)))
              ((view-local-binding binding signature value span)
-              (local-binding
-               (rebuild-binding binding)
-               (rebuild-signature signature)
-               (rebuild-expression value)
-               (rebuild-span span)))
+              (with-signature-location
+               (local-binding
+                (rebuild-binding binding)
+                (rebuild-signature signature)
+                (rebuild-expression value)
+                (rebuild-span span)) (rebuild-span (signature-location original))))
              ((view-inferred-local-binding binding value span)
               (inferred-local-binding (rebuild-binding binding) (rebuild-expression value) (rebuild-span span)))
              ((view-expression-statement expression) (expression-statement (rebuild-expression expression)))
@@ -137,11 +141,12 @@
              ((view-extern binding module symbol type span)
               (extern-definition (rebuild-binding binding) module symbol (rebuild-type type) (rebuild-span span)))
              ((view-overload binding signature value span)
-              (overload-definition
-               (rebuild-binding binding)
-               (rebuild-signature signature)
-               (rebuild-expression value)
-               (rebuild-span span)))
+              (with-signature-location
+               (overload-definition
+                (rebuild-binding binding)
+                (rebuild-signature signature)
+                (rebuild-expression value)
+                (rebuild-span span)) (rebuild-span (signature-location original))))
              ((view-inferred-overload binding value span)
               (inferred-overload-definition (rebuild-binding binding) (rebuild-expression value) (rebuild-span span))))))
     (def rebuild-import-selection (-> ImportSelection ImportSelection)

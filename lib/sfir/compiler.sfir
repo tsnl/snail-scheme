@@ -4,11 +4,11 @@
   (export CompilerResult compiler-success compiler-failure LibraryMap Entry entry
           Target wasm-target Artifact Code Providers provider-set Instance ScalarValue
           scalar-i32 scalar-i64 scalar-f32 scalar-f64 scalar-bool scalar-char scalar-unit
-          empty-library-map library-map-primitives library-map-parse library-map-insert
+          parse-library empty-library-map library-map-primitives library-map-parse library-map-insert
           library-map-alias compile load instantiate invoke-entry close-instance write-artifact)
   (import (only (sfir primitive) null? car cdr string-length string-ref make-string string-set!
                 i64-eq i64-add i32-eq unit)
-          (only (sfir compiler-builder) SfirLibrary library-token))
+          (only (sfir compiler-builder) SfirLibrary library-token checked-library))
   (begin
 
     ;; ---- Nominal resources and ordinary success or failure values ----
@@ -37,6 +37,8 @@
     (define-extern raw-result-value "sfir.compiler" "result-value" (-> I64 I64))
     (define-extern raw-error-length "sfir.compiler" "error-length" (-> I64 I64))
     (define-extern raw-error-character "sfir.compiler" "error-character" (-> I64 I64 Char))
+    (define-extern raw-parse-library "sfir.compiler" "parse-library" (-> I64 I64 I64))
+    (define-extern raw-library-value "sfir.compiler" "library-value" (-> I64 I64))
     (define-extern raw-map-empty "sfir.compiler" "map-empty" (-> I64))
     (define-extern raw-map-primitives "sfir.compiler" "map-primitives" (-> I64 I64))
     (define-extern raw-map-source "sfir.compiler" "map-source" (-> I64 I64 I64 I64 I64))
@@ -84,6 +86,15 @@
     (def error-text (-> I64 String)
          (lambda (token)
            (fill-error-text token (make-string (raw-error-length token) #\null) (ann 0 I64))))
+
+    ;; ---- Parsing returns ordinary syntax, before resolution or checking ----
+
+    (def parse-library (-> String String (CompilerResult SfirLibrary))
+         (lambda (source text)
+           (begin (let result (raw-parse-library (encode-text source) (encode-text text)))
+                  (if (raw-result-ok result)
+                      (compiler-success (checked-library (raw-library-value (raw-result-value result))))
+                      (compiler-failure (error-text result))))))
 
     ;; ---- Map operations preserve aliases and never discover source ----
 

@@ -64,8 +64,10 @@ or library APIs are implemented. Work proceeds through these contracts:
   and checked scalar invocation to ordinary SFIR through an owned Chibi service.
   Return recoverable errors and retain separate provider linkage; see the
   [compiler service](sfir-compiler-service.md).
-- [ ] Return inspectable first-class `SfirLibrary` values from SFIR parsing;
-  source insertion currently parses directly into the service's immutable map.
+- [x] Return inspectable first-class `SfirLibrary` values from SFIR parsing using
+  the constructive syntax API. Preserve local scopes, attached quantifiers,
+  original numeric spellings and source locations through checked transfer;
+  compile transformed values with explicit maps.
 - [ ] Add native target support to the SFIR compiler service. Scheme elaboration
   and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.

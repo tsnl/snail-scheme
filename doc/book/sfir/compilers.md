@@ -30,6 +30,10 @@ This build fragment assumes imported map and source operations, a supplied map
 a Wasm target. `parse-library` reads a `define-library` description. A source
 driver additionally recognizes generation recipes and collects dependencies.
 Source reads and artifact writes are explicit operations around compilation.
+The implemented [SFIR compiler service](../../sfir-compiler-service.md) spells
+parsing as `(parse-library source-name source-text)` and returns an ordinary
+`CompilerResult SfirLibrary`; its [syntax views](../../sfir-builder.md) allow
+inspection and transformation before map insertion.
 
 Libraries retain type information and polymorphic implementations so the
 compiler can specialize calls across their boundaries. They are translation
