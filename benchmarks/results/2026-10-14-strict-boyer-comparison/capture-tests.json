@@ -1,0 +1,102 @@
+{
+  "build/boyer-capture-tests-a707974": {
+    "passed": true,
+    "records": {
+      "timeout": {
+        "returncode": -9,
+        "termination": {
+          "exit_status": null,
+          "signal": 9
+        },
+        "process_group": 4,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "descendant": {
+        "returncode": 0,
+        "termination": {
+          "exit_status": 0,
+          "signal": null
+        },
+        "process_group": 5,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "nonzero": {
+        "returncode": 7,
+        "termination": {
+          "exit_status": 7,
+          "signal": null
+        },
+        "process_group": 3,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "interrupted": {
+        "returncode": -9,
+        "termination": {
+          "exit_status": null,
+          "signal": 9
+        },
+        "process_group": 7,
+        "capture_complete": true,
+        "live_members": []
+      }
+    }
+  },
+  "build/boyer-capture-tests-a707974-attempt2": {
+    "passed": true,
+    "records": {
+      "valid-frame-nonzero": {
+        "returncode": 7,
+        "termination": {
+          "exit_status": 7,
+          "signal": null
+        },
+        "process_group": 7,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "timeout": {
+        "returncode": -9,
+        "termination": {
+          "exit_status": null,
+          "signal": 9
+        },
+        "process_group": 4,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "descendant": {
+        "returncode": 0,
+        "termination": {
+          "exit_status": 0,
+          "signal": null
+        },
+        "process_group": 5,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "nonzero": {
+        "returncode": 7,
+        "termination": {
+          "exit_status": 7,
+          "signal": null
+        },
+        "process_group": 3,
+        "capture_complete": true,
+        "live_members": []
+      },
+      "interrupted": {
+        "returncode": -9,
+        "termination": {
+          "exit_status": null,
+          "signal": 9
+        },
+        "process_group": 8,
+        "capture_complete": true,
+        "live_members": []
+      }
+    }
+  }
+}
