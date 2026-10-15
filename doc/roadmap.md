@@ -80,8 +80,10 @@ clarifications are updated alongside the corresponding changes.
   scalar host services, explicit resource cleanup and native managed roots.
 - [x] Validate the public command, imported libraries, error paths and actual
   linked Wasm/native execution. Compilation alone is insufficient.
-- [ ] Complete all 57 bare SFIR benchmark ports with canonical inputs,
-  algorithms and result predicates. Keep absent ports and failing targets visible.
+- [x] Author all 57 bare SFIR benchmark ports with canonical inputs,
+  algorithms and result predicates. The final Compiler port passes all six
+  routes on its recorded compiler snapshot; full-corpus validation against the
+  latest compiler remains separate from source presence.
 - [ ] Measure SFIR, original/adapted Chez controls and Rust, recording native
   versus Wasm separately. Freeze sources, tools, inputs and artifacts; separate
   compile time, clean execution time and instrumented diagnostics.
