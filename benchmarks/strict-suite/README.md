@@ -742,3 +742,9 @@ Compile-stage durations are diagnostic provenance, not workload measurements.
 The [preparation report](../results/2026-10-14-strict-nucleic/README.md) freezes
 complete sources, artifacts, raw failures and full-value checks separately from
 performance measurements.
+
+The [clean four-system Nucleic comparison](../results/2026-10-14-strict-nucleic-comparison/README.md)
+records V8 0.220574 s, native 0.297789 s, original Chez 0.740948 s and adapted
+Chez 0.765314 s. One complete round is discarded and four retained rotations
+balance all system positions. All 20 full-count runs and 329 frozen identities
+pass; source/layout and transcendental differences remain explicit.

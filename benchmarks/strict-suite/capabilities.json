@@ -118,14 +118,16 @@
     },
     {
       "name": "nucleic",
-      "status": "prepared-canonical-source",
+      "status": "measured-canonical-source",
       "source_lines": 3485,
       "files": {
         "src/nucleic.scm": "1bf8e055ddf51d5560f7217ff95bc4c50967514d036362bff77045ab73b61fa4",
         "inputs/nucleic.input": "95b327158e27a5a9f564a7ede0300361c05d50a455bca721043b7531b4b7003a"
       },
-      "representation_note": "Complete 50-search source with concrete base variants, mutable F64 geometry and shared assignment Refs. All 6719 decimal tokens, original ratio predicate and ordered solutions preserved; original/adapted Chez, raw/optimized linked Wasm and native correctness pass. Separate exact database/mutation and bounded computed-value probes; no preparation timing claim.",
-      "preparation_report": "benchmarks/results/2026-10-14-strict-nucleic/README.md"
+      "representation_note": "Complete 50-search source, all coordinates, original ratio predicate, concrete base variants, mutable F64 geometry and shared assignment Refs. Complete ordered pseudoknot/anticodon solutions, mutation aliases and numeric boundaries pass original/adapted Chez, raw/optimized linked Wasm and native. Layout, collector and transcendental differences remain explicit.",
+      "preparation_report": "benchmarks/results/2026-10-14-strict-nucleic/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md",
+      "note": "Clean four-system medians: V8 0.2205744565 seconds, native 0.297788754, original Chez 0.7409483655 and adapted Chez 0.7653137205. V8 is 3.359 times faster than original Chez; native takes 1.350 times V8 time. All 20 complete runs and 329 before/after identities pass. Rust excluded because it was not validated for this comparison."
     },
     {
       "name": "pi",
@@ -453,8 +455,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 33,
-  "historical_paired_chez_count": 32,
+  "historical_measured_strict_count": 34,
+  "historical_paired_chez_count": 33,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -482,5 +484,6 @@
   "destruc_measurement_report": "benchmarks/results/2026-10-14-strict-destruc-comparison/README.md",
   "ray_measurement_report": "benchmarks/results/2026-10-14-strict-ray-comparison/README.md",
   "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md",
-  "tail_measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md"
+  "tail_measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md",
+  "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md"
 }
