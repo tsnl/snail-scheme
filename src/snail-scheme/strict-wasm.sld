@@ -568,6 +568,22 @@
       `(block (result i32)
               (if (i64.gt_u ,expression (i64.const 4294967295)) (then (unreachable)))
               (i32.wrap_i64 ,expression)))
+    ;; Only a representable signed I32 survives narrowing and sign extension
+    ;; unchanged. The held operand makes this check independent of its effects.
+    (define (emit-i32-narrowing value)
+      `(block (result i32)
+              (if (i64.ne ,value (i64.extend_i32_s (i32.wrap_i64 ,value))) (then (unreachable)))
+              (i32.wrap_i64 ,value)))
+    ;; Round once before checking: finite values slightly above F32_MAX may
+    ;; round back into range. Explicit infinity and NaN remain IEEE values.
+    (define (emit-f32-narrowing value context)
+      (let ((result (new-local 'F32 context)))
+        `(block (result f32)
+                (local.set ,result (f32.demote_f64 ,value))
+                (if (i32.and (f64.lt (f64.abs ,value) (f64.const inf))
+                             (f32.eq (f32.abs (local.get ,result)) (f32.const inf)))
+                    (then (unreachable)))
+                (local.get ,result))))
     (define (emit-array-copy name arguments)
       ;; Checked start and end >= start make subtraction nonnegative and exact.
       ;; Native bounds then check start + span, which is the original I64 end.
@@ -614,6 +630,8 @@
           ((empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)
            (emit-vector-primitive name signature arguments state))
           ((integer->char) (emit-integer-character (car arguments)))
+          ((i64->i32) (emit-i32-narrowing (car arguments)))
+          ((f64->f32) (emit-f32-narrowing (car arguments) context))
           ((make-string string-length string-ref string-set! string-copy!)
            (emit-string-primitive name arguments context))
           ((make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set! bytevector-copy!)

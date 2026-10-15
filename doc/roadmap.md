@@ -27,7 +27,9 @@ or library APIs are implemented. Work proceeds through these contracts:
   conversion. Preserve existing source representations through audited annotations.
 - [x] Decode numeric source spellings exactly, round once to the selected IEEE
   width and reject representation overflow at literal construction.
-- [ ] Check representation overflow in runtime arithmetic and conversions.
+- [x] Check primitive numeric conversions, including integer narrowing and
+  finite floating-point narrowing overflow, on Wasm and native.
+- [ ] Check representation overflow in runtime arithmetic.
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.

@@ -61,6 +61,12 @@ the examples. `(sfir primitive)` exposes the compiler's concrete primitives.
 result outside the signed I32 range. It uses Wasm's checked conversion on both
 execution targets; it does not silently clamp or wrap the result.
 
+`i64->i32 : (-> I64 I32)` requires the value to fit the signed I32 range and
+traps otherwise. `f64->f32 : (-> F64 F32)` rounds once to binary32, with ties to
+even. It traps when a finite input rounds to infinity. Explicit infinities and
+NaNs remain IEEE special values; underflow may produce a subnormal or signed
+zero. These checks apply equally to direct calls and first-class function values.
+
 The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
 remaining differences, including runtime overflow checks and
 first-class library compilation APIs. These gaps do not weaken the language
