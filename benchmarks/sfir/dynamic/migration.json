@@ -3,12 +3,35 @@
   "upstream_source": "src/dynamic.scm",
   "upstream_sha256": "0eeea6384253fcb915180b18f0743260f2faa7aa1422be72f6bf7bb927e9cec7",
   "canonical_input_sha256": "f6b5cc925c2716f0d60d53d16ec87ca21d1f8560e316cc9e24a24b4efbf2ecb6",
-  "historical_port_revision": "0cda43f",
   "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
-  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
-  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
-  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "conversion": "One-off expansion and binding resolution followed by concrete Value/Procedure authoring and token-preserving SFIR formatting; no conversion is used by the build or runner.",
+  "equivalence_status": "Full canonical500 passed optimized V8 and native64 with byte-identical optimized program modules, plus original/adapted Chez. Rust/frozen-corpus validation pending. No clean timing claim.",
   "controls": {
-    "chez-original.scm": "6cd7fe3e9026934b03a2353d4da28f1abb0bf1dd474a02d24dc6c451b761da73"
+    "chez-original.scm": "6cd7fe3e9026934b03a2353d4da28f1abb0bf1dd474a02d24dc6c451b761da73",
+    "chez-adapted.scm": "3c29eb6764f06dbe71e1e488d2c8f447ba3ba0ae1e59195e2a692785692ecb24"
+  },
+  "representation": "Closed benchmark-local Value with explicit mutable pair cells, fixed element types, concrete closure signatures, arbitrary Integer/Rational/Number arithmetic and typed scalar I/O. Original and adapted Chez remain separate controls.",
+  "sfir_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+  "source_coverage_sha256": "6a3b48bcee1ee6c26822748d40da5deaa266ce72f2437df5987dd32f4192ed5f",
+  "lifecycle_sha256": "74efc12fd008e2dd169d4b3086eaf01595c0096d2730be9cab73fca1ef13b2c6",
+  "authoring_tools": {
+    "translate.scm": "8bfd0bfe48dea98d88ed19dd5ed243249eb7e95cee3cd6b10f61f8d6aba3d6f8",
+    "values.py": "b8c92404442024f491acdcb7ef78eb871ddf8572a7d23ac33b8d54418c58eb71",
+    "graphs.py": "3da45569930255c0496e4247bae3a24e0a40706990e4ec9a134e4f82e881fe3f",
+    "numeric.py": "e2f17d1c9f95b1bec50f2ef95fb8b73d0f2778ed5895958efdcace2b8a896890",
+    "annotate.py": "d9e01e1c2451341e6c86f58746f419672e4cfd20fa88386ee800b63880e2b485",
+    "adapt.py": "252d3d1ff5c48b9d58b52376276761f7767fa931f6f7179d02bf907e4d021d01"
+  },
+  "clarity_review": "Independent no-files explanation and focused debate of shared Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison.",
+  "validation": {
+    "artifact_directory": "/tmp/snail-sfir-large-ports-20261015/dynamic-attempt4",
+    "target_source_sha256": "7a42df7945f83e4a7aa8346feaff32354ea134ffa62e189b20694d30dc27b11a",
+    "target_source_token_identity": true,
+    "program_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+    "native_optimized_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+    "v8_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-v8-4/run.stdout",
+    "native_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-native-4/run.stdout",
+    "original_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-original-final/run.stdout",
+    "adapted_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-adapted-final/run.stdout"
   }
 }
