@@ -613,7 +613,8 @@ procedure. Tail calls remain tail calls through these final result positions.
 
 ## Explicit universal values
 
-The bounded lattice is `Never <: T <: Top`. Top means a checked universal value;
+For the current unrestricted types, the bounded lattice is `Never <: T <: Top`.
+Top means a checked universal value;
 an unsolved inference hole is not Top. Different branch types fail unless an
 explicit Top expectation requests the conversion. `ann` injects concrete values
 into Top and projects them back with a checked tag:
@@ -774,12 +775,12 @@ Every fully instantiated type has one usage grade:
 
 | Grade | Contract | Examples |
 | --- | --- | --- |
-| `omega` | Values may be copied and discarded. | Scalars, existing unrestricted managed data, reusable functions. |
+| `omega` (`many`) | Values may be copied and discarded. | Scalars, existing unrestricted managed data, reusable functions, shared ownership handles. |
 | `1` | Each owning binding may be consumed at most once along an execution path. | An owned allocation, file/device ownership token, closure capturing such an owner. |
 
 The grade belongs to the type, not to an independently selectable annotation on
 each variable. A nominal type may require grade 1 even when its representation
-is a scalar. A product or closed variant containing an affine field is affine;
+is a scalar. A product or closed variant directly owning an affine field is affine;
 otherwise its grade follows its declaration and fields. Recursive declarations
 need a terminating grade calculation over their nominal dependency graph.
 Generic types retain grade constraints until their type arguments are known.
@@ -804,12 +805,36 @@ capability. No blanket LLVM `noalias` promise follows from grade 1.
 
 ### Preserve the distinction at every copying boundary
 
-The initial proposal keeps today's `Top` unrestricted and rejects injection of
-affine values. This deliberately narrows the earlier universal lattice contract:
-`Never <: T <: Top` continues to apply to unrestricted values. An affine dynamic
-container would be a distinct type with consuming projections and retained
-destructor evidence; adding it is a separate design choice. Copyable erasure
-must never erase an ownership obligation.
+`Top` has grade `many`. There is no affine dynamic container. Direct injection
+of an affine value into `Top` is rejected: `Never <: T <: Top` applies to
+unrestricted values, while affine types remain outside this dynamic supertype.
+Copyable erasure must never erase an ownership obligation.
+
+To place an affine object in dynamic data, first transfer it into an explicit
+shared-ownership wrapper, conceptually `share : T -> Shared<T>`. `Shared<T>` has
+grade `many` even when `T` has grade 1. Construction consumes the incoming owner;
+the shared control block owns that payload. Copying a handle shares the control
+block rather than duplicating the payload or its destruction obligation.
+`Shared<T>` can enter `Top`, `Vector Top`, or other unrestricted containers, and
+a checked projection recovers `Shared<T>`, never a fresh owning `T`.
+
+This wrapper is a trusted ownership boundary, not an ordinary product whose
+copying field accessor returns an affine payload. Without borrowing, its safe
+operations must preserve ownership internally. They cannot return an untracked
+reference or duplicate the owned value. Moving the payload back out requires a
+separate checked transfer operation with a specified alias policy; it is not an
+ordinary projection from `Top`.
+
+The shared lifetime protocol must be explicit. Reference-counted handles need
+correct retain/release operations on every ownership transition; permitting
+copies in the type system does not generate that machinery by itself. An
+engine-managed wrapper can instead keep its payload alive through reachability,
+with eventual resource cleanup. Boxing a counted handle into today's copyable
+`Top` must keep such a managed owner or equivalent destruction evidence: copying
+an erased numeric pointer is insufficient. The underlying `Drop T` runs once
+when shared ownership releases the payload. That release can occur later than
+the lexical scope that created the wrapper. Reference cycles and terminal host
+cleanup need the shared implementation's own documented policy.
 
 Existing `Ref`, `Vector` and persistent `List` operations return values while
 leaving their container usable. Initially their element types must therefore be
@@ -883,8 +908,10 @@ cleanup in reverse initialization order. Generated structural disposal cleans
 aggregate fields in declared order. Destructor effects are observable, so
 optimization must preserve them.
 
-Disposal is distinct from selecting a user-defined destructor. Scalars and other
-unrestricted values have trivial disposal. A custom consuming `Drop` replaces
+Disposal is distinct from selecting a user-defined destructor. Scalars and
+ordinary managed references have trivial lexical disposal. Shared ownership
+handles follow their selected lifetime protocol; their grade does not imply
+trivial copying or release. A custom consuming `Drop` replaces
 derived disposal; otherwise an affine aggregate disposes of its owned fields
 structurally. Resource-owning primitive types provide a release operation.
 A grade-1 proof token with no resource may also have trivial disposal.
@@ -908,7 +935,10 @@ still owned is an error. Destructured fields acquire their own normal cleanup
 obligations, including recursive fields. The compiler must not both auto-drop the
 whole receiver and release the same fields again. Resource-releasing custom
 destructors, and custom automatic destructors generally, require an affine type
-in this first version. A custom body follows its explicit operations and normal
+in this first version. The trusted `Shared<T>` wrapper owns its separate shared
+lifetime protocol and invokes the payload's consuming `Drop T` once; it does
+not attach that payload destructor independently to each unrestricted alias.
+A custom body follows its explicit operations and normal
 lexical cleanup order; it is not followed by a second structural destructor.
 
 If one branch moves an outer owner and another retains it, a later unconditional
@@ -967,8 +997,9 @@ ownership transfer and completion rules before constructing a safe typed value.
 Moving a type across a boundary does not imply matching physical layouts. For
 host-to-device data, start with explicit copies of supported scalar records or
 buffers. Shared GC objects are not implicitly device-visible. A GC-facing adapter
-may provide a checked resource object with runtime state, but must not expose its
-affine owner through an unrestricted accessor.
+uses an explicit shared wrapper when a copyable resource value is needed. Its
+operations retain the ownership protocol and cannot expose its affine payload
+through an unrestricted accessor.
 
 Asynchronous submission consumes the relevant owners into a pending-operation
 token. Completion returns them. Dropping that token must have a specified safe
@@ -1020,10 +1051,14 @@ Build a reviewable stack in this order:
 3. **Owned byte storage.** Add allocation and matching deallocation behind a
    shared Rust provider, with allocation-failure and repeated-lifetime checks.
    Preserve the optimized-Wasm-to-native architecture and explicit ABI contracts.
-4. **Low-level representation.** Remove measured owner/result-wrapper allocation,
+4. **Explicit sharing.** Add the `Shared<T>` bridge with a specified lifetime
+   protocol. Check repeated copying, `Top` boxing/projection, payload access and
+   exactly-once payload disposal, with documented cycle and host-cleanup behavior.
+   Keep direct affine injection and affine dynamic containers unsupported.
+5. **Low-level representation.** Remove measured owner/result-wrapper allocation,
    add owning containers and supported target layouts, then establish a no-GC
    profile with actual generated-code and allocation evidence.
-5. **Cross-domain example.** Add one explicit host/device transfer and completion
+6. **Cross-domain example.** Add one explicit host/device transfer and completion
    protocol. Test host execution first and actual device execution when a backend
    is introduced. Keep borrowing and heap-to-stack promotion as later projects.
 
