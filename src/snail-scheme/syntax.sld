@@ -19,6 +19,7 @@
    make-atom-syntax
    atom-syntax?
    atom-syntax-value
+   atom-syntax-number-spelling
    atom-syntax-loc)
 
   (import
@@ -61,12 +62,16 @@
       (loc vector-syntax-loc))
 
     (define-record-type <atom-syntax>
-      (make-atom-syntax
+      (new-atom-syntax
        value ; decoded terminal value
-       loc) ; loc indicating the start of this syntax object
+       loc ; loc indicating the start of this syntax object
+       number-spelling) ; original numeric token, before host floating-point rounding
       atom-syntax?
       (value atom-syntax-value)
-      (loc atom-syntax-loc))
+      (loc atom-syntax-loc)
+      (number-spelling atom-syntax-number-spelling))
+    (define (make-atom-syntax value loc . spelling)
+      (new-atom-syntax value loc (and (pair? spelling) (car spelling))))
 
     (define (syntax-identifier? stx)
       (and (atom-syntax? stx) (symbol? (atom-syntax-value stx))))
