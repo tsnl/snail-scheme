@@ -39,6 +39,15 @@ comparison is not a score for the full suite. Compiler self-compilation took
 The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
+The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
+records measurements for 26 of 57 workloads at their respective compiler
+checkpoints, including 25 paired Chez comparisons. The latest
+[complete-program comparisons](benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md)
+add symbolic differentiation and complex Mandelbrot against original Chez,
+adapted source on Chez, and Rust/Wasm. The strict ports preserve the original
+inputs and repetition counts while documenting their source and representation
+adaptations. This is separate from the historical complete-suite runner above.
+
 For a smoke check of the entire suite on the reference implementations:
 
 ```sh
